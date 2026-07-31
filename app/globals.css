@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Hide scrollbars on horizontal scroll rows (mobile category/pill sliders).
+   Referenced across the app (e.g. NearbyEvents, LocationSearch, events
+   category row) but was previously undefined, so scrollbars still showed. */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --font-geist-sans: var(--font-sans), Arial, Helvetica, sans-serif;
+  --font-geist-mono: "Courier New", Courier, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+  /* Prevent iOS Safari rubber-band horizontal scroll */
+  position: relative;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+/* --- Tiptap Editor Typography Styles --- */
+.tiptap-editor {
+  outline: none;
+}
+.tiptap-editor h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+}
+.tiptap-editor h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+.tiptap-editor h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+.tiptap-editor p {
+  margin-bottom: 0.75rem;
+  line-height: 1.625;
+}
+.tiptap-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+.tiptap-editor ul li {
+  margin-bottom: 0.25rem;
+}
+.tiptap-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+.tiptap-editor ol li {
+  margin-bottom: 0.25rem;
+}
+.tiptap-editor blockquote {
+  border-left: 4px solid #e2e8f0;
+  padding-left: 1rem;
+  color: #64748b;
+  font-style: italic;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.tiptap-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.tiptap-editor a:hover {
+  color: #1d4ed8;
+}
+.tiptap-editor img {
+  border-radius: 0.75rem;
+  margin: 1rem 0;
+  max-width: 100%;
+  height: auto;
+}
+.tiptap-editor video {
+  border-radius: 0.75rem;
+  margin: 1rem 0;
+  max-width: 100%;
+}
+.tiptap-editor iframe {
+  border-radius: 0.75rem;
+  margin: 1rem 0;
+  width: 100%;
+  aspect-ratio: 16/9;
+}

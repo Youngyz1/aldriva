@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="720" viewBox="0 0 600 720">
+  <rect width="600" height="720" rx="28" fill="#D1FAE5"/>
+
+  <g transform="translate(60,80)">
+    <rect width="480" height="560" rx="20" fill="#FFFFFF" stroke="#E7E5DE" stroke-width="1.5"/>
+
+    <defs>
+      <linearGradient id="photoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#A7F3D0"/>
+        <stop offset="100%" stop-color="#059669"/>
+      </linearGradient>
+    </defs>
+    <rect x="16" y="16" width="448" height="220" rx="14" fill="url(#photoGrad)"/>
+
+    <circle cx="404" cy="196" r="34" fill="#FFFFFF"/>
+    <circle cx="404" cy="196" r="26" fill="none" stroke="#D1FAE5" stroke-width="6"/>
+    <circle cx="404" cy="196" r="26" fill="none" stroke="#059669" stroke-width="6" stroke-dasharray="163" stroke-dashoffset="98" stroke-linecap="round" transform="rotate(-90 404 196)"/>
+
+    <rect x="34" y="264" width="150" height="30" rx="15" fill="#A7F3D0"/>
+    <text x="109" y="284" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#065F46" text-anchor="middle">$0 raised</text>
+
+    <text x="34" y="336" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#1C1917">Your fundraiser title</text>
+
+    <text x="34" y="368" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#78716C">Organized by </text>
+    <text x="130" y="368" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#1C1917">Your name</text>
+
+    <line x1="34" y1="404" x2="446" y2="404" stroke="#F1F0EB" stroke-width="1.5"/>
+
+    <g transform="translate(34,432)">
+      <circle cx="24" cy="24" r="24" fill="#059669"/>
+      <circle cx="88" cy="24" r="24" fill="#25D366"/>
+      <circle cx="152" cy="24" r="24" fill="#1877F2"/>
+      <circle cx="216" cy="24" r="24" fill="#0F0F0F"/>
+      <circle cx="280" cy="24" r="24" fill="#0077B5"/>
+    </g>
+  </g>
+</svg>

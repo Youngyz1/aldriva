@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
  * in next.config.ts) since re-hosting requires a manual Supabase Storage
  * upload this tooling can't perform. Several of these cities (LA, Chicago,
  * Miami, Atlanta, Houston, Boston, Las Vegas, Nashville, Denver, Seattle)
- * have no local Fund4Good events yet — they rely entirely on the live
+ * have no local Aldriva events yet — they rely entirely on the live
  * external blend to show anything real.
  *
  * To add a city: append here with a real, recognizable photo. Do not add
