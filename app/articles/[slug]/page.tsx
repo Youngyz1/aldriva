@@ -8,10 +8,10 @@ import type { Metadata } from "next";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-// force-dynamic + connection() prevents the Turbopack dev streaming bug where
-// HTTP 200 is flushed before notFound() can change it to 404.
-export const dynamic = "force-dynamic";
-
+// connection() (inside fetchAndGate, called from an explicit <Suspense> boundary
+// below) prevents the Turbopack streaming bug where HTTP 200 is flushed before
+// notFound() can change it to 404 — force-dynamic is no longer needed for this
+// once the gate check runs inside its own Suspense boundary (Cache Components).
 // ---------------------------------------------------------------------------
 // Shared helper: fetch article + perform gate check.
 // Returns the article when access is granted; calls notFound() otherwise.

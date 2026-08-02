@@ -7,8 +7,6 @@ import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import ArticleCard from "@/components/ArticleCard";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const dynamic = "force-dynamic";
-
 async function fetchAndGateBusiness(slug: string) {
   const adminClient = createSupabaseAdmin();
   const supabaseServer = await createSupabaseServer();

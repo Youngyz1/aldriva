@@ -10,8 +10,6 @@ import PublicEmptyState from "@/components/public/PublicEmptyState";
 import OrganizersDirectoryControls from "./OrganizersDirectoryControls";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.fund4agoodcause.com"),
   title: "Organizations — Aldriva",

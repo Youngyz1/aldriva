@@ -3,8 +3,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const revalidate = 60; // Cache public catalog for 60 seconds
-
 export const metadata: Metadata = {
   title: "Shop Products — Aldriva",
   description: "Browse products and merchandise supporting great causes.",

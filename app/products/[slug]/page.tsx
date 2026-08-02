@@ -8,8 +8,6 @@ import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import BuyProductButton from "./BuyProductButton";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const dynamic = "force-dynamic";
-
 async function fetchAndGateProduct(slug: string) {
   const adminClient = createSupabaseAdmin();
   const supabaseServer = await createSupabaseServer();

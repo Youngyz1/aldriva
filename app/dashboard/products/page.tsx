@@ -7,8 +7,6 @@ import { revalidatePath } from "next/cache";
 import ProductRowActions from "./ProductRowActions";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const revalidate = 0; // Fresh dashboard data on every load
-
 const priceTypeBadge: Record<string, string> = {
   one_time: "bg-blue-50 text-blue-700 border-blue-200",
   subscription: "bg-purple-50 text-purple-700 border-purple-200",

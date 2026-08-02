@@ -19,13 +19,6 @@ import RuixenFeaturedImageSection from "@/components/ui/ruixen-featured-image-se
 import CategoryGrid from "@/components/CategoryGrid";
 import { getCategoryChips } from "@/lib/category-chips";
 
-// Page is ISR – cached and regenerated at most every 60 seconds.
-// Admin-managed data (hero, categories, sponsors, testimonials) uses
-// a longer 5-minute cache via unstable_cache so those caches stay
-// hot across page regenerations.
-export const revalidate = 60;
-
-
 const siteUrl = getSiteUrl();
 
 // ---------------------------------------------------------------------------

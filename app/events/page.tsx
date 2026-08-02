@@ -153,8 +153,6 @@ const getCachedExternalEvents = unstable_cache(
   { revalidate: 1200 }
 );
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.fund4agoodcause.com"),
   title: "Events — Aldriva",

@@ -7,8 +7,6 @@ import { revalidatePath } from "next/cache";
 import BusinessRowActions from "./BusinessRowActions";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const revalidate = 0; // Fresh dashboard data on every load
-
 const tierBadge: Record<string, string> = {
   free: "bg-zinc-100 text-zinc-700 border-zinc-200",
   one_time: "bg-blue-50 text-blue-700 border-blue-200",

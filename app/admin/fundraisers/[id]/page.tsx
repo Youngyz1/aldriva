@@ -13,7 +13,6 @@ import { formatAdminDate } from "@/lib/admin-query";
 import FundraiserImportPanel from "@/components/admin/FundraiserImportPanel";
 import AdminFundraiserStatusActions from "./AdminFundraiserStatusActions";
 
-export const dynamic = "force-dynamic";
 
 type FundraiserStatus = "pending_review" | "published" | "rejected";
 

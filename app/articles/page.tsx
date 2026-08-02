@@ -3,8 +3,6 @@ import ArticleCard from "@/components/ArticleCard";
 import PublicPagination from "@/components/public/PublicPagination";
 import Link from "next/link";
 
-export const revalidate = 60; // Cache for 60 seconds
-
 const PAGE_SIZE = 9;
 
 export default async function ArticlesPage({

@@ -3,8 +3,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
-export const revalidate = 60; // Cache public directory for 60 seconds
-
 export const metadata: Metadata = {
   title: "Businesses Directory — Aldriva",
   description: "Browse and discover local businesses supporting communities.",

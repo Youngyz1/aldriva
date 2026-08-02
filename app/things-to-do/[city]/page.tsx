@@ -6,11 +6,6 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { searchExternalEvents } from "@/lib/external-events";
 
-// Live external results are fetched per request and cached for 5 minutes inside
-// the lib; revalidate the page on the same cadence so a statically-rendered city
-// page never serves stale (or build-frozen) external data.
-export const revalidate = 300;
-
 // Generate static params for known cities
 export async function generateStaticParams() {
   const cities = [

@@ -95,8 +95,6 @@ const getCachedHeroImages = unstable_cache(
   { revalidate: 600 }
 );
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.fund4agoodcause.com"),
   title: "Fundraisers — Aldriva",
