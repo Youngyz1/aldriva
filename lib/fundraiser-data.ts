@@ -2,6 +2,7 @@ import { cache } from "react";
 
 import { normalizeImageUrl } from "@/lib/image-url";
 import { supabase } from "@/lib/supabase";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const FUNDRAISER_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1600&auto=format&fit=crop";
@@ -443,14 +444,24 @@ function rowAgeDays(row: FundraiserListRow): number {
 
 /**
  * Donation counts per fundraiser (succeeded/completed only) — mirrors the
- * `donorCounts` query in `app/fundraisers/page.tsx`, reusing existing donation
- * data rather than any new tracking. Only fetched for the "trending" bucket.
+ * `donorCounts` query in `app/fundraisers/FundraisersBrowseSection.tsx`
+ * (which wraps this in `'use cache'` itself — this file is also imported by
+ * client components via `RelatedFundraiserCarousel`, so it can't define
+ * inline `'use cache'` functions), reusing existing donation data rather
+ * than any new tracking. Also used for the "trending" smart-filter bucket.
+ *
+ * Uses the admin client: RLS on `donations` only allows a row's own
+ * `user_id` or an admin to `SELECT` it, so the anon client this file
+ * otherwise uses for public fundraiser data would always return zero rows
+ * here regardless of caller — donor counts are an aggregate, not exposing
+ * any individual donation's private fields.
  */
-async function fetchDonationCounts(ids: string[]): Promise<Map<string, number>> {
+export async function fetchDonationCounts(ids: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (ids.length === 0) return counts;
 
-  const { data } = await supabase
+  const adminClient = createSupabaseAdmin();
+  const { data } = await adminClient
     .from("donations")
     .select("fundraiser_id")
     .in("fundraiser_id", ids)
