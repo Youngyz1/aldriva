@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase";
 import { searchExternalEvents } from "@/lib/external-events";
 import SearchPageClient from "./SearchPageClient";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "Search — Aldriva",
   description: "Search events, fundraisers, and organizers on Aldriva.",
   openGraph: {
     title: "Search — Aldriva",
     description: "Search events, fundraisers, and organizers on Aldriva.",
-    url: "https://www.fund4agoodcause.com/search",
+    url: `${getSiteUrl()}/search`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Search Aldriva" }],
   },

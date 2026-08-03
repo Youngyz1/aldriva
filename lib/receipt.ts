@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { BRAND } from "@/config/branding";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -198,7 +199,7 @@ export async function generateReceiptPdf(
   doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
   doc.text("Thank you for your generosity and supporting the community!", 20, 266);
   doc.text(
-    "For any questions regarding this receipt, please contact support@fund4agoodcause.com",
+    `For any questions regarding this receipt, please contact ${BRAND.supportEmail}`,
     20,
     271
   );
@@ -300,7 +301,7 @@ export async function processDonationReceipt(donationId: string) {
 
     if (recipientEmail && process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromAddress = `Aldriva <${process.env.RESEND_FROM_EMAIL || "contact@fund4agoodcause.com"}>`;
+      const fromAddress = `${BRAND.name} <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`;
       const subject = isNonprofit
         ? `Your Tax-Deductible Donation Receipt for ${fundraiser.title} 📄`
         : `Your Donation Receipt for ${fundraiser.title} 📄`;
@@ -319,7 +320,7 @@ export async function processDonationReceipt(donationId: string) {
               : ""
           }
           <p style="margin-top: 30px; font-size: 12px; color: #71717a;">
-            Aldriva · support@fund4agoodcause.com
+            ${BRAND.name} · ${BRAND.supportEmail}
           </p>
         </div>
       `;

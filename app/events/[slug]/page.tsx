@@ -13,6 +13,7 @@ import AboutSection from "./AboutSection";
 import StarRating from "@/components/StarRating";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { getSiteUrl } from "@/lib/site-url";
+import { BRAND } from "@/config/branding";
 import { getVisitorCountry } from "@/lib/request-geo";
 import {
   absoluteUrl as toAbsoluteUrl,
@@ -108,16 +109,16 @@ export async function generateMetadata({
   const image = normalizeImageUrl(event?.banner, "/og-image.png");
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/events/${slug}`,
+      canonical: `${getSiteUrl()}/events/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/events/${slug}`,
+      url: `${getSiteUrl()}/events/${slug}`,
       siteName: "Aldriva",
       images: [{ url: image, width: 1200, height: 630, alt: event?.title || "Event" }],
     },
@@ -465,7 +466,7 @@ export default async function EventPage({
       url: primaryOrganizerUrl
         ? primaryOrganizerUrl.startsWith("http")
           ? primaryOrganizerUrl
-          : `https://www.fund4agoodcause.com${primaryOrganizerUrl}`
+          : `${getSiteUrl()}${primaryOrganizerUrl}`
         : undefined,
     } : undefined,
     offers: ticketOffers && ticketOffers.length === 1 ? ticketOffers[0] : ticketOffers,
@@ -757,7 +758,7 @@ export default async function EventPage({
                         {organizer && (
                           <div className="flex gap-3 shrink-0">
                             <a
-                              href={`mailto:support@fund4agoodcause.com?subject=Contact%20${encodeURIComponent(
+                              href={`mailto:${BRAND.supportEmail}?subject=Contact%20${encodeURIComponent(
                                 primaryOrganizerName
                               )}`}
                               className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-100 transition"
@@ -880,7 +881,7 @@ export default async function EventPage({
             {/* Report event */}
             <div className="flex justify-center pt-2 pb-4">
               <a
-                href={`mailto:support@fund4agoodcause.com?subject=Report%20event%3A%20${encodeURIComponent(
+                href={`mailto:${BRAND.supportEmail}?subject=Report%20event%3A%20${encodeURIComponent(
                   event.title
                 )}`}
                 className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition"

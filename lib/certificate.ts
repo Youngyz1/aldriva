@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
+import { BRAND } from "@/config/branding";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -299,23 +300,23 @@ export async function processDonationCertificate(donationId: string) {
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       const { error: emailErr } = await resend.emails.send({
-        from: "Aldriva <contact@fund4agoodcause.com>",
+        from: `${BRAND.name} <${BRAND.contactEmail}>`,
         to: donation.donor_email,
         subject: `Your Certificate of Appreciation — ${fundraiser.title} 🏅`,
         html: `
           <div style="font-family: sans-serif; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 24px;">
-              <img src="https://www.fund4agoodcause.com/logo_badge_no_bg.png" alt="Aldriva" style="height: 60px; width: auto;" />
+              <img src="${BRAND.website}/logo_badge_no_bg.png" alt="${BRAND.name}" style="height: 60px; width: auto;" />
             </div>
             <h2 style="color: #8B1A1A; margin-bottom: 20px;">Your Certificate of Appreciation</h2>
             <p>Hi ${donation.donor_name || "there"},</p>
-            <p>On behalf of everyone at <strong>Aldriva</strong>, thank you for your generous donation of
+            <p>On behalf of everyone at <strong>${BRAND.name}</strong>, thank you for your generous donation of
                <strong>$${donation.amount.toFixed(2)} ${donation.currency.toUpperCase()}</strong>
                to <strong>${fundraiser.title}</strong>.</p>
             <p>Please find attached your official Certificate of Appreciation.
                You can download and share it to inspire others to give.</p>
             <p style="margin-top: 30px; font-size: 12px; color: #71717a;">
-              Aldriva · support@fund4agoodcause.com
+              ${BRAND.name} · ${BRAND.supportEmail}
             </p>
           </div>
         `,

@@ -13,13 +13,6 @@ This repo pins `next@16.2.6`, a version with breaking changes from what you like
 
 ## Commands
 
-```bash
-npm run dev      # start dev server (Turbopack, forces IPv4 DNS resolution)
-npm run build    # production build
-npm run start    # run production build
-npm run lint     # eslint
-```
-
 There is no configured test runner (`playwright` is a devDependency but there is no `playwright.config.*` or spec files in the repo, and no `test` script). Don't assume `npm test` works — verify manually or ask before adding a test framework.
 
 ## Architecture
@@ -42,6 +35,7 @@ There is no configured test runner (`playwright` is a devDependency but there is
 ### Domain areas (mirrors `app/` route groups and `app/api/`)
 
 - **Events & fundraisers**: core marketplace listings, each with a create flow (`create-event`, `create-fundraiser`, `create-organizer`), dashboard management, and public detail pages.
+- **City landing pages**: `/events/city/[citySlug]` shares its rendering with `/events` through `app/events/EventsPageView.tsx`. Slugs resolve to a display city name via `lib/resolve-city-slug.ts` — checks `lib/curated-destinations.ts` (fixed, known capitalization) first, then falls back to real city values from `lib/event-cities.ts` (cached, deduped city labels derived from approved events, revalidated every 600s) to avoid lossily reconstructing punctuated city names from the slug. An unrecognized slug never 404s — it falls back to a title-cased reconstruction so the route still renders the normal empty state.
 - **Businesses**: newer listing type (see `migration_36_business_listings.sql`) with its own crypto + unified payment selector modal (`components/payments`), moderated via the admin panel.
 - **Articles**: CMS-style content with `draft`/`scheduled`/`archived`/`expired`/`rejected` statuses and `public`/`private` visibility, access-controlled in `proxy.ts` (see above). Server actions in `lib/actions/articles.ts`.
 - **Payments**: Stripe (`@stripe/stripe-js`, `@stripe/react-stripe-js`) plus a custom crypto payment path; webhook handling under `app/api/webhooks/stripe`. Order/ticket flow spans `create-payment-intent`, `checkout`, `seats`, `send-ticket`, `receipts`, `certificates`.

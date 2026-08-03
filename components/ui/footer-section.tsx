@@ -121,10 +121,10 @@ function Footerdemo() {
               <p>
                 Email:{" "}
                 <a
-                  href={`mailto:${BRAND.supportEmail || "support@fund4agoodcause.com"}`}
+                  href={`mailto:${BRAND.supportEmail}`}
                   className="font-semibold text-orange-600"
                 >
-                  {BRAND.supportEmail || "support@fund4agoodcause.com"}
+                  {BRAND.supportEmail}
                 </a>
               </p>
             </address>

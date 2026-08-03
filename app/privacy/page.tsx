@@ -1,19 +1,20 @@
 /* eslint-disable react/no-unescaped-entities */
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import Link from "next/link";
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "Privacy Policy — Aldriva",
   description: "Read Aldriva's privacy policy.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/privacy",
+    canonical: `${getSiteUrl()}/privacy`,
   },
   openGraph: {
     title: "Privacy Policy — Aldriva",
     description: "Read Aldriva's privacy policy.",
-    url: "https://www.fund4agoodcause.com/privacy",
+    url: `${getSiteUrl()}/privacy`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },

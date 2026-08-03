@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { getSiteUrl } from "@/lib/site-url";
 
 // connection() (inside fetchAndGate, called from an explicit <Suspense> boundary
 // below) prevents the Turbopack streaming bug where HTTP 200 is flushed before
@@ -90,7 +91,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const { article } = await fetchAndGate(slug);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   return {
     title: article.seo_title || article.title,
     description: article.seo_description || article.excerpt || undefined,
@@ -132,7 +133,7 @@ export default async function ArticleDetailPage({
   );
 
   // Generate BlogPosting JSON-LD
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   const jsonLd = compactJsonLd({
     "@context": "https://schema.org",
     "@type": "BlogPosting",

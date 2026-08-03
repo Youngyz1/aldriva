@@ -65,7 +65,7 @@ export async function createNotification(params: CreateNotificationParams): Prom
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
-        from: `${BRAND.name} <contact@fund4agoodcause.com>`,
+        from: `${BRAND.name} <${BRAND.contactEmail}>`,
         to: params.email.to,
         subject: params.email.subject,
         html: params.email.html,

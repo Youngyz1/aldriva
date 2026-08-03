@@ -1,13 +1,14 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 export const metadata: Metadata = {
   title: "Businesses Directory — Aldriva",
   description: "Browse and discover local businesses supporting communities.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/businesses",
+    canonical: `${getSiteUrl()}/businesses`,
   },
 };
 

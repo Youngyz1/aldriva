@@ -1,3 +1,4 @@
+import { getSiteUrl } from "@/lib/site-url";
 import PublicPagination from "@/components/public/PublicPagination";
 import CampaignShowcase, {
   type CampaignShowcaseItem,
@@ -96,16 +97,16 @@ const getCachedHeroImages = unstable_cache(
 );
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "Fundraisers — Aldriva",
   description: "Support causes and fundraising campaigns near you.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/fundraisers",
+    canonical: `${getSiteUrl()}/fundraisers`,
   },
   openGraph: {
     title: "Fundraisers — Aldriva",
     description: "Support causes and fundraising campaigns near you.",
-    url: "https://www.fund4agoodcause.com/fundraisers",
+    url: `${getSiteUrl()}/fundraisers`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aldriva Fundraisers" }],
   },

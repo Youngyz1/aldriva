@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.fund4agoodcause.com/sitemap.xml
+Sitemap: https://aldriva.com/sitemap.xml

@@ -8,6 +8,7 @@ import FundraiserMediaSlider, {
 import FundraiserShare from "@/components/FundraiserShare";
 import FundraiserStory from "@/components/FundraiserStory";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { BRAND } from "@/config/branding";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -56,16 +57,16 @@ export async function generateMetadata({
     : normalizeImageUrl(null, "/og-image.png");
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+      canonical: `${getSiteUrl()}/fundraisers/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+      url: `${getSiteUrl()}/fundraisers/${slug}`,
       siteName: "Aldriva",
       images: [{ url: image, width: 1200, height: 630, alt: fundraiser?.title || "Fundraiser" }],
     },
@@ -457,12 +458,12 @@ export default async function FundraiserPage({
     name: fundraiser.title,
     description: description || undefined,
     image: coverImage !== FALLBACK_IMAGE ? coverImage : undefined,
-    url: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+    url: `${getSiteUrl()}/fundraisers/${slug}`,
     recipient: {
       "@type": "Organization",
       name: organizerName,
       ...(organizerProfileId
-        ? { url: `https://www.fund4agoodcause.com/organizers/${organizerProfileId}` }
+        ? { url: `${getSiteUrl()}/organizers/${organizerProfileId}` }
         : {}),
     },
     object: {
@@ -644,7 +645,7 @@ export default async function FundraiserPage({
                     </span>
                     {organizerProfileId && (
                       <a
-                        href={"mailto:support@fund4agoodcause.com?subject=Message%20for%20" + encodeURIComponent(organizerName)}
+                        href={`mailto:${BRAND.supportEmail}?subject=Message%20for%20${encodeURIComponent(organizerName)}`}
                         className="rounded-full border border-zinc-300 px-3 py-0.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50"
                       >
                         Message
@@ -702,7 +703,7 @@ export default async function FundraiserPage({
             </p>
 
             <a
-              href={`mailto:support@fund4agoodcause.com?subject=Report%20fundraiser%3A%20${encodeURIComponent(fundraiser.title)}`}
+              href={`mailto:${BRAND.supportEmail}?subject=Report%20fundraiser%3A%20${encodeURIComponent(fundraiser.title)}`}
               className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 transition hover:text-red-500"
             >
               <Flag className="h-3.5 w-3.5" />

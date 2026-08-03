@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Heart, Ticket } from "lucide-react";
 import { normalizeImageUrl } from "@/lib/image-url";
@@ -65,8 +67,18 @@ function progress(raised: number | null | undefined, goal: number | null | undef
   return Math.min(100, Math.max(0, Math.round((raisedAmount / goalAmount) * 100)));
 }
 
-import { useState } from "react";
-import Image from "next/image";
+// The marquee loops by rendering one "set" of cards twice and animating
+// translateX(-50%) — seamless regardless of set width. But a fixed-duration
+// animation only looks right for the item count it was tuned for: too few
+// items and the set is narrower than the viewport, leaving a visible gap
+// and (since the same duration now covers a shorter distance) a much slower
+// crawl. To stay correct for any item count (4 featured events vs. 12
+// homepage picks), we pad the set up to a minimum card count and derive the
+// animation duration from the set's *measured* pixel width so px/s stays
+// constant no matter how many items or which breakpoint is active.
+const TARGET_SPEED_PX_PER_SEC = 97; // matches the homepage's original 38s / ~3696px feel
+const MIN_SET_ITEMS = 20; // wide enough that one set outruns even ultra-wide viewports
+const APPROX_CARD_WIDTH_PX = 308; // sm+ card (288px) + gap (20px), used only for the pre-measurement estimate
 
 function SliderImage({ src, alt, priority }: { src: string; alt: string; priority?: boolean }) {
   const [imgSrc, setImgSrc] = useState(src);
@@ -86,6 +98,34 @@ function SliderImage({ src, alt, priority }: { src: string; alt: string; priorit
 }
 
 export default function FeaturedSlider({ items }: { items: FeaturedSliderItem[] }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Repeat the source items until the set is at least MIN_SET_ITEMS long, so
+  // a sparse events-only list (e.g. 4 items) fills as much space as the
+  // homepage's mixed events+fundraisers list (e.g. 12 items).
+  const repeatCount = items.length > 0 ? Math.max(1, Math.ceil(MIN_SET_ITEMS / items.length)) : 0;
+  const setItems = repeatCount > 0 ? Array.from({ length: repeatCount }, () => items).flat() : [];
+  const looped = [...setItems, ...setItems];
+
+  const [durationSec, setDurationSec] = useState(
+    () => (setItems.length * APPROX_CARD_WIDTH_PX) / TARGET_SPEED_PX_PER_SEC
+  );
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const measure = () => {
+      const setWidth = track.scrollWidth / 2;
+      if (setWidth > 0) setDurationSec(setWidth / TARGET_SPEED_PX_PER_SEC);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [setItems.length]);
+
   if (!items || items.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-gray-400">
@@ -94,16 +134,15 @@ export default function FeaturedSlider({ items }: { items: FeaturedSliderItem[] 
     );
   }
 
-  const looped = [...items, ...items];
-
   return (
     <div className="relative w-full overflow-hidden group/featured-slider">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white to-transparent sm:w-20" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white to-transparent sm:w-20" />
 
       <div
+        ref={trackRef}
         className="flex w-max gap-3 px-3 py-1 md:group-hover/featured-slider:[animation-play-state:paused] sm:gap-5 sm:px-0 touch-pan-x"
-        style={{ animation: "featured-slider-scroll 38s linear infinite" }}
+        style={{ animation: `featured-slider-scroll ${durationSec}s linear infinite` }}
       >
         {looped.map((item, index) => {
           const imageUrl = validImageUrl(item.image_url);

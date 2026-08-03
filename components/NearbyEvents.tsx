@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import EventCard from "@/components/EventCard";
 import Link from "next/link";
+import { slugifyCity } from "@/lib/city-slug";
 
 type TMEvent = {
   id: string;
@@ -183,7 +184,7 @@ export default function NearbyEvents() {
             </p>
           </div>
           <Link
-            href={`/events?location=${encodeURIComponent(city || "")}`}
+            href={`/events/city/${slugifyCity(city || "")}`}
             className="text-orange-500 font-semibold hover:text-orange-600 text-sm"
           >
             View all →

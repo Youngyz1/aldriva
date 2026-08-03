@@ -1,10 +1,12 @@
 
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import EventCard from "@/components/EventCard";
 import ExternalEventCard, { ExternalSourceCredit } from "@/components/events/ExternalEventCard";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { searchExternalEvents } from "@/lib/external-events";
+import { slugifyCity } from "@/lib/city-slug";
 
 // Generate static params for known cities
 export async function generateStaticParams() {
@@ -32,16 +34,16 @@ export async function generateMetadata({
   const description = `Discover events, fundraisers, and community gatherings in ${cityName}.`;
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/things-to-do/${city}`,
+      canonical: `${getSiteUrl()}/things-to-do/${city}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/things-to-do/${city}`,
+      url: `${getSiteUrl()}/things-to-do/${city}`,
       siteName: "Aldriva",
       images: [{ url: "/og-image.png", width: 1200, height: 630, alt: title }],
     },
@@ -107,7 +109,7 @@ export default async function ThingsToDoPage({
           {attractionCategories.map((cat) => (
             <Link
               key={cat.name}
-              href={`/events?location=${encodeURIComponent(decodedCity)}&category=${encodeURIComponent(cat.name)}`}
+              href={`/events/city/${slugifyCity(decodedCity)}?category=${encodeURIComponent(cat.name)}`}
               className="bg-white rounded-xl p-6 text-center shadow-sm border border-zinc-200 hover:border-orange-500 hover:shadow-md transition"
             >
               <div className="text-4xl mb-3">{cat.emoji}</div>
@@ -122,7 +124,7 @@ export default async function ThingsToDoPage({
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-black">📅 Upcoming Events in {decodedCity}</h2>
           <Link 
-            href={`/events?location=${encodeURIComponent(decodedCity)}`}
+            href={`/events/city/${slugifyCity(decodedCity)}`}
             className="text-orange-500 font-semibold hover:text-orange-600"
           >
             View all events →

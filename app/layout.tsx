@@ -44,14 +44,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: BRAND.name,
-    title: BRAND.ogTitle,
+    title: BRAND.seo.defaultTitle,
     description: BRAND.seo.defaultDescription,
     type: "website",
     images: [{ url: BRAND.assets.ogImage, width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: BRAND.twitterTitle,
+    title: BRAND.seo.defaultTitle,
     description: BRAND.seo.defaultDescription,
     images: [BRAND.assets.ogImage],
   },

@@ -1,15 +1,17 @@
 /* eslint-disable react/no-unescaped-entities */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSiteUrl } from "@/lib/site-url";
+import { BRAND } from "@/config/branding";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "Cookie Policy — Aldriva",
   description: "Read Aldriva's cookie policy.",
   openGraph: {
     title: "Cookie Policy — Aldriva",
     description: "Read Aldriva's cookie policy.",
-    url: "https://www.fund4agoodcause.com/cookies",
+    url: `${getSiteUrl()}/cookies`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
@@ -179,8 +181,8 @@ export default function CookiesPage() {
                 <h2 className="text-2xl font-black text-zinc-950">6. Contact Us.</h2>
                 <p className="mt-3">
                   If you have any questions about our use of cookies or this Cookie Policy, you can email us at{" "}
-                  <a className="font-bold text-orange-600" href="mailto:support@fund4agoodcause.com">
-                    support@fund4agoodcause.com
+                  <a className="font-bold text-orange-600" href={`mailto:${BRAND.supportEmail}`}>
+                    {BRAND.supportEmail}
                   </a>.
                 </p>
               </section>
@@ -193,7 +195,7 @@ export default function CookiesPage() {
                 questions.
               </p>
               <a
-                href="mailto:support@fund4agoodcause.com"
+                href={`mailto:${BRAND.supportEmail}`}
                 className="mt-5 inline-flex rounded-full bg-orange-600 px-6 py-3 font-black text-white transition hover:bg-orange-700"
               >
                 Contact us

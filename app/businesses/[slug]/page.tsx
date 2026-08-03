@@ -6,6 +6,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import ArticleCard from "@/components/ArticleCard";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { getSiteUrl } from "@/lib/site-url";
 
 async function fetchAndGateBusiness(slug: string) {
   const adminClient = createSupabaseAdmin();
@@ -88,7 +89,7 @@ export async function generateMetadata({
     return { title: "Business Details — Aldriva" };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   return {
     title: `${business.name} — Aldriva Directory`,
     description: business.seo_description || business.description.slice(0, 160),
@@ -125,7 +126,7 @@ export default async function BusinessDetailPage({
   const logoSrc = business.logo || "";
 
   // Generate LocalBusiness JSON-LD
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   const jsonLd = compactJsonLd({
     "@context": "https://schema.org",
     "@type": "LocalBusiness",

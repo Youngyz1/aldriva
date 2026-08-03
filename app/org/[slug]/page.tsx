@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import { redirect, notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeImageUrl } from "@/lib/image-url";
@@ -32,16 +33,16 @@ export async function generateMetadata({
   const image = normalizeImageUrl(org?.photo || org?.banner, "/og-image.png");
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/org/${resolvedSlug}`,
+      canonical: `${getSiteUrl()}/org/${resolvedSlug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/org/${resolvedSlug}`,
+      url: `${getSiteUrl()}/org/${resolvedSlug}`,
       siteName: "Aldriva",
       images: [{ url: image, width: 1200, height: 630, alt: org?.name || "Organization" }],
     },

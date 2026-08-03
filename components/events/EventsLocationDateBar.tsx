@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { MapPin, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import LocationAutocomplete from "@/components/shared/LocationAutocomplete";
+import { slugifyCity } from "@/lib/city-slug";
 
 export type WhenValue = "today" | "tomorrow" | "weekend" | "next_weekend" | "custom" | "all";
 
@@ -81,9 +82,19 @@ export default function EventsLocationDateBar({
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Location now lives in the pathname (/events/city/[citySlug]), not a
+  // query param — this navigates to a dedicated route rather than shallow-
+  // updating a `location=` param on the current route. Every other filter
+  // (date range) still goes through updateParams and stays on whatever
+  // pathname is current, so it works the same on /events and on a city page.
   const commitLocation = (value: string) => {
     setLocationOpen(false);
-    updateParams({ location: value || null });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("location");
+    params.delete("page");
+    const qs = params.toString();
+    const destination = value ? `/events/city/${slugifyCity(value)}` : "/events";
+    router.push(qs ? `${destination}?${qs}` : destination);
   };
 
   const commitPreset = (preset: Exclude<WhenValue, "custom" | "all">) => {

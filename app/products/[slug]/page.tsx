@@ -7,6 +7,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import BuyProductButton from "./BuyProductButton";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { getSiteUrl } from "@/lib/site-url";
 
 async function fetchAndGateProduct(slug: string) {
   const adminClient = createSupabaseAdmin();
@@ -85,7 +86,7 @@ export async function generateMetadata({
     return { title: "Product — Aldriva" };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   return {
     title: `${product.name} — Aldriva Shop`,
     description: product.seo_description || product.description.slice(0, 160),
@@ -121,7 +122,7 @@ export default async function ProductDetailPage({
     ? unitPrice.toLocaleString(undefined, { style: "currency", currency: currency.toUpperCase() })
     : "—";
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.fund4agoodcause.com";
+  const siteUrl = getSiteUrl();
   const jsonLd = compactJsonLd({
     "@context": "https://schema.org",
     "@type": "Product",
