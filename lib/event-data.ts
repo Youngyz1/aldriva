@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { escapePostgrestOrValue } from "@/lib/fundraiser-data";
+import { cacheLife } from "next/cache";
 
 export type EventListSort = "date_asc" | "date_desc" | "newest";
 
@@ -100,6 +101,9 @@ function mapEventRow(row: EventListRow): EventListItem {
 export async function getEventList(
   params: EventListParams = {}
 ): Promise<EventListResult> {
+  "use cache";
+  cacheLife({ revalidate: 60 });
+
   const ids = params.ids;
   const excludeIds = params.excludeIds;
   const category = params.category;

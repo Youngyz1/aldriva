@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { cacheLife } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Cleans a raw `events.city` value into a display-ready label:
@@ -34,26 +34,25 @@ export function normalizeCityLabel(raw: string): string | null {
 // Distinct, cleaned + deduped (case-insensitive) cities with real, approved
 // public events — powers the Location autocomplete's suggestion list and city
 // route slug resolution (lib/resolve-city-slug.ts).
-export const getCachedEventCities = unstable_cache(
-  async () => {
-    const adminClient = createSupabaseAdmin();
-    const { data } = await adminClient
-      .from("events")
-      .select("city")
-      .eq("visibility", "public")
-      .eq("status", "approved")
-      .not("city", "is", null);
+export async function getCachedEventCities(): Promise<string[]> {
+  "use cache";
+  cacheLife({ revalidate: 600 });
 
-    const seen = new Map<string, string>(); // lowercase key -> display label
-    for (const row of data ?? []) {
-      if (!row.city) continue;
-      const label = normalizeCityLabel(row.city);
-      if (!label) continue;
-      const key = label.toLowerCase();
-      if (!seen.has(key)) seen.set(key, label);
-    }
-    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
-  },
-  ["events-page-cities-v2"],
-  { revalidate: 600 }
-);
+  const adminClient = createSupabaseAdmin();
+  const { data } = await adminClient
+    .from("events")
+    .select("city")
+    .eq("visibility", "public")
+    .eq("status", "approved")
+    .not("city", "is", null);
+
+  const seen = new Map<string, string>(); // lowercase key -> display label
+  for (const row of data ?? []) {
+    if (!row.city) continue;
+    const label = normalizeCityLabel(row.city);
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (!seen.has(key)) seen.set(key, label);
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+}

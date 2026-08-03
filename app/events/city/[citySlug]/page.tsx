@@ -50,14 +50,12 @@ export default async function EventsCityPage({
   searchParams: Promise<Omit<EventsPageFilters, "location">>;
 }) {
   const { citySlug } = await params;
-  const [cityName, filters] = await Promise.all([
-    resolveCitySlugName(citySlug),
-    searchParams,
-  ]);
+  const cityName = await resolveCitySlugName(citySlug);
 
+  // `filters` is passed down unawaited — see app/events/page.tsx for why.
   return (
     <EventsPageView
-      filters={filters}
+      filters={searchParams}
       forcedLocation={cityName}
     />
   );

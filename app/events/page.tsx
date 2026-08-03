@@ -19,15 +19,19 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/og-image.png"] },
 };
 
-export default async function EventsPage({
+export default function EventsPage({
   searchParams,
 }: {
   searchParams: Promise<EventsPageFilters>;
 }) {
-  const filters = await searchParams;
+  // `filters` is passed down unawaited — reading searchParams is itself a
+  // request-time operation under Cache Components, so it happens inside the
+  // Suspense-wrapped dynamic components (EventsFilterHeader,
+  // EventsResultsSection) rather than blocking this page from returning its
+  // static shell.
   return (
     <EventsPageView
-      filters={filters}
+      filters={searchParams}
       showTrendingEvents
       showHero
       showCategoryIcons
