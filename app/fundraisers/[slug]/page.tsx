@@ -178,47 +178,8 @@ function OrganizerAvatar({ name }: { name: string }) {
   );
 }
 
-function ProgressRing({ percentage }: { percentage: number }) {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+import ProgressRing from "@/components/ui/ProgressRing";
 
-  return (
-    <svg viewBox="0 0 100 100" className="h-20 w-20 lg:h-28 lg:w-28">
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        stroke="#e5e7eb"
-        strokeWidth="8"
-        fill="none"
-      />
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        stroke="#10b981"
-        strokeWidth="8"
-        fill="none"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 50 50)"
-      />
-      <text
-        x="50"
-        y="50"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize="16"
-        fontWeight="bold"
-        fill="#18181b"
-      >
-        {percentage}%
-      </text>
-    </svg>
-  );
-}
 
 export default async function FundraiserPage({
   params,
@@ -723,50 +684,51 @@ export default async function FundraiserPage({
             above), since the sidebar grid itself only kicks in at `lg`; DOM
             order is untouched, so SEO/accessibility order matches the
             desktop reading order at every width). */}
-        <aside className="order-2 min-w-0 lg:order-none lg:col-span-1">
-          <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm lg:space-y-6 lg:p-6 lg:sticky lg:top-24">
-            <section className="text-center">
-              <div className="flex justify-center">
-                <ProgressRing percentage={percentage} />
+        <aside id="main-donation-card" className="order-2 min-w-0 lg:order-none lg:col-span-1">
+          <div className="space-y-5 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm lg:sticky lg:top-24">
+            <section className="flex items-center gap-4">
+              <div className="shrink-0">
+                <ProgressRing percentage={percentage} size={72} strokeWidth={7} />
               </div>
-              <p className="mt-3 text-2xl font-black text-zinc-950 lg:mt-4 lg:text-3xl">
-                {money(raised)} raised
-              </p>
-              <p className="mt-1 text-sm font-medium text-zinc-500">
-                of {money(goal)} goal
-              </p>
-              <p className="mt-2 text-sm font-bold text-zinc-700 lg:mt-3">
-                {donationCount.toLocaleString()} donation
-                {donationCount === 1 ? "" : "s"}
-              </p>
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-black tracking-tight text-zinc-950 leading-tight">
+                  {money(raised)} raised
+                </p>
+                <p className="text-lg font-medium text-zinc-500 leading-snug">
+                  of {money(goal)} USD
+                </p>
+                <p className="text-xs font-semibold text-zinc-500 mt-1">
+                  {donationCount.toLocaleString()} donation{donationCount === 1 ? "" : "s"}
+                </p>
+              </div>
             </section>
 
-            <section className="flex gap-2 lg:gap-3">
+            <section className="flex flex-col gap-2.5">
               <a
                 href={`/fundraisers/${fundraiser.slug}/donate`}
-                className="flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700 lg:py-3.5 lg:text-base"
+                className="flex w-full min-h-[48px] items-center justify-center rounded-full bg-[#c0f269] px-6 py-3.5 text-base font-black text-[#1b3e10] transition hover:bg-[#b5eb57] active:scale-[0.98] shadow-sm"
               >
                 Donate now
               </a>
               <ShareFundraiserButton
                 title={fundraiser.title}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-black text-white transition hover:bg-slate-900 lg:py-3.5 lg:text-base"
+                className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-6 py-3.5 text-base font-black text-[#c0f269] transition hover:bg-[#152f1e] active:scale-[0.98] shadow-sm"
               />
             </section>
 
-            <section className="border-t border-zinc-200 pt-4 lg:pt-5">
-  <h2 className="text-base font-bold text-zinc-950">
-    Recent donors
-  </h2>
-  <DonorList
-    fundraiserId={fundraiser.id}
-    initialDonations={recentDonors.map((d) => ({
-      ...d,
-      profile: d.user_id ? publicProfileById.get(d.user_id) ?? null : null,
-    }))}
-    initialHasMore={donationCount > recentDonors.length}
-  />
-</section>
+            <section className="border-t border-zinc-100 pt-4 lg:pt-5">
+              <h2 className="text-base font-bold text-zinc-950 mb-3">
+                Recent donors
+              </h2>
+              <DonorList
+                fundraiserId={fundraiser.id}
+                initialDonations={recentDonors.map((d) => ({
+                  ...d,
+                  profile: d.user_id ? publicProfileById.get(d.user_id) ?? null : null,
+                }))}
+                initialHasMore={donationCount > recentDonors.length}
+              />
+            </section>
           </div>
         </aside>
       </div>
@@ -834,6 +796,7 @@ export default async function FundraiserPage({
         raised={raised}
         goal={goal}
         percentage={percentage}
+        targetElementId="main-donation-card"
       />
     </main>
   );

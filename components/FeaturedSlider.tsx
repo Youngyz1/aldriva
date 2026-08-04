@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, Ticket } from "lucide-react";
 import { normalizeImageUrl } from "@/lib/image-url";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=800";
@@ -202,11 +203,8 @@ export default function FeaturedSlider({ items }: { items: FeaturedSliderItem[] 
                 <h3 className="mb-1 line-clamp-2 text-xs font-black leading-tight text-white sm:mb-3 sm:text-sm">
                   {item.title}
                 </h3>
-                <div className="mb-1 h-1 w-full rounded-full bg-white/20 sm:mb-2 sm:h-1.5">
-                  <div
-                    className="h-1 rounded-full bg-emerald-400 sm:h-1.5"
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className="mb-1 sm:mb-2">
+                  <ProgressBar percentage={pct} height={6} />
                 </div>
                 <p className="text-[10px] font-bold text-white/85 sm:text-xs">
                   {money(item.raised_amount)} raised of {money(item.goal_amount)} goal

@@ -4,6 +4,7 @@ import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeImageSrc } from "@/lib/image-url";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 type FundraiserCardProps = {
   title: string;
@@ -83,25 +84,21 @@ export default function FundraiserCard({
           )}
 
           <div className="mt-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-lg font-black text-emerald-700">${raised.toLocaleString()}</p>
-              <p className="text-xs font-semibold text-zinc-500">of ${goal.toLocaleString()}</p>
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <p className="text-sm font-semibold text-zinc-600 truncate">
+                <span className="font-black text-zinc-950">${raised.toLocaleString()}</span> raised of ${goal.toLocaleString()}
+              </p>
+              <span className="shrink-0 text-xs font-black text-zinc-950">{progress}%</span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs font-bold text-zinc-500">
-              <span>{progress}% funded</span>
-              {donorCount !== undefined && donorCount > 0 && (
+            <ProgressBar percentage={progress} height={8} />
+            {donorCount !== undefined && donorCount > 0 && (
+              <div className="mt-2 flex items-center justify-end text-xs font-semibold text-zinc-500">
                 <span className="inline-flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
                   {donorCount} donors
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <span className="mt-4 block w-full rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-black text-white transition group-hover:bg-emerald-700">

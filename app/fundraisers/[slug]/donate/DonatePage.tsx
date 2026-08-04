@@ -11,6 +11,7 @@ import {
   CheckoutShell,
   formatMoney,
 } from "@/components/payments";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -326,9 +327,9 @@ export default function DonatePage({
       </div>
 
       {/* Amount picker */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
-        <h3 className="mb-4 text-base font-black">Choose an amount</h3>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+        <h3 className="mb-4 text-base font-black text-zinc-950">Choose an amount</h3>
+        <div className="grid grid-cols-2 gap-2 xs:grid-cols-3 sm:grid-cols-6">
           {PRESETS.map((preset) => (
             <button
               key={preset}
@@ -338,10 +339,10 @@ export default function DonatePage({
                 setCustomAmount("");
                 setClientSecret(null); // reset intent when amount changes
               }}
-              className={`rounded-xl border py-3 text-sm font-black transition ${
+              className={`rounded-xl border py-3 min-h-[48px] text-sm font-black transition active:scale-[0.98] ${
                 selectedPreset === preset && !customAmount
-                  ? "border-green-500 bg-green-50 text-green-700"
-                  : "border-zinc-200 hover:border-green-300"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                  : "border-zinc-200 hover:border-emerald-300 text-zinc-800"
               }`}
             >
               ${preset}
@@ -363,7 +364,7 @@ export default function DonatePage({
               setClientSecret(null); // reset intent when amount changes
             }}
             placeholder="Other amount"
-            className="w-full rounded-xl border border-zinc-200 py-3 pl-8 pr-16 text-base font-black outline-none transition focus:border-green-500"
+            className="w-full rounded-xl border border-zinc-200 py-3 pl-8 pr-16 text-[16px] md:text-base font-black outline-none transition focus:border-emerald-600"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-zinc-400">
             .00
@@ -372,8 +373,8 @@ export default function DonatePage({
       </div>
 
       {/* Tip selector */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
-        <h3 className="mb-1 text-base font-black">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+        <h3 className="mb-1 text-base font-black text-zinc-950">
           Add a tip{" "}
           <span className="text-sm font-normal text-zinc-400">(optional)</span>
         </h3>
@@ -390,10 +391,10 @@ export default function DonatePage({
                 setCustomTip("");
                 setClientSecret(null);
               }}
-              className={`rounded-xl border px-4 py-2 text-sm font-black transition ${
+              className={`rounded-xl border px-4 py-2.5 min-h-[44px] text-sm font-black transition active:scale-[0.98] ${
                 tipPct === pct && !customTip
-                  ? "border-green-500 bg-green-50 text-green-700"
-                  : "border-zinc-200 hover:border-green-300"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                  : "border-zinc-200 hover:border-emerald-300 text-zinc-800"
               }`}
             >
               {pct === 0 ? "None" : `${pct}%`}
@@ -409,8 +410,8 @@ export default function DonatePage({
       </div>
 
       {/* Donor details */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-3">
-        <h3 className="text-base font-black">Your details</h3>
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-3">
+        <h3 className="text-base font-black text-zinc-950">Your details</h3>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <input
@@ -419,14 +420,14 @@ export default function DonatePage({
             value={donorName}
             onChange={(e) => setDonorName(e.target.value)}
             disabled={anonymous}
-            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-base outline-none transition focus:border-green-500 disabled:bg-zinc-50 disabled:text-zinc-400"
+            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-[16px] md:text-base outline-none transition focus:border-emerald-600 disabled:bg-zinc-50 disabled:text-zinc-400"
           />
           <input
             type="email"
             placeholder="Email (optional)"
             value={donorEmail}
             onChange={(e) => setDonorEmail(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-base outline-none transition focus:border-green-500"
+            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-[16px] md:text-base outline-none transition focus:border-emerald-600"
           />
         </div>
 
@@ -435,15 +436,15 @@ export default function DonatePage({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={2}
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-500 resize-none"
+          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[16px] md:text-base text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-emerald-600 resize-none"
         />
 
-        <label className="flex cursor-pointer items-center gap-3">
+        <label className="flex cursor-pointer items-center gap-3 py-1">
           <input
             type="checkbox"
             checked={anonymous}
             onChange={(e) => setAnonymous(e.target.checked)}
-            className="h-4 w-4 accent-green-600"
+            className="h-4 w-4 accent-emerald-600"
           />
           <span className="text-sm text-zinc-600">
             Don&apos;t display my name publicly
@@ -460,20 +461,20 @@ export default function DonatePage({
 
       {/* Payment selector */}
       {!clientSecret && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-4">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-4">
           <h3 className="text-base font-black text-zinc-950">Select Payment Method</h3>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setPaymentMethod("card")}
-              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition min-h-[72px] active:scale-[0.98] ${
                 paymentMethod === "card"
-                  ? "border-green-500 bg-green-50/50 text-green-700 font-bold"
+                  ? "border-emerald-600 bg-emerald-50/50 text-emerald-800 font-bold shadow-sm"
                   : "border-zinc-200 hover:border-zinc-300 text-zinc-600 font-medium"
               }`}
             >
               <svg
-                className={`h-6 w-6 mb-1.5 ${paymentMethod === "card" ? "text-green-600" : "text-zinc-400"}`}
+                className={`h-6 w-6 mb-1.5 ${paymentMethod === "card" ? "text-emerald-600" : "text-zinc-400"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -486,14 +487,14 @@ export default function DonatePage({
             <button
               type="button"
               onClick={() => setPaymentMethod("crypto")}
-              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition min-h-[72px] active:scale-[0.98] ${
                 paymentMethod === "crypto"
-                  ? "border-green-500 bg-green-50/50 text-green-700 font-bold"
+                  ? "border-emerald-600 bg-emerald-50/50 text-emerald-800 font-bold shadow-sm"
                   : "border-zinc-200 hover:border-zinc-300 text-zinc-600 font-medium"
               }`}
             >
               <svg
-                className={`h-6 w-6 mb-1.5 ${paymentMethod === "crypto" ? "text-green-600" : "text-zinc-400"}`}
+                className={`h-6 w-6 mb-1.5 ${paymentMethod === "crypto" ? "text-emerald-600" : "text-zinc-400"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -514,7 +515,7 @@ export default function DonatePage({
         <button
           onClick={handleProceedToPayment}
           disabled={preparingPayment || isRedirecting || donationAmount < 1}
-          className="w-full rounded-2xl bg-green-700 py-4 text-base font-black text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-green-300 active:scale-[.99]"
+          className="w-full min-h-[52px] rounded-2xl bg-emerald-600 py-4 text-base font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 active:scale-[0.99]"
         >
           {preparingPayment || isRedirecting ? (
             <span className="flex items-center justify-center gap-2">
@@ -582,25 +583,8 @@ export default function DonatePage({
         ]}
         total={total}
       >
-        {/* Fundraiser progress inside summary card */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">
-              ${raised.toLocaleString()} raised
-            </span>
-            <span className="font-black text-green-700">{pct}%</span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
-            <div
-              className="h-full rounded-full bg-green-500 transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          {goal > 0 && (
-            <p className="text-xs text-zinc-400">
-              Goal: ${goal.toLocaleString()}
-            </p>
-          )}
+        <div className="pt-2">
+          <ProgressBar raised={raised} goal={goal} percentage={pct} height={8} showLabel={true} />
         </div>
       </OrderSummary>
 

@@ -91,15 +91,15 @@ export default function RelatedFundraiserCarousel({
 
   return (
     <div>
-      <div className="mb-6 flex justify-end">
-        <label className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+        <label className="flex flex-wrap items-center gap-2 text-sm font-semibold text-emerald-100">
           Show
           <select
             value={category}
             onChange={(event) =>
               setCategory(event.target.value as RelatedFundraiserCategory)
             }
-            className="rounded-lg border border-emerald-700 bg-emerald-900 px-3 py-2 text-sm font-bold text-white transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="rounded-lg border border-emerald-700 bg-emerald-900 px-3 py-2 text-[16px] md:text-sm font-bold text-white transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             {CATEGORY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>

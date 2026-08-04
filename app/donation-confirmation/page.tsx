@@ -198,7 +198,7 @@ function DonationConfirmationContent() {
               onChange={(e) => setName(e.target.value)}
               disabled={anonymous}
               placeholder="Your name"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-500 disabled:bg-zinc-50 disabled:text-zinc-400"
+              className="mt-1 w-full rounded-xl border border-zinc-300 px-4 py-3 text-[16px] md:text-sm outline-none transition focus:border-emerald-500 disabled:bg-zinc-50 disabled:text-zinc-400"
             />
           </div>
 
@@ -208,17 +208,17 @@ function DonationConfirmationContent() {
               setMessage(event.target.value.slice(0, 200))
             }
             maxLength={200}
-            rows={5}
+            rows={4}
             placeholder="Write a message of support..."
-            className="mt-4 w-full resize-none rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            className="mt-4 w-full resize-none rounded-xl border border-zinc-300 bg-white px-4 py-3 text-[16px] md:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           />
           <div className="mt-2 flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-700">
               <input
                 type="checkbox"
                 checked={anonymous}
                 onChange={(event) => setAnonymous(event.target.checked)}
-                className="accent-emerald-600"
+                className="h-4 w-4 accent-emerald-600"
               />
               Post anonymously
             </label>
@@ -228,7 +228,7 @@ function DonationConfirmationContent() {
           </div>
 
           {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {error}
             </div>
           )}
@@ -237,14 +237,14 @@ function DonationConfirmationContent() {
             type="button"
             onClick={shareSupport}
             disabled={submitting}
-            className="mt-5 w-full rounded-lg bg-emerald-600 px-5 py-3.5 text-base font-black text-white transition hover:bg-emerald-700 disabled:bg-emerald-300"
+            className="mt-5 w-full min-h-[48px] rounded-xl bg-emerald-600 px-5 py-3 text-base font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98] disabled:bg-emerald-300"
           >
             {submitting ? "Posting..." : "Post support"}
           </button>
 
           <Link
             href={fundraiserHref}
-            className="mt-4 block text-center text-sm font-black text-zinc-600 hover:text-zinc-950"
+            className="mt-4 block py-2 text-center text-sm font-black text-zinc-600 hover:text-zinc-950 transition"
           >
             Skip, return to fundraiser
           </Link>

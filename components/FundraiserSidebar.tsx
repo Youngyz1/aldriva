@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { TrendingUp, Share2, Check } from "lucide-react";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import ProgressRing from "@/components/ui/ProgressRing";
 
 type Donation = {
   id: string;
@@ -40,24 +41,7 @@ function timeAgo(iso: string) {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
-function CircularProgress({ pct }: { pct: number }) {
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-  return (
-    <svg width="140" height="140" viewBox="0 0 140 140" className="rotate-[-90deg]">
-      <circle cx="70" cy="70" r={r} fill="none" stroke="#e4e4e7" strokeWidth="12" />
-      <circle
-        cx="70" cy="70" r={r} fill="none"
-        stroke="#22c55e" strokeWidth="12"
-        strokeLinecap="round"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        style={{ transition: "stroke-dashoffset 0.8s ease" }}
-      />
-    </svg>
-  );
-}
+
 
 function Avatar({ name }: { name: string }) {
   const letter = (name || "A").charAt(0).toUpperCase();
@@ -137,40 +121,42 @@ export default function FundraiserSidebar({
   }
 
   return (
-    <div id="donate" className="scroll-mt-24 rounded-2xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-24">
-      {/* Circular progress */}
-      <div className="flex flex-col items-center px-6 pt-7 pb-5">
-        <div className="relative flex items-center justify-center">
-          <CircularProgress pct={pct} />
-          <div className="absolute flex flex-col items-center">
-            <span className="text-2xl font-black leading-none">{pct}%</span>
-            <span className="mt-0.5 text-xs text-zinc-500">funded</span>
-          </div>
+    <div id="donate" className="scroll-mt-24 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm lg:sticky lg:top-24 space-y-5">
+      {/* Circular progress & Raised details */}
+      <section className="flex items-center gap-4">
+        <div className="shrink-0">
+          <ProgressRing percentage={pct} size={72} strokeWidth={7} />
         </div>
-        <p className="mt-4 text-center text-lg font-black leading-snug">
-          ${raised.toLocaleString()}{" "}
-          <span className="font-semibold text-zinc-500">raised of ${goal.toLocaleString()} USD</span>
-        </p>
-        <p className="mt-1 text-sm text-zinc-500">{totalCount.toLocaleString()} donation{totalCount !== 1 ? "s" : ""}</p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-2xl font-black tracking-tight text-zinc-950 leading-tight">
+            ${raised.toLocaleString()} raised
+          </p>
+          <p className="text-lg font-medium text-zinc-500 leading-snug">
+            of ${goal.toLocaleString()} USD
+          </p>
+          <p className="text-xs font-semibold text-zinc-500 mt-1">
+            {totalCount.toLocaleString()} donation{totalCount !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </section>
 
       {/* Buttons */}
-      <div className="space-y-3 px-6 pb-6">
+      <section className="flex flex-col gap-2.5">
         <a
           href={`/fundraisers/${fundraiserSlug}/donate`}
-          className="flex w-full items-center justify-center rounded-2xl bg-green-500 py-4 text-base font-black text-white transition hover:bg-green-600 active:scale-[.98]"
+          className="flex w-full min-h-[48px] items-center justify-center rounded-full bg-[#c0f269] px-6 py-3.5 text-base font-black text-[#1b3e10] transition hover:bg-[#b5eb57] active:scale-[0.98] shadow-sm"
         >
           Donate now
         </a>
         <button
           type="button"
           onClick={handleShare}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-300 bg-white py-3.5 text-base font-black text-zinc-800 transition hover:bg-zinc-50"
+          className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-6 py-3.5 text-base font-black text-[#c0f269] transition hover:bg-[#152f1e] active:scale-[0.98] shadow-sm"
         >
-          {copied ? <Check className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
+          {copied ? <Check className="h-4 w-4 text-[#c0f269]" /> : <Share2 className="h-4 w-4" />}
           {copied ? "Link copied!" : "Share"}
         </button>
-      </div>
+      </section>
 
       {/* Live feed */}
       <div className="border-t border-zinc-100 px-6 py-5">

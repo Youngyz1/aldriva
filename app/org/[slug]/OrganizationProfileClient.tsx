@@ -178,8 +178,8 @@ function FundraiserRow({ f }: { f: FundraiserItem }) {
       <div className="min-w-0 flex-1">
         <p className="font-black text-zinc-900 line-clamp-1 group-hover:text-orange-700">{f.title}</p>
         <Progress value={pct} className="mt-1.5" />
-        <p className="mt-1 text-xs text-zinc-500">
-          <span className="font-bold text-emerald-700">{formatMoney(raised)}</span> raised of {formatMoney(goal)} goal
+        <p className="mt-1 text-xs font-semibold text-zinc-600">
+          <span className="font-black text-zinc-950">{formatMoney(raised)}</span> raised of {formatMoney(goal)} goal
         </p>
       </div>
       <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-300 group-hover:text-orange-500" />

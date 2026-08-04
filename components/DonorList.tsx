@@ -114,7 +114,7 @@ export default function DonorList({
                 {hasCustomizedProfile ? (
                   <Link
                     href={`/profile/${donation.profile!.id}`}
-                    className="truncate text-sm font-bold text-zinc-950 hover:underline"
+                    className="block truncate text-sm font-bold text-zinc-950 hover:underline"
                   >
                     {profileName}
                   </Link>
@@ -127,7 +127,7 @@ export default function DonorList({
                         activity: { type: "donation", amount },
                       })
                     }
-                    className="truncate text-left text-sm font-bold text-zinc-950 hover:underline"
+                    className="block truncate text-left text-sm font-bold text-zinc-950 hover:underline"
                   >
                     {displayName}
                   </button>

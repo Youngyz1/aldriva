@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/image-url";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1200&auto=format&fit=crop";
@@ -104,16 +105,13 @@ export default function CampaignShowcaseCard({
           </h3>
 
           <div className="mt-3">
-            <p className="text-lg font-black text-emerald-700">
-              ${raised.toLocaleString()}{" "}
-              <span className="text-sm font-semibold text-zinc-500">raised</span>
-            </p>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <p className="text-sm font-semibold text-zinc-600 truncate">
+                <span className="font-black text-zinc-950">${raised.toLocaleString()}</span> raised{goal > 0 ? ` of $${goal.toLocaleString()}` : ""}
+              </p>
+              <span className="shrink-0 text-xs font-black text-zinc-950">{progress}%</span>
             </div>
+            <ProgressBar percentage={progress} height={8} />
           </div>
         </div>
       </article>

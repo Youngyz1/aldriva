@@ -5,6 +5,7 @@ import { FaFacebookF, FaWhatsapp, FaXTwitter, FaLinkedinIn } from "react-icons/f
 import { useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/format";
+import ProgressRing from "@/components/ui/ProgressRing";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1200&auto=format&fit=crop";
@@ -18,26 +19,6 @@ type FundraiserShareProps = {
   donateSlug?: string;
   hideButtons?: boolean;
 };
-
-function CircularProgress({ pct, size = 64 }: { pct: number; size?: number }) {
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circ = 2 * Math.PI * radius;
-  const offset = circ - (pct / 100) * circ;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rotate-[-90deg]">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e4e4e7" strokeWidth={strokeWidth} />
-      <circle
-        cx={size / 2} cy={size / 2} r={radius} fill="none"
-        stroke="#22c55e" strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        style={{ transition: "stroke-dashoffset 0.8s ease" }}
-      />
-    </svg>
-  );
-}
 
 export default function FundraiserShare({
   title,
@@ -77,7 +58,7 @@ export default function FundraiserShare({
   const cardMarkup = (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white w-full">
       {/* Top Image Area */}
-      <div className="relative w-full h-[220px] shrink-0 bg-zinc-150">
+      <div className="relative w-full h-[200px] sm:h-[220px] shrink-0 bg-zinc-100">
         {/* Logo Mark */}
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
           <img src="/logo.png" alt="Aldriva Logo" className="h-8 w-auto object-contain" />
@@ -94,17 +75,16 @@ export default function FundraiserShare({
       </div>
 
       {/* Bottom Content Area */}
-      <div className="bg-[#062A22] text-white p-6 flex-1 flex flex-col justify-between relative pt-8">
-        {/* Seam Overlaps */}
-        {/* Rotated badge pills (top-left seam) */}
-        <div className="absolute top-0 left-6 -translate-y-1/2 flex items-center gap-2">
-          <div className="bg-[#059669] text-white px-3 py-1.5 rounded-full text-xs font-black shadow-md rotate-[-2deg] shrink-0">
+      <div className="bg-[#062A22] text-white p-5 sm:p-6 flex-1 flex flex-col justify-between relative pt-8">
+        {/* Seam Overlaps - Responsive positioning */}
+        <div className="absolute top-0 left-3 sm:left-6 -translate-y-1/2 flex items-center gap-1.5 sm:gap-2 max-w-[70%]">
+          <div className="bg-[#059669] text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-black shadow-md rotate-[-2deg] shrink-0 truncate">
             {raisedLabel} raised
           </div>
           {donateSlug && (
             <Link
               href={`/fundraisers/${donateSlug}/donate`}
-              className="bg-orange-600 text-white px-3 py-1.5 rounded-full text-xs font-black shadow-md rotate-[2deg] shrink-0 hover:bg-orange-700 transition active:scale-95"
+              className="bg-orange-600 text-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-black shadow-md rotate-[2deg] shrink-0 hover:bg-orange-700 transition active:scale-95"
             >
               Donate now
             </Link>
@@ -112,11 +92,8 @@ export default function FundraiserShare({
         </div>
 
         {/* Progress Ring (top-right seam) */}
-        <div className="absolute top-0 right-6 -translate-y-1/2 bg-white rounded-full p-1.5 shadow-lg flex items-center justify-center">
-          <div className="relative flex items-center justify-center">
-            <CircularProgress pct={percentage} size={64} />
-            <span className="absolute text-[11px] font-black text-zinc-900">{percentage}%</span>
-          </div>
+        <div className="absolute top-0 right-3 sm:right-6 -translate-y-1/2 bg-white rounded-full p-1 shadow-lg flex items-center justify-center">
+          <ProgressRing percentage={percentage} size={56} strokeWidth={6} />
         </div>
 
         {/* Title & Organizer Info */}

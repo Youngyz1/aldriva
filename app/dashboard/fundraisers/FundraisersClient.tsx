@@ -20,6 +20,7 @@ import type {
   DashboardFundraiserStats,
 } from "@/types/dashboard-management";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 /** Owner-facing moderation badge — only shown while a campaign isn't public. */
 function ReviewBadge({ status }: { status: string }) {
@@ -267,10 +268,9 @@ function FundraisersClientInner() {
                     <p className="text-sm font-medium text-emerald-700">{formatAdminMoney(row.raised)} raised</p>
                   </div>
                 </button>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200">
-                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${row.progress}%` }} />
+                <div className="mt-3">
+                  <ProgressBar raised={row.raised} goal={row.goal} percentage={row.progress} height={8} showLabel={true} />
                 </div>
-                <p className="mt-2 text-xs font-bold text-zinc-500">{row.progress}% of {formatAdminMoney(row.goal)}</p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   <Link href={`/fundraisers/edit/${row.id}`} className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50">Edit</Link>
                   <button type="button" onClick={() => setDeleteTarget(row)} className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50">Delete</button>
