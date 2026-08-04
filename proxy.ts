@@ -5,10 +5,28 @@
  * - Session refresh on every request
  * - Protected route enforcement
  * - Suspended account blocking
- * - Article access-control gate (returns real HTTP 404 before streaming starts,
- *   per Next.js 16 loading.md § Status Codes which states that notFound() cannot
- *   change the status once streaming has begun with a 200 header)
+ * - Article/business/product access-control gates (return real HTTP 404
+ *   before streaming starts, per Next.js 16 loading.md § Status Codes which
+ *   states that notFound() cannot change the status once streaming has
+ *   begun with a 200 header)
  * - Ticketmaster external-event existence gate (same reason — see below)
+ *
+ * Business/product gates were added after directly testing the alternative:
+ * moving these routes into their own route group (app/(gated)/) with an
+ * independent root layout, tried with an empty-fallback <Suspense> around
+ * <body>, a layout-level connection(), and a page-level connection() inside
+ * their own gate-check functions (the pattern that already works for
+ * articles) — none of the four combinations stopped Next from prerendering
+ * a shell and locking the status at 200 (confirmed via the response's
+ * `x-nextjs-prerender: 1` / `x-nextjs-postponed: 1` headers) before
+ * notFound() could fire. A proxy-level check, run before the route renders
+ * at all, is the only mechanism that reliably produced a real 404 in
+ * testing — it's also Next's own documented recommendation for this exact
+ * problem (loading.md: "You can run this check in proxy to rewrite missing
+ * slugs to a not-found route"). The (gated) route group and its independent
+ * layout are kept regardless, since they're still what opts these routes
+ * out of the static-shell system architecturally — this proxy gate is the
+ * piece that actually locks in the status code.
  *
  * Admin role enforcement is handled separately by:
  * app/admin/layout.tsx -> requireAdmin()
@@ -81,6 +99,18 @@ async function checkArticleAccess(
 
   // Check admin status (second DB call only for restricted articles where the
   // user is not the owner — uncommon path, acceptable overhead).
+  return isAuthorizedAdmin(userId);
+}
+
+// ---------------------------------------------------------------------------
+// Shared admin-status lookup for the business/product gates below — same
+// second-call pattern as checkArticleAccess (only fetched when the owner
+// check itself doesn't already grant access).
+// ---------------------------------------------------------------------------
+async function isAuthorizedAdmin(userId: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
   const profileRes = await fetch(
     `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=role,status&limit=1`,
     {
@@ -101,6 +131,98 @@ async function checkArticleAccess(
 
   const profile = profiles[0];
   return profile?.role === "admin" && profile?.status === "active";
+}
+
+// ---------------------------------------------------------------------------
+// Business access-control helper — mirrors checkArticleAccess. Gate logic
+// matches app/(gated)/businesses/[slug]/page.tsx's fetchAndGateBusiness:
+// restricted (non-"active" status) or flagged listings are hidden unless
+// the requester owns the listing or is an active admin.
+// ---------------------------------------------------------------------------
+async function checkBusinessAccess(
+  slug: string,
+  userId: string | null
+): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/businesses?slug=eq.${encodeURIComponent(slug)}&select=status,is_flagged,owner_id&limit=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!res.ok) return true; // On fetch error, let the page handle it gracefully.
+
+  const rows = (await res.json()) as Array<{
+    status: string;
+    is_flagged: boolean | null;
+    owner_id: string;
+  }>;
+
+  if (!rows.length) return false; // Business doesn't exist → 404.
+
+  const business = rows[0];
+  const isRestricted = business.status !== "active";
+  const isFlagged = business.is_flagged === true;
+
+  if (!isRestricted && !isFlagged) return true;
+
+  if (!userId) return false;
+  if (userId === business.owner_id) return true;
+
+  return isAuthorizedAdmin(userId);
+}
+
+// ---------------------------------------------------------------------------
+// Product access-control helper — mirrors checkArticleAccess. Gate logic
+// matches app/(gated)/products/[slug]/page.tsx's fetchAndGateProduct:
+// archived products are hidden unless the requester owns the listing or is
+// an active admin.
+// ---------------------------------------------------------------------------
+async function checkProductAccess(
+  slug: string,
+  userId: string | null
+): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/products?slug=eq.${encodeURIComponent(slug)}&select=status,owner_id&limit=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!res.ok) return true; // On fetch error, let the page handle it gracefully.
+
+  const rows = (await res.json()) as Array<{
+    status: string;
+    owner_id: string;
+  }>;
+
+  if (!rows.length) return false; // Product doesn't exist → 404.
+
+  const product = rows[0];
+  const isRestricted = product.status === "archived";
+
+  if (!isRestricted) return true;
+
+  if (!userId) return false;
+  if (userId === product.owner_id) return true;
+
+  return isAuthorizedAdmin(userId);
 }
 
 export async function proxy(req: NextRequest) {
@@ -201,6 +323,40 @@ export async function proxy(req: NextRequest) {
   }
 
   // -------------------------------------------------------------------------
+  // Business access-control gate. Same streaming/status-code constraint as
+  // the article gate above.
+  // -------------------------------------------------------------------------
+  const businessSlugMatch = pathname.match(/^\/businesses\/([^/]+)$/);
+  if (businessSlugMatch) {
+    const slug = businessSlugMatch[1];
+    const allowed = await checkBusinessAccess(slug, user?.id ?? null);
+    if (!allowed) {
+      const notFoundUrl = req.nextUrl.clone();
+      notFoundUrl.pathname = "/_not-found";
+      return NextResponse.rewrite(notFoundUrl, { status: 404 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Product access-control gate. Same streaming/status-code constraint as
+  // the article gate above. "order-confirmation" is a real sibling page
+  // (app/products/order-confirmation), not a product slug — excluded so the
+  // gate doesn't 404 it.
+  // -------------------------------------------------------------------------
+  const productSlugMatch = pathname.match(/^\/products\/([^/]+)$/);
+  if (productSlugMatch) {
+    const slug = productSlugMatch[1];
+    if (slug !== "order-confirmation") {
+      const allowed = await checkProductAccess(slug, user?.id ?? null);
+      if (!allowed) {
+        const notFoundUrl = req.nextUrl.clone();
+        notFoundUrl.pathname = "/_not-found";
+        return NextResponse.rewrite(notFoundUrl, { status: 404 });
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Ticketmaster external-event existence gate.
   // Same streaming/status-code constraint as the article gate above. The page
   // also awaits isAdmin()/getDashboardContext() alongside the Ticketmaster
@@ -247,6 +403,11 @@ export const config = {
     // Article detail pages — must be in matcher for the access gate to fire.
     // Excluded: /articles (list), /articles/category/:cat, /articles/tag/:tag.
     "/articles/:slug([^/]+)",
+    // Business detail pages — same reason. Excluded: /businesses (list).
+    "/businesses/:slug([^/]+)",
+    // Product detail pages — same reason. Excluded: /products (list),
+    // /products/order-confirmation (real sibling page, not a slug).
+    "/products/:slug([^/]+)",
     // Ticketmaster external-event detail pages — same reason.
     "/external-events/ticketmaster/:id",
   ],

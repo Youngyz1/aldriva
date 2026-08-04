@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import { Metadata } from "next";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -8,7 +9,13 @@ import ArticleCard from "@/components/ArticleCard";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { getSiteUrl } from "@/lib/site-url";
 
+// The real HTTP 404 is enforced by proxy.ts (checkBusinessAccess) before
+// streaming begins — connection() here is a secondary defense matching
+// articles/[slug]'s fetchAndGate, in case this function is ever reached
+// through a path the proxy matcher doesn't cover.
 async function fetchAndGateBusiness(slug: string) {
+  await connection();
+
   const adminClient = createSupabaseAdmin();
   const supabaseServer = await createSupabaseServer();
 
