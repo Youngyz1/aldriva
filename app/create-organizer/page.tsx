@@ -8,8 +8,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getImageDimensions, MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
+import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+
+const ORGANIZER_BANNER_ASPECT = MIN_BANNER_WIDTH / MIN_BANNER_HEIGHT; // 4:1
 
 type FormState = {
   name:     string;
@@ -112,35 +115,15 @@ export default function CreateOrganizerPage() {
     setForm((prev) => ({ ...prev, visibility }));
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
+  function handleCroppedPhoto(file: File, previewUrl: string) {
     setPhotoFile(file);
-    if (file) setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(previewUrl);
   }
 
-  async function handleBanner(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setBannerFile(null);
-      return;
-    }
-
-    try {
-      const { width, height } = await getImageDimensions(file);
-      if (width < MIN_BANNER_WIDTH || height < MIN_BANNER_HEIGHT) {
-        setError(
-          `Banner image is too small (${width}x${height}px). Use at least ${MIN_BANNER_WIDTH}x${MIN_BANNER_HEIGHT}px so it doesn't blur when stretched across the banner.`
-        );
-        e.target.value = "";
-        return;
-      }
-    } catch {
-      // Couldn't read dimensions — let it through rather than block upload.
-    }
-
+  function handleCroppedBanner(file: File, previewUrl: string) {
     setError("");
     setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
+    setBannerPreview(previewUrl);
   }
 
   async function uploadFile(file: File, bucket: string, prefix: string) {
@@ -272,63 +255,30 @@ export default function CreateOrganizerPage() {
           {/* BANNER */}
           <div>
             <label className="mb-3 block font-semibold text-sm text-zinc-700">Banner Image (Min 1200x300px)</label>
-            <div
-              className="relative flex h-48 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-zinc-200 hover:opacity-90 transition"
-              style={
-                bannerPreview
-                  ? { backgroundImage: `url(${bannerPreview})`, backgroundSize: "cover", backgroundPosition: "center" }
-                  : {}
-              }
-            >
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleBanner}
-                className="hidden"
-                id="banner-upload"
-              />
-              <label
-                htmlFor="banner-upload"
-                className="absolute inset-0 flex cursor-pointer items-center justify-center"
-              >
-                {!bannerPreview && (
-                  <div className="text-center">
-                    <p className="mb-2 text-4xl">🖼️</p>
-                    <p className="font-semibold text-zinc-500">Click to upload banner</p>
-                  </div>
-                )}
-              </label>
-            </div>
+            <ImageUploadWithCrop
+              value={bannerPreview}
+              aspectRatio={ORGANIZER_BANNER_ASPECT}
+              previewClassName="h-48 w-full rounded-2xl"
+              label="Upload banner"
+              minWidth={MIN_BANNER_WIDTH}
+              minHeight={MIN_BANNER_HEIGHT}
+              onCropped={handleCroppedBanner}
+              onRemove={() => { setBannerFile(null); setBannerPreview(null); }}
+            />
           </div>
 
           {/* PHOTO */}
           <div>
             <label className="mb-3 block font-semibold text-sm text-zinc-700">Profile Logo / Photo</label>
-            <div className="flex items-center gap-8">
-              <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-zinc-200 shadow">
-                {photoPreview ? (
-                  <img src={photoPreview} alt="preview" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-4xl text-zinc-400">🏢</span>
-                )}
-              </div>
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhoto}
-                  className="hidden"
-                  id="photo-upload"
-                />
-                <label
-                  htmlFor="photo-upload"
-                  className="cursor-pointer rounded-xl bg-zinc-100 px-5 py-3 font-semibold transition hover:bg-zinc-200"
-                >
-                  Upload Logo
-                </label>
-                <p className="mt-2 text-sm text-zinc-400">JPG, PNG recommended</p>
-              </div>
-            </div>
+            <ImageUploadWithCrop
+              value={photoPreview}
+              aspectRatio={1}
+              previewClassName="h-28 w-28 rounded-2xl"
+              label="Upload Logo"
+              hint="JPG, PNG, or WebP recommended"
+              onCropped={handleCroppedPhoto}
+              onRemove={() => { setPhotoFile(null); setPhotoPreview(null); }}
+            />
           </div>
 
           {/* NAME & TYPE */}

@@ -6,7 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+
+const FUNDRAISER_MEDIA_ASPECT = 16 / 9;
 
 
 function generateSlug(title: string) {
@@ -280,7 +283,20 @@ export default function EditFundraiserPage() {
             <input value={form.goal} onChange={(event) => update("goal", event.target.value)} required type="number" min="1" placeholder="Goal" className={inputClass} />
             <input value={form.raised} onChange={(event) => update("raised", event.target.value)} type="number" min="0" placeholder="Raised so far" className={inputClass} />
           </div>
-          <input value={form.banner} onChange={(event) => update("banner", event.target.value)} placeholder="Banner image URL" className={inputClass} />
+          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
+            <h2 className="mb-4 text-lg font-black text-zinc-950">Cover Image</h2>
+            <ImageUploadWithCrop
+              value={form.banner}
+              aspectRatio={FUNDRAISER_MEDIA_ASPECT}
+              previewClassName="h-40 w-full rounded-2xl"
+              label="Upload cover image"
+              hint="Wide banner, shown at the top of the fundraiser."
+              bucket="fundraiser-media"
+              folder={fundraiserId}
+              onUploaded={(url) => update("banner", url)}
+              onRemove={() => update("banner", "")}
+            />
+          </div>
           <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
             <div className="mb-4">
               <h2 className="text-lg font-black text-zinc-950">Banner Carousel Photos</h2>
@@ -292,15 +308,19 @@ export default function EditFundraiserPage() {
               {galleryItems.map((item, index) => (
                 <div key={index} className="rounded-2xl border border-zinc-200 bg-white p-4">
                   <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                    <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Photo {index + 1} URL</span>
-                <input
-                  value={item.url}
-                  onChange={(event) => updateGalleryItem(index, "url", event.target.value)}
-                  placeholder="https://..."
-                  className={inputClass}
-                />
-              </label>
+                    <div>
+                      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Photo {index + 1}</span>
+                      <ImageUploadWithCrop
+                        value={item.url}
+                        aspectRatio={FUNDRAISER_MEDIA_ASPECT}
+                        previewClassName="h-24 w-full rounded-xl"
+                        label="Upload"
+                        bucket="fundraiser-media"
+                        folder={fundraiserId}
+                        onUploaded={(url) => updateGalleryItem(index, "url", url)}
+                        onRemove={() => updateGalleryItem(index, "url", "")}
+                      />
+                    </div>
                     <label className="block">
                       <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Caption</span>
                       <input

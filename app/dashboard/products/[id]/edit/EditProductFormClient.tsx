@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateProduct } from "@/lib/actions/products";
 import { MAX_IMAGES } from "@/lib/products-constants";
-import { useImageUpload, ALLOWED_IMAGE_TYPES } from "@/hooks/use-image-upload";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 
 type Product = {
   id: string;
@@ -45,11 +45,9 @@ export default function EditProductFormClient({
     seo_description: product.seo_description || "",
   });
 
-  const { uploading, fileInputRef, triggerUpload, handleFileChange } = useImageUpload({
-    folder: "product-images",
-    onSuccess: (url) => setForm((prev) => ({ ...prev, images: [...prev.images, url] })),
-    onError: (msg) => setError(msg),
-  });
+  function addImage(url: string) {
+    setForm((prev) => ({ ...prev, images: [...prev.images, url] }));
+  }
 
   function removeImage(index: number) {
     setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
@@ -149,14 +147,6 @@ export default function EditProductFormClient({
                 </span>
               </div>
 
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept={ALLOWED_IMAGE_TYPES.join(",")}
-                className="hidden"
-              />
-
               {form.images.length > 0 && (
                 <div className="mb-3 grid grid-cols-4 gap-2">
                   {form.images.map((url, i) => (
@@ -174,14 +164,16 @@ export default function EditProductFormClient({
                 </div>
               )}
 
-              <button
-                type="button"
-                disabled={uploading || atImageLimit}
-                onClick={triggerUpload}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                {uploading ? "Uploading..." : atImageLimit ? `Maximum ${MAX_IMAGES} images reached` : "+ Add Image"}
-              </button>
+              <ImageUploadWithCrop
+                aspectRatio={1}
+                previewClassName="hidden"
+                label={atImageLimit ? `Maximum ${MAX_IMAGES} images reached` : "+ Add Image"}
+                disabled={atImageLimit}
+                bucket="fundraiser-media"
+                folder="product-images"
+                onUploaded={addImage}
+                onError={(msg) => setError(msg)}
+              />
             </div>
           </div>
 

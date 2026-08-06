@@ -14,7 +14,10 @@ import { supabase } from "@/lib/supabase";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+
+const FUNDRAISER_MEDIA_ASPECT = 16 / 9;
 
 const FUNDRAISER_STEPS = [
   { label: "Fundraiser Details" },
@@ -146,17 +149,13 @@ export default function CreateFundraiserPage() {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
-  function handlePhotoSelect(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, 8 - photoFiles.length);
-    const photos = files.map((file) => ({
-      id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }));
-
+  function handleCroppedPhoto(file: File, previewUrl: string) {
     setNotice("");
-    setPhotoFiles((current) => [...current, ...photos].slice(0, 8));
-    event.target.value = "";
+    setPhotoFiles((current) =>
+      current.length >= 8
+        ? current
+        : [...current, { id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`, file, previewUrl }]
+    );
   }
 
   function removePhoto(id: string) {
@@ -465,14 +464,13 @@ export default function CreateFundraiserPage() {
 
             <CreatorPanel title="Fundraiser Photos">
               <div className="grid gap-5">
-                <CreatorField label="Add photos (up to 8)" hint="The first image becomes the fundraiser cover.">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoSelect}
+                <CreatorField label={`Add photos (${photoFiles.length}/8)`} hint="The first image becomes the fundraiser cover. Each photo is cropped to a wide 16:9 banner shape.">
+                  <ImageUploadWithCrop
+                    aspectRatio={FUNDRAISER_MEDIA_ASPECT}
+                    previewClassName="hidden"
+                    label={photoFiles.length >= 8 ? "Maximum 8 photos reached" : "Add photo"}
                     disabled={photoFiles.length >= 8}
-                    className="w-full rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-sm font-semibold"
+                    onCropped={handleCroppedPhoto}
                   />
                 </CreatorField>
 
@@ -483,7 +481,7 @@ export default function CreateFundraiserPage() {
                         <img
                           src={photo.previewUrl}
                           alt={`Fundraiser photo ${index + 1}`}
-                          className="aspect-square w-full object-cover"
+                          className="aspect-video w-full object-cover"
                         />
                         <button
                           type="button"
