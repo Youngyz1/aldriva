@@ -14,6 +14,32 @@
   }
 }
 
+/* Pure-CSS button ripple: a radial highlight grows from center on press and
+   fades on release. No JS/click-position tracking — a lightweight
+   approximation, not a pointer-following material-style ripple. */
+@utility btn-ripple {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 10%, transparent 10.5%);
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transform: scale(1);
+    transition: transform 0.5s ease-out, opacity 0.8s ease-out;
+    pointer-events: none;
+  }
+  &:active::after {
+    transform: scale(22);
+    opacity: 1;
+    transition: 0s;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -46,6 +72,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -55,7 +87,6 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
-  /* Prevent iOS Safari rubber-band horizontal scroll */
   position: relative;
 }
 
