@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
@@ -7,6 +8,12 @@ import Footer from "@/components/Footer";
 import CookieConsent from "@/components/CookieConsent";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { rootMetadata, getWebsiteJsonLd } from "@/lib/root-metadata";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 // Navbar reads usePathname() (active nav-link state, closing menus on route
 // change) during SSR, which Cache Components treats as request-time data —

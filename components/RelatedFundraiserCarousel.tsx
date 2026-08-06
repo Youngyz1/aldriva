@@ -117,7 +117,7 @@ export default function RelatedFundraiserCarousel({
             : "No fundraisers match this filter right now."}
         </p>
       ) : (
-        <div className="relative">
+        <div className="relative w-full overflow-hidden">
           <Carousel setApi={setApi} opts={{ align: "start", dragFree: true }}>
             <CarouselContent className="-ml-4 sm:-ml-6">
               {fundraisers.map((related) => (

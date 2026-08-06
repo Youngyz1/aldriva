@@ -494,7 +494,7 @@ export default async function FundraiserPage({
             )}
           </header>
 
-          <section className="order-1 border-b border-zinc-200 pb-8 lg:order-none">
+          <section className="order-1 min-w-0 border-b border-zinc-200 pb-8 lg:order-none">
             <FundraiserMediaSlider media={media} title={fundraiser.title} />
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
@@ -519,12 +519,12 @@ export default async function FundraiserPage({
             </div>
           </section>
 
-          <div className="order-3 lg:order-none">
+          <div className="order-3 min-w-0 lg:order-none">
             <FundraiserStory description={description} />
           </div>
 
           {updates.length > 0 && (
-            <section className="order-6 border-b border-zinc-200 pb-8 lg:order-none">
+            <section className="order-6 min-w-0 border-b border-zinc-200 pb-8 lg:order-none">
               <h2 className="text-2xl font-bold text-zinc-950 break-words">
                 Updates {updates.length}
               </h2>
@@ -563,7 +563,7 @@ export default async function FundraiserPage({
               </div>
             </section>
           )}
-          <div className="order-7 lg:order-none">
+          <div className="order-7 min-w-0 lg:order-none">
             <FundraiserShare
               title={fundraiser.title}
               imageUrl={coverImage}
@@ -575,7 +575,7 @@ export default async function FundraiserPage({
           </div>
 
           {/* ── Organiser & Beneficiary ─────────────────────────── */}
-          <section className="order-5 border-t border-zinc-200 pt-8 lg:order-none">
+          <section className="order-5 min-w-0 border-t border-zinc-200 pt-8 lg:order-none">
             <h2 className="text-lg font-black text-zinc-950 break-words">
               Organiser and beneficiary
             </h2>
@@ -673,7 +673,7 @@ export default async function FundraiserPage({
           </section>
 
           {/* ── Words of Support — always visible ───────────────── */}
-          <div className="order-8 border-t border-zinc-200 pt-8 lg:order-none">
+          <div className="order-8 min-w-0 border-t border-zinc-200 pt-8 lg:order-none">
             <SupportMessages fundraiserId={fundraiser.id} />
           </div>
 
