@@ -1,22 +1,32 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeImageSrc } from "@/lib/image-url";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
+import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 type FundraiserCardProps = {
   title: string;
   raised: number;
   goal: number;
-  image: string;
+  image?: string | null;
   slug: string;
   donorCount?: number;
   daysLeft?: number | null;
   featured?: boolean;
   category?: string | null;
   organizer?: string | null;
+  /** Who the fundraiser helps. Shown as a second attribution line where the
+   *  card has room; falls back to organizer-only when absent. */
+  beneficiaryName?: string | null;
+  /** Suppresses the "for …" line for self-beneficiary campaigns, where the
+   *  beneficiary is the organizer and the line carries no new information. */
+  beneficiaryType?: string | null;
 };
 
 export default function FundraiserCard({
@@ -30,19 +40,22 @@ export default function FundraiserCard({
   featured = false,
   category,
   organizer,
+  beneficiaryName,
+  beneficiaryType,
 }: FundraiserCardProps) {
-  const progress = goal ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
-  const imageSrc = safeImageSrc(image);
+  const [imgError, setImgError] = useState(false);
+  const progress = calculateFundraisingPercentage(raised, goal);
+  const imageSrc = !imgError ? safeImageSrc(image) : null;
 
   return (
     <Link href={`/fundraisers/${slug}`}>
       <article
         className={cn(
           "group flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-0.5 hover:shadow-lg",
-          featured ? "border-emerald-200 ring-1 ring-emerald-100" : "border-zinc-200"
+          featured ? "border-brand-200 ring-1 ring-brand-100" : "border-zinc-200"
         )}
       >
-        <div className="relative h-44 w-full bg-gradient-to-br from-emerald-50 via-teal-50 to-zinc-100 sm:h-52">
+        <div className="relative h-44 w-full overflow-hidden bg-zinc-100 sm:h-52">
           {imageSrc ? (
             <Image
               src={imageSrc}
@@ -50,17 +63,14 @@ export default function FundraiserCard({
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               className="object-cover transition duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
             />
           ) : (
-            <LocalBrandedPlaceholder
-              variant="fundraiser"
-              label={category || "Fundraiser"}
-              className="absolute inset-0 from-transparent to-transparent p-4 text-center text-emerald-700/80"
-              iconClassName="h-10 w-10 text-emerald-400/80 mb-1"
-            />
+            <LocalBrandedPlaceholder variant="fundraiser" title={title} />
           )}
+
           {featured && (
-            <span className="absolute left-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+            <span className="absolute left-3 top-3 rounded-full bg-brand-700 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
               Featured
             </span>
           )}
@@ -77,9 +87,17 @@ export default function FundraiserCard({
         </div>
         <div className="flex flex-1 flex-col p-4 sm:p-5">
           <h3 className="line-clamp-2 text-base font-black leading-snug text-zinc-950 sm:text-lg">{title}</h3>
+          {/* Organizer then beneficiary, each on its own line so neither gets
+              truncated into the other. The beneficiary line is suppressed when
+              it would just repeat the organizer (self-beneficiary). */}
           {organizer && (
             <p className="mt-1 truncate text-xs font-semibold text-zinc-500">
               by {organizer}
+            </p>
+          )}
+          {beneficiaryName && beneficiaryType !== "self" && (
+            <p className="truncate text-xs font-semibold text-zinc-500">
+              for <span className="text-zinc-700">{beneficiaryName}</span>
             </p>
           )}
 
@@ -101,7 +119,7 @@ export default function FundraiserCard({
             )}
           </div>
 
-          <span className="mt-4 block w-full rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-black text-white transition group-hover:bg-emerald-700">
+          <span className="mt-4 block w-full rounded-xl bg-brand-700 py-2.5 text-center text-sm font-black text-white transition group-hover:bg-brand-800">
             Donate now
           </span>
         </div>

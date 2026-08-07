@@ -7,10 +7,13 @@ export type FundraisingProgressRingProps = {
   goal?: number;
   percentage?: number;
   size?: number; // Default 220
-  strokeWidth?: number; // Default 14
+  strokeWidth?: number; // Default 16
   animated?: boolean; // Default true
   showDetails?: boolean; // Default true
   className?: string;
+  textColor?: string;
+  trackColor?: string;
+  progressColor?: string;
 };
 
 function formatMoney(amount: number): string {
@@ -65,10 +68,13 @@ export default function FundraisingProgressRing({
   goal,
   percentage,
   size = 220,
-  strokeWidth = 14,
+  strokeWidth = 16,
   animated = true,
   showDetails = true,
   className = "",
+  textColor,
+  trackColor = "#154D40",
+  progressColor,
 }: FundraisingProgressRingProps) {
   const reactId = useId();
   const gradientId = `fundraising-gradient-${reactId.replace(/:/g, "-")}`;
@@ -177,7 +183,7 @@ export default function FundraisingProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#ECECEC"
+          stroke={trackColor}
           strokeWidth={strokeWidth}
         />
 
@@ -187,7 +193,7 @@ export default function FundraisingProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={`url(#${gradientId})`}
+          stroke={progressColor || `url(#${gradientId})`}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -200,15 +206,15 @@ export default function FundraisingProgressRing({
 
       {/* Center typography */}
       {showDetails && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-0.5 pointer-events-none">
           <span
-            className="font-black tracking-tight text-zinc-950 leading-none select-none"
-            style={{ fontSize: Math.max(18, Math.round(size * 0.22)) }}
+            className={`font-black tracking-tight leading-none select-none ${textColor || "text-zinc-950"}`}
+            style={{ fontSize: Math.max(11, Math.round(size * 0.28)) }}
           >
             {displayedPct}%
           </span>
 
-          {raised !== undefined && goal !== undefined && (
+          {raised !== undefined && goal !== undefined && size >= 140 && (
             <span
               className="font-semibold text-zinc-500 leading-tight mt-1.5 truncate max-w-[90%]"
               style={{ fontSize: Math.max(10, Math.round(size * 0.062)) }}

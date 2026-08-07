@@ -9,6 +9,7 @@ export type LocalBrandedPlaceholderVariant =
   | "avatar"
   | "business"
   | "article"
+  | "banner"
   | "general";
 
 export type LocalBrandedPlaceholderProps = {
@@ -43,6 +44,7 @@ const VARIANTS: Record<LocalBrandedPlaceholderVariant, VariantConfig> = {
   business: { icon: Store, background: "from-amber-500 to-orange-600", defaultLabel: "Business" },
   article: { icon: Newspaper, background: "from-orange-400 to-orange-600", defaultLabel: "Article" },
   avatar: { icon: User, background: "from-orange-400 to-orange-600", defaultLabel: "" },
+  banner: { icon: ImageIcon, background: "from-orange-300 to-amber-500", defaultLabel: "" },
   general: { icon: ImageIcon, background: "from-orange-300 to-amber-500", defaultLabel: "" },
 };
 

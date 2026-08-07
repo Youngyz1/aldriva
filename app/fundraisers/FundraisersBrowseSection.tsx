@@ -4,10 +4,10 @@ import CampaignShowcase, {
 } from "@/components/fundraisers/CampaignShowcase";
 import {
   getFundraiserList,
-  fetchDonationCounts,
   type FundraiserListParams,
   type FundraiserSmartFilter,
 } from "@/lib/fundraiser-data";
+import { getDonationCounts } from "@/lib/donation-counts";
 import { cacheLife } from "next/cache";
 
 export type FundraisersPageFilters = {
@@ -46,7 +46,7 @@ const getCachedFundraiserGrid = async (params: FundraiserListParams) => {
 
 // Donor counts for the current featured pick + grid page, combined — one
 // cached `.in(...)` lookup keyed on the full ID array, not a per-card call.
-// Returns a plain object (not the Map fetchDonationCounts returns) so it
+// Returns a plain object (not the Map getDonationCounts returns) so it
 // serializes cleanly across the 'use cache' boundary.
 const getCachedDonorCounts = async (
   fundraiserIds: string[]
@@ -54,7 +54,7 @@ const getCachedDonorCounts = async (
   "use cache";
   cacheLife({ revalidate: 60 });
 
-  const counts = await fetchDonationCounts(fundraiserIds);
+  const counts = await getDonationCounts(fundraiserIds);
   return Object.fromEntries(counts);
 };
 

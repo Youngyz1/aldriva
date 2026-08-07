@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 type CommentTarget = "event" | "fundraiser";
 
@@ -29,12 +28,12 @@ type CommentsSectionProps = {
 
 const accentClasses = {
   orange: {
-    label: "text-orange-600",
-    button: "bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300",
-    ring: "focus:border-orange-500",
-    avatar: "bg-orange-100 text-orange-700",
-    badge: "bg-orange-50 text-orange-700 border-orange-200",
-    icon: "text-orange-500",
+    label: "text-brand-700",
+    button: "bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300",
+    ring: "focus:border-brand-600",
+    avatar: "bg-brand-100 text-brand-800",
+    badge: "bg-brand-50 text-brand-800 border-brand-200",
+    icon: "text-brand-600",
   },
   green: {
     label: "text-green-700",
@@ -136,7 +135,7 @@ function GatePrompt({
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
           placeholder="Your name (optional)"
-          className={`w-full rounded-2xl border border-zinc-300 px-4 py-3 text-[16px] outline-none ${styles.ring}`}
+          className={`w-full rounded-2xl border border-zinc-300 px-4 py-3 text-sm outline-none ${styles.ring}`}
         />
         <input
           type="email"
@@ -145,7 +144,7 @@ function GatePrompt({
           maxLength={255}
           required
           placeholder={`Email used to ${targetType === "event" ? "buy your ticket" : "donate"}`}
-          className={`w-full rounded-2xl border border-zinc-300 px-4 py-3 text-[16px] outline-none ${styles.ring}`}
+          className={`w-full rounded-2xl border border-zinc-300 px-4 py-3 text-sm outline-none ${styles.ring}`}
         />
 
         {error && (
@@ -313,7 +312,7 @@ export default function CommentsSection({
                 required
                 rows={4}
                 placeholder="Write a public comment"
-                className={`w-full resize-none rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-[16px] text-zinc-900 placeholder-zinc-400 outline-none ${styles.ring}`}
+                className={`w-full resize-none rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-zinc-900 placeholder-zinc-400 outline-none ${styles.ring}`}
               />
               <div className="mt-2 flex items-center justify-between gap-3 text-sm text-zinc-500">
                 <span>Comments appear publicly on this page.</span>
@@ -357,12 +356,11 @@ export default function CommentsSection({
             return (
               <article key={comment.id} className="rounded-2xl border border-zinc-200 p-5">
                 <div className="flex items-start gap-3">
-                  <LocalBrandedPlaceholder
-                    variant="avatar"
-                    title={displayName}
-                    initials={displayName.charAt(0).toUpperCase()}
-                    className={`h-10 w-10 shrink-0 rounded-full from-transparent to-transparent ${styles.avatar}`}
-                  />
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black ${styles.avatar}`}
+                  >
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       {canLinkProfile ? (

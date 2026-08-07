@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { TrendingUp, Share2, Check } from "lucide-react";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { TrendingUp, Share2, Check, AlertCircle } from "lucide-react";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import ProgressRing from "@/components/ui/ProgressRing";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 
 type Donation = {
   id: string;
@@ -41,18 +42,14 @@ function timeAgo(iso: string) {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
-
-
 function Avatar({ name }: { name: string }) {
   const letter = (name || "A").charAt(0).toUpperCase();
+  const colors = ["bg-green-100 text-green-700","bg-blue-100 text-blue-700","bg-purple-100 text-purple-700","bg-amber-100 text-amber-700","bg-rose-100 text-rose-700"];
+  const color = colors[letter.charCodeAt(0) % colors.length];
   return (
-    <LocalBrandedPlaceholder
-      variant="avatar"
-      title={name}
-      initials={letter}
-      seed={letter}
-      className="h-9 w-9 shrink-0 rounded-full text-sm"
-    />
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${color}`}>
+      {letter}
+    </div>
   );
 }
 
@@ -69,11 +66,11 @@ export default function FundraiserSidebar({
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [donations, setDonations] = useState<Donation[]>(initialDonations);
   const [showAll, setShowAll] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const seenIds = useRef(new Set(initialDonations.map((d) => d.id)));
 
   const goal = initialGoal;
-  const pct = goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const pct = calculateFundraisingPercentage(raised, goal);
   const visible = showAll ? donations : donations.slice(0, FEED_LIMIT);
 
   const poll = useCallback(async () => {
@@ -115,9 +112,9 @@ export default function FundraiserSidebar({
     if (navigator.share) {
       try { await navigator.share({ title: fundraiserTitle, url }); return; } catch {}
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const succeeded = await copyTextToClipboard(url);
+    setCopyStatus(succeeded ? "copied" : "failed");
+    setTimeout(() => setCopyStatus("idle"), succeeded ? 1800 : 3000);
   }
 
   return (
@@ -152,14 +149,25 @@ export default function FundraiserSidebar({
           type="button"
           onClick={handleShare}
           className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-6 py-3.5 text-base font-black text-[#c0f269] transition hover:bg-[#152f1e] active:scale-[0.98] shadow-sm"
+          title={copyStatus === "failed" ? "Copy failed — long-press the link to copy manually" : undefined}
         >
-          {copied ? <Check className="h-4 w-4 text-[#c0f269]" /> : <Share2 className="h-4 w-4" />}
-          {copied ? "Link copied!" : "Share"}
+          {copyStatus === "copied" ? (
+            <Check className="h-4 w-4 text-[#c0f269]" />
+          ) : copyStatus === "failed" ? (
+            <AlertCircle className="h-4 w-4 text-red-500" />
+          ) : (
+            <Share2 className="h-4 w-4" />
+          )}
+          {copyStatus === "copied"
+            ? "Link copied!"
+            : copyStatus === "failed"
+            ? "Failed to copy"
+            : "Share"}
         </button>
       </section>
 
       {/* Live feed */}
-      <div className="border-t border-zinc-100 px-6 py-5">
+      <div className="border-t border-zinc-100 pt-5">
         <div className="mb-4 flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-green-600" />
           <h3 className="text-sm font-black text-zinc-800">
@@ -174,8 +182,8 @@ export default function FundraiserSidebar({
             {visible.map((d) => (
               <li
                 key={d.id}
-                className={`flex items-center gap-3 transition-all duration-500 ${
-                  d.isNew ? "animate-[popIn_0.4s_ease] rounded-xl bg-green-50 p-2 -mx-2" : ""
+                className={`flex items-center gap-3 transition-all duration-500 overflow-hidden ${
+                  d.isNew ? "animate-[popIn_0.4s_ease] rounded-xl bg-green-50 px-2 py-1" : ""
                 }`}
               >
                 {d.profile?.avatar_url && d.donor_name !== "Anonymous" ? (

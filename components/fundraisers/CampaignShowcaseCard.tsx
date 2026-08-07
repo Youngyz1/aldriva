@@ -5,11 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { normalizeImageUrl } from "@/lib/image-url";
+import { safeImageSrc } from "@/lib/image-url";
 import ProgressBar from "@/components/ui/ProgressBar";
-
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1200&auto=format&fit=crop";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
+import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 export interface CampaignShowcaseCardProps {
   slug: string;
@@ -17,7 +16,7 @@ export interface CampaignShowcaseCardProps {
   raised: number;
   /** Used only to compute the progress bar — the goal figure is not displayed. */
   goal: number;
-  image: string;
+  image?: string | null;
   /** Overlay badge shown only when a real, positive count is available. */
   donorCount?: number;
   /** Featured pick: tall layout plus the emerald ring and "Featured" badge. */
@@ -44,45 +43,46 @@ export default function CampaignShowcaseCard({
   featured = false,
   tall = false,
 }: CampaignShowcaseCardProps) {
-  const progress = goal ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const [imgError, setImgError] = useState(false);
+  const progress = calculateFundraisingPercentage(raised, goal);
   const hasDonors = donorCount !== undefined && donorCount > 0;
   const isTall = featured || tall;
 
-  // A normalized, allowed-host URL can still fail to load at runtime (e.g. a
-  // hotlink-protected host that 403s the optimizer). Swap to the fallback on
-  // error so the grid never shows a broken frame, matching the hero's behavior.
-  const [imageSrc, setImageSrc] = useState(() => normalizeImageUrl(image, FALLBACK_IMAGE));
+  const validSrc = !imgError ? safeImageSrc(image) : null;
 
   return (
     <Link href={`/fundraisers/${slug}`} className="group block h-full">
       <article
         className={cn(
           "flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-0.5 hover:shadow-lg",
-          featured ? "border-emerald-200 ring-1 ring-emerald-100" : "border-zinc-200"
+          featured ? "border-brand-200 ring-1 ring-brand-100" : "border-zinc-200"
         )}
       >
         <div
           className={cn(
-            "relative w-full bg-zinc-100",
-            isTall ? "min-h-[18rem] flex-1 sm:min-h-[22rem]" : "h-40 sm:h-44"
+            "relative w-full overflow-hidden bg-zinc-100",
+            isTall ? "min-h-[18rem] flex-1 sm:min-h-[22rem]" : "h-44 sm:h-52"
           )}
         >
-          <Image
-            src={imageSrc}
-            alt={title}
-            fill
-            sizes={
-              isTall
-                ? "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 40vw"
-                : "(max-width: 640px) 85vw, (max-width: 1024px) 50vw, 30vw"
-            }
-            className="object-cover transition duration-500 group-hover:scale-105"
-            onError={() => {
-              if (imageSrc !== FALLBACK_IMAGE) setImageSrc(FALLBACK_IMAGE);
-            }}
-          />
+          {validSrc ? (
+            <Image
+              src={validSrc}
+              alt={title}
+              fill
+              sizes={
+                isTall
+                  ? "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 40vw"
+                  : "(max-width: 640px) 85vw, (max-width: 1024px) 50vw, 30vw"
+              }
+              className="object-cover transition duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <LocalBrandedPlaceholder variant="fundraiser" title={title} />
+          )}
+
           {featured && (
-            <span className="absolute left-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+            <span className="absolute left-3 top-3 rounded-full bg-brand-700 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
               Featured
             </span>
           )}
@@ -105,13 +105,11 @@ export default function CampaignShowcaseCard({
           </h3>
 
           <div className="mt-3">
-            <div className="flex items-baseline justify-between gap-2 mb-1.5">
-              <p className="text-sm font-semibold text-zinc-600 truncate">
-                <span className="font-black text-zinc-950">${raised.toLocaleString()}</span> raised{goal > 0 ? ` of $${goal.toLocaleString()}` : ""}
-              </p>
-              <span className="shrink-0 text-xs font-black text-zinc-950">{progress}%</span>
-            </div>
-            <ProgressBar percentage={progress} height={8} />
+            <p className="text-lg font-black text-brand-800">
+              ${raised.toLocaleString()}{" "}
+              <span className="text-sm font-semibold text-zinc-500">raised</span>
+            </p>
+            <ProgressBar percentage={progress} height={8} className="mt-2" />
           </div>
         </div>
       </article>

@@ -1,4 +1,6 @@
-// lib/fund4good-data.ts — Mock data and types for Fund4Good Dashboard
+// lib/fund4good-data.ts — Data definitions and mock fallbacks for Aldriva Dashboard on event-platform
+
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 
 export type CampaignStatus = "on_track" | "behind" | "ahead" | "completed" | "paused";
 export type DonationTier = "bronze" | "silver" | "gold" | "platinum";
@@ -8,7 +10,9 @@ export type ActivityType =
   | "share"
   | "milestone"
   | "withdrawal"
-  | "campaign_started";
+  | "campaign_started"
+  | "comment"
+  | "follow";
 
 export interface Campaign {
   id: string;
@@ -27,11 +31,24 @@ export interface Campaign {
   updateCount: number;
   coverImage?: string;
   slug: string;
+  organizerId: string;
   lastUpdateDate: string;
   recommendedAction: RecommendedAction;
   healthMessage: string;
   dailyPaceRequired?: number;
   averageDailyRaised: number;
+  averageDonation: number;
+  todayAmount: number;
+  todayCount: number;
+  followerCount: number;
+  commentCount: number;
+  /** 0-100 composite score derived from actual pace vs. required pace. */
+  healthScore: number;
+  /** ISO date the campaign is projected to hit its goal, or null if not enough pace data yet. */
+  projectedFinishDate: string | null;
+  /** Metrics we don't have a real tracking source for yet — never fabricated, always undefined until wired up. */
+  pageViews?: number;
+  conversionRate?: number;
 }
 
 export interface RecommendedAction {
@@ -68,6 +85,8 @@ export interface Activity {
     platform?: string;
     milestone?: string;
     updateTitle?: string;
+    commentAuthor?: string;
+    commentBody?: string;
   };
 }
 
@@ -120,9 +139,10 @@ export interface TimelineEvent {
   type: "milestone" | "update" | "campaign_start" | "donation_spike";
   amount?: number;
   description: string;
+  campaignId: string;
 }
 
-// ─── Campaigns ───────────────────────────────────────────────────────────────
+// ─── Default Campaigns ──────────────────────────────────────────────────────
 
 export const campaigns: Campaign[] = [
   {
@@ -142,8 +162,16 @@ export const campaigns: Campaign[] = [
     shareCount: 1203,
     updateCount: 3,
     slug: "maplewood-community-center",
+    organizerId: "org-001",
     lastUpdateDate: "2026-07-24",
     averageDailyRaised: 598,
+    averageDonation: 75,
+    todayAmount: 598,
+    todayCount: 4,
+    followerCount: 312,
+    commentCount: 28,
+    healthScore: 82,
+    projectedFinishDate: "2026-08-10",
     dailyPaceRequired: 467,
     healthMessage: "You are ahead of pace. Keep the momentum going.",
     recommendedAction: {
@@ -171,8 +199,16 @@ export const campaigns: Campaign[] = [
     shareCount: 389,
     updateCount: 1,
     slug: "eastview-robotics-nationals",
+    organizerId: "org-001",
     lastUpdateDate: "2026-07-15",
     averageDailyRaised: 190,
+    averageDonation: 69,
+    todayAmount: 0,
+    todayCount: 0,
+    followerCount: 84,
+    commentCount: 9,
+    healthScore: 32,
+    projectedFinishDate: "2026-09-30",
     dailyPaceRequired: 390,
     healthMessage: "You need approximately $390/day to reach your goal.",
     recommendedAction: {
@@ -200,8 +236,16 @@ export const campaigns: Campaign[] = [
     shareCount: 4201,
     updateCount: 7,
     slug: "rivera-family-medical",
+    organizerId: "org-001",
     lastUpdateDate: "2026-07-14",
     averageDailyRaised: 666,
+    averageDonation: 59,
+    todayAmount: 0,
+    todayCount: 0,
+    followerCount: 640,
+    commentCount: 61,
+    healthScore: 100,
+    projectedFinishDate: null,
     healthMessage: "Goal reached! Campaign completed successfully.",
     recommendedAction: {
       type: "thank_donors",
@@ -454,7 +498,8 @@ export const timelineEvents: TimelineEvent[] = [
     date: "2026-07-01",
     title: "Campaign Launched",
     type: "campaign_start",
-    description: "Fund4Good campaign went live.",
+    description: "Aldriva campaign went live.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-002",
@@ -463,6 +508,7 @@ export const timelineEvents: TimelineEvent[] = [
     type: "milestone",
     amount: 5000,
     description: "Hit the first milestone — $5,000 raised in 8 days.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-003",
@@ -470,6 +516,7 @@ export const timelineEvents: TimelineEvent[] = [
     title: "Update: Construction Begins",
     type: "update",
     description: "Posted first progress update with construction photos.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-004",
@@ -478,6 +525,7 @@ export const timelineEvents: TimelineEvent[] = [
     type: "donation_spike",
     amount: 1450,
     description: "Highest single-day total so far following media mention.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-005",
@@ -486,6 +534,7 @@ export const timelineEvents: TimelineEvent[] = [
     type: "milestone",
     amount: 12500,
     description: "Halfway milestone — $12,500 raised.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-006",
@@ -493,6 +542,7 @@ export const timelineEvents: TimelineEvent[] = [
     title: "First Withdrawal",
     type: "update",
     description: "$5,000 withdrawn to begin paying contractors.",
+    campaignId: "camp-001",
   },
   {
     id: "tl-007",
@@ -500,6 +550,7 @@ export const timelineEvents: TimelineEvent[] = [
     title: "Update: Week 3 Report",
     type: "update",
     description: "Week 3 progress report published. Walls are up!",
+    campaignId: "camp-001",
   },
   {
     id: "tl-008",
@@ -508,6 +559,7 @@ export const timelineEvents: TimelineEvent[] = [
     type: "milestone",
     amount: 18750,
     description: "$18,750 raised — 75% of goal with 14 days remaining.",
+    campaignId: "camp-001",
   },
 ];
 
@@ -558,7 +610,7 @@ export function formatCurrency(
 }
 
 export function getProgressPercentage(raised: number, goal: number): number {
-  return Math.min(Math.round((raised / goal) * 100), 100);
+  return calculateFundraisingPercentage(raised, goal);
 }
 
 export function getTimeAgo(timestamp: string): string {
@@ -573,6 +625,23 @@ export function getTimeAgo(timestamp: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return then.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Aggregates a donation list into per-day totals — used to rebuild the analytics chart client-side whenever the selected campaign changes, since server-fetched daily totals span every campaign a fundraiser owns. */
+export function buildDailyDonations(donations: Donation[]): DailyDonation[] {
+  const totals = new Map<string, { amount: number; count: number }>();
+  for (const d of donations) {
+    const dateKey = new Date(d.timestamp).toISOString().slice(0, 10);
+    const prev = totals.get(dateKey) ?? { amount: 0, count: 0 };
+    totals.set(dateKey, { amount: prev.amount + d.amount, count: prev.count + 1 });
+  }
+  return [...totals.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      amount: v.amount,
+      count: v.count,
+    }));
 }
 
 export function getDonorInitials(name: string): string {

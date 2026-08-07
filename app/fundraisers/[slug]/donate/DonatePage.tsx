@@ -1,38 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import { ShieldCheck } from "lucide-react";
+import { generateUUID } from "@/lib/uuid";
+import { safeImageSrc } from "@/lib/image-url";
+import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import Link from "next/link";
+import { ShieldCheck, CreditCard, Coins, Heart } from "lucide-react";
 import {
   StripeProvider,
   PaymentForm,
-  OrderSummary,
   CheckoutShell,
   formatMoney,
 } from "@/components/payments";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRESETS = [25, 50, 100, 150, 200, 500];
-const TIP_PERCENTAGES = [0, 10, 15, 20];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// crypto.randomUUID() requires a secure context (https:// or localhost).
-// This fallback keeps idempotency-key generation working when testing
-// over plain http:// on a LAN IP (e.g. from a phone during dev).
-function generateUUID(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+// Tip is now a continuous slider (0–30%) instead of fixed chips, mirroring
+// GoFundMe's checkout. Keep a couple of anchor points for the tick labels.
+const TIP_MIN = 0;
+const TIP_MAX = 30;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,13 +47,17 @@ export default function DonatePage({
   goal,
   defaultCountry,
 }: DonatePageProps) {
-  // Amount selection
-  const [selectedPreset, setSelectedPreset] = useState(50);
-  const [customAmount, setCustomAmount] = useState("");
+  // Amount — free-typed by the donor, no preset chips
+  const [amount, setAmount] = useState("50");
 
-  // Tip
+  // Tip — now driven by a slider (0–30%), with an option to type an exact %.
   const [tipPct, setTipPct] = useState(15);
   const [customTip, setCustomTip] = useState("");
+  const [showCustomTip, setShowCustomTip] = useState(false);
+
+  // Give once / Monthly toggle — UI only for now; monthly billing isn't
+  // wired up on the backend yet, so the Monthly option is shown but disabled.
+  const [showMonthlySoon, setShowMonthlySoon] = useState(false);
 
   // Donor details
   const [donorName, setDonorName] = useState("");
@@ -77,8 +70,6 @@ export default function DonatePage({
   const [preparingPayment, setPreparingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  // UUID minted each time the user clicks "Proceed" — one per checkout attempt
-  const [checkoutAttemptId, setCheckoutAttemptId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "crypto">("card");
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -89,8 +80,7 @@ export default function DonatePage({
 
   useEffect(() => {
     if (success) {
-      // 'instant' is not a standard scroll behavior; use 'auto' for immediate jump
-      window.scrollTo({ top: 0, behavior: "auto" });
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [success]);
 
@@ -130,7 +120,7 @@ export default function DonatePage({
   // ─── Derived amounts ────────────────────────────────────────────────────────
 
   const donationAmount = (() => {
-    const raw = customAmount ? Number(customAmount) : selectedPreset;
+    const raw = Number(amount);
     return Number.isFinite(raw) && raw > 0 ? raw : 0;
   })();
 
@@ -146,7 +136,7 @@ export default function DonatePage({
   })();
 
   const total = donationAmount + tipAmount;
-  const pct = goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const pct = calculateFundraisingPercentage(raised, goal);
 
   // ─── Create PaymentIntent ────────────────────────────────────────────────────
 
@@ -192,7 +182,6 @@ export default function DonatePage({
     // Mint a fresh UUID for this attempt so the idempotency key is
     // unique per-click, preventing StripeIdempotencyError on retry.
     const attemptId = generateUUID();
-    setCheckoutAttemptId(attemptId);
     setPreparingPayment(true);
 
     try {
@@ -232,7 +221,7 @@ export default function DonatePage({
   if (success) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
-        <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-10 text-center shadow-sm">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-10 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <svg
               className="h-8 w-8 text-green-600"
@@ -274,7 +263,7 @@ export default function DonatePage({
                 Download Receipt PDF
               </a>
               {isNonprofit ? (
-                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-left text-xs text-emerald-800 leading-relaxed">
+                <div className="rounded-2xl bg-brand-50 border border-brand-100 p-4 text-left text-xs text-brand-900 leading-relaxed">
                   <span className="font-black block mb-1">★ Tax-Deductible Donation</span>
                   This fundraiser is run by a registered nonprofit. Your contribution qualifies for tax-deductible benefits.
                 </div>
@@ -308,11 +297,19 @@ export default function DonatePage({
     <>
       {/* Fundraiser banner */}
       <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4">
-        <img
-          src={banner}
-          alt={fundraiserTitle}
-          className="h-16 w-20 shrink-0 rounded-xl object-cover sm:w-24"
-        />
+        <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-zinc-100 sm:w-24">
+          {safeImageSrc(banner) ? (
+            <Image
+              src={safeImageSrc(banner)!}
+              alt={fundraiserTitle}
+              fill
+              sizes="(max-width: 640px) 80px, 96px"
+              className="object-cover"
+            />
+          ) : (
+            <LocalBrandedPlaceholder variant="fundraiser" title={fundraiserTitle} />
+          )}
+        </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
             You&apos;re supporting
@@ -326,83 +323,142 @@ export default function DonatePage({
         </div>
       </div>
 
-      {/* Amount picker */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
-        <h3 className="mb-4 text-base font-black text-zinc-950">Choose an amount</h3>
-        <div className="grid grid-cols-2 gap-2 xs:grid-cols-3 sm:grid-cols-6">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => {
-                setSelectedPreset(preset);
-                setCustomAmount("");
-                setClientSecret(null); // reset intent when amount changes
-              }}
-              className={`rounded-xl border py-3 min-h-[48px] text-sm font-black transition active:scale-[0.98] ${
-                selectedPreset === preset && !customAmount
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                  : "border-zinc-200 hover:border-emerald-300 text-zinc-800"
-              }`}
-            >
-              ${preset}
-            </button>
-          ))}
-        </div>
-        <div className="relative mt-3">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-zinc-400">
-            $
+      {/* Raised amount — sits directly below the campaign card */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-500">
+            ${raised.toLocaleString()} raised
           </span>
+          <span className="font-black text-green-700">{pct}%</span>
+        </div>
+        <ProgressBar percentage={pct} height={8} />
+        {goal > 0 && (
+          <p className="text-xs text-zinc-400">
+            Goal: ${goal.toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* Give once / Monthly toggle — Monthly is disabled until recurring billing is wired up */}
+      <div className="relative">
+        <div className="inline-flex w-full overflow-hidden rounded-full border border-zinc-200 bg-white p-1 sm:w-auto">
+          <span className="flex-1 rounded-full bg-green-700 px-6 py-2.5 text-center text-sm font-black text-white sm:flex-initial">
+            Give once
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowMonthlySoon((v) => !v)}
+            className="flex flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-full px-6 py-2.5 text-sm font-bold text-zinc-400 sm:flex-initial"
+          >
+            Monthly
+            <Heart className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {showMonthlySoon && (
+          <div className="absolute left-0 top-full z-10 mt-2 rounded-xl border border-zinc-200 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow-lg">
+            Monthly giving is coming soon
+          </div>
+        )}
+      </div>
+
+      {/* Amount picker — donor types the amount themselves, no preset chips */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+        <h3 className="mb-4 text-base font-black">Enter your donation</h3>
+
+        <div className="relative flex items-center rounded-2xl border-2 border-zinc-200 px-5 py-4 transition focus-within:border-green-500">
+          <span className="text-3xl font-black text-zinc-300">$</span>
           <input
             type="number"
             min="1"
             step="1"
-            value={customAmount}
+            inputMode="decimal"
+            value={amount}
             onChange={(e) => {
-              setCustomAmount(e.target.value);
-              setSelectedPreset(0);
+              setAmount(e.target.value);
               setClientSecret(null); // reset intent when amount changes
             }}
-            placeholder="Other amount"
-            className="w-full rounded-xl border border-zinc-200 py-3 pl-8 pr-16 text-[16px] md:text-base font-black outline-none transition focus:border-emerald-600"
+            placeholder="0"
+            className="w-full border-none bg-transparent pl-2 text-3xl font-black text-zinc-900 outline-none placeholder:text-zinc-300"
           />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-zinc-400">
-            .00
-          </span>
+          <span className="text-sm font-semibold text-zinc-300">USD</span>
         </div>
       </div>
 
-      {/* Tip selector */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
-        <h3 className="mb-1 text-base font-black text-zinc-950">
-          Add a tip{" "}
-          <span className="text-sm font-normal text-zinc-400">(optional)</span>
-        </h3>
-        <p className="mb-4 text-xs text-zinc-400">
-          Tips help us keep the platform running.
+      {/* Tip selector — slider instead of fixed chips, matching GoFundMe */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+        <h3 className="mb-1 text-base font-black">Add a tip to fundgood</h3>
+        <p className="mb-5 text-xs text-zinc-400">
+          fundgood has a 0% platform fee for organisers — we rely on the
+          generosity of donors like you to operate our service.
         </p>
-        <div className="flex flex-wrap gap-2">
-          {TIP_PERCENTAGES.map((pct) => (
-            <button
-              key={pct}
-              type="button"
-              onClick={() => {
-                setTipPct(pct);
+
+        {!showCustomTip ? (
+          <>
+            <div className="text-center">
+              <span className="text-2xl font-black text-zinc-900">
+                {customTip ? Number(customTip) : tipPct}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={TIP_MIN}
+              max={TIP_MAX}
+              step={0.5}
+              value={tipPct}
+              onChange={(e) => {
+                setTipPct(Number(e.target.value));
                 setCustomTip("");
                 setClientSecret(null);
               }}
-              className={`rounded-xl border px-4 py-2.5 min-h-[44px] text-sm font-black transition active:scale-[0.98] ${
-                tipPct === pct && !customTip
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                  : "border-zinc-200 hover:border-emerald-300 text-zinc-800"
-              }`}
+              className="mt-3 w-full accent-green-600"
+            />
+            <div className="mt-1 flex justify-between text-[10px] text-zinc-400">
+              <span>0%</span>
+              <span>{TIP_MAX}%</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCustomTip(true)}
+              className="mx-auto mt-4 block text-xs font-bold text-zinc-500 underline hover:text-zinc-800"
             >
-              {pct === 0 ? "None" : `${pct}%`}
+              Enter custom tip
             </button>
-          ))}
-        </div>
-        {tipPct > 0 && !customTip && donationAmount >= 1 && (
-          <p className="mt-2 text-xs text-zinc-400">
+          </>
+        ) : (
+          <div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-zinc-400">
+                %
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                autoFocus
+                value={customTip}
+                onChange={(e) => {
+                  setCustomTip(e.target.value);
+                  setClientSecret(null);
+                }}
+                placeholder="Custom tip %"
+                className="w-full rounded-xl border border-zinc-200 py-3 pl-8 pr-4 text-base font-black outline-none transition focus:border-green-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCustomTip(false);
+                setCustomTip("");
+              }}
+              className="mx-auto mt-3 block text-xs font-bold text-zinc-500 underline hover:text-zinc-800"
+            >
+              Use slider instead
+            </button>
+          </div>
+        )}
+
+        {donationAmount >= 1 && tipAmount > 0 && (
+          <p className="mt-3 text-center text-xs text-zinc-400">
             = {formatMoney(tipAmount)} tip on {formatMoney(donationAmount)}{" "}
             donation
           </p>
@@ -410,8 +466,8 @@ export default function DonatePage({
       </div>
 
       {/* Donor details */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-3">
-        <h3 className="text-base font-black text-zinc-950">Your details</h3>
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-3">
+        <h3 className="text-base font-black">Your details</h3>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <input
@@ -420,14 +476,14 @@ export default function DonatePage({
             value={donorName}
             onChange={(e) => setDonorName(e.target.value)}
             disabled={anonymous}
-            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-[16px] md:text-base outline-none transition focus:border-emerald-600 disabled:bg-zinc-50 disabled:text-zinc-400"
+            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-base outline-none transition focus:border-green-500 disabled:bg-zinc-50 disabled:text-zinc-400"
           />
           <input
             type="email"
             placeholder="Email (optional)"
             value={donorEmail}
             onChange={(e) => setDonorEmail(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-[16px] md:text-base outline-none transition focus:border-emerald-600"
+            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-base outline-none transition focus:border-green-500"
           />
         </div>
 
@@ -436,15 +492,15 @@ export default function DonatePage({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={2}
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[16px] md:text-base text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-emerald-600 resize-none"
+          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-500 resize-none"
         />
 
-        <label className="flex cursor-pointer items-center gap-3 py-1">
+        <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
             checked={anonymous}
             onChange={(e) => setAnonymous(e.target.checked)}
-            className="h-4 w-4 accent-emerald-600"
+            className="h-4 w-4 accent-green-600"
           />
           <span className="text-sm text-zinc-600">
             Don&apos;t display my name publicly
@@ -459,53 +515,68 @@ export default function DonatePage({
         </div>
       )}
 
-      {/* Payment selector */}
+      {/* Payment method — vertical radio-row list, GoFundMe style, instead of a 2-up button grid */}
       {!clientSecret && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 space-y-4">
-          <h3 className="text-base font-black text-zinc-950">Select Payment Method</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("card")}
-              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition min-h-[72px] active:scale-[0.98] ${
-                paymentMethod === "card"
-                  ? "border-emerald-600 bg-emerald-50/50 text-emerald-800 font-bold shadow-sm"
-                  : "border-zinc-200 hover:border-zinc-300 text-zinc-600 font-medium"
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+          <h3 className="px-6 pt-6 pb-3 text-base font-black text-zinc-950">
+            Payment method
+          </h3>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("card")}
+            className="flex w-full items-center gap-4 border-t border-zinc-100 px-6 py-4 text-left transition hover:bg-zinc-50"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                paymentMethod === "card" ? "border-green-600" : "border-zinc-300"
               }`}
             >
-              <svg
-                className={`h-6 w-6 mb-1.5 ${paymentMethod === "card" ? "text-emerald-600" : "text-zinc-400"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-              </svg>
-              <span className="text-sm">Pay with Card</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("crypto")}
-              className={`flex flex-col items-center justify-center rounded-xl border p-4 text-center transition min-h-[72px] active:scale-[0.98] ${
-                paymentMethod === "crypto"
-                  ? "border-emerald-600 bg-emerald-50/50 text-emerald-800 font-bold shadow-sm"
-                  : "border-zinc-200 hover:border-zinc-300 text-zinc-600 font-medium"
+              {paymentMethod === "card" && (
+                <span className="h-2.5 w-2.5 rounded-full bg-green-600" />
+              )}
+            </span>
+            <CreditCard
+              className={`h-5 w-5 shrink-0 ${
+                paymentMethod === "card" ? "text-green-600" : "text-zinc-400"
+              }`}
+            />
+            <span
+              className={`text-sm ${
+                paymentMethod === "card" ? "font-bold text-zinc-900" : "text-zinc-600"
               }`}
             >
-              <svg
-                className={`h-6 w-6 mb-1.5 ${paymentMethod === "crypto" ? "text-emerald-600" : "text-zinc-400"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v10m-3-7h6" />
-              </svg>
-              <span className="text-sm">Pay with Crypto</span>
-            </button>
-          </div>
+              Credit or debit card
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("crypto")}
+            className="flex w-full items-center gap-4 border-t border-zinc-100 px-6 py-4 text-left transition hover:bg-zinc-50"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                paymentMethod === "crypto" ? "border-green-600" : "border-zinc-300"
+              }`}
+            >
+              {paymentMethod === "crypto" && (
+                <span className="h-2.5 w-2.5 rounded-full bg-green-600" />
+              )}
+            </span>
+            <Coins
+              className={`h-5 w-5 shrink-0 ${
+                paymentMethod === "crypto" ? "text-green-600" : "text-zinc-400"
+              }`}
+            />
+            <span
+              className={`text-sm ${
+                paymentMethod === "crypto" ? "font-bold text-zinc-900" : "text-zinc-600"
+              }`}
+            >
+              Crypto
+            </span>
+          </button>
         </div>
       )}
 
@@ -515,7 +586,7 @@ export default function DonatePage({
         <button
           onClick={handleProceedToPayment}
           disabled={preparingPayment || isRedirecting || donationAmount < 1}
-          className="w-full min-h-[52px] rounded-2xl bg-emerald-600 py-4 text-base font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 active:scale-[0.99]"
+          className="w-full rounded-2xl bg-green-700 py-4 text-base font-black text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-green-300 active:scale-[.99]"
         >
           {preparingPayment || isRedirecting ? (
             <span className="flex items-center justify-center gap-2">
@@ -540,7 +611,6 @@ export default function DonatePage({
             onSuccess={() => setSuccess(true)}
             onBack={() => {
               setClientSecret(null);
-              setCheckoutAttemptId(null); // next attempt gets a new UUID
             }}
             // Pass the name/email the user already entered so Stripe
             // billing_details are populated without duplicating the fields
@@ -562,41 +632,20 @@ export default function DonatePage({
     </>
   );
 
-  // ─── Right column — order summary + fundraiser progress ─────────────────────
+  // ─── Right column — donation protection badge only ───────────────────────────
+  // The donation/tip/total breakdown and the raised-amount progress used to
+  // live here (inside an OrderSummary card). The total is now only shown on
+  // the CTA button, and the raised/progress card moved into the left column,
+  // directly under the campaign card, per the latest layout.
 
   const rightColumn = (
-    <>
-      <OrderSummary
-        title="Your donation"
-        accentColor="#16a34a"
-        currency="USD"
-        items={[
-          {
-            label: "Donation",
-            value: donationAmount >= 1 ? donationAmount : 0,
-          },
-          {
-            label: "Tip (optional)",
-            value: tipAmount,
-            muted: tipAmount === 0,
-          },
-        ]}
-        total={total}
-      >
-        <div className="pt-2">
-          <ProgressBar raised={raised} goal={goal} percentage={pct} height={8} showLabel={true} />
-        </div>
-      </OrderSummary>
-
-      {/* Donation protection badge */}
-      <div className="flex items-start gap-3 rounded-2xl border border-green-100 bg-green-50 p-4">
-        <ShieldCheck className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
-        <p className="text-xs leading-5 text-green-800">
-          <span className="font-black">Donation Protection Guarantee — </span>
-          We guarantee a full refund if something is not right.
-        </p>
-      </div>
-    </>
+    <div className="flex items-start gap-3 rounded-2xl border border-green-100 bg-green-50 p-4">
+      <ShieldCheck className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
+      <p className="text-xs leading-5 text-green-800">
+        <span className="font-black">Donation Protection Guarantee — </span>
+        We guarantee a full refund if something is not right.
+      </p>
+    </div>
   );
 
   // ─── Layout ──────────────────────────────────────────────────────────────────

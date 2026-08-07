@@ -70,7 +70,7 @@ export default function ProgressBar({
               ? `${formatMoney(raised)} raised of ${formatMoney(goal)}`
               : `${targetPct}% funded`}
           </span>
-          <span className="shrink-0 text-zinc-900 font-black">{targetPct}%</span>
+          <span className="shrink-0 text-zinc-950 font-black">{targetPct}%</span>
         </div>
       )}
 

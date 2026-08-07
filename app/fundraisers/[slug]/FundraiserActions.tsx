@@ -1,18 +1,21 @@
 "use client";
 
-import { Check, Share2, Heart } from "lucide-react";
-import { useState, useEffect } from "react";
+import { AlertCircle, Check, Share2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { money } from "@/lib/format";
-import ProgressBar from "@/components/ui/ProgressBar";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import ProgressRing from "@/components/ui/ProgressRing";
 
 export function ShareFundraiserButton({
   title,
   className = "",
+  tabIndex,
 }: {
   title: string;
   className?: string;
+  tabIndex?: number;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function handleShare() {
     const url = window.location.href;
@@ -26,26 +29,9 @@ export function ShareFundraiserButton({
       }
     }
 
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-      return;
-    }
-
-    const textarea = document.createElement("textarea");
-    textarea.value = url;
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand("copy");
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } finally {
-      document.body.removeChild(textarea);
-    }
+    const succeeded = await copyTextToClipboard(url);
+    setStatus(succeeded ? "copied" : "failed");
+    window.setTimeout(() => setStatus("idle"), succeeded ? 1800 : 3000);
   }
 
   return (
@@ -53,10 +39,21 @@ export function ShareFundraiserButton({
       type="button"
       onClick={handleShare}
       className={className}
-      aria-label="Share this fundraiser"
+      tabIndex={tabIndex}
+      aria-label={
+        status === "failed"
+          ? "Copy failed — long-press the link to copy manually"
+          : "Share this fundraiser"
+      }
     >
-      {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-      <span>{copied ? "Copied" : "Share"}</span>
+      {status === "copied" ? (
+        <Check className="h-4 w-4 text-[#c0f269]" />
+      ) : status === "failed" ? (
+        <AlertCircle className="h-4 w-4 text-red-500" />
+      ) : (
+        <Share2 className="h-4 w-4 text-[#c0f269]" />
+      )}
+      <span>{status === "copied" ? "Link copied!" : status === "failed" ? "Failed to copy" : "Share"}</span>
     </button>
   );
 }
@@ -67,73 +64,99 @@ export default function FundraiserFloatingActions({
   raised,
   goal,
   percentage,
-  targetElementId = "main-donation-card",
+  donationCount,
+  donationCardId = "main-donation-card",
 }: {
   title: string;
   slug: string;
   raised: number;
   goal: number;
   percentage: number;
-  targetElementId?: string;
+  donationCount?: number;
+  donationCardId?: string;
 }) {
-  const [visible, setVisible] = useState(false);
+  const [isFloatingVisible, setIsFloatingVisible] = useState(false);
 
   useEffect(() => {
-    const target = document.getElementById(targetElementId);
-    if (!target) {
-      // If target element is not present, default to visible on mobile after slight scroll
-      const handleScroll = () => {
-        setVisible(window.scrollY > 300);
-      };
-      window.addEventListener("scroll", handleScroll, { passive: true });
-      return () => window.removeEventListener("scroll", handleScroll);
+    const donationCard = document.getElementById(donationCardId);
+    if (!donationCard || !("IntersectionObserver" in window)) {
+      setIsFloatingVisible(false);
+      return;
     }
 
+    let hasSeenDonationCard = false;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Hide floating bar when original card is in view; show when scrolled out
-        setVisible(!entry.isIntersecting);
+        if (entry.isIntersecting) {
+          hasSeenDonationCard = true;
+          setIsFloatingVisible(false);
+          return;
+        }
+
+        const donationCardIsAboveViewport = entry.boundingClientRect.bottom <= 0;
+        setIsFloatingVisible(hasSeenDonationCard && donationCardIsAboveViewport);
       },
-      {
-        threshold: 0.1, // Trigger when 10% or less of the original card is visible
-      }
+      { threshold: 0 }
     );
 
-    observer.observe(target);
+    observer.observe(donationCard);
+
     return () => observer.disconnect();
-  }, [targetElementId]);
+  }, [donationCardId]);
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur-md transition-all duration-300 ease-in-out lg:hidden transform-gpu ${
-        visible
+      data-campaign-floating-actions
+      data-visible={isFloatingVisible}
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-4 pt-3 pb-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur transition-[transform,opacity] duration-300 ease-out will-change-transform motion-reduce:transition-none ${
+        isFloatingVisible
           ? "translate-y-0 opacity-100 pointer-events-auto"
           : "translate-y-full opacity-0 pointer-events-none"
       }`}
-      aria-hidden={!visible}
+      style={{
+        paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
+      }}
+      aria-hidden={!isFloatingVisible}
     >
-      <div className="mx-auto max-w-md space-y-2">
-        <div className="flex items-center justify-between text-xs font-bold text-zinc-700 mb-1">
-          <span className="truncate">
-            {money(raised)} raised of {money(goal)}
-          </span>
-          <span className="shrink-0 font-black text-zinc-950 ml-2">
-            {percentage}%
-          </span>
+      <div className="mx-auto max-w-xl flex flex-col gap-2.5">
+        <div className="flex items-center gap-3">
+          <div className="shrink-0">
+            <ProgressRing
+              percentage={percentage}
+              size={44}
+              strokeWidth={4.5}
+              showDetails={true}
+              animated={false}
+              textColor="text-brand-900"
+              trackColor="#d1fae5"
+              progressColor="#059669"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-black text-zinc-950 truncate leading-tight">
+              {money(raised)} raised
+              <span className="font-semibold text-zinc-500 text-xs ml-1">of {money(goal)}</span>
+            </p>
+            {donationCount !== undefined && (
+              <p className="text-[11px] font-semibold text-zinc-500 leading-tight">
+                {donationCount.toLocaleString()} donation{donationCount === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
         </div>
-        <ProgressBar percentage={percentage} height={4} />
-        <div className="flex gap-2.5 pt-1">
+
+        <div className="flex gap-2.5">
           <ShareFundraiserButton
             title={title}
-            className="flex flex-1 min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-4 text-sm font-black text-[#c0f269] shadow-sm transition hover:bg-[#152f1e] active:scale-[0.98]"
+            tabIndex={isFloatingVisible ? 0 : -1}
+            className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-4 text-xs sm:text-sm font-black text-[#c0f269] shadow-sm transition hover:bg-[#152f1e] active:scale-[0.98]"
           />
-
           <a
             href={`/fundraisers/${slug}/donate`}
-            className="flex flex-1 min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#c0f269] px-4 text-sm font-black text-[#1b3e10] shadow-sm transition hover:bg-[#b5eb57] active:scale-[0.98]"
+            tabIndex={isFloatingVisible ? 0 : -1}
+            className="flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-[#c0f269] px-4 text-xs sm:text-sm font-black text-[#1b3e10] shadow-sm transition hover:bg-[#b5eb57] active:scale-[0.98]"
           >
-            <Heart className="h-4 w-4 fill-[#1b3e10] text-[#1b3e10]" />
-            <span>Donate</span>
+            Donate now
           </a>
         </div>
       </div>

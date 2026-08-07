@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import ProfileNotSetUpModal, {
   type ProfileActivity,
 } from "@/components/ProfileNotSetUpModal";
@@ -104,17 +103,14 @@ export default function DonorList({
 
           return (
             <li key={donation.id} className="flex items-center gap-2 lg:gap-3">
-              <LocalBrandedPlaceholder
-                variant="avatar"
-                title={displayName}
-                initials={initial(displayName)}
-                className="h-8 w-8 shrink-0 rounded-full from-zinc-100 to-zinc-100 text-sm text-zinc-600 lg:h-10 lg:w-10"
-              />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-black text-zinc-600 lg:h-10 lg:w-10">
+                {initial(displayName)}
+              </div>
               <div className="min-w-0 flex-1">
                 {hasCustomizedProfile ? (
                   <Link
                     href={`/profile/${donation.profile!.id}`}
-                    className="block truncate text-sm font-bold text-zinc-950 hover:underline"
+                    className="truncate text-sm font-bold text-zinc-950 hover:underline"
                   >
                     {profileName}
                   </Link>
@@ -127,7 +123,7 @@ export default function DonorList({
                         activity: { type: "donation", amount },
                       })
                     }
-                    className="block truncate text-left text-sm font-bold text-zinc-950 hover:underline"
+                    className="truncate text-left text-sm font-bold text-zinc-950 hover:underline"
                   >
                     {displayName}
                   </button>

@@ -42,7 +42,7 @@ export function getContinuousProgressColor(percentage: number): string {
 }
 
 type ProgressRingProps = {
-  percentage: number;
+  percentage?: number;
   raised?: number;
   goal?: number;
   size?: number;
@@ -51,6 +51,9 @@ type ProgressRingProps = {
   showText?: boolean;
   showDetails?: boolean;
   animated?: boolean;
+  textColor?: string;
+  trackColor?: string;
+  progressColor?: string;
 };
 
 export default function ProgressRing({
@@ -58,13 +61,15 @@ export default function ProgressRing({
   raised,
   goal,
   size = 96,
-  strokeWidth = 8,
+  strokeWidth = 10,
   className = "",
   showText = true,
   showDetails,
   animated = true,
+  textColor,
+  trackColor,
+  progressColor,
 }: ProgressRingProps) {
-  // Delegate rendering to FundraisingProgressRing for consistent gradient styling
   return (
     <FundraisingProgressRing
       percentage={percentage}
@@ -75,6 +80,9 @@ export default function ProgressRing({
       showDetails={showDetails !== undefined ? showDetails : (raised !== undefined && goal !== undefined ? true : showText)}
       animated={animated}
       className={className}
+      textColor={textColor}
+      trackColor={trackColor}
+      progressColor={progressColor}
     />
   );
 }
