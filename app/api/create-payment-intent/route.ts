@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-05-27.dahlia",
@@ -17,6 +18,11 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Unauthenticated endpoint, so IP is the only available identity.
+    // Checked before the Stripe PaymentIntent call below.
+    const limited = await enforceRateLimit("paymentIntent", req);
+    if (limited) return limited;
 
     const body = await req.json();
     const {

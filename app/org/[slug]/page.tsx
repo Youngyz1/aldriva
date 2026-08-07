@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSiteUrl } from "@/lib/site-url";
 import { redirect, notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import { normalizeImageUrl } from "@/lib/image-url";
 import OrganizationProfileClient from "./OrganizationProfileClient";
 
@@ -79,10 +80,13 @@ export default async function OrganizationProfilePage({
     return notFound();
   }
 
-  // Normal slug lookup
+  // Normal slug lookup. Explicit public columns even though this is the
+  // service-role client: the row is passed as initialData to a client
+  // component, so select("*") would serialize tax_id and
+  // nonprofit_registration_number into the page payload.
   const { data: org } = await supabase
     .from("organizers")
-    .select("*")
+    .select(ORGANIZER_PUBLIC_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null)
     .maybeSingle();

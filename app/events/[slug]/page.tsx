@@ -211,7 +211,7 @@ export default async function EventPage({
   const [
     { count: organizerEventCount },
     { count: organizerFundraiserCount },
-    { count: followerCount },
+    { data: followerCountRow },
   ] = await Promise.all([
     organizer?.id
       ? supabase
@@ -226,12 +226,16 @@ export default async function EventPage({
           .select("id", { count: "exact", head: true })
           .eq("organizer_id", organizer.id)
       : Promise.resolve({ count: 0 }),
+    // Aggregate view rather than a head-count over organizer_follows:
+    // migration_53 restricted that table to the follower and the organizer,
+    // so an anonymous count over the raw table would now always see 0.
     organizer?.id
       ? supabase
-          .from("organizer_follows")
-          .select("id", { count: "exact", head: true })
+          .from("organizer_follower_counts")
+          .select("follower_count")
           .eq("organizer_id", organizer.id)
-      : Promise.resolve({ count: 0 }),
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   // More events from same organizer, falling back to any other public
@@ -731,7 +735,7 @@ export default async function EventPage({
                             <div className="mt-1 flex gap-5 text-sm text-zinc-500">
                               <span>
                                 <strong className="text-zinc-800">
-                                  {(followerCount ?? 0) + (organizer.follower_offset ?? 0)}
+                                  {Number(followerCountRow?.follower_count ?? 0) + (organizer.follower_offset ?? 0)}
                                 </strong>{" "}
                                 Followers
                               </span>

@@ -169,7 +169,7 @@ export default function OrganizationProfileClient({
         setIsOwner(session.user.id === org.user_id);
       }
 
-      const [{ data: evts }, { data: raisers }, { count }] = await Promise.all([
+      const [{ data: evts }, { data: raisers }, { data: followRow }] = await Promise.all([
         supabase
           .from("events")
           .select("id, title, slug, event_date, venue, city, banner, category")
@@ -181,15 +181,22 @@ export default function OrganizationProfileClient({
           .eq("organizer_id", org.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false }),
+        // Aggregate view rather than a head-count over organizer_follows:
+        // migration_53 restricted that table to the follower and the
+        // organizer, so an anonymous visitor counting rows directly would
+        // now always see 0.
         supabase
-          .from("organizer_follows")
-          .select("*", { count: "exact", head: true })
-          .eq("organizer_id", org.id),
+          .from("organizer_follower_counts")
+          .select("follower_count")
+          .eq("organizer_id", org.id)
+          .maybeSingle(),
       ]);
 
       setEvents(evts ?? []);
       setFundraisers(raisers ?? []);
-      setFollowerCount((count ?? 0) + (org.follower_offset ?? 0));
+      setFollowerCount(
+        Number(followRow?.follower_count ?? 0) + (org.follower_offset ?? 0)
+      );
 
       if (session?.user) {
         const { data: follow } = await supabase

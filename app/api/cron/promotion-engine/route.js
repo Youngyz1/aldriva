@@ -1,6 +1,7 @@
 import { getNextPromotion } from '../../../../lib/promotionEngine.js';
 import { generatePromotionCaption } from '../../../../lib/generateCaption.js';
 import { postToFacebook, postPhotoToFacebook } from '../../../../lib/facebook.js';
+import { isAuthorizedCronRequest } from '../../../../lib/cron-auth';
 
 /**
  * POST /api/cron/promotion-engine
@@ -12,8 +13,7 @@ export async function POST(request) {
   console.log('[PromotionEngine Cron] Cron started.');
 
   // 1. Authenticate
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(request)) {
     console.error('[PromotionEngine Cron] Unauthorized attempt (invalid or missing secret).');
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }

@@ -6,6 +6,7 @@ import PublicPagination from "@/components/public/PublicPagination";
 import PublicEmptyState from "@/components/public/PublicEmptyState";
 import OrganizersDirectoryControls from "./OrganizersDirectoryControls";
 import { cacheLife } from "next/cache";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 
 export type OrganizersPageFilters = {
   q?: string;
@@ -52,7 +53,13 @@ const getCachedOrganizerStats = async (ids: string[]): Promise<OrganizerStatsRec
   const [{ data: events }, { data: fundraisers }, { data: follows }] = await Promise.all([
     supabase.from("events").select("organizer_id").in("organizer_id", ids).eq("visibility", "public"),
     supabase.from("fundraisers").select("organizer_id").in("organizer_id", ids),
-    supabase.from("organizer_follows").select("organizer_id").in("organizer_id", ids),
+    // Aggregate view, not the raw table: migration_53 stopped publishing the
+    // (user_id, organizer_id) follow graph to anonymous callers. This directory
+    // only ever needed the count.
+    supabase
+      .from("organizer_follower_counts")
+      .select("organizer_id, follower_count")
+      .in("organizer_id", ids),
   ]);
 
   for (const row of events ?? []) {
@@ -62,7 +69,9 @@ const getCachedOrganizerStats = async (ids: string[]): Promise<OrganizerStatsRec
     if (row.organizer_id && stats[row.organizer_id]) stats[row.organizer_id].fundraisers += 1;
   }
   for (const row of follows ?? []) {
-    if (row.organizer_id && stats[row.organizer_id]) stats[row.organizer_id].followers += 1;
+    if (row.organizer_id && stats[row.organizer_id]) {
+      stats[row.organizer_id].followers = Number(row.follower_count ?? 0);
+    }
   }
 
   return stats;
@@ -96,7 +105,7 @@ const getCachedFeaturedOrganizers = async (): Promise<OrganizerRow[]> => {
 
   const { data } = await supabase
     .from("organizers")
-    .select("*")
+    .select(ORGANIZER_PUBLIC_COLUMNS)
     .eq("visibility", "public")
     .eq("status", "verified")
     .is("deleted_at", null)
@@ -124,7 +133,7 @@ const getCachedOrganizersDirectory = async (params: DirectoryParams) => {
 
   let organizersQuery = supabase
     .from("organizers")
-    .select("*", { count: "exact" })
+    .select(ORGANIZER_PUBLIC_COLUMNS, { count: "exact" })
     .eq("visibility", "public")
     .is("deleted_at", null);
 

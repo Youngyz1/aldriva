@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import {
@@ -86,9 +87,13 @@ export default function OrgSettingsPage() {
         return;
       }
 
+      // Explicit columns: migration_53's column grants make select("*") on
+      // organizers fail even for the row's owner — the grant applies to the
+      // `authenticated` role, not per-row. This form never edits the revoked
+      // columns (tax_id, nonprofit_registration_number).
       const { data: org, error: orgError } = await supabase
         .from("organizers")
-        .select("*")
+        .select(ORGANIZER_PUBLIC_COLUMNS)
         .eq("slug", originalSlug)
         .eq("user_id", session.user.id)
         .single();

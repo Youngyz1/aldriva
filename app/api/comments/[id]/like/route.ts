@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { createNotification } from "@/lib/notifications";
+// Only enforceRateLimit — this module already defines its own clientIp().
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Service role: bypasses RLS — comment_likes has no public policies.
 const supabaseAdmin = createClient(
@@ -110,6 +112,13 @@ export async function POST(
   if (!uuidPattern.test(id)) {
     return NextResponse.json({ error: "Invalid comment." }, { status: 400 });
   }
+
+  // Liking is deliberately anonymous, so IP is the only identity available.
+  // Checked before any database work. This does not make the cookie/IP dedup
+  // unforgeable — it caps how fast an attacker can cycle identities.
+  const limited = await enforceRateLimit("commentLike", req);
+  if (limited) return limited;
+
   const comment = await getApprovedComment(id);
   if (!comment) {
     return NextResponse.json({ error: "Comment not found." }, { status: 404 });

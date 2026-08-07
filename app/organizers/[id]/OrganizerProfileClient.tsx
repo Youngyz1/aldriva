@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import StarRating from "@/components/StarRating";
 import OrganizerProfileCard from "@/components/ui/profile-card";
@@ -133,7 +134,7 @@ export default function OrganizerProfileClient({
       if (!org) {
         const { data, error } = await supabase
           .from("organizers")
-          .select("*")
+          .select(ORGANIZER_PUBLIC_COLUMNS)
           .eq("id", organizerId)
           .single();
 
@@ -166,12 +167,18 @@ export default function OrganizerProfileClient({
 
       setFundraisers(raisers ?? []);
 
-      const { count } = await supabase
-        .from("organizer_follows")
-        .select("*", { count: "exact", head: true })
-        .eq("organizer_id", organizerId);
+      // Aggregate view rather than a head-count over organizer_follows:
+      // migration_53 restricted that table to the follower and the organizer,
+      // so an anonymous visitor counting rows directly would now always see 0.
+      const { data: followRow } = await supabase
+        .from("organizer_follower_counts")
+        .select("follower_count")
+        .eq("organizer_id", organizerId)
+        .maybeSingle();
 
-      setFollowerCount((count ?? 0) + (org.follower_offset ?? 0));
+      setFollowerCount(
+        Number(followRow?.follower_count ?? 0) + (org.follower_offset ?? 0)
+      );
 
       if (session?.user) {
         const { data: follow } = await supabase

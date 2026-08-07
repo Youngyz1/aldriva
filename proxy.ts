@@ -234,6 +234,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/create-event") ||
     pathname.startsWith("/create-fundraiser") ||
     pathname.startsWith("/create-organizer");
+  const isAdminPath = pathname.startsWith("/admin");
 
   // Response object that Supabase can attach refreshed cookies to.
   const res = NextResponse.next();
@@ -279,11 +280,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
-  // Block suspended accounts from protected areas.
+  // Block suspended accounts from protected areas. Also fetches `role` here
+  // (same query, no extra round-trip) so admin paths can be gated below.
+  let isVerifiedAdmin = false;
+
   if (isProtected && user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("status")
+      .select("status, role")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -294,6 +298,16 @@ export async function proxy(req: NextRequest) {
       loginUrl.searchParams.set("suspended", "1");
 
       return NextResponse.redirect(loginUrl);
+    }
+
+    if (isAdminPath) {
+      if (profile?.role !== "admin") {
+        const homeUrl = req.nextUrl.clone();
+        homeUrl.pathname = "/";
+        homeUrl.search = "";
+        return NextResponse.redirect(homeUrl);
+      }
+      isVerifiedAdmin = true;
     }
   }
 
@@ -385,6 +399,20 @@ export async function proxy(req: NextRequest) {
       // own "couldn't load, try again" state) rather than 404ing a possibly
       // real event.
     }
+  }
+
+  // Admin role already verified above — mark the forwarded request so
+  // app/admin/layout.tsx can skip its own redundant Supabase round-trip on
+  // the common path. requireAdmin() still runs in full as a fallback if this
+  // header is ever absent, preserving defense-in-depth.
+  if (isVerifiedAdmin) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-admin-verified", "1");
+    const verifiedRes = NextResponse.next({ request: { headers: requestHeaders } });
+    for (const cookie of res.cookies.getAll()) {
+      verifiedRes.cookies.set(cookie);
+    }
+    return verifiedRes;
   }
 
   return res;
