@@ -52,12 +52,12 @@ export default async function AdminFundraiserManagePage({
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-6 py-5 shadow-sm">
+      <header>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <Link
               href="/admin/fundraisers"
-              className="text-xs font-black uppercase tracking-wide text-violet-600 hover:underline"
+              className="text-xs font-black uppercase tracking-wide text-brand-700 hover:underline"
             >
               ← Fundraisers
             </Link>
@@ -87,7 +87,7 @@ export default async function AdminFundraiserManagePage({
             ["Donations", donationCount ?? 0],
             ["Comments", commentCount ?? 0],
           ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
+            <div key={String(label)} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</p>
               <p className="mt-1 font-black text-zinc-950">{value}</p>
             </div>
