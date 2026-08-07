@@ -8,13 +8,6 @@ import { SettingsCard } from "@/components/ui/settings-card";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { type AccountInfo, type AddressInfo, defaultAddress } from "@/types/settings";
 
-const stateOptions = [
-  "Alabama", "Alaska", "Arizona", "California", "Florida", "Georgia",
-  "Illinois", "New Jersey", "New York", "Ohio", "Pennsylvania", "Texas", "Washington"
-];
-
-const countryOptions = ["United States", "Canada", "United Kingdom", "Nigeria", "Germany", "France"];
-
 const fieldClass =
   "w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold outline-hidden transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100 sm:rounded-xl sm:px-4 sm:py-2.5";
 
@@ -285,15 +278,12 @@ export default function ProfileClient({
               />
             </Field>
             <Field label="Country">
-              <select
+              <input
                 value={activeAddress.country}
                 onChange={(e) => updateAddress(activeAddressKey, "country", e.target.value)}
+                placeholder="Country"
                 className={fieldClass}
-              >
-                {countryOptions.map((country) => (
-                  <option key={country} value={country}>{country}</option>
-                ))}
-              </select>
+              />
             </Field>
             <Field label="Zip / Postal Code">
               <input
@@ -303,16 +293,12 @@ export default function ProfileClient({
               />
             </Field>
             <Field label="State / Province">
-              <select
+              <input
                 value={activeAddress.state}
                 onChange={(e) => updateAddress(activeAddressKey, "state", e.target.value)}
+                placeholder="State / Province"
                 className={fieldClass}
-              >
-                <option value="">Select a State</option>
-                {stateOptions.map((state) => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
+              />
             </Field>
           </div>
         </div>
