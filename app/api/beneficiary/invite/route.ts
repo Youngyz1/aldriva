@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
           )}</strong>, and the organizer has invited you to claim that beneficiary profile.</p>
           <p>Claiming it lets you add a photo, a short bio, and ways for supporters to reach you. It does not give you control of the campaign itself.</p>
           <p style="margin: 28px 0;">
-            <a href="${claimUrl}" style="background:#287130;color:#ffffff;padding:12px 22px;border-radius:9999px;text-decoration:none;font-weight:bold;">Claim your profile</a>
+            <a href="${claimUrl}" style="background:#c2410c;color:#ffffff;padding:12px 22px;border-radius:9999px;text-decoration:none;font-weight:bold;">Claim your profile</a>
           </p>
           <p style="color:#6b7280;font-size:13px;">If you weren't expecting this, you can ignore this email — nothing is created unless you claim it.</p>
         </div>

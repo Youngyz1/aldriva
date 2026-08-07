@@ -541,13 +541,13 @@ export default async function FundraiserPage({
           <div className="flex gap-2.5">
             <a
               href={`/fundraisers/${fundraiser.slug}/donate`}
-              className="flex min-h-[48px] flex-1 items-center justify-center whitespace-nowrap rounded-full bg-[#c0f269] px-4 py-3.5 text-base font-black text-[#1b3e10] transition hover:bg-[#b5eb57] active:scale-[0.98] shadow-sm sm:px-6"
+              className="flex min-h-[48px] flex-1 items-center justify-center whitespace-nowrap rounded-full bg-brand-300 px-4 py-3.5 text-base font-black text-brand-900 transition hover:bg-brand-400 active:scale-[0.98] shadow-sm sm:px-6"
             >
               Donate now
             </a>
             <ShareFundraiserButton
               title={fundraiser.title}
-              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#1c3a27] px-4 py-3.5 text-base font-black text-[#c0f269] transition hover:bg-[#152f1e] active:scale-[0.98] shadow-sm sm:px-6"
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-900 px-4 py-3.5 text-base font-black text-brand-300 transition hover:bg-brand-950 active:scale-[0.98] shadow-sm sm:px-6"
             />
           </div>
         </section>

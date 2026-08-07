@@ -47,11 +47,11 @@ export function ShareFundraiserButton({
       }
     >
       {status === "copied" ? (
-        <Check className="h-4 w-4 text-[#c0f269]" />
+        <Check className="h-4 w-4 text-brand-300" />
       ) : status === "failed" ? (
         <AlertCircle className="h-4 w-4 text-red-500" />
       ) : (
-        <Share2 className="h-4 w-4 text-[#c0f269]" />
+        <Share2 className="h-4 w-4 text-brand-300" />
       )}
       <span>{status === "copied" ? "Link copied!" : status === "failed" ? "Failed to copy" : "Share"}</span>
     </button>
@@ -149,12 +149,12 @@ export default function FundraiserFloatingActions({
           <ShareFundraiserButton
             title={title}
             tabIndex={isFloatingVisible ? 0 : -1}
-            className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-4 text-xs sm:text-sm font-black text-[#c0f269] shadow-sm transition hover:bg-[#152f1e] active:scale-[0.98]"
+            className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-brand-900 px-4 text-xs sm:text-sm font-black text-brand-300 shadow-sm transition hover:bg-brand-950 active:scale-[0.98]"
           />
           <a
             href={`/fundraisers/${slug}/donate`}
             tabIndex={isFloatingVisible ? 0 : -1}
-            className="flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-[#c0f269] px-4 text-xs sm:text-sm font-black text-[#1b3e10] shadow-sm transition hover:bg-[#b5eb57] active:scale-[0.98]"
+            className="flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-brand-300 px-4 text-xs sm:text-sm font-black text-brand-900 shadow-sm transition hover:bg-brand-400 active:scale-[0.98]"
           >
             Donate now
           </a>

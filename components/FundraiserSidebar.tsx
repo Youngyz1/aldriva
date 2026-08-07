@@ -141,18 +141,18 @@ export default function FundraiserSidebar({
       <section className="flex flex-col gap-2.5">
         <a
           href={`/fundraisers/${fundraiserSlug}/donate`}
-          className="flex w-full min-h-[48px] items-center justify-center rounded-full bg-[#c0f269] px-6 py-3.5 text-base font-black text-[#1b3e10] transition hover:bg-[#b5eb57] active:scale-[0.98] shadow-sm"
+          className="flex w-full min-h-[48px] items-center justify-center rounded-full bg-brand-300 px-6 py-3.5 text-base font-black text-brand-900 transition hover:bg-brand-400 active:scale-[0.98] shadow-sm"
         >
           Donate now
         </a>
         <button
           type="button"
           onClick={handleShare}
-          className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#1c3a27] px-6 py-3.5 text-base font-black text-[#c0f269] transition hover:bg-[#152f1e] active:scale-[0.98] shadow-sm"
+          className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-brand-900 px-6 py-3.5 text-base font-black text-brand-300 transition hover:bg-brand-950 active:scale-[0.98] shadow-sm"
           title={copyStatus === "failed" ? "Copy failed — long-press the link to copy manually" : undefined}
         >
           {copyStatus === "copied" ? (
-            <Check className="h-4 w-4 text-[#c0f269]" />
+            <Check className="h-4 w-4 text-brand-300" />
           ) : copyStatus === "failed" ? (
             <AlertCircle className="h-4 w-4 text-red-500" />
           ) : (
