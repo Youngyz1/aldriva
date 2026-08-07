@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -11,13 +11,20 @@ import {
   greenInputClass,
 } from "@/components/CreatorWorkspace";
 import { supabase } from "@/lib/supabase";
-import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import BeneficiarySelector, {
+  EMPTY_BENEFICIARY_DRAFT,
+  type BeneficiaryDraft,
+} from "@/components/fundraisers/BeneficiarySelector";
+import { validateBeneficiary, beneficiaryTypeLabel } from "@/lib/beneficiary";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
 
-const FUNDRAISER_MEDIA_ASPECT = 16 / 9;
+// Matches the detail-page hero (FundraiserMediaSlider)'s mobile ratio — the
+// single ratio every uploaded photo is cropped to.
+const FUNDRAISER_PHOTO_ASPECT_RATIO = 4 / 5;
+const MAX_FUNDRAISER_PHOTOS = 8;
 
 const FUNDRAISER_STEPS = [
   { label: "Fundraiser Details" },
@@ -30,12 +37,6 @@ type OrganizerProfile = {
   id: string;
   name: string;
   photo?: string | null;
-};
-
-type SelectedPhoto = {
-  id: string;
-  file: File;
-  previewUrl: string;
 };
 
 function generateSlug(title: string) {
@@ -59,11 +60,11 @@ export default function CreateFundraiserPage() {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [photoFiles, setPhotoFiles] = useState<SelectedPhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [organizers, setOrganizers] = useState<OrganizerProfile[]>([]);
-  const photoFilesRef = useRef<SelectedPhoto[]>([]);
+  const [beneficiary, setBeneficiary] = useState<BeneficiaryDraft>(EMPTY_BENEFICIARY_DRAFT);
 
   const [form, setForm] = useState({
     title: "",
@@ -77,16 +78,6 @@ export default function CreateFundraiserPage() {
     category: "",
     tags: "",
   });
-
-  useEffect(() => {
-    photoFilesRef.current = photoFiles;
-  }, [photoFiles]);
-
-  useEffect(() => {
-    return () => {
-      photoFilesRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-    };
-  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -149,22 +140,14 @@ export default function CreateFundraiserPage() {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
-  function handleCroppedPhoto(file: File, previewUrl: string) {
+  function addPhoto(url: string) {
     setNotice("");
-    setPhotoFiles((current) =>
-      current.length >= 8
-        ? current
-        : [...current, { id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`, file, previewUrl }]
-    );
+    setPhotoUrls((current) => [...current, url].slice(0, MAX_FUNDRAISER_PHOTOS));
   }
 
-  function removePhoto(id: string) {
+  function removePhoto(index: number) {
     setNotice("");
-    setPhotoFiles((current) => {
-      const removed = current.find((photo) => photo.id === id);
-      if (removed) URL.revokeObjectURL(removed.previewUrl);
-      return current.filter((photo) => photo.id !== id);
-    });
+    setPhotoUrls((current) => current.filter((_, i) => i !== index));
   }
 
   function saveDraft() {
@@ -222,6 +205,38 @@ export default function CreateFundraiserPage() {
       return;
     }
 
+    // Type + name are required; the validator also strips fields that don't
+    // apply to the chosen type before storage.
+    const beneficiaryResult = validateBeneficiary({
+      ...beneficiary,
+      name: beneficiary.type === "self" ? selectedOrganizer.name : beneficiary.name,
+    });
+    if (!beneficiaryResult.ok) {
+      setError(beneficiaryResult.error);
+      setLoading(false);
+      return;
+    }
+
+    // Resolve the beneficiary to a row in `beneficiaries` before creating the
+    // fundraiser, so the campaign links to a profile that can be invited to
+    // claim an account. Reuses one of this organizer's existing beneficiaries
+    // when it matches, otherwise creates a new one.
+    let beneficiaryId: string | null = null;
+    try {
+      const res = await fetch("/api/beneficiary/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiary: beneficiaryResult.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save the beneficiary.");
+      beneficiaryId = data.beneficiaryId;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the beneficiary.");
+      setLoading(false);
+      return;
+    }
+
     let video_url = null;
     if (videoFile) {
       setUploadProgress("Uploading video...");
@@ -252,6 +267,8 @@ export default function CreateFundraiserPage() {
         raised: Number(form.raised) || 0,
         organizer: form.organizer,
         organizer_id: form.organizer_id,
+        beneficiary: beneficiaryResult.value,
+        beneficiary_id: beneficiaryId,
         category: form.category,
         video_url,
         user_id: session.user.id,
@@ -265,20 +282,9 @@ export default function CreateFundraiserPage() {
       return;
     }
 
-    const uploadedMedia: { url: string; position: number }[] = [];
-
-    for (const [index, photo] of photoFiles.entries()) {
-      setUploadProgress(`Uploading photo ${index + 1} of ${photoFiles.length}...`);
-      try {
-        const url = await uploadImage(photo.file, "fundraiser-media", insertedFundraiser.id);
-        uploadedMedia.push({ url, position: index });
-      } catch (err) {
-        const message = err instanceof UploadImageError ? err.message : "Photo upload failed.";
-        setError("Photo upload failed: " + message);
-        setLoading(false);
-        return;
-      }
-    }
+    // Photos are already cropped and uploaded (each ImageUploadWithCrop
+    // instance uploads immediately on confirm), so this is just recording them.
+    const uploadedMedia = photoUrls.map((url, position) => ({ url, position }));
 
     if (uploadedMedia.length > 0) {
       const { error: mediaError } = await supabase.from("fundraiser_media").insert(
@@ -334,7 +340,7 @@ export default function CreateFundraiserPage() {
         <div className="space-y-4">
           {tips.map((tip) => (
             <p key={tip} className="flex gap-3 text-sm font-semibold text-zinc-600">
-              <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="mt-1 h-2 w-2 rounded-full bg-brand-600" />
               {tip}
             </p>
           ))}
@@ -343,10 +349,10 @@ export default function CreateFundraiserPage() {
 
       <CreatorPanel title="Preview">
         <div className="overflow-hidden rounded-xl bg-zinc-100">
-          {photoFiles[0] ? (
+          {photoUrls[0] ? (
             <div
               className="h-32 bg-cover bg-center"
-              style={{ backgroundImage: `url(${photoFiles[0].previewUrl})` }}
+              style={{ backgroundImage: `url(${photoUrls[0]})` }}
             />
           ) : (
             <div className="flex h-32 items-center justify-center text-zinc-400">
@@ -355,11 +361,11 @@ export default function CreateFundraiserPage() {
           )}
         </div>
         <h3 className="mt-4 text-xl font-black">{form.title || "Fundraiser Title"}</h3>
-        <p className="mt-1 text-sm font-medium text-zinc-500">by {form.organizer || "Organization Name"}</p>
+        <p className="mt-1 text-sm font-medium text-zinc-500">by {form.organizer || "Organizer Name"}</p>
         <div className="mt-4">
           <p className="text-sm font-black">{money(form.raised)} raised of {money(form.goal)} goal</p>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200">
-            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+            <div className="h-full rounded-full bg-brand-600" style={{ width: `${progress}%` }} />
           </div>
           <p className="mt-2 text-xs font-bold text-zinc-500">{progress}% funded</p>
         </div>
@@ -374,7 +380,7 @@ export default function CreateFundraiserPage() {
             <label key={value} className="flex cursor-pointer gap-3">
               <input
                 checked={visibility === value}
-                className="mt-1 accent-emerald-600"
+                className="mt-1 accent-brand-700"
                 name="visibility"
                 onChange={() => setVisibility(value)}
                 type="radio"
@@ -402,11 +408,11 @@ export default function CreateFundraiserPage() {
           </button>
         )}
         {currentStep < FUNDRAISER_STEPS.length - 1 ? (
-          <button onClick={nextStep} type="button" className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white hover:bg-emerald-700">
+          <button onClick={nextStep} type="button" className="rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-black text-white hover:bg-brand-800">
             Next: {FUNDRAISER_STEPS[currentStep + 1].label}
           </button>
         ) : (
-          <button disabled={loading} form="create-fundraiser-form" type="submit" className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-emerald-300">
+          <button disabled={loading} form="create-fundraiser-form" type="submit" className="rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-black text-white hover:bg-brand-800 disabled:bg-brand-300">
             {loading ? uploadProgress || "Launching..." : "Launch Fundraiser"}
           </button>
         )}
@@ -430,7 +436,7 @@ export default function CreateFundraiserPage() {
     >
       <form id="create-fundraiser-form" onSubmit={handleSubmit} className="space-y-5">
         {(error || notice) && (
-          <div className={`rounded-2xl border px-5 py-4 text-sm font-bold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+          <div className={`rounded-2xl border px-5 py-4 text-sm font-bold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-brand-200 bg-brand-50 text-brand-800"}`}>
             {error || notice}
           </div>
         )}
@@ -443,14 +449,14 @@ export default function CreateFundraiserPage() {
                   <input name="title" value={form.title} onChange={handleChange} required type="text" placeholder="Support Education for Underprivileged Children" className={greenInputClass} />
                 </CreatorField>
 
-                <CreatorField label="Organization Profile">
+                <CreatorField label="Organizer Profile">
                   <select name="organizer_id" value={form.organizer_id} onChange={handleChange} required disabled={organizers.length === 0} className={greenInputClass}>
                     {organizers.length === 0
                       ? <option value="">No organizer profiles yet</option>
                       : organizers.map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name}</option>)}
                   </select>
                   {organizers.length === 0 && (
-                    <Link href="/create-organizer" className="mt-2 inline-block text-sm font-black text-emerald-700 hover:text-emerald-800">
+                    <Link href="/create-organizer" className="mt-2 inline-block text-sm font-black text-brand-800 hover:text-brand-900">
                       Create an organizer profile
                     </Link>
                   )}
@@ -462,37 +468,51 @@ export default function CreateFundraiserPage() {
               </div>
             </CreatorPanel>
 
+            {/* Sits immediately after Organizer: who runs the fundraiser, then
+                who it actually helps. */}
+            <CreatorPanel title="Who are you fundraising for?">
+              <BeneficiarySelector
+                value={beneficiary}
+                onChange={setBeneficiary}
+                organizerName={form.organizer}
+                inputClassName={greenInputClass}
+                onError={setError}
+              />
+            </CreatorPanel>
+
             <CreatorPanel title="Fundraiser Photos">
               <div className="grid gap-5">
-                <CreatorField label={`Add photos (${photoFiles.length}/8)`} hint="The first image becomes the fundraiser cover. Each photo is cropped to a wide 16:9 banner shape.">
+                <CreatorField label={`Add photos (${photoUrls.length}/${MAX_FUNDRAISER_PHOTOS})`} hint="The first image becomes the fundraiser cover.">
                   <ImageUploadWithCrop
-                    aspectRatio={FUNDRAISER_MEDIA_ASPECT}
-                    previewClassName="hidden"
-                    label={photoFiles.length >= 8 ? "Maximum 8 photos reached" : "Add photo"}
-                    disabled={photoFiles.length >= 8}
-                    onCropped={handleCroppedPhoto}
+                    bucket="fundraiser-media"
+                    folder="fundraiser-photos"
+                    aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
+                    onUploaded={addPhoto}
+                    onError={setError}
+                    disabled={photoUrls.length >= MAX_FUNDRAISER_PHOTOS}
+                    label="Add a photo"
                   />
                 </CreatorField>
 
-                {photoFiles.length > 0 && (
+                {photoUrls.length > 0 && (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {photoFiles.map((photo, index) => (
-                      <div key={photo.id} className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+                    {photoUrls.map((url, index) => (
+                      <div key={url} className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
                         <img
-                          src={photo.previewUrl}
+                          src={url}
                           alt={`Fundraiser photo ${index + 1}`}
-                          className="aspect-video w-full object-cover"
+                          className="aspect-square w-full object-cover"
                         />
                         <button
                           type="button"
-                          onClick={() => removePhoto(photo.id)}
+                          onClick={() => removePhoto(index)}
                           className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm font-black text-white transition hover:bg-black"
                           aria-label={`Remove photo ${index + 1}`}
                         >
                           ×
                         </button>
                         {index === 0 && (
-                          <span className="absolute bottom-2 left-2 rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-black uppercase text-white">
+                          <span className="absolute bottom-2 left-2 rounded-full bg-brand-700 px-2 py-1 text-[10px] font-black uppercase text-white">
                             Cover
                           </span>
                         )}
@@ -557,14 +577,50 @@ export default function CreateFundraiserPage() {
 
         {currentStep === 3 && (
           <CreatorPanel title="Review & Publish">
+            {/* Organizer → Beneficiary → Fundraiser, so the relationship
+                between who runs it and who it helps reads at a glance. */}
+            <div className="mb-5 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 sm:p-5">
+              <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
+                Organized by
+              </p>
+              <p className="mt-0.5 text-base font-black text-zinc-950">
+                {form.organizer || "Not set"}
+              </p>
+
+              <div className="my-2 h-4 w-px bg-zinc-300" aria-hidden />
+
+              <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
+                Helping
+              </p>
+              <p className="mt-0.5 text-base font-black text-zinc-950">
+                {beneficiary.type === "self"
+                  ? form.organizer || "You"
+                  : beneficiary.name || "Not set"}
+              </p>
+              {beneficiary.type && (
+                <p className="mt-1 text-xs font-semibold text-zinc-500">
+                  {beneficiaryTypeLabel(beneficiary.type)}
+                  {beneficiary.relationship ? ` · ${beneficiary.relationship}` : ""}
+                  {beneficiary.species ? ` · ${beneficiary.species}` : ""}
+                </p>
+              )}
+
+              <div className="my-2 h-4 w-px bg-zinc-300" aria-hidden />
+
+              <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
+                Fundraiser
+              </p>
+              <p className="mt-0.5 text-base font-black text-zinc-950">
+                {form.title || "Not set"}
+              </p>
+            </div>
+
             <div className="grid gap-4">
               {[
-                ["Fundraiser", form.title || "Not set"],
-                ["Organization", form.organizer || "Not set"],
                 ["Category", form.category],
                 ["Goal", money(form.goal)],
                 ["Raised", money(form.raised)],
-                ["Photos", String(photoFiles.length)],
+                ["Photos", String(photoUrls.length)],
                 ["Visibility", visibility],
               ].map(([label, value]) => (
                 <div key={label} className="flex flex-col justify-between gap-1 rounded-xl bg-zinc-50 px-4 py-3 ring-1 ring-zinc-200 sm:flex-row">
