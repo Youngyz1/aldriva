@@ -225,6 +225,52 @@ async function checkProductAccess(
   return isAuthorizedAdmin(userId);
 }
 
+/**
+ * Redirect that also ends the session.
+ *
+ * A blocked account still holds a perfectly valid token — being suspended or
+ * purged does not invalidate it, because enforcement lives here rather than in
+ * the database. Redirecting such a user to /login therefore hit the
+ * "already-authenticated users are bounced off /login" rule below and dumped
+ * them on the homepage, so the ?suspended=1 / ?deleted=1 notices were never
+ * reachable. Confirmed live: a purged account hitting /dashboard/settings
+ * landed on "/" with no explanation.
+ *
+ * Clearing the session removes the conflict at its source rather than
+ * special-casing around it — once the cookies are gone the user genuinely is
+ * unauthenticated, so the bounce correctly does not apply and /login renders.
+ * It is also the right outcome on its own terms: a purged or suspended account
+ * should not keep a live session.
+ *
+ * Cookies must be deleted on the REDIRECT response. `res` further down is a
+ * separate NextResponse.next() that these redirects never return, so anything
+ * written there is discarded — that subtlety is what made the first fix
+ * attempt silently do nothing.
+ */
+function redirectAndSignOut(
+  req: NextRequest,
+  pathname: string,
+  notice: [string, string]
+) {
+  const url = req.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  url.searchParams.set(notice[0], notice[1]);
+
+  const response = NextResponse.redirect(url);
+
+  // Supabase SSR stores the session across `sb-<ref>-auth-token` and, once the
+  // token is large enough, numbered chunks of it. Clearing by prefix covers
+  // every chunk without hardcoding the project ref.
+  for (const cookie of req.cookies.getAll()) {
+    if (cookie.name.startsWith("sb-")) {
+      response.cookies.delete(cookie.name);
+    }
+  }
+
+  return response;
+}
+
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
@@ -292,12 +338,7 @@ export async function proxy(req: NextRequest) {
       .maybeSingle();
 
     if (profile?.status === "suspended") {
-      const loginUrl = req.nextUrl.clone();
-
-      loginUrl.pathname = "/login";
-      loginUrl.searchParams.set("suspended", "1");
-
-      return NextResponse.redirect(loginUrl);
+      return redirectAndSignOut(req, "/login", ["suspended", "1"]);
     }
 
     /**
@@ -314,13 +355,7 @@ export async function proxy(req: NextRequest) {
      * whole point of it.
      */
     if (profile?.status === "purged") {
-      const loginUrl = req.nextUrl.clone();
-
-      loginUrl.pathname = "/login";
-      loginUrl.search = "";
-      loginUrl.searchParams.set("deleted", "1");
-
-      return NextResponse.redirect(loginUrl);
+      return redirectAndSignOut(req, "/login", ["deleted", "1"]);
     }
 
     if (profile?.status === "pending_deletion") {

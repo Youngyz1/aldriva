@@ -22,6 +22,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
   const suspendedNotice = searchParams.get("suspended") === "1";
+  // Set by proxy.ts when a purged account is bounced off a protected route.
+  // Without this the redirect landed here silently and the user was told
+  // nothing about why they had been signed out.
+  const deletedNotice = searchParams.get("deleted") === "1";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -199,6 +203,13 @@ function LoginForm() {
           {suspendedNotice && !error && (
             <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">
               Your account is suspended. Please contact support for help.
+            </div>
+          )}
+
+          {deletedNotice && !error && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">
+              This account has been permanently deactivated and can no longer be
+              restored. Contact support if you believe this is a mistake.
             </div>
           )}
 
