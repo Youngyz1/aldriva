@@ -121,7 +121,7 @@ export default function VerifyTicketPage({ params }: { params: Promise<{ code: s
         {/* Header */}
         <div className="text-center mb-8 flex flex-col items-center">
           <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/25 rounded-2xl px-4 py-2 mb-4">
-            <img src="/logo.png" alt="Aldriva Logo" className="h-5 w-5 object-contain rounded-md" />
+            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-5 w-5 object-contain rounded-md" />
             <span className="text-orange-400 font-black text-sm tracking-widest uppercase">{BRAND.name}</span>
           </div>
           <h1 className="text-white text-2xl font-black">Ticket Verification</h1>

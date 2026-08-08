@@ -26,9 +26,14 @@ export const BRAND = {
 
   // Brand assets
   assets: {
-    logo: "/logo.png",
+    logo: "/logo-horizontal.png",
+    // No dark-mode variant asset exists yet — nothing currently reads this
+    // field either (confirmed: no call site references BRAND.assets.logoDark).
     logoDark: "/logo-dark.png",
     favicon: "/favicon.ico",
+    // No 1200x630 OG card asset exists in /public yet — this path (and the
+    // separate hardcoded /og-image.png used by ~15 page-level metadata
+    // blocks) 404s until a real asset is added.
     ogImage: "/og-image.jpg",
   },
 

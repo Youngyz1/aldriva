@@ -31,6 +31,12 @@ export const rootMetadata: Metadata = {
     description: BRAND.seo.defaultDescription,
     images: [BRAND.assets.ogImage],
   },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 /** Shared WebSite JSON-LD object for the root <head> script, same reason as above. */

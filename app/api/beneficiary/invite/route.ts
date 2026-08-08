@@ -5,6 +5,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSiteUrl } from "@/lib/site-url";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { BRAND } from "@/config/branding";
 
 /**
  * Invites a beneficiary to claim their profile.
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromAddress = `Aldriva <${
-      process.env.RESEND_FROM_EMAIL || "contact@fund4agoodcause.com"
+      process.env.RESEND_FROM_EMAIL || BRAND.contactEmail
     }>`;
 
     await resend.emails.send({

@@ -25,7 +25,7 @@ function NavbarFallback() {
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 md:gap-4 md:px-6">
-        <BrandMark textClassName="hidden sm:inline text-zinc-950" />
+        <BrandMark textClassName="hidden sm:inline text-zinc-950" priority />
       </div>
     </header>
   );

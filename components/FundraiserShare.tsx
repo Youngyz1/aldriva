@@ -144,7 +144,7 @@ export default function FundraiserShare({
         {/* Logo Mark */}
         <div className="absolute left-1/2 -translate-x-1/2 z-10 top-3">
           <img
-            src="/logo.png"
+            src="/icons/icon-source.png"
             alt="Aldriva Logo"
             className="w-auto object-contain h-8"
           />
