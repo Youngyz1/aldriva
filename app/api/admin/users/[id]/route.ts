@@ -53,13 +53,25 @@ export async function PATCH(
     }
   }
 
-  const update: Record<string, string> = {};
+  const update: Record<string, string | null> = {};
 
   if (status) {
     if (!['active', 'suspended'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status value.' }, { status: 400 });
     }
     update.status = status;
+
+    /**
+     * Revoking a pending deletion on the user's behalf. Setting status back to
+     * 'active' is not enough: `deleted_at` hides the account from every public
+     * query and `purge_at` is what the nightly cron selects on, so leaving
+     * either behind produces an account that reports active but stays invisible
+     * and gets re-flipped on the next run.
+     */
+    if (status === 'active') {
+      update.deleted_at = null;
+      update.purge_at = null;
+    }
   }
 
   if (role) {

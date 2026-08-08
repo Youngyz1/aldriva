@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -54,6 +54,42 @@ function money(value: string | number) {
 export default function CreateFundraiserPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  // Anchor for the step-change scroll reset below.
+  const formTopRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Scroll back to the top of the form whenever the step changes.
+   *
+   * Advancing only swapped the rendered step; the scroll offset stayed where it
+   * was, so on a long step "Next" left the user mid-page looking at the middle
+   * of a form they had not seen the top of.
+   *
+   * One effect on the step index rather than a call inside each of Next/Back:
+   * this is a single wizard with one `currentStep`, so any future navigation
+   * (a progress-bar jump, validation bouncing someone back) is covered without
+   * remembering to add it.
+   *
+   * Walks up from the form to find a scrollable ancestor before falling back to
+   * the window, because on some layouts the page itself does not scroll — the
+   * container does, and scrolling the window there does nothing.
+   */
+  useEffect(() => {
+    const node = formTopRef.current;
+    if (!node) return;
+
+    let el: HTMLElement | null = node.parentElement;
+    while (el && el !== document.body) {
+      const { overflowY } = getComputedStyle(el);
+      if ((overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight) {
+        el.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      el = el.parentElement;
+    }
+
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentStep]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -435,6 +471,9 @@ export default function CreateFundraiserPage() {
       footer={footer}
     >
       <form id="create-fundraiser-form" onSubmit={handleSubmit} className="space-y-5">
+        {/* Scroll anchor for the step-change effect. Sits at the very top of
+            the step content so a reset lands on the new step's heading. */}
+        <div ref={formTopRef} aria-hidden className="scroll-mt-24" />
         {(error || notice) && (
           <div className={`rounded-2xl border px-5 py-4 text-sm font-bold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-brand-200 bg-brand-50 text-brand-800"}`}>
             {error || notice}

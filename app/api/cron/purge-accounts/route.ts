@@ -3,29 +3,27 @@ import { supabaseAdmin } from "@/lib/dashboard-context";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
 /**
- * Hard-purges accounts whose 14-day deletion grace period has elapsed.
+ * Ends the 14-day account-deletion grace period.
  *
- * Every write here MUST have its `error` inspected. `supabase-js` resolves with
- * `{ data, error }` rather than throwing, so an unchecked write fails silently
- * and the surrounding try/catch never fires. That is exactly how the previous
- * version of this route reported "Purged user X" while erasing nothing: three
- * of its four writes targeted columns that do not exist (`profiles.full_name`,
- * `events.image_url`, `fundraisers.description`) and returned HTTP 400, and a
- * fourth set `profiles.status = 'purged'`, which violates `profiles_status_check`.
+ * SOFT DELETE, BY DESIGN. This job flips `pending_deletion` → `purged` and
+ * nothing else. It deliberately does NOT:
+ *   - scrub profile, organizer, fundraiser or event fields
+ *   - call auth.admin.deleteUser()
  *
- * If you add a write to this file, destructure `error` and throw on it.
+ * An earlier version did both. That was removed on purpose: the row and all
+ * associated data are retained indefinitely for fraud and dispute
+ * investigation, and destroying the auth user made the state irreversible even
+ * for an admin. Inaccessibility is enforced at the application layer instead —
+ * proxy.ts blocks `pending_deletion` and `purged` from signing in, and the
+ * public queries already filter on `deleted_at`.
  *
- * Aldriva-only content types (articles, businesses, products) are NOT scrubbed
- * here on purpose: their owner_id FKs are `REFERENCES auth.users ON DELETE
- * CASCADE`, so the auth-user deletion in step 2f removes those rows entirely —
- * a stronger guarantee than anonymisation.
+ * This is a deliberate retention decision, not an oversight. A longer-term
+ * purge policy can be layered on later if compliance requires it; that is
+ * explicitly out of scope here. Do not "restore" the scrubbing without one.
+ *
+ * `deleted_at` is left in place as the tombstone. `purge_at` is cleared so the
+ * row stops matching this job's selector on subsequent nightly runs.
  */
-
-/** Throws with context if a Supabase write failed, so the caller can count it as unpurged. */
-function assertOk(step: string, error: { message: string } | null) {
-  if (error) throw new Error(`${step}: ${error.message}`);
-}
-
 export async function POST(request: NextRequest) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,137 +32,53 @@ export async function POST(request: NextRequest) {
   const now = new Date().toISOString();
 
   try {
-    // 1. Find profiles whose purge_at has passed
-    const { data: profilesToDelete, error: profilesErr } = await supabaseAdmin
+    // Scoped to pending_deletion so a row that an admin revoked mid-window is
+    // never caught by a later run, even if purge_at was somehow left behind.
+    const { data: due, error: dueError } = await supabaseAdmin
       .from("profiles")
       .select("id")
+      .eq("status", "pending_deletion")
       .not("purge_at", "is", null)
       .lte("purge_at", now);
 
-    if (profilesErr) {
-      throw new Error(`Failed to query profiles: ${profilesErr.message}`);
+    if (dueError) {
+      throw new Error(`Failed to query profiles: ${dueError.message}`);
     }
 
-    const profileIds = (profilesToDelete ?? []).map((p) => p.id);
-    console.log(`[PurgeAccounts Cron] Found ${profileIds.length} profile(s) to purge.`);
+    const ids = (due ?? []).map((row) => row.id);
+    console.log(`[PurgeAccounts Cron] ${ids.length} account(s) past their grace period.`);
 
-    if (profileIds.length === 0) {
+    if (ids.length === 0) {
       return NextResponse.json({ success: true, purged: 0, failed: 0 });
     }
 
-    let purgedCount = 0;
-    const failures: string[] = [];
+    // Single statement rather than a loop: there is only one write per account
+    // now, so there is nothing to sequence and nothing to partially fail.
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        status: "purged",
+        // deleted_at stays — it is the tombstone the public queries filter on.
+        purge_at: null,
+        updated_at: now,
+      })
+      .in("id", ids)
+      .select("id");
 
-    for (const profileId of profileIds) {
-      try {
-        // 2a. Anonymise the profile (keep the row so FKs stay intact).
-        //     account_info / preferences / privacy_settings are NOT NULL jsonb
-        //     defaulting to '{}' — they must be emptied, not nulled.
-        //     'purged' is an allowed status only because migration_53 added it
-        //     to profiles_status_check.
-        const { error: profileErr } = await supabaseAdmin
-          .from("profiles")
-          .update({
-            display_name: "[deleted]",
-            avatar_url: null,
-            profile_photo: null,
-            account_info: {},
-            preferences: {},
-            privacy_settings: {},
-            status: "purged",
-            // deleted_at is kept as the tombstone; purge_at is cleared so this
-            // row is not re-selected on every subsequent nightly run.
-            purge_at: null,
-          })
-          .eq("id", profileId);
-        assertOk("profiles", profileErr);
-
-        // 2b. Organizers owned by this user
-        const { data: organizers, error: orgFetchErr } = await supabaseAdmin
-          .from("organizers")
-          .select("id")
-          .eq("user_id", profileId);
-        assertOk("organizers.select", orgFetchErr);
-
-        const organizerIds = (organizers ?? []).map((o) => o.id);
-
-        if (organizerIds.length > 0) {
-          // 2c. Anonymise events (column is `banner`, not `image_url`)
-          const { error: eventsErr } = await supabaseAdmin
-            .from("events")
-            .update({
-              title: "[deleted]",
-              description: null,
-              banner: null,
-              purge_at: null,
-            })
-            .in("organizer_id", organizerIds);
-          assertOk("events", eventsErr);
-
-          // 2d. Anonymise fundraisers (body column is `story`, not `description`)
-          const { error: fundraisersErr } = await supabaseAdmin
-            .from("fundraisers")
-            .update({
-              title: "[deleted]",
-              story: null,
-              image_url: null,
-              purge_at: null,
-            })
-            .in("organizer_id", organizerIds);
-          assertOk("fundraisers", fundraisersErr);
-
-          // 2e. Anonymise organizers. Done per-row because `slug` is NOT NULL
-          //     with a unique index, so each needs its own distinct value —
-          //     and leaving the old slug would preserve the person's name in
-          //     the public /org/<slug> URL after their name was scrubbed.
-          for (const organizerId of organizerIds) {
-            const { error: orgErr } = await supabaseAdmin
-              .from("organizers")
-              .update({
-                name: "[deleted]",
-                slug: `deleted-${organizerId}`,
-                bio: null,
-                photo: null,
-                banner: null,
-                // Contact and registration identifiers survived the previous
-                // implementation entirely.
-                contact_email: null,
-                tax_id: null,
-                nonprofit_registration_number: null,
-                website: null,
-                facebook: null,
-                twitter: null,
-                instagram: null,
-                linkedin: null,
-                youtube: null,
-                tiktok: null,
-                purge_at: null,
-              })
-              .eq("id", organizerId);
-            assertOk(`organizers[${organizerId}]`, orgErr);
-          }
-        }
-
-        // 2f. Only now delete the auth user. Doing this before the scrubs (as
-        //     the previous version did) made any scrub failure irreversible:
-        //     the account is gone, so nobody can re-trigger deletion.
-        const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(profileId);
-        if (authErr) throw new Error(`auth.deleteUser: ${authErr.message}`);
-
-        purgedCount++;
-        console.log(`[PurgeAccounts Cron] Purged user ${profileId}`);
-      } catch (userErr: unknown) {
-        const msg = userErr instanceof Error ? userErr.message : String(userErr);
-        failures.push(profileId);
-        console.error(`[PurgeAccounts Cron] Failed to purge user ${profileId}: ${msg}`);
-      }
+    // Checked, not swallowed. supabase-js resolves with { data, error } rather
+    // than throwing, so an unchecked write here would report a clean run while
+    // leaving every account stuck in pending_deletion forever.
+    if (updateError) {
+      throw new Error(`Failed to mark accounts purged: ${updateError.message}`);
     }
 
-    // Surface partial failure to the caller instead of reporting a clean run.
+    const purged = updated?.length ?? 0;
+    console.log(`[PurgeAccounts Cron] Marked ${purged} account(s) purged.`);
+
     return NextResponse.json({
-      success: failures.length === 0,
-      purged: purgedCount,
-      failed: failures.length,
+      success: purged === ids.length,
+      purged,
+      failed: ids.length - purged,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

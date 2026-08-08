@@ -300,6 +300,39 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    /**
+     * Accounts in the deletion lifecycle.
+     *
+     * `purged` is the terminal state: the grace period elapsed, so there is no
+     * way back and the account must behave as gone. The row and its data are
+     * retained for fraud and dispute investigation, so nothing about that is
+     * enforced in the database — this check IS the enforcement. Without it a
+     * purged user could still sign in and use the dashboard normally.
+     *
+     * `pending_deletion` is bounced too, but to the recovery page rather than a
+     * dead end: they are inside the 14-day window and self-cancelling is the
+     * whole point of it.
+     */
+    if (profile?.status === "purged") {
+      const loginUrl = req.nextUrl.clone();
+
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+      loginUrl.searchParams.set("deleted", "1");
+
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (profile?.status === "pending_deletion") {
+      const recoverUrl = req.nextUrl.clone();
+
+      recoverUrl.pathname = "/recover-account";
+      recoverUrl.search = "";
+
+      return NextResponse.redirect(recoverUrl);
+    }
+
+
     if (isAdminPath) {
       if (profile?.role !== "admin") {
         const homeUrl = req.nextUrl.clone();
