@@ -4,8 +4,6 @@ import PublicPagination from "@/components/public/PublicPagination";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-export const revalidate = 60;
-
 const PAGE_SIZE = 9;
 
 export default async function CategoryArticlesPage({

@@ -50,7 +50,7 @@ export default function AdminFundraiserStatusActions({
 
   const badge =
     status === "published"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "bg-brand-100 text-brand-800"
       : status === "rejected"
       ? "bg-red-100 text-red-700"
       : "bg-amber-100 text-amber-700";
@@ -58,7 +58,7 @@ export default function AdminFundraiserStatusActions({
     status === "pending_review" ? "Pending review" : status === "published" ? "Published" : "Rejected";
 
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+    <section className="rounded-xl border border-zinc-200 bg-white p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-black text-zinc-950">Review status</h2>
         <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${badge}`}>{label}</span>
@@ -79,7 +79,7 @@ export default function AdminFundraiserStatusActions({
             type="button"
             disabled={working}
             onClick={() => patch({ status: "published" })}
-            className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            className="rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-black text-white transition hover:bg-brand-800 disabled:opacity-50"
           >
             {working ? "Working…" : "Approve & Publish"}
           </button>

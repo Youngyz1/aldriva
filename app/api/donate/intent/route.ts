@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY is not set.");
@@ -38,6 +39,12 @@ export async function POST(req: NextRequest) {
   userId: authData.user?.id,
   email: authData.user?.email,
 });
+
+    // Before stripe.customers.create / paymentIntents.create below. Signed-in
+    // donors are keyed on their user id; anonymous donation is supported, so
+    // those fall back to IP.
+    const limited = await enforceRateLimit("paymentIntent", req, userId || null);
+    if (limited) return limited;
 
     const donationAmount = Number(amount);
     const tipAmount = Number(tip) || 0;

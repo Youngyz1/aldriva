@@ -14,6 +14,8 @@ interface CoverageBandProps {
   children: React.ReactNode;
   /** Optional "Still have questions?" style link beneath the paragraph. */
   stillHaveQuestions?: CoverageBandLink;
+  /** Optional large pill CTA button rendered below the paragraph. */
+  cta?: CoverageBandLink;
   /** Band background. Defaults to the approved coral. */
   backgroundColor?: string;
   /**
@@ -41,6 +43,7 @@ export default function CoverageBand({
   headlineLines,
   children,
   stillHaveQuestions,
+  cta,
   backgroundColor = CORAL,
   waveColor = PAGE_BG,
 }: CoverageBandProps) {
@@ -65,6 +68,15 @@ export default function CoverageBand({
         <div className="mx-auto mt-6 max-w-2xl text-base font-medium text-white/90 sm:text-lg [&_a]:font-bold [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-white">
           {children}
         </div>
+
+        {cta && (
+          <Link
+            href={cta.href}
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-black text-zinc-950 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            {cta.label}
+          </Link>
+        )}
 
         {stillHaveQuestions && (
           <p className="mt-6 text-sm font-semibold text-white/80">

@@ -215,16 +215,44 @@ export function CreatorField({
   label,
   children,
   hint,
+  /**
+   * Render as a plain group instead of a <label>.
+   *
+   * Required for any field whose children are a composite widget rather than a
+   * single control. A <label> with no htmlFor implicitly targets its FIRST
+   * labelable descendant, and a click anywhere inside it activates that
+   * control. Wrapping the story editor this way meant tapping the text area
+   * activated the editor's hidden <input type="file">, opening the image picker.
+   */
+  asGroup = false,
 }: {
   label: string;
   children: ReactNode;
   hint?: string;
+  asGroup?: boolean;
 }) {
+  const caption = (
+    <span className="mb-2 block text-sm font-black text-zinc-800">{label}</span>
+  );
+  const hintNode = hint ? (
+    <span className="mt-2 block text-xs font-medium text-zinc-500">{hint}</span>
+  ) : null;
+
+  if (asGroup) {
+    return (
+      <div className="block" role="group" aria-label={label}>
+        {caption}
+        {children}
+        {hintNode}
+      </div>
+    );
+  }
+
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-black text-zinc-800">{label}</span>
+      {caption}
       {children}
-      {hint && <span className="mt-2 block text-xs font-medium text-zinc-500">{hint}</span>}
+      {hintNode}
     </label>
   );
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
+import { getSiteUrl } from "@/lib/site-url";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Database error creating order." }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.fund4agoodcause.com";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || getSiteUrl();
     // TODO(products): /crypto-pending and /api/crypto/status don't know
     // about the "product" kind yet — a confirmed product order will render
     // a misleading donation/ticket-shaped page here. See ADR 0001 §10. Not

@@ -5,6 +5,7 @@
  * Do NOT import React hooks here — this is server-only code.
  */
 
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
@@ -22,17 +23,25 @@ function getServiceClient() {
   return createClient(url, key);
 }
 
-/** Returns the currently authenticated Supabase auth user, or null. */
-export async function getCurrentUser() {
+/**
+ * Returns the currently authenticated Supabase auth user, or null.
+ * Wrapped in React's `cache()` so multiple calls within the same request
+ * (e.g. the admin layout's `requireAdmin()` plus a page that also checks
+ * auth) share one Supabase round-trip instead of repeating it.
+ */
+export const getCurrentUser = cache(async () => {
   const supabase = await createSupabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user ?? null;
-}
+});
 
-/** Returns the profile row (id, role, status) for the current user, or null. */
-export async function getCurrentUserProfile() {
+/**
+ * Returns the profile row (id, role, status) for the current user, or null.
+ * Also request-memoized via `cache()` — see `getCurrentUser`.
+ */
+export const getCurrentUserProfile = cache(async () => {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -59,7 +68,7 @@ export async function getCurrentUserProfile() {
     deleted_at?: string | null;
     purge_at?: string | null;
   };
-}
+});
 
 /** Returns true if the current user has role 'admin'. */
 export async function isAdmin(): Promise<boolean> {

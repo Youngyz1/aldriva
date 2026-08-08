@@ -11,7 +11,6 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import {
-  FUNDRAISER_FALLBACK_IMAGE,
   type RelatedFundraiser,
   type RelatedFundraiserCategory,
 } from "@/lib/fundraiser-data";
@@ -40,9 +39,6 @@ export default function RelatedFundraiserCarousel({
   const [fundraisers, setFundraisers] = useState(initialFundraisers);
   const [isLoading, setIsLoading] = useState(false);
 
-  // "Happening worldwide" is the set already rendered server-side on page
-  // load — switching back to it re-uses that data rather than re-fetching a
-  // fresh shuffle, so only the other four categories hit the API route.
   useEffect(() => {
     if (category === "worldwide") {
       setFundraisers(initialFundraisers);
@@ -92,14 +88,14 @@ export default function RelatedFundraiserCarousel({
   return (
     <div>
       <div className="mb-6 flex justify-end">
-        <label className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
+        <label className="flex items-center gap-2 text-sm font-semibold text-brand-100">
           Show
           <select
             value={category}
             onChange={(event) =>
               setCategory(event.target.value as RelatedFundraiserCategory)
             }
-            className="rounded-lg border border-emerald-700 bg-emerald-900 px-3 py-2 text-sm font-bold text-white transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="rounded-lg border border-brand-800 bg-brand-950 px-3 py-2 text-sm font-bold text-white transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             {CATEGORY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -111,13 +107,13 @@ export default function RelatedFundraiserCarousel({
       </div>
 
       {fundraisers.length === 0 ? (
-        <p className="rounded-lg border border-emerald-800 bg-emerald-900/50 px-5 py-10 text-center text-sm font-medium text-emerald-100">
+        <p className="rounded-lg border border-brand-900 bg-brand-950/50 px-5 py-10 text-center text-sm font-medium text-brand-100">
           {isLoading
             ? "Loading fundraisers…"
             : "No fundraisers match this filter right now."}
         </p>
       ) : (
-        <div className="relative">
+        <div className="relative w-full overflow-hidden">
           <Carousel setApi={setApi} opts={{ align: "start", dragFree: true }}>
             <CarouselContent className="-ml-4 sm:-ml-6">
               {fundraisers.map((related) => (
@@ -131,7 +127,7 @@ export default function RelatedFundraiserCarousel({
                     organizer={related.organizer}
                     raised={Number(related.raised ?? 0)}
                     goal={Number(related.goal ?? 0)}
-                    image={related.image_url || related.banner || FUNDRAISER_FALLBACK_IMAGE}
+                    image={related.image_url || related.banner || null}
                   />
                 </CarouselItem>
               ))}

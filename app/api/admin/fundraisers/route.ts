@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('fundraisers')
-    .select('id, title, organizer, raised, goal, is_featured, status, rejection_reason, created_at')
+    .select('id, title, slug, organizer, raised, goal, is_featured, status, rejection_reason, created_at')
     .order('created_at', { ascending: false });
 
   if (error) {

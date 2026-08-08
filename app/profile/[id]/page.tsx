@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
@@ -28,7 +29,7 @@ export async function generateMetadata({
     title: `${name} - Aldriva`,
     description: `View ${name}'s public Aldriva profile.`,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/profile/${id}`,
+      canonical: `${getSiteUrl()}/profile/${id}`,
     },
   };
 }

@@ -14,16 +14,112 @@
   }
 }
 
+/* Pure-CSS button ripple: a radial highlight grows from center on press and
+   fades on release. No JS/click-position tracking — a lightweight
+   approximation, not a pointer-following material-style ripple. */
+@utility btn-ripple {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 10%, transparent 10.5%);
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transform: scale(1);
+    transition: transform 0.5s ease-out, opacity 0.8s ease-out;
+    pointer-events: none;
+  }
+  &:active::after {
+    transform: scale(22);
+    opacity: 1;
+    transition: 0s;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
   --font-geist-sans: var(--font-sans), Arial, Helvetica, sans-serif;
   --font-geist-mono: "Courier New", Courier, monospace;
+
+  /* Brand scale — Tailwind's stock `orange` values, promoted to named
+     tokens. Aldriva's identity is already orange throughout the app (every
+     hand-rolled `bg-orange-600`/`text-orange-600` etc. call site, left as
+     literal Tailwind utilities rather than routed through these tokens);
+     using the same numeric scale here means those call sites render
+     pixel-identical to brand-*, so nothing needs migrating off them. These
+     tokens exist so components/ui/button.tsx, card.tsx, badge.tsx, etc. (and
+     anything ported that references --primary/--brand-*) resolve to real
+     colors instead of a no-op custom property.
+     700, not 600, is the load-bearing "solid button / white text" shade —
+     600 (#ea580c) is only 3.56:1 against white and fails WCAG AA for text;
+     700 (#c2410c) clears it at 5.18:1. Any orange-600-with-white-text call
+     site being routed onto brand-* should map to brand-700, not brand-600. */
+  --brand-50: #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-800: #9a3412;
+  --brand-900: #7c2d12;
+  --brand-950: #431407;
+
+  /* Semantic design tokens so components/ui/button.tsx and card.tsx (and any
+     other shadcn-style primitive keyed on these) render as intended instead
+     of falling back to no-ops. */
+  --primary: var(--brand-700);
+  --primary-foreground: #ffffff;
+  --secondary: #09090b;
+  --secondary-foreground: #ffffff;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --muted: #fafafa;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: var(--brand-500);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -38,6 +134,21 @@
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --primary: var(--brand-300);
+  --primary-foreground: var(--brand-950);
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-foreground: #09090b;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: var(--brand-400);
 }
 
 *,
@@ -46,16 +157,101 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
+
+  /* Removes the legacy ~300ms tap delay and double-tap-to-zoom, so a tap
+     resolves as a click immediately instead of the browser holding the gesture
+     open to see whether a second tap or a drag follows — that waiting period is
+     when an accidental selection starts.
+
+     Pinch-to-zoom is NOT affected, so the page can still be magnified. Only the
+     double-tap zoom shortcut goes away. */
+  touch-action: manipulation;
 }
+
+/* ---------------------------------------------------------------------------
+   Touch selection behaviour
+   ---------------------------------------------------------------------------
+   Goal: a tap on interactive chrome activates it, a press-and-hold on readable
+   text still selects. Browsers default every element to selectable, so dragging
+   a finger from a card or button starts highlighting instead of scrolling.
+
+   Interactive elements opt OUT of selection; content opts back IN below.
+   -------------------------------------------------------------------------- */
+button,
+[role="button"],
+[role="tab"],
+nav,
+label,
+summary,
+select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Links are the awkward case: a link wrapping a whole card should not be
+   selectable, but a link inside a sentence should be. Default them to
+   unselectable — cards, nav and buttons are the common case — and restore
+   selection inside prose below. */
+a {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Kills the grey flash on tap without affecting selection or focus rings. */
+a,
+button,
+[role="button"],
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Anything a reader might legitimately want to copy stays selectable, including
+   links inside it. Long-press still works here, which is the behaviour being
+   restored — this rule is what keeps the fix from making the site uncopyable.
+
+   Add new long-form content containers to this list rather than removing the
+   rules above. */
+#fundraiser-story,
+#fundraiser-story a,
+article,
+article a,
+.prose,
+.prose a,
+p,
+li,
+blockquote,
+code,
+pre,
+td,
+th,
+input,
+textarea,
+[contenteditable="true"],
+/* Links sitting inside running text, so selecting a sentence does not skip
+   over its links. Card-wrapping links are not matched by these and stay
+   unselectable, which is the point. */
+p a,
+li a,
+blockquote a,
+td a {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
-  /* Prevent iOS Safari rubber-band horizontal scroll */
   position: relative;
 }
 

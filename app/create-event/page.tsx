@@ -13,10 +13,12 @@ import {
   inputClass,
 } from "@/components/CreatorWorkspace";
 import { supabase } from "@/lib/supabase";
+import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
-import MediaUrlInput from "@/components/MediaUrlInput";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
+const EVENT_BANNER_ASPECT = 16 / 9;
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 
@@ -65,7 +67,8 @@ export default function CreateEventPage() {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [importedVideoUrl, setImportedVideoUrl] = useState("");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState("");
   const [uploadProgress, setUploadProgress] = useState("");
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [venueTemplate, setVenueTemplate] = useState("none");
@@ -81,7 +84,6 @@ export default function CreateEventPage() {
     end_date: "",
     venue: "",
     city: "",
-    banner: "",
     description: "",
     ticket1_name: "Regular",
     ticket1_price: "",
@@ -197,7 +199,7 @@ export default function CreateEventPage() {
       return;
     }
 
-    let video_url = importedVideoUrl || null;
+    let video_url: string | null = null;
     if (videoFile) {
       setUploadProgress("Uploading video...");
       const ext = videoFile.name.split(".").pop();
@@ -225,7 +227,6 @@ export default function CreateEventPage() {
         event_type: form.event_type,
         venue: form.venue,
         city: form.city,
-        banner: form.banner,
         event_date: form.event_date,
         end_date: form.end_date || null,
         video_url,
@@ -242,6 +243,28 @@ export default function CreateEventPage() {
       setError(eventError.message);
       setLoading(false);
       return;
+    }
+
+    if (bannerFile) {
+      setUploadProgress("Uploading banner...");
+      try {
+        const bannerUrl = await uploadImage(bannerFile, "event-banners", createdEvent.id);
+        const { error: bannerError } = await supabase
+          .from("events")
+          .update({ banner: bannerUrl })
+          .eq("id", createdEvent.id);
+        if (bannerError) {
+          setError("Banner update failed: " + bannerError.message);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        const message = err instanceof UploadImageError ? err.message : "Banner upload failed.";
+        setError(message);
+        setLoading(false);
+        return;
+      }
+      setUploadProgress("");
     }
 
     const tickets = [
@@ -325,8 +348,8 @@ export default function CreateEventPage() {
 
       <CreatorPanel title="Preview">
         <div className="overflow-hidden rounded-xl bg-zinc-100">
-          {form.banner ? (
-            <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${form.banner})` }} />
+          {bannerPreview ? (
+            <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${bannerPreview})` }} />
           ) : (
             <div className="flex h-32 items-center justify-center text-zinc-400">
               <i className="ti ti-photo text-4xl" aria-hidden="true" />
@@ -465,26 +488,20 @@ export default function CreateEventPage() {
 
             <CreatorPanel title="Event Image">
               <div className="grid gap-5">
-                <CreatorField label="Event Banner URL" hint="Use a wide image, ideally 1200 x 630.">
-                  <MediaUrlInput
-                    name="banner"
-                    value={form.banner}
-                    inputClassName={inputClass}
-                    onClear={() => {
+                <CreatorField label="Event Banner" hint="Wide image, cropped to a 16:9 banner shape.">
+                  <ImageUploadWithCrop
+                    value={bannerPreview}
+                    aspectRatio={EVENT_BANNER_ASPECT}
+                    previewClassName="h-32 w-full rounded-xl"
+                    label="Upload banner"
+                    onCropped={(file, previewUrl) => {
                       setNotice("");
-                      setImportedVideoUrl("");
-                      setForm((current) => ({ ...current, banner: "" }));
+                      setBannerFile(file);
+                      setBannerPreview(previewUrl);
                     }}
-                    onResolved={(result) => {
-                      setNotice("");
-                      if (result.kind === "direct-video-file") {
-                        setImportedVideoUrl(result.url);
-                        setNotice("Video imported and will be attached to the event. Add an image URL for the banner.");
-                        return;
-                      }
-
-                      setImportedVideoUrl("");
-                      setForm((current) => ({ ...current, banner: result.url }));
+                    onRemove={() => {
+                      setBannerFile(null);
+                      setBannerPreview("");
                     }}
                   />
                 </CreatorField>
@@ -492,15 +509,9 @@ export default function CreateEventPage() {
                   <input
                     type="file"
                     accept="video/*"
-                    onChange={(event) => {
-                      setImportedVideoUrl("");
-                      setVideoFile(event.target.files?.[0] || null);
-                    }}
+                    onChange={(event) => setVideoFile(event.target.files?.[0] || null)}
                     className="w-full rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-sm font-semibold"
                   />
-                  {importedVideoUrl && !videoFile && (
-                    <p className="mt-2 text-xs font-semibold text-zinc-500">Imported video URL ready.</p>
-                  )}
                 </CreatorField>
               </div>
             </CreatorPanel>

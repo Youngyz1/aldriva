@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import EventCard from "@/components/EventCard";
 import { cn } from "@/lib/utils";
 
@@ -29,12 +34,16 @@ function formatEventDate(eventDate: string | null): string {
   });
 }
 
-const PAGE_SIZE = 4;
+const ARROW_CLASS =
+  "static h-9 w-9 translate-y-0 rounded-full border-zinc-200 text-zinc-700 hover:bg-zinc-50 disabled:opacity-40";
+const ARROW_CLASS_DARK =
+  "border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-orange-400";
 
 /**
- * "Trending Events" rail with SeatGeek-style pagination: prev/next arrows and
- * an "X of Y" indicator top-right of the section header, paging through the
- * (already deduped) trending list in groups of 4.
+ * "Trending Events" rail — a single continuous Embla track (the same shared
+ * carousel as ExternalEventsCarousel/CampaignShowcasePager), not a paginated
+ * grid. Every item in `items` is one slide in one track; Prev/Next drive
+ * Embla's scrollPrev/scrollNext directly instead of local page state.
  */
 export default function TrendingCarousel({
   items,
@@ -43,86 +52,56 @@ export default function TrendingCarousel({
   items: TrendingItem[];
   onDark?: boolean;
 }) {
-  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const [page, setPage] = useState(0);
-
-  const start = page * PAGE_SIZE;
-  const visible = items.slice(start, start + PAGE_SIZE);
+  // Arrows only matter once there's more than a desktop view's worth (4 per view).
+  const showArrows = items.length > 4;
 
   return (
     <section>
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h3
-          className={cn(
-            "text-2xl font-black sm:text-3xl",
-            onDark ? "text-white" : "text-zinc-950"
-          )}
-        >
-          Trending Events
-        </h3>
-
-        {totalPages > 1 && (
-          <div
+      <Carousel opts={{ align: "start" }}>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h3
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full border px-1.5 py-1",
-              onDark ? "border-white/20 bg-white/5" : "border-zinc-200 bg-white"
+              "text-2xl font-black sm:text-3xl",
+              onDark ? "text-white" : "text-zinc-950"
             )}
           >
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              aria-label="Previous trending events"
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition disabled:pointer-events-none disabled:opacity-40",
-                onDark
-                  ? "text-zinc-300 hover:bg-white/10 hover:text-orange-400"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-orange-600"
-              )}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span
-              className={cn(
-                "min-w-[3.5rem] text-center text-xs font-black",
-                onDark ? "text-zinc-100" : "text-zinc-700"
-              )}
-            >
-              {page + 1} of {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
-              aria-label="Next trending events"
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition disabled:pointer-events-none disabled:opacity-40",
-                onDark
-                  ? "text-zinc-300 hover:bg-white/10 hover:text-orange-400"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-orange-600"
-              )}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </div>
+            Trending Events
+          </h3>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {visible.map((event) => (
-          <EventCard
-            key={event.id}
-            slug={event.slug}
-            title={event.title}
-            date={formatEventDate(event.eventDate)}
-            eventDate={event.eventDate}
-            location={event.city || event.venue || "Location TBA"}
-            image={event.banner || ""}
-            category={event.category}
-            onDark={onDark}
-          />
-        ))}
-      </div>
+          {showArrows && (
+            <div className="flex shrink-0 items-center gap-2">
+              <CarouselPrevious
+                className={cn(ARROW_CLASS, onDark && ARROW_CLASS_DARK)}
+                aria-label="Previous trending events"
+              />
+              <CarouselNext
+                className={cn(ARROW_CLASS, onDark && ARROW_CLASS_DARK)}
+                aria-label="Next trending events"
+              />
+            </div>
+          )}
+        </div>
+
+        <CarouselContent className="-ml-5">
+          {items.map((event) => (
+            <CarouselItem
+              key={event.id}
+              className="basis-[82%] pl-5 sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
+            >
+              <EventCard
+                slug={event.slug}
+                title={event.title}
+                date={formatEventDate(event.eventDate)}
+                eventDate={event.eventDate}
+                location={event.city || event.venue || "Location TBA"}
+                image={event.banner || ""}
+                category={event.category}
+                onDark={onDark}
+              />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+      </Carousel>
     </section>
   );
 }

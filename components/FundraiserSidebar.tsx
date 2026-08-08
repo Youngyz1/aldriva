@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { TrendingUp, Share2, Check } from "lucide-react";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { TrendingUp, Share2, Check, AlertCircle } from "lucide-react";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import ProgressRing from "@/components/ui/ProgressRing";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 
 type Donation = {
   id: string;
@@ -40,35 +42,14 @@ function timeAgo(iso: string) {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
-function CircularProgress({ pct }: { pct: number }) {
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-  return (
-    <svg width="140" height="140" viewBox="0 0 140 140" className="rotate-[-90deg]">
-      <circle cx="70" cy="70" r={r} fill="none" stroke="#e4e4e7" strokeWidth="12" />
-      <circle
-        cx="70" cy="70" r={r} fill="none"
-        stroke="#22c55e" strokeWidth="12"
-        strokeLinecap="round"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        style={{ transition: "stroke-dashoffset 0.8s ease" }}
-      />
-    </svg>
-  );
-}
-
 function Avatar({ name }: { name: string }) {
   const letter = (name || "A").charAt(0).toUpperCase();
+  const colors = ["bg-green-100 text-green-700","bg-blue-100 text-blue-700","bg-purple-100 text-purple-700","bg-amber-100 text-amber-700","bg-rose-100 text-rose-700"];
+  const color = colors[letter.charCodeAt(0) % colors.length];
   return (
-    <LocalBrandedPlaceholder
-      variant="avatar"
-      title={name}
-      initials={letter}
-      seed={letter}
-      className="h-9 w-9 shrink-0 rounded-full text-sm"
-    />
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${color}`}>
+      {letter}
+    </div>
   );
 }
 
@@ -85,11 +66,11 @@ export default function FundraiserSidebar({
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [donations, setDonations] = useState<Donation[]>(initialDonations);
   const [showAll, setShowAll] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const seenIds = useRef(new Set(initialDonations.map((d) => d.id)));
 
   const goal = initialGoal;
-  const pct = goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const pct = calculateFundraisingPercentage(raised, goal);
   const visible = showAll ? donations : donations.slice(0, FEED_LIMIT);
 
   const poll = useCallback(async () => {
@@ -131,49 +112,62 @@ export default function FundraiserSidebar({
     if (navigator.share) {
       try { await navigator.share({ title: fundraiserTitle, url }); return; } catch {}
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const succeeded = await copyTextToClipboard(url);
+    setCopyStatus(succeeded ? "copied" : "failed");
+    setTimeout(() => setCopyStatus("idle"), succeeded ? 1800 : 3000);
   }
 
   return (
-    <div id="donate" className="scroll-mt-24 rounded-2xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-24">
-      {/* Circular progress */}
-      <div className="flex flex-col items-center px-6 pt-7 pb-5">
-        <div className="relative flex items-center justify-center">
-          <CircularProgress pct={pct} />
-          <div className="absolute flex flex-col items-center">
-            <span className="text-2xl font-black leading-none">{pct}%</span>
-            <span className="mt-0.5 text-xs text-zinc-500">funded</span>
-          </div>
+    <div id="donate" className="scroll-mt-24 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm lg:sticky lg:top-24 space-y-5">
+      {/* Circular progress & Raised details */}
+      <section className="flex items-center gap-4">
+        <div className="shrink-0">
+          <ProgressRing percentage={pct} size={72} strokeWidth={7} />
         </div>
-        <p className="mt-4 text-center text-lg font-black leading-snug">
-          ${raised.toLocaleString()}{" "}
-          <span className="font-semibold text-zinc-500">raised of ${goal.toLocaleString()} USD</span>
-        </p>
-        <p className="mt-1 text-sm text-zinc-500">{totalCount.toLocaleString()} donation{totalCount !== 1 ? "s" : ""}</p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-2xl font-black tracking-tight text-zinc-950 leading-tight">
+            ${raised.toLocaleString()} raised
+          </p>
+          <p className="text-lg font-medium text-zinc-500 leading-snug">
+            of ${goal.toLocaleString()} USD
+          </p>
+          <p className="text-xs font-semibold text-zinc-500 mt-1">
+            {totalCount.toLocaleString()} donation{totalCount !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </section>
 
       {/* Buttons */}
-      <div className="space-y-3 px-6 pb-6">
+      <section className="flex flex-col gap-2.5">
         <a
           href={`/fundraisers/${fundraiserSlug}/donate`}
-          className="flex w-full items-center justify-center rounded-2xl bg-green-500 py-4 text-base font-black text-white transition hover:bg-green-600 active:scale-[.98]"
+          className="flex w-full min-h-[48px] items-center justify-center rounded-full bg-brand-300 px-6 py-3.5 text-base font-black text-brand-900 transition hover:bg-brand-400 active:scale-[0.98] shadow-sm"
         >
           Donate now
         </a>
         <button
           type="button"
           onClick={handleShare}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-300 bg-white py-3.5 text-base font-black text-zinc-800 transition hover:bg-zinc-50"
+          className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-brand-900 px-6 py-3.5 text-base font-black text-brand-300 transition hover:bg-brand-950 active:scale-[0.98] shadow-sm"
+          title={copyStatus === "failed" ? "Copy failed — long-press the link to copy manually" : undefined}
         >
-          {copied ? <Check className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
-          {copied ? "Link copied!" : "Share"}
+          {copyStatus === "copied" ? (
+            <Check className="h-4 w-4 text-brand-300" />
+          ) : copyStatus === "failed" ? (
+            <AlertCircle className="h-4 w-4 text-red-500" />
+          ) : (
+            <Share2 className="h-4 w-4" />
+          )}
+          {copyStatus === "copied"
+            ? "Link copied!"
+            : copyStatus === "failed"
+            ? "Failed to copy"
+            : "Share"}
         </button>
-      </div>
+      </section>
 
       {/* Live feed */}
-      <div className="border-t border-zinc-100 px-6 py-5">
+      <div className="border-t border-zinc-100 pt-5">
         <div className="mb-4 flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-green-600" />
           <h3 className="text-sm font-black text-zinc-800">
@@ -188,8 +182,8 @@ export default function FundraiserSidebar({
             {visible.map((d) => (
               <li
                 key={d.id}
-                className={`flex items-center gap-3 transition-all duration-500 ${
-                  d.isNew ? "animate-[popIn_0.4s_ease] rounded-xl bg-green-50 p-2 -mx-2" : ""
+                className={`flex items-center gap-3 transition-all duration-500 overflow-hidden ${
+                  d.isNew ? "animate-[popIn_0.4s_ease] rounded-xl bg-green-50 px-2 py-1" : ""
                 }`}
               >
                 {d.profile?.avatar_url && d.donor_name !== "Anonymous" ? (

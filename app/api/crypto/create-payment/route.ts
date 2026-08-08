@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
+import { getSiteUrl } from "@/lib/site-url";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
-      "https://www.fund4agoodcause.com";
+      getSiteUrl();
     const ipnCallbackUrl = `${baseUrl}/api/crypto/webhook`;
 
     // Create NOWPayments invoice

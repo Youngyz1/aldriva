@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import { redirect, notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import { normalizeImageUrl } from "@/lib/image-url";
 import OrganizationProfileClient from "./OrganizationProfileClient";
 
@@ -32,16 +34,16 @@ export async function generateMetadata({
   const image = normalizeImageUrl(org?.photo || org?.banner, "/og-image.png");
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/org/${resolvedSlug}`,
+      canonical: `${getSiteUrl()}/org/${resolvedSlug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/org/${resolvedSlug}`,
+      url: `${getSiteUrl()}/org/${resolvedSlug}`,
       siteName: "Aldriva",
       images: [{ url: image, width: 1200, height: 630, alt: org?.name || "Organization" }],
     },
@@ -78,10 +80,13 @@ export default async function OrganizationProfilePage({
     return notFound();
   }
 
-  // Normal slug lookup
+  // Normal slug lookup. Explicit public columns even though this is the
+  // service-role client: the row is passed as initialData to a client
+  // component, so select("*") would serialize tax_id and
+  // nonprofit_registration_number into the page payload.
   const { data: org } = await supabase
     .from("organizers")
-    .select("*")
+    .select(ORGANIZER_PUBLIC_COLUMNS)
     .eq("slug", slug)
     .is("deleted_at", null)
     .maybeSingle();

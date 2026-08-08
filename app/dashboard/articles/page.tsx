@@ -7,8 +7,6 @@ import { deleteArticle } from "@/lib/actions/articles";
 import { revalidatePath } from "next/cache";
 import ArticleRowActions from "./ArticleRowActions";
 
-export const revalidate = 0; // Fresh dashboard data on every load
-
 const statusBadge: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 border-zinc-200",
   published: "bg-emerald-50 text-emerald-700 border-emerald-200",

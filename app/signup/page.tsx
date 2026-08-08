@@ -165,7 +165,7 @@ export default function SignupPage() {
         <div className="text-white max-w-lg relative z-10">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-12">
-            <img src="/logo.png" alt="Aldriva Logo" className="h-10 w-10 object-contain rounded-xl" />
+            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-10 w-10 object-contain rounded-xl" />
             <span className="text-2xl font-black tracking-tight">
               Aldriva
             </span>
@@ -203,7 +203,7 @@ export default function SignupPage() {
 
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center gap-2 mb-8">
-            <img src="/logo.png" alt="Aldriva Logo" className="h-8 w-8 object-contain rounded-lg" />
+            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-8 w-8 object-contain rounded-lg" />
             <span className="text-xl font-black">Aldriva</span>
           </div>
 

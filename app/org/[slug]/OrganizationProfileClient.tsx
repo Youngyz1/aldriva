@@ -178,8 +178,8 @@ function FundraiserRow({ f }: { f: FundraiserItem }) {
       <div className="min-w-0 flex-1">
         <p className="font-black text-zinc-900 line-clamp-1 group-hover:text-orange-700">{f.title}</p>
         <Progress value={pct} className="mt-1.5" />
-        <p className="mt-1 text-xs text-zinc-500">
-          <span className="font-bold text-emerald-700">{formatMoney(raised)}</span> raised of {formatMoney(goal)} goal
+        <p className="mt-1 text-xs font-semibold text-zinc-600">
+          <span className="font-black text-zinc-950">{formatMoney(raised)}</span> raised of {formatMoney(goal)} goal
         </p>
       </div>
       <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-300 group-hover:text-orange-500" />
@@ -253,7 +253,7 @@ export default function OrganizationProfileClient({
         setIsOwner(session.user.id === org.user_id);
       }
 
-      const [{ data: evts }, { data: raisers }, { count }] = await Promise.all([
+      const [{ data: evts }, { data: raisers }, { data: followRow }] = await Promise.all([
         supabase
           .from("events")
           .select("id, title, slug, event_date, venue, city, banner, category")
@@ -265,15 +265,22 @@ export default function OrganizationProfileClient({
           .eq("organizer_id", org.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false }),
+        // Aggregate view rather than a head-count over organizer_follows:
+        // migration_53 restricted that table to the follower and the
+        // organizer, so an anonymous visitor counting rows directly would
+        // now always see 0.
         supabase
-          .from("organizer_follows")
-          .select("*", { count: "exact", head: true })
-          .eq("organizer_id", org.id),
+          .from("organizer_follower_counts")
+          .select("follower_count")
+          .eq("organizer_id", org.id)
+          .maybeSingle(),
       ]);
 
       setEvents(evts ?? []);
       setFundraisers(raisers ?? []);
-      setFollowerCount((count ?? 0) + (org.follower_offset ?? 0));
+      setFollowerCount(
+        Number(followRow?.follower_count ?? 0) + (org.follower_offset ?? 0)
+      );
 
       if (session?.user) {
         const { data: follow } = await supabase

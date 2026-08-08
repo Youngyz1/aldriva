@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { safeImageSrc } from "@/lib/image-url";
 import { cn } from "@/lib/utils";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { BRAND } from "@/config/branding";
 import {
   Clock,
   Mail,
@@ -392,7 +393,7 @@ export default function OrganizerProfileCard({
                 </Button>
 
                 <a
-                  href={`mailto:support@fund4agoodcause.com?subject=${encodeURIComponent(
+                  href={`mailto:${BRAND.supportEmail}?subject=${encodeURIComponent(
                     `Contact ${organizer.name}`
                   )}`}
                   className="w-full"

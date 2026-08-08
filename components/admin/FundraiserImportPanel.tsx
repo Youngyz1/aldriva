@@ -101,7 +101,7 @@ export default function FundraiserImportPanel({ fundraiserId }: { fundraiserId: 
             onChange={(e) => setDonorsText(e.target.value)}
             rows={8}
             placeholder={"Anka B | 2026-06-19 | 50\nAnonymous | 2026-06-20 | 25"}
-            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
           {donorsText.trim() && (
             <div className="mt-2 rounded-lg bg-zinc-50 p-2 text-xs ring-1 ring-zinc-200">
@@ -141,7 +141,7 @@ export default function FundraiserImportPanel({ fundraiserId }: { fundraiserId: 
             onChange={(e) => setCommentsText(e.target.value)}
             rows={8}
             placeholder={"Anka B | 2026-06-19 | Sending love and strength | 3"}
-            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
           {commentsText.trim() && (
             <div className="mt-2 rounded-lg bg-zinc-50 p-2 text-xs ring-1 ring-zinc-200">
@@ -173,7 +173,7 @@ export default function FundraiserImportPanel({ fundraiserId }: { fundraiserId: 
         </div>
       )}
       {result && (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">
+        <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-900">
           Imported {result.donorsInserted} donor{result.donorsInserted === 1 ? "" : "s"} and{" "}
           {result.commentsInserted} comment{result.commentsInserted === 1 ? "" : "s"}.
           {result.raised !== null && (
@@ -189,7 +189,7 @@ export default function FundraiserImportPanel({ fundraiserId }: { fundraiserId: 
         type="button"
         disabled={!canImport || loading}
         onClick={handleImport}
-        className="mt-4 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+        className="mt-4 rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-black text-white transition hover:bg-brand-800 disabled:opacity-50"
       >
         {loading
           ? "Importing…"

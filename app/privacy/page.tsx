@@ -1,19 +1,20 @@
 /* eslint-disable react/no-unescaped-entities */
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import Link from "next/link";
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "Privacy Policy — Aldriva",
   description: "Read Aldriva's privacy policy.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/privacy",
+    canonical: `${getSiteUrl()}/privacy`,
   },
   openGraph: {
     title: "Privacy Policy — Aldriva",
     description: "Read Aldriva's privacy policy.",
-    url: "https://www.fund4agoodcause.com/privacy",
+    url: `${getSiteUrl()}/privacy`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
@@ -106,8 +107,8 @@ export default function PrivacyPage() {
                 Aldriva is based in the United States. We do not have a public
                 domain yet. Until a permanent domain and legal mailing address are added,
                 you can contact us at{" "}
-                <a className="font-bold text-orange-600" href="mailto:support@fund4good.com">
-                  support@fund4good.com
+                <a className="font-bold text-orange-600" href="mailto:support@aldriva.com">
+                  support@aldriva.com
                 </a>
                 .
               </p>
@@ -257,8 +258,8 @@ export default function PrivacyPage() {
                 <p className="mt-3">
                   You may be able to access, update, or delete some account information by
                   logging into your Aldriva account. You may also contact us at{" "}
-                  <a className="font-bold text-orange-600" href="mailto:support@fund4good.com">
-                    support@fund4good.com
+                  <a className="font-bold text-orange-600" href="mailto:support@aldriva.com">
+                    support@aldriva.com
                   </a>{" "}
                   to request access, correction, deletion, restriction, portability, or other
                   privacy rights available under applicable law.
@@ -374,8 +375,8 @@ export default function PrivacyPage() {
                 <h2 className="text-2xl font-black text-zinc-950">15. Dispute Resolution.</h2>
                 <p className="mt-3">
                   If you have a privacy question, concern, or complaint, contact us at{" "}
-                  <a className="font-bold text-orange-600" href="mailto:support@fund4good.com">
-                    support@fund4good.com
+                  <a className="font-bold text-orange-600" href="mailto:support@aldriva.com">
+                    support@aldriva.com
                   </a>
                   . We will review your request and try to respond within a reasonable time.
                 </p>
@@ -404,7 +405,7 @@ export default function PrivacyPage() {
                   Residents of some U.S. states may have additional privacy rights, including
                   rights to know, access, correct, delete, opt out of certain data uses, limit
                   certain sensitive data uses, or appeal a privacy decision. To submit a request,
-                  contact us at support@fund4good.com.
+                  contact us at support@aldriva.com.
                 </p>
               </section>
 
@@ -426,7 +427,7 @@ export default function PrivacyPage() {
                   We may receive personal data about people who do not have Aldriva accounts,
                   such as when an organizer imports a contact list, transfers a ticket, sends an
                   invitation, or enters attendee information. If you believe we hold information
-                  about you and you do not use Aldriva, contact us at support@fund4good.com.
+                  about you and you do not use Aldriva, contact us at support@aldriva.com.
                 </p>
               </section>
             </div>
@@ -438,7 +439,7 @@ export default function PrivacyPage() {
                 questions.
               </p>
               <a
-                href="mailto:support@fund4good.com"
+                href="mailto:support@aldriva.com"
                 className="mt-5 inline-flex rounded-full bg-orange-600 px-6 py-3 font-black text-white transition hover:bg-orange-700"
               >
                 Contact us

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { slugifyCity } from "@/lib/city-slug";
 
 export default function LocationSearch() {
   const router = useRouter();
@@ -83,7 +84,7 @@ export default function LocationSearch() {
             </div>
           </div>
           <button
-            onClick={() => router.push(`/events?location=${encodeURIComponent(userLocation.city)}`)}
+            onClick={() => router.push(`/events/city/${slugifyCity(userLocation.city)}`)}
             className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-black text-white"
           >
             Find
@@ -116,7 +117,7 @@ export default function LocationSearch() {
           {cityResults.map((c, i) => (
             <button
               key={i}
-              onClick={() => router.push(`/events?location=${encodeURIComponent(c.city)}`)}
+              onClick={() => router.push(`/events/city/${slugifyCity(c.city)}`)}
               className="block w-full px-4 py-3 text-left text-sm font-bold hover:bg-orange-50"
             >
               {c.city}
@@ -128,7 +129,7 @@ export default function LocationSearch() {
         {['New York', 'Los Angeles', 'Chicago', 'Miami', 'Boston'].map(city => (
           <button
             key={city}
-            onClick={() => router.push(`/events?location=${encodeURIComponent(city)}`)}
+            onClick={() => router.push(`/events/city/${slugifyCity(city)}`)}
             className="shrink-0 rounded-full bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-800 hover:bg-orange-100 hover:text-orange-700"
           >
             {city}

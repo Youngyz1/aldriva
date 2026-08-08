@@ -5,14 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { SettingsCard } from "@/components/ui/settings-card";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { type AccountInfo, type AddressInfo, defaultAddress } from "@/types/settings";
-
-const stateOptions = [
-  "Alabama", "Alaska", "Arizona", "California", "Florida", "Georgia",
-  "Illinois", "New Jersey", "New York", "Ohio", "Pennsylvania", "Texas", "Washington"
-];
-
-const countryOptions = ["United States", "Canada", "United Kingdom", "Nigeria", "Germany", "France"];
 
 const fieldClass =
   "w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold outline-hidden transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100 sm:rounded-xl sm:px-4 sm:py-2.5";
@@ -81,9 +75,14 @@ export default function ProfileClient({
     }));
   }
 
-  function handlePhoto(file: File | null) {
+  function handleCroppedPhoto(file: File, previewUrl: string) {
     setPhotoFile(file);
-    if (file) setProfilePhoto(URL.createObjectURL(file));
+    setProfilePhoto(previewUrl);
+  }
+
+  function removePhoto() {
+    setProfilePhoto("");
+    setPhotoFile(null);
   }
 
   async function uploadProfilePhoto() {
@@ -168,43 +167,16 @@ export default function ProfileClient({
         title="Profile Photo"
         description="This photo will be displayed on your profile and public posts."
       >
-        <div className="flex flex-col gap-6 md:flex-row md:items-center">
-          <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 overflow-hidden shadow-inner">
-            {profilePhoto ? (
-              <img src={profilePhoto} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-4xl font-extrabold text-zinc-300 font-sans">?</span>
-            )}
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-bold text-zinc-800">
-              {photoFile ? photoFile.name : "No file chosen"}
-            </p>
-            <div className="flex gap-2">
-              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-black text-zinc-700 transition hover:bg-zinc-50">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handlePhoto(e.target.files?.[0] || null)}
-                  className="sr-only"
-                />
-                Choose File
-              </label>
-              {profilePhoto && (
-                <button
-                  type="button"
-                  onClick={() => { setProfilePhoto(""); setPhotoFile(null); }}
-                  className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-50"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-            <p className="text-[11px] text-zinc-400">
-              Allowed formats: JPG, PNG, GIF. Max file size: 5MB.
-            </p>
-          </div>
-        </div>
+        <ImageUploadWithCrop
+          value={profilePhoto}
+          aspectRatio={1}
+          cropShape="round"
+          previewClassName="h-28 w-28 rounded-full"
+          label="Choose File"
+          hint="Allowed formats: JPG, PNG, WebP. Max file size: 5MB."
+          onCropped={handleCroppedPhoto}
+          onRemove={removePhoto}
+        />
       </SettingsCard>
 
       {/* Contact Details */}
@@ -306,15 +278,12 @@ export default function ProfileClient({
               />
             </Field>
             <Field label="Country">
-              <select
+              <input
                 value={activeAddress.country}
                 onChange={(e) => updateAddress(activeAddressKey, "country", e.target.value)}
+                placeholder="Country"
                 className={fieldClass}
-              >
-                {countryOptions.map((country) => (
-                  <option key={country} value={country}>{country}</option>
-                ))}
-              </select>
+              />
             </Field>
             <Field label="Zip / Postal Code">
               <input
@@ -324,16 +293,12 @@ export default function ProfileClient({
               />
             </Field>
             <Field label="State / Province">
-              <select
+              <input
                 value={activeAddress.state}
                 onChange={(e) => updateAddress(activeAddressKey, "state", e.target.value)}
+                placeholder="State / Province"
                 className={fieldClass}
-              >
-                <option value="">Select a State</option>
-                {stateOptions.map((state) => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
+              />
             </Field>
           </div>
         </div>

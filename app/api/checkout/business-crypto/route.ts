@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
+import { getSiteUrl } from "@/lib/site-url";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "https://www.fund4agoodcause.com";
+      process.env.NEXT_PUBLIC_BASE_URL || getSiteUrl();
     const orderId = crypto.randomUUID();
     const successUrl = `${baseUrl}/crypto-pending?orderId=${orderId}&kind=business`;
     const cancelUrl = `${baseUrl}/dashboard/businesses?cancelled=true`;

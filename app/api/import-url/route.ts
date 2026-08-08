@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { safeFetchHtml, SsrfBlockedError } from "@/lib/ssrf-guard";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type ImportMode = "events" | "fundraisers";
 
@@ -286,35 +288,38 @@ function sourceOrganizer(item: JsonObject | undefined) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Before the outbound fetch, so flooding this endpoint cannot be used for
+    // amplification or to run up egress regardless of how well the destination
+    // is validated.
+    const limited = await enforceRateLimit("importUrl", req);
+    if (limited) return limited;
+
     const { url, mode } = (await req.json()) as { url?: string; mode?: ImportMode };
 
     if (!url || !mode) {
       return NextResponse.json({ error: "URL and mode are required." }, { status: 400 });
     }
 
-    const parsedUrl = new URL(url);
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return NextResponse.json({ error: "Only http and https URLs can be imported." }, { status: 400 });
+    // safeFetchHtml resolves the hostname and rejects loopback, RFC1918,
+    // link-local (incl. 169.254.169.254 cloud metadata), CGNAT, multicast and
+    // IPv6 ULA/link-local destinations BEFORE connecting, then re-validates
+    // every redirect hop, and caps body size and duration.
+    // https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+    let fetched;
+    try {
+      fetched = await safeFetchHtml(url);
+    } catch (err) {
+      if (err instanceof SsrfBlockedError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
 
-    const response = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent": "Mozilla/5.0 AldrivaImporter/1.0",
-        Accept: "text/html,application/xhtml+xml",
-      },
-      signal: AbortSignal.timeout(12000),
-    });
-
-    if (!response.ok) {
-      return NextResponse.json({ error: `Could not fetch page: ${response.status}` }, { status: 400 });
-    }
-
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html")) {
-      return NextResponse.json({ error: "URL did not return an HTML page." }, { status: 400 });
-    }
-
-    const html = await response.text();
+    // Relative URLs in the page resolve against the FINAL url, not the one the
+    // caller supplied — otherwise a redirect could be used to make a relative
+    // path resolve somewhere unintended.
+    const parsedUrl = new URL(fetched.finalUrl);
+    const html = fetched.body;
     const items = findJsonLd(html);
     const eventItem = items.find((item) => isType(item, "event"));
     const fundraiserItem = items.find((item) => isType(item, "fundraiser") || isType(item, "donate"));

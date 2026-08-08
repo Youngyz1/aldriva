@@ -312,7 +312,17 @@ export default function SecurityClient({
                 <li>• Your public profile and organizer pages are hidden immediately.</li>
                 <li>• All your events and fundraisers are hidden from public listings.</li>
                 <li>• You are signed out of all sessions.</li>
-                <li>• After 14 days, <strong>all data is permanently deleted</strong>.</li>
+                {/* Accurate as of the soft-delete design: nothing is destroyed
+                    at 14 days. Saying "permanently deleted" would have been a
+                    promise the platform does not keep. */}
+                <li>
+                  • After 14 days, your account is{" "}
+                  <strong>permanently deactivated and can no longer be restored</strong>.
+                </li>
+                <li>
+                  • Your data is retained for fraud-prevention purposes and is not
+                  accessible to you or the public.
+                </li>
                 <li>• You can cancel by logging in before the grace period ends.</li>
               </ul>
             </div>

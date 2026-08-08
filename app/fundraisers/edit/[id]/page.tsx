@@ -6,7 +6,18 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import BeneficiarySelector, {
+  EMPTY_BENEFICIARY_DRAFT,
+  type BeneficiaryDraft,
+} from "@/components/fundraisers/BeneficiarySelector";
+import BeneficiaryInvite from "@/components/fundraisers/BeneficiaryInvite";
+import { validateBeneficiary, resolveBeneficiary } from "@/lib/beneficiary";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+
+// Matches the detail-page hero (FundraiserMediaSlider)'s mobile ratio — the
+// single ratio every uploaded photo is cropped to.
+const FUNDRAISER_PHOTO_ASPECT_RATIO = 4 / 5;
 
 
 function generateSlug(title: string) {
@@ -51,6 +62,14 @@ export default function EditFundraiserPage() {
     { url: "", caption: "" },
     { url: "", caption: "" },
   ]);
+  const [beneficiary, setBeneficiary] = useState<BeneficiaryDraft>(EMPTY_BENEFICIARY_DRAFT);
+  // The saved beneficiary record (migration_51), which the invite attaches to.
+  const [beneficiaryRecord, setBeneficiaryRecord] = useState<{
+    id: string;
+    name: string;
+    claimed: boolean;
+    claimEmail: string | null;
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -125,6 +144,44 @@ export default function EditFundraiserPage() {
         category: fundraiser.category || "",
       });
 
+      // Tolerates rows saved before the beneficiary column existed — those
+      // resolve to a self-beneficiary named after the organizer, matching the
+      // migration's backfill, so editing them doesn't wipe anything.
+      const existingBeneficiary = resolveBeneficiary(
+        (fundraiser as { beneficiary?: unknown }).beneficiary,
+        selectedOrganizer?.name || fundraiser.organizer
+      );
+      // Beneficiary record lookup is best-effort: it only drives the optional
+      // invite box, so a failure here must not block editing the campaign.
+      if (fundraiser.beneficiary_id) {
+        const { data: record } = await supabase
+          .from("beneficiaries")
+          .select("id, name, user_id, claimed_at, claim_email")
+          .eq("id", fundraiser.beneficiary_id)
+          .maybeSingle();
+        if (record) {
+          setBeneficiaryRecord({
+            id: record.id,
+            name: record.name,
+            claimed: Boolean(record.user_id || record.claimed_at),
+            claimEmail: record.claim_email,
+          });
+        }
+      }
+
+      if (existingBeneficiary) {
+        setBeneficiary({
+          type: existingBeneficiary.type,
+          name: existingBeneficiary.name,
+          relationship: existingBeneficiary.relationship ?? "",
+          description: existingBeneficiary.description ?? "",
+          website: existingBeneficiary.website ?? "",
+          registrationNumber: existingBeneficiary.registrationNumber ?? "",
+          species: existingBeneficiary.species ?? "",
+          photo: existingBeneficiary.photo ?? "",
+        });
+      }
+
       const { data: media } = await supabase
         .from("fundraiser_media")
         .select("url, caption, position")
@@ -182,7 +239,7 @@ export default function EditFundraiserPage() {
   }
 
   function cleanGalleryItems() {
-    return galleryItems.filter((item) => item.url.trim().startsWith("http"));
+    return galleryItems.filter((item) => item.url.trim() !== "");
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -197,6 +254,26 @@ export default function EditFundraiserPage() {
         throw new Error("Choose an organizer profile that belongs to your account.");
       }
 
+      const beneficiaryResult = validateBeneficiary({
+        ...beneficiary,
+        name: beneficiary.type === "self" ? selectedOrganizer.name : beneficiary.name,
+      });
+      if (!beneficiaryResult.ok) {
+        throw new Error(beneficiaryResult.error);
+      }
+
+      // Same find-or-create as the create flow, so editing an older campaign
+      // (or changing who it helps) also produces an invitable profile.
+      const beneficiaryRes = await fetch("/api/beneficiary/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiary: beneficiaryResult.value }),
+      });
+      const beneficiaryData = await beneficiaryRes.json();
+      if (!beneficiaryRes.ok) {
+        throw new Error(beneficiaryData.error || "Could not save the beneficiary.");
+      }
+
       const { error: updateError } = await supabase
         .from("fundraisers")
         .update({
@@ -204,6 +281,8 @@ export default function EditFundraiserPage() {
           slug: nextSlug,
           organizer: selectedOrganizer.name,
           organizer_id: selectedOrganizer.id,
+          beneficiary: beneficiaryResult.value,
+          beneficiary_id: beneficiaryData.beneficiaryId,
           goal: Number(form.goal),
           raised: Number(form.raised) || 0,
           banner: form.banner,
@@ -225,9 +304,9 @@ export default function EditFundraiserPage() {
 
       if (mediaItems.length > 0) {
         const { error: mediaError } = await supabase.from("fundraiser_media").insert(
-          mediaItems.map((item, index) => ({
+        mediaItems.map((item, index) => ({
             fundraiser_id: fundraiserId,
-            url: item.url.trim(),
+            url: (item.url ?? "").trim(),
             caption: item.caption.trim() || form.title,
             position: index,
             type: "image",
@@ -255,7 +334,7 @@ export default function EditFundraiserPage() {
         <div className="mb-10 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-black uppercase tracking-wide text-green-600">Fundraiser</p>
-            <h1 className="mt-2 text-3xl font-black sm:text-4xl lg:text-5xl">Edit Fundraiser</h1>
+            <h1 className="mt-2 text-5xl font-black">Edit Fundraiser</h1>
             <p className="mt-3 text-zinc-600">Strengthen imported campaigns with better story, images, progress, and organizer details.</p>
           </div>
           {slug && <Link href={`/fundraisers/${slug}`} className="font-black text-green-600 hover:text-green-700">View fundraiser</Link>}
@@ -280,7 +359,47 @@ export default function EditFundraiserPage() {
             <input value={form.goal} onChange={(event) => update("goal", event.target.value)} required type="number" min="1" placeholder="Goal" className={inputClass} />
             <input value={form.raised} onChange={(event) => update("raised", event.target.value)} type="number" min="0" placeholder="Raised so far" className={inputClass} />
           </div>
-          <input value={form.banner} onChange={(event) => update("banner", event.target.value)} placeholder="Banner image URL" className={inputClass} />
+          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
+            <h2 className="mb-1 text-lg font-black text-zinc-950">Who are you fundraising for?</h2>
+            <p className="mb-4 text-sm font-semibold text-zinc-500">
+              The organizer runs this fundraiser — the beneficiary is who it helps.
+            </p>
+            <BeneficiarySelector
+              value={beneficiary}
+              onChange={setBeneficiary}
+              organizerName={form.organizer}
+              inputClassName={inputClass}
+              onError={setError}
+            />
+
+            {beneficiaryRecord && (
+              <div className="mt-4">
+                <BeneficiaryInvite
+                  beneficiaryId={beneficiaryRecord.id}
+                  beneficiaryName={beneficiaryRecord.name}
+                  alreadyClaimed={beneficiaryRecord.claimed}
+                  initialInviteEmail={beneficiaryRecord.claimEmail}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
+            <h2 className="mb-4 text-lg font-black text-zinc-950">Banner Image</h2>
+            <div className="flex items-center gap-4">
+              {form.banner && (
+                <img src={form.banner} alt="Banner" className="h-20 w-32 shrink-0 rounded-xl border border-zinc-200 object-cover" />
+              )}
+              <ImageUploadWithCrop
+                bucket="fundraiser-media"
+                folder="fundraiser-photos"
+                aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
+                onUploaded={(url) => update("banner", url)}
+                onError={setError}
+                label={form.banner ? "Change banner" : "Upload banner"}
+              />
+            </div>
+          </div>
           <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
             <div className="mb-4">
               <h2 className="text-lg font-black text-zinc-950">Banner Carousel Photos</h2>
@@ -292,15 +411,22 @@ export default function EditFundraiserPage() {
               {galleryItems.map((item, index) => (
                 <div key={index} className="rounded-2xl border border-zinc-200 bg-white p-4">
                   <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                    <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Photo {index + 1} URL</span>
-                <input
-                  value={item.url}
-                  onChange={(event) => updateGalleryItem(index, "url", event.target.value)}
-                  placeholder="https://..."
-                  className={inputClass}
-                />
-              </label>
+                    <div>
+                      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Photo {index + 1}</span>
+                      <div className="flex items-center gap-3">
+                        {item.url && (
+                          <img src={item.url} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-zinc-200 object-cover" />
+                        )}
+                        <ImageUploadWithCrop
+                          bucket="fundraiser-media"
+                          folder="fundraiser-photos"
+                          aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
+                          onUploaded={(url) => updateGalleryItem(index, "url", url)}
+                          onError={setError}
+                          label={item.url ? "Change photo" : "Upload photo"}
+                        />
+                      </div>
+                    </div>
                     <label className="block">
                       <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Caption</span>
                       <input

@@ -5,6 +5,7 @@
  */
 
 import Link from "next/link";
+import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { ReactNode } from "react";
 import {
@@ -89,7 +90,14 @@ const navGroups: NavGroup[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  await requireAdmin();
+  // proxy.ts already verifies admin role for every /admin/* request and
+  // marks it with this header — skip the redundant Supabase round-trip on
+  // that (expected) path. If the header is ever missing, fall back to the
+  // full check so a non-admin can never slip through.
+  const headerList = await headers();
+  if (headerList.get("x-admin-verified") !== "1") {
+    await requireAdmin();
+  }
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-950">

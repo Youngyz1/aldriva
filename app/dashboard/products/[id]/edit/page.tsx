@@ -3,8 +3,6 @@ import { getDashboardContext } from "@/lib/dashboard-context";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import EditProductFormClient from "./EditProductFormClient";
 
-export const revalidate = 0;
-
 export default async function EditProductPage({
   params,
 }: {

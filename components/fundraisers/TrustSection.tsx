@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
+import { cacheLife } from "next/cache";
 
 import TrustBand from "@/components/marketing/TrustBand";
 import { getCuratedFundraiserImages } from "@/lib/fundraiser-data";
@@ -21,6 +22,9 @@ const TRUST_IMAGE_SLUG =
   "donate-to-supporting-miracle-amiris-recovery-and-rebuilding-organized-by-destiny-keith";
 
 export default async function TrustSection() {
+  "use cache";
+  cacheLife({ revalidate: 600 });
+
   const [trustImage] = await getCuratedFundraiserImages([TRUST_IMAGE_SLUG]);
 
   const media = trustImage ? (

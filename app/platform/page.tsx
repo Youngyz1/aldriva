@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "One Platform for the Event Economy | Aldriva",
   description:
     "Focused workflows for attendees, organizers, and sponsors across events, fundraising, and sponsorships.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/platform",
+    canonical: `${getSiteUrl()}/platform`,
   },
 };
 

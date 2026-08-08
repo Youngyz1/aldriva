@@ -1,6 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import ArticleCardActions from "@/components/articles/ArticleCardActions";
+
+export type ArticleCardAuthor = {
+  name: string;
+  avatarUrl: string | null;
+};
 
 type ArticleCardProps = {
   title: string;
@@ -13,6 +20,10 @@ type ArticleCardProps = {
   publishedAt: string | null;
   createdAt: string;
   className?: string;
+  /** Optional author byline (avatar + name). Omit to keep the original date/reading-time-only header. */
+  author?: ArticleCardAuthor | null;
+  /** Renders like/bookmark toggle buttons (local-only, see ArticleCardActions). */
+  showActions?: boolean;
 };
 
 const FALLBACK_IMAGE =
@@ -29,6 +40,8 @@ export default function ArticleCard({
   publishedAt,
   createdAt,
   className,
+  author,
+  showActions,
 }: ArticleCardProps) {
   // Use URL as-is; unoptimized prop below bypasses remotePatterns host checks
   const imageSrc = coverImage?.trim() || FALLBACK_IMAGE;
@@ -55,6 +68,11 @@ export default function ArticleCard({
           className="object-cover transition duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
+        {categories[0] && (
+          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-orange-700 shadow-sm backdrop-blur">
+            {categories[0]}
+          </span>
+        )}
       </Link>
       <div className="flex flex-1 flex-col p-4">
         {/* Date & Reading time */}
@@ -80,33 +98,61 @@ export default function ArticleCard({
           </p>
         )}
 
-        {/* Categories */}
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {categories.slice(0, 3).map((cat) => (
-            <Link
-              key={cat}
-              href={`/articles/category/${encodeURIComponent(cat.toLowerCase())}`}
-              className="rounded-full bg-orange-50 px-2.5 py-0.5 text-[10px] font-black text-orange-700 hover:bg-orange-100 transition"
-            >
-              {cat}
-            </Link>
-          ))}
-        </div>
+        {/* Author byline */}
+        {author && (
+          <div className="mt-4 flex items-center gap-2">
+            {author.avatarUrl ? (
+              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                <Image src={author.avatarUrl} alt={author.name} fill sizes="28px" className="object-cover" />
+              </div>
+            ) : (
+              <LocalBrandedPlaceholder
+                variant="avatar"
+                title={author.name}
+                initials={author.name.slice(0, 2).toUpperCase()}
+                className="h-7 w-7 shrink-0 rounded-full from-orange-600 to-orange-600 text-[10px]"
+              />
+            )}
+            <span className="truncate text-xs font-bold text-zinc-700">{author.name}</span>
+          </div>
+        )}
 
-        {/* Tags */}
-        {tags && tags.length > 0 && (
-          <div className="mt-3 border-t border-zinc-100 pt-3 flex flex-wrap gap-1">
-            {tags.slice(0, 4).map((tag) => (
+        <div className="mt-auto">
+          {/* Categories */}
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {categories.slice(0, 3).map((cat) => (
               <Link
-                key={tag}
-                href={`/articles/tag/${encodeURIComponent(tag.toLowerCase())}`}
-                className="text-[10px] font-bold text-zinc-400 hover:text-orange-600 transition"
+                key={cat}
+                href={`/articles/category/${encodeURIComponent(cat.toLowerCase())}`}
+                className="rounded-full bg-orange-50 px-2.5 py-0.5 text-[10px] font-black text-orange-700 hover:bg-orange-100 transition"
               >
-                #{tag}
+                {cat}
               </Link>
             ))}
           </div>
-        )}
+
+          {/* Tags */}
+          {tags && tags.length > 0 && (
+            <div className="mt-3 border-t border-zinc-100 pt-3 flex flex-wrap gap-1">
+              {tags.slice(0, 4).map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/articles/tag/${encodeURIComponent(tag.toLowerCase())}`}
+                  className="text-[10px] font-bold text-zinc-400 hover:text-orange-600 transition"
+                >
+                  #{tag}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Like / bookmark actions */}
+          {showActions && (
+            <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3">
+              <ArticleCardActions articleSlug={slug} />
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );

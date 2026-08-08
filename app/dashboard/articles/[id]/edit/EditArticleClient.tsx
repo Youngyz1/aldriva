@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import RichTextEditor from "@/components/editor/RichTextEditor";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { updateArticle } from "@/lib/actions/articles";
-import { useImageUpload, ALLOWED_IMAGE_TYPES } from "@/hooks/use-image-upload";
+
+const ARTICLE_COVER_ASPECT = 16 / 9;
 
 type OrganizerSelect = {
   id: string;
@@ -58,11 +60,6 @@ export default function EditArticleClient({
 
   const [body, setBody] = useState(article.body);
 
-  const { uploading: uploadingCover, fileInputRef: coverInputRef, triggerUpload: triggerCoverUpload, handleFileChange: handleCoverFileChange } = useImageUpload({
-    folder: "article-covers",
-    onSuccess: (url) => setForm((prev) => ({ ...prev, cover_image_url: url })),
-    onError: (msg) => setError(msg),
-  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -359,37 +356,17 @@ export default function EditArticleClient({
               Cover Image
             </h3>
 
-            <div>
-              <label htmlFor="cover_image_url" className="block text-sm font-bold text-zinc-700 mb-1">
-                Image URL
-              </label>
-              {/* Hidden file input wired to the shared upload hook */}
-              <input
-                type="file"
-                ref={coverInputRef}
-                onChange={handleCoverFileChange}
-                accept={ALLOWED_IMAGE_TYPES.join(",")}
-                className="hidden"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  id="cover_image_url"
-                  placeholder="https://unsplash.com/photos/..."
-                  value={form.cover_image_url}
-                  onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })}
-                  className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold outline-none focus:border-orange-500 focus:bg-white transition"
-                />
-                <button
-                  type="button"
-                  disabled={uploadingCover}
-                  onClick={triggerCoverUpload}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition"
-                >
-                  {uploadingCover ? "Uploading..." : "Upload"}
-                </button>
-              </div>
-            </div>
+            <ImageUploadWithCrop
+              value={form.cover_image_url}
+              aspectRatio={ARTICLE_COVER_ASPECT}
+              previewClassName="h-32 w-full rounded-xl"
+              label="Upload cover image"
+              bucket="fundraiser-media"
+              folder="article-covers"
+              onUploaded={(url) => setForm((prev) => ({ ...prev, cover_image_url: url }))}
+              onRemove={() => setForm((prev) => ({ ...prev, cover_image_url: "" }))}
+              onError={(msg) => setError(msg)}
+            />
           </div>
 
           {/* Submit button */}

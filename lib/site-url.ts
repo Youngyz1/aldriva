@@ -1,8 +1,8 @@
 import { BRAND } from "@/config/branding";
 
-// Preserved as the working production fallback until BRAND.website is set to
-// the real Aldriva domain — see config/branding.ts.
-const FALLBACK_DOMAIN = "https://www.fund4agoodcause.com";
+// Safety-net fallback only — BRAND.website (config/branding.ts) is the real
+// source of truth and is expected to always be set.
+const FALLBACK_DOMAIN = "https://aldriva.com";
 
 export function getSiteUrl() {
   // NEXT_PUBLIC_SITE_URL is the same env var articles/businesses/products

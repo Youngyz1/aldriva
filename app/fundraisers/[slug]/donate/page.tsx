@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { notFound } from "next/navigation";
 import { getVisitorCountry } from "@/lib/request-geo";
+import { getOptionalFundraiserFields } from "@/lib/fundraiser-data";
 import DonatePage from "./DonatePage";
 
 export default async function FundraiserDonatePage({
@@ -31,6 +32,9 @@ export default async function FundraiserDonatePage({
 
   if (!fundraiser) return notFound();
 
+  const optionalFundraiser = await getOptionalFundraiserFields(fundraiser.id);
+  const goal = Number(fundraiser.goal ?? 0);
+
   return (
     <DonatePage
       fundraiserTitle={fundraiser.title}
@@ -41,7 +45,7 @@ export default async function FundraiserDonatePage({
         "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=800&auto=format&fit=crop"
       }
       raised={fundraiser.raised ?? 0}
-      goal={fundraiser.goal ?? 0}
+      goal={goal}
       defaultCountry={defaultCountry}
     />
   );

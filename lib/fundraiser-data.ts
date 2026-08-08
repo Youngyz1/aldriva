@@ -1,26 +1,40 @@
 import { cache } from "react";
 
-import { normalizeImageUrl } from "@/lib/image-url";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
+import { safeImageSrc, normalizeImageUrl } from "@/lib/image-url";
 import { supabase } from "@/lib/supabase";
+import { getDonationCounts } from "@/lib/donation-counts";
+import { resolveBeneficiary } from "@/lib/beneficiary";
 
-export const FUNDRAISER_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1600&auto=format&fit=crop";
+export const FUNDRAISER_FALLBACK_IMAGE: string | null = null;
 
 type OptionalFundraiserFields = {
-  description?: string | null;
-  goal_amount?: number | string | null;
-  short_description?: string | null;
-  beneficiary?: string | null;
+  /** JSONB beneficiary object (migration_50). Shape validated via
+   *  resolveBeneficiary rather than trusted here. */
+  beneficiary?: unknown;
+  /** Generated column derived from beneficiary->>'name'. */
   beneficiary_name?: string | null;
 };
 
-const OPTIONAL_FUNDRAISER_FIELDS = [
-  "description",
-  "goal_amount",
-  "short_description",
-  "beneficiary",
-  "beneficiary_name",
-] as const;
+/**
+ * Every name here MUST be a real column on `fundraisers`.
+ *
+ * PostgREST rejects the whole `select` with 400/42703 if any single column is
+ * unknown, and the handler below then returns every field as null. That is not
+ * a partial failure — it silently blanks the beneficiary too, and
+ * resolveBeneficiary falls through to its `{ type: "self" }` default, so every
+ * campaign reads "for themselves" regardless of who the beneficiary is.
+ *
+ * This list previously also contained `description`, `goal_amount` and
+ * `short_description`, none of which exist (the real columns are `story` and
+ * `goal`, both already fetched in the main query). Their callers all had real
+ * fallbacks, so only the beneficiary showed the damage.
+ *
+ * NOTE for this database: `beneficiary` and `beneficiary_name` do not exist
+ * here yet either — migrations 50-52 have not been applied to this project. The
+ * query will keep returning 400 (now logged, not swallowed) until they are.
+ */
+const OPTIONAL_FUNDRAISER_FIELDS = ["beneficiary", "beneficiary_name"] as const;
 
 /** Deduplicated cache helper for querying fundraiser details. */
 export const getFundraiserBySlug = cache(async (slug: string) => {
@@ -41,6 +55,15 @@ export const getOptionalFundraiserFields = cache(async (fundraiserId: string) =>
     .select(OPTIONAL_FUNDRAISER_FIELDS.join(", "))
     .eq("id", fundraiserId)
     .maybeSingle();
+
+  if (error) {
+    // Loudly, because the null-filled fallback below is indistinguishable from
+    // "this campaign has no beneficiary". Swallowing this is exactly how the
+    // "for themselves" bug survived unnoticed.
+    console.error(
+      `[fundraiser-data] optional-fields query failed for ${fundraiserId}: ${error.message}`
+    );
+  }
 
   if (error || !data) {
     return Object.fromEntries(
@@ -72,21 +95,21 @@ export async function getFundraiserCardData(slug: string) {
   const organizerName =
     organizer?.name || fundraiser.organizer || "Campaign organizer";
 
-  const beneficiaryName: string =
-    optionalFundraiser.beneficiary ||
-    optionalFundraiser.beneficiary_name ||
-    fundraiser.title ||
-    "This Cause";
-
-  const coverImage = normalizeImageUrl(
-    fundraiser.image_url || fundraiser.banner,
-    FUNDRAISER_FALLBACK_IMAGE
+  // Previously fell through to `fundraiser.title` when no beneficiary was
+  // stored, which meant every campaign displayed its own title as the
+  // beneficiary. Now resolves the real object, falling back to a
+  // self-beneficiary named after the organizer.
+  const beneficiary = resolveBeneficiary(
+    optionalFundraiser.beneficiary,
+    organizerName
   );
+  const beneficiaryName: string = beneficiary?.name || organizerName;
+
+  const coverImage = safeImageSrc(fundraiser.image_url || fundraiser.banner);
 
   const raised = Number(fundraiser.raised ?? 0);
-  const goal = Number(optionalFundraiser.goal_amount ?? fundraiser.goal ?? 0);
-  const percentage =
-    goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const goal = Number(fundraiser.goal ?? 0);
+  const percentage = calculateFundraisingPercentage(raised, goal);
 
   return {
     title: fundraiser.title as string,
@@ -260,9 +283,12 @@ export type FundraiserListItem = {
   slug: string;
   goal: number;
   raised: number;
-  image: string;
+  image: string | null;
   category: string | null;
   organizer: string | null;
+  /** Who the fundraiser helps — from migration_50's generated column. */
+  beneficiaryName: string | null;
+  beneficiaryType: string | null;
   isFeatured: boolean;
   createdAt: string | null;
 };
@@ -311,6 +337,61 @@ export function escapePostgrestOrValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+/**
+ * The shared PostgREST `.or()` filter for fundraiser search — title, category
+ * and beneficiary name, so searching "Mary Doe" or "Hope Children's Home"
+ * finds the fundraiser helping them, not just ones with it in the title.
+ *
+ * Centralised so every search path escapes identically: app/search/page.tsx
+ * was previously interpolating raw user input straight into this filter,
+ * which is exactly the injection escapePostgrestOrValue exists to prevent.
+ *
+ * `beneficiary_name` is the generated column from migration_50 — that
+ * migration must be applied before this filter will resolve.
+ */
+export function buildFundraiserSearchFilter(
+  searchQuery: string,
+  includeBeneficiary = true
+): string {
+  const safe = escapePostgrestOrValue(searchQuery);
+  const clauses = [`title.ilike."%${safe}%"`, `category.ilike."%${safe}%"`];
+  if (includeBeneficiary) clauses.push(`beneficiary_name.ilike."%${safe}%"`);
+  return clauses.join(",");
+}
+
+const BASE_LIST_COLUMNS =
+  "id, title, slug, goal, raised, raised_amount, banner, image_url, category, organizer, created_at, is_featured";
+
+function listColumns(withBeneficiary: boolean): string {
+  return withBeneficiary
+    ? `${BASE_LIST_COLUMNS}, beneficiary_name, beneficiary_type`
+    : BASE_LIST_COLUMNS;
+}
+
+/**
+ * Runs a fundraiser query that references migration_50's beneficiary columns,
+ * transparently retrying without them if the migration hasn't been applied.
+ *
+ * Without this the two are hard-coupled: PostgREST rejects a select naming an
+ * unknown column, the caller's `data ?? []` turns that into an empty list, and
+ * every campaign listing silently renders "no fundraisers found" until the
+ * migration lands. Deploy order should not be able to blank the core listings,
+ * so the dependency is made soft here rather than documented as a footgun.
+ *
+ * Costs one extra round trip only while the columns are missing; once the
+ * migration is applied the first attempt always succeeds. Self-healing, with
+ * no cached capability flag that could go stale mid-process.
+ */
+async function withBeneficiaryFallback<T>(
+  run: (withBeneficiary: boolean) => PromiseLike<{ data: T; count: number | null; error: unknown }>
+): Promise<{ data: T; count: number | null }> {
+  const first = await run(true);
+  if (!first.error) return { data: first.data, count: first.count };
+
+  const retry = await run(false);
+  return { data: retry.data, count: retry.count };
+}
+
 type FundraiserListRow = {
   id: string;
   title: string;
@@ -322,6 +403,8 @@ type FundraiserListRow = {
   image_url: string | null;
   category: string | null;
   organizer: string | null;
+  beneficiary_name: string | null;
+  beneficiary_type: string | null;
   created_at: string | null;
   is_featured: boolean | null;
 };
@@ -337,6 +420,8 @@ function mapFundraiserRow(row: FundraiserListRow): FundraiserListItem {
     image: normalizeImageUrl(row.image_url || row.banner, FUNDRAISER_FALLBACK_IMAGE),
     category: row.category ?? null,
     organizer: row.organizer ?? null,
+    beneficiaryName: row.beneficiary_name ?? null,
+    beneficiaryType: row.beneficiary_type ?? null,
     isFeatured: row.is_featured === true,
     createdAt: row.created_at,
   };
@@ -370,41 +455,40 @@ export async function getFundraiserList(
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 12;
 
-  let query = supabase
-    .from("fundraisers")
-    .select(
-      "id, title, slug, goal, raised, raised_amount, banner, image_url, category, organizer, created_at, is_featured",
-      { count: "exact" }
-    )
-    .is("deleted_at", null)
-    .eq("status", "published");
-
-  if (searchQuery) {
-    const safeSearchQuery = escapePostgrestOrValue(searchQuery);
-    query = query.or(
-      `title.ilike."%${safeSearchQuery}%",category.ilike."%${safeSearchQuery}%"`
-    );
-  }
-  if (categories && categories.length > 0) {
-    query = query.in("category", categories);
-  }
-  if (featuredOnly) {
-    query = query.eq("is_featured", true);
-  }
-  if (excludeIds && excludeIds.length > 0) {
-    query = query.not("id", "in", `(${excludeIds.join(",")})`);
-  }
-
-  if (sort === "raised") {
-    query = query.order("raised", { ascending: false }).order("id", { ascending: true });
-  } else if (sort === "goal") {
-    query = query.order("goal", { ascending: false }).order("id", { ascending: true });
-  } else {
-    query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
-  }
-
   const from = (page - 1) * pageSize;
-  const { data, count } = await query.range(from, from + pageSize - 1);
+
+  function runQuery(withBeneficiary: boolean) {
+    let query = supabase
+      .from("fundraisers")
+      .select(listColumns(withBeneficiary), { count: "exact" })
+      .is("deleted_at", null)
+      .eq("status", "published");
+
+    if (searchQuery) {
+      query = query.or(buildFundraiserSearchFilter(searchQuery, withBeneficiary));
+    }
+    if (categories && categories.length > 0) {
+      query = query.in("category", categories);
+    }
+    if (featuredOnly) {
+      query = query.eq("is_featured", true);
+    }
+    if (excludeIds && excludeIds.length > 0) {
+      query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    }
+
+    if (sort === "raised") {
+      query = query.order("raised", { ascending: false }).order("id", { ascending: true });
+    } else if (sort === "goal") {
+      query = query.order("goal", { ascending: false }).order("id", { ascending: true });
+    } else {
+      query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
+    }
+
+    return query.range(from, from + pageSize - 1);
+  }
+
+  const { data, count } = await withBeneficiaryFallback(runQuery);
 
   const rows = (data ?? []) as unknown as FundraiserListRow[];
   const fundraisers = rows.map(mapFundraiserRow);
@@ -446,22 +530,14 @@ function rowAgeDays(row: FundraiserListRow): number {
  * `donorCounts` query in `app/fundraisers/page.tsx`, reusing existing donation
  * data rather than any new tracking. Only fetched for the "trending" bucket.
  */
+/**
+ * Delegates to the shared server-only helper. This previously ran the same
+ * query through the anon `supabase` client, which RLS blocks from reading
+ * `donations` — so every count came back 0 and the "trending" filter, which
+ * requires `count > 0`, silently matched no campaigns at all.
+ */
 async function fetchDonationCounts(ids: string[]): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  if (ids.length === 0) return counts;
-
-  const { data } = await supabase
-    .from("donations")
-    .select("fundraiser_id")
-    .in("fundraiser_id", ids)
-    .in("status", ["succeeded", "completed"]);
-
-  for (const row of (data ?? []) as { fundraiser_id: string | null }[]) {
-    if (row.fundraiser_id) {
-      counts.set(row.fundraiser_id, (counts.get(row.fundraiser_id) ?? 0) + 1);
-    }
-  }
-  return counts;
+  return getDonationCounts(ids);
 }
 
 function rankSmartFilter(
@@ -515,18 +591,18 @@ async function getSmartFilteredFundraiserList(
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 12;
 
-  let query = supabase
-    .from("fundraisers")
-    .select(
-      "id, title, slug, goal, raised, raised_amount, banner, image_url, category, organizer, created_at, is_featured"
-    )
-    .is("deleted_at", null)
-    .eq("status", "published");
-  if (categories && categories.length > 0) {
-    query = query.in("category", categories);
-  }
+  const { data } = await withBeneficiaryFallback((withBeneficiary) => {
+    let query = supabase
+      .from("fundraisers")
+      .select(listColumns(withBeneficiary), { count: "exact" })
+      .is("deleted_at", null)
+      .eq("status", "published");
+    if (categories && categories.length > 0) {
+      query = query.in("category", categories);
+    }
+    return query;
+  });
 
-  const { data } = await query;
   let rows = (data ?? []) as unknown as FundraiserListRow[];
 
   if (excludeIds && excludeIds.length > 0) {
@@ -576,11 +652,9 @@ export async function getCuratedFundraiserImages(
   for (const slug of slugs) {
     const row = bySlug.get(slug);
     if (!row) continue;
-    // Empty-string fallback: an unusable/disallowed image resolves to "" and is
-    // dropped, rather than substituting the stock fallback image.
-    const normalized = normalizeImageUrl(row.image_url || row.banner, "");
-    if (normalized && normalized !== FUNDRAISER_FALLBACK_IMAGE) {
-      images.push(normalized);
+    const safe = safeImageSrc(row.image_url || row.banner);
+    if (safe) {
+      images.push(safe);
     }
   }
   return images;

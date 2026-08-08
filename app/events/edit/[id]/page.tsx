@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+
+const EVENT_BANNER_ASPECT = 16 / 9;
 
 
 type Organizer = { id: string; name: string };
@@ -295,12 +298,19 @@ export default function EditEventPage() {
             />
           </div>
 
-          <input
-            value={form.banner}
-            onChange={(event) => update("banner", event.target.value)}
-            placeholder="Banner image URL"
-            className="w-full rounded-2xl border border-zinc-300 px-5 py-4 outline-none focus:border-orange-500"
-          />
+          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
+            <h2 className="mb-4 text-lg font-black text-zinc-950">Event Banner</h2>
+            <ImageUploadWithCrop
+              value={form.banner}
+              aspectRatio={EVENT_BANNER_ASPECT}
+              previewClassName="h-40 w-full rounded-2xl"
+              label="Upload banner"
+              bucket="event-banners"
+              folder={eventId}
+              onUploaded={(url) => update("banner", url)}
+              onRemove={() => update("banner", "")}
+            />
+          </div>
 
           <div className="space-y-2">
             <span className="block font-bold">Event Description</span>

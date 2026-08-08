@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Lock, Bell, CreditCard, ShieldAlert, Link2 } from "lucide-react";
+import { User, Lock, Bell, CreditCard, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsNavItems = [
@@ -36,12 +36,6 @@ const settingsNavItems = [
     href: "/dashboard/settings/privacy",
     icon: ShieldAlert,
     description: "Profile and display privacy",
-  },
-  {
-    label: "Connected Accounts",
-    href: "/dashboard/settings/accounts",
-    icon: Link2,
-    description: "Third-party sync integrations",
   },
 ];
 

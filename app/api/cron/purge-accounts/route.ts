@@ -1,110 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/dashboard-context";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
+/**
+ * Ends the 14-day account-deletion grace period.
+ *
+ * SOFT DELETE, BY DESIGN. This job flips `pending_deletion` → `purged` and
+ * nothing else. It deliberately does NOT:
+ *   - scrub profile, organizer, fundraiser or event fields
+ *   - call auth.admin.deleteUser()
+ *
+ * An earlier version did both. That was removed on purpose: the row and all
+ * associated data are retained indefinitely for fraud and dispute
+ * investigation, and destroying the auth user made the state irreversible even
+ * for an admin. Inaccessibility is enforced at the application layer instead —
+ * proxy.ts blocks `pending_deletion` and `purged` from signing in, and the
+ * public queries already filter on `deleted_at`.
+ *
+ * This is a deliberate retention decision, not an oversight. A longer-term
+ * purge policy can be layered on later if compliance requires it; that is
+ * explicitly out of scope here. Do not "restore" the scrubbing without one.
+ *
+ * `deleted_at` is left in place as the tombstone. `purge_at` is cleared so the
+ * row stops matching this job's selector on subsequent nightly runs.
+ */
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const now = new Date().toISOString();
 
   try {
-    // 1. Purge profiles whose purge_at has passed
-    const { data: profilesToDelete, error: profilesErr } = await supabaseAdmin
+    // Scoped to pending_deletion so a row that an admin revoked mid-window is
+    // never caught by a later run, even if purge_at was somehow left behind.
+    const { data: due, error: dueError } = await supabaseAdmin
       .from("profiles")
       .select("id")
+      .eq("status", "pending_deletion")
       .not("purge_at", "is", null)
       .lte("purge_at", now);
 
-    if (profilesErr) {
-      throw new Error(`Failed to query profiles: ${profilesErr.message}`);
+    if (dueError) {
+      throw new Error(`Failed to query profiles: ${dueError.message}`);
     }
 
-    const profileIds = (profilesToDelete ?? []).map((p) => p.id);
-    console.log(`[PurgeAccounts Cron] Found ${profileIds.length} profile(s) to purge.`);
+    const ids = (due ?? []).map((row) => row.id);
+    console.log(`[PurgeAccounts Cron] ${ids.length} account(s) past their grace period.`);
 
-    if (profileIds.length === 0) {
-      return NextResponse.json({ success: true, purged: 0 });
+    if (ids.length === 0) {
+      return NextResponse.json({ success: true, purged: 0, failed: 0 });
     }
 
-    let purgedCount = 0;
+    // Single statement rather than a loop: there is only one write per account
+    // now, so there is nothing to sequence and nothing to partially fail.
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        status: "purged",
+        // deleted_at stays — it is the tombstone the public queries filter on.
+        purge_at: null,
+        updated_at: now,
+      })
+      .in("id", ids)
+      .select("id");
 
-    for (const profileId of profileIds) {
-      try {
-        // 2a. Anonymise profile data (wipe PII, keep the row for FK integrity)
-        await supabaseAdmin
-          .from("profiles")
-          .update({
-            full_name: "[deleted]",
-            avatar_url: null,
-            bio: null,
-            location: null,
-            website: null,
-            phone: null,
-            status: "purged",
-            // keep deleted_at so the row is clearly marked, clear purge_at
-            purge_at: null,
-          })
-          .eq("id", profileId);
-
-        // 2b. Fetch all organizers owned by this user
-        const { data: organizers } = await supabaseAdmin
-          .from("organizers")
-          .select("id")
-          .eq("user_id", profileId);
-
-        const organizerIds = (organizers ?? []).map((o) => o.id);
-
-        if (organizerIds.length > 0) {
-          // 2c. Anonymise events
-          await supabaseAdmin
-            .from("events")
-            .update({
-              title: "[deleted]",
-              description: null,
-              image_url: null,
-              purge_at: null,
-            })
-            .in("organizer_id", organizerIds);
-
-          // 2d. Anonymise fundraisers
-          await supabaseAdmin
-            .from("fundraisers")
-            .update({
-              title: "[deleted]",
-              description: null,
-              image_url: null,
-              purge_at: null,
-            })
-            .in("organizer_id", organizerIds);
-
-          // 2e. Anonymise organizers
-          await supabaseAdmin
-            .from("organizers")
-            .update({
-              name: "[deleted]",
-              bio: null,
-              photo: null,
-              banner: null,
-              purge_at: null,
-            })
-            .eq("user_id", profileId);
-        }
-
-        // 2f. Delete the auth user from Supabase Auth (this is the hard delete in Auth only)
-        await supabaseAdmin.auth.admin.deleteUser(profileId);
-
-        purgedCount++;
-        console.log(`[PurgeAccounts Cron] Purged user ${profileId}`);
-      } catch (userErr: unknown) {
-        const msg = userErr instanceof Error ? userErr.message : String(userErr);
-        console.error(`[PurgeAccounts Cron] Failed to purge user ${profileId}: ${msg}`);
-        // Continue with remaining users; don't abort the entire job
-      }
+    // Checked, not swallowed. supabase-js resolves with { data, error } rather
+    // than throwing, so an unchecked write here would report a clean run while
+    // leaving every account stuck in pending_deletion forever.
+    if (updateError) {
+      throw new Error(`Failed to mark accounts purged: ${updateError.message}`);
     }
 
-    return NextResponse.json({ success: true, purged: purgedCount });
+    const purged = updated?.length ?? 0;
+    console.log(`[PurgeAccounts Cron] Marked ${purged} account(s) purged.`);
+
+    return NextResponse.json({
+      success: purged === ids.length,
+      purged,
+      failed: ids.length - purged,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[PurgeAccounts Cron] Fatal error:", msg);

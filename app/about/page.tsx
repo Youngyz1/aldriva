@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import Link from "next/link";
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.fund4agoodcause.com"),
+  metadataBase: new URL(getSiteUrl()),
   title: "About — Aldriva",
   description: "Learn about Aldriva's mission to connect communities through events and fundraising.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/about",
+    canonical: `${getSiteUrl()}/about`,
   },
   openGraph: {
     title: "About — Aldriva",
     description: "Learn about Aldriva's mission to connect communities through events and fundraising.",
-    url: "https://www.fund4agoodcause.com/about",
+    url: `${getSiteUrl()}/about`,
     siteName: "Aldriva",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "About Aldriva" }],
   },

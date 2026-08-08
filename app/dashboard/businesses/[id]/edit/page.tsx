@@ -3,8 +3,6 @@ import { getDashboardContext } from "@/lib/dashboard-context";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import EditBusinessFormClient from "./EditBusinessFormClient";
 
-export const revalidate = 0;
-
 export default async function EditBusinessPage({
   params,
 }: {

@@ -3,6 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/dashboard-context";
 import { checkEventDeleteBlocked, checkFundraiserDeleteBlocked } from "@/lib/dashboard-delete";
 import { Resend } from "resend";
+import { BRAND } from "@/config/branding";
 
 export async function DELETE(req: NextRequest) {
   const supabase = await createSupabaseServer();
@@ -126,8 +127,8 @@ export async function DELETE(req: NextRequest) {
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromAddress = `Aldriva <${
-        process.env.RESEND_FROM_EMAIL || "contact@fund4agoodcause.com"
+      const fromAddress = `${BRAND.name} <${
+        process.env.RESEND_FROM_EMAIL || BRAND.contactEmail
       }>`;
       const purgeDateFormatted = new Date(purgeAt).toLocaleDateString("en-US", {
         year: "numeric",

@@ -1,15 +1,14 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
-
-export const revalidate = 60; // Cache public catalog for 60 seconds
 
 export const metadata: Metadata = {
   title: "Shop Products — Aldriva",
   description: "Browse products and merchandise supporting great causes.",
   alternates: {
-    canonical: "https://www.fund4agoodcause.com/products",
+    canonical: `${getSiteUrl()}/products`,
   },
 };
 

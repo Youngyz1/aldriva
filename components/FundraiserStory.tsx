@@ -99,7 +99,7 @@ export default function FundraiserStory({
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="mt-4 text-sm font-bold text-emerald-700 hover:text-emerald-800 transition"
+          className="mt-4 text-sm font-bold text-brand-800 hover:text-brand-900 transition"
         >
           {expanded ? "Show less" : "Read more"}
         </button>

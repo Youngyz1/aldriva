@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { LocateFixed, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { slugifyCity } from "@/lib/city-slug";
 
 type LocationStatus = "idle" | "detecting" | "ready" | "manual";
 
@@ -58,9 +59,10 @@ export default function MobileHomepageSearch() {
 
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (city.trim()) params.set("location", city.trim());
+    const qs = params.toString();
 
-    router.push(`/events${params.toString() ? `?${params.toString()}` : ""}`);
+    const destination = city.trim() ? `/events/city/${slugifyCity(city.trim())}` : "/events";
+    router.push(qs ? `${destination}?${qs}` : destination);
   }
 
   const cityLabel = city.trim() || "you";

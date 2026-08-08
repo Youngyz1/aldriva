@@ -13,7 +13,7 @@ export const SettingsCard = React.forwardRef<HTMLDivElement, SettingsCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl border border-zinc-200/80 bg-white shadow-xs transition duration-200 hover:shadow-sm sm:rounded-2xl",
+          "rounded-xl border border-zinc-200 bg-white sm:rounded-2xl",
           className
         )}
         {...props}

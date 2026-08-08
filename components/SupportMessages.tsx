@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import ProfileNotSetUpModal, {
   type ProfileActivity,
 } from "@/components/ProfileNotSetUpModal";
@@ -199,18 +198,15 @@ export default function SupportMessages({
             return (
               <article key={msg.id} className="py-5">
                 <div className="flex items-start gap-3">
-                  <LocalBrandedPlaceholder
-                    variant="avatar"
-                    title={name}
-                    initials={name.charAt(0).toUpperCase()}
-                    className="h-10 w-10 shrink-0 rounded-full from-zinc-100 to-zinc-100 text-zinc-600"
-                  />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 font-black text-zinc-600">
+                    {name.charAt(0).toUpperCase()}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       {hasCustomizedProfile ? (
                         <Link
                           href={`/profile/${profile!.id}`}
-                          className="font-black text-zinc-950 transition hover:text-emerald-600 hover:underline"
+                          className="font-black text-zinc-950 transition hover:text-brand-700 hover:underline"
                         >
                           {displayName}
                         </Link>

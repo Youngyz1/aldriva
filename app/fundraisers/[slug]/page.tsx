@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import type { Metadata } from "next";
 
 import DonationProtectedBadge from "@/components/DonationProtectedBadge";
@@ -9,7 +7,7 @@ import FundraiserMediaSlider, {
 } from "@/components/FundraiserMediaSlider";
 import FundraiserShare from "@/components/FundraiserShare";
 import FundraiserStory from "@/components/FundraiserStory";
-import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import ProgressRing from "@/components/ui/ProgressRing";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -19,17 +17,22 @@ import { notFound } from "next/navigation";
 import { Flag, Zap, HeartHandshake, ShieldCheck } from "lucide-react";
 import FundraiserFloatingActions, { ShareFundraiserButton } from "./FundraiserActions";
 import StarRating from "@/components/StarRating";
-import { normalizeImageUrl } from "@/lib/image-url";
+import { safeImageSrc, normalizeImageUrl } from "@/lib/image-url";
 import { jsonLdScriptValue } from "@/lib/structured-data";
 import { money } from "@/lib/format";
+import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 import DonorList from "@/components/DonorList";
 import RelatedFundraiserCarousel from "@/components/RelatedFundraiserCarousel";
 import {
-  FUNDRAISER_FALLBACK_IMAGE,
   getFundraiserBySlug,
   getOptionalFundraiserFields,
   getRelatedFundraisers,
 } from "@/lib/fundraiser-data";
+import {
+  resolveBeneficiary,
+  beneficiaryForLabel,
+  beneficiaryTypeLabel,
+} from "@/lib/beneficiary";
 import { getSiteUrl } from "@/lib/site-url";
 import { truncateWords, stripHtml } from "@/lib/text";
 
@@ -58,29 +61,29 @@ export async function generateMetadata({
     : normalizeImageUrl(null, "/og-image.png");
 
   return {
-    metadataBase: new URL("https://www.fund4agoodcause.com"),
+    metadataBase: new URL(getSiteUrl()),
     title,
     description,
     alternates: {
-      canonical: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+      canonical: `${getSiteUrl()}/fundraisers/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+      url: `${getSiteUrl()}/fundraisers/${slug}`,
       siteName: "Aldriva",
-      images: [{ url: image, width: 1200, height: 630, alt: fundraiser?.title || "Fundraiser" }],
+      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: fundraiser?.title || "Fundraiser" }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [image],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }
 
-const FALLBACK_IMAGE = FUNDRAISER_FALLBACK_IMAGE;
+
 
 type DonationRow = {
   id: string;
@@ -127,15 +130,6 @@ function dateLabel(value: string) {
   });
 }
 
-function timeAgo(value: string) {
-  const days = Math.floor(
-    (Date.now() - new Date(value).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} days ago`;
-}
-
 function createdAgo(value: string) {
   const secs = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
   if (secs < 60) return "just now";
@@ -170,54 +164,9 @@ async function getPublicProfileMap(
 
 function OrganizerAvatar({ name }: { name: string }) {
   return (
-    <LocalBrandedPlaceholder
-      variant="avatar"
-      title={name}
-      initials={initial(name)}
-      className="h-11 w-11 shrink-0 from-transparent to-transparent text-sm text-zinc-700"
-    />
-  );
-}
-
-function ProgressRing({ percentage }: { percentage: number }) {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <svg viewBox="0 0 100 100" className="h-20 w-20 lg:h-28 lg:w-28">
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        stroke="#e5e7eb"
-        strokeWidth="8"
-        fill="none"
-      />
-      <circle
-        cx="50"
-        cy="50"
-        r="40"
-        stroke="#10b981"
-        strokeWidth="8"
-        fill="none"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 50 50)"
-      />
-      <text
-        x="50"
-        y="50"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize="16"
-        fontWeight="bold"
-        fill="#18181b"
-      >
-        {percentage}%
-      </text>
-    </svg>
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center text-sm font-black text-zinc-700">
+      {initial(name)}
+    </div>
   );
 }
 
@@ -276,9 +225,11 @@ export default async function FundraiserPage({
     if (!canView) return notFound();
   }
 
-  const optionalFundraiser = await getOptionalFundraiserFields(fundraiser.id);
-
+  // Batch 1: every query that only depends on fundraiser.id (nothing here
+  // depends on another query's result) — was previously optionalFundraiser
+  // awaited alone before this Promise.all, costing an extra round-trip.
   const [
+    optionalFundraiser,
     mediaResult,
     updatesResult,
     donationsResult,
@@ -286,6 +237,7 @@ export default async function FundraiserPage({
     commentsResult,
     relatedFundraisers,
   ] = await Promise.all([
+    getOptionalFundraiserFields(fundraiser.id),
     supabase
       .from("fundraiser_media")
       .select("id, url, type, position")
@@ -325,29 +277,63 @@ export default async function FundraiserPage({
   const organizer = organizerResult.data as OrganizerRow | null;
   const organizerName =
     organizer?.name || fundraiser.organizer || "Campaign organizer";
+  const recentDonors = (donationsResult.data ?? []) as DonationRow[];
+  // Computed early (was previously computed just before use, much later)
+  // so its lookup query can join Batch 2 below instead of running alone.
+  // Was falling through to `fundraiser.title` whenever no beneficiary was
+  // stored — which, since the column never existed, meant every campaign
+  // showed its own title as the beneficiary. Now reads the real object,
+  // defaulting to a self-beneficiary named after the organizer.
+  const beneficiary = resolveBeneficiary(
+    optionalFundraiser.beneficiary,
+    organizerName
+  );
+  const beneficiaryName: string = beneficiary?.name || organizerName;
 
-  // If no organizer_id was stored, try to resolve the organizer profile by
-  // matching the organizer name — same fallback pattern used for the beneficiary.
-  const { data: organizerByName } =
+  // Batch 2: three lookups that each depend on Batch 1's results, but not on
+  // each other — previously run as three separate sequential awaits.
+  const [
+    { data: organizerByName },
+    publicProfileById,
+    { data: beneficiaryOrganizer },
+  ] = await Promise.all([
+    // If no organizer_id was stored, try to resolve the organizer profile by
+    // matching the organizer name — same fallback pattern used for the beneficiary.
     !organizer && organizerName && organizerName !== "Campaign organizer"
-      ? await supabase
+      ? supabase
           .from("organizers")
           .select("id")
           .eq("name", organizerName)
           .eq("visibility", "public")
           .not("status", "in", "(rejected,suspended)")
           .maybeSingle()
-      : { data: null };
+      : Promise.resolve({ data: null }),
+    getPublicProfileMap(
+      recentDonors
+        .map((donation) => donation.user_id)
+        .filter((id): id is string => Boolean(id)),
+      supabaseAdmin
+    ),
+    beneficiaryName
+      ? supabase
+          .from("organizers")
+          .select("id")
+          .eq("name", beneficiaryName)
+          .eq("visibility", "public")
+          .not("status", "in", "(rejected,suspended)")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   // Single source-of-truth for the organizer profile link
   const organizerProfileId: string | null =
     organizer?.id ?? organizerByName?.id ?? null;
 
   const raised = Number(fundraiser.raised ?? 0);
-  const goal = Number(optionalFundraiser.goal_amount ?? fundraiser.goal ?? 0);
-  const coverImage = normalizeImageUrl(
-    fundraiser.image_url || fundraiser.banner,
-    FALLBACK_IMAGE
+  // `goal` is the real column; there is no `goal_amount` on fundraisers.
+  const goal = Number(fundraiser.goal ?? 0);
+  const coverImage = safeImageSrc(
+    fundraiser.image_url || fundraiser.banner
   );
   const mediaRows = (mediaResult.data ?? []) as MediaRow[];
   const media: FundraiserMediaSlide[] = [];
@@ -372,6 +358,7 @@ export default async function FundraiserPage({
         goal={goal}
         donateSlug={fundraiser.slug}
         hideButtons={true}
+        variant="hero"
       />
     ),
   });
@@ -387,21 +374,10 @@ export default async function FundraiserPage({
     );
   }
   const updates = (updatesResult.data ?? []) as UpdateRow[];
-  const recentDonors = (donationsResult.data ?? []) as DonationRow[];
-  const publicProfileById = await getPublicProfileMap(
-    recentDonors
-      .map((donation) => donation.user_id)
-      .filter((id): id is string => Boolean(id)),
-    supabaseAdmin
-  );
   const donationCount = donationsResult.count ?? recentDonors.length;
-  const percentage =
-    goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
-  const description =
-    optionalFundraiser.description ||
-    fundraiser.story ||
-    optionalFundraiser.short_description ||
-    "";
+  const percentage = calculateFundraisingPercentage(raised, goal);
+  // `story` is the real column; there is no `description`/`short_description`.
+  const description = fundraiser.story || "";
   void commentsResult.count;
 
   // Story-overlay slide: excerpt + donor cluster, reusing the same donor
@@ -415,8 +391,7 @@ export default async function FundraiserPage({
       "Anonymous"
   );
   const storyExcerpt = truncateWords(
-    stripHtml(optionalFundraiser.short_description || description) ||
-      "Read the full story.",
+    stripHtml(description) || "Read the full story.",
     160
   );
 
@@ -432,21 +407,6 @@ export default async function FundraiserPage({
       scrollTargetId: "fundraiser-story",
     },
   });
-  const beneficiaryName: string =
-    optionalFundraiser.beneficiary ||
-    optionalFundraiser.beneficiary_name ||
-    fundraiser.title ||
-    "This Cause";
-
-  const { data: beneficiaryOrganizer } = beneficiaryName
-    ? await supabase
-        .from("organizers")
-        .select("id")
-        .eq("name", beneficiaryName)
-        .eq("visibility", "public")
-        .not("status", "in", "(rejected,suspended)")
-        .maybeSingle()
-    : { data: null };
 
   const fundraiserCategory: string = fundraiser.category || "";
   const fundraiserCreatedAt: string =
@@ -458,13 +418,13 @@ export default async function FundraiserPage({
     "@type": "DonateAction",
     name: fundraiser.title,
     description: description || undefined,
-    image: coverImage !== FALLBACK_IMAGE ? coverImage : undefined,
-    url: `https://www.fund4agoodcause.com/fundraisers/${slug}`,
+    image: coverImage || undefined,
+    url: `${getSiteUrl()}/fundraisers/${slug}`,
     recipient: {
       "@type": "Organization",
       name: organizerName,
       ...(organizerProfileId
-        ? { url: `https://www.fund4agoodcause.com/organizers/${organizerProfileId}` }
+        ? { url: `${getSiteUrl()}/organizers/${organizerProfileId}` }
         : {}),
     },
     object: {
@@ -478,13 +438,13 @@ export default async function FundraiserPage({
   };
 
   return (
-    <main className="min-h-screen bg-white pb-24 text-zinc-950 lg:pb-12">
+    <main className="min-h-screen bg-white pb-40 text-zinc-950">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScriptValue(jsonLd) }}
       />
       {fundraiser.status !== "published" && (
-        <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-6">
           <div
             className={`rounded-xl border px-4 py-3 text-sm font-bold ${
               fundraiser.status === "rejected"
@@ -502,301 +462,294 @@ export default async function FundraiserPage({
           </div>
         </div>
       )}
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-3 lg:py-10">
-        {/* Main content column — `contents` below `lg` dissolves this div's own
-            box so its children become direct items of the outer grid above,
-            letting each one carry its own `order-*` value (see below) that
-            interleaves with the aside. DOM order is untouched — `contents`
-            only affects the box/layout tree, not the DOM or accessibility
-            tree — so this is a visual-only reorder, same as the `order-first`
-            trick it replaces. At `lg` the div becomes a normal box again,
-            restoring today's two-column sidebar layout unchanged. */}
-        <div className="contents lg:block lg:min-w-0 lg:space-y-8 lg:col-span-2">
-          <header className="order-4 lg:order-none">
-            {fundraiserCategory && (
-              <span className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700 mb-3">
-                {fundraiserCategory}
-              </span>
-            )}
-            <h1 className="text-3xl font-bold leading-tight text-zinc-950 sm:text-4xl break-words">
-              {fundraiser.title}
-            </h1>
-            {fundraiser.review_count > 0 && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm text-zinc-600">
-                <StarRating value={fundraiser.average_rating} size={16} />
-                <span className="font-bold text-zinc-800">
-                  {Number(fundraiser.average_rating).toFixed(1)}
-                </span>
-                <span>
-                  ({fundraiser.review_count} {fundraiser.review_count === 1 ? "review" : "reviews"})
-                </span>
-              </div>
-            )}
-          </header>
-
-          <section className="order-1 border-b border-zinc-200 pb-8 lg:order-none">
-            <FundraiserMediaSlider media={media} title={fundraiser.title} />
-            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
-                <OrganizerAvatar name={organizerName} />
-                <p className="text-sm text-zinc-600 break-words">
-                  Organised by{" "}
-                  {organizerProfileId ? (
-                    <Link
-                      href={`/organizers/${organizerProfileId}`}
-                      className="font-bold text-zinc-950 hover:text-emerald-600 hover:underline transition"
-                    >
-                      {organizerName}
-                    </Link>
-                  ) : (
-                    <span className="font-bold text-zinc-950">
-                      {organizerName}
-                    </span>
-                  )}
-                </p>
-              </div>
-              <DonationProtectedBadge />
-            </div>
-          </section>
-
-          <div className="order-3 lg:order-none">
-            <FundraiserStory description={description} />
-          </div>
-
-          {updates.length > 0 && (
-            <section className="order-6 border-b border-zinc-200 pb-8 lg:order-none">
-              <h2 className="text-2xl font-bold text-zinc-950 break-words">
-                Updates {updates.length}
-              </h2>
-              <div className="mt-5 space-y-5">
-                {updates.map((update) => (
-                  <article
-                    key={update.id}
-                    className="rounded-lg border border-zinc-200 p-5"
-                  >
-                    <div className="flex gap-3">
-                      <OrganizerAvatar name={organizerName} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                          <span className="font-bold text-zinc-950">
-                            {organizerName}
-                          </span>
-                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600">
-                            Organiser
-                          </span>
-                          <span className="text-zinc-500">
-                            {dateLabel(update.created_at)}
-                          </span>
-                        </div>
-                        {update.title && (
-                          <h3 className="mt-3 text-lg font-bold text-zinc-950 break-words">
-                            {update.title}
-                          </h3>
-                        )}
-                        <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-zinc-700">
-                          {update.content}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-          <div className="order-7 lg:order-none">
-            <FundraiserShare
-              title={fundraiser.title}
-              imageUrl={coverImage}
-              organizerName={organizerName}
-              raised={raised}
-              goal={goal}
-              donateSlug={fundraiser.slug}
-            />
-          </div>
-
-          {/* ── Organiser & Beneficiary ─────────────────────────── */}
-          <section className="order-5 border-t border-zinc-200 pt-8 lg:order-none">
-            <h2 className="text-lg font-black text-zinc-950 break-words">
-              Organiser and beneficiary
-            </h2>
-            <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <LocalBrandedPlaceholder
-                  variant="avatar"
-                  title={organizerName}
-                  initials={initial(organizerName)}
-                  className="h-11 w-11 shrink-0 from-transparent to-transparent text-sm text-zinc-700"
-                />
-                <div className="min-w-0">
-                  {organizerProfileId ? (
-                    <Link
-                      href={`/organizers/${organizerProfileId}`}
-                      className="block truncate text-sm font-black text-zinc-950 hover:text-emerald-600 hover:underline transition"
-                    >
-                      {organizerName}
-                    </Link>
-                  ) : (
-                    <span className="block truncate text-sm font-black text-zinc-950">
-                      {organizerName}
-                    </span>
-                  )}
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600">
-                      Organiser
-                    </span>
-                    {organizerProfileId && (
-                      <a
-                        href={"mailto:support@fund4agoodcause.com?subject=Message%20for%20" + encodeURIComponent(organizerName)}
-                        className="rounded-full border border-zinc-300 px-3 py-0.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50"
-                      >
-                        Message
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 shrink-0 text-zinc-400 rotate-90 sm:rotate-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                />
-              </svg>
-
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <LocalBrandedPlaceholder
-                  variant="avatar"
-                  title={beneficiaryName}
-                  initials={initial(beneficiaryName)}
-                  className="h-11 w-11 shrink-0 from-transparent to-transparent text-sm text-emerald-700"
-                />
-                <div className="min-w-0">
-                  {beneficiaryOrganizer?.id ? (
-                    <Link
-                      href={`/organizers/${beneficiaryOrganizer.id}`}
-                      className="block truncate text-sm font-black text-zinc-950 hover:text-emerald-600 hover:underline transition"
-                    >
-                      {beneficiaryName}
-                    </Link>
-                  ) : (
-                    <span className="block truncate text-sm font-black text-zinc-950">
-                      {beneficiaryName}
-                    </span>
-                  )}
-                  <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                    Beneficiary
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <p className="mt-4 text-xs text-zinc-400">
-              Created {createdAgo(fundraiserCreatedAt)}
-              {fundraiserCategory ? ` · ${fundraiserCategory}` : ""}
-            </p>
-
-            <a
-              href={`mailto:support@fund4agoodcause.com?subject=Report%20fundraiser%3A%20${encodeURIComponent(fundraiser.title)}`}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 transition hover:text-red-500"
-            >
-              <Flag className="h-3.5 w-3.5" />
-              Report fundraiser
-            </a>
-          </section>
-
-          {/* ── Words of Support — always visible ───────────────── */}
-          <div className="order-8 border-t border-zinc-200 pt-8 lg:order-none">
-            <SupportMessages fundraiserId={fundraiser.id} />
-          </div>
-
+      {/* Hero — full-bleed on mobile (touches the screen edges for maximum
+          emotional impact), inset within the reading column at sm+ with a
+          soft rounded treatment. Ends naturally — no overlapping card, no
+          negative margin into the content below; the fundraising section
+          simply begins in normal flow immediately after. */}
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <div className="-mx-4 sm:mx-0">
+          <FundraiserMediaSlider
+            media={media}
+            title={fundraiser.title}
+            category={fundraiserCategory}
+          />
         </div>
+      </div>
 
-        {/* Aside — order-2 below `lg` (hero carousel first, then this
-            progress/donate card, then the story — see the `contents` wrapper
-            above), since the sidebar grid itself only kicks in at `lg`; DOM
-            order is untouched, so SEO/accessibility order matches the
-            desktop reading order at every width). */}
-        <aside className="order-2 min-w-0 lg:order-none lg:col-span-1">
-          <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm lg:space-y-6 lg:p-6 lg:sticky lg:top-24">
-            <section className="text-center">
-              <div className="flex justify-center">
-                <ProgressRing percentage={percentage} />
-              </div>
-              <p className="mt-3 text-2xl font-black text-zinc-950 lg:mt-4 lg:text-3xl">
+      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
+        {/* Organizer → beneficiary attribution. Sits directly beneath the
+            title (which is overlaid on the hero photo above), so the first
+            thing read after the campaign name is who runs it and who it
+            helps. */}
+        {beneficiary && (
+          <p className="-mb-4 text-sm font-medium text-zinc-500">
+            Organized by{" "}
+            {organizerProfileId ? (
+              <Link
+                href={`/organizers/${organizerProfileId}`}
+                className="font-black text-zinc-900 hover:text-brand-700 hover:underline"
+              >
+                {organizerName}
+              </Link>
+            ) : (
+              <span className="font-black text-zinc-900">{organizerName}</span>
+            )}
+            <span aria-hidden> · </span>
+            for <span className="font-black text-zinc-900">{beneficiaryForLabel(beneficiary)}</span>
+          </p>
+        )}
+
+        {/* Raised / progress / goal / donation count + Donate + Share — the
+            first fundraising content the user sees, immediately below the
+            hero (the campaign title now lives as an overlay on the hero
+            photo itself — see FundraiserMediaSlider). `id` preserved for
+            FundraiserFloatingActions' scroll observer (see
+            FundraiserActions.tsx). */}
+        <section id="main-donation-card" className="min-w-0 space-y-5">
+          <div className="flex items-center gap-4">
+            <div className="shrink-0">
+              <ProgressRing percentage={percentage} size={72} strokeWidth={7} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-2xl font-black tracking-tight text-zinc-950 leading-tight">
                 {money(raised)} raised
               </p>
-              <p className="mt-1 text-sm font-medium text-zinc-500">
-                of {money(goal)} goal
+              <p className="text-lg font-medium text-zinc-500 leading-snug">
+                of {money(goal)} USD
               </p>
-              <p className="mt-2 text-sm font-bold text-zinc-700 lg:mt-3">
-                {donationCount.toLocaleString()} donation
-                {donationCount === 1 ? "" : "s"}
+              <p className="text-xs font-semibold text-zinc-500 mt-1">
+                {donationCount.toLocaleString()} donation{donationCount === 1 ? "" : "s"}
               </p>
-            </section>
-
-            <section className="flex gap-2 lg:gap-3">
-              <a
-                href={`/fundraisers/${fundraiser.slug}/donate`}
-                className="flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700 lg:py-3.5 lg:text-base"
-              >
-                Donate now
-              </a>
-              <ShareFundraiserButton
-                title={fundraiser.title}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-black text-white transition hover:bg-slate-900 lg:py-3.5 lg:text-base"
-              />
-            </section>
-
-            <section className="border-t border-zinc-200 pt-4 lg:pt-5">
-  <h2 className="text-base font-bold text-zinc-950">
-    Recent donors
-  </h2>
-  <DonorList
-    fundraiserId={fundraiser.id}
-    initialDonations={recentDonors.map((d) => ({
-      ...d,
-      profile: d.user_id ? publicProfileById.get(d.user_id) ?? null : null,
-    }))}
-    initialHasMore={donationCount > recentDonors.length}
-  />
-</section>
+              {fundraiser.review_count > 0 && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500">
+                  <StarRating value={fundraiser.average_rating} size={14} />
+                  <span className="font-bold text-zinc-700">
+                    {Number(fundraiser.average_rating).toFixed(1)}
+                  </span>
+                  <span>
+                    ({fundraiser.review_count} {fundraiser.review_count === 1 ? "review" : "reviews"})
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </aside>
+
+          <div className="flex gap-2.5">
+            <a
+              href={`/fundraisers/${fundraiser.slug}/donate`}
+              className="flex min-h-[48px] flex-1 items-center justify-center whitespace-nowrap rounded-full bg-brand-300 px-4 py-3.5 text-base font-black text-brand-900 transition hover:bg-brand-400 active:scale-[0.98] shadow-sm sm:px-6"
+            >
+              Donate now
+            </a>
+            <ShareFundraiserButton
+              title={fundraiser.title}
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-900 px-4 py-3.5 text-base font-black text-brand-300 transition hover:bg-brand-950 active:scale-[0.98] shadow-sm sm:px-6"
+            />
+          </div>
+        </section>
+
+        <FundraiserStory description={description} />
+
+        {/* Recent donors */}
+        <section className="min-w-0">
+          <h2 className="text-base font-bold text-zinc-950">Recent donors</h2>
+          <DonorList
+            fundraiserId={fundraiser.id}
+            initialDonations={recentDonors.map((d) => ({
+              ...d,
+              profile: d.user_id ? publicProfileById.get(d.user_id) ?? null : null,
+            }))}
+            initialHasMore={donationCount > recentDonors.length}
+          />
+        </section>
+
+        {updates.length > 0 && (
+          <section className="min-w-0 border-b border-zinc-200 pb-8">
+            <h2 className="text-2xl font-bold text-zinc-950 break-words">
+              Updates {updates.length}
+            </h2>
+            <div className="mt-5 space-y-5">
+              {updates.map((update) => (
+                <article
+                  key={update.id}
+                  className="rounded-lg border border-zinc-200 p-5"
+                >
+                  <div className="flex gap-3">
+                    <OrganizerAvatar name={organizerName} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                        <span className="font-bold text-zinc-950">
+                          {organizerName}
+                        </span>
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600">
+                          Organiser
+                        </span>
+                        <span className="text-zinc-500">
+                          {dateLabel(update.created_at)}
+                        </span>
+                      </div>
+                      {update.title && (
+                        <h3 className="mt-3 text-lg font-bold text-zinc-950 break-words">
+                          {update.title}
+                        </h3>
+                      )}
+                      <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-zinc-700">
+                        {update.content}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <FundraiserShare
+          title={fundraiser.title}
+          imageUrl={coverImage}
+          organizerName={organizerName}
+          raised={raised}
+          goal={goal}
+          donateSlug={fundraiser.slug}
+        />
+
+        {/* ── Organiser & Beneficiary ─────────────────────────── */}
+        <section className="min-w-0 border-t border-zinc-200 pt-8">
+          <h2 className="text-lg font-black text-zinc-950 break-words">
+            Organiser and beneficiary
+          </h2>
+          <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center text-sm font-black text-zinc-700">
+                {initial(organizerName)}
+              </div>
+              <div className="min-w-0">
+                {organizerProfileId ? (
+                  <Link
+                    href={`/organizers/${organizerProfileId}`}
+                    className="block truncate text-sm font-black text-zinc-950 hover:text-brand-700 hover:underline transition"
+                  >
+                    {organizerName}
+                  </Link>
+                ) : (
+                  <span className="block truncate text-sm font-black text-zinc-950">
+                    {organizerName}
+                  </span>
+                )}
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600">
+                    Organiser
+                  </span>
+                  {organizerProfileId && (
+                    <a
+                      href={"mailto:support@aldriva.com?subject=Message%20for%20" + encodeURIComponent(organizerName)}
+                      className="rounded-full border border-zinc-300 px-3 py-0.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50"
+                    >
+                      Message
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 shrink-0 text-zinc-400 rotate-90 sm:rotate-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+              />
+            </svg>
+
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center text-sm font-black text-brand-800">
+                {initial(beneficiaryName)}
+              </div>
+              <div className="min-w-0">
+                {beneficiaryOrganizer?.id ? (
+                  <Link
+                    href={`/organizers/${beneficiaryOrganizer.id}`}
+                    className="block truncate text-sm font-black text-zinc-950 hover:text-brand-700 hover:underline transition"
+                  >
+                    {beneficiaryName}
+                  </Link>
+                ) : (
+                  <span className="block truncate text-sm font-black text-zinc-950">
+                    {beneficiaryName}
+                  </span>
+                )}
+                <span className="mt-1 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-bold text-brand-800">
+                  {/* Relationship when we have one ("Mother"), otherwise the
+                      beneficiary type ("Registered charity"), falling back to
+                      the generic label. */}
+                  {beneficiary?.relationship ||
+                    (beneficiary && beneficiary.type !== "self"
+                      ? beneficiaryTypeLabel(beneficiary.type)
+                      : "Beneficiary")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-zinc-400">
+            Created {createdAgo(fundraiserCreatedAt)}
+            {fundraiserCategory ? ` · ${fundraiserCategory}` : ""}
+          </p>
+
+          <a
+            href={`mailto:support@aldriva.com?subject=Report%20fundraiser%3A%20${encodeURIComponent(fundraiser.title)}`}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 transition hover:text-red-500"
+          >
+            <Flag className="h-3.5 w-3.5" />
+            Report fundraiser
+          </a>
+        </section>
+
+        {/* Donation protection — moved out of the top section per the new
+            hierarchy; still present, just lower-priority than the campaign
+            story and donor trust signals. */}
+        <div className="flex justify-center sm:justify-start">
+          <DonationProtectedBadge />
+        </div>
+
+        {/* ── Words of Support — always visible ───────────────── */}
+        <div className="min-w-0 border-t border-zinc-200 pt-8">
+          <SupportMessages fundraiserId={fundraiser.id} />
+        </div>
       </div>
 
       {/* ── Trust triad ─────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-3">
           <div className="text-center sm:text-left">
-            <Zap className="mx-auto h-8 w-8 text-emerald-600 sm:mx-0" />
+            <Zap className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Easy</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Donate quickly and securely
             </p>
           </div>
           <div className="text-center sm:text-left">
-            <HeartHandshake className="mx-auto h-8 w-8 text-emerald-600 sm:mx-0" />
+            <HeartHandshake className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Powerful</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Send help directly to the people and causes you care about
             </p>
           </div>
           <div className="text-center sm:text-left">
-            <ShieldCheck className="mx-auto h-8 w-8 text-emerald-600 sm:mx-0" />
+            <ShieldCheck className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Trusted</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Every fundraiser is reviewed —{" "}
               <Link
                 href="/reviews"
-                className="font-bold text-emerald-700 hover:underline"
+                className="font-bold text-brand-800 hover:underline"
               >
                 see what real donors are saying
               </Link>
@@ -807,16 +760,16 @@ export default async function FundraiserPage({
 
       {/* ── Related fundraisers ─────────────────────────────────────── */}
       {relatedFundraisers.length > 0 && (
-        <section className="bg-emerald-950 py-12">
+        <section className="bg-brand-950 py-12">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="mb-8">
-              <p className="text-xs font-black uppercase tracking-wider text-emerald-400">
+              <p className="text-xs font-black uppercase tracking-wider text-brand-400">
                 Making a Difference
               </p>
               <h2 className="mt-1 text-3xl font-black text-white">
                 More ways to make a difference
               </h2>
-              <p className="mt-1 text-sm font-medium text-emerald-100/70">
+              <p className="mt-1 text-sm font-medium text-brand-100/70">
                 Other fundraisers you might want to support.
               </p>
             </div>
@@ -828,13 +781,14 @@ export default async function FundraiserPage({
         </section>
       )}
 
-      {/* Sticky bottom actions bar on mobile */}
+      {/* Sticky bottom actions bar on mobile & tablet */}
       <FundraiserFloatingActions
         title={fundraiser.title}
         slug={fundraiser.slug}
         raised={raised}
         goal={goal}
         percentage={percentage}
+        donationCount={donationCount}
       />
     </main>
   );

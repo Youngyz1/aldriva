@@ -8,8 +8,7 @@ import Image from "@tiptap/extension-image";
 import { Node } from "@tiptap/core";
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { uploadImage, UploadImageError } from "@/lib/uploadImage";
-import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";
+import ImageUploadWithCrop, { type ImageUploadWithCropHandle } from "@/components/ImageUploadWithCrop";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Bold as BoldIcon,
@@ -181,7 +180,7 @@ export default function RichTextEditor({
   const [uploading, setUploading] = useState(false);
   const [modalType, setModalType] = useState<"image" | "video" | "link" | null>(null);
   const [modalInput, setModalInput] = useState("");
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageCropRef = useRef<ImageUploadWithCropHandle>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -277,28 +276,11 @@ export default function RichTextEditor({
   };
 
   const handleImageUploadClick = () => {
-    imageInputRef.current?.click();
+    imageCropRef.current?.open();
   };
 
   const handleVideoUploadClick = () => {
     videoInputRef.current?.click();
-  };
-
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploading(true);
-      const url = await uploadImage(file, "fundraiser-media", "editor-images");
-      editor.chain().focus().setImage({ src: url }).run();
-    } catch (error: unknown) {
-      const message = error instanceof UploadImageError ? error.message : "Upload failed. Please try again.";
-      alert(message);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
   };
 
   const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -351,12 +333,12 @@ export default function RichTextEditor({
   return (
     <div className="w-full rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
       {/* Hidden file inputs for uploads */}
-      <input
-        type="file"
-        ref={imageInputRef}
-        onChange={handleImageFileChange}
-        accept={ALLOWED_IMAGE_TYPES.join(",")}
-        className="hidden"
+      <ImageUploadWithCrop
+        ref={imageCropRef}
+        hideTrigger
+        bucket="fundraiser-media"
+        folder="editor-images"
+        onUploaded={(url) => editor.chain().focus().setImage({ src: url }).run()}
       />
       <input
         type="file"

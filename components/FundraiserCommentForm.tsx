@@ -52,7 +52,7 @@ export default function FundraiserCommentForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Your name (optional)"
-        className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-base md:text-sm outline-none focus:border-emerald-500"
+        className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-base md:text-sm outline-none focus:border-brand-600"
       />
       <textarea
         value={message}
@@ -60,7 +60,7 @@ export default function FundraiserCommentForm({
         maxLength={150}
         rows={4}
         placeholder="Leave a word of support..."
-        className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base md:text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:border-emerald-500"
+        className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base md:text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:border-brand-600"
       />
       <div className="flex items-center justify-between">
         <span className="text-xs text-zinc-400">{message.length}/150</span>
@@ -68,13 +68,13 @@ export default function FundraiserCommentForm({
           type="button"
           onClick={handleSubmit}
           disabled={submitting || !message.trim()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-emerald-300"
+          className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-black text-white transition hover:bg-brand-800 disabled:bg-brand-300"
         >
           {submitting ? "Posting..." : "Post support"}
         </button>
       </div>
       {success && (
-        <p className="text-sm font-semibold text-emerald-600">
+        <p className="text-sm font-semibold text-brand-700">
           ✓ Your support has been posted!
         </p>
       )}

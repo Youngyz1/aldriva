@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getImageDimensions, MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
+import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
+import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import {
   Globe, Mail, AlertTriangle, Check, ArrowRight, ShieldCheck, Loader2
 } from "lucide-react";
-import Image from "next/image";
+import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+
+const ORGANIZER_BANNER_ASPECT = MIN_BANNER_WIDTH / MIN_BANNER_HEIGHT; // 4:1
 
 type OrgForm = {
   name: string;
@@ -84,9 +87,13 @@ export default function OrgSettingsPage() {
         return;
       }
 
+      // Explicit columns: migration_53's column grants make select("*") on
+      // organizers fail even for the row's owner — the grant applies to the
+      // `authenticated` role, not per-row. This form never edits the revoked
+      // columns (tax_id, nonprofit_registration_number).
       const { data: org, error: orgError } = await supabase
         .from("organizers")
-        .select("*")
+        .select(ORGANIZER_PUBLIC_COLUMNS)
         .eq("slug", originalSlug)
         .eq("user_id", session.user.id)
         .single();
@@ -124,39 +131,15 @@ export default function OrgSettingsPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  // Handle Photo upload preview
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
+  function handleCroppedPhoto(file: File, previewUrl: string) {
     setPhotoFile(file);
-    if (file) {
-      setPhotoPreview(URL.createObjectURL(file));
-    }
+    setPhotoPreview(previewUrl);
   }
 
-  // Handle Banner upload preview and dimension validation
-  async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setBannerFile(null);
-      return;
-    }
-
-    try {
-      const { width, height } = await getImageDimensions(file);
-      if (width < MIN_BANNER_WIDTH || height < MIN_BANNER_HEIGHT) {
-        setError(
-          `Banner image is too small (${width}x${height}px). Use at least ${MIN_BANNER_WIDTH}x${MIN_BANNER_HEIGHT}px so it doesn't blur when stretched.`
-        );
-        e.target.value = "";
-        return;
-      }
-    } catch {
-      // Ignore reading dimensions errors
-    }
-
+  function handleCroppedBanner(file: File, previewUrl: string) {
     setError("");
     setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
+    setBannerPreview(previewUrl);
   }
 
   async function uploadFile(file: File, bucket: string, prefix: string) {
@@ -393,53 +376,27 @@ export default function OrgSettingsPage() {
             {/* Logo upload */}
             <div className="space-y-3">
               <span className="block text-xs font-bold text-zinc-600">Organization Logo (Square)</span>
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-                  {photoPreview || form.photo ? (
-                    <Image
-                      src={photoPreview || form.photo}
-                      alt="Logo Preview"
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-black text-zinc-400">
-                      LOGO
-                    </span>
-                  )}
-                </div>
-                <label className="cursor-pointer rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50">
-                  Choose Photo
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-                </label>
-              </div>
+              <ImageUploadWithCrop
+                value={photoPreview || form.photo}
+                aspectRatio={1}
+                previewClassName="h-20 w-20 rounded-xl"
+                label="Choose Photo"
+                onCropped={handleCroppedPhoto}
+              />
             </div>
 
             {/* Banner upload */}
             <div className="space-y-3">
               <span className="block text-xs font-bold text-zinc-600">Banner Image (Min 1200x300px)</span>
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-                  {bannerPreview || form.banner ? (
-                    <Image
-                      src={bannerPreview || form.banner}
-                      alt="Banner Preview"
-                      fill
-                      sizes="144px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-xs font-black text-zinc-400">
-                      BANNER
-                    </span>
-                  )}
-                </div>
-                <label className="cursor-pointer rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50">
-                  Choose Banner
-                  <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
-                </label>
-              </div>
+              <ImageUploadWithCrop
+                value={bannerPreview || form.banner}
+                aspectRatio={ORGANIZER_BANNER_ASPECT}
+                previewClassName="h-20 w-36 rounded-xl"
+                label="Choose Banner"
+                minWidth={MIN_BANNER_WIDTH}
+                minHeight={MIN_BANNER_HEIGHT}
+                onCropped={handleCroppedBanner}
+              />
             </div>
 
           </div>
