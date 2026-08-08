@@ -9,9 +9,6 @@ import { resolveBeneficiary } from "@/lib/beneficiary";
 export const FUNDRAISER_FALLBACK_IMAGE: string | null = null;
 
 type OptionalFundraiserFields = {
-  description?: string | null;
-  goal_amount?: number | string | null;
-  short_description?: string | null;
   /** JSONB beneficiary object (migration_50). Shape validated via
    *  resolveBeneficiary rather than trusted here. */
   beneficiary?: unknown;
@@ -19,13 +16,25 @@ type OptionalFundraiserFields = {
   beneficiary_name?: string | null;
 };
 
-const OPTIONAL_FUNDRAISER_FIELDS = [
-  "description",
-  "goal_amount",
-  "short_description",
-  "beneficiary",
-  "beneficiary_name",
-] as const;
+/**
+ * Every name here MUST be a real column on `fundraisers`.
+ *
+ * PostgREST rejects the whole `select` with 400/42703 if any single column is
+ * unknown, and the handler below then returns every field as null. That is not
+ * a partial failure — it silently blanks the beneficiary too, and
+ * resolveBeneficiary falls through to its `{ type: "self" }` default, so every
+ * campaign reads "for themselves" regardless of who the beneficiary is.
+ *
+ * This list previously also contained `description`, `goal_amount` and
+ * `short_description`, none of which exist (the real columns are `story` and
+ * `goal`, both already fetched in the main query). Their callers all had real
+ * fallbacks, so only the beneficiary showed the damage.
+ *
+ * NOTE for this database: `beneficiary` and `beneficiary_name` do not exist
+ * here yet either — migrations 50-52 have not been applied to this project. The
+ * query will keep returning 400 (now logged, not swallowed) until they are.
+ */
+const OPTIONAL_FUNDRAISER_FIELDS = ["beneficiary", "beneficiary_name"] as const;
 
 /** Deduplicated cache helper for querying fundraiser details. */
 export const getFundraiserBySlug = cache(async (slug: string) => {
@@ -46,6 +55,15 @@ export const getOptionalFundraiserFields = cache(async (fundraiserId: string) =>
     .select(OPTIONAL_FUNDRAISER_FIELDS.join(", "))
     .eq("id", fundraiserId)
     .maybeSingle();
+
+  if (error) {
+    // Loudly, because the null-filled fallback below is indistinguishable from
+    // "this campaign has no beneficiary". Swallowing this is exactly how the
+    // "for themselves" bug survived unnoticed.
+    console.error(
+      `[fundraiser-data] optional-fields query failed for ${fundraiserId}: ${error.message}`
+    );
+  }
 
   if (error || !data) {
     return Object.fromEntries(
@@ -90,7 +108,7 @@ export async function getFundraiserCardData(slug: string) {
   const coverImage = safeImageSrc(fundraiser.image_url || fundraiser.banner);
 
   const raised = Number(fundraiser.raised ?? 0);
-  const goal = Number(optionalFundraiser.goal_amount ?? fundraiser.goal ?? 0);
+  const goal = Number(fundraiser.goal ?? 0);
   const percentage = calculateFundraisingPercentage(raised, goal);
 
   return {

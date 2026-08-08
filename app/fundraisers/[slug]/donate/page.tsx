@@ -33,7 +33,7 @@ export default async function FundraiserDonatePage({
   if (!fundraiser) return notFound();
 
   const optionalFundraiser = await getOptionalFundraiserFields(fundraiser.id);
-  const goal = Number(optionalFundraiser.goal_amount ?? fundraiser.goal ?? 0);
+  const goal = Number(fundraiser.goal ?? 0);
 
   return (
     <DonatePage

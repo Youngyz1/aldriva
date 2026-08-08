@@ -330,7 +330,8 @@ export default async function FundraiserPage({
     organizer?.id ?? organizerByName?.id ?? null;
 
   const raised = Number(fundraiser.raised ?? 0);
-  const goal = Number(optionalFundraiser.goal_amount ?? fundraiser.goal ?? 0);
+  // `goal` is the real column; there is no `goal_amount` on fundraisers.
+  const goal = Number(fundraiser.goal ?? 0);
   const coverImage = safeImageSrc(
     fundraiser.image_url || fundraiser.banner
   );
@@ -375,11 +376,8 @@ export default async function FundraiserPage({
   const updates = (updatesResult.data ?? []) as UpdateRow[];
   const donationCount = donationsResult.count ?? recentDonors.length;
   const percentage = calculateFundraisingPercentage(raised, goal);
-  const description =
-    optionalFundraiser.description ||
-    fundraiser.story ||
-    optionalFundraiser.short_description ||
-    "";
+  // `story` is the real column; there is no `description`/`short_description`.
+  const description = fundraiser.story || "";
   void commentsResult.count;
 
   // Story-overlay slide: excerpt + donor cluster, reusing the same donor
@@ -393,8 +391,7 @@ export default async function FundraiserPage({
       "Anonymous"
   );
   const storyExcerpt = truncateWords(
-    stripHtml(optionalFundraiser.short_description || description) ||
-      "Read the full story.",
+    stripHtml(description) || "Read the full story.",
     160
   );
 

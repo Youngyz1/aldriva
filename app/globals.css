@@ -165,7 +165,87 @@ body {
 
 html {
   -webkit-text-size-adjust: 100%;
+
+  /* Removes the legacy ~300ms tap delay and double-tap-to-zoom, so a tap
+     resolves as a click immediately instead of the browser holding the gesture
+     open to see whether a second tap or a drag follows — that waiting period is
+     when an accidental selection starts.
+
+     Pinch-to-zoom is NOT affected, so the page can still be magnified. Only the
+     double-tap zoom shortcut goes away. */
+  touch-action: manipulation;
 }
+
+/* ---------------------------------------------------------------------------
+   Touch selection behaviour
+   ---------------------------------------------------------------------------
+   Goal: a tap on interactive chrome activates it, a press-and-hold on readable
+   text still selects. Browsers default every element to selectable, so dragging
+   a finger from a card or button starts highlighting instead of scrolling.
+
+   Interactive elements opt OUT of selection; content opts back IN below.
+   -------------------------------------------------------------------------- */
+button,
+[role="button"],
+[role="tab"],
+nav,
+label,
+summary,
+select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Links are the awkward case: a link wrapping a whole card should not be
+   selectable, but a link inside a sentence should be. Default them to
+   unselectable — cards, nav and buttons are the common case — and restore
+   selection inside prose below. */
+a {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Kills the grey flash on tap without affecting selection or focus rings. */
+a,
+button,
+[role="button"],
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Anything a reader might legitimately want to copy stays selectable, including
+   links inside it. Long-press still works here, which is the behaviour being
+   restored — this rule is what keeps the fix from making the site uncopyable.
+
+   Add new long-form content containers to this list rather than removing the
+   rules above. */
+#fundraiser-story,
+#fundraiser-story a,
+article,
+article a,
+.prose,
+.prose a,
+p,
+li,
+blockquote,
+code,
+pre,
+td,
+th,
+input,
+textarea,
+[contenteditable="true"],
+/* Links sitting inside running text, so selecting a sentence does not skip
+   over its links. Card-wrapping links are not matched by these and stay
+   unselectable, which is the point. */
+p a,
+li a,
+blockquote a,
+td a {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 
 body {
   background: var(--background);

@@ -540,7 +540,13 @@ export default function CreateFundraiserPage() {
                   <input name="raised" value={form.raised} onChange={handleChange} type="number" min="0" placeholder="0" className={greenInputClass} />
                 </CreatorField>
               </div>
-              <CreatorField label="Campaign Story">
+              {/* asGroup, not a <label>: the editor contains hidden
+                  <input type="file"> elements for its image and video buttons,
+                  and a label with no htmlFor implicitly targets its first
+                  labelable descendant. Wrapped in a label, tapping the text
+                  area to type activated that file input and opened the image
+                  picker. */}
+              <CreatorField label="Campaign Story" asGroup>
                 <RichTextEditor
                   value={form.story}
                   onChange={(val) => setForm((c) => ({ ...c, story: val }))}
