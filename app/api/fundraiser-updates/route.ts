@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { hasEntityAccess, ENTITY_ROLES_CONTENT_WRITE } from "@/lib/entity-auth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,18 +52,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "You do not own this fundraiser." }, { status: 403 });
   }
 
-  const { data: organizer, error: organizerError } = await supabaseAdmin
-    .from("organizers")
-    .select("id")
-    .eq("id", fundraiser.organizer_id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (organizerError) {
-    return NextResponse.json({ error: organizerError.message }, { status: 500 });
-  }
-
-  if (!organizer) {
+  const allowed = await hasEntityAccess(user.id, fundraiser.organizer_id, ENTITY_ROLES_CONTENT_WRITE);
+  if (!allowed) {
     return NextResponse.json({ error: "You do not own this fundraiser." }, { status: 403 });
   }
 

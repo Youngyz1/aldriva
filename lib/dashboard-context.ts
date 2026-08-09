@@ -12,6 +12,7 @@
 import { cache } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentUser } from '@/lib/auth';
+import { getUserEntityMemberships, type EntityRole } from '@/lib/entity-auth';
 
 // Module-level client — instantiated once at cold-start, not per-request
 const supabaseAdmin = createClient(
@@ -30,6 +31,8 @@ type DashboardOrganizer = {
   verified_at?: string | null;
   payment_enabled?: boolean;
   fundraising_approved?: boolean;
+  /** The current user's entity_members role for this organizer — 'owner' for directly-owned ones. */
+  entityRole: EntityRole;
 };
 
 export type DashboardContext = {
@@ -59,13 +62,34 @@ export const getDashboardContext = cache(async (): Promise<DashboardContext | nu
 
   if (!profile || profile.deleted_at) return null;
 
-  const { data: organizers } = await supabaseAdmin
-    .from('organizers')
-    .select('id, name, bio, photo, slug, org_type, status, verified_at, payment_enabled, fundraising_approved')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true });
+  const ORGANIZER_COLUMNS =
+    'id, name, bio, photo, slug, org_type, status, verified_at, payment_enabled, fundraising_approved';
 
-  const safeOrganizers = organizers ?? [];
+  const [{ data: ownedOrganizers }, entityRoles] = await Promise.all([
+    supabaseAdmin
+      .from('organizers')
+      .select(ORGANIZER_COLUMNS)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    getUserEntityMemberships(user.id),
+  ]);
+
+  const safeOwnedOrganizers = ownedOrganizers ?? [];
+  const ownedIds = new Set(safeOwnedOrganizers.map((organizer) => organizer.id));
+  const delegatedIds = Object.keys(entityRoles).filter((id) => !ownedIds.has(id));
+
+  const { data: delegatedOrganizers } =
+    delegatedIds.length > 0
+      ? await supabaseAdmin.from('organizers').select(ORGANIZER_COLUMNS).in('id', delegatedIds)
+      : { data: [] as typeof safeOwnedOrganizers };
+
+  const safeOrganizers: DashboardOrganizer[] = [
+    ...safeOwnedOrganizers.map((organizer) => ({ ...organizer, entityRole: 'owner' as EntityRole })),
+    ...(delegatedOrganizers ?? []).map((organizer) => ({
+      ...organizer,
+      entityRole: entityRoles[organizer.id],
+    })),
+  ];
   const primaryOrganizer = safeOrganizers[0] ?? null;
 
   return {

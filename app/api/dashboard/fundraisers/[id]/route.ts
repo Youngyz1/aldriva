@@ -3,6 +3,7 @@ import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { getDashboardFundraiserDetail } from '@/lib/dashboard-data';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { deleteFundraisersWithoutPaymentRecords } from '@/lib/dashboard-delete';
+import { ENTITY_ROLES_MANAGE } from '@/lib/entity-auth';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -26,13 +27,18 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { data: existing } = await supabaseAdmin
     .from('fundraisers')
-    .select('id')
+    .select('id, organizer_id')
     .eq('id', id)
     .in('organizer_id', auth.ctx.organizerIds)
     .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ error: 'Fundraiser not found.' }, { status: 404 });
+  }
+
+  const role = auth.ctx.organizerRoles[existing.organizer_id];
+  if (!role || !ENTITY_ROLES_MANAGE.includes(role)) {
+    return NextResponse.json({ error: 'You do not have permission to delete this fundraiser.' }, { status: 403 });
   }
 
   try {

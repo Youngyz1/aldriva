@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { hasEntityAccess, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 
 /**
  * Returns the beneficiary record attached to a fundraiser, for the edit form's
@@ -12,9 +13,11 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
  * listable. The organizer still needs to see which address an invite went to,
  * so that one field is served here instead, behind an ownership check.
  *
- * Authorisation: the caller must own the fundraiser, either directly
- * (fundraisers.user_id) or through the organizer that runs it. Same ownership
- * rule the invite route applies before sending mail.
+ * Authorisation: the caller must own the fundraiser directly
+ * (fundraisers.user_id), or hold at least ENTITY_ROLES_MANAGE
+ * (owner/admin/manager) on the organizer that runs it — deliberately kept
+ * tighter than the general content-write tier (editor excluded) because
+ * claim_email is exactly the sensitive PII this route exists to protect.
  */
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServer();
@@ -50,13 +53,7 @@ export async function GET(req: NextRequest) {
   let owns = fundraiser.user_id === user.id;
 
   if (!owns && fundraiser.organizer_id) {
-    const { data: ownedOrganizer } = await admin
-      .from("organizers")
-      .select("id")
-      .eq("id", fundraiser.organizer_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    owns = Boolean(ownedOrganizer);
+    owns = await hasEntityAccess(user.id, fundraiser.organizer_id, ENTITY_ROLES_MANAGE);
   }
 
   if (!owns) {
