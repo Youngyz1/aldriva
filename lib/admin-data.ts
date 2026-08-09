@@ -29,6 +29,7 @@ import type {
   UserSort,
   UserStatus,
 } from '@/types/admin-management';
+import type { EntityRole } from '@/lib/entity-auth';
 
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -537,6 +538,45 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
     admin_name: adminNames.get(r.admin_user_id) ?? 'Admin',
   }));
 
+  // Read-only visibility into entity_members (Phase 4's authorization
+  // model) — no management UI here yet, deliberately deferred; this is
+  // oversight only, so admins can see who has delegated access to an
+  // organizer they're reviewing.
+  const { data: memberRows } = await supabaseAdmin
+    .from('entity_members')
+    .select('id, user_id, role, created_at')
+    .eq('organizer_id', org.id)
+    .order('created_at', { ascending: true });
+
+  const memberIds = [...new Set((memberRows ?? []).map((m) => m.user_id))];
+  const memberNames = new Map<string, string>();
+  const memberEmails = new Map<string, string>();
+  if (memberIds.length > 0) {
+    const { data: memberProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, account_info')
+      .in('id', memberIds);
+    for (const mp of memberProfiles ?? []) {
+      const info = mp.account_info as Record<string, string> | null;
+      memberNames.set(mp.id, info?.full_name || info?.display_name || 'Member');
+    }
+    for (const memberId of memberIds) {
+      const { data: memberAuthRes } = await supabaseAdmin.auth.admin.getUserById(memberId);
+      if (memberAuthRes?.user?.email) {
+        memberEmails.set(memberId, memberAuthRes.user.email);
+      }
+    }
+  }
+
+  const entityMembers = (memberRows ?? []).map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.role as EntityRole,
+    member_name: memberNames.get(m.user_id) ?? 'Member',
+    member_email: memberEmails.get(m.user_id) ?? '',
+    created_at: m.created_at,
+  }));
+
   const statusHistory: AdminOrganizerDetail['status_history'] = [
     { status: 'created', at: org.created_at, label: 'Profile created' },
   ];
@@ -575,6 +615,7 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
     website: org.website ?? null,
     status_history: statusHistory,
     visibility_history: visibilityHistory,
+    entity_members: entityMembers,
   };
 }
 
@@ -679,6 +720,46 @@ export async function getUserDetail(
 
   recentActivity.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
+  // Read-only visibility into profile_verification_audit — same
+  // read-only-oversight pattern as organizers' visibility_history.
+  const { data: verificationRows } = await supabaseAdmin
+    .from('profile_verification_audit')
+    .select('id, admin_user_id, field_name, old_value, new_value, created_at')
+    .eq('profile_id', id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const verificationAdminIds = [...new Set((verificationRows ?? []).map((r) => r.admin_user_id))];
+  const verificationAdminNames = new Map<string, string>();
+  if (verificationAdminIds.length > 0) {
+    const { data: verificationAdminProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, account_info')
+      .in('id', verificationAdminIds);
+    for (const ap of verificationAdminProfiles ?? []) {
+      const info = ap.account_info as Record<string, string> | null;
+      verificationAdminNames.set(ap.id, info?.full_name || info?.display_name || 'Admin');
+    }
+    for (const adminId of verificationAdminIds) {
+      if (!verificationAdminNames.has(adminId) || verificationAdminNames.get(adminId) === 'Admin') {
+        const { data: adminAuthRes } = await supabaseAdmin.auth.admin.getUserById(adminId);
+        if (adminAuthRes?.user?.email) {
+          verificationAdminNames.set(adminId, adminAuthRes.user.email);
+        }
+      }
+    }
+  }
+
+  const verificationHistory = (verificationRows ?? []).map((r) => ({
+    id: r.id,
+    admin_user_id: r.admin_user_id,
+    field_name: r.field_name,
+    old_value: r.old_value,
+    new_value: r.new_value,
+    created_at: r.created_at,
+    admin_name: verificationAdminNames.get(r.admin_user_id) ?? 'Admin',
+  }));
+
   return {
     id,
     full_name: getUserDisplayName(profile, authUser),
@@ -706,5 +787,6 @@ export async function getUserDetail(
       created_at: o.created_at,
     })),
     recent_activity: recentActivity.slice(0, 10),
+    verification_history: verificationHistory,
   };
 }

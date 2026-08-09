@@ -1,3 +1,5 @@
+import type { EntityRole } from '@/lib/entity-auth';
+
 export type OrganizerStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
 
 export type OrganizerSort =
@@ -60,15 +62,35 @@ export type VisibilityAuditEntry = {
   admin_name?: string;
 };
 
+export type EntityMemberRow = {
+  id: string;
+  user_id: string;
+  role: EntityRole;
+  member_name: string;
+  member_email: string;
+  created_at: string;
+};
+
 export type AdminOrganizerDetail = AdminOrganizerRow & {
   bio: string | null;
   photo: string | null;
   website: string | null;
   status_history: { status: string; at: string; label: string }[];
   visibility_history: VisibilityAuditEntry[];
+  entity_members: EntityMemberRow[];
 };
 
 export type IdentityStatus = 'pending' | 'verified' | 'rejected';
+
+export type VerificationAuditEntry = {
+  id: string;
+  admin_user_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+  admin_name?: string;
+};
 
 export type AdminUserRow = {
   id: string;
@@ -115,6 +137,7 @@ export type AdminUserDetail = AdminUserRow & {
     at: string;
     href?: string;
   }[];
+  verification_history: VerificationAuditEntry[];
 };
 
 export type PaginatedResponse<T, S = Record<string, number>> = {

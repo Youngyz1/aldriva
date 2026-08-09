@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, History } from "lucide-react";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
@@ -569,6 +569,33 @@ export default function UsersClient() {
                 {drawerUser.location && <div><dt className="text-xs font-bold text-zinc-400">Location</dt><dd className="font-semibold">{drawerUser.location}</dd></div>}
               </dl>
             </section>
+
+            {/* Identity verification change history — read-only oversight,
+                same pattern as organizers' Change History section. */}
+            {drawerUser.verification_history.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
+                  <History className="h-4 w-4" />
+                  Verification History
+                </h3>
+                <div className="max-h-[180px] overflow-y-auto divide-y divide-zinc-100 rounded-xl border border-zinc-100 bg-white text-xs">
+                  {drawerUser.verification_history.map((entry) => (
+                    <div key={entry.id} className="p-3 space-y-1">
+                      <div className="flex justify-between font-semibold text-zinc-800 capitalize">
+                        <span>{entry.field_name.replace(/_/g, " ")}</span>
+                        <span className="text-zinc-500">
+                          {entry.old_value ?? "—"} → {entry.new_value ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-zinc-400">
+                        <span>By {entry.admin_name || "Admin"}</span>
+                        <span>{formatAdminDate(entry.created_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section>
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Organization Profiles</h3>

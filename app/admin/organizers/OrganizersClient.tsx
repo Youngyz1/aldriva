@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, TrendingUp, History, RefreshCw } from "lucide-react";
+import { Loader2, TrendingUp, History, RefreshCw, Users } from "lucide-react";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
@@ -52,6 +52,15 @@ const ACTION_STYLES: Record<string, string> = {
   reject: "border-red-200 text-red-600 hover:bg-red-50",
   suspend: "border-zinc-200 text-zinc-600 hover:bg-zinc-50",
   restore: "border-violet-200 text-violet-700 hover:bg-violet-50",
+};
+
+const ENTITY_ROLE_STYLES: Record<string, string> = {
+  owner: "bg-violet-100 text-violet-700",
+  admin: "bg-blue-100 text-blue-700",
+  manager: "bg-emerald-100 text-emerald-700",
+  editor: "bg-amber-100 text-amber-700",
+  finance: "bg-cyan-100 text-cyan-700",
+  viewer: "bg-zinc-100 text-zinc-600",
 };
 
 const AUDIT_FIELD_LABELS: Record<string, string> = {
@@ -771,6 +780,41 @@ export default function OrganizersClient() {
                   </button>
                 </div>
               </div>
+            </section>
+
+            {/* Entity Members — read-only oversight. Management (invite/
+                remove/role-change) is deliberately not built yet; this
+                just gives admins visibility into who has delegated
+                access, since Phase 4 wired real authorization to these
+                rows. */}
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
+                <Users className="h-4 w-4" />
+                Team ({drawerOrg.entity_members.length})
+              </h3>
+              {drawerOrg.entity_members.length === 0 ? (
+                <p className="text-xs text-zinc-500">No entity members on record.</p>
+              ) : (
+                <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-100 bg-white text-xs">
+                  {drawerOrg.entity_members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-zinc-800">{member.member_name}</p>
+                        {member.member_email && (
+                          <p className="truncate text-[10px] text-zinc-400">{member.member_email}</p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                          ENTITY_ROLE_STYLES[member.role] ?? "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {member.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Visibility Boost + Capability Change History */}
