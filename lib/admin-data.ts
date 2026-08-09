@@ -21,6 +21,7 @@ import type {
   AdminUserDetail,
   AdminUserRow,
   AdminUserStats,
+  IdentityStatus,
   OrganizerSort,
   OrganizerStatus,
   UserActivity,
@@ -191,7 +192,7 @@ export async function queryOrganizers(params: {
   const dateStart = getDateRangeStart(date);
   let query = supabaseAdmin
     .from('organizers')
-    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset');
+    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset, payment_enabled, payment_enabled_at, fundraising_approved, fundraising_approved_at');
 
   if (status !== 'all') {
     query = query.eq('status', status);
@@ -257,6 +258,10 @@ export async function queryOrganizers(params: {
       created_at: org.created_at,
       verified_at: org.verified_at ?? null,
       badges: [],
+      payment_enabled: org.payment_enabled ?? false,
+      payment_enabled_at: org.payment_enabled_at ?? null,
+      fundraising_approved: org.fundraising_approved ?? false,
+      fundraising_approved_at: org.fundraising_approved_at ?? null,
     };
   });
 
@@ -375,7 +380,7 @@ export async function queryUsers(params: {
   const dateStart = getDateRangeStart(date);
   let profileQuery = supabaseAdmin
     .from('profiles')
-    .select('id, role, status, created_at, account_info');
+    .select('id, role, status, created_at, account_info, identity_status, identity_verified_at');
 
   if (role !== 'all') profileQuery = profileQuery.eq('role', role);
   if (status !== 'all') profileQuery = profileQuery.eq('status', status);
@@ -448,6 +453,8 @@ export async function queryUsers(params: {
       created_at: profile.created_at ?? authUser.created_at,
       last_login: authUser.last_sign_in_at ?? null,
       is_current_user: currentUserId === authUser.id,
+      identity_status: (profile.identity_status ?? 'pending') as IdentityStatus,
+      identity_verified_at: profile.identity_verified_at ?? null,
     };
   });
 
@@ -464,7 +471,7 @@ export async function queryUsers(params: {
 export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDetail | null> {
   const { data: org, error } = await supabaseAdmin
     .from('organizers')
-    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset')
+    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset, payment_enabled, payment_enabled_at, fundraising_approved, fundraising_approved_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -523,7 +530,7 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
   const visibilityHistory = (auditRows ?? []).map((r) => ({
     id: r.id,
     admin_user_id: r.admin_user_id,
-    field_name: r.field_name as 'follower_offset' | 'events_offset',
+    field_name: r.field_name as 'follower_offset' | 'events_offset' | 'payment_enabled' | 'fundraising_approved',
     old_value: r.old_value,
     new_value: r.new_value,
     created_at: r.created_at,
@@ -559,6 +566,10 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
     created_at: org.created_at,
     verified_at: org.verified_at ?? null,
     badges: [],
+    payment_enabled: org.payment_enabled ?? false,
+    payment_enabled_at: org.payment_enabled_at ?? null,
+    fundraising_approved: org.fundraising_approved ?? false,
+    fundraising_approved_at: org.fundraising_approved_at ?? null,
     bio: org.bio ?? null,
     photo: org.photo ?? null,
     website: org.website ?? null,
@@ -575,7 +586,7 @@ export async function getUserDetail(
     supabaseAdmin.auth.admin.getUserById(id),
     supabaseAdmin
       .from('profiles')
-      .select('id, role, status, created_at, account_info')
+      .select('id, role, status, created_at, account_info, identity_status, identity_verified_at')
       .eq('id', id)
       .maybeSingle(),
   ]);
@@ -682,6 +693,8 @@ export async function getUserDetail(
     created_at: profile?.created_at ?? authUser.created_at,
     last_login: authUser.last_sign_in_at ?? null,
     is_current_user: currentUserId === id,
+    identity_status: (profile?.identity_status ?? 'pending') as IdentityStatus,
+    identity_verified_at: profile?.identity_verified_at ?? null,
     phone: accountInfo.phone ?? null,
     company: accountInfo.company ?? null,
     website: accountInfo.website ?? null,

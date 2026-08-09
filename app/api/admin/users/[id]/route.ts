@@ -42,7 +42,11 @@ export async function PATCH(
   const { id } = await params;
   const currentUser = await getCurrentUser();
   const body = await req.json();
-  const { status, role } = body as { status?: string; role?: string };
+  const { status, role, identity_status: identityStatus } = body as {
+    status?: string;
+    role?: string;
+    identity_status?: string;
+  };
 
   if (currentUser?.id === id) {
     if (status === 'suspended' || role === 'user' || role === 'organizer') {
@@ -81,6 +85,23 @@ export async function PATCH(
     update.role = role;
   }
 
+  let previousIdentityStatus: string | null = null;
+  if (identityStatus) {
+    if (!['pending', 'verified', 'rejected'].includes(identityStatus)) {
+      return NextResponse.json({ error: 'Invalid identity_status value.' }, { status: 400 });
+    }
+
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('identity_status')
+      .eq('id', id)
+      .maybeSingle();
+    previousIdentityStatus = existingProfile?.identity_status ?? null;
+
+    update.identity_status = identityStatus;
+    update.identity_verified_at = identityStatus === 'verified' ? new Date().toISOString() : null;
+  }
+
   if (!Object.keys(update).length) {
     return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 });
   }
@@ -102,6 +123,16 @@ export async function PATCH(
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
+  }
+
+  if (identityStatus && currentUser) {
+    await supabaseAdmin.from('profile_verification_audit').insert({
+      profile_id: id,
+      admin_user_id: currentUser.id,
+      field_name: 'identity_status',
+      old_value: previousIdentityStatus,
+      new_value: identityStatus,
+    });
   }
 
   return NextResponse.json({ success: true, id, ...update });

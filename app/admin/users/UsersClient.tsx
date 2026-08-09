@@ -24,6 +24,29 @@ const BULK_ACTIONS = [
   { id: "demote", label: "Demote" },
 ] as const;
 
+function getIdentityActions(identityStatus: string) {
+  switch (identityStatus) {
+    case "pending":
+      return ["identity_verify", "identity_reject"] as const;
+    case "verified":
+      return ["identity_reject"] as const;
+    case "rejected":
+      return ["identity_verify"] as const;
+    default:
+      return [] as const;
+  }
+}
+
+const IDENTITY_ACTION_LABELS: Record<string, string> = {
+  identity_verify: "Verify Identity",
+  identity_reject: "Reject Identity",
+};
+
+const IDENTITY_ACTION_STYLES: Record<string, string> = {
+  identity_verify: "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+  identity_reject: "border-red-200 text-red-600 hover:bg-red-50",
+};
+
 export default function UsersClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -102,7 +125,10 @@ export default function UsersClient() {
     fetchData();
   }, [fetchData]);
 
-  async function patchUser(id: string, payload: { status?: string; role?: string }) {
+  async function patchUser(
+    id: string,
+    payload: { status?: string; role?: string; identity_status?: string }
+  ) {
     setWorking(id);
     setError("");
     const res = await fetch(`/api/admin/users/${id}`, {
@@ -410,6 +436,17 @@ export default function UsersClient() {
                               Demote
                             </button>
                           )}
+                          {getIdentityActions(row.identity_status).map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              disabled={working === row.id}
+                              onClick={() => patchUser(row.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
+                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
+                            >
+                              {working === row.id ? "…" : IDENTITY_ACTION_LABELS[action]}
+                            </button>
+                          ))}
                         </div>
                       </td>
                     </tr>
@@ -484,6 +521,17 @@ export default function UsersClient() {
                   Remove Admin
                 </button>
               )}
+              {getIdentityActions(drawerUser.identity_status).map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  disabled={working === drawerUser.id}
+                  onClick={() => patchUser(drawerUser.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
+                  className={`rounded-xl border bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
+                >
+                  {IDENTITY_ACTION_LABELS[action]}
+                </button>
+              ))}
             </div>
           )
         }
@@ -498,6 +546,7 @@ export default function UsersClient() {
               {[
                 ["Role", drawerUser.role],
                 ["Status", drawerUser.status],
+                ["Identity", drawerUser.identity_status],
                 ["Joined", formatAdminDate(drawerUser.created_at)],
                 ["Last Login", formatAdminDate(drawerUser.last_login)],
                 ["Events", drawerUser.event_count],

@@ -36,6 +36,10 @@ export type AdminOrganizerRow = {
   created_at: string;
   verified_at: string | null;
   badges: string[];
+  payment_enabled: boolean;
+  payment_enabled_at: string | null;
+  fundraising_approved: boolean;
+  fundraising_approved_at: string | null;
 };
 
 export type AdminOrganizerStats = {
@@ -49,7 +53,7 @@ export type AdminOrganizerStats = {
 export type VisibilityAuditEntry = {
   id: string;
   admin_user_id: string;
-  field_name: 'follower_offset' | 'events_offset';
+  field_name: 'follower_offset' | 'events_offset' | 'payment_enabled' | 'fundraising_approved';
   old_value: number;
   new_value: number;
   created_at: string;
@@ -63,6 +67,8 @@ export type AdminOrganizerDetail = AdminOrganizerRow & {
   status_history: { status: string; at: string; label: string }[];
   visibility_history: VisibilityAuditEntry[];
 };
+
+export type IdentityStatus = 'pending' | 'verified' | 'rejected';
 
 export type AdminUserRow = {
   id: string;
@@ -78,6 +84,8 @@ export type AdminUserRow = {
   created_at: string;
   last_login: string | null;
   is_current_user: boolean;
+  identity_status: IdentityStatus;
+  identity_verified_at: string | null;
 };
 
 export type AdminUserStats = {
