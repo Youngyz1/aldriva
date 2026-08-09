@@ -37,6 +37,7 @@ type OrganizerProfile = {
   id: string;
   name: string;
   photo?: string | null;
+  fundraising_approved: boolean;
 };
 
 function generateSlug(title: string) {
@@ -133,7 +134,7 @@ export default function CreateFundraiserPage() {
       }
       const { data: organizerProfiles, error: organizerError } = await supabase
         .from("organizers")
-        .select("id, name, photo")
+        .select("id, name, photo, fundraising_approved")
         .eq("user_id", data.session.user.id)
         .order("created_at", { ascending: true });
 
@@ -231,6 +232,18 @@ export default function CreateFundraiserPage() {
     const selectedOrganizer = organizers.find((organizer) => organizer.id === form.organizer_id);
     if (!selectedOrganizer) {
       setError("Choose an organizer profile that belongs to your account.");
+      setLoading(false);
+      return;
+    }
+
+    // Client-side echo of migration_64's RLS gate — the actual enforcement
+    // is server-side (fundraisers INSERT policy), this just gives a clear
+    // message instead of a raw RLS rejection after the user has filled out
+    // the whole wizard.
+    if (!selectedOrganizer.fundraising_approved) {
+      setError(
+        "This organizer isn't approved for fundraising yet. Contact support or wait for admin approval before launching a campaign."
+      );
       setLoading(false);
       return;
     }
@@ -498,6 +511,11 @@ export default function CreateFundraiserPage() {
                     <Link href="/create-organizer" className="mt-2 inline-block text-sm font-black text-brand-800 hover:text-brand-900">
                       Create an organizer profile
                     </Link>
+                  )}
+                  {organizers.find((organizer) => organizer.id === form.organizer_id)?.fundraising_approved === false && (
+                    <p className="mt-1.5 text-xs font-semibold text-red-600">
+                      This organizer isn&apos;t approved for fundraising yet — you won&apos;t be able to launch until it is.
+                    </p>
                   )}
                 </CreatorField>
 
