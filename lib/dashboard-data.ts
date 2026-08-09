@@ -215,6 +215,7 @@ export async function getDashboardEventDetail(
 }
 
 export async function queryDashboardFundraisers(params: {
+  userId: string;
   organizerIds: string[];
   search?: string;
   status?: string;
@@ -224,6 +225,7 @@ export async function queryDashboardFundraisers(params: {
   perPage?: number;
 }): Promise<PaginatedResult<DashboardFundraiserRow, DashboardFundraiserStats>> {
   const {
+    userId,
     organizerIds,
     search = '',
     status = 'all',
@@ -233,22 +235,21 @@ export async function queryDashboardFundraisers(params: {
     perPage = 25,
   } = params;
 
-  const emptyStats: DashboardFundraiserStats = {
-    total: 0,
-    active: 0,
-    completed: 0,
-    raised: 0,
-    donors: 0,
-  };
-
-  if (organizerIds.length === 0) {
-    return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
-  }
-
-  const { data: fundraisers, error } = await supabaseAdmin
+  // A caller always has a userId — personal fundraisers (organizer_id
+  // NULL) are theirs via direct ownership regardless of organizerIds, so
+  // there's no "empty organizerIds -> return nothing" short-circuit here
+  // the way there is for events/organizers, which have no equivalent
+  // personal-ownership path.
+  let query = supabaseAdmin
     .from('fundraisers')
-    .select('id, title, slug, goal, raised, category, created_at, status')
-    .in('organizer_id', organizerIds);
+    .select('id, title, slug, goal, raised, category, created_at, status');
+
+  query =
+    organizerIds.length > 0
+      ? query.or(`user_id.eq.${userId},organizer_id.in.(${organizerIds.join(',')})`)
+      : query.eq('user_id', userId);
+
+  const { data: fundraisers, error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -326,17 +327,21 @@ export async function queryDashboardFundraisers(params: {
 }
 
 export async function getDashboardFundraiserDetail(
+  userId: string,
   organizerIds: string[],
   fundraiserId: string
 ): Promise<DashboardFundraiserDetail | null> {
-  if (organizerIds.length === 0) return null;
-
-  const { data: fr } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('fundraisers')
     .select('id, title, slug, goal, raised, category, status, created_at, story, organizer_id, organizers(name)')
-    .eq('id', fundraiserId)
-    .in('organizer_id', organizerIds)
-    .maybeSingle();
+    .eq('id', fundraiserId);
+
+  query =
+    organizerIds.length > 0
+      ? query.or(`user_id.eq.${userId},organizer_id.in.(${organizerIds.join(',')})`)
+      : query.eq('user_id', userId);
+
+  const { data: fr } = await query.maybeSingle();
 
   if (!fr) return null;
 

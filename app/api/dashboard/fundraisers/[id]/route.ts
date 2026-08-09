@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
-  const fundraiser = await getDashboardFundraiserDetail(auth.ctx.organizerIds, id);
+  const fundraiser = await getDashboardFundraiserDetail(auth.ctx.userId, auth.ctx.organizerIds, id);
   if (!fundraiser) {
     return NextResponse.json({ error: 'Fundraiser not found.' }, { status: 404 });
   }
@@ -27,18 +27,25 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { data: existing } = await supabaseAdmin
     .from('fundraisers')
-    .select('id, organizer_id')
+    .select('id, organizer_id, user_id')
     .eq('id', id)
-    .in('organizer_id', auth.ctx.organizerIds)
     .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ error: 'Fundraiser not found.' }, { status: 404 });
   }
 
-  const role = auth.ctx.organizerRoles[existing.organizer_id];
-  if (!role || !ENTITY_ROLES_MANAGE.includes(role)) {
-    return NextResponse.json({ error: 'You do not have permission to delete this fundraiser.' }, { status: 403 });
+  // Two distinct authorization paths, kept separate: direct personal
+  // ownership (user_id) never goes through entity_members; organizer
+  // affiliation (organizer_id) requires MANAGE-tier entity access, same
+  // as before. Same 404 for "doesn't exist" and "exists but not yours" —
+  // no enumeration signal either way.
+  const isOwner = existing.user_id === auth.ctx.userId;
+  const role = existing.organizer_id ? auth.ctx.organizerRoles[existing.organizer_id] : undefined;
+  const isEntityManager = !!role && ENTITY_ROLES_MANAGE.includes(role);
+
+  if (!isOwner && !isEntityManager) {
+    return NextResponse.json({ error: 'Fundraiser not found.' }, { status: 404 });
   }
 
   try {

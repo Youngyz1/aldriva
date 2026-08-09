@@ -102,6 +102,10 @@ export default function CreateFundraiserPage() {
   const [visibility, setVisibility] = useState("public");
   const [organizers, setOrganizers] = useState<OrganizerProfile[]>([]);
   const [beneficiary, setBeneficiary] = useState<BeneficiaryDraft>(EMPTY_BENEFICIARY_DRAFT);
+  // Fallback for the "self" beneficiary type, which normally derives its
+  // name from the selected organizer — personal fundraisers (no
+  // organizer) need a real name from somewhere else.
+  const [userDisplayName, setUserDisplayName] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -125,13 +129,17 @@ export default function CreateFundraiserPage() {
       setEmail(data.session.user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
-        .select("status")
+        .select("status, account_info")
         .eq("id", data.session.user.id)
         .maybeSingle();
       if (profile?.status === "suspended") {
         router.push("/login?suspended=1");
         return;
       }
+
+      const accountInfo = (profile?.account_info ?? {}) as { firstName?: string; lastName?: string };
+      const fullName = [accountInfo.firstName, accountInfo.lastName].filter(Boolean).join(" ").trim();
+      setUserDisplayName(fullName || (data.session.user.email?.split("@")[0] ?? ""));
       const { data: organizerProfiles, error: organizerError } = await supabase
         .from("organizers")
         .select("id, name, photo, fundraising_approved")
@@ -223,24 +231,24 @@ export default function CreateFundraiserPage() {
       return;
     }
 
-    if (!form.organizer_id) {
-      setError("Choose an organizer profile before launching this fundraiser.");
-      setLoading(false);
-      return;
-    }
-
-    const selectedOrganizer = organizers.find((organizer) => organizer.id === form.organizer_id);
-    if (!selectedOrganizer) {
+    // organizer_id is always optional — "Personal fundraiser" (empty) is
+    // a first-class, intentional choice in the picker below, not just a
+    // fallback for users with none. Only validate that a non-empty
+    // selection actually belongs to this account.
+    const selectedOrganizer = form.organizer_id
+      ? organizers.find((organizer) => organizer.id === form.organizer_id)
+      : undefined;
+    if (form.organizer_id && !selectedOrganizer) {
       setError("Choose an organizer profile that belongs to your account.");
       setLoading(false);
       return;
     }
 
-    // Client-side echo of migration_64's RLS gate — the actual enforcement
-    // is server-side (fundraisers INSERT policy), this just gives a clear
-    // message instead of a raw RLS rejection after the user has filled out
-    // the whole wizard.
-    if (!selectedOrganizer.fundraising_approved) {
+    // Client-side echo of migration_64's RLS gate — only applies when an
+    // organizer is actually attached. A personal fundraiser (no
+    // organizer_id) was never gated by fundraising_approved at the RLS
+    // layer, so there's nothing to check here for that case.
+    if (selectedOrganizer && !selectedOrganizer.fundraising_approved) {
       setError(
         "This organizer isn't approved for fundraising yet. Contact support or wait for admin approval before launching a campaign."
       );
@@ -258,7 +266,7 @@ export default function CreateFundraiserPage() {
     // apply to the chosen type before storage.
     const beneficiaryResult = validateBeneficiary({
       ...beneficiary,
-      name: beneficiary.type === "self" ? selectedOrganizer.name : beneficiary.name,
+      name: beneficiary.type === "self" ? (selectedOrganizer?.name || userDisplayName) : beneficiary.name,
     });
     if (!beneficiaryResult.ok) {
       setError(beneficiaryResult.error);
@@ -315,7 +323,7 @@ export default function CreateFundraiserPage() {
         goal: Number(form.goal),
         raised: Number(form.raised) || 0,
         organizer: form.organizer,
-        organizer_id: form.organizer_id,
+        organizer_id: form.organizer_id || null,
         beneficiary: beneficiaryResult.value,
         beneficiary_id: beneficiaryId,
         category: form.category,
@@ -501,23 +509,26 @@ export default function CreateFundraiserPage() {
                   <input name="title" value={form.title} onChange={handleChange} required type="text" placeholder="Support Education for Underprivileged Children" className={greenInputClass} />
                 </CreatorField>
 
-                <CreatorField label="Organizer Profile">
-                  <select name="organizer_id" value={form.organizer_id} onChange={handleChange} required disabled={organizers.length === 0} className={greenInputClass}>
-                    {organizers.length === 0
-                      ? <option value="">No organizer profiles yet</option>
-                      : organizers.map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name}</option>)}
-                  </select>
-                  {organizers.length === 0 && (
-                    <Link href="/create-organizer" className="mt-2 inline-block text-sm font-black text-brand-800 hover:text-brand-900">
-                      Create an organizer profile
-                    </Link>
-                  )}
-                  {organizers.find((organizer) => organizer.id === form.organizer_id)?.fundraising_approved === false && (
-                    <p className="mt-1.5 text-xs font-semibold text-red-600">
-                      This organizer isn&apos;t approved for fundraising yet — you won&apos;t be able to launch until it is.
-                    </p>
-                  )}
-                </CreatorField>
+                {/* Optional organizational affiliation — only shown when
+                    the user actually has an organizer to attach. With
+                    none, this fundraiser is simply personal
+                    (organizer_id stays null); nothing here forces
+                    creating one. "Personal fundraiser" is always
+                    selectable even when organizers exist, since
+                    affiliation is opt-in, not the default state. */}
+                {organizers.length > 0 && (
+                  <CreatorField label="Organizer Profile (optional)">
+                    <select name="organizer_id" value={form.organizer_id} onChange={handleChange} className={greenInputClass}>
+                      <option value="">Personal fundraiser (no organizer)</option>
+                      {organizers.map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name}</option>)}
+                    </select>
+                    {organizers.find((organizer) => organizer.id === form.organizer_id)?.fundraising_approved === false && (
+                      <p className="mt-1.5 text-xs font-semibold text-red-600">
+                        This organizer isn&apos;t approved for fundraising yet — you won&apos;t be able to launch until it is.
+                      </p>
+                    )}
+                  </CreatorField>
+                )}
 
                 <CreatorField label="Short Description" hint={`${form.short_description.length}/160`}>
                   <textarea name="short_description" value={form.short_description} onChange={handleChange} maxLength={160} rows={4} placeholder="A short summary of your fundraiser..." className={greenInputClass} />
@@ -531,7 +542,7 @@ export default function CreateFundraiserPage() {
               <BeneficiarySelector
                 value={beneficiary}
                 onChange={setBeneficiary}
-                organizerName={form.organizer}
+                organizerName={form.organizer || userDisplayName}
                 inputClassName={greenInputClass}
                 onError={setError}
               />
