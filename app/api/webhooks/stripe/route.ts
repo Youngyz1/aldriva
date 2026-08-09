@@ -1,11 +1,13 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 import { recordDonationFromSession } from "@/lib/donations";
 import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { createNotification } from "@/lib/notifications";
+import { BRAND } from "@/config/branding";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -24,6 +26,72 @@ const uuidPattern =
 
 function metadataUserId(meta: Stripe.Metadata) {
   return uuidPattern.test(meta.user_id || "") ? meta.user_id : null;
+}
+
+/**
+ * A Stripe charge succeeded but the corresponding record couldn't be saved
+ * (transient DB error, unexpected constraint violation, etc.) — the
+ * customer paid real money for something that doesn't exist anywhere.
+ * Persists a row for manual reconciliation and emails an alert. No
+ * error-tracking SDK (Sentry or similar) exists in this codebase and
+ * nothing tracks failed payments today — this is genuinely new
+ * infrastructure, not a hookup to something that already existed.
+ * Deliberately does not attempt an automatic refund — see
+ * payment_reconciliation_failures' migration header for why.
+ */
+async function alertReconciliationFailure(params: {
+  kind: string;
+  stripePaymentIntentId: string;
+  amount: number;
+  currency: string;
+  buyerEmail: string | null;
+  rawMetadata: Stripe.Metadata;
+  errorMessage: string;
+}) {
+  const { error: recordError } = await supabaseAdmin
+    .from("payment_reconciliation_failures")
+    .insert({
+      kind: params.kind,
+      stripe_payment_intent_id: params.stripePaymentIntentId,
+      amount: params.amount,
+      currency: params.currency,
+      buyer_email: params.buyerEmail,
+      raw_metadata: params.rawMetadata,
+      error_message: params.errorMessage,
+    });
+
+  if (recordError) {
+    // If even this fails, the console.error the caller already logged is
+    // the only remaining trail — log this failure distinctly so it's not
+    // silently indistinguishable from the original error.
+    console.error("[webhook] Failed to record payment_reconciliation_failures row:", recordError.message);
+  }
+
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const fromAddress = `${BRAND.name} Alerts <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`;
+    await resend.emails.send({
+      from: fromAddress,
+      to: BRAND.supportEmail,
+      subject: `[URGENT] Payment succeeded but ${params.kind} record was not created`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px;">
+          <h2 style="color: #dc2626;">Payment reconciliation failure</h2>
+          <p>A Stripe charge succeeded but the corresponding <strong>${params.kind}</strong> record could not be saved. The customer was charged and needs manual follow-up (refund or manual fulfillment).</p>
+          <ul>
+            <li><strong>Stripe PaymentIntent:</strong> ${params.stripePaymentIntentId}</li>
+            <li><strong>Amount:</strong> ${params.amount} ${params.currency.toUpperCase()}</li>
+            <li><strong>Buyer email:</strong> ${params.buyerEmail ?? "unknown"}</li>
+            <li><strong>Error:</strong> ${params.errorMessage}</li>
+          </ul>
+          <p style="color:#6b7280;font-size:13px;">Also recorded in payment_reconciliation_failures for tracking.</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("[webhook] Failed to send reconciliation alert email:", err);
+  }
 }
 
 export async function notifyOrganizerOfTicketPurchase(params: {
@@ -388,6 +456,23 @@ async function handlePaymentIntentSucceeded(
 
     if (insertError) {
       console.error("[webhook] ticket_orders insert error:", insertError.message);
+
+      // The charge already succeeded but nothing was actually recorded —
+      // stop here rather than falling through to mark the seat sold and
+      // email a QR code for a ticket that doesn't exist in ticket_orders.
+      // That fall-through was the previous behavior and is itself part of
+      // the "silent money loss" gap, not just the missing alert.
+      await alertReconciliationFailure({
+        kind: "ticket",
+        stripePaymentIntentId: pi.id,
+        amount: totalAmount,
+        currency: meta.currency ?? pi.currency ?? "usd",
+        buyerEmail: recipientEmail,
+        rawMetadata: meta,
+        errorMessage: insertError.message,
+      });
+
+      return;
     }
 
     if (meta.seat_id) {
