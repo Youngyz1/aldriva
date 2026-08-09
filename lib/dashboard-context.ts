@@ -19,12 +19,27 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type DashboardOrganizer = {
+  id: string;
+  name: string;
+  bio?: string | null;
+  photo?: string | null;
+  slug?: string | null;
+  org_type?: string | null;
+  status?: string | null;
+  verified_at?: string | null;
+  payment_enabled?: boolean;
+  fundraising_approved?: boolean;
+};
+
 export type DashboardContext = {
   user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
-  organizers: { id: string; name: string; bio?: string | null; photo?: string | null; slug?: string | null; org_type?: string | null; status?: string | null }[];
-  organizer: { id: string; name: string; bio?: string | null; photo?: string | null; slug?: string | null; org_type?: string | null; status?: string | null } | null;
+  organizers: DashboardOrganizer[];
+  organizer: DashboardOrganizer | null;
   organizerIds: string[];
   organizerId: string | null;
+  identityStatus: string;
+  identityVerifiedAt: string | null;
 };
 
 /**
@@ -38,7 +53,7 @@ export const getDashboardContext = cache(async (): Promise<DashboardContext | nu
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("deleted_at")
+    .select("deleted_at, identity_status, identity_verified_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -46,7 +61,7 @@ export const getDashboardContext = cache(async (): Promise<DashboardContext | nu
 
   const { data: organizers } = await supabaseAdmin
     .from('organizers')
-    .select('id, name, bio, photo, slug, org_type, status')
+    .select('id, name, bio, photo, slug, org_type, status, verified_at, payment_enabled, fundraising_approved')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true });
 
@@ -59,6 +74,8 @@ export const getDashboardContext = cache(async (): Promise<DashboardContext | nu
     organizer: primaryOrganizer,
     organizerIds: safeOrganizers.map((organizer) => organizer.id),
     organizerId: primaryOrganizer?.id ?? null,
+    identityStatus: profile.identity_status ?? 'pending',
+    identityVerifiedAt: profile.identity_verified_at ?? null,
   };
 });
 
