@@ -780,7 +780,23 @@ async function handleCheckoutSessionCompleted(
     const piId =
       typeof session.payment_intent === "string" ? session.payment_intent : undefined;
 
-    await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+    try {
+      await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+    } catch (err: unknown) {
+      const errorMessage = (err as Error)?.message ?? "Failed to mark product order paid";
+      console.error("[webhook] markProductOrderPaid error:", errorMessage);
+
+      await alertReconciliationFailure({
+        kind: "product",
+        stripePaymentIntentId: piId ?? session.id,
+        amount: (session.amount_total ?? 0) / 100,
+        currency: (session.currency ?? "usd").toUpperCase(),
+        buyerEmail: session.customer_email || null,
+        rawMetadata: meta,
+        errorMessage,
+      });
+    }
+
     return;
   }
 
