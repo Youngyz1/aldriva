@@ -511,89 +511,71 @@ async function handlePaymentIntentSucceeded(
   if (kind === "donation" && meta.fundraiser_id) {
     const resolvedUserId = metadataUserId(meta);
 
-    // ── Step 1: Atomic upsert on donations, keyed on payment_intent_id ───────
-    //
-    // ON CONFLICT DO UPDATE eliminates the check-then-insert race window: two
-    // concurrent invocations can no longer both see "no row" and both attempt
-    // an INSERT. One wins the INSERT, the other resolves via UPDATE — both
-    // receive the canonical row ID back via RETURNING.
-    //
-    // We ask PostgREST to include the PostgreSQL system column `xmax` in the
-    // RETURNING clause. Its value tells us unambiguously which path fired:
-    //   xmax = 0  → this call performed the INSERT (fresh row)
-    //   xmax ≠ 0  → ON CONFLICT path fired (existing row, UPDATE executed)
-    // This is the standard PostgREST trick and works reliably within the same
-    // request that performed the upsert.
-    const rawDonationUpsert = await supabaseAdmin
-      .from("donations")
-      .upsert(
-        {
-          fundraiser_id:     meta.fundraiser_id,
-          donor_name:        meta.donor_name || "Anonymous",
-          donor_email:       meta.donor_email || null,
-          user_id:           resolvedUserId,
-          message:           meta.message || null,
-          amount:            parseFloat(meta.donation_amount) || pi.amount / 100,
-          currency:          (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
-          status:            "completed",
-          payment_intent_id: pi.id,
-        },
-        { onConflict: "payment_intent_id", ignoreDuplicates: false }
-      )
-      .select("id, user_id, xmax")
-      .returns<{ id: string; user_id: string | null; xmax: number }[]>()
-      .single();
+    const amount = parseFloat(meta.donation_amount) || pi.amount / 100;
+    const currency = (meta.currency ?? pi.currency ?? "usd").toUpperCase();
 
-    const upsertError     = rawDonationUpsert.error;
-    const upsertedDonation = rawDonationUpsert.data;
+    type DonationRpcRow = { donation_id: string; donor_user_id: string | null; is_new: boolean };
 
-    if (upsertError || !upsertedDonation) {
-      const donationErrorMessage = upsertError?.message ?? "no data returned";
-      console.error("[webhook] donations upsert error:", donationErrorMessage);
+    const rpcResult = await supabaseAdmin
+      .rpc("record_donation_and_credit", {
+        p_fundraiser_id: meta.fundraiser_id,
+        p_donor_name: meta.donor_name || "Anonymous",
+        p_donor_email: meta.donor_email || null,
+        p_user_id: resolvedUserId,
+        p_message: meta.message || null,
+        p_amount: amount,
+        p_currency: currency,
+        p_payment_intent_id: pi.id,
+      })
+      .returns<DonationRpcRow[]>();
 
-      // Same gap tickets had before payment_reconciliation_failures existed:
-      // the charge already succeeded, so a failure here is a silent loss for
-      // the donor unless someone is actually watching for it.
+    const rpcError = rpcResult.error;
+    const rpcData = rpcResult.data as DonationRpcRow[] | null;
+    const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+    if (rpcError || !resultRow) {
+      const errorMessage = rpcError?.message ?? "no data returned from record_donation_and_credit RPC";
+      console.error("[webhook] record_donation_and_credit RPC error:", errorMessage);
+
       await alertReconciliationFailure({
         kind: "donation",
         stripePaymentIntentId: pi.id,
-        amount: parseFloat(meta.donation_amount) || pi.amount / 100,
-        currency: (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
+        amount,
+        currency,
         buyerEmail: meta.donor_email || null,
         rawMetadata: meta,
-        errorMessage: donationErrorMessage,
+        errorMessage,
       });
 
       return;
     }
 
-    // xmax = 0 → INSERT won; non-zero → conflict path (existing row was updated).
-    const isNewDonation = Number(upsertedDonation.xmax) === 0;
+    const { donation_id: donationId, donor_user_id: donorUserId, is_new: isNewDonation } = resultRow;
 
     if (isNewDonation) {
       console.log(
-        `[webhook] Donation upserted (new) id=${upsertedDonation.id} pi=${pi.id}`
+        `[webhook] Donation recorded & credited (new) id=${donationId} pi=${pi.id}`
       );
     } else {
       console.log(
-        `[webhook] Donation upserted (conflict resolved) id=${upsertedDonation.id} pi=${pi.id}`
+        `[webhook] Donation recorded (conflict resolved) id=${donationId} pi=${pi.id}`
       );
       // Backfill user_id if the conflict row has it NULL but we now have a
       // valid UUID. This covers the historical race where the winning INSERT
       // ran without the user_id because metadata wasn't available at that
       // instant (or the old code's early-return prevented the backfill).
-      if (!upsertedDonation.user_id && resolvedUserId) {
+      if (!donorUserId && resolvedUserId) {
         const { error: backfillError } = await supabaseAdmin
           .from("donations")
           .update({ user_id: resolvedUserId })
-          .eq("id", upsertedDonation.id);
+          .eq("id", donationId);
         if (backfillError) {
           console.error(
             "[webhook] donation user_id backfill error:", backfillError.message
           );
         } else {
           console.log(
-            `[webhook] Backfilled user_id on donation ${upsertedDonation.id}`
+            `[webhook] Backfilled user_id on donation ${donationId}`
           );
         }
       }
@@ -638,7 +620,7 @@ async function handlePaymentIntentSucceeded(
         const isNewComment = Number(upsertedComment.xmax) === 0;
         if (isNewComment) {
           console.log(
-            `[webhook] Inserted comment id=${upsertedComment.id} for donation ${upsertedDonation.id}`
+            `[webhook] Inserted comment id=${upsertedComment.id} for donation ${donationId}`
           );
         } else {
           console.log(
@@ -671,7 +653,7 @@ async function handlePaymentIntentSucceeded(
     // fire more than once even if Stripe retries the event.
     if (!isNewDonation) {
       console.log(
-        `[webhook] Downstream already processed for donation ${upsertedDonation.id}, skipping.`
+        `[webhook] Downstream already processed for donation ${donationId}, skipping.`
       );
       return;
     }
@@ -679,10 +661,10 @@ async function handlePaymentIntentSucceeded(
     const { recalculateFundraiserRaised } = await import("@/lib/donations");
     await recalculateFundraiserRaised(meta.fundraiser_id);
 
-    processDonationReceipt(upsertedDonation.id).catch((err) =>
+    processDonationReceipt(donationId).catch((err) =>
       console.error("[webhook] Receipt generation error:", err)
     );
-    processDonationCertificate(upsertedDonation.id).catch((err) =>
+    processDonationCertificate(donationId).catch((err) =>
       console.error("[webhook] Certificate generation error:", err)
     );
 
