@@ -548,10 +548,22 @@ async function handlePaymentIntentSucceeded(
     const upsertedDonation = rawDonationUpsert.data;
 
     if (upsertError || !upsertedDonation) {
-      console.error(
-        "[webhook] donations upsert error:",
-        upsertError?.message ?? "no data returned"
-      );
+      const donationErrorMessage = upsertError?.message ?? "no data returned";
+      console.error("[webhook] donations upsert error:", donationErrorMessage);
+
+      // Same gap tickets had before payment_reconciliation_failures existed:
+      // the charge already succeeded, so a failure here is a silent loss for
+      // the donor unless someone is actually watching for it.
+      await alertReconciliationFailure({
+        kind: "donation",
+        stripePaymentIntentId: pi.id,
+        amount: parseFloat(meta.donation_amount) || pi.amount / 100,
+        currency: (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
+        buyerEmail: meta.donor_email || null,
+        rawMetadata: meta,
+        errorMessage: donationErrorMessage,
+      });
+
       return;
     }
 

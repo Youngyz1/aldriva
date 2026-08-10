@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
     if (limited) return limited;
 
     const donationAmount = Number(amount);
-    const tipAmount = Number(tip) || 0;
+    // Clamped, not just defaulted — Number(tip) || 0 only catches
+    // 0/NaN/falsy, not a valid negative number, which could otherwise
+    // reduce totalCents below the validated donationAmount.
+    const tipAmount = Math.max(0, Number(tip) || 0);
 
     if (!fundraiserSlug || !Number.isFinite(donationAmount) || donationAmount < 1) {
       return NextResponse.json(
@@ -56,10 +59,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Scoped to status = 'published' and not soft-deleted — the only
+    // status value the public "Published fundraisers are public" RLS
+    // policy exposes to anyone other than the owner/admin/beneficiary, so
+    // this doesn't reveal anything the public fundraiser page doesn't
+    // already keep hidden. Same 404 + message for "doesn't exist" and
+    // "exists but not published/deleted" — no enumeration signal either
+    // way, matching the existing message rather than introducing a new one.
     const { data: fundraiser } = await supabaseAdmin
       .from("fundraisers")
       .select("id, title, slug")
       .eq("slug", fundraiserSlug)
+      .eq("status", "published")
+      .is("deleted_at", null)
       .single();
 
     if (!fundraiser) {
