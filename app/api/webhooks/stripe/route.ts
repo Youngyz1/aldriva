@@ -409,19 +409,9 @@ async function handlePaymentIntentSucceeded(
       return;
     }
 
-    const { data: existing } = await supabaseAdmin
-      .from("ticket_orders")
-      .select("id")
-      .eq("stripe_payment_intent_id", pi.id)
-      .maybeSingle();
-
-    if (existing) {
-      console.log("[webhook] Ticket order already exists for intent:", pi.id);
-      return;
-    }
-
     const qty = parseInt(meta.quantity) || 1;
     const totalAmount = parseFloat(meta.total_amount) || pi.amount / 100;
+    const currency = meta.currency ?? pi.currency ?? "usd";
 
     // pi.charges is an expandable field — cast to avoid TS error on the unexpanded type
     const piAny = pi as unknown as Record<string, unknown>;
@@ -437,43 +427,54 @@ async function handlePaymentIntentSucceeded(
       firstCharge?.billing_details?.name ||
       "";
 
-    const { error: insertError } = await supabaseAdmin
-      .from("ticket_orders")
-      .insert({
-        event_id: meta.event_id,
-        ticket_id: meta.ticket_id || null,
-        seat_id: meta.seat_id || null,
-        seat_label: meta.seat_label || null,
-        buyer_email: recipientEmail,
-        buyer_name: recipientName || null,
-        quantity: qty,
-        total_amount: totalAmount,
-        currency: meta.currency ?? pi.currency ?? "usd",
-        qr_code,
-        status: "valid",
-        stripe_payment_intent_id: pi.id,
-      });
+    type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
 
-    if (insertError) {
-      console.error("[webhook] ticket_orders insert error:", insertError.message);
+    const rpcResult = await supabaseAdmin
+      .rpc("record_ticket_and_credit", {
+        p_event_id: meta.event_id,
+        p_ticket_id: meta.ticket_id || null,
+        p_seat_id: meta.seat_id || null,
+        p_seat_label: meta.seat_label || null,
+        p_buyer_email: recipientEmail,
+        p_buyer_name: recipientName || null,
+        p_quantity: qty,
+        p_total_amount: totalAmount,
+        p_currency: currency,
+        p_qr_code: qr_code,
+        p_stripe_payment_intent_id: pi.id,
+        p_stripe_session_id: null,
+      })
+      .returns<TicketRpcRow[]>();
 
-      // The charge already succeeded but nothing was actually recorded —
-      // stop here rather than falling through to mark the seat sold and
-      // email a QR code for a ticket that doesn't exist in ticket_orders.
-      // That fall-through was the previous behavior and is itself part of
-      // the "silent money loss" gap, not just the missing alert.
+    const rpcError = rpcResult.error;
+    const rpcData = rpcResult.data as TicketRpcRow[] | null;
+    const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+    if (rpcError || !resultRow) {
+      const errorMessage = rpcError?.message ?? "no data returned from record_ticket_and_credit RPC";
+      console.error("[webhook] record_ticket_and_credit RPC error:", errorMessage);
+
       await alertReconciliationFailure({
         kind: "ticket",
         stripePaymentIntentId: pi.id,
         amount: totalAmount,
-        currency: meta.currency ?? pi.currency ?? "usd",
+        currency,
         buyerEmail: recipientEmail,
         rawMetadata: meta,
-        errorMessage: insertError.message,
+        errorMessage,
       });
 
       return;
     }
+
+    const { ticket_order_id: ticketOrderId, is_new: isNewTicket } = resultRow;
+
+    if (!isNewTicket) {
+      console.log(`[webhook] Ticket order already exists for qr_code/intent (id=${ticketOrderId}), skipping downstream.`);
+      return;
+    }
+
+    console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} pi=${pi.id}`);
 
     if (meta.seat_id) {
       await supabaseAdmin
@@ -500,7 +501,7 @@ async function handlePaymentIntentSucceeded(
       buyerName: recipientName,
       quantity: qty,
       totalAmount,
-      currency: meta.currency ?? pi.currency ?? "usd",
+      currency,
       base: baseUrl(req),
     });
 
@@ -802,37 +803,60 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  const { data: existing } = await supabaseAdmin
-    .from("ticket_orders")
-    .select("id")
-    .eq("qr_code", qr_code)
-    .maybeSingle();
+  const qty = parseInt(quantity) || 1;
+  const totalAmount = parseFloat(total_amount) || (session.amount_total ?? 0) / 100;
+  const currency = session.currency ?? "usd";
+  const recipientEmail = buyer_email || session.customer_email || null;
+  const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
 
-  if (existing) {
-    console.log("[webhook] Ticket order already exists for qr_code:", qr_code);
+  type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
+
+  const rpcResult = await supabaseAdmin
+    .rpc("record_ticket_and_credit", {
+      p_event_id: event_id,
+      p_ticket_id: ticket_id || null,
+      p_seat_id: seat_id || null,
+      p_seat_label: seat_label || null,
+      p_buyer_email: recipientEmail,
+      p_buyer_name: buyer_name || null,
+      p_quantity: qty,
+      p_total_amount: totalAmount,
+      p_currency: currency,
+      p_qr_code: qr_code,
+      p_stripe_payment_intent_id: piId,
+      p_stripe_session_id: session.id,
+    })
+    .returns<TicketRpcRow[]>();
+
+  const rpcError = rpcResult.error;
+  const rpcData = rpcResult.data as TicketRpcRow[] | null;
+  const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+  if (rpcError || !resultRow) {
+    const errorMessage = rpcError?.message ?? "no data returned from record_ticket_and_credit RPC";
+    console.error("[webhook] record_ticket_and_credit RPC error (session):", errorMessage);
+
+    await alertReconciliationFailure({
+      kind: "ticket",
+      stripePaymentIntentId: piId ?? session.id,
+      amount: totalAmount,
+      currency,
+      buyerEmail: recipientEmail,
+      rawMetadata: meta,
+      errorMessage,
+    });
+
     return;
   }
 
-  const { error: insertError } = await supabaseAdmin.from("ticket_orders").insert({
-    event_id,
-    ticket_id: ticket_id || null,
-    seat_id: seat_id || null,
-    seat_label: seat_label || null,
-    buyer_email: buyer_email || session.customer_email || null,
-    buyer_name: buyer_name || null,
-    quantity: parseInt(quantity) || 1,
-    total_amount: parseFloat(total_amount) || (session.amount_total ?? 0) / 100,
-    currency: session.currency ?? "usd",
-    qr_code,
-    status: "valid",
-    stripe_session_id: session.id,
-    stripe_payment_intent_id:
-      typeof session.payment_intent === "string" ? session.payment_intent : null,
-  });
+  const { ticket_order_id: ticketOrderId, is_new: isNewTicket } = resultRow;
 
-  if (insertError) {
-    console.error("[webhook] ticket_orders insert error:", insertError.message);
+  if (!isNewTicket) {
+    console.log(`[webhook] Ticket order already exists for qr_code (id=${ticketOrderId}), skipping downstream.`);
+    return;
   }
+
+  console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} session=${session.id}`);
 
   if (seat_id) {
     await supabaseAdmin
@@ -841,7 +865,6 @@ async function handleCheckoutSessionCompleted(
       .eq("id", seat_id);
   }
 
-  const recipientEmail = buyer_email || session.customer_email;
   if (recipientEmail) {
     await sendTicketEmail({
       buyerEmail: recipientEmail,
@@ -858,9 +881,9 @@ async function handleCheckoutSessionCompleted(
   await notifyOrganizerOfTicketPurchase({
     eventId: event_id,
     buyerName: buyer_name || "",
-    quantity: parseInt(quantity) || 1,
-    totalAmount: parseFloat(total_amount) || (session.amount_total ?? 0) / 100,
-    currency: session.currency ?? "usd",
+    quantity: qty,
+    totalAmount,
+    currency,
     base: baseUrl(req),
   });
 }
