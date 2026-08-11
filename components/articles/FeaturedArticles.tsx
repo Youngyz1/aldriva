@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { getFeaturedArticles, getAuthorProfileMap, ARTICLE_FALLBACK_IMAGE } from "@/lib/articles-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
@@ -32,8 +31,10 @@ export default async function FeaturedArticles() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5 lg:gap-8">
-        {/* Large lead card */}
-        <Link
+        {/* Large lead card. Plain <a>, not next/link's <Link> — see the
+            comment in components/ArticleCard.tsx for why crossing into
+            /articles/[slug]'s separate (gated) root layout needs a hard nav. */}
+        <a
           href={`/articles/${lead.slug}`}
           className="group relative flex h-[420px] flex-col justify-end overflow-hidden rounded-3xl shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:h-[480px] lg:col-span-3"
         >
@@ -84,7 +85,7 @@ export default async function FeaturedArticles() {
               </div>
             </div>
           </div>
-        </Link>
+        </a>
 
         {/* Three smaller stacked cards */}
         <div className="flex flex-col gap-5 lg:col-span-2">
@@ -92,7 +93,7 @@ export default async function FeaturedArticles() {
             const author = authorMap.get(article.owner_id);
             const authorName = author?.display_name || "Community Author";
             return (
-              <Link
+              <a
                 key={article.id}
                 href={`/articles/${article.slug}`}
                 className="group flex gap-4 rounded-2xl border border-zinc-200 bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-lg"
@@ -120,7 +121,7 @@ export default async function FeaturedArticles() {
                     {authorName} • {displayDate(article.published_at, article.created_at)}
                   </p>
                 </div>
-              </Link>
+              </a>
             );
           })}
         </div>

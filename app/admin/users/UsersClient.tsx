@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, History } from "lucide-react";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
@@ -23,6 +23,29 @@ const BULK_ACTIONS = [
   { id: "promote", label: "Promote" },
   { id: "demote", label: "Demote" },
 ] as const;
+
+function getIdentityActions(identityStatus: string) {
+  switch (identityStatus) {
+    case "pending":
+      return ["identity_verify", "identity_reject"] as const;
+    case "verified":
+      return ["identity_reject"] as const;
+    case "rejected":
+      return ["identity_verify"] as const;
+    default:
+      return [] as const;
+  }
+}
+
+const IDENTITY_ACTION_LABELS: Record<string, string> = {
+  identity_verify: "Verify Identity",
+  identity_reject: "Reject Identity",
+};
+
+const IDENTITY_ACTION_STYLES: Record<string, string> = {
+  identity_verify: "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+  identity_reject: "border-red-200 text-red-600 hover:bg-red-50",
+};
 
 export default function UsersClient() {
   const router = useRouter();
@@ -102,7 +125,10 @@ export default function UsersClient() {
     fetchData();
   }, [fetchData]);
 
-  async function patchUser(id: string, payload: { status?: string; role?: string }) {
+  async function patchUser(
+    id: string,
+    payload: { status?: string; role?: string; identity_status?: string }
+  ) {
     setWorking(id);
     setError("");
     const res = await fetch(`/api/admin/users/${id}`, {
@@ -410,6 +436,17 @@ export default function UsersClient() {
                               Demote
                             </button>
                           )}
+                          {getIdentityActions(row.identity_status).map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              disabled={working === row.id}
+                              onClick={() => patchUser(row.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
+                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
+                            >
+                              {working === row.id ? "…" : IDENTITY_ACTION_LABELS[action]}
+                            </button>
+                          ))}
                         </div>
                       </td>
                     </tr>
@@ -484,6 +521,17 @@ export default function UsersClient() {
                   Remove Admin
                 </button>
               )}
+              {getIdentityActions(drawerUser.identity_status).map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  disabled={working === drawerUser.id}
+                  onClick={() => patchUser(drawerUser.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
+                  className={`rounded-xl border bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
+                >
+                  {IDENTITY_ACTION_LABELS[action]}
+                </button>
+              ))}
             </div>
           )
         }
@@ -498,6 +546,7 @@ export default function UsersClient() {
               {[
                 ["Role", drawerUser.role],
                 ["Status", drawerUser.status],
+                ["Identity", drawerUser.identity_status],
                 ["Joined", formatAdminDate(drawerUser.created_at)],
                 ["Last Login", formatAdminDate(drawerUser.last_login)],
                 ["Events", drawerUser.event_count],
@@ -520,6 +569,33 @@ export default function UsersClient() {
                 {drawerUser.location && <div><dt className="text-xs font-bold text-zinc-400">Location</dt><dd className="font-semibold">{drawerUser.location}</dd></div>}
               </dl>
             </section>
+
+            {/* Identity verification change history — read-only oversight,
+                same pattern as organizers' Change History section. */}
+            {drawerUser.verification_history.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
+                  <History className="h-4 w-4" />
+                  Verification History
+                </h3>
+                <div className="max-h-[180px] overflow-y-auto divide-y divide-zinc-100 rounded-xl border border-zinc-100 bg-white text-xs">
+                  {drawerUser.verification_history.map((entry) => (
+                    <div key={entry.id} className="p-3 space-y-1">
+                      <div className="flex justify-between font-semibold text-zinc-800 capitalize">
+                        <span>{entry.field_name.replace(/_/g, " ")}</span>
+                        <span className="text-zinc-500">
+                          {entry.old_value ?? "—"} → {entry.new_value ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-zinc-400">
+                        <span>By {entry.admin_name || "Admin"}</span>
+                        <span>{formatAdminDate(entry.created_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section>
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Organization Profiles</h3>

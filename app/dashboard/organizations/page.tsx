@@ -13,11 +13,23 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
+const IDENTITY_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-zinc-100 text-zinc-600",
+  verified: "bg-emerald-100 text-emerald-700",
+  rejected: "bg-red-100 text-red-700",
+};
+
+const IDENTITY_STATUS_LABELS: Record<string, string> = {
+  pending: "Identity: Pending",
+  verified: "Identity: Verified",
+  rejected: "Identity: Rejected",
+};
+
 export default async function DashboardOrganizationsPage() {
   const ctx = await getDashboardContext();
   if (!ctx) redirect("/login");
 
-  const { organizers } = ctx;
+  const { organizers, identityStatus } = ctx;
 
   return (
     <div className="space-y-6">
@@ -26,6 +38,12 @@ export default async function DashboardOrganizationsPage() {
           <p className="text-xs font-black uppercase tracking-wide text-orange-600">Account Dashboard</p>
           <h1 className="mt-1 text-2xl font-black">Your Organizations</h1>
           <p className="text-sm font-medium text-zinc-500">Select an organization to manage its events, fundraisers, and settings.</p>
+          <span
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${IDENTITY_STATUS_STYLES[identityStatus] ?? IDENTITY_STATUS_STYLES.pending}`}
+          >
+            <ShieldCheck className="h-3 w-3" />
+            {IDENTITY_STATUS_LABELS[identityStatus] ?? "Identity: Pending"}
+          </span>
         </div>
         <Link
           href="/create-organizer"
@@ -82,8 +100,9 @@ export default async function DashboardOrganizationsPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-black text-zinc-950 group-hover:text-orange-600 transition">
-                        {org.name}
+                      <p className="flex items-center gap-1.5 truncate font-black text-zinc-950 group-hover:text-orange-600 transition">
+                        <span className="truncate">{org.name}</span>
+                        <VerifiedBadge verified={verified} size="sm" />
                       </p>
                       <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">
                         {orgTypeLabel}
@@ -96,6 +115,23 @@ export default async function DashboardOrganizationsPage() {
                       {org.bio}
                     </p>
                   )}
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        org.payment_enabled ? "bg-blue-100 text-blue-700" : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {org.payment_enabled ? "Payment Enabled" : "Payment Not Enabled"}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        org.fundraising_approved ? "bg-amber-100 text-amber-700" : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {org.fundraising_approved ? "Fundraising Approved" : "Fundraising Not Approved"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Actions */}

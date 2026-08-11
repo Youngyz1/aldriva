@@ -63,6 +63,10 @@ export default function EditFundraiserPage() {
     { url: "", caption: "" },
   ]);
   const [beneficiary, setBeneficiary] = useState<BeneficiaryDraft>(EMPTY_BENEFICIARY_DRAFT);
+  // Fallback for the "self" beneficiary type and the stored organizer
+  // display text — both normally derive from the selected organizer,
+  // which won't exist for a personal fundraiser.
+  const [userDisplayName, setUserDisplayName] = useState("");
   // The saved beneficiary record (migration_51), which the invite attaches to.
   const [beneficiaryRecord, setBeneficiaryRecord] = useState<{
     id: string;
@@ -84,13 +88,18 @@ export default function EditFundraiserPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("status")
+        .select("status, account_info")
         .eq("id", session.user.id)
         .maybeSingle();
       if (profile?.status === "suspended") {
         router.push("/login?suspended=1");
         return;
       }
+
+      const accountInfo = (profile?.account_info ?? {}) as { firstName?: string; lastName?: string };
+      const fullName = [accountInfo.firstName, accountInfo.lastName].filter(Boolean).join(" ").trim();
+      const displayName = fullName || (session.user.email?.split("@")[0] ?? "");
+      setUserDisplayName(displayName);
 
       const { data: organizerProfiles, error: organizerError } = await supabase
         .from("organizers")
@@ -127,9 +136,17 @@ export default function EditFundraiserPage() {
         return;
       }
 
-      const selectedOrganizer =
-        ownedOrganizers.find((organizer) => organizer.id === fundraiser.organizer_id) ??
-        ownedOrganizers[0];
+      // A NULL organizer_id means this fundraiser is genuinely personal —
+      // never fall back to ownedOrganizers[0] in that case, or a user who
+      // also happens to own an unrelated organizer would have it silently
+      // pre-selected here (and silently attached on save, since nothing
+      // else would reset organizer_id back to null). The fallback to the
+      // first owned organizer is preserved only for the non-null case
+      // (e.g. the stored organizer_id no longer matches any owned
+      // organizer) — existing behavior, unchanged.
+      const selectedOrganizer = fundraiser.organizer_id
+        ? ownedOrganizers.find((organizer) => organizer.id === fundraiser.organizer_id) ?? ownedOrganizers[0]
+        : undefined;
 
       setSlug(fundraiser.slug || "");
       setForm({
@@ -149,7 +166,7 @@ export default function EditFundraiserPage() {
       // migration's backfill, so editing them doesn't wipe anything.
       const existingBeneficiary = resolveBeneficiary(
         (fundraiser as { beneficiary?: unknown }).beneficiary,
-        selectedOrganizer?.name || fundraiser.organizer
+        selectedOrganizer?.name || fundraiser.organizer || displayName
       );
       // Beneficiary record lookup is best-effort: it only drives the optional
       // invite box, so a failure here must not block editing the campaign.
@@ -213,7 +230,11 @@ export default function EditFundraiserPage() {
       setForm((current) => ({
         ...current,
         organizer_id: value,
-        organizer: selectedOrganizer?.name || current.organizer,
+        // Cleared (not kept stale) when switching to "Personal fundraiser"
+        // — the submit-time fallback (form.organizer || userDisplayName)
+        // then correctly shows the user's own name instead of whichever
+        // organizer was previously selected.
+        organizer: selectedOrganizer?.name || "",
       }));
       return;
     }
@@ -249,14 +270,20 @@ export default function EditFundraiserPage() {
 
     try {
       const nextSlug = generateSlug(form.title);
-      const selectedOrganizer = organizers.find((organizer) => organizer.id === form.organizer_id);
-      if (!selectedOrganizer) {
+      // organizer_id is optional — "Personal fundraiser" (empty) is a
+      // valid, intentional choice, not just a fallback for users with
+      // none. Only validate that a non-empty selection actually belongs
+      // to this account.
+      const selectedOrganizer = form.organizer_id
+        ? organizers.find((organizer) => organizer.id === form.organizer_id)
+        : undefined;
+      if (form.organizer_id && !selectedOrganizer) {
         throw new Error("Choose an organizer profile that belongs to your account.");
       }
 
       const beneficiaryResult = validateBeneficiary({
         ...beneficiary,
-        name: beneficiary.type === "self" ? selectedOrganizer.name : beneficiary.name,
+        name: beneficiary.type === "self" ? (selectedOrganizer?.name || userDisplayName) : beneficiary.name,
       });
       if (!beneficiaryResult.ok) {
         throw new Error(beneficiaryResult.error);
@@ -279,8 +306,8 @@ export default function EditFundraiserPage() {
         .update({
           title: form.title,
           slug: nextSlug,
-          organizer: selectedOrganizer.name,
-          organizer_id: selectedOrganizer.id,
+          organizer: selectedOrganizer?.name || userDisplayName,
+          organizer_id: form.organizer_id || null,
           beneficiary: beneficiaryResult.value,
           beneficiary_id: beneficiaryData.beneficiaryId,
           goal: Number(form.goal),
@@ -344,17 +371,20 @@ export default function EditFundraiserPage() {
 
         <form onSubmit={handleSubmit} className="space-y-7 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
           <input value={form.title} onChange={(event) => update("title", event.target.value)} required placeholder="Fundraiser title" className={inputClass} />
-          <select value={form.organizer_id} onChange={(event) => update("organizer_id", event.target.value)} required className={inputClass}>
-            {organizers.length === 0 ? (
-              <option value="">No organizer profiles yet</option>
-            ) : (
-              organizers.map((organizer) => (
+          {/* Optional organizational affiliation — only shown when the
+              user actually has an organizer to attach. "Personal
+              fundraiser" is always selectable even when organizers
+              exist, since affiliation is opt-in, not the default. */}
+          {organizers.length > 0 && (
+            <select value={form.organizer_id} onChange={(event) => update("organizer_id", event.target.value)} className={inputClass}>
+              <option value="">Personal fundraiser (no organizer)</option>
+              {organizers.map((organizer) => (
                 <option key={organizer.id} value={organizer.id}>
                   {organizer.name}
                 </option>
-              ))
-            )}
-          </select>
+              ))}
+            </select>
+          )}
           <div className="grid gap-5 md:grid-cols-2">
             <input value={form.goal} onChange={(event) => update("goal", event.target.value)} required type="number" min="1" placeholder="Goal" className={inputClass} />
             <input value={form.raised} onChange={(event) => update("raised", event.target.value)} type="number" min="0" placeholder="Raised so far" className={inputClass} />
@@ -367,7 +397,7 @@ export default function EditFundraiserPage() {
             <BeneficiarySelector
               value={beneficiary}
               onChange={setBeneficiary}
-              organizerName={form.organizer}
+              organizerName={form.organizer || userDisplayName}
               inputClassName={inputClass}
               onError={setError}
             />

@@ -65,49 +65,38 @@ export async function decrementProductStock(productId: string, quantity: number)
 export async function markProductOrderPaid(
   orderId: string,
   paymentReference: { stripePaymentIntentId?: string; cryptoPaymentId?: string }
-): Promise<void> {
-  const { data: order, error: fetchError } = await supabaseAdmin
-    .from("product_orders")
-    .select("id, product_id, quantity, status")
-    .eq("id", orderId)
-    .maybeSingle();
+): Promise<{ order_id: string; product_id: string; quantity: number; was_newly_paid: boolean }> {
+  type ProductRpcRow = {
+    order_id: string;
+    product_id: string;
+    quantity: number;
+    was_newly_paid: boolean;
+  };
 
-  if (fetchError || !order) {
-    console.warn(`[markProductOrderPaid] No product order found for id ${orderId}`);
-    return;
+  const rpcResult = await supabaseAdmin
+    .rpc("record_product_paid_and_credit", {
+      p_order_id: orderId,
+      p_stripe_payment_intent_id: paymentReference.stripePaymentIntentId || null,
+      p_crypto_payment_id: paymentReference.cryptoPaymentId || null,
+    })
+    .returns<ProductRpcRow[]>();
+
+  const rpcError = rpcResult.error;
+  const rpcData = rpcResult.data as ProductRpcRow[] | null;
+  const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+  if (rpcError || !resultRow) {
+    const errorMessage = rpcError?.message ?? `no data returned from record_product_paid_and_credit RPC for order ${orderId}`;
+    console.error(`[markProductOrderPaid] RPC error for order ${orderId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 
-  if (order.status !== "pending") {
-    console.log(`[markProductOrderPaid] Product order ${order.id} is already in status: ${order.status}`);
-    return;
+  if (resultRow.was_newly_paid) {
+    console.log(`[markProductOrderPaid] Product order ${orderId} marked paid & credited.`);
+    await decrementProductStock(resultRow.product_id, resultRow.quantity);
+  } else {
+    console.log(`[markProductOrderPaid] Product order ${orderId} was already marked paid, skipping stock decrement.`);
   }
 
-  const updatePayload: Record<string, unknown> = { status: "paid" };
-  if (paymentReference.stripePaymentIntentId) {
-    updatePayload.stripe_payment_intent_id = paymentReference.stripePaymentIntentId;
-  }
-  if (paymentReference.cryptoPaymentId) {
-    updatePayload.crypto_payment_id = paymentReference.cryptoPaymentId;
-  }
-
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from("product_orders")
-    .update(updatePayload)
-    .eq("id", order.id)
-    .eq("status", "pending") // idempotency guard against concurrent/retried deliveries
-    .select("id")
-    .maybeSingle();
-
-  if (updateError) {
-    console.error(`[markProductOrderPaid] Failed to update product order ${order.id}:`, updateError.message);
-    return;
-  }
-
-  if (!updated) {
-    console.log(`[markProductOrderPaid] Product order ${order.id} was already marked paid by a concurrent request.`);
-    return;
-  }
-
-  console.log(`[markProductOrderPaid] Product order ${order.id} marked paid.`);
-  await decrementProductStock(order.product_id, order.quantity);
+  return resultRow;
 }

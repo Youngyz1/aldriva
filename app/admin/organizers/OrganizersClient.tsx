@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, TrendingUp, History, RefreshCw } from "lucide-react";
+import { Loader2, TrendingUp, History, RefreshCw, Users } from "lucide-react";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
@@ -52,6 +52,22 @@ const ACTION_STYLES: Record<string, string> = {
   reject: "border-red-200 text-red-600 hover:bg-red-50",
   suspend: "border-zinc-200 text-zinc-600 hover:bg-zinc-50",
   restore: "border-violet-200 text-violet-700 hover:bg-violet-50",
+};
+
+const ENTITY_ROLE_STYLES: Record<string, string> = {
+  owner: "bg-violet-100 text-violet-700",
+  admin: "bg-blue-100 text-blue-700",
+  manager: "bg-emerald-100 text-emerald-700",
+  editor: "bg-amber-100 text-amber-700",
+  finance: "bg-cyan-100 text-cyan-700",
+  viewer: "bg-zinc-100 text-zinc-600",
+};
+
+const AUDIT_FIELD_LABELS: Record<string, string> = {
+  follower_offset: "Follower Boost",
+  events_offset: "Events Boost",
+  payment_enabled: "Payment Enabled",
+  fundraising_approved: "Fundraising Approved",
 };
 
 export default function OrganizersClient() {
@@ -164,6 +180,28 @@ export default function OrganizersClient() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: nextStatus }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error ?? "Update failed.");
+    } else {
+      await fetchData();
+      if (drawerOrg?.id === id) openDrawer(id);
+    }
+    setWorking(null);
+  }
+
+  async function updateCapability(
+    id: string,
+    field: "payment_enabled" | "fundraising_approved",
+    value: boolean
+  ) {
+    setWorking(id);
+    setError("");
+    const res = await fetch(`/api/admin/organizers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -505,6 +543,22 @@ export default function OrganizersClient() {
                               {working === row.id ? "…" : ACTION_LABELS[action]}
                             </button>
                           ))}
+                          <button
+                            type="button"
+                            disabled={working === row.id}
+                            onClick={() => updateCapability(row.id, "payment_enabled", !row.payment_enabled)}
+                            className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                          >
+                            {row.payment_enabled ? "Disable Payment" : "Enable Payment"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={working === row.id}
+                            onClick={() => updateCapability(row.id, "fundraising_approved", !row.fundraising_approved)}
+                            className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                          >
+                            {row.fundraising_approved ? "Revoke Fundraising" : "Approve Fundraising"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -690,7 +744,80 @@ export default function OrganizersClient() {
               </div>
             </section>
 
-            {/* Visibility Boost Change History */}
+            {/* Capabilities — Payment Enabled / Fundraising Approved */}
+            <section className="rounded-xl border border-zinc-200 bg-white p-4 space-y-3">
+              <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Capabilities</h3>
+              <p className="text-xs text-zinc-500">
+                Independent from verification status — tracked here, not yet enforced against payment or fundraiser creation.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Payment</p>
+                  <p className="mt-1 text-sm font-black text-zinc-950">
+                    {drawerOrg.payment_enabled ? "Enabled" : "Not enabled"}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={working === drawerOrg.id}
+                    onClick={() => updateCapability(drawerOrg.id, "payment_enabled", !drawerOrg.payment_enabled)}
+                    className="mt-2 w-full rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    {drawerOrg.payment_enabled ? "Disable" : "Enable"}
+                  </button>
+                </div>
+                <div className="rounded-lg bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Fundraising</p>
+                  <p className="mt-1 text-sm font-black text-zinc-950">
+                    {drawerOrg.fundraising_approved ? "Approved" : "Not approved"}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={working === drawerOrg.id}
+                    onClick={() => updateCapability(drawerOrg.id, "fundraising_approved", !drawerOrg.fundraising_approved)}
+                    className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                  >
+                    {drawerOrg.fundraising_approved ? "Revoke" : "Approve"}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Entity Members — read-only oversight. Management (invite/
+                remove/role-change) is deliberately not built yet; this
+                just gives admins visibility into who has delegated
+                access, since Phase 4 wired real authorization to these
+                rows. */}
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
+                <Users className="h-4 w-4" />
+                Team ({drawerOrg.entity_members.length})
+              </h3>
+              {drawerOrg.entity_members.length === 0 ? (
+                <p className="text-xs text-zinc-500">No entity members on record.</p>
+              ) : (
+                <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-100 bg-white text-xs">
+                  {drawerOrg.entity_members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-zinc-800">{member.member_name}</p>
+                        {member.member_email && (
+                          <p className="truncate text-[10px] text-zinc-400">{member.member_email}</p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                          ENTITY_ROLE_STYLES[member.role] ?? "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {member.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Visibility Boost + Capability Change History */}
             {drawerOrg.visibility_history && drawerOrg.visibility_history.length > 0 && (
               <section className="space-y-3">
                 <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
@@ -701,9 +828,7 @@ export default function OrganizersClient() {
                   {drawerOrg.visibility_history.map((entry) => (
                     <div key={entry.id} className="p-3 space-y-1">
                       <div className="flex justify-between font-semibold text-zinc-800">
-                        <span>
-                          {entry.field_name === "follower_offset" ? "Follower Boost" : "Events Boost"}
-                        </span>
+                        <span>{AUDIT_FIELD_LABELS[entry.field_name] ?? entry.field_name}</span>
                         <span className="text-zinc-500">
                           {entry.old_value} → {entry.new_value}
                         </span>

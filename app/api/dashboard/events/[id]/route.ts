@@ -3,6 +3,7 @@ import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { getDashboardEventDetail } from '@/lib/dashboard-data';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { deleteEventsWithoutPaymentRecords } from '@/lib/dashboard-delete';
+import { ENTITY_ROLES_CONTENT_WRITE, ENTITY_ROLES_MANAGE } from '@/lib/entity-auth';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -28,13 +29,18 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   const { data: existing } = await supabaseAdmin
     .from('events')
-    .select('id')
+    .select('id, organizer_id')
     .eq('id', id)
     .in('organizer_id', auth.ctx.organizerIds)
     .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ error: 'Event not found.' }, { status: 404 });
+  }
+
+  const role = auth.ctx.organizerRoles[existing.organizer_id];
+  if (!role || !ENTITY_ROLES_CONTENT_WRITE.includes(role)) {
+    return NextResponse.json({ error: 'You do not have permission to edit this event.' }, { status: 403 });
   }
 
   const updates: Record<string, string> = {};
@@ -55,13 +61,18 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { data: existing } = await supabaseAdmin
     .from('events')
-    .select('id')
+    .select('id, organizer_id')
     .eq('id', id)
     .in('organizer_id', auth.ctx.organizerIds)
     .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ error: 'Event not found.' }, { status: 404 });
+  }
+
+  const role = auth.ctx.organizerRoles[existing.organizer_id];
+  if (!role || !ENTITY_ROLES_MANAGE.includes(role)) {
+    return NextResponse.json({ error: 'You do not have permission to delete this event.' }, { status: 403 });
   }
 
   try {

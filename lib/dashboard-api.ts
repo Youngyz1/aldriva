@@ -5,10 +5,19 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, getCurrentUserProfile } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/dashboard-context';
+import { getUserEntityMemberships, type EntityRole } from '@/lib/entity-auth';
 
 export type DashboardApiContext = {
   userId: string;
   organizerIds: string[];
+  /**
+   * organizerId -> the caller's role for that organizer. Directly-owned
+   * organizers are always 'owner' here, even if resolving organizerIds
+   * membership were ever to lag the seed trigger. organizerIds alone is
+   * NOT sufficient to authorize a mutation — callers must check the role
+   * here against the operation's minimum tier (see lib/entity-auth.ts).
+   */
+  organizerRoles: Record<string, EntityRole>;
 };
 
 export async function getDashboardApiContext(): Promise<
@@ -28,16 +37,22 @@ export async function getDashboardApiContext(): Promise<
     };
   }
 
-  const { data: organizers } = await supabaseAdmin
-    .from('organizers')
-    .select('id')
-    .eq('user_id', user.id);
+  const [{ data: organizers }, entityRoles] = await Promise.all([
+    supabaseAdmin.from('organizers').select('id').eq('user_id', user.id),
+    getUserEntityMemberships(user.id),
+  ]);
+
+  const organizerRoles: Record<string, EntityRole> = { ...entityRoles };
+  for (const organizer of organizers ?? []) {
+    organizerRoles[organizer.id] = 'owner';
+  }
 
   return {
     ok: true,
     ctx: {
       userId: user.id,
-      organizerIds: (organizers ?? []).map((o) => o.id),
+      organizerIds: Object.keys(organizerRoles),
+      organizerRoles,
     },
   };
 }

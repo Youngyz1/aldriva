@@ -29,10 +29,15 @@ export default async function DashboardArticlesPage({
   const { q = "", status = "all" } = await searchParams;
   const supabase = await createSupabaseServer();
 
-  let query = supabase
-    .from("articles")
-    .select("*")
-    .eq("owner_id", ctx.user.id);
+  let query = supabase.from("articles").select("*");
+
+  // Include articles the user owns directly, plus any affiliated with an
+  // organizer they have entity_members access to (ctx.organizerIds is the
+  // entity-aware union from lib/dashboard-context.ts).
+  query =
+    ctx.organizerIds.length > 0
+      ? query.or(`owner_id.eq.${ctx.user.id},organizer_id.in.(${ctx.organizerIds.join(",")})`)
+      : query.eq("owner_id", ctx.user.id);
 
   if (q.trim()) {
     query = query.ilike("title", `%${q.trim()}%`);

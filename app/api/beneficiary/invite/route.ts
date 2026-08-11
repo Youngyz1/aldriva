@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSiteUrl } from "@/lib/site-url";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { BRAND } from "@/config/branding";
+import { hasEntityAccess, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 
 /**
  * Invites a beneficiary to claim their profile.
@@ -89,17 +90,31 @@ export async function POST(req: NextRequest) {
 
   const admin = createSupabaseAdmin();
 
-  // The caller must own a fundraiser that names this beneficiary.
-  const { data: ownedLink } = await admin
+  // The caller must own — directly or via entity_members MANAGE-tier
+  // access to the fundraiser's organizer — a fundraiser that names this
+  // beneficiary. Fetches every fundraiser linked to this beneficiary
+  // (there can be more than one, per resolve's reuse logic) rather than
+  // filtering by user_id in the query, since ownership can now come from
+  // either axis.
+  const { data: linkedFundraisers } = await admin
     .from("fundraisers")
-    .select("id")
+    .select("id, user_id, organizer_id")
     .eq("beneficiary_id", beneficiaryId)
-    .eq("user_id", user.id)
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
+    .is("deleted_at", null);
 
-  if (!ownedLink) {
+  let owns = false;
+  for (const fr of linkedFundraisers ?? []) {
+    if (fr.user_id === user.id) {
+      owns = true;
+      break;
+    }
+    if (fr.organizer_id && (await hasEntityAccess(user.id, fr.organizer_id, ENTITY_ROLES_MANAGE))) {
+      owns = true;
+      break;
+    }
+  }
+
+  if (!owns) {
     // Same response whether the beneficiary doesn't exist or isn't theirs —
     // no probing for valid beneficiary ids.
     return NextResponse.json(

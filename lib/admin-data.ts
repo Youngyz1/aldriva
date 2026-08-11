@@ -21,6 +21,7 @@ import type {
   AdminUserDetail,
   AdminUserRow,
   AdminUserStats,
+  IdentityStatus,
   OrganizerSort,
   OrganizerStatus,
   UserActivity,
@@ -28,6 +29,7 @@ import type {
   UserSort,
   UserStatus,
 } from '@/types/admin-management';
+import type { EntityRole } from '@/lib/entity-auth';
 
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -191,7 +193,7 @@ export async function queryOrganizers(params: {
   const dateStart = getDateRangeStart(date);
   let query = supabaseAdmin
     .from('organizers')
-    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset');
+    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset, payment_enabled, payment_enabled_at, fundraising_approved, fundraising_approved_at');
 
   if (status !== 'all') {
     query = query.eq('status', status);
@@ -257,6 +259,10 @@ export async function queryOrganizers(params: {
       created_at: org.created_at,
       verified_at: org.verified_at ?? null,
       badges: [],
+      payment_enabled: org.payment_enabled ?? false,
+      payment_enabled_at: org.payment_enabled_at ?? null,
+      fundraising_approved: org.fundraising_approved ?? false,
+      fundraising_approved_at: org.fundraising_approved_at ?? null,
     };
   });
 
@@ -375,7 +381,7 @@ export async function queryUsers(params: {
   const dateStart = getDateRangeStart(date);
   let profileQuery = supabaseAdmin
     .from('profiles')
-    .select('id, role, status, created_at, account_info');
+    .select('id, role, status, created_at, account_info, identity_status, identity_verified_at');
 
   if (role !== 'all') profileQuery = profileQuery.eq('role', role);
   if (status !== 'all') profileQuery = profileQuery.eq('status', status);
@@ -448,6 +454,8 @@ export async function queryUsers(params: {
       created_at: profile.created_at ?? authUser.created_at,
       last_login: authUser.last_sign_in_at ?? null,
       is_current_user: currentUserId === authUser.id,
+      identity_status: (profile.identity_status ?? 'pending') as IdentityStatus,
+      identity_verified_at: profile.identity_verified_at ?? null,
     };
   });
 
@@ -464,7 +472,7 @@ export async function queryUsers(params: {
 export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDetail | null> {
   const { data: org, error } = await supabaseAdmin
     .from('organizers')
-    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset')
+    .select('id, user_id, name, status, created_at, verified_at, bio, photo, website, follower_offset, events_offset, payment_enabled, payment_enabled_at, fundraising_approved, fundraising_approved_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -523,11 +531,50 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
   const visibilityHistory = (auditRows ?? []).map((r) => ({
     id: r.id,
     admin_user_id: r.admin_user_id,
-    field_name: r.field_name as 'follower_offset' | 'events_offset',
+    field_name: r.field_name as 'follower_offset' | 'events_offset' | 'payment_enabled' | 'fundraising_approved',
     old_value: r.old_value,
     new_value: r.new_value,
     created_at: r.created_at,
     admin_name: adminNames.get(r.admin_user_id) ?? 'Admin',
+  }));
+
+  // Read-only visibility into entity_members (Phase 4's authorization
+  // model) — no management UI here yet, deliberately deferred; this is
+  // oversight only, so admins can see who has delegated access to an
+  // organizer they're reviewing.
+  const { data: memberRows } = await supabaseAdmin
+    .from('entity_members')
+    .select('id, user_id, role, created_at')
+    .eq('organizer_id', org.id)
+    .order('created_at', { ascending: true });
+
+  const memberIds = [...new Set((memberRows ?? []).map((m) => m.user_id))];
+  const memberNames = new Map<string, string>();
+  const memberEmails = new Map<string, string>();
+  if (memberIds.length > 0) {
+    const { data: memberProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, account_info')
+      .in('id', memberIds);
+    for (const mp of memberProfiles ?? []) {
+      const info = mp.account_info as Record<string, string> | null;
+      memberNames.set(mp.id, info?.full_name || info?.display_name || 'Member');
+    }
+    for (const memberId of memberIds) {
+      const { data: memberAuthRes } = await supabaseAdmin.auth.admin.getUserById(memberId);
+      if (memberAuthRes?.user?.email) {
+        memberEmails.set(memberId, memberAuthRes.user.email);
+      }
+    }
+  }
+
+  const entityMembers = (memberRows ?? []).map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.role as EntityRole,
+    member_name: memberNames.get(m.user_id) ?? 'Member',
+    member_email: memberEmails.get(m.user_id) ?? '',
+    created_at: m.created_at,
   }));
 
   const statusHistory: AdminOrganizerDetail['status_history'] = [
@@ -559,11 +606,16 @@ export async function getOrganizerDetail(id: string): Promise<AdminOrganizerDeta
     created_at: org.created_at,
     verified_at: org.verified_at ?? null,
     badges: [],
+    payment_enabled: org.payment_enabled ?? false,
+    payment_enabled_at: org.payment_enabled_at ?? null,
+    fundraising_approved: org.fundraising_approved ?? false,
+    fundraising_approved_at: org.fundraising_approved_at ?? null,
     bio: org.bio ?? null,
     photo: org.photo ?? null,
     website: org.website ?? null,
     status_history: statusHistory,
     visibility_history: visibilityHistory,
+    entity_members: entityMembers,
   };
 }
 
@@ -575,7 +627,7 @@ export async function getUserDetail(
     supabaseAdmin.auth.admin.getUserById(id),
     supabaseAdmin
       .from('profiles')
-      .select('id, role, status, created_at, account_info')
+      .select('id, role, status, created_at, account_info, identity_status, identity_verified_at')
       .eq('id', id)
       .maybeSingle(),
   ]);
@@ -668,6 +720,46 @@ export async function getUserDetail(
 
   recentActivity.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
+  // Read-only visibility into profile_verification_audit — same
+  // read-only-oversight pattern as organizers' visibility_history.
+  const { data: verificationRows } = await supabaseAdmin
+    .from('profile_verification_audit')
+    .select('id, admin_user_id, field_name, old_value, new_value, created_at')
+    .eq('profile_id', id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const verificationAdminIds = [...new Set((verificationRows ?? []).map((r) => r.admin_user_id))];
+  const verificationAdminNames = new Map<string, string>();
+  if (verificationAdminIds.length > 0) {
+    const { data: verificationAdminProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, account_info')
+      .in('id', verificationAdminIds);
+    for (const ap of verificationAdminProfiles ?? []) {
+      const info = ap.account_info as Record<string, string> | null;
+      verificationAdminNames.set(ap.id, info?.full_name || info?.display_name || 'Admin');
+    }
+    for (const adminId of verificationAdminIds) {
+      if (!verificationAdminNames.has(adminId) || verificationAdminNames.get(adminId) === 'Admin') {
+        const { data: adminAuthRes } = await supabaseAdmin.auth.admin.getUserById(adminId);
+        if (adminAuthRes?.user?.email) {
+          verificationAdminNames.set(adminId, adminAuthRes.user.email);
+        }
+      }
+    }
+  }
+
+  const verificationHistory = (verificationRows ?? []).map((r) => ({
+    id: r.id,
+    admin_user_id: r.admin_user_id,
+    field_name: r.field_name,
+    old_value: r.old_value,
+    new_value: r.new_value,
+    created_at: r.created_at,
+    admin_name: verificationAdminNames.get(r.admin_user_id) ?? 'Admin',
+  }));
+
   return {
     id,
     full_name: getUserDisplayName(profile, authUser),
@@ -682,6 +774,8 @@ export async function getUserDetail(
     created_at: profile?.created_at ?? authUser.created_at,
     last_login: authUser.last_sign_in_at ?? null,
     is_current_user: currentUserId === id,
+    identity_status: (profile?.identity_status ?? 'pending') as IdentityStatus,
+    identity_verified_at: profile?.identity_verified_at ?? null,
     phone: accountInfo.phone ?? null,
     company: accountInfo.company ?? null,
     website: accountInfo.website ?? null,
@@ -693,5 +787,6 @@ export async function getUserDetail(
       created_at: o.created_at,
     })),
     recent_activity: recentActivity.slice(0, 10),
+    verification_history: verificationHistory,
   };
 }

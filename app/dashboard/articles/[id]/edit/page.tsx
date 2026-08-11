@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { isAdmin as checkIsAdmin } from "@/lib/auth";
+import { hasEntityAccess, ENTITY_ROLES_CONTENT_WRITE } from "@/lib/entity-auth";
 import EditArticleClient from "./EditArticleClient";
 
 export default async function EditArticlePage({
@@ -28,9 +29,11 @@ export default async function EditArticlePage({
     notFound();
   }
 
-  // Check authorization (must be owner or admin)
+  // Check authorization (must be owner, entity-level delegate, or admin)
   const isAdmin = await checkIsAdmin();
-  if (article.owner_id !== ctx.user.id && !isAdmin) {
+  const isDelegate =
+    !!article.organizer_id && (await hasEntityAccess(ctx.user.id, article.organizer_id, ENTITY_ROLES_CONTENT_WRITE));
+  if (article.owner_id !== ctx.user.id && !isAdmin && !isDelegate) {
     redirect("/dashboard/articles");
   }
 

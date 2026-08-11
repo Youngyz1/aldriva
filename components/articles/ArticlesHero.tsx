@@ -79,7 +79,13 @@ export default function ArticlesHero() {
       />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-8 lg:py-28 lg:px-8">
-        <div>
+        {/* min-w-0: CSS Grid items default to min-width: auto, so without
+            this the popular-tags row below (overflow-x-auto, no width cap
+            of its own) has its full unwrapped content width — the sum of
+            all 8 pills, ~700px — propagate up and force this whole column
+            (headline included) wider than the viewport instead of letting
+            the tags row scroll internally as intended. */}
+        <div className="min-w-0">
           <span className="inline-block rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-orange-300 backdrop-blur">
             Aldriva Stories
           </span>

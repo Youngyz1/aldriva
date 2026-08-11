@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { getDashboardAttendeeDetail } from '@/lib/dashboard-data';
 import { supabaseAdmin } from '@/lib/dashboard-context';
+import { ENTITY_ROLES_CONTENT_WRITE } from '@/lib/entity-auth';
 
 export async function POST(req: NextRequest) {
   const auth = await getDashboardApiContext();
@@ -15,11 +16,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No items selected.' }, { status: 400 });
   }
 
-  const validIds: string[] = [];
+  const orgScopedIds: string[] = [];
   for (const id of ids) {
     const detail = await getDashboardAttendeeDetail(auth.ctx.organizerIds, id);
-    if (detail) validIds.push(id);
+    if (detail) orgScopedIds.push(id);
   }
+
+  if (orgScopedIds.length === 0) {
+    return NextResponse.json({ error: 'No matching attendees.' }, { status: 404 });
+  }
+
+  // check_in and resend_ticket are both operational, non-destructive
+  // actions — content-write tier for both, filtered per-order by the
+  // owning event's organizer_id role.
+  const { data: orders } = await supabaseAdmin
+    .from('ticket_orders')
+    .select('id, events(organizer_id)')
+    .in('id', orgScopedIds);
+
+  const validIds = (orders ?? [])
+    .filter((order) => {
+      const events = order.events as { organizer_id?: string } | { organizer_id?: string }[] | null;
+      const orgId = Array.isArray(events) ? events[0]?.organizer_id : events?.organizer_id;
+      const role = orgId ? auth.ctx.organizerRoles[orgId] : undefined;
+      return role && ENTITY_ROLES_CONTENT_WRITE.includes(role);
+    })
+    .map((order) => order.id);
 
   if (validIds.length === 0) {
     return NextResponse.json({ error: 'No matching attendees.' }, { status: 404 });

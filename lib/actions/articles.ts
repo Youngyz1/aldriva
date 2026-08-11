@@ -3,6 +3,7 @@
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
+import { hasEntityAccess, ENTITY_ROLES_CONTENT_WRITE, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 
 function stripHtml(html: string): string {
   return html
@@ -151,10 +152,10 @@ export async function updateArticle(id: string, input: ArticleInput) {
     return { success: false, error: "Unauthorized" };
   }
 
-  // Verify ownership or admin role
+  // Verify ownership, entity-level access, or admin role
   const { data: existing } = await supabase
     .from("articles")
-    .select("owner_id, slug")
+    .select("owner_id, slug, organizer_id")
     .eq("id", id)
     .single();
 
@@ -163,7 +164,9 @@ export async function updateArticle(id: string, input: ArticleInput) {
   }
 
   const isAdmin = await checkIsAdmin(user.id, supabase);
-  if (existing.owner_id !== user.id && !isAdmin) {
+  const isDelegate =
+    !!existing.organizer_id && (await hasEntityAccess(user.id, existing.organizer_id, ENTITY_ROLES_CONTENT_WRITE));
+  if (existing.owner_id !== user.id && !isAdmin && !isDelegate) {
     return { success: false, error: "Forbidden" };
   }
 
@@ -252,7 +255,7 @@ export async function deleteArticle(id: string) {
 
   const { data: existing } = await supabase
     .from("articles")
-    .select("owner_id, slug")
+    .select("owner_id, slug, organizer_id")
     .eq("id", id)
     .single();
 
@@ -261,7 +264,9 @@ export async function deleteArticle(id: string) {
   }
 
   const isAdmin = await checkIsAdmin(user.id, supabase);
-  if (existing.owner_id !== user.id && !isAdmin) {
+  const isDelegate =
+    !!existing.organizer_id && (await hasEntityAccess(user.id, existing.organizer_id, ENTITY_ROLES_MANAGE));
+  if (existing.owner_id !== user.id && !isAdmin && !isDelegate) {
     return { success: false, error: "Forbidden" };
   }
 

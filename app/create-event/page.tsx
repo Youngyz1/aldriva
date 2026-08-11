@@ -187,13 +187,11 @@ export default function CreateEventPage() {
       return;
     }
 
-    if (!form.organizer_id) {
-      setError("Create or select an organizer profile before publishing an event.");
-      setLoading(false);
-      return;
-    }
-
-    if (!organizers.some((organizer) => organizer.id === form.organizer_id)) {
+    // organizer_id is always optional — "Personal event" (empty) is a
+    // first-class, intentional choice in the picker below, not just a
+    // fallback for users with none. Only validate that a non-empty
+    // selection actually belongs to this account.
+    if (form.organizer_id && !organizers.some((organizer) => organizer.id === form.organizer_id)) {
       setError("Select one of your organizer profiles before publishing an event.");
       setLoading(false);
       return;
@@ -230,7 +228,7 @@ export default function CreateEventPage() {
         event_date: form.event_date,
         end_date: form.end_date || null,
         video_url,
-        organizer_id: form.organizer_id,
+        organizer_id: form.organizer_id || null,
         user_id: session.user.id,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
         longitude: form.longitude ? parseFloat(form.longitude) : null,
@@ -435,24 +433,25 @@ export default function CreateEventPage() {
           </div>
         )}
 
-        {organizers.length === 0 && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4 text-sm font-bold text-orange-800">
-            Create an organizer profile first.{" "}
-            <Link href="/create-organizer" className="underline">Create organizer</Link>
-          </div>
-        )}
-
         {currentStep === 0 && (
           <>
             <CreatorPanel title="Basic Information">
               <div className="grid gap-5">
-                <CreatorField label="Organization Profile">
-                  <select name="organizer_id" value={form.organizer_id} onChange={handleChange} required disabled={organizers.length === 0} className={inputClass}>
-                    {organizers.length === 0
-                      ? <option value="">No organizer profiles yet</option>
-                      : organizers.map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name}</option>)}
-                  </select>
-                </CreatorField>
+                {/* Optional organizational affiliation — only shown when
+                    the user actually has an organizer to attach. With
+                    none, this event is simply personal (organizer_id
+                    stays null); nothing here forces creating one.
+                    "Personal event" is always selectable even when
+                    organizers exist, since affiliation is opt-in, not
+                    the default state. */}
+                {organizers.length > 0 && (
+                  <CreatorField label="Organization Profile (optional)">
+                    <select name="organizer_id" value={form.organizer_id} onChange={handleChange} className={inputClass}>
+                      <option value="">Personal event (no organizer)</option>
+                      {organizers.map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name}</option>)}
+                    </select>
+                  </CreatorField>
+                )}
 
                 <CreatorField label="Event Title">
                   <input name="title" value={form.title} onChange={handleChange} required type="text" placeholder="Annual Charity Gala Dinner" className={inputClass} />

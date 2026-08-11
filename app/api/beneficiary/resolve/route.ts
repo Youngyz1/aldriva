@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { validateBeneficiary } from "@/lib/beneficiary";
+import { getUserEntityMemberships, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 
 /**
  * Find-or-create the `beneficiaries` row for a fundraiser, returning its id so
  * the caller can store it as `fundraisers.beneficiary_id`.
  *
- * Reuse is scoped to the calling organizer: a match only counts if the
- * beneficiary is already attached to one of *their* fundraisers. So an
- * organizer running three campaigns for their mother gets one profile, while
- * an unrelated organizer typing the same name gets their own row.
+ * Reuse is scoped to the calling user's own fundraisers, directly or via
+ * entity_members MANAGE-tier access to the fundraiser's organizer. So an
+ * organizer running three campaigns for their mother gets one profile
+ * (and so does a delegate managing the same organizer's campaigns),
+ * while an unrelated organizer typing the same name gets their own row.
  *
  * Matching on the name string alone across all organizers would be wrong and
  * unsafe — names are not identity. It would let a stranger's campaign inherit
@@ -48,13 +50,23 @@ export async function POST(req: NextRequest) {
 
   const admin = createSupabaseAdmin();
 
-  // Beneficiaries already used by this organizer's own fundraisers.
-  const { data: ownFundraisers } = await admin
+  // Beneficiaries already used by fundraisers the caller either created
+  // directly or has entity_members MANAGE-tier access to via the
+  // fundraiser's organizer.
+  const managedOrgIds = Object.keys(await getUserEntityMemberships(user.id, ENTITY_ROLES_MANAGE));
+
+  let ownFundraisersQuery = admin
     .from("fundraisers")
     .select("beneficiary_id")
-    .eq("user_id", user.id)
     .not("beneficiary_id", "is", null)
     .is("deleted_at", null);
+
+  ownFundraisersQuery =
+    managedOrgIds.length > 0
+      ? ownFundraisersQuery.or(`user_id.eq.${user.id},organizer_id.in.(${managedOrgIds.join(",")})`)
+      : ownFundraisersQuery.eq("user_id", user.id);
+
+  const { data: ownFundraisers } = await ownFundraisersQuery;
 
   const ownBeneficiaryIds = Array.from(
     new Set((ownFundraisers ?? []).map((f) => f.beneficiary_id).filter(Boolean))

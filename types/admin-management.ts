@@ -1,3 +1,5 @@
+import type { EntityRole } from '@/lib/entity-auth';
+
 export type OrganizerStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
 
 export type OrganizerSort =
@@ -36,6 +38,10 @@ export type AdminOrganizerRow = {
   created_at: string;
   verified_at: string | null;
   badges: string[];
+  payment_enabled: boolean;
+  payment_enabled_at: string | null;
+  fundraising_approved: boolean;
+  fundraising_approved_at: string | null;
 };
 
 export type AdminOrganizerStats = {
@@ -49,11 +55,20 @@ export type AdminOrganizerStats = {
 export type VisibilityAuditEntry = {
   id: string;
   admin_user_id: string;
-  field_name: 'follower_offset' | 'events_offset';
+  field_name: 'follower_offset' | 'events_offset' | 'payment_enabled' | 'fundraising_approved';
   old_value: number;
   new_value: number;
   created_at: string;
   admin_name?: string;
+};
+
+export type EntityMemberRow = {
+  id: string;
+  user_id: string;
+  role: EntityRole;
+  member_name: string;
+  member_email: string;
+  created_at: string;
 };
 
 export type AdminOrganizerDetail = AdminOrganizerRow & {
@@ -62,6 +77,19 @@ export type AdminOrganizerDetail = AdminOrganizerRow & {
   website: string | null;
   status_history: { status: string; at: string; label: string }[];
   visibility_history: VisibilityAuditEntry[];
+  entity_members: EntityMemberRow[];
+};
+
+export type IdentityStatus = 'pending' | 'verified' | 'rejected';
+
+export type VerificationAuditEntry = {
+  id: string;
+  admin_user_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+  admin_name?: string;
 };
 
 export type AdminUserRow = {
@@ -78,6 +106,8 @@ export type AdminUserRow = {
   created_at: string;
   last_login: string | null;
   is_current_user: boolean;
+  identity_status: IdentityStatus;
+  identity_verified_at: string | null;
 };
 
 export type AdminUserStats = {
@@ -107,6 +137,7 @@ export type AdminUserDetail = AdminUserRow & {
     at: string;
     href?: string;
   }[];
+  verification_history: VerificationAuditEntry[];
 };
 
 export type PaginatedResponse<T, S = Record<string, number>> = {

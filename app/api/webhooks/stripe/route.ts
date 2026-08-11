@@ -1,11 +1,13 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 import { recordDonationFromSession } from "@/lib/donations";
 import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { createNotification } from "@/lib/notifications";
+import { BRAND } from "@/config/branding";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -24,6 +26,72 @@ const uuidPattern =
 
 function metadataUserId(meta: Stripe.Metadata) {
   return uuidPattern.test(meta.user_id || "") ? meta.user_id : null;
+}
+
+/**
+ * A Stripe charge succeeded but the corresponding record couldn't be saved
+ * (transient DB error, unexpected constraint violation, etc.) — the
+ * customer paid real money for something that doesn't exist anywhere.
+ * Persists a row for manual reconciliation and emails an alert. No
+ * error-tracking SDK (Sentry or similar) exists in this codebase and
+ * nothing tracks failed payments today — this is genuinely new
+ * infrastructure, not a hookup to something that already existed.
+ * Deliberately does not attempt an automatic refund — see
+ * payment_reconciliation_failures' migration header for why.
+ */
+async function alertReconciliationFailure(params: {
+  kind: string;
+  stripePaymentIntentId: string;
+  amount: number;
+  currency: string;
+  buyerEmail: string | null;
+  rawMetadata: Stripe.Metadata;
+  errorMessage: string;
+}) {
+  const { error: recordError } = await supabaseAdmin
+    .from("payment_reconciliation_failures")
+    .insert({
+      kind: params.kind,
+      stripe_payment_intent_id: params.stripePaymentIntentId,
+      amount: params.amount,
+      currency: params.currency,
+      buyer_email: params.buyerEmail,
+      raw_metadata: params.rawMetadata,
+      error_message: params.errorMessage,
+    });
+
+  if (recordError) {
+    // If even this fails, the console.error the caller already logged is
+    // the only remaining trail — log this failure distinctly so it's not
+    // silently indistinguishable from the original error.
+    console.error("[webhook] Failed to record payment_reconciliation_failures row:", recordError.message);
+  }
+
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const fromAddress = `${BRAND.name} Alerts <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`;
+    await resend.emails.send({
+      from: fromAddress,
+      to: BRAND.supportEmail,
+      subject: `[URGENT] Payment succeeded but ${params.kind} record was not created`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px;">
+          <h2 style="color: #dc2626;">Payment reconciliation failure</h2>
+          <p>A Stripe charge succeeded but the corresponding <strong>${params.kind}</strong> record could not be saved. The customer was charged and needs manual follow-up (refund or manual fulfillment).</p>
+          <ul>
+            <li><strong>Stripe PaymentIntent:</strong> ${params.stripePaymentIntentId}</li>
+            <li><strong>Amount:</strong> ${params.amount} ${params.currency.toUpperCase()}</li>
+            <li><strong>Buyer email:</strong> ${params.buyerEmail ?? "unknown"}</li>
+            <li><strong>Error:</strong> ${params.errorMessage}</li>
+          </ul>
+          <p style="color:#6b7280;font-size:13px;">Also recorded in payment_reconciliation_failures for tracking.</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error("[webhook] Failed to send reconciliation alert email:", err);
+  }
 }
 
 export async function notifyOrganizerOfTicketPurchase(params: {
@@ -341,19 +409,9 @@ async function handlePaymentIntentSucceeded(
       return;
     }
 
-    const { data: existing } = await supabaseAdmin
-      .from("ticket_orders")
-      .select("id")
-      .eq("stripe_payment_intent_id", pi.id)
-      .maybeSingle();
-
-    if (existing) {
-      console.log("[webhook] Ticket order already exists for intent:", pi.id);
-      return;
-    }
-
     const qty = parseInt(meta.quantity) || 1;
     const totalAmount = parseFloat(meta.total_amount) || pi.amount / 100;
+    const currency = meta.currency ?? pi.currency ?? "usd";
 
     // pi.charges is an expandable field — cast to avoid TS error on the unexpanded type
     const piAny = pi as unknown as Record<string, unknown>;
@@ -369,26 +427,54 @@ async function handlePaymentIntentSucceeded(
       firstCharge?.billing_details?.name ||
       "";
 
-    const { error: insertError } = await supabaseAdmin
-      .from("ticket_orders")
-      .insert({
-        event_id: meta.event_id,
-        ticket_id: meta.ticket_id || null,
-        seat_id: meta.seat_id || null,
-        seat_label: meta.seat_label || null,
-        buyer_email: recipientEmail,
-        buyer_name: recipientName || null,
-        quantity: qty,
-        total_amount: totalAmount,
-        currency: meta.currency ?? pi.currency ?? "usd",
-        qr_code,
-        status: "valid",
-        stripe_payment_intent_id: pi.id,
+    type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
+
+    const rpcResult = await supabaseAdmin
+      .rpc("record_ticket_and_credit", {
+        p_event_id: meta.event_id,
+        p_ticket_id: meta.ticket_id || null,
+        p_seat_id: meta.seat_id || null,
+        p_seat_label: meta.seat_label || null,
+        p_buyer_email: recipientEmail,
+        p_buyer_name: recipientName || null,
+        p_quantity: qty,
+        p_total_amount: totalAmount,
+        p_currency: currency,
+        p_qr_code: qr_code,
+        p_stripe_payment_intent_id: pi.id,
+        p_stripe_session_id: null,
+      })
+      .returns<TicketRpcRow[]>();
+
+    const rpcError = rpcResult.error;
+    const rpcData = rpcResult.data as TicketRpcRow[] | null;
+    const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+    if (rpcError || !resultRow) {
+      const errorMessage = rpcError?.message ?? "no data returned from record_ticket_and_credit RPC";
+      console.error("[webhook] record_ticket_and_credit RPC error:", errorMessage);
+
+      await alertReconciliationFailure({
+        kind: "ticket",
+        stripePaymentIntentId: pi.id,
+        amount: totalAmount,
+        currency,
+        buyerEmail: recipientEmail,
+        rawMetadata: meta,
+        errorMessage,
       });
 
-    if (insertError) {
-      console.error("[webhook] ticket_orders insert error:", insertError.message);
+      return;
     }
+
+    const { ticket_order_id: ticketOrderId, is_new: isNewTicket } = resultRow;
+
+    if (!isNewTicket) {
+      console.log(`[webhook] Ticket order already exists for qr_code/intent (id=${ticketOrderId}), skipping downstream.`);
+      return;
+    }
+
+    console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} pi=${pi.id}`);
 
     if (meta.seat_id) {
       await supabaseAdmin
@@ -415,7 +501,7 @@ async function handlePaymentIntentSucceeded(
       buyerName: recipientName,
       quantity: qty,
       totalAmount,
-      currency: meta.currency ?? pi.currency ?? "usd",
+      currency,
       base: baseUrl(req),
     });
 
@@ -426,77 +512,71 @@ async function handlePaymentIntentSucceeded(
   if (kind === "donation" && meta.fundraiser_id) {
     const resolvedUserId = metadataUserId(meta);
 
-    // ── Step 1: Atomic upsert on donations, keyed on payment_intent_id ───────
-    //
-    // ON CONFLICT DO UPDATE eliminates the check-then-insert race window: two
-    // concurrent invocations can no longer both see "no row" and both attempt
-    // an INSERT. One wins the INSERT, the other resolves via UPDATE — both
-    // receive the canonical row ID back via RETURNING.
-    //
-    // We ask PostgREST to include the PostgreSQL system column `xmax` in the
-    // RETURNING clause. Its value tells us unambiguously which path fired:
-    //   xmax = 0  → this call performed the INSERT (fresh row)
-    //   xmax ≠ 0  → ON CONFLICT path fired (existing row, UPDATE executed)
-    // This is the standard PostgREST trick and works reliably within the same
-    // request that performed the upsert.
-    const rawDonationUpsert = await supabaseAdmin
-      .from("donations")
-      .upsert(
-        {
-          fundraiser_id:     meta.fundraiser_id,
-          donor_name:        meta.donor_name || "Anonymous",
-          donor_email:       meta.donor_email || null,
-          user_id:           resolvedUserId,
-          message:           meta.message || null,
-          amount:            parseFloat(meta.donation_amount) || pi.amount / 100,
-          currency:          (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
-          status:            "completed",
-          payment_intent_id: pi.id,
-        },
-        { onConflict: "payment_intent_id", ignoreDuplicates: false }
-      )
-      .select("id, user_id, xmax")
-      .returns<{ id: string; user_id: string | null; xmax: number }[]>()
-      .single();
+    const amount = parseFloat(meta.donation_amount) || pi.amount / 100;
+    const currency = (meta.currency ?? pi.currency ?? "usd").toUpperCase();
 
-    const upsertError     = rawDonationUpsert.error;
-    const upsertedDonation = rawDonationUpsert.data;
+    type DonationRpcRow = { donation_id: string; donor_user_id: string | null; is_new: boolean };
 
-    if (upsertError || !upsertedDonation) {
-      console.error(
-        "[webhook] donations upsert error:",
-        upsertError?.message ?? "no data returned"
-      );
+    const rpcResult = await supabaseAdmin
+      .rpc("record_donation_and_credit", {
+        p_fundraiser_id: meta.fundraiser_id,
+        p_donor_name: meta.donor_name || "Anonymous",
+        p_donor_email: meta.donor_email || null,
+        p_user_id: resolvedUserId,
+        p_message: meta.message || null,
+        p_amount: amount,
+        p_currency: currency,
+        p_payment_intent_id: pi.id,
+      })
+      .returns<DonationRpcRow[]>();
+
+    const rpcError = rpcResult.error;
+    const rpcData = rpcResult.data as DonationRpcRow[] | null;
+    const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+    if (rpcError || !resultRow) {
+      const errorMessage = rpcError?.message ?? "no data returned from record_donation_and_credit RPC";
+      console.error("[webhook] record_donation_and_credit RPC error:", errorMessage);
+
+      await alertReconciliationFailure({
+        kind: "donation",
+        stripePaymentIntentId: pi.id,
+        amount,
+        currency,
+        buyerEmail: meta.donor_email || null,
+        rawMetadata: meta,
+        errorMessage,
+      });
+
       return;
     }
 
-    // xmax = 0 → INSERT won; non-zero → conflict path (existing row was updated).
-    const isNewDonation = Number(upsertedDonation.xmax) === 0;
+    const { donation_id: donationId, donor_user_id: donorUserId, is_new: isNewDonation } = resultRow;
 
     if (isNewDonation) {
       console.log(
-        `[webhook] Donation upserted (new) id=${upsertedDonation.id} pi=${pi.id}`
+        `[webhook] Donation recorded & credited (new) id=${donationId} pi=${pi.id}`
       );
     } else {
       console.log(
-        `[webhook] Donation upserted (conflict resolved) id=${upsertedDonation.id} pi=${pi.id}`
+        `[webhook] Donation recorded (conflict resolved) id=${donationId} pi=${pi.id}`
       );
       // Backfill user_id if the conflict row has it NULL but we now have a
       // valid UUID. This covers the historical race where the winning INSERT
       // ran without the user_id because metadata wasn't available at that
       // instant (or the old code's early-return prevented the backfill).
-      if (!upsertedDonation.user_id && resolvedUserId) {
+      if (!donorUserId && resolvedUserId) {
         const { error: backfillError } = await supabaseAdmin
           .from("donations")
           .update({ user_id: resolvedUserId })
-          .eq("id", upsertedDonation.id);
+          .eq("id", donationId);
         if (backfillError) {
           console.error(
             "[webhook] donation user_id backfill error:", backfillError.message
           );
         } else {
           console.log(
-            `[webhook] Backfilled user_id on donation ${upsertedDonation.id}`
+            `[webhook] Backfilled user_id on donation ${donationId}`
           );
         }
       }
@@ -541,7 +621,7 @@ async function handlePaymentIntentSucceeded(
         const isNewComment = Number(upsertedComment.xmax) === 0;
         if (isNewComment) {
           console.log(
-            `[webhook] Inserted comment id=${upsertedComment.id} for donation ${upsertedDonation.id}`
+            `[webhook] Inserted comment id=${upsertedComment.id} for donation ${donationId}`
           );
         } else {
           console.log(
@@ -574,7 +654,7 @@ async function handlePaymentIntentSucceeded(
     // fire more than once even if Stripe retries the event.
     if (!isNewDonation) {
       console.log(
-        `[webhook] Downstream already processed for donation ${upsertedDonation.id}, skipping.`
+        `[webhook] Downstream already processed for donation ${donationId}, skipping.`
       );
       return;
     }
@@ -582,10 +662,10 @@ async function handlePaymentIntentSucceeded(
     const { recalculateFundraiserRaised } = await import("@/lib/donations");
     await recalculateFundraiserRaised(meta.fundraiser_id);
 
-    processDonationReceipt(upsertedDonation.id).catch((err) =>
+    processDonationReceipt(donationId).catch((err) =>
       console.error("[webhook] Receipt generation error:", err)
     );
-    processDonationCertificate(upsertedDonation.id).catch((err) =>
+    processDonationCertificate(donationId).catch((err) =>
       console.error("[webhook] Certificate generation error:", err)
     );
 
@@ -700,7 +780,23 @@ async function handleCheckoutSessionCompleted(
     const piId =
       typeof session.payment_intent === "string" ? session.payment_intent : undefined;
 
-    await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+    try {
+      await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+    } catch (err: unknown) {
+      const errorMessage = (err as Error)?.message ?? "Failed to mark product order paid";
+      console.error("[webhook] markProductOrderPaid error:", errorMessage);
+
+      await alertReconciliationFailure({
+        kind: "product",
+        stripePaymentIntentId: piId ?? session.id,
+        amount: (session.amount_total ?? 0) / 100,
+        currency: (session.currency ?? "usd").toUpperCase(),
+        buyerEmail: session.customer_email || null,
+        rawMetadata: meta,
+        errorMessage,
+      });
+    }
+
     return;
   }
 
@@ -723,37 +819,60 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  const { data: existing } = await supabaseAdmin
-    .from("ticket_orders")
-    .select("id")
-    .eq("qr_code", qr_code)
-    .maybeSingle();
+  const qty = parseInt(quantity) || 1;
+  const totalAmount = parseFloat(total_amount) || (session.amount_total ?? 0) / 100;
+  const currency = session.currency ?? "usd";
+  const recipientEmail = buyer_email || session.customer_email || null;
+  const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
 
-  if (existing) {
-    console.log("[webhook] Ticket order already exists for qr_code:", qr_code);
+  type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
+
+  const rpcResult = await supabaseAdmin
+    .rpc("record_ticket_and_credit", {
+      p_event_id: event_id,
+      p_ticket_id: ticket_id || null,
+      p_seat_id: seat_id || null,
+      p_seat_label: seat_label || null,
+      p_buyer_email: recipientEmail,
+      p_buyer_name: buyer_name || null,
+      p_quantity: qty,
+      p_total_amount: totalAmount,
+      p_currency: currency,
+      p_qr_code: qr_code,
+      p_stripe_payment_intent_id: piId,
+      p_stripe_session_id: session.id,
+    })
+    .returns<TicketRpcRow[]>();
+
+  const rpcError = rpcResult.error;
+  const rpcData = rpcResult.data as TicketRpcRow[] | null;
+  const resultRow = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
+  if (rpcError || !resultRow) {
+    const errorMessage = rpcError?.message ?? "no data returned from record_ticket_and_credit RPC";
+    console.error("[webhook] record_ticket_and_credit RPC error (session):", errorMessage);
+
+    await alertReconciliationFailure({
+      kind: "ticket",
+      stripePaymentIntentId: piId ?? session.id,
+      amount: totalAmount,
+      currency,
+      buyerEmail: recipientEmail,
+      rawMetadata: meta,
+      errorMessage,
+    });
+
     return;
   }
 
-  const { error: insertError } = await supabaseAdmin.from("ticket_orders").insert({
-    event_id,
-    ticket_id: ticket_id || null,
-    seat_id: seat_id || null,
-    seat_label: seat_label || null,
-    buyer_email: buyer_email || session.customer_email || null,
-    buyer_name: buyer_name || null,
-    quantity: parseInt(quantity) || 1,
-    total_amount: parseFloat(total_amount) || (session.amount_total ?? 0) / 100,
-    currency: session.currency ?? "usd",
-    qr_code,
-    status: "valid",
-    stripe_session_id: session.id,
-    stripe_payment_intent_id:
-      typeof session.payment_intent === "string" ? session.payment_intent : null,
-  });
+  const { ticket_order_id: ticketOrderId, is_new: isNewTicket } = resultRow;
 
-  if (insertError) {
-    console.error("[webhook] ticket_orders insert error:", insertError.message);
+  if (!isNewTicket) {
+    console.log(`[webhook] Ticket order already exists for qr_code (id=${ticketOrderId}), skipping downstream.`);
+    return;
   }
+
+  console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} session=${session.id}`);
 
   if (seat_id) {
     await supabaseAdmin
@@ -762,7 +881,6 @@ async function handleCheckoutSessionCompleted(
       .eq("id", seat_id);
   }
 
-  const recipientEmail = buyer_email || session.customer_email;
   if (recipientEmail) {
     await sendTicketEmail({
       buyerEmail: recipientEmail,
@@ -779,9 +897,9 @@ async function handleCheckoutSessionCompleted(
   await notifyOrganizerOfTicketPurchase({
     eventId: event_id,
     buyerName: buyer_name || "",
-    quantity: parseInt(quantity) || 1,
-    totalAmount: parseFloat(total_amount) || (session.amount_total ?? 0) / 100,
-    currency: session.currency ?? "usd",
+    quantity: qty,
+    totalAmount,
+    currency,
     base: baseUrl(req),
   });
 }
