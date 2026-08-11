@@ -1,7 +1,7 @@
 import { Heart, Calendar, Newspaper, Store, ShoppingBag, type LucideIcon } from "lucide-react";
 import { supabaseAdmin } from "@/lib/dashboard-context";
 import { money } from "@/lib/format";
-import { getTimeAgo } from "@/lib/fund4good-data";
+import { getTimeAgo } from "@/lib/Aldriva-data";
 
 export type VerticalKey = "fundraisers" | "events" | "articles" | "businesses" | "products";
 

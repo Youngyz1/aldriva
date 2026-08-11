@@ -1,5 +1,5 @@
 import { Activity as ActivityIcon } from "lucide-react";
-import { EmptyState } from "@/components/dashboard/fund4good/EmptyState";
+import { EmptyState } from "@/components/dashboard/Aldriva/EmptyState";
 import { getActivityIconConfig, getTimeAgo, type DashboardActivity } from "@/lib/dashboard-activity";
 import Link from "next/link";
 

@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, AlertTriangle, TrendingUp, type LucideIcon } from "lucide-react";
-import type { CampaignStatus } from "@/lib/fund4good-data";
+import type { CampaignStatus } from "@/lib/Aldriva-data";
 
 export interface StatusMeta {
   label: string;

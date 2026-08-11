@@ -3,7 +3,7 @@
 import {
   formatCurrency,
   type WithdrawalStatus,
-} from "@/lib/fund4good-data";
+} from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import { CircleDollarSign, CheckCircle2, Clock, AlertCircle, ChevronRight } from "lucide-react";
 import { EmptyState } from "./EmptyState";

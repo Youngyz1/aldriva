@@ -89,8 +89,8 @@ export async function generateMetadata({
 
   return {
     title: beneficiary?.name
-      ? `${beneficiary.name} · Fund4Good`
-      : "Beneficiary · Fund4Good",
+      ? `${beneficiary.name} · Aldriva`
+      : "Beneficiary · Aldriva",
     // Not discoverable through search. This page exists to be shared by the
     // person it describes, not indexed.
     robots: { index: false, follow: false },

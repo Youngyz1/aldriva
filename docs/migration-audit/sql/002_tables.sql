@@ -352,7 +352,7 @@ create index idx_articles_public_listing on public.articles (status, visibility,
 create index idx_articles_scheduled_for on public.articles (scheduled_for) where (status = 'scheduled');
 create index idx_articles_tags on public.articles using gin (tags);
 
-comment on table public.articles is 'Editorial articles published by Fund4Good users. Optional business ownership is deferred until the businesses table exists.';
+comment on table public.articles is 'Editorial articles published by Aldriva users. Optional business ownership is deferred until the businesses table exists.';
 comment on column public.articles.owner_id is 'Per-table owner reference to auth.users, matching the safer ownership pattern selected in the platform ADR.';
 comment on column public.articles.organizer_id is 'Optional current-platform publisher profile. Future business_id FK should be added in the businesses phase.';
 comment on column public.articles.scheduled_for is 'When status=''scheduled'', the article becomes publicly visible at this UTC timestamp. Access control is enforced server-side on EVERY request. Do not rely on a cron status flip or RLS alone for this gate.';

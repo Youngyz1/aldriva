@@ -1,7 +1,7 @@
 "use client";
 
 import ProgressBar from "@/components/ui/ProgressBar";
-import { formatCurrency, getProgressPercentage, type Campaign } from "@/lib/fund4good-data";
+import { formatCurrency, getProgressPercentage, type Campaign } from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import { Calendar, Users, TrendingUp } from "lucide-react";
 

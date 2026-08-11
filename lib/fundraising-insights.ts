@@ -4,7 +4,7 @@
 // numbers. If a condition's data isn't strong enough to support a claim, the
 // insight is simply omitted rather than guessed at.
 
-import { formatCurrency, type Campaign, type Donation } from "./fund4good-data";
+import { formatCurrency, type Campaign, type Donation } from "./Aldriva-data";
 
 export type InsightTone = "positive" | "neutral" | "warning";
 

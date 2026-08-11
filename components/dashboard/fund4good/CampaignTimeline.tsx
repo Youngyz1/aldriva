@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo } from "react";
-import { type TimelineEvent } from "@/lib/fund4good-data";
+import { type TimelineEvent } from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import { Flag, Trophy, Megaphone, TrendingUp, GitCommitHorizontal } from "lucide-react";
 import { EmptyState } from "./EmptyState";

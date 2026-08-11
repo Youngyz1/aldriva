@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo } from "react";
-import { type Campaign, type DailyDonation, formatCurrency } from "@/lib/fund4good-data";
+import { type Campaign, type DailyDonation, formatCurrency } from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import { StatCard } from "./StatCard";
 import {

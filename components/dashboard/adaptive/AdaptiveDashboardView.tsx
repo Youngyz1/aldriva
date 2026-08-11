@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
-import { StatCard } from "@/components/dashboard/fund4good/StatCard";
+import { StatCard } from "@/components/dashboard/Aldriva/StatCard";
 import GetStartedPromptCard from "./GetStartedPromptCard";
 import OnboardingChoices from "./OnboardingChoices";
 import AdaptiveActivityFeed from "./AdaptiveActivityFeed";
@@ -70,7 +70,7 @@ export default function AdaptiveDashboardView({
       </div>
 
       {/* Main content (wide) + utility rail (narrow) — same split as
-          event-platform's Fund4GoodDashboardView. */}
+          event-platform's AldrivaDashboardView. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
         <div className="space-y-6 lg:col-start-1">
           <OrganizationsPanel organizers={organizers} />

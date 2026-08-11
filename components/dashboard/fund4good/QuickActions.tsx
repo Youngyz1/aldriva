@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { type Campaign } from "@/lib/fund4good-data";
+import { type Campaign } from "@/lib/Aldriva-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { getSiteUrl } from "@/lib/site-url";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";

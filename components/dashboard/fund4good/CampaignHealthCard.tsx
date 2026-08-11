@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { type Campaign, formatCurrency } from "@/lib/fund4good-data";
+import { type Campaign, formatCurrency } from "@/lib/Aldriva-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { getSiteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";

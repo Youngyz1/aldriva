@@ -1,4 +1,4 @@
-// lib/fund4good-data.ts — Data definitions and mock fallbacks for Aldriva Dashboard on event-platform
+// lib/Aldriva-data.ts — Data definitions and mock fallbacks for Aldriva Dashboard on event-platform
 
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { type Campaign, formatCurrency } from "@/lib/fund4good-data";
+import { type Campaign, formatCurrency } from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,

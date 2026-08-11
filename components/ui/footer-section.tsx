@@ -49,14 +49,14 @@ function Footerdemo() {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
 
   React.useEffect(() => {
-    const savedTheme = window.localStorage.getItem("fund4good-theme");
+    const savedTheme = window.localStorage.getItem("Aldriva-theme");
     if (savedTheme === "dark") setIsDarkMode(true);
   }, []);
 
   React.useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
     window.localStorage.setItem(
-      "fund4good-theme",
+      "Aldriva-theme",
       isDarkMode ? "dark" : "light"
     );
   }, [isDarkMode]);

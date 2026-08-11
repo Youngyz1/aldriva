@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { formatCurrency, type DailyDonation } from "@/lib/fund4good-data";
+import { formatCurrency, type DailyDonation } from "@/lib/Aldriva-data";
 import { cn } from "@/lib/utils";
 import { BarChart3, TrendingUp, Eye, MousePointerClick, Share2 } from "lucide-react";
 import { Skeleton } from "./Skeletons";

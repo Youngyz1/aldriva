@@ -801,7 +801,7 @@ export default function HomepageCmsTabs({
             <div className="space-y-2">
               <span className="text-xs font-black uppercase tracking-wide text-zinc-400">Google Snippet Preview</span>
               <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm space-y-1">
-                <p className="text-[11px] text-zinc-400">https://fund4good.com</p>
+                <p className="text-[11px] text-zinc-400">https://Aldriva.com</p>
                 <p className="text-lg font-medium text-blue-700 hover:underline cursor-pointer">{settings.seoTitle || "Your title here"}</p>
                 <p className="text-sm text-zinc-600 leading-relaxed">{settings.seoDescription || "Your meta description here."}</p>
               </div>
@@ -817,7 +817,7 @@ export default function HomepageCmsTabs({
                   {!settings.seoOgImageUrl && <div className="flex h-full items-center justify-center"><ImageIcon className="h-10 w-10 text-zinc-300" /></div>}
                 </div>
                 <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">fund4good.com</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Aldriva.com</p>
                   <p className="mt-0.5 truncate text-sm font-black text-zinc-800">{settings.seoTitle}</p>
                   <p className="truncate text-xs text-zinc-500">{settings.seoDescription}</p>
                 </div>

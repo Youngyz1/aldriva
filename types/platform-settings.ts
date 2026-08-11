@@ -114,7 +114,7 @@ export const DEFAULT_PLATFORM_SETTINGS: Record<PlatformSettingKey, string> = {
   require_event_approval: "true",
   require_fundraiser_approval: "true",
   organizer_auto_approval: "false",
-  support_email: "support@fund4good.com",
+  support_email: "support@Aldriva.com",
   support_reply_to_email: "",
   support_noreply_email: "",
   platform_name: "Aldriva",

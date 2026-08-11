@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { type Campaign, type Donation } from "@/lib/fund4good-data";
+import { type Campaign, type Donation } from "@/lib/Aldriva-data";
 import { buildFundraisingInsights, type Insight } from "@/lib/fundraising-insights";
 import { cn } from "@/lib/utils";
 import { Lightbulb, TrendingUp, AlertTriangle, Info } from "lucide-react";

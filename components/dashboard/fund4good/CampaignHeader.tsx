@@ -6,7 +6,7 @@ import {
   type Campaign,
   formatCurrency,
   getProgressPercentage,
-} from "@/lib/fund4good-data";
+} from "@/lib/Aldriva-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { getSiteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
