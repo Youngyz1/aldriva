@@ -3,7 +3,6 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Image from "next/image";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
@@ -172,13 +171,18 @@ export default async function ArticleDetailPage({
       )}
 
       <main className="mx-auto max-w-[800px] px-4 py-8 md:px-6 md:py-12">
-        {/* Back Link */}
-        <Link
+        {/* Back Link. Plain <a>, not next/link's <Link> — this page lives
+            under app/(gated)/layout.tsx, a separate root layout from
+            /articles's. Crossing between root layouts client-side hits a
+            React DOM-reconciliation crash (dual <html> mount) instead of
+            the full reload Next's docs say should happen automatically —
+            a plain anchor sidesteps the router for this hop entirely. */}
+        <a
           href="/articles"
           className="inline-flex items-center text-sm font-bold text-zinc-500 hover:text-orange-600 transition mb-8"
         >
           ← Back to articles
-        </Link>
+        </a>
 
         {/* Visibility/Status Warning Banner for Owner/Admin */}
         {isAuthorized && (isRestrictedStatus || isScheduledInFuture || isPrivate) && (
@@ -258,13 +262,13 @@ export default async function ArticleDetailPage({
                 Categories:
               </span>
               {article.categories.map((cat: string) => (
-                <Link
+                <a
                   key={cat}
                   href={`/articles/category/${encodeURIComponent(cat.toLowerCase())}`}
                   className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700 hover:bg-orange-100 transition"
                 >
                   {cat}
-                </Link>
+                </a>
               ))}
             </div>
           )}
@@ -275,13 +279,13 @@ export default async function ArticleDetailPage({
                 Tags:
               </span>
               {article.tags.map((tag: string) => (
-                <Link
+                <a
                   key={tag}
                   href={`/articles/tag/${encodeURIComponent(tag.toLowerCase())}`}
                   className="rounded-lg bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-600 hover:bg-orange-50 hover:text-orange-600 transition"
                 >
                   #{tag}
-                </Link>
+                </a>
               ))}
             </div>
           )}

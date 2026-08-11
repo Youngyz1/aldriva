@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { cacheLife } from "next/cache";
 import {
@@ -37,7 +36,10 @@ export default async function TrendingArticles() {
           const authorName = author?.display_name || "Community Author";
 
           return (
-            <Link
+            // Plain <a>, not next/link's <Link> — see the comment in
+            // components/ArticleCard.tsx for why /articles/[slug]'s
+            // separate (gated) root layout needs a hard nav here.
+            <a
               key={article.id}
               href={`/articles/${article.slug}`}
               className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg"
@@ -91,7 +93,7 @@ export default async function TrendingArticles() {
                   )}
                 </div>
               </div>
-            </Link>
+            </a>
           );
         })}
       </div>

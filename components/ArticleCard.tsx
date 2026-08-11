@@ -58,7 +58,19 @@ export default function ArticleCard({
         className
       )}
     >
-      <Link href={`/articles/${slug}`} className="relative h-44 sm:h-52 w-full bg-zinc-100 block">
+      {/*
+        Plain <a>, not next/link's <Link>: /articles/[slug] lives under
+        app/(gated)/layout.tsx, a separate root layout (own <html>/<body>)
+        from the one this card renders under. Per Next's own route-groups
+        docs, crossing between root layouts is supposed to auto-upgrade to a
+        full page reload — but in practice that detection doesn't kick in
+        reliably here, and the client-side transition instead tries to mount
+        a second <html> inside the first one, crashing with
+        "insertBefore/removeChild" DOM errors (surfaces as a 500). A plain
+        anchor sidesteps Next's router entirely for this specific hop, which
+        costs nothing since it was always going to be a full reload anyway.
+      */}
+      <a href={`/articles/${slug}`} className="relative h-44 sm:h-52 w-full bg-zinc-100 block">
         <Image
           src={imageSrc}
           alt={title}
@@ -73,7 +85,7 @@ export default function ArticleCard({
             {categories[0]}
           </span>
         )}
-      </Link>
+      </a>
       <div className="flex flex-1 flex-col p-4">
         {/* Date & Reading time */}
         <div className="flex items-center gap-2 text-xs font-bold text-zinc-500">
@@ -88,7 +100,7 @@ export default function ArticleCard({
 
         {/* Title */}
         <h3 className="mt-2 line-clamp-2 text-base font-black leading-snug text-zinc-950 sm:text-lg hover:text-orange-600 transition">
-          <Link href={`/articles/${slug}`}>{title}</Link>
+          <a href={`/articles/${slug}`}>{title}</a>
         </h3>
 
         {/* Excerpt */}

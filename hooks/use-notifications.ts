@@ -47,6 +47,18 @@ export function useNotifications(userId: string | null) {
 
     load();
 
+    // Guard against a stale channel from a previous mount that hasn't
+    // finished tearing down yet (React's dev-mode double-effect-invoke, or a
+    // fast remount from Fast Refresh/HMR): supabase.channel(name) returns the
+    // *same* channel object for a topic that's already registered, and
+    // calling .on() on an already-subscribed channel throws
+    // "cannot add postgres_changes callbacks ... after subscribe()". Removing
+    // any existing channel with this topic first guarantees .channel() below
+    // always starts from a fresh, not-yet-subscribed instance.
+    const topic = `realtime:notifications:${userId}`;
+    const stale = supabase.getChannels().find((c) => c.topic === topic);
+    if (stale) supabase.removeChannel(stale);
+
     const channel = supabase
       .channel(`notifications:${userId}`)
       .on(

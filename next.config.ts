@@ -106,7 +106,7 @@ const nextConfig: NextConfig = {
   // Lets the dev server accept requests from a phone/tablet on the same LAN
   // (e.g. http://192.168.1.4:3000) without the "Blocked cross-origin request"
   // warning, so Fast Refresh/HMR works when testing on a real device.
-  allowedDevOrigins: isDev ? ["192.168.1.3"] : undefined,
+  allowedDevOrigins: isDev ? ["192.168.1.4"] : undefined,
   images: {
     remotePatterns: [
       // Unsplash – used for hero images and fallbacks
