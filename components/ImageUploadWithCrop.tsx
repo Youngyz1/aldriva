@@ -112,7 +112,10 @@ function ImageUploadWithCrop(
   const [error, setError] = useState("");
 
   const selectedImageUrlRef = useRef<string | null>(null);
-  selectedImageUrlRef.current = selectedImageUrl;
+
+  useEffect(() => {
+    selectedImageUrlRef.current = selectedImageUrl;
+  }, [selectedImageUrl]);
 
   useEffect(() => {
     return () => {
