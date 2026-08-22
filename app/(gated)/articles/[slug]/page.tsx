@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import ArticleDetailInteractiveContent from "@/components/articles/ArticleDetailInteractiveContent";
 import { getSiteUrl } from "@/lib/site-url";
 
 // connection() (inside fetchAndGate, called from an explicit <Suspense> boundary
@@ -196,62 +197,66 @@ export default async function ArticleDetailPage({
           </div>
         )}
 
-        {/* Title */}
-        <h1 className="text-3xl font-black tracking-tight text-zinc-950 sm:text-4xl md:text-5xl leading-tight break-words">
-          {article.title}
-        </h1>
+        {/* Interactive Audio Player (Top), Title/Meta/Cover (headerContent), & Body content */}
+        <ArticleDetailInteractiveContent
+          articleId={article.id}
+          body={article.body}
+          excerpt={article.excerpt}
+          headerContent={
+            <>
+              {/* Title */}
+              <h1 className="mt-4 text-3xl font-black tracking-tight text-zinc-950 sm:text-4xl md:text-5xl leading-tight break-words">
+                {article.title}
+              </h1>
 
-        {/* Meta info */}
-        <div className="mt-6 flex flex-wrap items-center gap-4 border-b border-t border-zinc-100 py-4 text-sm">
-          <div className="flex items-center gap-2">
-            {authorProfile?.avatar_url ? (
-              <div className="relative h-8 w-8 overflow-hidden rounded-full">
+              {/* Meta info */}
+              <div className="mt-6 flex flex-wrap items-center gap-4 border-b border-t border-zinc-100 py-4 text-sm">
+                <div className="flex items-center gap-2">
+                  {authorProfile?.avatar_url ? (
+                    <div className="relative h-8 w-8 overflow-hidden rounded-full">
+                      <Image
+                        src={authorProfile.avatar_url}
+                        alt={authorName}
+                        fill
+                        sizes="32px"
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <LocalBrandedPlaceholder
+                      variant="avatar"
+                      title={authorName}
+                      initials={authorName.slice(0, 2).toUpperCase()}
+                      className="h-8 w-8 rounded-full from-orange-600 to-orange-600 text-xs"
+                    />
+                  )}
+                  <span className="font-bold text-zinc-700">{authorName}</span>
+                </div>
+
+                <div className="flex items-center gap-4 text-zinc-500 font-semibold">
+                  <span>{displayDate}</span>
+                  {article.reading_time && (
+                    <>
+                      <span>•</span>
+                      <span>{article.reading_time} min read</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Cover Image */}
+              <div className="relative mt-8 h-64 sm:h-[400px] w-full overflow-hidden rounded-2xl bg-zinc-100">
                 <Image
-                  src={authorProfile.avatar_url}
-                  alt={authorName}
+                  src={imageSrc}
+                  alt={article.title}
                   fill
-                  sizes="32px"
+                  priority
+                  unoptimized
                   className="object-cover"
                 />
               </div>
-            ) : (
-              <LocalBrandedPlaceholder
-                variant="avatar"
-                title={authorName}
-                initials={authorName.slice(0, 2).toUpperCase()}
-                className="h-8 w-8 rounded-full from-orange-600 to-orange-600 text-xs"
-              />
-            )}
-            <span className="font-bold text-zinc-700">{authorName}</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-zinc-500 font-semibold">
-            <span>{displayDate}</span>
-            {article.reading_time && (
-              <>
-                <span>•</span>
-                <span>{article.reading_time} min read</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Cover Image */}
-        <div className="relative mt-8 h-64 sm:h-[400px] w-full overflow-hidden rounded-2xl bg-zinc-100">
-          <Image
-            src={imageSrc}
-            alt={article.title}
-            fill
-            priority
-            unoptimized
-            className="object-cover"
-          />
-        </div>
-
-        {/* Body content */}
-        <div
-          className="tiptap-editor mt-8 text-base sm:text-lg leading-8 text-zinc-800 break-words space-y-4"
-          dangerouslySetInnerHTML={{ __html: article.body }}
+            </>
+          }
         />
 
         {/* Categories & Tags */}

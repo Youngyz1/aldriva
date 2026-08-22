@@ -1,6 +1,6 @@
 # Phase 2 Migration — Final Report
 
-event-platform (Fund4Good, SOURCE) → fundraising-app (Aldriva, TARGET)
+event-platform (Aldriva, SOURCE) → fundraising-app (Aldriva, TARGET)
 Branch: `feat/source-migration` (7 commits over `main`) · Date: 2026-08-07
 
 Scope was set by user decision after the [Phase 1 audit](./PHASE1_REPORT.md): migrate security
@@ -56,10 +56,10 @@ and 6 other call sites swept off `organizers.select("*")`.
   for a multi-vertical platform.
 - `components/ui/{heading,text,page-header}.tsx` — nothing ported depends on them; skipped per
   YAGNI rather than added as unused primitives.
-- `app/dashboard/page.tsx` overview replacement with `Fund4GoodDashboardView` — would have
+- `app/dashboard/page.tsx` overview replacement with `AldrivaDashboardView` — would have
   dropped target's cross-vertical (Events+Fundraisers+Organizations) aggregate for a
   fundraising-only KPI view. Per user decision, the KPI widget library
-  (`components/dashboard/fund4good/*`) was ported unwired instead, for a future fundraiser-scoped
+  (`components/dashboard/Aldriva/*`) was ported unwired instead, for a future fundraiser-scoped
   view.
 - next 16.2.6→16.3.0, `@dotlottie/react-player` removal is done but the next version bump itself
   is deferred (own future step, per decision).
@@ -122,7 +122,7 @@ already in target (01–49 confirmed identical in Phase 1).
 4. **Duplicate org-workspace tree**: target still has both `app/dashboard/org/[id]/*` and an older
    parallel `app/dashboard/organizations/[slug]/*`. Flagged in Phase 1 as a target-side cleanup
    decision, intentionally not touched here.
-5. **Fund4Good KPI widget library** (`components/dashboard/fund4good/*`) is ported but unwired —
+5. **Aldriva KPI widget library** (`components/dashboard/Aldriva/*`) is ported but unwired —
    available for a future fundraiser-scoped dashboard view, per decision.
 6. **Payments/Stripe and admin-authenticated flows** weren't exercised end-to-end in this session
    (no admin session, no test Stripe keys available) — recommend a manual pass before merging to

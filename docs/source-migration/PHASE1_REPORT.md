@@ -1,13 +1,13 @@
 # Phase 1 Migration Audit — event-platform (SOURCE) → fundraising-app (TARGET)
 
 Date: 2026-08-07
-Source: `C:\Users\Youngyz\event-platform` (branch `main`, HEAD `728b9dd`, name "Fund4Good", next 16.3.0)
+Source: `C:\Users\Youngyz\event-platform` (branch `main`, HEAD `728b9dd`, name "Aldriva", next 16.3.0)
 Target: `C:\Users\Youngyz\fundraising-app` (branch `cache-components/phase-0-suspense-wrap`, HEAD `9da433f`, name "Aldriva", next 16.2.6)
 
 ## How the delta was established
 
 - A `parity_report.md` in the source (generated 2026-07-27) shows the two repos were **near-identical** at that date (632 identical files, 9 differing).
-- The target was snapshotted from the source working tree ~2026-07-29/31 ("Initial commit: Aldriva platform"), **including** then-uncommitted source work — which is why target already has DB migrations 40–49, notifications, profile components, fund4good data lib, org workspace, etc.
+- The target was snapshotted from the source working tree ~2026-07-29/31 ("Initial commit: Aldriva platform"), **including** then-uncommitted source work — which is why target already has DB migrations 40–49, notifications, profile components, Aldriva data lib, org workspace, etc.
 - Ground truth is therefore the **direct working-tree diff** (git-tracked files, byte compare), not git history:
   - **146 files only in SOURCE** (migration candidates)
   - **220 files only in TARGET** (nearly all target-specific features — preserve)
@@ -19,11 +19,11 @@ Target: `C:\Users\Youngyz\fundraising-app` (branch `cache-components/phase-0-sus
 
 | Aspect | SOURCE (event-platform) | TARGET (fundraising-app) |
 |---|---|---|
-| Identity | "Fund4Good" — fundraising-only pivot | "Aldriva" — multi-vertical (Events, Articles, Businesses, Products, Fundraising) |
+| Identity | "Aldriva" — fundraising-only pivot | "Aldriva" — multi-vertical (Events, Articles, Businesses, Products, Fundraising) |
 | next | 16.3.0 (security-motivated bump) | 16.2.6 (pinned; cache-components work built on it) |
 | Fundraiser browse | `/campaigns` (+`[category]`), status-based, mobile redesign; `/fundraisers` deleted + redirected | `/fundraisers` decomposed into static shell + streamed (Cache Components Phase 2) |
 | Events/Articles/Businesses/Products | **Deleted** | Fully present; articles freshly redesigned (some work uncommitted) |
-| Dashboard | Fund4Good dashboard (`components/dashboard/fund4good/*`, `nav-items.ts`, AppSidebar/MobilePillNav) | Older generic dashboard (07-31 state) + target-only modules (events, attendees, articles, businesses, products) |
+| Dashboard | Aldriva dashboard (`components/dashboard/Aldriva/*`, `nav-items.ts`, AppSidebar/MobilePillNav) | Older generic dashboard (07-31 state) + target-only modules (events, attendees, articles, businesses, products) |
 | Org workspace | `app/dashboard/org/[id]/*` (updated) + `app/org/[slug]` | Same `org/[id]` tree (07-31 state) + its own extra pages (blog, events, products) + a parallel older `app/dashboard/organizations/[slug]/*` tree |
 | proxy.ts | Removed content gates (features deleted); added `x-admin-verified` fast path | Has article/business/product 404 gates (**critical**, Next 16 streaming semantics) |
 | Security posture | 2026-08 assessment remediated (commit `b14dcc3`) | **Un-remediated** — all findings apply |
@@ -65,7 +65,7 @@ Target: `C:\Users\Youngyz\fundraising-app` (branch `cache-components/phase-0-sus
 Source deleted `/fundraisers` in favor of `/campaigns` (status-based browse, `CampaignBrowseList`, mobile showcase cards, `FundraiserListRow`) + permanent redirect in `next.config.ts` + all nav links repointed. Target instead decomposed `/fundraisers` into its cache-components static shell (`FundraisersBrowseSection`, `FundraisersHero`). Either adopt the rename (and rework `/campaigns` pages to the target's static-shell architecture) or port the browse/mobile improvements into the existing `/fundraisers`.
 
 ### User dashboard — Category B (adapt, don't replace)
-Source's Fund4Good dashboard (19 components, KPIs, campaign health/timeline, insights, withdrawal status, skeletons; `nav-items.ts` + `components/nav/AppSidebar|MobilePillNav|SidebarNavList`) is newer than target's (07-31). But source nav is fundraising-only (Overview/Organizations/Analytics/Messages/Settings); target must keep Events, Attendees, Articles, Businesses, Products, My Tickets modules and `DashboardModulePage`/`DashboardView`. Merge = adopt fund4good components + nav framework, extend nav-items with target modules.
+Source's Aldriva dashboard (19 components, KPIs, campaign health/timeline, insights, withdrawal status, skeletons; `nav-items.ts` + `components/nav/AppSidebar|MobilePillNav|SidebarNavList`) is newer than target's (07-31). But source nav is fundraising-only (Overview/Organizations/Analytics/Messages/Settings); target must keep Events, Attendees, Articles, Businesses, Products, My Tickets modules and `DashboardModulePage`/`DashboardView`. Merge = adopt Aldriva components + nav framework, extend nav-items with target modules.
 Also: source **deleted** `settings/connected` + `settings/accounts` (non-functional mock) — target still has both; removal applies. Settings profile country/state fix (`51fb5df`) — target's `ProfileClient` was upload-crop-touched 08-06, so merge carefully.
 
 ### Org workspace — Category B/E + target-side cleanup opportunity
@@ -87,7 +87,7 @@ Source: `AdminSidebarNav`, admin fundraiser detail page + status actions + impor
 Everything the source deleted: events (pages, APIs, dashboard, cards, external events, city pages), articles, businesses, products, tickets/checkout/seats/verify, eventbrite sync, my-tickets, `(gated)` group, target proxy gates, `DashboardModulePage`/`DashboardView`, target image-upload stack, `config/branding.ts` consumers, curated destinations / city-slug libs, Aldriva strings in shared files (e.g. Stripe webhook email templates — target's copy is correct for target).
 
 ### Category C — source-specific, skip
-`.agents/skills/*` (tooling), `supabase/.temp/*`, `parity-check.js`/reports, Fund4Good naming (`WhyFund4Good` — target has `WhyAldriva`), `.npmrc` (only if target's install actually needs legacy-peer-deps), `127.0.0.4` CSP oddity in source next.config (looks accidental — do not copy).
+`.agents/skills/*` (tooling), `supabase/.temp/*`, `parity-check.js`/reports, Aldriva naming (`WhyAldriva` — target has `WhyAldriva`), `.npmrc` (only if target's install actually needs legacy-peer-deps), `127.0.0.4` CSP oddity in source next.config (looks accidental — do not copy).
 
 ## G. Dependencies
 
@@ -103,7 +103,7 @@ Everything the source deleted: events (pages, APIs, dashboard, cards, external e
 
 ## I. Conflict list (needs manual merge)
 
-`app/fundraisers/[slug]/page.tsx`, `donate/DonatePage.tsx`, `FundraiserActions.tsx`, `FundraiserShare.tsx`, `opengraph-image.tsx`, `app/create-fundraiser/page.tsx`, `app/fundraisers/edit/[id]/page.tsx`, `app/create-organizer/page.tsx`, `app/dashboard/settings/profile/ProfileClient.tsx`, `app/globals.css`, `app/layout.tsx`, `next.config.ts`, `proxy.ts`, `components/editor/RichTextEditor.tsx`, `components/FundraiserCard.tsx`, `components/fundraisers/CampaignShowcase*`, `app/dashboard/org/[id]/settings/page.tsx`, `lib/fundraiser-data.ts`, `lib/fund4good-data.ts`, `db/schema.sql`, plus every "differing" file where the target's change is only Aldriva branding (keep target strings, take source logic).
+`app/fundraisers/[slug]/page.tsx`, `donate/DonatePage.tsx`, `FundraiserActions.tsx`, `FundraiserShare.tsx`, `opengraph-image.tsx`, `app/create-fundraiser/page.tsx`, `app/fundraisers/edit/[id]/page.tsx`, `app/create-organizer/page.tsx`, `app/dashboard/settings/profile/ProfileClient.tsx`, `app/globals.css`, `app/layout.tsx`, `next.config.ts`, `proxy.ts`, `components/editor/RichTextEditor.tsx`, `components/FundraiserCard.tsx`, `components/fundraisers/CampaignShowcase*`, `app/dashboard/org/[id]/settings/page.tsx`, `lib/fundraiser-data.ts`, `lib/Aldriva-data.ts`, `db/schema.sql`, plus every "differing" file where the target's change is only Aldriva branding (keep target strings, take source logic).
 
 ## J. Migration map (prioritized)
 
@@ -112,7 +112,7 @@ Everything the source deleted: events (pages, APIs, dashboard, cards, external e
 | 1 | Security remediation: purge-accounts fix, `ssrf-guard` + apply to import-url/media-import, `rate-limit` + apply to 5 routes, email sanitization, migrations 53+54 (adapted), organizers `select("*")` sweep, cron-auth/instrumentation, `auth.ts` cache() | A | Med (DB grants break `select *`) | mig 53/54 on target Supabase project |
 | 2 | Beneficiary system (mig 50–52, lib, APIs, components, claim flow, dashboard page, create/edit integration) | A/B | Med | #1 ordering optional; fundraiser-page merge |
 | 3 | Fundraiser detail/donate/share merged redesign + `fundraising-progress`/`donation-counts` libs + loading.tsx | E-merge | Med | #2 for beneficiary display |
-| 4 | Dashboard: fund4good components + nav framework (AppSidebar/MobilePillNav/nav-items) extended with target modules; drop connected/accounts mock; settings fixes | B | Med-High | decision on nav scope |
+| 4 | Dashboard: Aldriva components + nav framework (AppSidebar/MobilePillNav/nav-items) extended with target modules; drop connected/accounts mock; settings fixes | B | Med-High | decision on nav scope |
 | 5 | `/campaigns` decision → either adopt rename (+redirect, nav repoint) or port browse improvements into `/fundraisers` static shell | E | High | product decision |
 | 6 | Rebrand decision → token architecture with Aldriva palette (recommended) or lime-green wholesale; then ui primitive merges (button/card/badge/…) + new primitives (dropdown-menu/heading/text/page-header) | E | Med | product decision |
 | 7 | Route loading boundaries + `RouteLoading` on non-decomposed routes | A | Low | after #5 |

@@ -1,4 +1,4 @@
-# ADR 0001: Ownership, Entitlements, and Payment Status in the Fund4Good Marketplace
+# ADR 0001: Ownership, Entitlements, and Payment Status in the Aldriva Marketplace
 
 **Status:** Retroactive — documents Phases 1–2 as built, written before Phase 3 (Products)
 **Date:** 2026-07-11
@@ -99,7 +99,7 @@ This is the part Phase 3 is told to reuse verbatim, so it needs to be precise.
 
 **UI**: a single client component (`BusinessRowActions.tsx`) renders a "Payment Method" modal with two options (Card via Stripe / Crypto via NOWPayments) side by side, then does a full-page redirect (`window.location.href`) to whichever provider's hosted checkout page. This is **not** the `components/payments/*` barrel (`StripeProvider`, `PaymentForm`, `OrderSummary`, `CheckoutShell`) — those are Stripe Elements components used for the *inline* ticket/donation PaymentElement flow. Business listings use hosted Stripe Checkout Sessions instead, so none of the Elements components are involved.
 
-**Merchant of record**: every Stripe call in the codebase uses the single platform `STRIPE_SECRET_KEY` — no Stripe Connect, no `stripe_account` header, no destination/application-fee charges anywhere. Fund4Good is the sole merchant of record for tickets, donations, and business listings alike.
+**Merchant of record**: every Stripe call in the codebase uses the single platform `STRIPE_SECRET_KEY` — no Stripe Connect, no `stripe_account` header, no destination/application-fee charges anywhere. Aldriva is the sole merchant of record for tickets, donations, and business listings alike.
 
 ## 6. URL structure
 
@@ -142,7 +142,7 @@ These are ratified as the pattern Phase 3 must follow, per the instruction to re
    - **Fix the dispatch gap while touching this file**: extend `/api/crypto/webhook` to also probe for a product/order match, but do so via an explicit type discriminator this time (e.g. require callers to pass `order_id` values that are prefixed or looked up through a single `payment_intents`-style resolver table) rather than adding a third sequential blind probe — three tables of "guess by trying each" is a real scaling/collision concern the original two-table version could get away with.
    - **Important distinction from the business flow**: `businesses.crypto_payment_id` and `stripe_subscription_id` live directly on the entity being entitled because there's exactly one row per purchase. Products are sold as *orders* (quantity, stock decrement, potentially repeat purchases of the same product by different buyers) — so unlike `businesses`, Products needs its own `product_orders` table (analogous to `ticket_orders`) rather than storing payment IDs directly on `products`. The spec's field list (`stripe_price_id` on the product) is fine for *listing* a price, but the *purchase record* (buyer, quantity, payment IDs, fulfillment status) needs its own table — this wasn't explicit in the Phase 3 prompt and should be added to the migration.
 
-4. **Merchant of record**: confirmed — no Stripe Connect exists anywhere in this codebase today. The spec's assumption ("Fund4Good remains the merchant of record... confirm this matches the ADR before writing payment code") **matches current architecture exactly**. Proceed on that basis.
+4. **Merchant of record**: confirmed — no Stripe Connect exists anywhere in this codebase today. The spec's assumption ("Aldriva remains the merchant of record... confirm this matches the ADR before writing payment code") **matches current architecture exactly**. Proceed on that basis.
 
 5. **Reuse, don't reimplement**: concretely, this means Phase 3 code should *add branches* to `app/api/webhooks/stripe/route.ts` and `app/api/crypto/webhook/route.ts` rather than create new webhook endpoints, and should build a new `products-crypto` checkout route by copying `business-crypto`'s shape (ownership check → amount lookup → NOWPayments invoice creation → store correlation ID → redirect), not by inventing a new integration pattern.
 

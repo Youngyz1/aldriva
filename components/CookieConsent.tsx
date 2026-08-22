@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Cookie } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const CONSENT_KEY = "fund4good-cookie-consent";
+const CONSENT_KEY = "Aldriva-cookie-consent";
 
 export default function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);

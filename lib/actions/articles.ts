@@ -238,6 +238,30 @@ export async function updateArticle(id: string, input: ArticleInput) {
     return { success: false, error: error.message };
   }
 
+  // Audio Invalidation: If spoken content changed, mark audio as stale (Correction 12)
+  try {
+    const { data: oldArticle } = await supabase
+      .from("articles")
+      .select("title, excerpt, body")
+      .eq("id", id)
+      .single();
+
+    if (
+      oldArticle &&
+      (oldArticle.title !== trimmedTitle ||
+        oldArticle.excerpt !== (input.excerpt || null) ||
+        oldArticle.body !== trimmedBody)
+    ) {
+      await supabase
+        .from("article_audios")
+        .update({ status: "stale", updated_at: new Date().toISOString() })
+        .eq("article_id", id)
+        .neq("status", "stale");
+    }
+  } catch (audioErr) {
+    console.warn("Audio invalidation check skipped:", audioErr);
+  }
+
   revalidatePath("/articles");
   revalidatePath(`/articles/${existing.slug}`);
   revalidatePath(`/articles/${slug}`);
