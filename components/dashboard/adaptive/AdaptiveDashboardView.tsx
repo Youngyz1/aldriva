@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
-import { StatCard } from "@/components/dashboard/Aldriva/StatCard";
+import { StatCard } from "@/components/dashboard/fund4good/StatCard";
 import GetStartedPromptCard from "./GetStartedPromptCard";
 import OnboardingChoices from "./OnboardingChoices";
 import AdaptiveActivityFeed from "./AdaptiveActivityFeed";

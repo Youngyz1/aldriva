@@ -36,6 +36,11 @@ export const RATE_LIMITS = {
    * comments while reading a campaign is normal behaviour.
    */
   commentLike: { limit: 60, windowSeconds: 3600 },
+
+  /**
+   * TTS audio synthesis endpoint. Prevents abuse/spam generation calls to NVIDIA.
+   */
+  articleAudioGenerate: { limit: 10, windowSeconds: 3600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

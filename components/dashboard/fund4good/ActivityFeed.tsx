@@ -4,7 +4,7 @@ import { memo } from "react";
 import {
   type Activity,
   getTimeAgo,
-} from "@/lib/Aldriva-data";
+} from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
 import {
   Heart,

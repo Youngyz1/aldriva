@@ -7,7 +7,7 @@ import {
   tierColors,
   tierLabels,
   type TopDonor,
-} from "@/lib/Aldriva-data";
+} from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
 import { Medal } from "lucide-react";
 import { EmptyState } from "./EmptyState";

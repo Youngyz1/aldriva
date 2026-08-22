@@ -9,7 +9,7 @@ import {
   tierColors,
   tierLabels,
   type Donation,
-} from "@/lib/Aldriva-data";
+} from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
 import { Heart } from "lucide-react";
 import { EmptyState } from "./EmptyState";
