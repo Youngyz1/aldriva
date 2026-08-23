@@ -90,8 +90,6 @@ export default function LandingHeroImagery({ images }: { images: string[] }) {
   const [layout, setLayout] = useState<FanLayout>(LAYOUTS.desktop);
 
   useEffect(() => {
-    // TEMP-DEBUG: Verify runtime hydration and execution on production mobile
-    console.log('HERO_MOBILE_EFFECT_FIRED', typeof window !== 'undefined' ? window.innerWidth : 'no-window');
     const update = () => setLayout(layoutForWidth(window.innerWidth));
     update();
     window.addEventListener("resize", update);
@@ -149,6 +147,7 @@ export default function LandingHeroImagery({ images }: { images: string[] }) {
                 src={src}
                 alt=""
                 fill
+                unoptimized
                 sizes="(max-width: 640px) 40vw, (max-width: 1024px) 22vw, 12rem"
                 className="object-cover"
                 priority={i === 0}
