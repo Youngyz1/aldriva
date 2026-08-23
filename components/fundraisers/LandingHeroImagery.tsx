@@ -90,6 +90,8 @@ export default function LandingHeroImagery({ images }: { images: string[] }) {
   const [layout, setLayout] = useState<FanLayout>(LAYOUTS.desktop);
 
   useEffect(() => {
+    // TEMP-DEBUG: Verify runtime hydration and execution on production mobile
+    console.log('HERO_MOBILE_EFFECT_FIRED', typeof window !== 'undefined' ? window.innerWidth : 'no-window');
     const update = () => setLayout(layoutForWidth(window.innerWidth));
     update();
     window.addEventListener("resize", update);
