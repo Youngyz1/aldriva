@@ -12,6 +12,7 @@ import {
   Sun,
 } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
+import { PwaInstallButton } from "@/components/PwaRegister";
 import { BRAND } from "@/config/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,10 +172,11 @@ function Footerdemo() {
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-center border-t border-zinc-200 pt-6 text-center lg:mt-10 dark:border-zinc-800">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 border-t border-zinc-200 pt-6 text-center lg:mt-10 dark:border-zinc-800">
           <p className="text-sm text-zinc-500">
             © 2026 {BRAND.name}. All rights reserved.
           </p>
+          <PwaInstallButton />
         </div>
       </div>
     </footer>

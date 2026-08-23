@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import BrandMark from "@/components/BrandMark";
 import Footer from "@/components/Footer";
 import CookieConsent from "@/components/CookieConsent";
+import PwaRegister from "@/components/PwaRegister";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { rootMetadata, getWebsiteJsonLd } from "@/lib/root-metadata";
 
@@ -13,6 +14,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#c2410c",
 };
 
 // Navbar reads usePathname() (active nav-link state, closing menus on route
@@ -56,6 +58,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <PwaRegister />
         <Suspense fallback={<NavbarFallback />}>
           <Navbar />
         </Suspense>
