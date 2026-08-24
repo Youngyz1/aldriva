@@ -108,6 +108,8 @@ const nextConfig: NextConfig = {
   // warning, so Fast Refresh/HMR works when testing on a real device.
   allowedDevOrigins: isDev ? ["192.168.1.4"] : undefined,
   images: {
+    // TEMPORARY: Vercel image optimization disabled due to Hobby plan quota limits (402 errors sitewide). Long-term fix planned: migrate image serving to a self-hosted AWS pipeline (S3 + Lambda + CloudFront). Do not re-enable without confirming quota/plan first.
+    unoptimized: true,
     remotePatterns: [
       // Unsplash – used for hero images and fallbacks
       { protocol: "https", hostname: "images.unsplash.com" },
