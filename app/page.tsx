@@ -12,10 +12,8 @@ import {
 import FeaturedSlider, { type FeaturedSliderItem } from "@/components/FeaturedSlider";
 import HomepageTestimonials from "@/components/HomepageTestimonials";
 import HomepageSponsors from "@/components/HomepageSponsors";
-import AboutUsSection from "@/components/ui/about-us-section";
 import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
 import TrustBar from "@/components/public/TrustBar";
-import RuixenFeaturedImageSection from "@/components/ui/ruixen-featured-image-section";
 import CategoryGrid from "@/components/CategoryGrid";
 import { getCategoryChips } from "@/lib/category-chips";
 
@@ -447,12 +445,7 @@ export default async function HomePage() {
         items={fundraiserGalleryItems}
       />
 
-      <RuixenFeaturedImageSection />
-
       <HomepageSponsors sponsors={sponsorsResult} />
-
-      {/* ── About Us section ──────────────────────────────────────────────────── */}
-      <AboutUsSection />
 
     </main>
   );
