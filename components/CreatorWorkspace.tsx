@@ -58,12 +58,16 @@ export function CreatorWorkspace({
       bg: "bg-orange-600",
       soft: "bg-orange-50 text-orange-700",
       activeNav: "bg-blue-600/20 text-white ring-1 ring-blue-400/20",
+      ring: "ring-orange-500",
+      dot: "bg-orange-500",
     },
     green: {
       text: "text-emerald-600",
       bg: "bg-emerald-600",
       soft: "bg-emerald-50 text-emerald-700",
       activeNav: "bg-emerald-600/20 text-white ring-1 ring-emerald-400/20",
+      ring: "ring-emerald-500",
+      dot: "bg-emerald-500",
     },
   };
   const theme = accentClasses[accent];
@@ -71,6 +75,7 @@ export function CreatorWorkspace({
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-950">
       <div className="mx-auto flex max-w-[1500px] gap-5 px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
+        {/* Desktop sidebar */}
         <aside className="sticky top-5 hidden h-[calc(100vh-2.5rem)] w-56 shrink-0 rounded-2xl bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/15 lg:flex lg:flex-col">
           <Link href="/" className="mb-8 flex items-center gap-3 px-2">
             <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${theme.bg} text-lg font-black`}>E</span>
@@ -99,6 +104,7 @@ export function CreatorWorkspace({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {/* Mobile top nav — dashboard links only, no search/location/email pill */}
           <nav className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-zinc-200/80 bg-white px-1.5 py-2 text-center text-[10px] font-black text-slate-700 shadow-sm sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs lg:hidden">
             {mobileDashboardItems.map((item) => (
               <Link
@@ -111,92 +117,94 @@ export function CreatorWorkspace({
             ))}
           </nav>
 
-        <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:rounded-2xl">
-          <header className="border-b border-zinc-200 bg-white">
-            <div className="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="grid gap-3 sm:grid-cols-[1fr_220px] xl:w-[620px]">
-                <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold text-zinc-500">
-                  <i className="ti ti-search text-lg" aria-hidden="true" />
-                  <input className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search events..." type="search" />
-                </label>
-                <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold text-zinc-500">
-                  <i className="ti ti-map-pin text-lg" aria-hidden="true" />
-                  <input className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Location" type="search" />
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 xl:justify-end">
-                <button className="hidden rounded-xl p-2.5 text-zinc-500 hover:bg-zinc-50 sm:block" type="button" aria-label="Notifications">
-                  <i className="ti ti-bell text-xl" aria-hidden="true" />
-                </button>
-                <div className="flex h-10 items-center gap-2 rounded-xl bg-zinc-50 px-3 text-sm font-black text-zinc-700 ring-1 ring-zinc-200">
-                  <LocalBrandedPlaceholder
-                    variant="avatar"
-                    title={email || "User"}
-                    initials={(email || "U").charAt(0).toUpperCase()}
-                    className={`h-6 w-6 rounded-full from-transparent to-transparent text-xs text-white ${theme.bg}`}
-                  />
-                  <span className="max-w-32 truncate">{email || "User"}</span>
+          <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:rounded-2xl">
+            {/* Header: title + actions only — no search bar, no location bar, no email pill */}
+            <header className="border-b border-zinc-200 bg-white">
+              <div className="flex flex-col justify-between gap-4 px-5 py-5 sm:flex-row sm:items-center">
+                <div>
+                  <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
+                  <p className="mt-1 text-sm font-medium text-zinc-500">{description}</p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <button onClick={onSaveDraft} type="button" className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-black text-zinc-900 hover:bg-zinc-50">
+                    Save as Draft
+                  </button>
+                  <Link href="/dashboard" className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-black text-zinc-500 hover:bg-zinc-50">
+                    Close
+                  </Link>
                 </div>
               </div>
+
+              {/* Step rail — slim horizontal, no bordered box */}
+              <div className="px-5 pb-5">
+                <div className="flex items-center">
+                  {steps.map((step, index) => {
+                    const isActive = index === currentStep;
+                    const isComplete = index < currentStep;
+                    const isLast = index === steps.length - 1;
+                    return (
+                      <div key={step.label} className="flex min-w-0 flex-1 items-center">
+                        <button
+                          onClick={() => onStepChange(index)}
+                          type="button"
+                          className="flex shrink-0 flex-col items-center gap-1.5"
+                          aria-current={isActive ? "step" : undefined}
+                        >
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition ${
+                              isComplete
+                                ? `${theme.bg} text-white`
+                                : isActive
+                                  ? `ring-2 ${theme.ring} ring-offset-2 ${theme.bg} text-white`
+                                  : "bg-zinc-100 text-zinc-400"
+                            }`}
+                          >
+                            {isComplete ? (
+                              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              index + 1
+                            )}
+                          </span>
+                          <span className={`hidden text-[10px] font-black leading-none sm:block ${isActive ? "text-zinc-950" : "text-zinc-400"}`}>
+                            {step.label}
+                          </span>
+                        </button>
+                        {!isLast && (
+                          <div
+                            className={`mx-2 h-px flex-1 transition ${isComplete ? theme.bg : "bg-zinc-200"}`}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </header>
+
+            <div className="grid gap-5 bg-white p-5 xl:grid-cols-[1fr_320px]">
+              <div>{children}</div>
+              <aside className="space-y-5">{aside}</aside>
             </div>
 
-            <div className="flex flex-col justify-between gap-4 px-5 pb-5 pt-3 xl:flex-row xl:items-end">
-              <div>
-                <h1 className="text-3xl font-black tracking-tight">{title}</h1>
-                <p className="mt-1 text-sm font-medium text-zinc-500">{description}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={onSaveDraft} type="button" className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-black text-zinc-900 hover:bg-zinc-50">
-                  Save as Draft
-                </button>
-                <Link href="/dashboard" className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-black text-zinc-500 hover:bg-zinc-50">
-                  Close
-                </Link>
-              </div>
-            </div>
-
-            <div className="border-t border-zinc-100 px-5 py-4">
-              <div className="grid gap-3 md:grid-cols-5">
-                {steps.map((step, index) => {
-                  const activeStep = index === currentStep;
-                  const complete = index < currentStep;
-                  return (
-                    <button
-                      key={step.label}
-                      onClick={() => onStepChange(index)}
-                      type="button"
-                      className="flex items-center gap-3 text-left"
-                    >
-                      <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
-                          activeStep || complete ? `${theme.bg} text-white` : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {index + 1}
-                      </span>
-                      <span className={`text-xs font-black ${activeStep ? "text-zinc-950" : "text-zinc-500"}`}>{step.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </header>
-
-          <div className="grid gap-5 bg-white p-5 xl:grid-cols-[1fr_320px]">
-            <div>{children}</div>
-            <aside className="space-y-5">{aside}</aside>
-          </div>
-
-          <div className="border-t border-zinc-200 bg-white px-5 py-4">{footer}</div>
-        </section>
+            <div className="border-t border-zinc-200 bg-white px-5 py-4">{footer}</div>
+          </section>
         </div>
       </div>
     </main>
   );
 }
 
-export function CreatorPanel({
+/**
+ * FormSection — flat form-section primitive.
+ *
+ * Renders a small-caps uppercase label + optional thin divider + children,
+ * with NO card chrome (no border, no shadow, no rounded container, no distinct
+ * background). Sections are separated by spacing alone.
+ */
+export function FormSection({
   title,
   children,
 }: {
@@ -204,11 +212,32 @@ export function CreatorPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-black">{title}</h2>
-      <div className="mt-5">{children}</div>
+    <section>
+      <div className="mb-4 flex items-center gap-3">
+        <p className="shrink-0 text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</p>
+        <div className="h-px flex-1 bg-zinc-100" aria-hidden="true" />
+      </div>
+      {children}
     </section>
   );
+}
+
+/**
+ * CreatorPanel — thin alias for FormSection kept for backward compatibility
+ * with the create-fundraiser page and any other callers.
+ *
+ * Previously this rendered a white bordered card. It now delegates to
+ * FormSection so that both form creation flows get the same flat look
+ * without requiring a separate refactor of create-fundraiser.
+ */
+export function CreatorPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return <FormSection title={title}>{children}</FormSection>;
 }
 
 export function CreatorField({
