@@ -457,7 +457,7 @@ export default function CreateEventPage() {
                   <input name="title" value={form.title} onChange={handleChange} required type="text" placeholder="Annual Charity Gala Dinner" className={inputClass} />
                 </CreatorField>
 
-                <CreatorField label="Event Description">
+                <CreatorField label="Event Description" asGroup>
                   <RichTextEditor
                     value={form.description}
                     onChange={(val) => setForm((c) => ({ ...c, description: val }))}
