@@ -71,9 +71,45 @@ export default function CreateEventPage() {
   const [bannerPreview, setBannerPreview] = useState("");
   const [uploadProgress, setUploadProgress] = useState("");
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
+  type SectionConfig = { name: string; rows: number; seatsPerRow: number };
+
   const [venueTemplate, setVenueTemplate] = useState("none");
+  const [sections, setSections] = useState<SectionConfig[]>([]);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [visibility, setVisibility] = useState("public");
+
+  function applyVenueTemplate(templateValue: string) {
+    setVenueTemplate(templateValue);
+    if (templateValue !== "none" && TEMPLATE_CONFIG[templateValue]) {
+      setSections(TEMPLATE_CONFIG[templateValue].sections.map((sec) => ({ ...sec })));
+    } else if (templateValue === "none") {
+      setSections([]);
+    }
+  }
+
+  function updateSection(index: number, field: keyof SectionConfig, value: string | number) {
+    setSections((prev) =>
+      prev.map((sec, i) => (i === index ? { ...sec, [field]: value } : sec))
+    );
+  }
+
+  function addSection() {
+    setSections((prev) => [
+      ...prev,
+      { name: `Section ${prev.length + 1}`, rows: 5, seatsPerRow: 10 },
+    ]);
+    if (venueTemplate === "none") {
+      setVenueTemplate("custom");
+    }
+  }
+
+  function removeSection(index: number) {
+    setSections((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) setVenueTemplate("none");
+      return next;
+    });
+  }
 
   const [form, setForm] = useState({
     organizer_id: "",
@@ -152,7 +188,7 @@ export default function CreateEventPage() {
   }
 
   function saveDraft() {
-    localStorage.setItem("event-draft", JSON.stringify({ form, venueTemplate, visibility }));
+    localStorage.setItem("event-draft", JSON.stringify({ form, venueTemplate, visibility, sections }));
     setNotice("Draft saved on this device.");
   }
 
@@ -280,24 +316,25 @@ export default function CreateEventPage() {
       }
     }
 
-    if (venueTemplate !== "none" && TEMPLATE_CONFIG[venueTemplate]) {
-      const templateCfg = TEMPLATE_CONFIG[venueTemplate];
+    if (sections.length > 0) {
       const { data: layout, error: layoutError } = await supabase
         .from("venue_layouts")
-        .insert({ event_id: createdEvent.id, name: "Main Venue", sections: templateCfg.sections })
+        .insert({ event_id: createdEvent.id, name: "Main Venue", sections })
         .select()
         .single();
 
       if (!layoutError && layout) {
         const seatRows: object[] = [];
         const rowLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-        for (const section of templateCfg.sections) {
-          for (let row = 0; row < section.rows; row++) {
-            for (let seat = 1; seat <= section.seatsPerRow; seat++) {
+        for (const section of sections) {
+          const rowsCount = Math.max(1, Math.min(50, section.rows || 1));
+          const seatsPerRow = Math.max(1, Math.min(50, section.seatsPerRow || 1));
+          for (let row = 0; row < rowsCount; row++) {
+            for (let seat = 1; seat <= seatsPerRow; seat++) {
               seatRows.push({
                 layout_id: layout.id,
                 event_id: createdEvent.id,
-                section: section.name,
+                section: section.name || "Section",
                 row_label: rowLabels[row] || String(row + 1),
                 seat_number: seat,
                 status: "available",
@@ -604,22 +641,99 @@ export default function CreateEventPage() {
             </CreatorPanel>
 
             <CreatorPanel title="Venue Layout & Seat Map">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {VENUE_TEMPLATES.map((template) => (
-                  <button
-                    key={template.value}
-                    type="button"
-                    onClick={() => setVenueTemplate(template.value)}
-                    className={`rounded-2xl border px-5 py-4 text-left transition ${
-                      venueTemplate === template.value
-                        ? "border-orange-500 bg-orange-50 text-orange-900"
-                        : "border-zinc-200 bg-white hover:border-zinc-300"
-                    }`}
-                  >
-                    <p className="font-black">{template.label}</p>
-                    <p className="mt-1 text-sm font-medium text-zinc-500">{template.detail}</p>
-                  </button>
-                ))}
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500 mb-2">Starting Preset</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {VENUE_TEMPLATES.map((template) => (
+                      <button
+                        key={template.value}
+                        type="button"
+                        onClick={() => applyVenueTemplate(template.value)}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          venueTemplate === template.value
+                            ? "border-orange-500 bg-orange-50 text-orange-900 ring-2 ring-orange-200"
+                            : "border-zinc-200 bg-white hover:border-zinc-300"
+                        }`}
+                      >
+                        <p className="font-black text-sm">{template.label}</p>
+                        <p className="mt-0.5 text-xs font-medium text-zinc-500">{template.detail}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {sections.length > 0 && (
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-wider text-zinc-500">
+                        Section Configuration ({sections.reduce((acc, s) => acc + (s.rows * s.seatsPerRow), 0)} Total Seats)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={addSection}
+                        className="inline-flex items-center gap-1 text-xs font-black text-orange-600 hover:text-orange-700"
+                      >
+                        + Add Section
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {sections.map((section, idx) => (
+                        <div
+                          key={idx}
+                          className="grid gap-3 rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 sm:grid-cols-[1fr_100px_100px_auto] items-center"
+                        >
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-500 mb-1">Section Name</label>
+                            <input
+                              type="text"
+                              value={section.name}
+                              onChange={(e) => updateSection(idx, "name", e.target.value)}
+                              placeholder="e.g. Floor A"
+                              className={inputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-500 mb-1">Rows</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              value={section.rows}
+                              onChange={(e) => updateSection(idx, "rows", Math.max(1, parseInt(e.target.value) || 1))}
+                              className={inputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-500 mb-1">Seats/Row</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              value={section.seatsPerRow}
+                              onChange={(e) => updateSection(idx, "seatsPerRow", Math.max(1, parseInt(e.target.value) || 1))}
+                              className={inputClass}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 pt-5 sm:pt-0">
+                            <span className="text-xs font-black text-zinc-400 whitespace-nowrap">
+                              {section.rows * section.seatsPerRow} seats
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSection(idx)}
+                              className="rounded-xl border border-zinc-200 bg-white p-2 text-zinc-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition"
+                              title="Remove Section"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CreatorPanel>
           </>
