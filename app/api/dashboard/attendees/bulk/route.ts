@@ -48,11 +48,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'check_in') {
-    const { error } = await supabaseAdmin
-      .from('ticket_orders')
-      .update({ status: 'used', checked_in_at: new Date().toISOString() })
-      .in('id', validIds);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    let successCount = 0;
+    for (const id of validIds) {
+      const { error } = await supabaseAdmin.rpc('check_in_ticket', {
+        p_ticket_order_id: id,
+        p_scanned_by_user_id: auth.ctx.userId,
+      });
+      if (!error || error.message?.includes('ALREADY_CHECKED_IN')) {
+        successCount++;
+      }
+    }
+    return NextResponse.json({ success: true, count: successCount });
   } else if (action === 'resend_ticket') {
     for (const id of validIds) {
       const detail = await getDashboardAttendeeDetail(auth.ctx.organizerIds, id);

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, getCurrentUserProfile } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { getUserEntityMemberships, type EntityRole } from '@/lib/entity-auth';
+import { bindPendingEventInvitations } from '@/lib/event-auth';
 
 export type DashboardApiContext = {
   userId: string;
@@ -35,6 +36,11 @@ export async function getDashboardApiContext(): Promise<
       ok: false,
       response: NextResponse.json({ error: 'Your account is suspended.' }, { status: 403 }),
     };
+  }
+
+  // Auto-bind any pending event team invitations matching the user's verified email
+  if (user.email) {
+    await bindPendingEventInvitations(user.id, user.email);
   }
 
   const [{ data: organizers }, entityRoles] = await Promise.all([

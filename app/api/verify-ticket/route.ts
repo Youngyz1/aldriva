@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 
 // Service role: bypasses RLS — admin operations only
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -23,24 +24,7 @@ async function getCurrentUserId() {
 
 async function canManageEvent(userId: string | null, eventId: string | null) {
   if (!userId || !eventId) return false;
-
-  const { data: event } = await supabaseAdmin
-    .from("events")
-    .select("id, user_id, organizer_id")
-    .eq("id", eventId)
-    .single();
-
-  if (!event) return false;
-  if (event.user_id === userId) return true;
-  if (!event.organizer_id) return false;
-
-  const { data: organizer } = await supabaseAdmin
-    .from("organizers")
-    .select("id, user_id")
-    .eq("id", event.organizer_id)
-    .single();
-
-  return organizer?.user_id === userId;
+  return await hasEventOrOrganizerAccess(userId, eventId);
 }
 
 // GET /api/verify-ticket?code=XXXXX — look up ticket status
@@ -97,7 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ticket verification is not configured." }, { status: 500 });
     }
 
-    const { code, action } = await req.json();
+    const { code, action, eventId } = await req.json();
 
     if (!code) {
       return NextResponse.json({ error: "No code provided." }, { status: 400 });
@@ -113,12 +97,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
     }
 
+    if (eventId && order.event_id !== eventId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "WRONG_EVENT",
+          message: "This ticket belongs to a different event.",
+          status: "wrong_event",
+        },
+        { status: 400 }
+      );
+    }
+
     if (action === "checkin") {
       const userId = await getCurrentUserId();
 
       if (!userId) {
         return NextResponse.json(
-          { success: false, message: "Log in as the event organizer to check in guests." },
+          { success: false, message: "Log in as authorized door staff or event organizer to check in guests." },
           { status: 401 }
         );
       }
@@ -132,29 +128,38 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (order.status === "used") {
-        return NextResponse.json({
-          success: false,
-          message: "Ticket already used.",
-          status: "used",
-        });
-      }
+      // Call atomic check_in_ticket RPC with scanner user attribution
+      const { error: rpcError } = await supabaseAdmin.rpc("check_in_ticket", {
+        p_ticket_order_id: order.id,
+        p_scanned_by_user_id: userId,
+      });
 
-      if (order.status !== "valid") {
-        return NextResponse.json({
-          success: false,
-          message: `Ticket is ${order.status}.`,
-          status: order.status,
-        });
-      }
-
-      const { error: updateError } = await supabaseAdmin
-        .from("ticket_orders")
-        .update({ status: "used", checked_in_at: new Date().toISOString() })
-        .eq("id", order.id)
-        .eq("status", "valid");
-
-      if (updateError) {
+      if (rpcError) {
+        const msg = rpcError.message || "";
+        if (msg.includes("ALREADY_CHECKED_IN")) {
+          return NextResponse.json({
+            success: false,
+            message: "Ticket already used.",
+            status: "used",
+          });
+        }
+        if (msg.includes("TICKET_CANCELLED")) {
+          return NextResponse.json({
+            success: false,
+            message: "Ticket is cancelled.",
+            status: "cancelled",
+          });
+        }
+        if (msg.includes("TICKET_REFUNDED")) {
+          return NextResponse.json({
+            success: false,
+            message: "Ticket is refunded.",
+            status: "refunded",
+          });
+        }
+        if (msg.includes("TICKET_NOT_FOUND")) {
+          return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
+        }
         return NextResponse.json(
           { success: false, message: "Could not check in this ticket." },
           { status: 500 }
@@ -174,3 +179,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
