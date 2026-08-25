@@ -31,7 +31,7 @@ export interface ImageUploadWithCropProps {
   label?: string;
   hint?: string;
   disabled?: boolean;
-  /** Adds capture="environment" so mobile browsers offer the device camera alongside the photo library. */
+  /** When set to true, adds capture="environment" to force device camera. Defaults to false so OS photo library/gallery is offered. */
   allowCamera?: boolean;
   /**
    * Reject the source file before opening the crop modal if it's smaller than
@@ -80,7 +80,7 @@ function ImageUploadWithCrop(
     label = "Upload photo",
     hint,
     disabled,
-    allowCamera = true,
+    allowCamera = false,
     minWidth,
     minHeight,
     hideTrigger = false,
