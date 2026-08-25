@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
+import { isAdmin } from "@/lib/auth";
 
 export default async function NewDashboardEventPage() {
   const ctx = await getDashboardContext();
   if (!ctx) redirect("/login");
+
+  // Non-admins skip the two-column choice screen — go straight to the create
+  // form. Import (CSV/URL) is a platform-admin-only capability.
+  const admin = await isAdmin();
+  if (!admin) {
+    redirect("/create-event");
+  }
 
   if (ctx.organizerIds.length === 0) {
     return (

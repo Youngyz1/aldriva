@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { safeFetchHtml, SsrfBlockedError } from "@/lib/ssrf-guard";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { isAdmin } from "@/lib/auth";
 
 type ImportMode = "events" | "fundraisers";
 
@@ -293,6 +294,12 @@ export async function POST(req: NextRequest) {
     // is validated.
     const limited = await enforceRateLimit("importUrl", req);
     if (limited) return limited;
+
+    // Import is a platform-admin-only capability. Reject non-admins before
+    // performing any outbound fetch to prevent unauthorised scraping.
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    }
 
     const { url, mode } = (await req.json()) as { url?: string; mode?: ImportMode };
 

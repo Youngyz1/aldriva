@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { isAdmin } from "@/lib/auth";
 
 type SyncBody = {
   sourceId?: string;
@@ -315,6 +316,11 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "You must be logged in to sync Eventbrite." }, { status: 401 });
+    }
+
+    // Eventbrite sync is a platform-admin-only capability.
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
     }
 
     const { data: profile } = await supabase

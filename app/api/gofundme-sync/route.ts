@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { isAdmin } from "@/lib/auth";
 
 type SyncBody = {
   sourceId?: string;
@@ -361,6 +362,11 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "You must be logged in to sync GoFundMe." }, { status: 401 });
+    }
+
+    // GoFundMe sync is a platform-admin-only capability.
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
     }
 
     const { data: profile } = await supabase
