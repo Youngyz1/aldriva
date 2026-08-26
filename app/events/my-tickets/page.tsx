@@ -172,28 +172,28 @@ export default function EventsMyTicketsPage() {
           </p>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex gap-2 mt-8 border-b border-zinc-200">
+          <div className="mt-8 grid w-full grid-cols-2 gap-1 border-b border-zinc-200 sm:flex sm:gap-2">
             <button
               onClick={() => setTab("account")}
-              className={`pb-3 px-4 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1.5 pb-3 text-center text-xs font-bold leading-tight transition sm:gap-2 sm:px-4 sm:text-sm ${
                 tab === "account"
                   ? "border-orange-600 text-orange-600"
                   : "border-transparent text-zinc-500 hover:text-zinc-900"
               }`}
             >
-              <Lock className="w-4 h-4" />
-              <span>Account Tickets</span>
+              <Lock className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 whitespace-normal">Account Tickets</span>
             </button>
             <button
               onClick={() => setTab("guest")}
-              className={`pb-3 px-4 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-1.5 pb-3 text-center text-xs font-bold leading-tight transition sm:gap-2 sm:px-4 sm:text-sm ${
                 tab === "guest"
                   ? "border-orange-600 text-orange-600"
                   : "border-transparent text-zinc-500 hover:text-zinc-900"
               }`}
             >
-              <Search className="w-4 h-4" />
-              <span>Guest Order Lookup</span>
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 whitespace-normal">Guest Order Lookup</span>
             </button>
           </div>
         </div>
