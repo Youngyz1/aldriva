@@ -129,9 +129,9 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 md:gap-4 md:px-6">
-        <Link href="/" className="shrink-0 text-zinc-950">
-          <BrandMark textClassName="hidden sm:inline text-zinc-950" priority />
+      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-2 px-3 sm:px-4 md:gap-4 md:px-6">
+        <Link href="/" className="min-w-0 shrink text-zinc-950 sm:shrink-0">
+          <BrandMark className="[&>img]:h-10 [&>img]:max-w-[8.5rem] sm:[&>img]:h-14 sm:[&>img]:max-w-none" priority />
         </Link>
 
         {/* Desktop search */}
@@ -155,7 +155,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Mobile search toggle */}
           <button
             type="button"
@@ -174,7 +174,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setAccountOpen((o) => !o)}
-                className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white py-1.5 pl-1.5 pr-3 transition hover:border-orange-200"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white p-1.5 transition hover:border-orange-200 xl:h-auto xl:w-auto xl:justify-start xl:gap-2 xl:py-1.5 xl:pl-1.5 xl:pr-3"
               >
                 <LocalBrandedPlaceholder
                   variant="avatar"
