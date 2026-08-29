@@ -262,12 +262,19 @@ export default function CreateFundraiserPage() {
       return;
     }
 
-    // Type + name are required; the validator also strips fields that don't
-    // apply to the chosen type before storage.
-    const beneficiaryResult = validateBeneficiary({
-      ...beneficiary,
-      name: beneficiary.type === "self" ? (selectedOrganizer?.name || userDisplayName) : beneficiary.name,
-    });
+    // For personal campaigns (no organizer_id), the creator IS the beneficiary;
+    // auto-set type to self. For organization campaigns, validate the chosen beneficiary.
+    const effectiveBeneficiaryDraft = form.organizer_id
+      ? {
+          ...beneficiary,
+          name: beneficiary.type === "self" ? (selectedOrganizer?.name || userDisplayName) : beneficiary.name,
+        }
+      : {
+          type: "self" as const,
+          name: userDisplayName,
+        };
+
+    const beneficiaryResult = validateBeneficiary(effectiveBeneficiaryDraft);
     if (!beneficiaryResult.ok) {
       setError(beneficiaryResult.error);
       setLoading(false);
@@ -536,17 +543,19 @@ export default function CreateFundraiserPage() {
               </div>
             </CreatorPanel>
 
-            {/* Sits immediately after Organizer: who runs the fundraiser, then
-                who it actually helps. */}
-            <CreatorPanel title="Who are you fundraising for?">
-              <BeneficiarySelector
-                value={beneficiary}
-                onChange={setBeneficiary}
-                organizerName={form.organizer || userDisplayName}
-                inputClassName={greenInputClass}
-                onError={setError}
-              />
-            </CreatorPanel>
+            {/* Beneficiary selection is only needed when fundraising on behalf of an organization.
+                Personal fundraisers (no organizer_id) default to the creator as beneficiary. */}
+            {Boolean(form.organizer_id) && (
+              <CreatorPanel title="Who are you fundraising for?">
+                <BeneficiarySelector
+                  value={beneficiary}
+                  onChange={setBeneficiary}
+                  organizerName={form.organizer || userDisplayName}
+                  inputClassName={greenInputClass}
+                  onError={setError}
+                />
+              </CreatorPanel>
+            )}
 
             <CreatorPanel title="Fundraiser Photos">
               <div className="grid gap-5">
@@ -658,25 +667,29 @@ export default function CreateFundraiserPage() {
                 Organized by
               </p>
               <p className="mt-0.5 text-base font-black text-zinc-950">
-                {form.organizer || "Not set"}
+                {form.organizer || userDisplayName || "Personal fundraiser"}
               </p>
 
-              <div className="my-2 h-4 w-px bg-zinc-300" aria-hidden />
+              {Boolean(form.organizer_id) && (
+                <>
+                  <div className="my-2 h-4 w-px bg-zinc-300" aria-hidden />
 
-              <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
-                Helping
-              </p>
-              <p className="mt-0.5 text-base font-black text-zinc-950">
-                {beneficiary.type === "self"
-                  ? form.organizer || "You"
-                  : beneficiary.name || "Not set"}
-              </p>
-              {beneficiary.type && (
-                <p className="mt-1 text-xs font-semibold text-zinc-500">
-                  {beneficiaryTypeLabel(beneficiary.type)}
-                  {beneficiary.relationship ? ` · ${beneficiary.relationship}` : ""}
-                  {beneficiary.species ? ` · ${beneficiary.species}` : ""}
-                </p>
+                  <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
+                    Helping
+                  </p>
+                  <p className="mt-0.5 text-base font-black text-zinc-950">
+                    {beneficiary.type === "self"
+                      ? form.organizer || "Your Organization"
+                      : beneficiary.name || "Not set"}
+                  </p>
+                  {beneficiary.type && (
+                    <p className="mt-1 text-xs font-semibold text-zinc-500">
+                      {beneficiaryTypeLabel(beneficiary.type)}
+                      {beneficiary.relationship ? ` · ${beneficiary.relationship}` : ""}
+                      {beneficiary.species ? ` · ${beneficiary.species}` : ""}
+                    </p>
+                  )}
+                </>
               )}
 
               <div className="my-2 h-4 w-px bg-zinc-300" aria-hidden />
