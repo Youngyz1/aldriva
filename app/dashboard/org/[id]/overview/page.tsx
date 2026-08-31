@@ -125,6 +125,7 @@ export default async function OrgOverviewPage({
         <div className="flex flex-wrap gap-3">
           <Link href="/create-event" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700">+ New Event</Link>
           <Link href="/create-fundraiser" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700">+ New Fundraiser</Link>
+          <Link href={`${base}/verify`} className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-black text-orange-700 transition hover:bg-orange-100">Get Verified 🛡️</Link>
           <Link href={`${base}/settings`} className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50">Edit Organization</Link>
           <Link href={org.slug ? `/org/${org.slug}` : `/organizers/${org.id}`} target="_blank" className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50">View Public Profile ↗</Link>
         </div>

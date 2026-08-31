@@ -7,7 +7,7 @@ import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
   LayoutDashboard, Calendar, Heart, Package, Briefcase,
   Users, BookOpen, Star, ImageIcon, BarChart2, Settings,
-  ChevronLeft, Globe
+  ChevronLeft, Globe, ShieldCheck
 } from "lucide-react";
 
 type Org = {
@@ -49,6 +49,7 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
     { label: "Reviews",     href: `${base}/reviews`,     icon: Star },
     { label: "Gallery",     href: `${base}/gallery`,     icon: ImageIcon,  comingSoon: true },
     { label: "Analytics",   href: `${base}/analytics`,   icon: BarChart2 },
+    { label: "Verification", href: `${base}/verify`,     icon: ShieldCheck },
     { label: "Settings",    href: `${base}/settings`,    icon: Settings },
   ];
 
