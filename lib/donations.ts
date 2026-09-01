@@ -94,67 +94,48 @@ export async function recordDonationFromSession(
   }
 
   const amount = Number(meta.amount) || (session.amount_total ?? 0) / 100;
-  const fullPayload = {
-    fundraiser_id: fundraiserId,
-    donor_name: meta.donor_name || "Anonymous",
-    donor_email: meta.donor_email || session.customer_email || null,
-    user_id: metadataUserId(meta.user_id),
-    message: meta.message || null,
-    amount,
-    currency: session.currency?.toUpperCase() || "USD",
-    status: "completed",
-    payment_intent_id: paymentIntentId,
-  };
+  const currency = session.currency?.toUpperCase() || "USD";
+  const resolvedUserId = metadataUserId(meta.user_id);
 
-  const { error } = await supabaseAdmin.from("donations").insert(fullPayload);
+  // Invoke record_donation_and_credit RPC atomically (inserts donation AND credits recipient ledger)
+  const { data: rpcData, error: rpcError } = await supabaseAdmin
+    .rpc("record_donation_and_credit", {
+      p_fundraiser_id: fundraiserId,
+      p_donor_name: meta.donor_name || "Anonymous",
+      p_donor_email: meta.donor_email || session.customer_email || null,
+      p_user_id: resolvedUserId,
+      p_message: meta.message || null,
+      p_amount: amount,
+      p_currency: currency,
+      p_payment_intent_id: paymentIntentId,
+    });
 
-  if (!error) {
-    if (meta.message && meta.message.trim()) {
-      await supabaseAdmin.from("comments").insert({
-        target_type: "fundraiser",
-        target_id: fundraiserId,
-        author_name: meta.donor_name || "Anonymous",
-        author_email: meta.donor_email || session.customer_email || null,
-        user_id: fullPayload.user_id,
-        body: meta.message.trim(),
-        status: "approved",
-      });
+  if (!rpcError && rpcData && rpcData.length > 0) {
+    const resultRow = rpcData[0];
+    if (resultRow.is_new) {
+      if (meta.message && meta.message.trim()) {
+        await supabaseAdmin.from("comments").insert({
+          target_type: "fundraiser",
+          target_id: fundraiserId,
+          author_name: meta.donor_name || "Anonymous",
+          author_email: meta.donor_email || session.customer_email || null,
+          user_id: resolvedUserId,
+          body: meta.message.trim(),
+          status: "approved",
+          payment_intent_id: paymentIntentId,
+        });
+      }
+      await recalculateFundraiserRaised(fundraiserId);
+      return { inserted: true, fundraiserId, reason: "inserted" };
+    } else {
+      await recalculateFundraiserRaised(fundraiserId);
+      return { inserted: false, fundraiserId, reason: "exists" };
     }
-    await recalculateFundraiserRaised(fundraiserId);
-    return { inserted: true, fundraiserId, reason: "inserted" };
   }
 
-  console.error("Donation insert error:", error.message);
-
-  const { error: fallbackError } = await supabaseAdmin.from("donations").insert({
-    fundraiser_id: fullPayload.fundraiser_id,
-    donor_name: fullPayload.donor_name,
-    donor_email: fullPayload.donor_email,
-    user_id: fullPayload.user_id,
-    message: fullPayload.message,
-    amount: fullPayload.amount,
-    status: fullPayload.status,
-    payment_intent_id: fullPayload.payment_intent_id,
-  });
-
-  if (!fallbackError) {
-    if (meta.message && meta.message.trim()) {
-      await supabaseAdmin.from("comments").insert({
-        target_type: "fundraiser",
-        target_id: fundraiserId,
-        author_name: meta.donor_name || "Anonymous",
-        author_email: meta.donor_email || session.customer_email || null,
-        user_id: fullPayload.user_id,
-        body: meta.message.trim(),
-        status: "approved",
-      });
-    }
-    await recalculateFundraiserRaised(fundraiserId);
-    return { inserted: true, fundraiserId, reason: "inserted_without_currency" };
-  }
-
-  console.error("Donation fallback insert error:", fallbackError.message);
-  return { inserted: false, fundraiserId, reason: fallbackError.message };
+  const errorMessage = rpcError?.message ?? "record_donation_and_credit RPC returned no data";
+  console.error("Donation record_donation_and_credit RPC error:", errorMessage);
+  return { inserted: false, fundraiserId, reason: errorMessage };
 }
 
 export async function recordDonationFromStripeSessionId(sessionId: string) {

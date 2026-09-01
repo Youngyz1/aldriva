@@ -20,6 +20,8 @@ type OrgForm = {
   photo: string;
   banner: string;
   org_type: string;
+  tax_id: string;
+  nonprofit_registration_number: string;
   contact_email: string;
   website: string;
   facebook: string;
@@ -70,6 +72,8 @@ export default function OrgSettingsPage() {
     photo: "",
     banner: "",
     org_type: "other",
+    tax_id: "",
+    nonprofit_registration_number: "",
     contact_email: "",
     website: "",
     facebook: "",
@@ -89,6 +93,10 @@ export default function OrgSettingsPage() {
         router.push("/login");
         return;
       }
+
+      // Fetch registration fields separately via server endpoint (bypasses REVOKE SELECT)
+      const regRes = await fetch(`/api/dashboard/organizers/${orgId}/registration`);
+      const regData = regRes.ok ? await regRes.json() : { tax_id: "", nonprofit_registration_number: "" };
 
       // Explicit columns: migration_53's column grants make select("*") on
       // organizers fail even for the row's owner — the grant applies to the
@@ -115,6 +123,8 @@ export default function OrgSettingsPage() {
         photo: org.photo || "",
         banner: org.banner || "",
         org_type: org.org_type || "other",
+        tax_id: regData.tax_id || "",
+        nonprofit_registration_number: regData.nonprofit_registration_number || "",
         contact_email: org.contact_email || "",
         website: org.website || "",
         facebook: org.facebook || "",
@@ -218,6 +228,21 @@ export default function OrgSettingsPage() {
         .eq("id", orgId);
 
       if (updateError) throw new Error(updateError.message);
+
+      // Save tax_id and nonprofit_registration_number via server endpoint
+      const regPatchRes = await fetch(`/api/dashboard/organizers/${orgId}/registration`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tax_id: form.tax_id,
+          nonprofit_registration_number: form.nonprofit_registration_number,
+        }),
+      });
+
+      if (!regPatchRes.ok) {
+        const regErrData = await regPatchRes.json().catch(() => ({}));
+        throw new Error(regErrData.error || "Failed to update registration details.");
+      }
 
       // Update tracked slug
       setOriginalSlug(form.slug);
@@ -338,6 +363,40 @@ export default function OrgSettingsPage() {
               className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:bg-white"
             />
           </label>
+        </section>
+
+        {/* Tax & Registration */}
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-black text-zinc-950">Tax &amp; Registration Details</h2>
+            <p className="text-xs text-zinc-500 font-medium mt-0.5">
+              Optional identification details used when verifying your organization for fundraising.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-zinc-600">Tax ID / EIN</span>
+              <input
+                type="text"
+                value={form.tax_id}
+                onChange={(e) => update("tax_id", e.target.value)}
+                placeholder="e.g. 12-3456789"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:bg-white"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-zinc-600">Registration Number</span>
+              <input
+                type="text"
+                value={form.nonprofit_registration_number}
+                onChange={(e) => update("nonprofit_registration_number", e.target.value)}
+                placeholder="e.g. 501(c)(3) or Charity Reg #"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:bg-white"
+              />
+            </label>
+          </div>
         </section>
 
         {/* 2. Contact & Links */}

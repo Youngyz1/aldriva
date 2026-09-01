@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { Building2, ShieldCheck } from "lucide-react";
 import { StatCard } from "@/components/dashboard/fund4good/StatCard";
 import GetStartedPromptCard from "./GetStartedPromptCard";
 import OnboardingChoices from "./OnboardingChoices";
@@ -105,12 +105,21 @@ function PageHeading({
           year: "numeric",
         })}
       </p>
-      {organizerCount > 0 && (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-bold text-zinc-600">
-          <Building2 className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-          {organizerCount} {organizerCount === 1 ? "organization" : "organizations"}
-        </span>
-      )}
+      <div className="flex items-center gap-2">
+        <Link
+          href="/dashboard/verify-identity"
+          className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3.5 py-1.5 text-xs font-bold text-brand-700 transition hover:bg-brand-100 hover:text-brand-800"
+        >
+          <ShieldCheck className="h-4 w-4 text-brand-600" aria-hidden />
+          Verify Identity
+        </Link>
+        {organizerCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-600">
+            <Building2 className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+            {organizerCount} {organizerCount === 1 ? "organization" : "organizations"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Building2, BarChart2, Mail, Settings,
+  LayoutDashboard, Building2, BarChart2, Mail, Settings, ShieldCheck,
   Calendar, Users, Newspaper, Store, ShoppingBag, Heart,
 } from "lucide-react";
 import type { NavGroup } from "@/components/nav/nav-active";
@@ -12,11 +12,12 @@ import type { NavGroup } from "@/components/nav/nav-active";
 export const dashboardNavGroups: NavGroup[] = [
   {
     items: [
-      { label: "Overview",      href: "/dashboard",               icon: LayoutDashboard, exact: true },
-      { label: "Organizations", href: "/dashboard/organizations", icon: Building2 },
-      { label: "Analytics",     href: "/dashboard/analytics",     icon: BarChart2 },
-      { label: "Messages",      href: "/dashboard/messages",      icon: Mail },
-      { label: "Settings",      href: "/dashboard/settings",      icon: Settings },
+      { label: "Overview",        href: "/dashboard",                 icon: LayoutDashboard, exact: true },
+      { label: "Verify Identity", href: "/dashboard/verify-identity", icon: ShieldCheck },
+      { label: "Organizations",   href: "/dashboard/organizations",   icon: Building2 },
+      { label: "Analytics",       href: "/dashboard/analytics",       icon: BarChart2 },
+      { label: "Messages",        href: "/dashboard/messages",        icon: Mail },
+      { label: "Settings",        href: "/dashboard/settings",        icon: Settings },
     ],
   },
   {
