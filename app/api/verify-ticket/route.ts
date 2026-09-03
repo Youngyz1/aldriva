@@ -42,6 +42,8 @@ async function findTicketByCode(code: string) {
     .select(`
       id,
       order_id,
+      invitation_id,
+      source,
       event_id,
       ticket_id,
       seat_label,
@@ -56,6 +58,13 @@ async function findTicketByCode(code: string) {
         total_amount,
         quantity
       ),
+      event_invitations (
+        id,
+        guest_name,
+        guest_title,
+        organization,
+        email
+      ),
       events (
         title,
         event_date,
@@ -68,7 +77,12 @@ async function findTicketByCode(code: string) {
     .maybeSingle();
 
   if (inst) {
-    let tierName = "Standard Entry";
+    const isInvitation = inst.source === "invitation" || !!inst.invitation_id;
+    const orderData = inst.ticket_orders as any;
+    const invitationData = inst.event_invitations as any;
+    const eventData = inst.events as any;
+
+    let tierName = isInvitation ? "Guest Invitation" : "Standard Entry";
     if (inst.ticket_id) {
       const { data: t } = await supabaseAdmin
         .from("tickets")
@@ -76,31 +90,43 @@ async function findTicketByCode(code: string) {
         .eq("id", inst.ticket_id)
         .maybeSingle();
       if (t?.name) tierName = t.name;
+    } else if (isInvitation && invitationData?.guest_title) {
+      tierName = `VIP Guest (${invitationData.guest_title})`;
     }
 
-    const orderData = inst.ticket_orders as any;
-    const eventData = inst.events as any;
+    const displayName = isInvitation
+      ? (invitationData?.guest_name || "Invited Guest")
+      : (orderData?.buyer_name || null);
+    const displayEmail = isInvitation
+      ? (invitationData?.email || null)
+      : (orderData?.buyer_email || null);
 
     return {
       instanceId: inst.id,
       orderId: inst.order_id,
+      invitationId: inst.invitation_id || null,
+      source: isInvitation ? "invitation" : "purchase",
       eventId: inst.event_id,
       qrCode: inst.qr_code,
       status: inst.status,
       checkedInAt: inst.checked_in_at,
       seatLabel: inst.seat_label,
       tierName,
-      buyerName: orderData?.buyer_name || null,
-      buyerEmail: orderData?.buyer_email || null,
+      buyerName: displayName,
+      buyerEmail: displayEmail,
+      invitation: isInvitation ? invitationData : null,
       order: {
-        id: inst.order_id,
+        id: inst.order_id || inst.invitation_id || inst.id,
         instance_id: inst.id,
         status: inst.status,
         seat_label: inst.seat_label,
         quantity: 1,
         tier_name: tierName,
-        buyer_name: orderData?.buyer_name || null,
-        buyer_email: orderData?.buyer_email || null,
+        source: isInvitation ? "invitation" : "purchase",
+        buyer_name: displayName,
+        buyer_email: displayEmail,
+        guest_title: invitationData?.guest_title || null,
+        organization: invitationData?.organization || null,
         total_amount: orderData?.total_amount || 0,
         created_at: inst.created_at,
         checked_in_at: inst.checked_in_at,

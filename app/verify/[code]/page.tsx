@@ -10,7 +10,8 @@ type TicketOrder = {
   quantity: number;
   buyer_name: string | null;
   buyer_email: string | null;
-  total_amount: number;
+  total_amount?: number;
+  source?: string;
   created_at: string;
   checked_in_at: string | null;
   events: {

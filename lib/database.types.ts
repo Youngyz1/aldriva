@@ -339,6 +339,75 @@ export type Database = {
           },
         ]
       }
+      event_invitations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          event_id: string
+          guest_name: string
+          guest_title: string | null
+          id: string
+          invitation_status: string
+          notes: string | null
+          organization: string | null
+          phone: string | null
+          rsvp_at: string | null
+          rsvp_status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          event_id: string
+          guest_name: string
+          guest_title?: string | null
+          id?: string
+          invitation_status?: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          rsvp_at?: string | null
+          rsvp_status?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          event_id?: string
+          guest_name?: string
+          guest_title?: string | null
+          id?: string
+          invitation_status?: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          rsvp_at?: string | null
+          rsvp_status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           address_country: string | null
@@ -1056,8 +1125,10 @@ export type Database = {
       }
       seats: {
         Row: {
+          assigned_invitation_id: string | null
           event_id: string
           id: string
+          is_vip: boolean
           layout_id: string
           price_override: number | null
           reserved_until: string | null
@@ -1065,11 +1136,16 @@ export type Database = {
           seat_number: number
           section: string
           status: string
+          table_capacity: number | null
+          table_name: string | null
+          table_number: string | null
           ticket_id: string | null
         }
         Insert: {
+          assigned_invitation_id?: string | null
           event_id: string
           id?: string
+          is_vip?: boolean
           layout_id: string
           price_override?: number | null
           reserved_until?: string | null
@@ -1077,11 +1153,16 @@ export type Database = {
           seat_number: number
           section: string
           status?: string
+          table_capacity?: number | null
+          table_name?: string | null
+          table_number?: string | null
           ticket_id?: string | null
         }
         Update: {
+          assigned_invitation_id?: string | null
           event_id?: string
           id?: string
+          is_vip?: boolean
           layout_id?: string
           price_override?: number | null
           reserved_until?: string | null
@@ -1089,9 +1170,19 @@ export type Database = {
           seat_number?: number
           section?: string
           status?: string
+          table_capacity?: number | null
+          table_name?: string | null
+          table_number?: string | null
           ticket_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "seats_assigned_invitation_id_fkey"
+            columns: ["assigned_invitation_id"]
+            isOneToOne: false
+            referencedRelation: "event_invitations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "seats_event_id_fkey"
             columns: ["event_id"]
@@ -1179,6 +1270,90 @@ export type Database = {
             columns: ["seat_id"]
             isOneToOne: false
             referencedRelation: "seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_instances: {
+        Row: {
+          checked_in_at: string | null
+          created_at: string
+          event_id: string
+          id: string
+          invitation_id: string | null
+          order_id: string | null
+          qr_code: string
+          seat_id: string | null
+          seat_label: string | null
+          source: string
+          status: string
+          ticket_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          checked_in_at?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          invitation_id?: string | null
+          order_id?: string | null
+          qr_code: string
+          seat_id?: string | null
+          seat_label?: string | null
+          source?: string
+          status?: string
+          ticket_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checked_in_at?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          invitation_id?: string | null
+          order_id?: string | null
+          qr_code?: string
+          seat_id?: string | null
+          seat_label?: string | null
+          source?: string
+          status?: string
+          ticket_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_instances_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_instances_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "event_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_instances_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_instances_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_instances_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]
