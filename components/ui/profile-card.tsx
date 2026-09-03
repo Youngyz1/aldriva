@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { BRAND } from "@/config/branding";
 import {
-  Clock,
   Mail,
   ArrowUpRight,
   Globe,
@@ -147,16 +146,6 @@ export default function OrganizerProfileCard({
   const statusColor = isVerified ? "bg-emerald-500" : "bg-amber-500";
   const statusText = isVerified ? "Verified Organizer" : "Registered Organizer";
 
-  // Dynamic live clock representation
-  const timeText = useMemo(() => {
-    const now = new Date();
-    const h = now.getHours();
-    const m = now.getMinutes().toString().padStart(2, "0");
-    const hour12 = ((h + 11) % 12) + 1;
-    const ampm = h >= 12 ? "PM" : "AM";
-    return `${hour12}:${m} ${ampm}`;
-  }, []);
-
   const handleCopyLink = async () => {
     if (typeof window === "undefined") return;
     try {
@@ -210,10 +199,6 @@ export default function OrganizerProfileCard({
                 <span className={cn("absolute h-2 w-2 rounded-full", statusColor, "animate-ping")} />
               </div>
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">{statusText}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-zinc-400">
-              <Clock className="h-3.5 w-3.5" />
-              <span className="text-xs font-mono font-bold">{timeText}</span>
             </div>
           </div>
 

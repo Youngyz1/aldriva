@@ -12,6 +12,10 @@ import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import { DashboardBulkActionButton } from "@/components/dashboard/DashboardBulkActions";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
+import {
+  canSelectDashboardEventForBulk,
+  getDashboardEventActionIds,
+} from "@/lib/dashboard-event-actions";
 import { useDashboardParams } from "@/hooks/use-dashboard-params";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
 import type { DashboardEventDetail, DashboardEventRow, DashboardEventStats } from "@/types/dashboard-management";
@@ -171,18 +175,21 @@ function EventsClientInner() {
     }
   }
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const selectableRows = useMemo(() => rows.filter(canSelectDashboardEventForBulk), [rows]);
+  const allSelected = selectableRows.length > 0 && selectableRows.every((r) => selected.has(r.id));
 
   function toggleAll() {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.id)));
+    else setSelected(new Set(selectableRows.map((r) => r.id)));
   }
 
-  function toggleOne(id: string) {
+  function toggleOne(row: DashboardEventRow) {
+    if (!canSelectDashboardEventForBulk(row)) return;
+
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
       return next;
     });
   }
@@ -196,6 +203,7 @@ function EventsClientInner() {
         { label: "Revenue", value: formatAdminMoney(stats.revenue) },
       ]
     : [];
+  const drawerActionIds = drawerEvent ? getDashboardEventActionIds(drawerEvent.user_role) : [];
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -318,7 +326,13 @@ function EventsClientInner() {
             <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
               <tr>
                 <th className="px-4 py-3">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-zinc-300" />
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    disabled={selectableRows.length === 0}
+                    className="rounded border-zinc-300 disabled:opacity-40"
+                  />
                 </th>
                 <th className="py-3 pr-4">Title</th>
                 <th className="py-3 pr-4">Date</th>
@@ -330,66 +344,105 @@ function EventsClientInner() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-zinc-50/70">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(row.id)}
-                      onChange={() => toggleOne(row.id)}
-                      className="rounded border-zinc-300"
-                    />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => openDrawer(row.id)}
-                      className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                    >
-                      {row.title}
-                    </button>
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.event_date)}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
-                      {statusLabel(row.status)}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[row.visibility] ?? visibilityBadge.public}`}>
-                      {row.visibility}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 font-black text-zinc-900">{row.ticket_count}</td>
-                  <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.revenue)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
+              {rows.map((row) => {
+                const actionIds = getDashboardEventActionIds(row.user_role);
+                const canSelect = canSelectDashboardEventForBulk(row);
+
+                return (
+                  <tr key={row.id} className="hover:bg-zinc-50/70">
+                    <td className="px-4 py-3">
+                      {canSelect ? (
+                        <input
+                          type="checkbox"
+                          checked={selected.has(row.id)}
+                          onChange={() => toggleOne(row)}
+                          className="rounded border-zinc-300"
+                        />
+                      ) : (
+                        <span className="block h-4 w-4" aria-hidden="true" />
+                      )}
+                    </td>
+                    <td className="py-3 pr-4">
                       <button
                         type="button"
                         onClick={() => openDrawer(row.id)}
-                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                        className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
                       >
-                        View
+                        {row.title}
                       </button>
-                      {row.slug && (
-                        <Link href={`/events/${row.slug}`} className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50">
-                          Public
-                        </Link>
-                      )}
-                      <Link href={`/events/edit/${row.id}`} className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50">
-                        Edit
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(row)}
-                        className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.event_date)}</td>
+                    <td className="py-3 pr-4">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
+                        {statusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[row.visibility] ?? visibilityBadge.public}`}>
+                        {row.visibility}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 font-black text-zinc-900">{row.ticket_count}</td>
+                    <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.revenue)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {actionIds.length === 1 && actionIds[0] === "scan" ? (
+                          <Link
+                            href={`/dashboard/events/${row.id}/scan`}
+                            className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-black text-white hover:bg-orange-700 shadow-sm"
+                          >
+                            📷 Scan Tickets
+                          </Link>
+                        ) : (
+                          <>
+                            {actionIds.includes("checkins") && (
+                              <Link
+                                href={`/dashboard/events/${row.id}/checkins`}
+                                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                              >
+                                Check-Ins
+                              </Link>
+                            )}
+                            {actionIds.includes("scan") && (
+                              <Link
+                                href={`/dashboard/events/${row.id}/scan`}
+                                className="rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-100"
+                              >
+                                Scan
+                              </Link>
+                            )}
+                            {actionIds.includes("team") && (
+                              <Link
+                                href={`/dashboard/events/${row.id}/team`}
+                                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                              >
+                                Team
+                              </Link>
+                            )}
+                            {actionIds.includes("edit") && actionIds.includes("delete") && (
+                              <>
+                                <Link
+                                  href={`/events/edit/${row.id}`}
+                                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                                >
+                                  Edit
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget(row)}
+                                  className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -404,21 +457,58 @@ function EventsClientInner() {
         footer={
           drawerEvent && (
             <div className="flex flex-wrap gap-2">
-              {drawerEvent.slug && (
-                <Link href={`/events/${drawerEvent.slug}`} className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-black text-zinc-700 hover:bg-white">
-                  View Public Page
+              {drawerActionIds.length === 1 && drawerActionIds[0] === "scan" ? (
+                <Link
+                  href={`/dashboard/events/${drawerEvent.id}/scan`}
+                  className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700"
+                >
+                  📷 Launch Door Scanner
                 </Link>
+              ) : (
+                <>
+                  {drawerActionIds.includes("checkins") && (
+                    <Link
+                      href={`/dashboard/events/${drawerEvent.id}/checkins`}
+                      className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-black text-zinc-700 hover:bg-white"
+                    >
+                      Check-Ins & Roster
+                    </Link>
+                  )}
+                  {drawerActionIds.includes("scan") && (
+                    <Link
+                      href={`/dashboard/events/${drawerEvent.id}/scan`}
+                      className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700"
+                    >
+                      Door Scanner
+                    </Link>
+                  )}
+                  {drawerActionIds.includes("team") && (
+                    <Link
+                      href={`/dashboard/events/${drawerEvent.id}/team`}
+                      className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-black text-zinc-700 hover:bg-white"
+                    >
+                      Team & Staff
+                    </Link>
+                  )}
+                  {drawerActionIds.includes("edit") && drawerActionIds.includes("delete") && (
+                    <>
+                      <Link
+                        href={`/events/edit/${drawerEvent.id}`}
+                        className="rounded-xl border border-orange-200 px-4 py-2 text-sm font-black text-orange-700 hover:bg-orange-50"
+                      >
+                        Edit Event
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(drawerEvent)}
+                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-700 hover:bg-red-50"
+                      >
+                        Delete Event
+                      </button>
+                    </>
+                  )}
+                </>
               )}
-              <Link href={`/events/edit/${drawerEvent.id}`} className="rounded-xl border border-orange-200 px-4 py-2 text-sm font-black text-orange-700 hover:bg-orange-50">
-                Edit Event
-              </Link>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(drawerEvent)}
-                className="rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-700 hover:bg-red-50"
-              >
-                Delete Event
-              </button>
             </div>
           )
         }

@@ -2,8 +2,8 @@
  * Auth helpers for dashboard API routes — scoped to the current user's organizers.
  */
 
-import { NextResponse } from 'next/server';
-import { getCurrentUser, getCurrentUserProfile } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { getUserEntityMemberships, type EntityRole } from '@/lib/entity-auth';
 import { bindPendingEventInvitations } from '@/lib/event-auth';
@@ -21,16 +21,37 @@ export type DashboardApiContext = {
   organizerRoles: Record<string, EntityRole>;
 };
 
-export async function getDashboardApiContext(): Promise<
+export async function getDashboardApiContext(req?: NextRequest): Promise<
   | { ok: true; ctx: DashboardApiContext }
   | { ok: false; response: NextResponse }
 > {
-  const user = await getCurrentUser();
+  let user: { id: string; email?: string } | null = null;
+
+  if (req) {
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      const { data: authData } = await supabaseAdmin.auth.getUser(token);
+      if (authData?.user) {
+        user = { id: authData.user.id, email: authData.user.email };
+      }
+    }
+  }
+
+  if (!user) {
+    user = await getCurrentUser();
+  }
+
   if (!user) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const profile = await getCurrentUserProfile();
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('status')
+    .eq('id', user.id)
+    .maybeSingle();
+
   if (profile?.status === 'suspended') {
     return {
       ok: false,
@@ -60,16 +81,5 @@ export async function getDashboardApiContext(): Promise<
       organizerIds: Object.keys(organizerRoles),
       organizerRoles,
     },
-  };
-}
-
-export function emptyPaginated<T, S>(stats: S, perPage = 25) {
-  return {
-    items: [] as T[],
-    stats,
-    total: 0,
-    page: 1,
-    per_page: perPage,
-    total_pages: 1,
   };
 }

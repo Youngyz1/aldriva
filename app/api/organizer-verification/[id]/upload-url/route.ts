@@ -52,11 +52,33 @@ export async function POST(
     submission_id?: string;
   };
 
-  if (!doc_type || !fileName) {
-    return NextResponse.json({ error: "doc_type and fileName are required." }, { status: 400 });
+  if (!doc_type || !fileName || !submission_id) {
+    return NextResponse.json(
+      { error: "doc_type, fileName, and submission_id are required." },
+      { status: 400 }
+    );
   }
 
-  // 3. File type & size validation
+  // 3. Verify submission exists, belongs to this organizer, and is in a mutable state
+  const { data: submission, error: subError } = await supabaseAdmin
+    .from("organizer_verification_submissions")
+    .select("id, status")
+    .eq("id", submission_id)
+    .eq("organizer_id", id)
+    .maybeSingle();
+
+  if (subError || !submission) {
+    return NextResponse.json({ error: "Submission draft not found." }, { status: 404 });
+  }
+
+  if (submission.status !== "draft" && submission.status !== "needs_more_info") {
+    return NextResponse.json(
+      { error: `Cannot upload documents to a submission in '${submission.status}' status.` },
+      { status: 400 }
+    );
+  }
+
+  // 4. File type & size validation
   const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     return NextResponse.json(
@@ -73,10 +95,10 @@ export async function POST(
   }
 
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9_.-]/g, "_");
-  const subFolder = submission_id ?? "draft";
-  const path = `${id}/${subFolder}/${doc_type}_${Date.now()}_${sanitizedFileName}`;
+  // Strictly enforce path structure: {organizer_id}/{submission_id}/{doc_type}_{timestamp}_{filename}
+  const path = `${id}/${submission_id}/${doc_type}_${Date.now()}_${sanitizedFileName}`;
 
-  // 4. Generate signed upload URL via service role
+  // 5. Generate signed upload URL via service role
   const { data, error } = await supabaseAdmin.storage
     .from("organizer-verification-docs")
     .createSignedUploadUrl(path);

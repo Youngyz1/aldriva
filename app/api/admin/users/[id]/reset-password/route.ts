@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isAdmin } from "@/lib/auth";
+import { getSiteUrl } from "@/lib/site-url";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,10 +24,7 @@ export async function POST(
     return NextResponse.json({ error: userError?.message ?? "User email not found." }, { status: 404 });
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
+  const appUrl = getSiteUrl();
 
   const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
     redirectTo: `${appUrl.replace(/\/$/, "")}/reset-password`,

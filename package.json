@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next dev",
+    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --test lib/dashboard/__tests__/event-dashboard-regressions.test.cjs",
     "supabase": "supabase"
   },
   "overrides": {
@@ -39,6 +40,7 @@
     "@tiptap/starter-kit": "^3.27.1",
     "@types/leaflet": "^1.9.21",
     "@types/qrcode": "^1.5.6",
+    "axios": "^1.20.0",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -64,11 +66,14 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "pg": "^8.23.0",
     "playwright": "^1.60.0",
     "supabase": "^2.109.0",
     "tailwindcss": "^4",

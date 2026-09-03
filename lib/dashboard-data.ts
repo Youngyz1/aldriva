@@ -29,6 +29,23 @@ import type {
   PaginatedResult,
 } from '@/types/dashboard-management';
 
+type DashboardEventRecord = {
+  id: string;
+  title: string;
+  slug: string | null;
+  event_date: string | null;
+  status: string | null;
+  visibility: string | null;
+  created_at: string;
+  organizer_id: string | null;
+  user_id: string | null;
+};
+
+type EventTeamRole = 'event_manager' | 'ticket_scanner';
+
+const DASHBOARD_EVENT_COLUMNS =
+  'id, title, slug, event_date, status, visibility, created_at, organizer_id, user_id';
+
 function paginate<T>(items: T[], page: number, perPage: number): PaginatedResult<T, never> & { items: T[] } {
   const total = items.length;
   const total_pages = Math.max(1, Math.ceil(total / perPage));
@@ -71,6 +88,7 @@ function matchesSearch(query: string, ...fields: (string | null | undefined)[]) 
 }
 
 export async function queryDashboardEvents(params: {
+  userId?: string;
   organizerIds: string[];
   search?: string;
   status?: string;
@@ -81,6 +99,7 @@ export async function queryDashboardEvents(params: {
   perPage?: number;
 }): Promise<PaginatedResult<DashboardEventRow, DashboardEventStats>> {
   const {
+    userId,
     organizerIds,
     search = '',
     status = 'all',
@@ -99,26 +118,86 @@ export async function queryDashboardEvents(params: {
     revenue: 0,
   };
 
-  if (organizerIds.length === 0) {
+  const dateStart = getDateRangeStart(date);
+
+  let organizerEventsQuery = supabaseAdmin
+    .from('events')
+    .select(DASHBOARD_EVENT_COLUMNS);
+
+  if (dateStart) organizerEventsQuery = organizerEventsQuery.gte('created_at', dateStart);
+
+  const organizerEventsPromise =
+    organizerIds.length > 0
+      ? organizerEventsQuery.in('organizer_id', organizerIds)
+      : Promise.resolve({ data: [] as DashboardEventRecord[], error: null });
+
+  const membershipsPromise = userId
+    ? supabaseAdmin
+        .from('event_team_members')
+        .select('event_id, role')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+    : Promise.resolve({ data: [] as { event_id: string; role: EventTeamRole }[], error: null });
+
+  const [organizerEventsRes, membershipsRes] = await Promise.all([
+    organizerEventsPromise,
+    membershipsPromise,
+  ]);
+
+  if (organizerEventsRes.error) throw new Error(organizerEventsRes.error.message);
+  if (membershipsRes.error) throw new Error(membershipsRes.error.message);
+
+  const teamEventRoleMap = new Map<string, EventTeamRole>();
+  for (const m of membershipsRes.data ?? []) {
+    if (m.event_id && m.role) {
+      teamEventRoleMap.set(m.event_id, m.role as EventTeamRole);
+    }
+  }
+
+  const organizerEvents = (organizerEventsRes.data ?? []) as DashboardEventRecord[];
+  const organizerEventIds = new Set(organizerEvents.map((ev) => ev.id));
+  const teamOnlyEventIds = Array.from(teamEventRoleMap.keys()).filter((id) => !organizerEventIds.has(id));
+
+  let teamEvents: DashboardEventRecord[] = [];
+  if (teamOnlyEventIds.length > 0) {
+    let teamEventsQuery = supabaseAdmin
+      .from('events')
+      .select(DASHBOARD_EVENT_COLUMNS)
+      .in('id', teamOnlyEventIds);
+
+    if (dateStart) teamEventsQuery = teamEventsQuery.gte('created_at', dateStart);
+
+    const { data, error } = await teamEventsQuery;
+    if (error) throw new Error(error.message);
+    teamEvents = (data ?? []) as DashboardEventRecord[];
+  }
+
+  if (organizerEvents.length === 0 && teamEvents.length === 0) {
     return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
   }
 
-  const dateStart = getDateRangeStart(date);
-  let query = supabaseAdmin
-    .from('events')
-    .select('id, title, slug, event_date, status, visibility, created_at')
-    .in('organizer_id', organizerIds);
+  // Deduplicate events by id (prevents duplicate rows if user is organizer AND team member)
+  const eventMap = new Map<string, DashboardEventRecord>();
+  for (const ev of [...organizerEvents, ...teamEvents]) {
+    if (!eventMap.has(ev.id)) {
+      eventMap.set(ev.id, ev);
+    }
+  }
 
-  if (dateStart) query = query.gte('created_at', dateStart);
-
-  const { data: events, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const eventIds = (events ?? []).map((e) => e.id);
+  const uniqueEvents = Array.from(eventMap.values());
+  const eventIds = uniqueEvents.map((e) => e.id);
   const ticketMap = await getEventTicketMap(eventIds);
 
-  let rows: DashboardEventRow[] = (events ?? []).map((ev) => {
+  const organizerIdSet = new Set(organizerIds);
+
+  let rows: DashboardEventRow[] = uniqueEvents.map((ev) => {
     const tickets = ticketMap[ev.id] ?? { count: 0, revenue: 0 };
+    const isOwner =
+      (ev.organizer_id !== null && organizerIdSet.has(ev.organizer_id)) ||
+      (userId !== undefined && ev.user_id === userId);
+    const staffRole = teamEventRoleMap.get(ev.id);
+    const userRole = isOwner ? 'owner' : staffRole;
+
     return {
       id: ev.id,
       title: ev.title,
@@ -129,6 +208,8 @@ export async function queryDashboardEvents(params: {
       ticket_count: tickets.count,
       revenue: tickets.revenue,
       created_at: ev.created_at,
+      user_role: userRole,
+      is_staff: !isOwner && staffRole !== undefined,
     };
   });
 
@@ -179,19 +260,33 @@ export async function queryDashboardEvents(params: {
 }
 
 export async function getDashboardEventDetail(
+  userId: string,
   organizerIds: string[],
   eventId: string
 ): Promise<DashboardEventDetail | null> {
-  if (organizerIds.length === 0) return null;
-
   const { data: ev } = await supabaseAdmin
     .from('events')
-    .select('id, title, slug, event_date, status, visibility, created_at, category, city, description, organizer_id, organizers(name)')
+    .select('id, title, slug, event_date, status, visibility, created_at, category, city, description, organizer_id, user_id, organizers(name)')
     .eq('id', eventId)
-    .in('organizer_id', organizerIds)
     .maybeSingle();
 
   if (!ev) return null;
+
+  const isOwner = organizerIds.includes(ev.organizer_id) || ev.user_id === userId;
+  let staffRole: EventTeamRole | undefined;
+
+  if (!isOwner) {
+    const { data: membership } = await supabaseAdmin
+      .from('event_team_members')
+      .select('role')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    staffRole = membership?.role as EventTeamRole | undefined;
+    if (!staffRole) return null;
+  }
 
   const ticketMap = await getEventTicketMap([ev.id]);
   const tickets = ticketMap[ev.id] ?? { count: 0, revenue: 0 };
@@ -207,6 +302,8 @@ export async function getDashboardEventDetail(
     ticket_count: tickets.count,
     revenue: tickets.revenue,
     created_at: ev.created_at,
+    user_role: isOwner ? 'owner' : staffRole,
+    is_staff: !isOwner && staffRole !== undefined,
     category: ev.category,
     city: ev.city,
     description: ev.description,
@@ -421,14 +518,10 @@ export async function queryDashboardOrganizers(params: {
 
   const ids = (organizers ?? []).map((o) => o.id);
 
-  const [eventsRes, fundraisersRes, followsRes, ordersRes] = await Promise.all([
+  const [eventsRes, fundraisersRes, followsRes] = await Promise.all([
     supabaseAdmin.from('events').select('id, organizer_id').in('organizer_id', ids),
     supabaseAdmin.from('fundraisers').select('id, organizer_id, raised').in('organizer_id', ids),
     supabaseAdmin.from('organizer_follows').select('organizer_id').in('organizer_id', ids),
-    supabaseAdmin
-      .from('events')
-      .select('id, organizer_id')
-      .in('organizer_id', ids),
   ]);
 
   const events = eventsRes.data ?? [];

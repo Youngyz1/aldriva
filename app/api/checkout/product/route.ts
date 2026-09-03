@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { getSiteUrl } from "@/lib/site-url";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Database error creating order." }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const baseUrl = getSiteUrl();
 
     // 4. Create the Checkout Session carrying the order id in metadata, so
     // the webhook finds exactly this row instead of guessing.

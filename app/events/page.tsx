@@ -1,6 +1,7 @@
 import { getSiteUrl } from "@/lib/site-url";
 import type { Metadata } from "next";
 import EventsPageView, { type EventsPageFilters } from "@/app/events/EventsPageView";
+import { MarketingSection } from "@/components/footers";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -29,12 +30,17 @@ export default function EventsPage({
   // Suspense-wrapped dynamic components (EventsFilterHeader,
   // EventsResultsSection) rather than blocking this page from returning its
   // static shell.
+  // Events list is a public discovery surface → full marketing footer.
+  // Wrapped at the page level (NOT in an app/events/layout.tsx) so the
+  // event detail, edit, my-tickets and team flows keep their own tiers.
   return (
-    <EventsPageView
-      filters={searchParams}
-      showTrendingEvents
-      showHero
-      showCategoryIcons
-    />
+    <MarketingSection>
+      <EventsPageView
+        filters={searchParams}
+        showTrendingEvents
+        showHero
+        showCategoryIcons
+      />
+    </MarketingSection>
   );
 }

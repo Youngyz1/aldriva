@@ -10,8 +10,10 @@ import {
   Heart,
   Menu,
   Search,
+  Settings,
   ShoppingBag,
   Ticket,
+  UserRound,
   X,
   BookOpen,
 } from "lucide-react";
@@ -121,6 +123,7 @@ export default function Navbar() {
 
   const accountName = account?.displayName ?? "";
   const initials = accountName ? accountName.slice(0, 2).toUpperCase() : "";
+  const publicProfileHref = account ? `/profile/${account.id}` : "/login";
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -129,9 +132,9 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-2 px-3 sm:px-4 md:gap-4 md:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-1 px-2 sm:gap-2 sm:px-4 md:gap-4 md:px-6">
         <Link href="/" className="min-w-0 shrink text-zinc-950 sm:shrink-0">
-          <BrandMark className="[&>img]:h-10 [&>img]:max-w-[8.5rem] sm:[&>img]:h-14 sm:[&>img]:max-w-none" priority />
+          <BrandMark className="[&>img]:h-9 [&>img]:max-w-[7.75rem] sm:[&>img]:h-14 sm:[&>img]:max-w-none" priority />
         </Link>
 
         {/* Desktop search */}
@@ -170,7 +173,7 @@ export default function Navbar() {
           {account && <NotificationBell userId={account.id} />}
 
           {account ? (
-            <div className="relative" ref={accountRef}>
+            <div className="relative hidden sm:block" ref={accountRef}>
               <button
                 type="button"
                 onClick={() => setAccountOpen((o) => !o)}
@@ -194,11 +197,16 @@ export default function Navbar() {
                   <Link href="/dashboard" className="block px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
                     Dashboard
                   </Link>
-                  <Link href="/my-tickets" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
+                  <Link href="/events/my-tickets" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
                     <Ticket className="h-4 w-4" />
                     My tickets
                   </Link>
-                  <Link href="/dashboard/settings/profile" className="block px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
+                  <Link href={publicProfileHref} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
+                    <UserRound className="h-4 w-4" />
+                    View Profile
+                  </Link>
+                  <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
+                    <Settings className="h-4 w-4" />
                     Account settings
                   </Link>
                   <div className="my-1 border-t border-zinc-100" />
@@ -269,12 +277,18 @@ export default function Navbar() {
           </nav>
 
           {account ? (
-            <div className="grid gap-1 border-t border-zinc-100 pt-4">
+            <div className="mt-4 grid gap-1 border-t border-zinc-100 pt-4">
               <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50">
                 Dashboard
               </Link>
-              <Link href="/my-tickets" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+              <Link href="/events/my-tickets" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50">
                 My tickets
+              </Link>
+              <Link href={publicProfileHref} onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+                View Profile
+              </Link>
+              <Link href="/dashboard/settings/profile" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+                Account settings
               </Link>
               <button type="button" onClick={handleLogout} className="rounded-lg px-3 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-red-50">
                 Log out

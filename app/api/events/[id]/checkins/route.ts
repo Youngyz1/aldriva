@@ -9,16 +9,27 @@ export async function GET(
 ) {
   try {
     const { id: eventId } = await params;
-    const supabase = await createSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const admin = createSupabaseAdmin();
+
+    let user: { id: string } | null = null;
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7).trim();
+      const { data: authData } = await admin.auth.getUser(token);
+      if (authData?.user) user = authData.user;
+    }
+
+    if (!user) {
+      const supabase = await createSupabaseServer();
+      const { data: serverAuth } = await supabase.auth.getUser();
+      user = serverAuth?.user ?? null;
+    }
 
     if (!user) {
       return NextResponse.json({ error: "Not signed in." }, { status: 401 });
     }
 
-    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"]);
     if (!canManage) {
       return NextResponse.json(
         { error: "You do not have permission to view check-in analytics for this event." },
@@ -32,22 +43,20 @@ export async function GET(
     const search = searchParams.get("search")?.trim().toLowerCase() || "";
     const scannerId = searchParams.get("scanner_id") || "all";
 
-    const admin = createSupabaseAdmin();
-
-    // 1. Calculate Headline Stats
+    // 1. Calculate Headline Stats on ticket_instances
     const [{ count: totalSold }, { count: checkedIn }, { count: notArrived }] = await Promise.all([
       admin
-        .from("ticket_orders")
+        .from("ticket_instances")
         .select("*", { count: "exact", head: true })
         .eq("event_id", eventId)
         .in("status", ["valid", "used"]),
       admin
-        .from("ticket_orders")
+        .from("ticket_instances")
         .select("*", { count: "exact", head: true })
         .eq("event_id", eventId)
         .eq("status", "used"),
       admin
-        .from("ticket_orders")
+        .from("ticket_instances")
         .select("*", { count: "exact", head: true })
         .eq("event_id", eventId)
         .eq("status", "valid"),
@@ -58,10 +67,10 @@ export async function GET(
     const notArrivedCount = notArrived ?? 0;
     const attendanceRate = soldCount > 0 ? Math.round((checkedInCount / soldCount) * 100) : 0;
 
-    // 2. Fetch Scanner Breakdown
+    // 2. Fetch Scanner Breakdown from ticket_checkins
     const { data: checkinAudits } = await admin
       .from("ticket_checkins")
-      .select("scanned_by_user_id, ticket_order_id")
+      .select("scanned_by_user_id, ticket_instance_id, ticket_order_id")
       .eq("event_id", eventId);
 
     const auditMap: Record<string, string | null> = {};
@@ -69,7 +78,12 @@ export async function GET(
     let attributedTotal = 0;
 
     for (const audit of checkinAudits ?? []) {
-      auditMap[audit.ticket_order_id] = audit.scanned_by_user_id;
+      if (audit.ticket_instance_id) {
+        auditMap[audit.ticket_instance_id] = audit.scanned_by_user_id;
+      }
+      if (audit.ticket_order_id) {
+        auditMap[audit.ticket_order_id] = audit.scanned_by_user_id;
+      }
       if (audit.scanned_by_user_id) {
         scannerCounts[audit.scanned_by_user_id] = (scannerCounts[audit.scanned_by_user_id] || 0) + 1;
         attributedTotal++;
@@ -114,26 +128,31 @@ export async function GET(
 
     scannerBreakdown.sort((a, b) => b.count - a.count);
 
-    // 3. Query Filtered & Paginated Check-In History Table
+    // 3. Query Filtered & Paginated Check-In History Table on ticket_instances
     let historyQuery = admin
-      .from("ticket_orders")
-      .select("id, buyer_name, buyer_email, seat_label, quantity, total_amount, checked_in_at, qr_code", {
-        count: "exact",
-      })
+      .from("ticket_instances")
+      .select(`
+        id,
+        order_id,
+        ticket_id,
+        seat_label,
+        checked_in_at,
+        qr_code,
+        status,
+        ticket_orders (
+          buyer_name,
+          buyer_email,
+          total_amount
+        )
+      `, { count: "exact" })
       .eq("event_id", eventId)
       .eq("status", "used")
       .order("checked_in_at", { ascending: false });
 
-    if (search) {
-      historyQuery = historyQuery.or(
-        `buyer_name.ilike.%${search}%,buyer_email.ilike.%${search}%,qr_code.ilike.%${search}%`
-      );
-    }
-
     const from = (page - 1) * perPage;
     const to = from + perPage - 1;
 
-    const { data: historyOrders, count: totalHistoryCount, error: historyErr } = await historyQuery.range(
+    const { data: historyInstances, count: totalHistoryCount, error: historyErr } = await historyQuery.range(
       from,
       to
     );
@@ -142,22 +161,54 @@ export async function GET(
       return NextResponse.json({ error: historyErr.message }, { status: 500 });
     }
 
-    // Filter by scanner_id client-side/in-memory if scanner_id != 'all'
-    const enrichedHistory = (historyOrders ?? []).map((order) => {
-      const scannedById = auditMap[order.id] || null;
+    // Hydrate tier names for instances
+    const ticketIds = Array.from(new Set((historyInstances ?? []).map((i) => i.ticket_id).filter(Boolean)));
+    const { data: dbTickets } = ticketIds.length
+      ? await admin.from("tickets").select("id, name").in("id", ticketIds)
+      : { data: [] };
+
+    const ticketNameMap = new Map((dbTickets || []).map((t) => [t.id, t.name]));
+
+    // Enrich history instances with buyer information and scanner attribution
+    const enrichedHistory = (historyInstances ?? []).map((inst) => {
+      const orderData = inst.ticket_orders as any;
+      const scannedById = auditMap[inst.id] || (inst.order_id ? auditMap[inst.order_id] : null) || null;
+      const tierName = (inst.ticket_id ? ticketNameMap.get(inst.ticket_id) : null) || "Standard Entry";
+
       return {
-        ...order,
+        id: inst.id,
+        order_id: inst.order_id,
+        buyer_name: orderData?.buyer_name || "Guest",
+        buyer_email: orderData?.buyer_email || "",
+        tier_name: tierName,
+        seat_label: inst.seat_label,
+        quantity: 1,
+        total_amount: orderData?.total_amount || 0,
+        checked_in_at: inst.checked_in_at,
+        qr_code: inst.qr_code,
         scanned_by_id: scannedById,
         scanned_by_name: scannedById ? staffMap[scannedById]?.name || "Staff Member" : "Unattributed / Bulk",
       };
     });
 
+    // Client-side/in-memory filtering for search & scanner_id
+    let filteredHistory = enrichedHistory;
+    if (search) {
+      filteredHistory = filteredHistory.filter(
+        (h) =>
+          h.buyer_name.toLowerCase().includes(search) ||
+          h.buyer_email.toLowerCase().includes(search) ||
+          h.tier_name.toLowerCase().includes(search) ||
+          h.qr_code.toLowerCase().includes(search)
+      );
+    }
+
     const finalHistory =
       scannerId === "all"
-        ? enrichedHistory
+        ? filteredHistory
         : scannerId === "unattributed"
-        ? enrichedHistory.filter((h) => !h.scanned_by_id)
-        : enrichedHistory.filter((h) => h.scanned_by_id === scannerId);
+        ? filteredHistory.filter((h) => !h.scanned_by_id)
+        : filteredHistory.filter((h) => h.scanned_by_id === scannerId);
 
     const totalPages = Math.ceil((totalHistoryCount ?? 0) / perPage) || 1;
 
@@ -178,7 +229,7 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

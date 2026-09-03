@@ -3,6 +3,7 @@ import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { getDashboardAttendeeDetail } from '@/lib/dashboard-data';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { ENTITY_ROLES_CONTENT_WRITE } from '@/lib/entity-auth';
+import { getSiteUrl } from '@/lib/site-url';
 
 export async function POST(req: NextRequest) {
   const auth = await getDashboardApiContext();
@@ -50,8 +51,17 @@ export async function POST(req: NextRequest) {
   if (action === 'check_in') {
     let successCount = 0;
     for (const id of validIds) {
+      // Resolve ticket_instance ID (if order ID was passed)
+      const { data: inst } = await supabaseAdmin
+        .from('ticket_instances')
+        .select('id')
+        .or(`id.eq.${id},order_id.eq.${id}`)
+        .maybeSingle();
+
+      const targetInstanceId = inst?.id || id;
+
       const { error } = await supabaseAdmin.rpc('check_in_ticket', {
-        p_ticket_order_id: id,
+        p_ticket_instance_id: targetInstanceId,
         p_scanned_by_user_id: auth.ctx.userId,
       });
       if (!error || error.message?.includes('ALREADY_CHECKED_IN')) {
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
     for (const id of validIds) {
       const detail = await getDashboardAttendeeDetail(auth.ctx.organizerIds, id);
       if (!detail?.email) continue;
-      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'}/api/send-ticket`, {
+      await fetch(`${getSiteUrl()}/api/send-ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

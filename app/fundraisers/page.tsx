@@ -9,6 +9,7 @@ import FundraiserFeaturedTopics from "@/components/fundraisers/FundraiserFeature
 import TrustSection from "@/components/fundraisers/TrustSection";
 import { getSiteUrl } from "@/lib/site-url";
 import type { Metadata } from "next";
+import { MarketingSection } from "@/components/footers";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -66,7 +67,10 @@ export default function FundraisersPage({
 }: {
   searchParams: Promise<FundraisersPageFilters>;
 }) {
+  // Fundraisers list is a public discovery surface → full marketing
+  // footer. Page-level (NOT a segment layout) so detail/edit keep theirs.
   return (
+    <MarketingSection>
     <main className="min-h-screen bg-zinc-50 text-zinc-950 pb-16">
       {/* ── Hero: CMS-managed, same for every visitor regardless of filters —
           cached, part of the instant static shell. ── */}
@@ -100,5 +104,6 @@ export default function FundraisersPage({
       {/* ── Trust band (teal; FAQ + final CTA follow later, before the footer) ── */}
       <TrustSection />
     </main>
+    </MarketingSection>
   );
 }

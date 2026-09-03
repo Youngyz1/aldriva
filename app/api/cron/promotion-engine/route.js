@@ -2,6 +2,38 @@ import { getNextPromotion } from '../../../../lib/promotionEngine.js';
 import { generatePromotionCaption } from '../../../../lib/generateCaption.js';
 import { postToFacebook, postPhotoToFacebook } from '../../../../lib/facebook.js';
 import { isAuthorizedCronRequest } from '../../../../lib/cron-auth';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+/**
+ * Inserts an audit row into ai_content_items. Fire-and-forget — never throws,
+ * never blocks the publish path.
+ */
+async function recordAuditItem({ contentType, sourceId, snapshot, caption, provider }) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase.from('ai_content_items').insert({
+      content_type: contentType,
+      source_id: sourceId,
+      snapshot: snapshot || {},
+      ai_provider: provider || process.env.AI_PROVIDER_DEFAULT || 'gemini',
+      generated_text: caption,
+      guard_result: 'pass',
+      published: false,
+    });
+    if (error) console.error('[PromotionEngine] ai_content_items insert error:', error.message);
+    else console.log('[PromotionEngine] ai_content_items row recorded.');
+  } catch (err) {
+    console.error('[PromotionEngine] ai_content_items insert threw:', err.message);
+  }
+}
 
 /**
  * POST /api/cron/promotion-engine
@@ -53,6 +85,19 @@ export async function POST(request) {
       { status: 500 }
     );
   }
+
+  // 4a. Audit: record generated item in ai_content_items (fire-and-forget)
+  await recordAuditItem({
+    contentType: promotion.type,
+    sourceId: promotion.id,
+    snapshot: {
+      title: promotion.title,
+      description: promotion.description,
+      url: promotion.url,
+      image: promotion.image || null,
+    },
+    caption,
+  });
 
   // 4b. Check for Preview Mode
   const requestUrl = new URL(request.url);

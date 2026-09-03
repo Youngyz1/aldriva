@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
+import { getSiteUrl } from "@/lib/site-url";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -20,14 +22,186 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const ticketUrl = `${baseUrl}/ticket-confirmation?qr=${qrCode}&event=${eventSlug}${isFree ? "&free=true" : ""}`;
-    const verifyUrl = `${baseUrl}/verify/${qrCode}`;
+    const admin = createSupabaseAdmin();
+
+    // 1. Fetch all orders linked to this purchase (by id, qr_code, instance qr_code, or stripe_payment_intent_id)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCode);
+
+    let orders: any[] | null = null;
+    let paymentIntentId: string | null = null;
+
+    if (qrCode.startsWith("pi_")) {
+      paymentIntentId = qrCode;
+    } else if (isUuid) {
+      // First check if qrCode is a ticket_orders.id
+      const { data: byOrderId } = await admin
+        .from("ticket_orders")
+        .select("id, stripe_payment_intent_id, ticket_id, seat_label, buyer_name, buyer_email, event_id")
+        .eq("id", qrCode);
+
+      if (byOrderId && byOrderId.length > 0) {
+        orders = byOrderId;
+        paymentIntentId = byOrderId[0].stripe_payment_intent_id;
+      } else {
+        // Next check if qrCode belongs to a ticket_instance
+        const { data: inst } = await admin
+          .from("ticket_instances")
+          .select("order_id")
+          .eq("qr_code", qrCode)
+          .maybeSingle();
+
+        if (inst?.order_id) {
+          const { data: byInstOrder } = await admin
+            .from("ticket_orders")
+            .select("id, stripe_payment_intent_id, ticket_id, seat_label, buyer_name, buyer_email, event_id")
+            .eq("id", inst.order_id);
+          orders = byInstOrder;
+          paymentIntentId = byInstOrder?.[0]?.stripe_payment_intent_id || null;
+        }
+      }
+    } else {
+      // Legacy order qr_code check
+      const { data: byLegacyQr } = await admin
+        .from("ticket_orders")
+        .select("id, stripe_payment_intent_id, ticket_id, seat_label, buyer_name, buyer_email, event_id")
+        .eq("qr_code", qrCode);
+      orders = byLegacyQr;
+      paymentIntentId = byLegacyQr?.[0]?.stripe_payment_intent_id || null;
+    }
+
+    // If paymentIntentId exists, fetch all orders grouped by paymentIntentId
+    if (paymentIntentId) {
+      const { data: groupedOrders } = await admin
+        .from("ticket_orders")
+        .select("id, stripe_payment_intent_id, ticket_id, seat_label, buyer_name, buyer_email, event_id")
+        .eq("stripe_payment_intent_id", paymentIntentId);
+      if (groupedOrders && groupedOrders.length > 0) {
+        orders = groupedOrders;
+      }
+    }
+
+    const orderIds = (orders || []).map((o) => o.id);
+    let instances: Array<{ id: string; qr_code: string; status: string; tier_name: string }> = [];
+
+    if (orderIds.length > 0) {
+      const { data: instData } = await admin
+        .from("ticket_instances")
+        .select("id, qr_code, status, order_id, ticket_id")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: true });
+
+      if (instData && instData.length > 0) {
+        // Hydrate ticket tier names directly from tickets table using ticket_instances.ticket_id
+        const ticketIds = Array.from(new Set(instData.map((i) => i.ticket_id).filter(Boolean)));
+        const { data: dbTickets } = ticketIds.length
+          ? await admin.from("tickets").select("id, name").in("id", ticketIds)
+          : { data: [] };
+
+        const ticketNameMap = new Map((dbTickets || []).map((t) => [t.id, t.name]));
+
+        instances = instData.map((inst) => {
+          const tierName = (inst.ticket_id ? ticketNameMap.get(inst.ticket_id) : null) || "Standard Entry";
+
+          return {
+            id: inst.id,
+            qr_code: inst.qr_code,
+            status: inst.status,
+            tier_name: tierName,
+          };
+        });
+      }
+    }
+
+    // Fallback if instances array is empty (e.g. legacy row or direct test call)
+    if (instances.length === 0) {
+      instances = [{ id: qrCode, qr_code: qrCode, status: "valid", tier_name: "Standard Entry" }];
+    }
+
+    // Fetch event title and slug if available
+    let resolvedEventTitle = eventTitle || "Event";
+    let resolvedEventSlug = eventSlug || "";
+
+    if (orders && orders[0]?.event_id) {
+      const { data: eventData } = await admin
+        .from("events")
+        .select("title, slug")
+        .eq("id", orders[0].event_id)
+        .maybeSingle();
+
+      if (eventData) {
+        resolvedEventTitle = eventData.title || resolvedEventTitle;
+        resolvedEventSlug = eventData.slug || resolvedEventSlug;
+      }
+    }
+
+    const baseUrl = getSiteUrl();
+    const primaryOrder = orders?.[0];
+    const totalCount = instances.length;
+
+    // Render individual ticket cards for each instance
+    const ticketCardsHtml = instances
+      .map((inst, index) => {
+        const verifyUrl = `${baseUrl}/verify/${inst.qr_code}`;
+        const ticketUrl = `${baseUrl}/ticket-confirmation?qr=${inst.qr_code}&event=${resolvedEventSlug}${isFree ? "&free=true" : ""}`;
+        const ticketNum = index + 1;
+
+        return `
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:2px dashed #e4e4e7;border-radius:14px;margin-bottom:24px;overflow:hidden;">
+            <tr>
+              <td style="padding:20px;background:#f4f4f5;border-bottom:1px solid #e4e4e7;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td>
+                      <span style="display:inline-block;background:#ea580c;color:#ffffff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">
+                        ${inst.tier_name}
+                      </span>
+                    </td>
+                    <td align="right" style="color:#71717a;font-size:12px;font-weight:700;">
+                      Ticket ${ticketNum} of ${totalCount}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;text-align:center;">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}"
+                  alt="Ticket QR Code"
+                  width="180"
+                  height="180"
+                  style="border-radius:8px;"
+                />
+                <p style="margin:12px 0 4px;color:#a1a1aa;font-size:11px;font-family:monospace;letter-spacing:2px;">
+                  ${inst.qr_code.match(/.{1,8}/g)?.join(" ") || inst.qr_code}
+                </p>
+                <div style="margin-top:16px;">
+                  <a href="${ticketUrl}"
+                    style="display:inline-block;background:#18181b;color:#ffffff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:30px;text-decoration:none;">
+                    View Digital Pass →
+                  </a>
+                </div>
+              </td>
+            </tr>
+          </table>
+        `;
+      })
+      .join("");
+
+    if (!process.env.RESEND_API_KEY) {
+      console.warn("[send-ticket] RESEND_API_KEY is not configured; skipping email dispatch.");
+      return NextResponse.json({
+        success: true,
+        count: totalCount,
+        mock: true,
+        instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
+      });
+    }
 
     const { error } = await resend.emails.send({
       from: `${BRAND.name} <${BRAND.contactEmail}>`,
       to: buyerEmail,
-      subject: `Your ticket for ${eventTitle} 🎟️`,
+      subject: `Your ${totalCount > 1 ? `${totalCount} tickets` : "ticket"} for ${resolvedEventTitle} 🎟️`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -39,12 +213,12 @@ export async function POST(req: NextRequest) {
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
             <tr>
               <td align="center">
-                <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+                <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
                   <!-- Header -->
                   <tr>
-                    <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:32px;text-align:center;">
-                      <p style="margin:0;color:#fed7aa;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Aldriva</p>
+                    <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:36px;text-align:center;">
+                      <p style="margin:0;color:#fed7aa;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Aldriva Events</p>
                       <h1 style="margin:8px 0 0;color:#ffffff;font-size:28px;font-weight:900;">You're In! 🎉</h1>
                     </td>
                   </tr>
@@ -53,47 +227,19 @@ export async function POST(req: NextRequest) {
                   <tr>
                     <td style="padding:32px;">
                       <p style="margin:0 0 8px;color:#71717a;font-size:14px;">
-                        Hi ${buyerName || "there"},
+                        Hi ${buyerName || primaryOrder?.buyer_name || "there"},
                       </p>
                       <p style="margin:0 0 24px;color:#18181b;font-size:16px;line-height:1.6;">
-                        Your ${isFree ? "free " : ""}ticket for <strong>${eventTitle}</strong> is confirmed.
-                        ${seatLabel ? `Your seat: <strong>${seatLabel}</strong>.` : ""}
+                        Your purchase of <strong>${totalCount}</strong> ${totalCount > 1 ? "tickets" : "ticket"} for <strong>${resolvedEventTitle}</strong> is confirmed.
+                        ${seatLabel ? `Seat assignment: <strong>${seatLabel}</strong>.` : ""}
                       </p>
 
-                      <!-- Ticket box -->
-                      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:2px dashed #e4e4e7;border-radius:12px;margin-bottom:24px;">
-                        <tr>
-                          <td style="padding:24px;text-align:center;">
-                            <p style="margin:0 0 12px;color:#71717a;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Your QR Code</p>
-                            <img
-                              src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}"
-                              alt="Ticket QR Code"
-                              width="200"
-                              height="200"
-                              style="border-radius:8px;"
-                            />
-                            <p style="margin:12px 0 0;color:#a1a1aa;font-size:11px;font-family:monospace;letter-spacing:2px;">
-                              ${qrCode.match(/.{1,8}/g)?.join(" ")}
-                            </p>
-                          </td>
-                        </tr>
-                      </table>
+                      <!-- Individual Ticket Cards -->
+                      ${ticketCardsHtml}
 
-                      <!-- CTA -->
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td align="center" style="padding-bottom:24px;">
-                            <a href="${ticketUrl}"
-                              style="display:inline-block;background:#f97316;color:#ffffff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:50px;text-decoration:none;">
-                              View My Ticket
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <p style="margin:0;color:#71717a;font-size:13px;line-height:1.6;text-align:center;">
-                        Show this QR code at the door for entry.<br/>
-                        <strong style="color:#18181b;">Do not share this code with others.</strong>
+                      <p style="margin:24px 0 0;color:#71717a;font-size:13px;line-height:1.6;text-align:center;">
+                        Present each ticket's unique QR code at entry.<br/>
+                        <strong style="color:#18181b;">Each QR code can only be scanned once.</strong>
                       </p>
                     </td>
                   </tr>
@@ -117,13 +263,25 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.warn("[send-ticket] Resend returned error (returning mock success in dev):", error.message);
+      if (process.env.NODE_ENV !== "production") {
+        return NextResponse.json({
+          success: true,
+          count: totalCount,
+          devError: error.message,
+          instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
+        });
+      }
       return NextResponse.json({ error: "Failed to send email." }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      count: totalCount,
+      instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
+    });
   } catch (err) {
-    console.error("Send ticket error:", err);
+    console.error("[send-ticket] Send ticket error:", err);
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }

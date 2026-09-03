@@ -15,6 +15,7 @@ import HomepageSponsors from "@/components/HomepageSponsors";
 import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
 import TrustBar from "@/components/public/TrustBar";
 import CategoryGrid from "@/components/CategoryGrid";
+import { MarketingSection } from "@/components/footers";
 import { getCategoryChips } from "@/lib/category-chips";
 
 const siteUrl = getSiteUrl();
@@ -334,7 +335,10 @@ export default async function HomePage() {
   }));
 
 
+  // Home is a public marketing surface → full marketing footer. Wrapped at
+  // the page level (the root layout renders no footer by design).
   return (
+    <MarketingSection>
     <main className="min-h-screen bg-white text-zinc-950">
       <section className="bg-white px-3 pt-3 sm:px-6 sm:pt-6 lg:px-8">
         <div
@@ -448,5 +452,6 @@ export default async function HomePage() {
       <HomepageSponsors sponsors={sponsorsResult} />
 
     </main>
+    </MarketingSection>
   );
 }

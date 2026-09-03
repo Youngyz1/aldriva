@@ -41,6 +41,12 @@ export const RATE_LIMITS = {
    * TTS audio synthesis endpoint. Prevents abuse/spam generation calls to NVIDIA.
    */
   articleAudioGenerate: { limit: 10, windowSeconds: 3600 },
+
+  /**
+   * Guest order lookup. Requires order ID/QR + buyer email. Tight rate limit
+   * to prevent order ID / QR code enumeration or brute-force attacks.
+   */
+  guestLookup: { limit: 10, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Database error creating order." }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || getSiteUrl();
+    const baseUrl = getSiteUrl();
     // TODO(products): /crypto-pending and /api/crypto/status don't know
     // about the "product" kind yet — a confirmed product order will render
     // a misleading donation/ticket-shaped page here. See ADR 0001 §10. Not

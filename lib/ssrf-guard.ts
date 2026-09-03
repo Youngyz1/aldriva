@@ -222,7 +222,7 @@ export async function safeFetchHtml(rawUrl: string): Promise<SafeFetchResult> {
       redirect: "manual",
       headers: {
         "User-Agent": "Mozilla/5.0 AldrivaImporter/1.0",
-        Accept: "text/html,application/xhtml+xml",
+        Accept: "text/html,application/xhtml+xml,application/xml,text/xml,application/rss+xml,application/atom+xml",
       },
       signal: deadline,
     });
@@ -241,9 +241,18 @@ export async function safeFetchHtml(rawUrl: string): Promise<SafeFetchResult> {
       throw new SsrfBlockedError(`Could not fetch page: ${response.status}`);
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html")) {
-      throw new SsrfBlockedError("URL did not return an HTML page.");
+    const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+    const isAllowedContentType = [
+      "text/html",
+      "application/xhtml+xml",
+      "application/xml",
+      "text/xml",
+      "application/rss+xml",
+      "application/atom+xml",
+    ].some((type) => contentType.includes(type));
+
+    if (!isAllowedContentType) {
+      throw new SsrfBlockedError("URL did not return an HTML or XML/RSS page.");
     }
 
     // Stream with a running byte cap so a huge or endless body cannot exhaust

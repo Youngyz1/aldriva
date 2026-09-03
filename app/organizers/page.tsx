@@ -5,6 +5,7 @@ import OrganizersDirectory, {
   type OrganizersPageFilters,
 } from "@/app/organizers/OrganizersDirectory";
 import type { Metadata } from "next";
+import { MarketingSection } from "@/components/footers";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -58,7 +59,11 @@ export default function OrganizersDirectoryPage({
 }: {
   searchParams: Promise<OrganizersPageFilters>;
 }) {
+  // Organizations directory is a public discovery surface → full
+  // marketing footer. Page-level (NOT a segment layout) so the [id]
+  // detail and edit flows keep their own tiers.
   return (
+    <MarketingSection>
     <main className="min-h-screen bg-zinc-50 text-zinc-950 pb-16">
       {/* ── Hero: CMS-managed copy + site-wide stats, same for every visitor
           regardless of filters — cached, part of the instant static shell. ── */}
@@ -73,5 +78,6 @@ export default function OrganizersDirectoryPage({
         </Suspense>
       </div>
     </main>
+    </MarketingSection>
   );
 }

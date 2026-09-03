@@ -26,6 +26,8 @@ import {
   ScrollText,
   ArrowLeft,
   Star,
+  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 
 type NavItem = {
@@ -71,6 +73,13 @@ const navGroups: NavGroup[] = [
       { label: "Testimonials", href: "/admin/homepage?tab=testimonials", icon: MessageSquareQuote },
       { label: "Sponsors",     href: "/admin/homepage?tab=sponsors",     icon: Handshake },
       { label: "Reviews",      href: "/admin/reviews",     icon: Star },
+    ],
+  },
+  {
+    label: "AI Studio",
+    items: [
+      { label: "Growth Studio",     href: "/admin/ai",           icon: Sparkles },
+      { label: "Guard Rejections",  href: "/admin/ai/rejections", icon: ShieldAlert },
     ],
   },
   {

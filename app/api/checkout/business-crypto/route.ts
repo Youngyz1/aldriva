@@ -64,8 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || getSiteUrl();
+    const baseUrl = getSiteUrl();
     const orderId = crypto.randomUUID();
     const successUrl = `${baseUrl}/crypto-pending?orderId=${orderId}&kind=business`;
     const cancelUrl = `${baseUrl}/dashboard/businesses?cancelled=true`;

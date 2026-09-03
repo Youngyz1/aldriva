@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSiteUrl } from "@/lib/site-url";
 
 // Service role: bypasses RLS — admin operations only
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const amount = Math.round(Number(ticketPrice) * 100);
     const safeQuantity = Math.max(1, Number(quantity) || 1);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const baseUrl = getSiteUrl();
 
     if (!eventSlug || !ticketName || !Number.isFinite(amount) || amount < 0) {
       return NextResponse.json({ error: "Invalid checkout details." }, { status: 400 });

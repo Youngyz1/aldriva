@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 
-// Service role: bypasses RLS — admin operations only
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set — server misconfiguration.");
 }
@@ -13,7 +12,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function getCurrentUserId() {
+async function getCurrentUserId(req: NextRequest) {
+  // Check Authorization Bearer header first (useful for API & scanner tests)
+  const authHeader = req.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    if (user) return user.id;
+  }
+
   const supabase = await createSupabaseServer();
   const {
     data: { user },
@@ -27,15 +34,84 @@ async function canManageEvent(userId: string | null, eventId: string | null) {
   return await hasEventOrOrganizerAccess(userId, eventId);
 }
 
-// GET /api/verify-ticket?code=XXXXX — look up ticket status
-export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
+// Helper to look up ticket_instance (or legacy ticket_order) by QR code
+async function findTicketByCode(code: string) {
+  // 1. Try querying ticket_instances first
+  const { data: inst } = await supabaseAdmin
+    .from("ticket_instances")
+    .select(`
+      id,
+      order_id,
+      event_id,
+      ticket_id,
+      seat_label,
+      qr_code,
+      status,
+      checked_in_at,
+      created_at,
+      ticket_orders (
+        id,
+        buyer_name,
+        buyer_email,
+        total_amount,
+        quantity
+      ),
+      events (
+        title,
+        event_date,
+        venue,
+        city,
+        banner
+      )
+    `)
+    .eq("qr_code", code)
+    .maybeSingle();
 
-  if (!code) {
-    return NextResponse.json({ error: "No code provided." }, { status: 400 });
+  if (inst) {
+    let tierName = "Standard Entry";
+    if (inst.ticket_id) {
+      const { data: t } = await supabaseAdmin
+        .from("tickets")
+        .select("name")
+        .eq("id", inst.ticket_id)
+        .maybeSingle();
+      if (t?.name) tierName = t.name;
+    }
+
+    const orderData = inst.ticket_orders as any;
+    const eventData = inst.events as any;
+
+    return {
+      instanceId: inst.id,
+      orderId: inst.order_id,
+      eventId: inst.event_id,
+      qrCode: inst.qr_code,
+      status: inst.status,
+      checkedInAt: inst.checked_in_at,
+      seatLabel: inst.seat_label,
+      tierName,
+      buyerName: orderData?.buyer_name || null,
+      buyerEmail: orderData?.buyer_email || null,
+      order: {
+        id: inst.order_id,
+        instance_id: inst.id,
+        status: inst.status,
+        seat_label: inst.seat_label,
+        quantity: 1,
+        tier_name: tierName,
+        buyer_name: orderData?.buyer_name || null,
+        buyer_email: orderData?.buyer_email || null,
+        total_amount: orderData?.total_amount || 0,
+        created_at: inst.created_at,
+        checked_in_at: inst.checked_in_at,
+        event_id: inst.event_id,
+        events: eventData || null,
+      },
+    };
   }
 
-  const { data: order, error } = await supabaseAdmin
+  // 2. Legacy fallback to ticket_orders.qr_code
+  const { data: legacyOrder } = await supabaseAdmin
     .from("ticket_orders")
     .select(`
       id,
@@ -48,6 +124,7 @@ export async function GET(req: NextRequest) {
       created_at,
       checked_in_at,
       event_id,
+      ticket_id,
       events (
         title,
         event_date,
@@ -57,18 +134,78 @@ export async function GET(req: NextRequest) {
       )
     `)
     .eq("qr_code", code)
-    .single();
+    .maybeSingle();
 
-  if (error || !order) {
+  if (!legacyOrder) return null;
+
+  // Check if ticket_instances row exists for this legacy order
+  const { data: legacyInst } = await supabaseAdmin
+    .from("ticket_instances")
+    .select("id, status, checked_in_at")
+    .eq("order_id", legacyOrder.id)
+    .maybeSingle();
+
+  let tierName = "Standard Entry";
+  if (legacyOrder.ticket_id) {
+    const { data: t } = await supabaseAdmin
+      .from("tickets")
+      .select("name")
+      .eq("id", legacyOrder.ticket_id)
+      .maybeSingle();
+    if (t?.name) tierName = t.name;
+  }
+
+  const eventData = legacyOrder.events as any;
+
+  return {
+    instanceId: legacyInst?.id || legacyOrder.id,
+    orderId: legacyOrder.id,
+    eventId: legacyOrder.event_id,
+    qrCode: code,
+    status: legacyInst?.status || legacyOrder.status,
+    checkedInAt: legacyInst?.checked_in_at || legacyOrder.checked_in_at,
+    seatLabel: legacyOrder.seat_label,
+    tierName,
+    buyerName: legacyOrder.buyer_name || null,
+    buyerEmail: legacyOrder.buyer_email || null,
+    order: {
+      id: legacyOrder.id,
+      instance_id: legacyInst?.id || legacyOrder.id,
+      status: legacyInst?.status || legacyOrder.status,
+      seat_label: legacyOrder.seat_label,
+      quantity: legacyOrder.quantity,
+      tier_name: tierName,
+      buyer_name: legacyOrder.buyer_name || null,
+      buyer_email: legacyOrder.buyer_email || null,
+      total_amount: legacyOrder.total_amount || 0,
+      created_at: legacyOrder.created_at,
+      checked_in_at: legacyInst?.checked_in_at || legacyOrder.checked_in_at,
+      event_id: legacyOrder.event_id,
+      events: eventData || null,
+    },
+  };
+}
+
+// GET /api/verify-ticket?code=XXXXX — look up ticket status
+export async function GET(req: NextRequest) {
+  const code = req.nextUrl.searchParams.get("code");
+
+  if (!code) {
+    return NextResponse.json({ error: "No code provided." }, { status: 400 });
+  }
+
+  const ticketData = await findTicketByCode(code);
+
+  if (!ticketData) {
     return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
   }
 
-  const userId = await getCurrentUserId();
-  const canCheckIn = await canManageEvent(userId, order.event_id);
+  const userId = await getCurrentUserId(req);
+  const canCheckIn = await canManageEvent(userId, ticketData.eventId);
 
   return NextResponse.json({
-    valid: order.status === "valid",
-    order,
+    valid: ticketData.status === "valid",
+    order: ticketData.order,
     authenticated: Boolean(userId),
     can_check_in: canCheckIn,
   });
@@ -87,30 +224,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No code provided." }, { status: 400 });
     }
 
-    const { data: order } = await supabaseAdmin
-      .from("ticket_orders")
-      .select("id, status, event_id")
-      .eq("qr_code", code)
-      .single();
+    const ticketData = await findTicketByCode(code);
 
-    if (!order) {
+    if (!ticketData) {
       return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
     }
 
-    if (eventId && order.event_id !== eventId) {
+    if (eventId && ticketData.eventId !== eventId) {
       return NextResponse.json(
         {
           success: false,
           error: "WRONG_EVENT",
           message: "This ticket belongs to a different event.",
           status: "wrong_event",
+          order: ticketData.order,
         },
         { status: 400 }
       );
     }
 
     if (action === "checkin") {
-      const userId = await getCurrentUserId();
+      const userId = await getCurrentUserId(req);
 
       if (!userId) {
         return NextResponse.json(
@@ -119,7 +253,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const canCheckIn = await canManageEvent(userId, order.event_id);
+      const canCheckIn = await canManageEvent(userId, ticketData.eventId);
 
       if (!canCheckIn) {
         return NextResponse.json(
@@ -128,9 +262,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Call atomic check_in_ticket RPC with scanner user attribution
+      // Call atomic check_in_ticket RPC with ticket_instance_id and scanner user attribution
       const { error: rpcError } = await supabaseAdmin.rpc("check_in_ticket", {
-        p_ticket_order_id: order.id,
+        p_ticket_instance_id: ticketData.instanceId,
         p_scanned_by_user_id: userId,
       });
 
@@ -141,6 +275,7 @@ export async function POST(req: NextRequest) {
             success: false,
             message: "Ticket already used.",
             status: "used",
+            order: ticketData.order,
           });
         }
         if (msg.includes("TICKET_CANCELLED")) {
@@ -148,6 +283,7 @@ export async function POST(req: NextRequest) {
             success: false,
             message: "Ticket is cancelled.",
             status: "cancelled",
+            order: ticketData.order,
           });
         }
         if (msg.includes("TICKET_REFUNDED")) {
@@ -155,6 +291,7 @@ export async function POST(req: NextRequest) {
             success: false,
             message: "Ticket is refunded.",
             status: "refunded",
+            order: ticketData.order,
           });
         }
         if (msg.includes("TICKET_NOT_FOUND")) {
@@ -170,6 +307,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: "Ticket checked in successfully!",
         status: "used",
+        order: { ...ticketData.order, status: "used", checked_in_at: new Date().toISOString() },
       });
     }
 
@@ -179,4 +317,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

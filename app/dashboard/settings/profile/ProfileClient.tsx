@@ -119,6 +119,7 @@ export default function ProfileClient({
       const { error: dbError } = await supabase
         .from("profiles")
         .update({
+          display_name: nextDisplayName || null,
           account_info: accountInfo,
           profile_photo: nextPhoto || null,
         })

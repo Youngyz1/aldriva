@@ -119,14 +119,32 @@ export default function VerificationWizardClient({
     setUploadError(null);
 
     try {
-      // 1. Get signed upload URL from API
+      let activeSubId = submission?.id;
+      if (!activeSubId) {
+        // Ensure a draft submission row exists in DB to get its UUID
+        const draftRes = await fetch(`/api/organizer-verification/${organizer.id}/draft`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documents, submitter_notes: notes }),
+        });
+        const draftData = await draftRes.json();
+        if (draftRes.ok && draftData.submission) {
+          setSubmission(draftData.submission);
+          activeSubId = draftData.submission.id;
+        } else {
+          throw new Error(draftData.error ?? "Failed to initialize submission draft.");
+        }
+      }
+
+      // 1. Get signed upload URL from API using activeSubId
       const res = await fetch(`/api/organizer-verification/${organizer.id}/upload-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           doc_type: reqItem.type,
           fileName: file.name,
-          submission_id: submission?.id,
+          fileSize: file.size,
+          submission_id: activeSubId,
         }),
       });
 

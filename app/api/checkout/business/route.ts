@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const baseUrl = getSiteUrl();
 
     // 3. Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({

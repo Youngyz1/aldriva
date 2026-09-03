@@ -57,9 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      getSiteUrl();
+    const baseUrl = getSiteUrl();
     const ipnCallbackUrl = `${baseUrl}/api/crypto/webhook`;
 
     // Create NOWPayments invoice

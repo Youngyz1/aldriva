@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
-  const event = await getDashboardEventDetail(auth.ctx.organizerIds, id);
+  const event = await getDashboardEventDetail(auth.ctx.userId, auth.ctx.organizerIds, id);
   if (!event) {
     return NextResponse.json({ error: 'Event not found.' }, { status: 404 });
   }
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const { error } = await supabaseAdmin.from('events').update(updates).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const event = await getDashboardEventDetail(auth.ctx.organizerIds, id);
+  const event = await getDashboardEventDetail(auth.ctx.userId, auth.ctx.organizerIds, id);
   return NextResponse.json({ event });
 }
 

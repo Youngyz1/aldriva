@@ -291,7 +291,7 @@ export default function FindTicketsPage() {
           {activeTab === "email" ? (
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-2">Email Address</label>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="email"
                   required
@@ -303,7 +303,7 @@ export default function FindTicketsPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-orange-600 hover:bg-orange-700 disabled:bg-orange-300 text-white px-6 py-3 rounded-xl text-sm font-black transition shadow-md shadow-orange-500/10 shrink-0"
+                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white shadow-md shadow-orange-500/10 transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
                 >
                   {loading ? "Searching..." : "Retrieve Tickets"}
                 </button>
@@ -312,7 +312,7 @@ export default function FindTicketsPage() {
           ) : (
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-2">Order ID / Ticket Reference</label>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   required
@@ -324,7 +324,7 @@ export default function FindTicketsPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-orange-600 hover:bg-orange-700 disabled:bg-orange-300 text-white px-6 py-3 rounded-xl text-sm font-black transition shadow-md shadow-orange-500/10 shrink-0"
+                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white shadow-md shadow-orange-500/10 transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
                 >
                   {loading ? "Searching..." : "Retrieve Tickets"}
                 </button>
@@ -371,7 +371,7 @@ export default function FindTicketsPage() {
         <div className="mt-12 text-center space-y-2 border-t border-zinc-200 pt-8">
           <p className="text-zinc-500 text-xs sm:text-sm">
             Have an Aldriva account?{" "}
-            <Link href="/my-tickets" className="text-orange-600 font-black hover:underline">
+            <Link href="/events/my-tickets" className="text-orange-600 font-black hover:underline">
               Sign In to View All Tickets
             </Link>
           </p>

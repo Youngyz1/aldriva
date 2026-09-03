@@ -8,6 +8,7 @@ import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
+import { getSiteUrl } from "@/lib/site-url";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -17,8 +18,8 @@ const supabaseAdmin = createClient(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function baseUrl(req: NextRequest) {
-  return process.env.NEXT_PUBLIC_BASE_URL ?? req.nextUrl.origin;
+function baseUrl() {
+  return getSiteUrl();
 }
 
 const uuidPattern =
@@ -402,14 +403,13 @@ async function handlePaymentIntentSucceeded(
 
   // ── Ticket order (inline PaymentElement flow) ─────────────────────────────
   if (kind === "ticket") {
-    const { event_id, qr_code } = meta;
+    const { event_id } = meta;
 
-    if (!event_id || !qr_code) {
-      console.error("[webhook] Ticket intent missing event_id or qr_code:", meta);
+    if (!event_id) {
+      console.error("[webhook] Ticket intent missing event_id:", meta);
       return;
     }
 
-    const qty = parseInt(meta.quantity) || 1;
     const totalAmount = parseFloat(meta.total_amount) || pi.amount / 100;
     const currency = meta.currency ?? pi.currency ?? "usd";
 
@@ -429,6 +429,36 @@ async function handlePaymentIntentSucceeded(
 
     type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
 
+    // Parse multi-tier line items if present, or fall back to single tier from metadata
+    let lineItems: Array<{
+      ticket_id: string;
+      ticket_name: string;
+      quantity: number;
+      total_amount: number;
+    }> = [];
+
+    if (meta.items_json) {
+      try {
+        lineItems = JSON.parse(meta.items_json);
+      } catch (err) {
+        console.error("[webhook] Failed to parse items_json metadata:", err);
+      }
+    }
+
+    if (lineItems.length === 0) {
+      lineItems = [
+        {
+          ticket_id: meta.ticket_id || "",
+          ticket_name: meta.ticket_name || "",
+          quantity: parseInt(meta.quantity) || 1,
+          total_amount: totalAmount,
+        },
+      ];
+    }
+
+    const totalQty =
+      lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0) || 1;
+
     const rpcResult = await supabaseAdmin
       .rpc("record_ticket_and_credit", {
         p_event_id: meta.event_id,
@@ -437,12 +467,13 @@ async function handlePaymentIntentSucceeded(
         p_seat_label: meta.seat_label || null,
         p_buyer_email: recipientEmail,
         p_buyer_name: recipientName || null,
-        p_quantity: qty,
+        p_quantity: totalQty,
         p_total_amount: totalAmount,
         p_currency: currency,
-        p_qr_code: qr_code,
+        p_qr_code: null, // Null for post-cutover orders per design
         p_stripe_payment_intent_id: pi.id,
         p_stripe_session_id: null,
+        p_items_json: lineItems.length > 0 ? lineItems : null,
       })
       .returns<TicketRpcRow[]>();
 
@@ -467,14 +498,14 @@ async function handlePaymentIntentSucceeded(
       return;
     }
 
-    const { ticket_order_id: ticketOrderId, is_new: isNewTicket } = resultRow;
-
-    if (!isNewTicket) {
-      console.log(`[webhook] Ticket order already exists for qr_code/intent (id=${ticketOrderId}), skipping downstream.`);
+    if (!resultRow.is_new) {
+      console.log(`[webhook] Ticket purchase already processed for intent pi=${pi.id}, skipping downstream.`);
       return;
     }
 
-    console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} pi=${pi.id}`);
+    const primaryOrderId = resultRow.ticket_order_id;
+
+    console.log(`[webhook] Ticket recorded & credited (new) primaryId=${primaryOrderId} pi=${pi.id}`);
 
     if (meta.seat_id) {
       await supabaseAdmin
@@ -489,20 +520,20 @@ async function handlePaymentIntentSucceeded(
         buyerName: recipientName,
         eventTitle: meta.event_title || "",
         eventSlug: meta.event_slug || "",
-        qrCode: qr_code,
+        qrCode: primaryOrderId || "", // Pass order ID / PI reference to sendTicketEmail
         seatLabel: meta.seat_label || null,
         isFree: false,
-        base: baseUrl(req),
+        base: baseUrl(),
       });
     }
 
     await notifyOrganizerOfTicketPurchase({
       eventId: event_id,
       buyerName: recipientName,
-      quantity: qty,
+      quantity: totalQty,
       totalAmount,
       currency,
-      base: baseUrl(req),
+      base: baseUrl(),
     });
 
     return;
@@ -675,7 +706,7 @@ async function handlePaymentIntentSucceeded(
       amount:       parseFloat(meta.donation_amount) || pi.amount / 100,
       currency:     (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
       message:      meta.message || null,
-      base:         baseUrl(req),
+      base:         baseUrl(),
     });
 
     return;
@@ -716,7 +747,7 @@ async function handleCheckoutSessionCompleted(
           amount: Number(donation.amount),
           currency: donation.currency || "USD",
           message: donation.message || null,
-          base: baseUrl(req),
+          base: baseUrl(),
         });
       }
     }
@@ -890,7 +921,7 @@ async function handleCheckoutSessionCompleted(
       qrCode: qr_code,
       seatLabel: seat_label || null,
       isFree: false,
-      base: baseUrl(req),
+      base: baseUrl(),
     });
   }
 
@@ -900,7 +931,7 @@ async function handleCheckoutSessionCompleted(
     quantity: qty,
     totalAmount,
     currency,
-    base: baseUrl(req),
+    base: baseUrl(),
   });
 }
 

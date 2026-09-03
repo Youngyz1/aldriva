@@ -161,8 +161,32 @@ export default function DashboardView({
             <ul className="space-y-3">
               {events.slice(0, 5).map((event) => (
                 <li key={event.id} className="rounded-xl bg-zinc-50/80 p-3 ring-1 ring-zinc-200/70">
-                  <p className="truncate font-black text-zinc-900">{event.title}</p>
-                  <p className="mt-1 text-xs font-medium text-zinc-500">{dateLabel(event.event_date)} · {event.city || 'Location TBA'}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-zinc-900">{event.title}</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-500">{dateLabel(event.event_date)} · {event.city || 'Location TBA'}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-200/60">
+                    <Link
+                      href={`/dashboard/events/${event.id}/checkins`}
+                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-black text-zinc-700 hover:bg-zinc-100"
+                    >
+                      Check-Ins
+                    </Link>
+                    <Link
+                      href={`/dashboard/events/${event.id}/scan`}
+                      className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] font-black text-orange-700 hover:bg-orange-100"
+                    >
+                      📷 Scan
+                    </Link>
+                    <Link
+                      href={`/dashboard/events/${event.id}/team`}
+                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-black text-zinc-700 hover:bg-zinc-100"
+                    >
+                      Team
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

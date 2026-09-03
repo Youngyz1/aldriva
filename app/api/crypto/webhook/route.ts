@@ -6,6 +6,7 @@ import { processDonationReceipt } from "@/lib/receipt";
 import { recalculateFundraiserRaised } from "@/lib/donations";
 import { parseCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { markProductOrderPaid } from "@/lib/productOrders";
+import { getSiteUrl } from "@/lib/site-url";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
@@ -333,7 +334,7 @@ export async function POST(req: NextRequest) {
     const isConfirmed = payment_status === "finished" || payment_status === "confirmed";
 
     if (isConfirmed) {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+      const baseUrl = getSiteUrl();
       const tagged = parseCryptoOrderId(order_id);
 
       if (tagged) {

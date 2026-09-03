@@ -4,7 +4,7 @@ import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { queryDashboardEvents } from '@/lib/dashboard-data';
 
 export async function GET(req: NextRequest) {
-  const auth = await getDashboardApiContext();
+  const auth = await getDashboardApiContext(req);
   if (!auth.ok) return auth.response;
 
   const sp = req.nextUrl.searchParams;
@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await queryDashboardEvents({
+      userId: auth.ctx.userId,
       organizerIds: auth.ctx.organizerIds,
       search: sp.get('search') ?? '',
       status: sp.get('status') ?? 'all',

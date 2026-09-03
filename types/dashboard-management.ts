@@ -11,6 +11,8 @@ export type DashboardEventRow = {
   ticket_count: number;
   revenue: number;
   created_at: string;
+  user_role?: 'owner' | 'event_manager' | 'ticket_scanner';
+  is_staff?: boolean;
 };
 
 export type DashboardEventStats = {

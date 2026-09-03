@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import BrandMark from "@/components/BrandMark";
-import Footer from "@/components/Footer";
 import CookieConsent from "@/components/CookieConsent";
 import PwaRegister from "@/components/PwaRegister";
 import { GoogleAnalytics } from "@next/third-parties/google";
@@ -62,10 +61,15 @@ export default function RootLayout({
         <Suspense fallback={<NavbarFallback />}>
           <Navbar />
         </Suspense>
-        <div className="flex-1">
+        {/* No global footer here by design — each segment opts into the
+            correct footer tier (marketing / compact / none) via its own
+            nested layout or section shell. See
+            `components/footers/index.ts`. The flex-column wrapper lets
+            footer-bearing section shells pin their footer to the viewport
+            bottom on short pages, while workspace layouts fill the space. */}
+        <div className="flex min-h-0 flex-1 flex-col">
           {children}
         </div>
-        <Footer />
         <CookieConsent />
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!} />

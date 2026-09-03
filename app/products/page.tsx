@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSiteUrl } from "@/lib/site-url";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { MarketingSection } from "@/components/footers";
 
 export const metadata: Metadata = {
   title: "Shop Products — Aldriva",
@@ -60,7 +61,11 @@ export default async function ProductsPage({
     ).values()
   ).sort((a: any, b: any) => a.name.localeCompare(b.name));
 
+  // Shop listing is a public discovery surface → full marketing footer.
+  // Page-level (NOT a segment layout) so order-confirmation keeps the
+  // compact tier via its own nested layout.
   return (
+    <MarketingSection>
     <main className="mx-auto max-w-[1440px] px-4 py-8 md:px-6 md:py-12">
       {/* Header */}
       <div className="mb-10 text-center">
@@ -211,5 +216,6 @@ export default async function ProductsPage({
         </div>
       </div>
     </main>
+    </MarketingSection>
   );
 }

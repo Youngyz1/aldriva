@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { isAdmin } from '@/lib/auth';
 import { createNotification } from '@/lib/notifications';
+import { getSiteUrl } from '@/lib/site-url';
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -205,7 +206,7 @@ function emailShell(headerColor: string, heading: string, bodyHtml: string) {
 }
 
 function approvalEmailHtml(title: string, link: string | null) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? '';
+  const base = getSiteUrl();
   return emailShell(
     'linear-gradient(135deg,#10b981,#059669)',
     'Fundraiser Approved! 🎉',
@@ -220,7 +221,7 @@ function approvalEmailHtml(title: string, link: string | null) {
 }
 
 function rejectionEmailHtml(title: string, reason: string | null, link: string | null) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? '';
+  const base = getSiteUrl();
   return emailShell(
     'linear-gradient(135deg,#ef4444,#dc2626)',
     'Fundraiser Not Approved',
