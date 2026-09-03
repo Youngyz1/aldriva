@@ -1,6 +1,6 @@
 export type EventUserRole = "owner" | "event_manager" | "ticket_scanner" | null;
 
-export type EventSubNavTabId = "checkins" | "scan" | "team" | "edit" | "seating";
+export type EventSubNavTabId = "checkins" | "scan" | "team" | "edit" | "seating" | "guests";
 
 export type EventSubNavTab = {
   id: EventSubNavTabId;
@@ -28,6 +28,14 @@ export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): Ev
       id: "scan",
       label: "Door Scanner",
       href: `/dashboard/events/${eventId}/scan`,
+    });
+  }
+
+  if (canManageEvent) {
+    tabs.push({
+      id: "guests",
+      label: "Guests & Invites",
+      href: `/dashboard/events/${eventId}/guests`,
     });
   }
 
