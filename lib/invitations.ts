@@ -155,13 +155,109 @@ export async function getInvitationByToken(token: string) {
   // Retrieve linked ticket instance (for QR rendering)
   const { data: ticketInstance } = await admin
     .from("ticket_instances")
-    .select("id, qr_code, status, seat_label, checked_in_at")
+    .select("id, qr_code, status, seat_id, seat_label, checked_in_at")
     .eq("invitation_id", invitation.id)
     .maybeSingle();
+
+  // Retrieve seat details if seat_id is present
+  let seat = null;
+  if (ticketInstance?.seat_id) {
+    const { data: seatData } = await admin
+      .from("seats")
+      .select("id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, status")
+      .eq("id", ticketInstance.seat_id)
+      .maybeSingle();
+    seat = seatData;
+  }
 
   return {
     invitation,
     ticketInstance: ticketInstance || null,
+    seat: seat || null,
+  };
+}
+
+export interface RsvpInvitationParams {
+  token: string;
+  response: "accepted" | "declined";
+}
+
+export interface RsvpInvitationResult {
+  success: boolean;
+  rsvp_status: "accepted" | "declined";
+  rsvp_at: string;
+  message: string;
+}
+
+/**
+ * Updates the RSVP status for an event invitation identified by its possession token.
+ * Validates invitation lifecycle and checked-in constraints.
+ */
+export async function rsvpInvitation(
+  params: RsvpInvitationParams
+): Promise<RsvpInvitationResult> {
+  const { token, response } = params;
+
+  if (!token || typeof token !== "string" || token.length !== 64) {
+    throw new Error("Invalid invitation token.");
+  }
+
+  if (!["accepted", "declined"].includes(response)) {
+    throw new Error("Invalid RSVP response. Must be 'accepted' or 'declined'.");
+  }
+
+  const admin = createSupabaseAdmin();
+
+  // 1. Fetch invitation by token
+  const { data: invitation, error: invErr } = await admin
+    .from("event_invitations")
+    .select("id, event_id, invitation_status, rsvp_status, rsvp_at")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (invErr || !invitation) {
+    throw new Error("Invitation not found.");
+  }
+
+  if (["cancelled", "revoked", "expired"].includes(invitation.invitation_status)) {
+    throw new Error(`This invitation is ${invitation.invitation_status} and cannot be updated.`);
+  }
+
+  // 2. Fetch linked ticket instance to check for check-in state
+  const { data: ticketInstance } = await admin
+    .from("ticket_instances")
+    .select("id, status")
+    .eq("invitation_id", invitation.id)
+    .maybeSingle();
+
+  if (ticketInstance?.status === "used" && response === "declined") {
+    throw new Error("Cannot decline an invitation for a guest who has already checked in.");
+  }
+
+  const now = new Date().toISOString();
+
+  // 3. Update RSVP status
+  const { error: updateErr } = await admin
+    .from("event_invitations")
+    .update({
+      rsvp_status: response,
+      rsvp_at: now,
+      updated_at: now,
+    })
+    .eq("id", invitation.id);
+
+  if (updateErr) {
+    throw new Error(`Failed to update RSVP: ${updateErr.message}`);
+  }
+
+  return {
+    success: true,
+    rsvp_status: response,
+    rsvp_at: now,
+    message:
+      response === "accepted"
+        ? "You have accepted the invitation."
+        : "You have declined the invitation.",
   };
 }
 

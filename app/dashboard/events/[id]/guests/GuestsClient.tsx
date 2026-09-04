@@ -448,22 +448,40 @@ export default function GuestsClient({
 
                       {/* Invitation Status */}
                       <td className="px-4 py-3.5">
-                        {guest.invitation_status === "sent" ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-black text-violet-700">
-                            <Send size={10} />
-                            Sent
-                          </span>
-                        ) : guest.invitation_status === "draft" ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700">
-                            <Clock size={10} />
-                            Draft
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-500">
-                            <Ban size={10} />
-                            {guest.invitation_status}
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-1 items-start">
+                          {guest.invitation_status === "sent" ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-black text-violet-700">
+                              <Send size={10} />
+                              Sent
+                            </span>
+                          ) : guest.invitation_status === "draft" ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700">
+                              <Clock size={10} />
+                              Draft
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-500">
+                              <Ban size={10} />
+                              {guest.invitation_status}
+                            </span>
+                          )}
+
+                          {guest.invitation_status !== "draft" && guest.invitation_status !== "cancelled" && (
+                            guest.rsvp_status === "accepted" ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 border border-emerald-200">
+                                <Check size={9} /> RSVP Accepted
+                              </span>
+                            ) : guest.rsvp_status === "declined" ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-600 border border-zinc-200">
+                                <X size={9} /> RSVP Declined
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                                RSVP Pending
+                              </span>
+                            )
+                          )}
+                        </div>
                       </td>
 
                       {/* Check-In Status */}
