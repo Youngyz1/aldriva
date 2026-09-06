@@ -18,6 +18,9 @@ import {
   Armchair,
   Star,
   RefreshCw,
+  Upload,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
@@ -110,6 +113,7 @@ export default function GuestsClient({
 
   // Modals state
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
   const [editingGuest, setEditingGuest] = useState<GuestItem | null>(null);
   const [assigningSeatGuest, setAssigningSeatGuest] = useState<GuestItem | null>(null);
   const [cancellingGuest, setCancellingGuest] = useState<GuestItem | null>(null);
@@ -274,13 +278,22 @@ export default function GuestsClient({
         title="Guest Management"
         description={eventTitle}
         action={
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition-all hover:bg-violet-700 active:scale-95"
-          >
-            <UserPlus size={16} />
-            Add Guest
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBulkImportModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-black text-zinc-800 shadow-sm transition-all hover:bg-zinc-50 active:scale-95"
+            >
+              <Upload size={16} />
+              Import from CSV
+            </button>
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition-all hover:bg-violet-700 active:scale-95"
+            >
+              <UserPlus size={16} />
+              Add Guest Manually
+            </button>
+          </div>
         }
       />
 
@@ -597,6 +610,19 @@ export default function GuestsClient({
             await refreshGuests();
           }}
           onClose={() => setAddModalOpen(false)}
+        />
+      )}
+
+      {/* ── Bulk CSV Import Modal ── */}
+      {bulkImportModalOpen && (
+        <BulkImportModal
+          eventId={eventId}
+          onSuccess={async (importedCount) => {
+            setBulkImportModalOpen(false);
+            showToast("success", `Successfully imported ${importedCount} guests.`);
+            await refreshGuests();
+          }}
+          onClose={() => setBulkImportModalOpen(false)}
         />
       )}
 
@@ -1219,6 +1245,670 @@ function AssignSeatModal({
               {loading ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Confirm Seat"}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bulk Import Modal Component ─────────────────────────────────────────────
+
+function BulkImportModal({
+  eventId,
+  onSuccess,
+  onClose,
+}: {
+  eventId: string;
+  onSuccess: (count: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState<"upload" | "preview" | "importing">("upload");
+  const [csvText, setCsvText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "errors" | "warnings">("all");
+  const [editingRow, setEditingRow] = useState<any | null>(null);
+  const [sendInvitations, setSendInvitations] = useState(false);
+
+  // Handle file select
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
+      setError("Please select a valid .csv file.");
+      return;
+    }
+
+    setFileName(file.name);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setCsvText(text || "");
+    };
+    reader.readAsText(file);
+  }
+
+  // Parse & preview CSV
+  async function handleGeneratePreview() {
+    if (!csvText.trim()) {
+      setError("Please select or paste CSV content.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "preview",
+          csvText,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to parse CSV.");
+        return;
+      }
+
+      setPreviewData(data);
+      setStep("preview");
+    } catch {
+      setError("Network error generating preview.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Save edited row and revalidate preview
+  async function handleSaveEditedRow(updatedRow: any) {
+    if (!previewData) return;
+
+    const updatedRows = previewData.rows.map((r: any) =>
+      r.rowNumber === updatedRow.rowNumber ? updatedRow : r
+    );
+
+    setEditingRow(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "revalidate",
+          rows: updatedRows,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setPreviewData(data);
+      }
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Execute atomic import
+  async function handleCommitImport(mode: "all" | "valid_only") {
+    if (!previewData) return;
+
+    setStep("importing");
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "commit",
+          rows: previewData.rows,
+          importMode: mode,
+          sendInvitations,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Batch import failed during atomic commit.");
+        setStep("preview");
+        return;
+      }
+
+      await onSuccess(data.totalImported || 0);
+    } catch {
+      setError("Network error committing import.");
+      setStep("preview");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Download sample CSV template
+  function handleDownloadTemplate() {
+    const header = "name,email,phone,section,row,seat,table,ticket_type,image_url,message,rsvp_deadline\n";
+    const sample = 'John Doe,john@example.com,+1234567890,VIP,A,1,,VIP Guest,https://example.com/photo.jpg,Welcome to the gala!,2026-10-01\nJane Smith,jane@example.com,+1987654321,,,,Table 1,VIP Guest,,Looking forward to seeing you,2026-10-01\n';
+    const blob = new Blob([header + sample], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "aldriva_guest_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+              <FileSpreadsheet size={20} />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-zinc-900">Bulk Guest Import</h2>
+              <p className="text-xs font-semibold text-zinc-500">
+                {step === "upload" && "Upload a CSV spreadsheet to import guests and assign seats"}
+                {step === "preview" && `Review and edit ${previewData?.totalRows || 0} parsed rows before committing`}
+                {step === "importing" && "Atomically committing guest invitations into database..."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={step === "importing"}
+            className="rounded-xl p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {error && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-black text-red-700">
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* ── STEP 1: UPLOAD ── */}
+          {step === "upload" && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/50 p-8 text-center transition-all hover:bg-zinc-50">
+                <FileSpreadsheet size={40} className="mx-auto text-zinc-400 mb-3" />
+                <h3 className="text-sm font-black text-zinc-800">Select your guest CSV file</h3>
+                <p className="mt-1 text-xs font-semibold text-zinc-500 max-w-sm mx-auto">
+                  Supports columns: <span className="font-mono text-violet-700">name, email, phone, section, row, seat, table, ticket_type, image_url, message, rsvp_deadline</span>
+                </p>
+
+                <div className="mt-5 flex items-center justify-center gap-3">
+                  <label className="cursor-pointer rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-violet-700">
+                    <span>Browse CSV File</span>
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                  >
+                    <Download size={13} />
+                    Download Sample Template
+                  </button>
+                </div>
+
+                {fileName && (
+                  <p className="mt-3 text-xs font-black text-emerald-600">
+                    Selected file: <span className="underline">{fileName}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black text-zinc-700">
+                  Or paste CSV text directly:
+                </label>
+                <textarea
+                  rows={5}
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                  placeholder="name,email,phone,section,row,seat,table&#10;John Doe,john@example.com,+1234567890,VIP,A,1,&#10;Jane Smith,jane@example.com,,,,Table 1"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 2: PREVIEW ── */}
+          {step === "preview" && previewData && (
+            <div className="space-y-4">
+              {/* Summary Badges */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-zinc-500">Total Rows</p>
+                  <p className="text-lg font-black text-zinc-900">{previewData.totalRows}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-emerald-700">Ready to Import</p>
+                  <p className="text-lg font-black text-emerald-800">{previewData.validRowsCount}</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-amber-700">Warnings</p>
+                  <p className="text-lg font-black text-amber-800">{previewData.warningRowsCount}</p>
+                </div>
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-red-700">Errors (Action Required)</p>
+                  <p className="text-lg font-black text-red-800">{previewData.errorRowsCount}</p>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setFilterMode("all")}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-black transition-all ${
+                      filterMode === "all"
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                    }`}
+                  >
+                    All ({previewData.totalRows})
+                  </button>
+                  <button
+                    onClick={() => setFilterMode("errors")}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-black transition-all ${
+                      filterMode === "errors"
+                        ? "bg-red-600 text-white"
+                        : "bg-red-50 text-red-700 hover:bg-red-100"
+                    }`}
+                  >
+                    Errors ({previewData.errorRowsCount})
+                  </button>
+                  <button
+                    onClick={() => setFilterMode("warnings")}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-black transition-all ${
+                      filterMode === "warnings"
+                        ? "bg-amber-500 text-white"
+                        : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    }`}
+                  >
+                    Warnings ({previewData.warningRowsCount})
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sendInvitations}
+                    onChange={(e) => setSendInvitations(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-zinc-300 text-violet-600 focus:ring-violet-400"
+                  />
+                  <span>Send invitation emails immediately after import</span>
+                </label>
+              </div>
+
+              {/* Preview Table */}
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-zinc-200 bg-white">
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-zinc-50 text-[11px] font-black uppercase text-zinc-500 border-b border-zinc-200">
+                    <tr>
+                      <th className="px-3 py-2.5">Row</th>
+                      <th className="px-3 py-2.5">Guest</th>
+                      <th className="px-3 py-2.5">Email</th>
+                      <th className="px-3 py-2.5">Seat / Table</th>
+                      <th className="px-3 py-2.5">Status & Validation</th>
+                      <th className="px-3 py-2.5 text-right">Edit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {previewData.rows
+                      .filter((r: any) => {
+                        if (filterMode === "errors") return r.status === "error";
+                        if (filterMode === "warnings") return r.status === "warning";
+                        return true;
+                      })
+                      .map((row: any) => {
+                        return (
+                          <tr
+                            key={row.rowNumber}
+                            className={`hover:bg-zinc-50/80 ${
+                              row.status === "error" ? "bg-red-50/30" : row.status === "warning" ? "bg-amber-50/20" : ""
+                            }`}
+                          >
+                            <td className="px-3 py-2 font-mono font-bold text-zinc-400">#{row.rowNumber}</td>
+                            <td className="px-3 py-2 font-black text-zinc-900">{row.normalized.name || <span className="text-red-500 italic">Missing</span>}</td>
+                            <td className="px-3 py-2 font-semibold text-zinc-600">{row.normalized.email || "—"}</td>
+                            <td className="px-3 py-2">
+                              {row.resolvedSeatLabel ? (
+                                <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-800">
+                                  <Armchair size={10} />
+                                  {row.resolvedSeatLabel}
+                                </span>
+                              ) : row.normalized.section || row.normalized.tableNumber ? (
+                                <span className="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-black text-red-700">
+                                  Unresolved Seat
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400 text-[10px]">Unassigned</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {row.status === "valid" && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                                  <Check size={10} /> Ready
+                                </span>
+                              )}
+                              {row.errors.map((err: any, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="mr-1 inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-700"
+                                >
+                                  {err.message}
+                                </span>
+                              ))}
+                              {row.warnings.map((warn: any, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="mr-1 inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800"
+                                >
+                                  {warn.message}
+                                </span>
+                              ))}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setEditingRow(row)}
+                                className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-black text-zinc-700 hover:bg-zinc-50"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: IMPORTING ── */}
+          {step === "importing" && (
+            <div className="py-12 text-center">
+              <Loader2 size={36} className="mx-auto animate-spin text-violet-600 mb-3" />
+              <h3 className="text-sm font-black text-zinc-900">Importing Guests Atomically</h3>
+              <p className="mt-1 text-xs font-semibold text-zinc-500 max-w-sm mx-auto">
+                Creating invitation credentials, resolving seats against PostgreSQL, and generating QR codes...
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50 px-6 py-3.5">
+          {step === "upload" ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-black text-zinc-600 hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGeneratePreview}
+                disabled={loading || !csvText.trim()}
+                className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {loading && <Loader2 size={13} className="animate-spin" />}
+                Generate Import Preview
+              </button>
+            </>
+          ) : step === "preview" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep("upload")}
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-black text-zinc-600 hover:bg-zinc-50"
+              >
+                Back to CSV
+              </button>
+              <div className="flex items-center gap-2">
+                {previewData.errorRowsCount > 0 && previewData.canImportValid && (
+                  <button
+                    type="button"
+                    onClick={() => handleCommitImport("valid_only")}
+                    disabled={loading}
+                    className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                  >
+                    Import {previewData.validRowsCount + previewData.warningRowsCount} Valid Guests
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleCommitImport("all")}
+                  disabled={loading || !previewData.canImportAll}
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-5 py-2 text-xs font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {loading && <Loader2 size={13} className="animate-spin" />}
+                  {previewData.canImportAll
+                    ? `Import All (${previewData.totalRows} Guests)`
+                    : `Fix ${previewData.errorRowsCount} Errors to Import All`}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="w-full text-center text-xs font-black text-zinc-400">
+              Please do not close this window.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Inline Row Edit Modal ── */}
+      {editingRow && (
+        <EditImportRowModal
+          row={editingRow}
+          onSave={handleSaveEditedRow}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Inline Row Editor ───────────────────────────────────────────────────────
+
+function EditImportRowModal({
+  row,
+  onSave,
+  onClose,
+}: {
+  row: any;
+  onSave: (updatedRow: any) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(row.normalized.name || "");
+  const [email, setEmail] = useState(row.normalized.email || "");
+  const [phone, setPhone] = useState(row.normalized.phone || "");
+  const [section, setSection] = useState(row.normalized.section || "");
+  const [rowLabel, setRowLabel] = useState(row.normalized.rowLabel || "");
+  const [seat, setSeat] = useState(row.normalized.seatNumber?.toString() || "");
+  const [table, setTable] = useState(row.normalized.tableNumber || "");
+  const [ticketType, setTicketType] = useState(row.normalized.ticketTypeName || "");
+  const [imageUrl, setImageUrl] = useState(row.normalized.imageUrl || "");
+  const [message, setMessage] = useState(row.normalized.personalMessage || "");
+
+  function handleSave() {
+    const updatedRaw = {
+      ...row.raw,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      section: section.trim(),
+      row: rowLabel.trim(),
+      seat: seat.trim(),
+      table: table.trim(),
+      ticket_type: ticketType.trim(),
+      image_url: imageUrl.trim(),
+      message: message.trim(),
+    };
+
+    onSave({
+      ...row,
+      raw: updatedRaw,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5">
+          <h3 className="text-sm font-black text-zinc-900">Edit Row #{row.rowNumber}</h3>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="space-y-3.5 p-5 max-h-[75vh] overflow-y-auto text-xs">
+          <div>
+            <label className="block font-black text-zinc-700 mb-1">Guest Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-black text-zinc-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-black text-zinc-700 mb-1">Phone</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 space-y-2.5">
+            <p className="font-black text-zinc-700">Seat Resolution</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] font-black text-zinc-500">Section</label>
+                <input
+                  type="text"
+                  placeholder="e.g. VIP"
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-zinc-500">Row</label>
+                <input
+                  type="text"
+                  placeholder="e.g. A"
+                  value={rowLabel}
+                  onChange={(e) => setRowLabel(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-zinc-500">Seat #</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1"
+                  value={seat}
+                  onChange={(e) => setSeat(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-zinc-500">Or Table Number</label>
+              <input
+                type="text"
+                placeholder="e.g. 1 or Table 1"
+                value={table}
+                onChange={(e) => setTable(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-black text-zinc-700 mb-1">Image URL</label>
+            <input
+              type="url"
+              placeholder="https://example.com/photo.jpg"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block font-black text-zinc-700 mb-1">Personalized Message</label>
+            <textarea
+              rows={2}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-zinc-100 bg-zinc-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-black text-zinc-600 hover:bg-zinc-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700"
+          >
+            Save & Revalidate Row
+          </button>
         </div>
       </div>
     </div>

@@ -1,11 +1,11 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "next/link";
 import { MailX } from "lucide-react";
 import { getInvitationByToken } from "@/lib/invitations";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
-
-export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -26,9 +26,33 @@ export default async function PublicInvitationPage({
 }) {
   const { token } = await params;
 
+  // Pure token-shape validation — no I/O, safe to prerender statically.
   if (!token || typeof token !== "string" || token.length !== 64) {
     return <InvalidInvitationView message="This invitation link is invalid or malformed." />;
   }
+
+  // The invitation lookup below must run per request (see InvitationLoader),
+  // so it lives behind a Suspense boundary: the static shell streams
+  // immediately while the live data resolves in the dynamic slot.
+  return (
+    <Suspense fallback={<InvitationLoadingView />}>
+      <InvitationLoader token={token} />
+    </Suspense>
+  );
+}
+
+/**
+ * Fetches the live invitation record for this token. `connection()` opts this
+ * component out of the prerender cache (the cacheComponents replacement for
+ * the removed `dynamic = "force-dynamic"`): invitation rows are mutable —
+ * RSVP status changes on every accept/decline POST, and invitations can be
+ * revoked, expired, cancelled, or re-seated at any time — so a cached copy
+ * could show a valid pass for a revoked invitation or stale RSVP state.
+ * Everything outside this boundary (metadata, shell, malformed-token view)
+ * remains statically cacheable.
+ */
+async function InvitationLoader({ token }: { token: string }) {
+  await connection();
 
   const result = await getInvitationByToken(token);
 
@@ -97,6 +121,18 @@ export default async function PublicInvitationPage({
       }
       seat={seatDisplay}
     />
+  );
+}
+
+function InvitationLoadingView() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/90 p-8 text-center shadow-2xl">
+        <div className="mx-auto mb-4 h-16 w-16 animate-pulse rounded-2xl border border-zinc-700 bg-zinc-800" />
+        <div className="mx-auto h-5 w-40 animate-pulse rounded-lg bg-zinc-800" />
+        <div className="mx-auto mt-3 h-3.5 w-56 animate-pulse rounded-lg bg-zinc-800/70" />
+      </div>
+    </main>
   );
 }
 

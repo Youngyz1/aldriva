@@ -6,10 +6,12 @@ import {
   createInvitationCredential,
   sendInvitationEmail,
   cancelInvitation,
+  restoreInvitation,
   updateInvitationGuest,
   assignSeatToInvitation,
   removeSeatFromInvitation,
 } from "@/lib/invitations";
+import { logEventAction } from "@/lib/event-audit";
 
 const admin = createSupabaseAdmin();
 
@@ -37,12 +39,39 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
   const { eventId } = auth;
 
+  const url = req.nextUrl;
+  const search = url.searchParams.get("search")?.trim().toLowerCase() || "";
+  const rsvpFilter = url.searchParams.get("rsvp_status") || "";
+  const statusFilter = url.searchParams.get("status") || "";
+  const isVipFilter = url.searchParams.get("is_vip") || "";
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const perPage = parseInt(url.searchParams.get("per_page") || "50", 10);
+  const usePagination = url.searchParams.has("page");
+
   // 1. Fetch invitations (safe fields only — no token)
-  const { data: invitations, error: invErr } = await admin
+  let query = admin
     .from("event_invitations")
-    .select("id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at")
+    .select(
+      "id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at",
+      { count: "exact" }
+    )
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
+
+  if (rsvpFilter && ["pending", "accepted", "declined"].includes(rsvpFilter)) {
+    query = query.eq("rsvp_status", rsvpFilter);
+  }
+
+  if (statusFilter && ["draft", "sent", "cancelled", "revoked", "expired"].includes(statusFilter)) {
+    query = query.eq("invitation_status", statusFilter);
+  }
+
+  if (usePagination) {
+    const offset = (Math.max(page, 1) - 1) * perPage;
+    query = query.range(offset, offset + perPage - 1);
+  }
+
+  const { data: invitations, count, error: invErr } = await query;
 
   if (invErr) {
     return NextResponse.json({ error: "Failed to load guest list." }, { status: 500 });
@@ -89,7 +118,7 @@ export async function GET(
     .order("row_label")
     .order("seat_number");
 
-  const guests = (invitations || []).map((inv) => {
+  let guests = (invitations || []).map((inv) => {
     const ticket = ticketMap.get(inv.id) || null;
     const seat = seatMap.get(inv.id) || null;
     return {
@@ -118,8 +147,24 @@ export async function GET(
     };
   });
 
+  // Client-compatible in-memory filtering for search & VIP filter if search string provided
+  if (search) {
+    guests = guests.filter((g) =>
+      g.guest_name.toLowerCase().includes(search) ||
+      (g.email && g.email.toLowerCase().includes(search)) ||
+      (g.organization && g.organization.toLowerCase().includes(search))
+    );
+  }
+
+  if (isVipFilter === "true") {
+    guests = guests.filter((g) => Boolean(g.guest_title) || Boolean(g.seat?.is_vip));
+  }
+
   return NextResponse.json({
     guests,
+    total: count ?? guests.length,
+    page: usePagination ? page : 1,
+    per_page: usePagination ? perPage : guests.length,
     availableSeats: availableSeats || [],
   });
 }
@@ -204,6 +249,17 @@ export async function POST(
       }
     }
 
+    // 4. Operational audit log
+    await logEventAction({
+      eventId,
+      actorUserId: userId,
+      actorRole: "event_manager",
+      action: "guest_created",
+      targetType: "guest",
+      targetId: invitationId,
+      metadata: { guestName, email, seatId, emailSent },
+    });
+
     return NextResponse.json({
       success: true,
       guest: {
@@ -228,7 +284,7 @@ export async function POST(
   }
 }
 
-// PATCH /api/events/[id]/guests — update, email, cancel, or seat mutations
+// PATCH /api/events/[id]/guests — update, email, cancel, restore, or seat mutations
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -236,7 +292,7 @@ export async function PATCH(
   const resolvedParams = await params;
   const auth = await getAuthorizedEventId(req, resolvedParams);
   if (auth instanceof NextResponse) return auth;
-  const { eventId } = auth;
+  const { userId, eventId } = auth;
 
   let body: Record<string, unknown>;
   try {
@@ -246,8 +302,66 @@ export async function PATCH(
   }
 
   const op = body.op as string | undefined;
-  const invitationId = (body.invitationId as string)?.trim();
 
+  // ── op: bulk_resend ────────────────────────────────────────────────────────
+  if (op === "bulk_resend") {
+    const invitationIds = (body.invitationIds as string[]) || [];
+    if (!Array.isArray(invitationIds) || invitationIds.length === 0) {
+      return NextResponse.json({ error: "invitationIds array is required" }, { status: 422 });
+    }
+
+    let successCount = 0;
+    for (const invId of invitationIds) {
+      try {
+        const res = await sendInvitationEmail({ eventId, invitationId: invId });
+        if (res.ok) successCount++;
+      } catch (e) {
+        console.warn(`[bulk_resend] Failed for ${invId}:`, e);
+      }
+    }
+
+    await logEventAction({
+      eventId,
+      actorUserId: userId,
+      actorRole: "event_manager",
+      action: "invitation_resent",
+      targetType: "invitation",
+      metadata: { requestedCount: invitationIds.length, successCount },
+    });
+
+    return NextResponse.json({ success: true, count: successCount });
+  }
+
+  // ── op: bulk_revoke ────────────────────────────────────────────────────────
+  if (op === "bulk_revoke") {
+    const invitationIds = (body.invitationIds as string[]) || [];
+    if (!Array.isArray(invitationIds) || invitationIds.length === 0) {
+      return NextResponse.json({ error: "invitationIds array is required" }, { status: 422 });
+    }
+
+    let successCount = 0;
+    for (const invId of invitationIds) {
+      try {
+        const res = await cancelInvitation({ eventId, invitationId: invId });
+        if (res.success) successCount++;
+      } catch (e) {
+        console.warn(`[bulk_revoke] Failed for ${invId}:`, e);
+      }
+    }
+
+    await logEventAction({
+      eventId,
+      actorUserId: userId,
+      actorRole: "event_manager",
+      action: "invitation_revoked",
+      targetType: "invitation",
+      metadata: { requestedCount: invitationIds.length, successCount },
+    });
+
+    return NextResponse.json({ success: true, count: successCount });
+  }
+
+  const invitationId = (body.invitationId as string)?.trim();
   if (!invitationId) {
     return NextResponse.json({ error: "invitationId is required" }, { status: 422 });
   }
@@ -271,6 +385,16 @@ export async function PATCH(
         notes: body.notes as string | null | undefined,
       });
 
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "guest_updated",
+        targetType: "guest",
+        targetId: invitationId,
+        metadata: { updates: body },
+      });
+
       return NextResponse.json(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update guest";
@@ -284,6 +408,15 @@ export async function PATCH(
       const result = await sendInvitationEmail({
         eventId,
         invitationId,
+      });
+
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "invitation_sent",
+        targetType: "invitation",
+        targetId: invitationId,
       });
 
       return NextResponse.json(result);
@@ -301,9 +434,42 @@ export async function PATCH(
         invitationId,
       });
 
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "invitation_revoked",
+        targetType: "invitation",
+        targetId: invitationId,
+      });
+
       return NextResponse.json(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to cancel invitation";
+      return NextResponse.json({ error: msg }, { status: 409 });
+    }
+  }
+
+  // ── op: restore ────────────────────────────────────────────────────────────
+  if (op === "restore") {
+    try {
+      const result = await restoreInvitation({
+        eventId,
+        invitationId,
+      });
+
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "invitation_restored",
+        targetType: "invitation",
+        targetId: invitationId,
+      });
+
+      return NextResponse.json(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to restore invitation";
       return NextResponse.json({ error: msg }, { status: 409 });
     }
   }
@@ -322,6 +488,16 @@ export async function PATCH(
         seatId,
       });
 
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "seat_assigned",
+        targetType: "seat",
+        targetId: seatId,
+        metadata: { invitationId, seatLabel: result.seatLabel },
+      });
+
       return NextResponse.json(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to assign seat";
@@ -333,6 +509,16 @@ export async function PATCH(
   if (op === "remove_seat") {
     try {
       const result = await removeSeatFromInvitation(eventId, invitationId);
+
+      await logEventAction({
+        eventId,
+        actorUserId: userId,
+        actorRole: "event_manager",
+        action: "seat_released",
+        targetType: "invitation",
+        targetId: invitationId,
+      });
+
       return NextResponse.json(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to remove seat";

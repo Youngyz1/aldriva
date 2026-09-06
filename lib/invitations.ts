@@ -721,3 +721,55 @@ export async function updateInvitationGuest(params: UpdateInvitationGuestParams)
 
   return { success: true, guest: updated };
 }
+
+export interface RestoreInvitationParams {
+  eventId: string;
+  invitationId: string;
+}
+
+/**
+ * Restores a cancelled or revoked event invitation back to active state ('draft' or 'sent').
+ * Re-enables the linked ticket instance (status = 'valid').
+ */
+export async function restoreInvitation(params: RestoreInvitationParams) {
+  const admin = createSupabaseAdmin();
+
+  // 1. Fetch invitation
+  const { data: invitation, error: inviteErr } = await admin
+    .from("event_invitations")
+    .select("id, event_id, invitation_status, email")
+    .eq("id", params.invitationId)
+    .eq("event_id", params.eventId)
+    .single();
+
+  if (inviteErr || !invitation) {
+    throw new Error("Invitation not found or does not belong to this event.");
+  }
+
+  const restoredStatus = invitation.email ? "sent" : "draft";
+
+  // 2. Update invitation status
+  const { error: restoreErr } = await admin
+    .from("event_invitations")
+    .update({
+      invitation_status: restoredStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.invitationId);
+
+  if (restoreErr) {
+    throw new Error(`Failed to restore invitation: ${restoreErr.message}`);
+  }
+
+  // 3. Reactivate linked ticket instance
+  await admin
+    .from("ticket_instances")
+    .update({
+      status: "valid",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("invitation_id", params.invitationId);
+
+  return { success: true, restored_status: restoredStatus };
+}
+
