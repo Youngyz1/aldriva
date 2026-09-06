@@ -1,64 +1,91 @@
-# Creating an Event
+# Creating & Configuring an Event
 
-Use the Events dashboard to create a new event, set up tickets, and publish the page people will use to buy tickets.
+This guide walks event organizers through setting up, configuring, and publishing events on the Aldriva platform.
 
-## Start a new event
-1. Open the Events area in your dashboard.
-2. Choose **Create Event**.
-3. If you have more than one organizer profile, pick the one you want to use, or create the event as a personal event.
+---
 
-## Add the event details
-The current event form lets you enter:
-- Event title
-- Event description
-- Category
-- Event type, such as in-person, virtual, or hybrid
-- Event banner image
-- Optional event video
+## 🚀 Quick Start: Event Creation Workflow
 
-## Set the time and location
-You can add:
-- Start date and time
-- Optional end date and time
-- Venue name
-- City
-- An address search result
-- A map pin for the venue
+1. Navigate to your organizer dashboard and click **Create Event** (or visit `/events/create`).
+2. Complete the **Event Details** (title, description, category, banner image).
+3. Set the **Date, Time & Timezone** (start time, end time, local timezone).
+4. Select the **Event Type & Location** (Physical In-Person, Virtual Online, or Hybrid).
+5. Configure **Ticket Tiers** (pricing, inventory capacity, sales periods).
+6. Configure **Event Settings & Visibility** (Public, Private/Unlisted, Seating mode).
+7. Save as **Draft** or **Publish** immediately.
 
-## Configure tickets
-The current form gives you up to three ticket types.
+---
 
-For each ticket type you can set:
-- Ticket name
-- Price
-- Quantity available
+## 📋 Step-by-Step Configuration
 
-## Choose seating if needed
-If your event has assigned seating, you can choose a venue layout:
-- General Admission
-- Small Venue
-- Medium Hall
-- Large Arena
+### 1. Basic Event Details
+- **Title**: A clear, compelling title for your event (e.g., *"Annual Charity Gala 2026"*).
+- **Category**: Select the appropriate category (e.g., *Gala, Fundraiser, Conference, Concert, Community*).
+- **Description**: Rich formatted markdown or plain text describing the event schedule, dress code, honorees, and purpose.
+- **Cover Image / Banner**: High-resolution image (recommended 1920×1080px or 16:9 ratio) displayed on the public event page and ticket passes.
 
-You can also build a custom seat layout by adding your own sections.
+### 2. Schedule & Timezone
+- **Start Date & Time**: When doors open or when the event officially begins.
+- **End Date & Time**: Expected conclusion time.
+- **Timezone**: Set the local timezone of the event to ensure ticket buyers and calendar invites display accurate local times.
 
-## Choose visibility
-You can publish the event as:
-- Public
-- Private
+### 3. Location & Venue
+- **In-Person Venue**:
+  - Enter the Venue Name (e.g., *"Grand Ballroom, Fairmont Hotel"*).
+  - Physical street address, city, state/province, postal code, and country.
+  - Optional parking notes or entrance instructions.
+- **Virtual / Online**:
+  - Streaming link (Zoom, YouTube Live, Vimeo, etc.) — securely hidden until ticket purchase or invitation acceptance.
+- **Hybrid**:
+  - Both physical venue address and virtual stream access links.
 
-Public events are discoverable in Aldriva browsing areas. Private events are restricted to the organizer account that created them.
+### 4. Ticket Tiers & Pricing
+Aldriva allows you to create multiple ticket tiers for a single event:
 
-## Publish the event
-When you publish the event:
-1. Aldriva saves the event
-2. The event page opens
-3. You can review the page and share the link
+| Setting | Description |
+| :--- | :--- |
+| **Tier Name** | e.g., *General Admission, VIP Table, Early Bird, Student* |
+| **Price** | Free ($0.00) or Paid (currency based on connected Stripe account) |
+| **Total Capacity** | Maximum number of tickets available for this tier |
+| **Sales Window** | Specific start and end dates/times when this tier can be purchased |
+| **Max Per Order** | Limit number of tickets a single buyer can purchase (default: 10) |
+| **Description / Perks** | Bullet points of what is included (e.g., *"Includes 3-course dinner and champagne reception"*)|
 
-The form also includes a draft save option on the device you are using.
+> **Paid Events Requirement**: To sell paid tickets, ensure your organizer account has completed Stripe Connect onboarding.
 
-## See also
-- [Buying Tickets](./buying-tickets.md)
-- [Event Team](./event-team.md)
-- [Attendance](./attendance.md)
+### 5. Seating & Venue Layout Modes
+When creating an event, you can choose how attendance is organized:
+- **General Admission (Unassigned)**: Attendees receive tickets with tier access; seating is first-come, first-served.
+- **Assigned Seating (Interactive Floorplan)**: Organizers design a custom floorplan using the **Visual Venue Builder**. Attendees pick specific seats or tables during checkout, or organizers assign seats to invited VIPs.
 
+---
+
+## 🔒 Visibility & Publishing States
+
+| Status | Public Search | Direct Link Access | Ticket Sales Active |
+| :--- | :---: | :---: | :---: |
+| **Draft** | ❌ No | ❌ Only Organizer/Staff | ❌ Disabled |
+| **Published (Public)** | ✅ Yes | ✅ Yes (`/events/[slug]`) | ✅ Enabled (within sales window) |
+| **Private / Unlisted** | ❌ No | ✅ Anyone with direct URL | ✅ Enabled (or invite-only) |
+| **Ended / Archived** | ❌ Hidden | ✅ View-only summary | ❌ Closed |
+
+---
+
+## 🛠️ Post-Creation Dashboard Navigation
+
+Once your event is created, access the dedicated event management suite via the sub-navigation bar:
+
+1. **Operations** (`/dashboard/events/[id]/operations`): Live sales, arrival velocity, audit history, and CSV data exports.
+2. **Check-Ins & Roster** (`/dashboard/events/[id]/checkins`): Live attendee roster and manual check-in management.
+3. **Door Scanner** (`/dashboard/events/[id]/scan`): High-speed mobile camera scanning for door staff.
+4. **Guests & Invites** (`/dashboard/events/[id]/guests`): VIP guest list, bulk CSV import, and personalized digital invitations.
+5. **Seating** (`/dashboard/events/[id]/seating`): Interactive 1200×800 SVG floorplan builder and seat assignments.
+6. **Team & Staff** (`/dashboard/events/[id]/team`): Role-based staff invites (Event Manager, Ticket Scanner).
+7. **Edit Details** (`/events/edit/[id]`): Update event description, dates, location, and ticket tier settings.
+
+---
+
+## 💡 Best Practices
+- **Launch with Early Bird Tiers**: Set auto-expiring early bird tiers to incentivize initial ticket sales.
+- **Double-Check Timezones**: Always confirm the venue timezone so calendar invites (.ics) sync accurately.
+- **Test with a Free Promo Code / Test Ticket**: Perform a test purchase and scan the generated QR pass with the Door Scanner before opening sales to the public.

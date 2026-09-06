@@ -31,7 +31,18 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Documentation
 
-- [Aldriva Events](docs/events/index.md)
+- **[Aldriva Events Master Index](docs/events/index.md)** — Complete event management, ticketing, visual seating, digital invitations, and door operations guides.
+  - [Creating & Configuring an Event](docs/events/creating-an-event.md)
+  - [Visual Seating & Venue Builder](docs/events/seating.md)
+  - [Guest Management & CSV Import](docs/events/guests.md)
+  - [Digital Invitations & RSVP](docs/events/invitations.md)
+  - [Purchasing Tickets & Selecting Seats](docs/events/buying-tickets.md)
+  - [Door Scanner App](docs/events/ticket-scanning.md)
+  - [Live Attendance & Roster](docs/events/attendance.md)
+  - [Operations Command Center](docs/events/operations.md)
+  - [Team & Staff Permissions](docs/events/event-team.md)
+  - [Frequently Asked Questions (FAQ)](docs/events/faq.md)
+  - [Troubleshooting & Diagnostics](docs/events/troubleshooting.md)
 
 ## Deploy on Vercel
 

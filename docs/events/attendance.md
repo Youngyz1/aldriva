@@ -1,37 +1,53 @@
-# Attendance
+# Live Attendance & Check-In Roster
 
-The attendance view helps organizers see how check-in is going during an event.
+The **Check-Ins & Roster** module (`/dashboard/events/[id]/checkins`) provides event managers and registration desk teams with an authoritative overview of attendance, arrivals, and roster management.
 
-## What the attendance view shows
-The current check-in dashboard includes:
-- **Total Sold**: tickets that have been sold
-- **Checked In**: tickets that have already been used at the door
-- **Not Arrived**: tickets that have not been checked in yet
-- **Attendance Rate**: the share of sold tickets that have been checked in
+---
 
-## Staff activity
-The attendance view also shows how door staff are scanning tickets.
+## 📋 Live Attendee Roster Interface
 
-You can see:
-- Which staff member scanned tickets
-- How many scans each staff member recorded
-- A filtered view of check-in history by staff member
+```
++-----------------------------------------------------------------------------------------+
+| Search: [ Type name, email, or seat... ]  | Filter: [ All | Checked In | Not Checked In ]|
++-----------------------------------------------------------------------------------------+
+| Guest Name          | Tier / Type   | Seat / Table      | Status       | Check-In Time  |
++---------------------+---------------+-------------------+--------------+----------------+
+| Dr. Eleanor Vance   | VIP Sponsor   | Table 4, Seat 2   | Checked In   | 19:04:12 (Door)|
+| Sarah Jenkins       | General       | Section A, Row 2  | Not Arrived  | --             |
+| Arthur Pendelton    | VIP Guest     | Table 1, Seat 8   | Checked In   | 18:42:10 (Door)|
+| Marcus Aurelius     | Early Bird    | Section C, Row 10 | Checked In   | 19:15:33 (Door)|
++-----------------------------------------------------------------------------------------+
+```
 
-## Check-in history
-The history table shows the guests who were checked in, including:
-- Guest name
-- Email address
-- Seat or ticket quantity
-- Check-in time
-- Staff member who scanned the ticket
+---
 
-You can search the history by guest name, email address, ticket details, or QR code reference.
+## 🔍 Real-Time Search & Filtering
 
-## Who can view attendance
-Attendance and check-in history are available to organizers and Event Managers.
+Registration desk staff can instantly locate attendees using multiple search criteria:
+- **Full-Text Search**: Search by attendee first/last name, email address, order ID, or ticket instance UUID.
+- **Filter by Status**:
+  - `All Attendees`
+  - `Checked In` (Arrived)
+  - `Not Checked In` (Pending Arrival)
+- **Filter by Scanner / Gate**: View check-ins processed by specific staff members.
+- **Pagination & Sorting**: Navigate large guest lists efficiently with server-paginated queries.
 
-## See also
-- [Event Team](./event-team.md)
-- [Ticket Scanning](./ticket-scanning.md)
-- [FAQ](./faq.md)
+---
 
+## ⚡ Manual Check-In Overrides
+
+For attendees arriving without a digital pass or physical ticket:
+1. Search for the attendee's name in the roster table.
+2. Verify their identity (e.g., photo ID).
+3. Click the **Check In** button in their table row.
+4. The attendee's status immediately updates to `Checked In` in the database.
+
+---
+
+## 📊 Summary KPI Statistics
+
+The top of the roster view provides instant KPI counts:
+- **Total Sold / Issued**: All valid tickets and confirmed invitations.
+- **Checked In**: Total verified admissions.
+- **Attendance Rate**: Percentage of ticket holders currently admitted.
+- **Not Arrived**: Outstanding ticket holders yet to check in.

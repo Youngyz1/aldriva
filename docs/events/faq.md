@@ -1,108 +1,51 @@
-# FAQ
+# Frequently Asked Questions (FAQ)
 
-## General
+Find answers to common questions about managing, ticketing, seating, and attending events on Aldriva.
 
-### What are Aldriva Events?
-Aldriva Events is Aldriva's event system for discovering events, selling tickets, scanning QR codes, managing staff, and tracking attendance.
+---
 
-### Who can create an event?
-Signed-in organizers can create events from the Events dashboard.
+## 🎪 For Event Organizers
 
-### Who can attend an event?
-Anyone who buys a ticket for the event can attend, subject to the event's entry rules and check-in process.
+### Q: Can I host both free and paid ticket tiers for the same event?
+**A**: Yes. You can create multiple tiers within a single event (e.g., Free General Admission, $50 Early Bird, $150 VIP Reception).
 
-## Tickets
+### Q: How do payouts work for ticket sales?
+**A**: Aldriva uses Stripe Connect. Ticket revenue is transferred directly to your connected bank account according to your Stripe payout schedule (typically daily or weekly rolling).
 
-### How do I buy a ticket?
-Open the event page, choose a ticket type, set the quantity, complete payment, and open your ticket pass after checkout.
+### Q: Can I change my seating chart after ticket sales have started?
+**A**: Yes. You can safely rename tables, move unassigned tables, or add new rows. Seats that have already been purchased or assigned to guests remain locked to prevent double-booking.
 
-### Can I buy multiple tickets?
-Yes. Aldriva creates one ticket per attendee.
+### Q: What is the maximum number of guests I can import via CSV?
+**A**: The CSV import engine comfortably handles large guest lists in a single batch with real-time validation and preview.
 
-### Can I buy different ticket types in one purchase?
-If a checkout flow offers more than one ticket type in the same order, Aldriva still creates separate tickets for each attendee.
+### Q: Can I hide ticket tiers until a certain date?
+**A**: Yes. When configuring a ticket tier, set the **Sales Start Date & Time**. The tier will automatically become available for purchase once that timestamp is reached.
 
-### Where do I find my tickets?
-Open [My Tickets](./my-tickets.md) at `/events/my-tickets`.
+---
 
-### What happens after I buy a ticket?
-You get a confirmation page and a ticket pass with a QR code.
+## 📱 For Door Staff & Ushers
 
-### Does every ticket have its own QR code?
-Yes.
+### Q: Do I need to download an app from the App Store / Google Play?
+**A**: No. The Aldriva Door Scanner is a web app that runs directly in your mobile browser (Safari, Chrome, etc.) at `/dashboard/events/[id]/scan`.
 
-### I bought five tickets. How many QR codes will I receive?
-Five QR codes.
+### Q: Can multiple staff members scan tickets simultaneously?
+**A**: Yes. You can have multiple scanners running across different entry gates. All devices synchronize via database queries, so a ticket scanned at Gate 1 will immediately show as `Already Used` if presented at Gate 2.
 
-### Can I use my ticket for another event?
-No. Tickets are tied to the event they were purchased for.
+### Q: What should I do if a ticket code won't scan?
+**A**: Use the **Manual Lookup** tab at the top of the scanner to search for the attendee by name or email and check them in manually.
 
-### Can someone else use my ticket?
-Each ticket is meant for one attendee. A used ticket cannot be scanned again.
+---
 
-### What happens if my ticket has already been scanned?
-It will be marked as used and cannot be checked in again.
+## 🎟️ For Attendees & Ticket Buyers
 
-## Event staff
+### Q: Where do I find my tickets after purchasing?
+**A**: You can access your tickets at any time:
+1. In the confirmation email sent to you immediately after purchase.
+2. In your Aldriva account under **My Tickets** (`/my-tickets` or `/dashboard/tickets`).
+3. Using the **Find Tickets** lookup tool (`/find-tickets`).
 
-### What is event staff?
-Event staff are people the organizer invites to help manage the event.
+### Q: Can I transfer my ticket to a friend?
+**A**: Yes. Open your ticket in the **My Tickets** portal and click **Edit Attendee Name** to reassign the pass to another person prior to check-in.
 
-### How does an organizer give someone staff access?
-The organizer sends an invitation from the event team page and the staff member accepts it while signed in.
-
-### Can staff scan tickets?
-Yes. Ticket Scanners can scan tickets, and Event Managers can also scan tickets.
-
-### What happens if a staff member is removed?
-They lose access to that event's staff tools immediately.
-
-## Check-in
-
-### How are tickets checked?
-A staff member scans the QR code, Aldriva verifies it, and the ticket is accepted or rejected.
-
-### What happens when a ticket is valid?
-The attendee is checked in.
-
-### What happens when a ticket is already used?
-The ticket is rejected because it has already been checked in.
-
-### What happens when a ticket belongs to another event?
-The ticket is rejected because it was purchased for a different event.
-
-### Can multiple staff members scan tickets?
-Yes. Event Managers and Ticket Scanners can both use the scanner where they have access.
-
-## Problems
-
-### My ticket isn't showing.
-Open [My Tickets](./my-tickets.md), make sure you are signed in with the right account, or use guest lookup with the order ID and purchase email.
-
-### My QR code isn't scanning.
-Make the QR code larger, brighten the screen, and try the manual code entry option if needed.
-
-### My ticket was rejected.
-Check whether it was already used, cancelled, refunded, or purchased for a different event.
-
-### I can't access my event.
-You may not have the right role. Ask the organizer to invite you as Event Manager or Ticket Scanner, or to re-send the invitation.
-
-## Current limits
-
-### What is not currently supported?
-Not currently supported:
-- Offline scanning
-- Ticket transfer
-- Re-entry tracking
-- Entrance or gate assignment
-
-## See also
-- [Creating an Event](./creating-an-event.md)
-- [My Tickets](./my-tickets.md)
-- [QR Tickets](./qr-tickets.md)
-- [Event Team](./event-team.md)
-- [Ticket Scanning](./ticket-scanning.md)
-- [Attendance](./attendance.md)
-- [Troubleshooting](./troubleshooting.md)
-
+### Q: Can I print my ticket pass?
+**A**: Yes. Open your digital pass and select the print/download option to generate a high-contrast physical copy for the door.

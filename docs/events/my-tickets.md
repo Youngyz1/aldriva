@@ -1,53 +1,51 @@
-# My Tickets
+# Accessing & Managing Your Tickets
 
-Use **My Tickets** to find the tickets you have already bought.
+Aldriva ensures attendees can always access, view, and present their event tickets and VIP passes at any time.
 
-The current ticket portal is:
+---
 
-`/events/my-tickets`
+## 📱 Methods of Accessing Your Tickets
 
-## Account tickets
-If you are signed in, Aldriva shows the tickets linked to your account.
+Attendees can retrieve their tickets through three convenient methods:
 
-You may see tickets grouped into:
-- Upcoming events
-- Past events
+### 1. Registered User Account Portal
+If you created an account or logged in during purchase:
+1. Visit `/my-tickets` or `/dashboard/tickets` in your user navigation.
+2. View all **Upcoming Events** and **Past Events**.
+3. Click on any event card to view your ticket credentials, assigned seat/table numbers, and venue directions.
 
-Each ticket entry shows the event title, ticket type, ticket quantity, total paid, and status.
+### 2. Email Confirmation & Direct Magic Link
+- Every ticket purchase and accepted invitation automatically triggers a confirmation email containing a direct, secure pass link.
+- Clicking the link opens your web pass directly on your smartphone without requiring a password.
 
-## Guest order lookup
-If you bought as a guest, switch to **Guest Order Lookup** and enter:
-- Your order ID or QR reference
-- The email address used during purchase
+### 3. Guest Order Lookup Tool
+If you purchased tickets as a guest without an account:
+1. Visit the public **Find Tickets** page (`/find-tickets`).
+2. Enter the **Email Address** used during checkout and your **Order Reference Code**.
+3. A secure access link will be emailed to you instantly.
 
-This lets you recover tickets without signing in.
+---
 
-## What appears on a ticket
-Aldriva ticket passes can show:
-- Event title
-- Event date
-- Venue and city
-- Ticket type
-- Quantity
-- Order number or reference
-- Total paid
-- Seat label, if one was assigned
-- Ticket status
-- QR code
+## 🎫 Ticket Card Details
 
-## Showing the QR code
-Open the ticket pass and display the QR code on screen at entry.
+Each ticket card displayed in your ticket vault contains:
 
-The pass page also lets you:
-- Download the QR code
-- Print the ticket
-- Copy the ticket link
+- **Event Title & Host Organization**
+- **Date, Time & Local Timezone**
+- **Venue Name & Physical Address** (with map directions link)
+- **Ticket Tier**: (e.g., *VIP Reception, General Admission*)
+- **Seating Coordinates**: Section, Row, and Seat Number or Table Name
+- **QR Code Credential**: Single-use 32-character hex token for door scanning
+- **Attendee Name**: The assigned guest name on the credential
 
-## Multiple tickets
-If you bought several tickets, Aldriva treats each ticket as its own pass with its own QR code.
+---
 
-## See also
-- [Buying Tickets](./buying-tickets.md)
-- [QR Tickets](./qr-tickets.md)
-- [Ticket Scanning](./ticket-scanning.md)
+## 🔄 Updating Attendee Names & Transfers
 
+If you purchased a ticket for a colleague or friend and need to update the name:
+1. Open the ticket in **My Tickets**.
+2. Click **Edit Attendee Name**.
+3. Enter the new attendee's full name and email address.
+4. The ticket pass updates immediately and sends a fresh pass link to the new attendee.
+
+> **Note**: Attendee names can only be edited prior to door check-in. Once a ticket is scanned at the event, its status transitions to `used` and details are locked.

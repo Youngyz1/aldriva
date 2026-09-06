@@ -1,79 +1,50 @@
-# Aldriva Events
+# Aldriva Events Documentation
 
-## What are Aldriva Events?
-Aldriva Events is the part of Aldriva that helps people discover events, buy tickets, manage event pages, scan QR codes at the door, and review attendance after check-in.
+Welcome to the comprehensive documentation for **Aldriva Events** — an all-in-one event management, ticketing, visual venue seating, digital invitation, door scanning, and operations platform.
 
-It is built for three groups:
-- Attendees who want to find an event and keep their tickets in one place
-- Organizers who want to create and manage events
-- Event staff who need a simple scanner for check-in
+---
 
-## What can you do with Aldriva Events?
-- Discover events on Aldriva
-- Create and publish events
-- Sell tickets
-- Store tickets in one place
-- Show a QR code at entry
-- Invite event staff
-- Scan tickets at the door
-- Review attendance and check-in history
+## 🧭 Documentation Map by Role
 
-## For attendees
-- Buy tickets from an event page
-- View tickets in [My Tickets](./my-tickets.md)
-- Open a ticket pass and show the QR code at the door
-- Find guest orders when you bought as a guest
+### 🎪 For Event Organizers & Managers
+- **[Creating & Configuring an Event](creating-an-event.md)**: Set up event details, dates, venues, ticket tiers, pricing, and visibility.
+- **[Visual Seating & Venue Builder](seating.md)**: Design custom floorplans, table layouts, theater rows, VIP sections, and assign seats to attendees.
+- **[Guest Management & CSV Import](guests.md)**: Add guests individually or bulk-import via CSV with validation and conflict resolution.
+- **[Digital Invitations & RSVP](invitations.md)**: Send personalized digital invitations with RSVP deadlines, custom messages, and automatic QR pass generation.
+- **[Operations Command Center](operations.md)**: Monitor live sales, hourly arrival velocity, attendance metrics, audit logs, and export reports in RFC 4180 CSV format.
+- **[Team & Staff Permissions](event-team.md)**: Invite staff members and delegate permissions with role-based access control (Event Manager vs. Ticket Scanner).
+- **[Refunds, Cancellations & Revocations](refunds-and-cancellations.md)**: Process refunds, cancel ticket instances, revoke invitations, and release assigned seats.
 
-## For organizers
-- Create events in [Creating an Event](./creating-an-event.md)
-- Set up ticket types and pricing
-- Add a seat map when needed
-- Invite event staff in [Event Team](./event-team.md)
-- Review attendance in [Attendance](./attendance.md)
-- Understand refund and cancellation behavior in [Refunds and Cancellations](./refunds-and-cancellations.md)
+### 📱 For Door Staff & Ushers
+- **[Door Scanner & Check-In App](ticket-scanning.md)**: Use device cameras or USB 2D scanners to scan passes with real-time feedback and audio cues.
+- **[Live Attendance & Roster](attendance.md)**: Search the attendee roster, filter by status or tier, and process manual check-in overrides.
 
-## For event staff
-- Accept an invitation to join the event team
-- Open the scanner in [Ticket Scanning](./ticket-scanning.md)
-- Check guests in at the door
-- See ticket results immediately on screen
+### 🎟️ For Attendees & Ticket Buyers
+- **[Purchasing Tickets & Selecting Seats](buying-tickets.md)**: Browse events, select seats on interactive floorplans, and checkout securely.
+- **[Accessing & Managing Your Tickets](my-tickets.md)**: View purchased tickets, download passes, and retrieve orders via email lookup.
+- **[QR Code Passes & Entry Guidelines](qr-tickets.md)**: Understand how Aldriva QR credentials work, entry verification, and best practices.
 
-## How a ticket works
-Every ticket is its own pass with its own QR code.
+### 💡 Support & Reference
+- **[Frequently Asked Questions (FAQ)](faq.md)**: Quick answers to common questions for organizers, staff, and attendees.
+- **[Troubleshooting Guide](troubleshooting.md)**: Step-by-step diagnostic procedures for scanner issues, camera permissions, seating conflicts, and CSV imports.
 
-That means:
-- 1 ticket = 1 person = 1 QR code
-- 5 tickets = 5 QR codes
-- Each ticket can be checked in separately
-- A ticket belongs to the event it was purchased for
+---
 
-Read more in [QR Tickets](./qr-tickets.md).
+## ⚡ Complete Documentation Sitemap
 
-## How event check-in works
-1. The attendee shows a ticket QR code
-2. Event staff scans it
-3. Aldriva verifies the ticket
-4. The result appears on screen
-5. If the ticket is valid, the attendee is checked in
-
-Read more in [Ticket Scanning](./ticket-scanning.md).
-
-## Current limits
-The following features are not currently supported in the public Events experience:
-- Offline scanning
-- Ticket transfer
-- Re-entry tracking
-- Entrance or gate assignment
-
-## Explore the Events guides
-- [Creating an Event](./creating-an-event.md)
-- [Buying Tickets](./buying-tickets.md)
-- [My Tickets](./my-tickets.md)
-- [QR Tickets](./qr-tickets.md)
-- [Event Team](./event-team.md)
-- [Ticket Scanning](./ticket-scanning.md)
-- [Attendance](./attendance.md)
-- [Refunds and Cancellations](./refunds-and-cancellations.md)
-- [Troubleshooting](./troubleshooting.md)
-- [FAQ](./faq.md)
-
+| Document | Primary Audience | Description |
+| :--- | :--- | :--- |
+| **[creating-an-event.md](creating-an-event.md)** | Organizers | Event creation, dates, venue types, ticket tiers, pricing & visibility |
+| **[seating.md](seating.md)** | Organizers & Managers | 1200×800 SVG canvas venue builder, tables, rows, VIP flags, seat assignments |
+| **[guests.md](guests.md)** | Organizers & Managers | Manual guest entry, RFC 4180 CSV bulk import, validation & conflict handling |
+| **[invitations.md](invitations.md)** | Organizers & Attendees | Digital invitation card, RSVP deadline, tokenized link, automated QR pass issuance |
+| **[buying-tickets.md](buying-tickets.md)** | Attendees | Interactive seat selection, Stripe checkout, order confirmation |
+| **[my-tickets.md](my-tickets.md)** | Attendees | Registered user portal, guest email lookup, Apple/Google Wallet export |
+| **[qr-tickets.md](qr-tickets.md)** | All Users | Single-use QR credential architecture, security, 32-char hex token validation |
+| **[ticket-scanning.md](ticket-scanning.md)** | Door Staff & Ushers | Mobile camera scanner, audio feedback, scan status outcomes, offline resilience |
+| **[attendance.md](attendance.md)** | Staff & Managers | Live check-in roster, real-time search & filters, manual entry overrides |
+| **[event-team.md](event-team.md)** | Organizers | RBAC permissions (Owner, Event Manager, Ticket Scanner), team invites |
+| **[operations.md](operations.md)** | Organizers & Ops | Real-time KPIs, hourly arrival velocity, audit history, RFC 4180 CSV data exports |
+| **[refunds-and-cancellations.md](refunds-and-cancellations.md)** | Organizers & Buyers | Refund processing, ticket voiding, invitation revoking, seat releasing |
+| **[faq.md](faq.md)** | All Users | Frequently asked questions organized by category |
+| **[troubleshooting.md](troubleshooting.md)** | All Users | Comprehensive diagnostic and troubleshooting workflows |

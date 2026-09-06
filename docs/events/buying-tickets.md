@@ -1,43 +1,61 @@
-# Buying Tickets
+# Purchasing Tickets & Selecting Seats
 
-This guide covers the public ticket-buying flow for an Aldriva event.
+This guide describes the attendee purchasing experience on Aldriva, including ticket tier selection, interactive floorplan seat picking, and secure checkout.
 
-## Buy a ticket
-1. Find the event you want to attend.
-2. Open the event page.
-3. Choose a ticket type.
-4. Select the quantity you want.
-5. Enter the required contact details.
-6. Complete payment.
-7. Review the confirmation screen.
-8. Open your tickets from the confirmation page or from [My Tickets](./my-tickets.md).
+---
 
-If the event has assigned seating, you may also choose seats before paying.
+## 🛒 The Checkout Flow
 
-## Multiple tickets
-When you buy more than one ticket, Aldriva creates one ticket for each attendee.
+```
+1. Browse Event Page (/events/[slug])
+       │
+       ▼
+2. Select Ticket Tier(s) & Quantities
+       │
+       ▼
+3. Pick Seats on Interactive SVG Floorplan (if assigned seating)
+       │
+       ▼
+4. Enter Attendee Information (Name, Email per ticket)
+       │
+       ▼
+5. Secure Checkout via Stripe (Credit/Debit Card, Digital Wallets)
+       │
+       ▼
+6. Order Confirmation & Instant QR Ticket Delivery
+```
 
-Examples:
-- 1 ticket = 1 QR code
-- 5 tickets = 5 QR codes
+---
 
-The current public event checkout usually shows one ticket type at a time with a quantity selector. Where a checkout flow supports more than one ticket type in the same order, Aldriva still issues separate tickets for each person.
+## 🪑 Interactive Seat Selection
 
-Example:
-- 2 VIP + 3 Regular = 5 tickets and 5 QR codes
+For events utilizing Aldriva's **Assigned Seating** mode:
 
-## After payment
-After payment completes, Aldriva shows a confirmation page for your ticket pass. From there you can:
-- View the QR code
-- Download the pass
-- Print the pass
-- Copy the pass link
+1. **Live Floorplan View**: The attendee sees the venue layout (auditorium rows, banquet tables, stage location).
+2. **Real-Time Seat Availability**:
+   - 🟢 **Available**: Selectable seats with tooltips showing Seat Number, Row, Section, and Price.
+   - 🟡 **In Cart**: Temporarily locked seats currently being checked out by other buyers.
+   - 🔵 **Sold / Unavailable**: Grayed-out non-selectable seats.
+3. **Cart Reservation Lock**: When a buyer selects a seat, a **10-minute reservation lock** is placed on that seat in the database. This prevents double-booking while the buyer enters payment details.
+4. If checkout is not completed within 10 minutes, the lock automatically expires and the seat returns to the public pool.
 
-## If tickets are not available
-If an event has not set up ticket types yet, the event page will show that tickets are not available.
+---
 
-## See also
-- [My Tickets](./my-tickets.md)
-- [QR Tickets](./qr-tickets.md)
-- [Troubleshooting](./troubleshooting.md)
+## 🎟️ Multi-Ticket & Group Purchases
 
+Buyers can purchase multiple tickets in a single transaction:
+- **Individual Attendee Names**: The buyer can enter distinct names and email addresses for each ticket instance in their order.
+- **Separate QR Passes**: Aldriva provisions an independent, unique QR ticket for every single seat/ticket in the order.
+- **Email Delivery**: Each named attendee receives their own direct pass link, while the primary buyer receives a master receipt containing all tickets.
+
+---
+
+## 💳 Payment Processing & Confirmation
+
+- **Stripe Connect Integration**: Payments are processed securely via Stripe PaymentIntents:
+  - Major Credit & Debit Cards (Visa, Mastercard, American Express, Discover)
+  - Digital Wallets (Apple Pay, Google Pay) when configured and supported by the user's browser
+- **Order Confirmation Page**: Immediately after payment, the buyer is redirected to the order confirmation page (`/ticket-confirmation` or `/orders/[id]/confirmation`) with:
+  - Printable receipt and order reference code
+  - Interactive QR codes for each ticket
+  - Downloadable PDF tickets
