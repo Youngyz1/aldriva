@@ -63,7 +63,9 @@ async function findTicketByCode(code: string) {
         guest_name,
         guest_title,
         organization,
-        email
+        email,
+        phone,
+        image_url
       ),
       events (
         title,
@@ -127,6 +129,8 @@ async function findTicketByCode(code: string) {
         buyer_email: displayEmail,
         guest_title: invitationData?.guest_title || null,
         organization: invitationData?.organization || null,
+        phone: invitationData?.phone || null,
+        image_url: invitationData?.image_url || null,
         total_amount: orderData?.total_amount || 0,
         created_at: inst.created_at,
         checked_in_at: inst.checked_in_at,
@@ -228,10 +232,19 @@ export async function GET(req: NextRequest) {
 
   const userId = await getCurrentUserId(req);
   const canCheckIn = await canManageEvent(userId, ticketData.eventId);
+  const hasFullManagerAccess = userId ? await hasEventOrOrganizerAccess(userId, ticketData.eventId, ["event_manager"]) : false;
+
+  // Scanner PII suppression: suppress email, phone, and financial amounts for scanner-only or unauthenticated lookups
+  const sanitizedOrder = { ...ticketData.order };
+  if (!hasFullManagerAccess) {
+    sanitizedOrder.buyer_email = null;
+    sanitizedOrder.phone = null;
+    sanitizedOrder.total_amount = 0;
+  }
 
   return NextResponse.json({
     valid: ticketData.status === "valid",
-    order: ticketData.order,
+    order: sanitizedOrder,
     authenticated: Boolean(userId),
     can_check_in: canCheckIn,
   });

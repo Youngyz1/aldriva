@@ -14,8 +14,13 @@ type ScanResultState = {
     id?: string;
     buyer_name?: string | null;
     buyer_email?: string | null;
+    phone?: string | null;
+    image_url?: string | null;
+    guest_title?: string | null;
+    organization?: string | null;
     quantity?: number;
     seat_label?: string | null;
+    tier_name?: string | null;
     checked_in_at?: string | null;
     event_title?: string | null;
   };
@@ -269,16 +274,49 @@ export default function ScannerClient({ eventId, eventTitle, eventDetails }: Pro
               <p className="text-sm font-semibold mt-1 opacity-90">{result.message}</p>
 
               {result.order && (
-                <div className="mt-4 pt-4 border-t border-black/10 text-left text-xs font-medium space-y-1 bg-white/60 rounded-xl p-3">
-                  {result.order.buyer_name && (
-                    <p><strong className="font-bold">Guest:</strong> {result.order.buyer_name}</p>
-                  )}
-                  {result.order.seat_label && (
-                    <p><strong className="font-bold">Seat:</strong> {result.order.seat_label}</p>
-                  )}
-                  {result.order.checked_in_at && (
-                    <p><strong className="font-bold">Checked In At:</strong> {new Date(result.order.checked_in_at).toLocaleTimeString()}</p>
-                  )}
+                <div className="mt-4 pt-4 border-t border-black/10 text-left text-xs font-medium space-y-2 bg-white/70 rounded-xl p-3.5 shadow-xs">
+                  <div className="flex items-start gap-3">
+                    {result.order.image_url ? (
+                      <img
+                        src={result.order.image_url}
+                        alt="Guest Portrait"
+                        className="h-16 w-16 rounded-xl object-cover border border-zinc-200 shadow-xs shrink-0"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-zinc-200 text-zinc-500 font-bold shrink-0 text-sm">
+                        {result.order.buyer_name ? result.order.buyer_name.charAt(0).toUpperCase() : "?"}
+                      </div>
+                    )}
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      {result.order.buyer_name && (
+                        <p className="text-sm font-black text-zinc-900 truncate">{result.order.buyer_name}</p>
+                      )}
+                      {result.order.guest_title && (
+                        <p className="text-[11px] font-bold text-violet-700 truncate">{result.order.guest_title}</p>
+                      )}
+                      {result.order.organization && (
+                        <p className="text-[11px] text-zinc-600 truncate">{result.order.organization}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60 text-[11px]">
+                    {result.order.seat_label && (
+                      <p><strong className="font-bold text-zinc-700">Seat:</strong> <span className="font-bold text-blue-700">{result.order.seat_label}</span></p>
+                    )}
+                    {result.order.tier_name && (
+                      <p><strong className="font-bold text-zinc-700">Tier:</strong> {result.order.tier_name}</p>
+                    )}
+                    {result.order.buyer_email && (
+                      <p className="truncate"><strong className="font-bold text-zinc-700">Email:</strong> {result.order.buyer_email}</p>
+                    )}
+                    {result.order.phone && (
+                      <p><strong className="font-bold text-zinc-700">Phone:</strong> {result.order.phone}</p>
+                    )}
+                    {result.order.checked_in_at && (
+                      <p className="col-span-2 text-emerald-800 font-bold"><strong className="font-bold">Checked In:</strong> {new Date(result.order.checked_in_at).toLocaleTimeString()}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
