@@ -57,6 +57,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
   - [Frequently Asked Questions (FAQ)](docs/fundraising/faq.md)
   - [Troubleshooting & Diagnostics](docs/fundraising/troubleshooting.md)
 
+- **[Aldriva Profiles, Organizations, & Identity/Trust Master Index](docs/organizations/index.md)** — Complete user profiles, organization hubs, identity verification, social following, and review guides.
+  - [User Profiles & Public Activity](docs/organizations/user-profiles.md)
+  - [Profile Privacy & Account Settings](docs/organizations/profile-privacy-and-settings.md)
+  - [Creating an Organization](docs/organizations/creating-an-organization.md)
+  - [Organization Profiles & Public Hubs](docs/organizations/organization-profiles-and-hubs.md)
+  - [Organization Management Dashboard](docs/organizations/organization-dashboard.md)
+  - [Personal Identity Verification](docs/organizations/identity-verification.md)
+  - [Organization Verification & Trust Badges](docs/organizations/organization-verification.md)
+  - [Following & Social Interactions](docs/organizations/following-and-social.md)
+  - [Reviews & Community Ratings](docs/organizations/reviews-and-ratings.md)
+  - [Frequently Asked Questions (FAQ)](docs/organizations/faq.md)
+  - [Troubleshooting & Diagnostics](docs/organizations/troubleshooting.md)
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
