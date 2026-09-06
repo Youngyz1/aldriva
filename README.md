@@ -44,6 +44,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
   - [Frequently Asked Questions (FAQ)](docs/events/faq.md)
   - [Troubleshooting & Diagnostics](docs/events/troubleshooting.md)
 
+- **[Aldriva Fundraising Master Index](docs/fundraising/index.md)** — Complete personal, nonprofit, and community campaign management, donation flows, and receipts.
+  - [Creating a Fundraiser](docs/fundraising/creating-a-fundraiser.md)
+  - [Beneficiary Setup & Claims](docs/fundraising/beneficiaries.md)
+  - [Verification & Trust](docs/fundraising/verification-and-trust.md)
+  - [Donating to a Campaign](docs/fundraising/donating.md)
+  - [Donation Receipts & Tax Information](docs/fundraising/receipts-and-tax.md)
+  - [Managing Your Fundraisers](docs/fundraising/managing-fundraisers.md)
+  - [Donations Dashboard & Tracking](docs/fundraising/donations-dashboard.md)
+  - [Payouts & Withdrawals](docs/fundraising/payouts-and-withdrawals.md)
+  - [Sharing & Discovery](docs/fundraising/sharing-and-discovery.md)
+  - [Frequently Asked Questions (FAQ)](docs/fundraising/faq.md)
+  - [Troubleshooting & Diagnostics](docs/fundraising/troubleshooting.md)
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
