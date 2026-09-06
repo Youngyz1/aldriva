@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServer } from "@/lib/supabase-server";
 import { getNowPaymentsConfig } from "@/lib/cryptoPayment";
+import { isEmailEntitled } from "@/lib/security/entitlement";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
@@ -15,7 +17,7 @@ async function findRecordByOrderId(orderId: string) {
   // 1. Look up in donations by ID (orderId UUID)
   const { data: donation } = await supabaseAdmin
     .from("donations")
-    .select("id, status, fundraiser_id, payment_intent_id, fundraiser:fundraisers(slug)")
+    .select("id, status, fundraiser_id, payment_intent_id, donor_email, fundraiser:fundraisers(slug)")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -27,13 +29,14 @@ async function findRecordByOrderId(orderId: string) {
       slug: (donation.fundraiser as any)?.slug || null,
       qrCode: null,
       paymentIntentId: donation.payment_intent_id,
+      buyerEmail: (donation as any).donor_email || null,
     };
   }
 
   // 2. Look up in ticket_orders by ID (orderId UUID)
   const { data: order } = await supabaseAdmin
     .from("ticket_orders")
-    .select("id, status, event_id, qr_code, stripe_payment_intent_id, event:events(slug)")
+    .select("id, status, event_id, qr_code, stripe_payment_intent_id, buyer_email, event:events(slug)")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -45,6 +48,7 @@ async function findRecordByOrderId(orderId: string) {
       slug: (order.event as any)?.slug || null,
       qrCode: order.qr_code || null,
       paymentIntentId: order.stripe_payment_intent_id,
+      buyerEmail: (order as any).buyer_email || null,
     };
   }
 
@@ -53,7 +57,7 @@ async function findRecordByOrderId(orderId: string) {
   // legacy id), so no legacy payment_intent_id fallback is needed here.
   const { data: productOrder } = await supabaseAdmin
     .from("product_orders")
-    .select("id, status, product_id, product_name, crypto_payment_id, product:products(slug)")
+    .select("id, status, product_id, product_name, crypto_payment_id, buyer_email, product:products(slug)")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -66,13 +70,14 @@ async function findRecordByOrderId(orderId: string) {
       qrCode: null,
       paymentIntentId: productOrder.crypto_payment_id,
       productName: productOrder.product_name,
+      buyerEmail: (productOrder as any).buyer_email || null,
     };
   }
 
   // 4. Legacy lookup: in donations by payment_intent_id
   const { data: donationLegacy } = await supabaseAdmin
     .from("donations")
-    .select("id, status, fundraiser_id, payment_intent_id, fundraiser:fundraisers(slug)")
+    .select("id, status, fundraiser_id, payment_intent_id, donor_email, fundraiser:fundraisers(slug)")
     .eq("payment_intent_id", orderId)
     .maybeSingle();
 
@@ -84,13 +89,14 @@ async function findRecordByOrderId(orderId: string) {
       slug: (donationLegacy.fundraiser as any)?.slug || null,
       qrCode: null,
       paymentIntentId: donationLegacy.payment_intent_id,
+      buyerEmail: (donationLegacy as any).donor_email || null,
     };
   }
 
   // 5. Legacy lookup: in ticket_orders by stripe_payment_intent_id
   const { data: orderLegacy } = await supabaseAdmin
     .from("ticket_orders")
-    .select("id, status, event_id, qr_code, stripe_payment_intent_id, event:events(slug)")
+    .select("id, status, event_id, qr_code, stripe_payment_intent_id, buyer_email, event:events(slug)")
     .eq("stripe_payment_intent_id", orderId)
     .maybeSingle();
 
@@ -102,10 +108,34 @@ async function findRecordByOrderId(orderId: string) {
       slug: (orderLegacy.event as any)?.slug || null,
       qrCode: orderLegacy.qr_code || null,
       paymentIntentId: orderLegacy.stripe_payment_intent_id,
+      buyerEmail: (orderLegacy as any).buyer_email || null,
     };
   }
 
   return null;
+}
+
+/**
+ * Whether the caller may receive the record's ticket QR credential.
+ * Proof is the record's buyer email supplied as `?email=` or the
+ * authenticated session's email. Anything else (including no record, no QR,
+ * or no buyer email on file) fails closed.
+ */
+async function isQrEntitled(
+  record: { qrCode?: string | null; buyerEmail?: string | null } | null,
+  searchParams: URLSearchParams
+): Promise<boolean> {
+  const buyerEmail = (record as any)?.buyerEmail || null;
+  if (!record?.qrCode || !buyerEmail) return false;
+  if (isEmailEntitled(buyerEmail, searchParams.get("email"))) return true;
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email && isEmailEntitled(buyerEmail, user.email)) return true;
+  } catch {
+    // Session lookup failure fails closed (no QR).
+  }
+  return false;
 }
 
 export async function GET(req: NextRequest) {
@@ -130,7 +160,8 @@ export async function GET(req: NextRequest) {
         type: record.type,
         recordId: record.id,
         slug: record.slug,
-        qrCode: record.qrCode,
+        // Same credential gate as the main return below.
+        qrCode: (await isQrEntitled(record, searchParams)) ? record.qrCode : null,
         productName: (record as any).productName || null,
       });
     }
@@ -190,12 +221,18 @@ export async function GET(req: NextRequest) {
       finalStatus = "confirmed";
     }
 
+    // The ticket QR code is a bearer entry credential: disclose it only to
+    // the buyer — proven either by the authenticated session email or by a
+    // matching `email` query param (my-tickets ownership model). Public order
+    // status stays visible so the pending page keeps working for everyone.
+    const qrEntitled = await isQrEntitled(record, searchParams);
+
     return NextResponse.json({
       status: finalStatus,
       type: record?.type || null,
       recordId: record?.id || null,
       slug: record?.slug || null,
-      qrCode: record?.qrCode || null,
+      qrCode: qrEntitled ? record?.qrCode || null : null,
       productName: (record as any)?.productName || null,
     });
   } catch (err: unknown) {

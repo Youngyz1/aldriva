@@ -17,7 +17,9 @@ type Donation = {
   donor_name: string | null;
   amount: number | string | null;
   created_at: string;
-  user_id: string | null;
+  // `user_id` is never sent to the client (public wall needs `profile` only).
+  // Kept optional so older server payloads still type-check.
+  user_id?: string | null;
   profile: DonorProfile;
 };
 

@@ -20,7 +20,12 @@ export default function AppSidebar({
   navAriaLabel: string;
 }) {
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-slate-950 text-white lg:flex">
+    // Pinned app chrome: sticks below the sticky global navbar (h-16) so it
+    // never slides underneath it, and is exactly viewport-minus-navbar tall
+    // so the footer stays reachable. `self-start` keeps `sticky` working
+    // inside the flex-row parent; the nav scrolls internally when taller
+    // than the viewport while the page scroll moves only the main content.
+    <aside className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] w-64 shrink-0 self-start flex-col overflow-y-auto overscroll-contain bg-slate-950 text-white supports-[height:100dvh]:h-[calc(100dvh-4rem)] lg:flex">
       {header}
       <SidebarNavList
         groups={groups}

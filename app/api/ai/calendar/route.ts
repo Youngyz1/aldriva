@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
 import {
   saveTrendToCalendar,
   getCalendarItems,
@@ -7,6 +8,8 @@ import {
 } from '@/lib/ai/trend-synthesis';
 
 export async function GET(req: NextRequest) {
+  // Internal Growth Studio capability: admin-only (same gate as /api/ai/chat).
+  await requireAdmin();
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') as ContentCalendarStatus | null;
@@ -29,6 +32,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  await requireAdmin();
   try {
     const body = await req.json();
     const { trend, adminNotes } = body;
@@ -54,6 +58,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  await requireAdmin();
   try {
     const body = await req.json();
     const { id, status } = body;

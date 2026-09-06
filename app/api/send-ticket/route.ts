@@ -3,11 +3,18 @@ import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import { getSiteUrl } from "@/lib/site-url";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { isEmailEntitled } from "@/lib/security/entitlement";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
+    // Abuse-shaped endpoint (resends entry credentials by email): strict
+    // rate limit first, matching the guest-lookup budget convention.
+    const rateLimitRes = await enforceRateLimit("guestLookup", req);
+    if (rateLimitRes) return rateLimitRes;
+
     const {
       buyerEmail,
       buyerName,
@@ -69,6 +76,20 @@ export async function POST(req: NextRequest) {
       paymentIntentId = byLegacyQr?.[0]?.stripe_payment_intent_id || null;
     }
 
+    // UUIDs stored in ticket_orders.qr_code (every order carries one) are not
+    // covered by the branches above — resolve them here before failing closed.
+    // Without this, legitimate resends keyed by the order QR would 404.
+    if ((!orders || orders.length === 0) && isUuid) {
+      const { data: byOrderQr } = await admin
+        .from("ticket_orders")
+        .select("id, stripe_payment_intent_id, ticket_id, seat_label, buyer_name, buyer_email, event_id")
+        .eq("qr_code", qrCode);
+      if (byOrderQr && byOrderQr.length > 0) {
+        orders = byOrderQr;
+        paymentIntentId = byOrderQr[0].stripe_payment_intent_id;
+      }
+    }
+
     // If paymentIntentId exists, fetch all orders grouped by paymentIntentId
     if (paymentIntentId) {
       const { data: groupedOrders } = await admin
@@ -79,6 +100,21 @@ export async function POST(req: NextRequest) {
         orders = groupedOrders;
       }
     }
+
+    // No matching order: fail closed. (Previously the handler fabricated a
+    // "valid" ticket from any supplied QR — an enumeration/exfil oracle.)
+    const primaryOrder = orders?.[0];
+    if (!primaryOrder) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    // Entitlement: the supplied email must match the order's buyer email.
+    // The recipient below is server-derived, never the client value, so this
+    // endpoint cannot be used as a relay to arbitrary addresses.
+    if (!isEmailEntitled(primaryOrder.buyer_email, buyerEmail)) {
+      return NextResponse.json({ error: "Email does not match this order." }, { status: 403 });
+    }
+    const recipientEmail = primaryOrder.buyer_email;
 
     const orderIds = (orders || []).map((o) => o.id);
     let instances: Array<{ id: string; qr_code: string; status: string; tier_name: string }> = [];
@@ -135,7 +171,6 @@ export async function POST(req: NextRequest) {
     }
 
     const baseUrl = getSiteUrl();
-    const primaryOrder = orders?.[0];
     const totalCount = instances.length;
 
     // Render individual ticket cards for each instance
@@ -190,17 +225,17 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.RESEND_API_KEY) {
       console.warn("[send-ticket] RESEND_API_KEY is not configured; skipping email dispatch.");
+      // QR credentials are never returned in responses, including mocks.
       return NextResponse.json({
         success: true,
         count: totalCount,
         mock: true,
-        instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
       });
     }
 
     const { error } = await resend.emails.send({
       from: `${BRAND.name} <${BRAND.contactEmail}>`,
-      to: buyerEmail,
+      to: recipientEmail,
       subject: `Your ${totalCount > 1 ? `${totalCount} tickets` : "ticket"} for ${resolvedEventTitle} 🎟️`,
       html: `
         <!DOCTYPE html>
@@ -269,7 +304,6 @@ export async function POST(req: NextRequest) {
           success: true,
           count: totalCount,
           devError: error.message,
-          instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
         });
       }
       return NextResponse.json({ error: "Failed to send email." }, { status: 500 });
@@ -278,7 +312,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       count: totalCount,
-      instances: instances.map(i => ({ qrCode: i.qr_code, tierName: i.tier_name }))
     });
   } catch (err) {
     console.error("[send-ticket] Send ticket error:", err);

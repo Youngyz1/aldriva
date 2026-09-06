@@ -54,14 +54,17 @@ export async function GET(
     // Authorization Check
     let authorized = false;
 
-    // Check 1: paymentId / session_id in query params (for guests right after checkout)
+    // Check 1: payment credential in query params (for guests right after checkout).
+    // Only the unguessable payment credential (Stripe payment_intent_id /
+    // crypto payment id) counts as proof. The donation `id` is publicly
+    // listed (donor wall feed), so it must NEVER authorize access on its own.
     const sp = request.nextUrl.searchParams;
     const queryPaymentId = sp.get("paymentId") || sp.get("session_id");
 
     if (
       queryPaymentId &&
-      ((donation.payment_intent_id && queryPaymentId === donation.payment_intent_id) ||
-        queryPaymentId === donation.id)
+      donation.payment_intent_id &&
+      queryPaymentId === donation.payment_intent_id
     ) {
       authorized = true;
     }

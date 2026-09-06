@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Lock, Bell, CreditCard, ShieldAlert } from "lucide-react";
+import { User, Lock, Bell, CreditCard, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsNavItems = [
@@ -12,6 +12,14 @@ const settingsNavItems = [
     href: "/dashboard/settings/profile",
     icon: User,
     description: "Personal details and addresses",
+  },
+  {
+    label: "Verification",
+    href: "/dashboard/settings/verification",
+    icon: ShieldCheck,
+    description: "Identity and organization verification",
+    // Stays highlighted on the verification sub-pages (e.g. identity wizard)
+    matchPrefix: true,
   },
   {
     label: "Security",
@@ -68,7 +76,9 @@ export default function SettingsLayout({
           {/* Desktop Sidebar Navigation */}
           <nav className="hidden space-y-1 lg:block">
             {settingsNavItems.map((item) => {
-              const active = pathname === item.href;
+              const active =
+                pathname === item.href ||
+                ("matchPrefix" in item && item.matchPrefix && pathname.startsWith(item.href + "/"));
               const Icon = item.icon;
               return (
                 <Link
@@ -102,7 +112,9 @@ export default function SettingsLayout({
           {/* Mobile Scrollable Horizontal Navigation */}
           <nav className="flex gap-2 overflow-x-auto pb-2 scrollbar-none lg:hidden">
             {settingsNavItems.map((item) => {
-              const active = pathname === item.href;
+              const active =
+                pathname === item.href ||
+                ("matchPrefix" in item && item.matchPrefix && pathname.startsWith(item.href + "/"));
               const Icon = item.icon;
               return (
                 <Link

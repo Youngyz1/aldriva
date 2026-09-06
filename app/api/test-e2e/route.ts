@@ -3,6 +3,12 @@ import { createArticle, updateArticle } from "@/lib/actions/articles";
 import { createSupabaseServer } from "@/lib/supabase-server";
 
 export async function GET() {
+  // Test-only endpoint: must never execute in production, for any user
+  // (including admins) — there is no sanctioned production testing flow.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ success: false, error: "Not found." }, { status: 404 });
+  }
+
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
 

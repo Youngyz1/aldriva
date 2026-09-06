@@ -1,5 +1,9 @@
 import { getNextPromotion } from '../../../../lib/promotionEngine.js';
 import { generatePromotionCaption } from '../../../../lib/generateCaption.js';
+import {
+  getContentMode,
+  generatePlatformContent,
+} from '../../../../lib/generatePlatformContent.js';
 import { postToFacebook, postPhotoToFacebook } from '../../../../lib/facebook.js';
 import { isAuthorizedCronRequest } from '../../../../lib/cron-auth';
 import { createClient } from '@supabase/supabase-js';
@@ -36,10 +40,87 @@ async function recordAuditItem({ contentType, sourceId, snapshot, caption, provi
 }
 
 /**
+ * Publishes platform (About-Aldriva) content: branded template image + caption,
+ * no campaign link. Shared by the platform_only path and the auto-mode fallback.
+ */
+async function publishPlatformContent({ request, contentMode, contentPath }) {
+  const { caption, imageUrl, source, sourceId } = await generatePlatformContent();
+
+  console.log(
+    `[PromotionEngine Cron] content_mode=${contentMode} content_path=${contentPath} source=${source}`
+  );
+
+  await recordAuditItem({
+    contentType: 'platform',
+    sourceId,
+    snapshot: { source, content_mode: contentMode, content_path: contentPath },
+    caption,
+  });
+
+  const requestUrl = new URL(request.url);
+  const preview = requestUrl.searchParams.get('preview') === 'true';
+  if (preview) {
+    console.log('[PromotionEngine Cron] Preview mode: skipping Facebook posting.');
+    return Response.json({
+      success: true,
+      preview: true,
+      contentMode,
+      contentPath,
+      caption,
+      imageUrl,
+    });
+  }
+
+  if (imageUrl) {
+    try {
+      const postId = await postPhotoToFacebook({ imageUrl, caption });
+      return Response.json({ success: true, postId, withImage: true, contentMode, contentPath });
+    } catch (err) {
+      console.error('[PromotionEngine Cron] Platform photo post failed, falling back to text-only:', err.message);
+      try {
+        const postId = await postToFacebook({ message: caption });
+        return Response.json({
+          success: true,
+          postId,
+          withImage: false,
+          contentMode,
+          contentPath,
+          warning: 'Photo post failed; posted text-only fallback.',
+        });
+      } catch (fallbackErr) {
+        console.error('[PromotionEngine Cron] Platform fallback text post failed:', fallbackErr.message);
+        return Response.json(
+          { success: false, error: `Failed posting fallback: ${fallbackErr.message}`, contentMode, contentPath },
+          { status: 500 }
+        );
+      }
+    }
+  }
+
+  try {
+    const postId = await postToFacebook({ message: caption });
+    return Response.json({ success: true, postId, withImage: false, contentMode, contentPath });
+  } catch (err) {
+    console.error('[PromotionEngine Cron] Platform text post failed:', err.message);
+    return Response.json(
+      { success: false, error: `Failed posting text: ${err.message}`, contentMode, contentPath },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/cron/promotion-engine
  *
- * Triggered periodically (e.g. via Vercel Cron) to select an active campaign
- * (event or fundraiser) and publish it to the Facebook Page.
+ * Triggered periodically (e.g. via Vercel Cron) to select content and publish
+ * it to the Facebook Page.
+ *
+ * CONTENT_MODE gate — deliberate manual switch, NOT auto-detected.
+ * 'platform_only' (current default): About-Aldriva content only. getNextPromotion()
+ * is skipped entirely — never called, not merely fallen through — because current
+ * DB inventory is test/seed data, not real campaigns. Switch to 'grounded' or
+ * 'auto' manually once genuine, non-test inventory exists.
+ * See docs/technical/aldriva-ai.md.
  */
 export async function POST(request) {
   console.log('[PromotionEngine Cron] Cron started.');
@@ -50,26 +131,44 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 2. Query next eligible content
+  const contentMode = getContentMode();
+
+  // 2a. Platform-only path: never touch events/fundraisers data.
+  if (contentMode === 'platform_only') {
+    return publishPlatformContent({ request, contentMode, contentPath: 'platform' });
+  }
+
+  // 2b. Grounded/auto path: query next eligible content
   let promotion;
   try {
     promotion = await getNextPromotion();
   } catch (err) {
     console.error('[PromotionEngine Cron] Failed to query promotion content:', err.message);
     return Response.json(
-      { success: false, error: `Failed to query promotion: ${err.message}` },
+      { success: false, error: `Failed to query promotion: ${err.message}`, contentMode, contentPath: 'grounded' },
       { status: 500 }
     );
   }
 
   // 3. Handle no promotion available
   if (!promotion) {
+    if (contentMode === 'auto') {
+      // Fallback behavior: grounded first, platform content only when nothing's
+      // available — instead of exiting with "no promotion".
+      console.warn('[PromotionEngine Cron] No grounded promotion available; using platform fallback.');
+      return publishPlatformContent({ request, contentMode, contentPath: 'platform_fallback' });
+    }
     console.warn('[PromotionEngine Cron] No promotion available.');
-    return Response.json({ success: true, message: 'No eligible promotion found.' });
+    return Response.json({
+      success: true,
+      message: 'No eligible promotion found.',
+      contentMode,
+      contentPath: 'grounded',
+    });
   }
 
   console.log(
-    `[PromotionEngine Cron] Promotion selected: type=${promotion.type} id=${promotion.id} title="${promotion.title}"`
+    `[PromotionEngine Cron] content_mode=${contentMode} content_path=grounded Promotion selected: type=${promotion.type} id=${promotion.id} title="${promotion.title}"`
   );
 
   // 4. Generate promotional caption
@@ -81,7 +180,7 @@ export async function POST(request) {
     // generatePromotionCaption has a built-in fallback, but handle unexpected errors
     console.error('[PromotionEngine Cron] Caption generation failed:', err.message);
     return Response.json(
-      { success: false, error: `Caption generation failed: ${err.message}` },
+      { success: false, error: `Caption generation failed: ${err.message}`, contentMode, contentPath: 'grounded' },
       { status: 500 }
     );
   }
@@ -95,6 +194,8 @@ export async function POST(request) {
       description: promotion.description,
       url: promotion.url,
       image: promotion.image || null,
+      content_mode: contentMode,
+      content_path: 'grounded',
     },
     caption,
   });
@@ -107,6 +208,8 @@ export async function POST(request) {
     return Response.json({
       success: true,
       preview: true,
+      contentMode,
+      contentPath: 'grounded',
       promotion,
       caption,
     });
@@ -114,6 +217,7 @@ export async function POST(request) {
 
   // 5. Publish to Facebook
   console.log('[PromotionEngine Cron] Publishing started.');
+  const meta = { contentMode, contentPath: 'grounded' };
 
   if (promotion.image) {
     try {
@@ -123,7 +227,7 @@ export async function POST(request) {
         caption: caption,
       });
       console.log(`[PromotionEngine Cron] Publishing succeeded. Photo Post ID: ${postId}`);
-      return Response.json({ success: true, postId, withImage: true });
+      return Response.json({ success: true, postId, withImage: true, ...meta });
     } catch (err) {
       console.error(
         `[PromotionEngine Cron] Publishing photo failed (${err.message}). Falling back to text-only...`
@@ -139,12 +243,13 @@ export async function POST(request) {
           success: true,
           postId,
           withImage: false,
+          ...meta,
           warning: 'Photo upload failed; posted text-only fallback.',
         });
       } catch (fallbackErr) {
         console.error('[PromotionEngine Cron] Fallback publishing failed:', fallbackErr.message);
         return Response.json(
-          { success: false, error: `Failed posting fallback: ${fallbackErr.message}` },
+          { success: false, error: `Failed posting fallback: ${fallbackErr.message}`, ...meta },
           { status: 500 }
         );
       }
@@ -158,11 +263,11 @@ export async function POST(request) {
         link: promotion.url,
       });
       console.log(`[PromotionEngine Cron] Publishing succeeded. Post ID: ${postId}`);
-      return Response.json({ success: true, postId, withImage: false });
+      return Response.json({ success: true, postId, withImage: false, ...meta });
     } catch (err) {
       console.error('[PromotionEngine Cron] Publishing failed:', err.message);
       return Response.json(
-        { success: false, error: `Failed posting text: ${err.message}` },
+        { success: false, error: `Failed posting text: ${err.message}`, ...meta },
         { status: 500 }
       );
     }

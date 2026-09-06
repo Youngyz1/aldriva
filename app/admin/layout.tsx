@@ -110,10 +110,19 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-950">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      {/* No vertical padding on this flex row by design: the sticky sidebar
+          cannot cross its parent's padding box, so parent top/bottom padding
+          would shove it up/down at the scroll extremes. Breathing room lives
+          on the content column (py-6) and the sidebar's own p-3 instead. */}
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 sm:px-6 lg:px-8">
 
-        {/* ── Sidebar ── */}
-        <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-56 shrink-0 overflow-y-auto rounded-2xl bg-slate-950 p-3 text-white shadow-xl shadow-slate-950/20 lg:flex lg:flex-col">
+        {/* ── Sidebar — pinned app chrome (same pattern as the dashboard /
+            org sidebars): sticks below the sticky global navbar (h-16) so it
+            never slides underneath it, exactly viewport-minus-navbar tall so
+            the footer stays reachable. `self-start` keeps `sticky` working
+            inside the flex-row parent; the nav scrolls internally when taller
+            than the viewport while the page scroll moves only the content. ── */}
+        <aside className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] w-56 shrink-0 self-start flex-col overflow-y-auto overscroll-contain rounded-2xl bg-slate-950 p-3 text-white shadow-xl shadow-slate-950/20 supports-[height:100dvh]:h-[calc(100dvh-4rem)] lg:flex">
           {/* Brand */}
           <Link href="/admin" className="mb-5 flex items-center gap-3 rounded-xl px-2.5 py-2">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-sm font-black">
@@ -161,9 +170,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         {/* ── Content column — the mobile top nav shows below lg; `children`
             render ONCE here (shared across breakpoints) so admin pages don't
             mount their client components twice. ── */}
-        <div className="flex min-w-0 flex-1 flex-col gap-6">
-          {/* Mobile top nav */}
-          <div className="flex flex-col gap-6 lg:hidden">
+        <div className="flex min-w-0 flex-1 flex-col gap-6 py-6">
+          {/* Mobile top nav — pinned below the sticky global navbar (same
+              pattern as DashboardMobileNav): the outer shell owns the sticky
+              positioning, the inner wrapper owns the horizontal scrolling —
+              keeping them separate avoids creating a vertical scroll container
+              that would defeat the stickiness. Solid page-bg so scrolled
+              content can't show through the gaps. Sticky keeps it in document
+              flow, so no content is ever hidden underneath it. */}
+          <div className="sticky top-16 z-40 flex flex-col gap-6 bg-zinc-100 pb-1 lg:hidden">
             <div className="flex items-center justify-between rounded-2xl bg-slate-950 px-4 py-3">
               <Link href="/admin" className="flex items-center gap-2.5">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-xs font-black">A</span>

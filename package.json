@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test lib/dashboard/__tests__/event-dashboard-regressions.test.cjs",
+    "test": "node --test lib/dashboard/__tests__/event-dashboard-regressions.test.cjs lib/security/__tests__/entitlement.test.cjs lib/security/__tests__/certificate-authorization.test.cjs lib/security/__tests__/send-ticket-authorization.test.cjs lib/security/__tests__/crypto-status-authorization.test.cjs lib/security/__tests__/donors-feed-privacy.test.cjs lib/security/__tests__/test-e2e-guard.test.cjs",
     "supabase": "supabase"
   },
   "overrides": {

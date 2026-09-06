@@ -11,6 +11,9 @@ export async function GET(
 
   const supabaseAdmin = createSupabaseAdmin();
 
+  // `user_id` is selected for the server-side profile join only and is
+  // stripped from the response below — it would otherwise let anyone
+  // enumerate donor identities by fundraiser.
   const { data: donations, error } = await supabaseAdmin
     .from("donations")
     .select("id, donor_name, amount, created_at, user_id")
@@ -37,8 +40,13 @@ export async function GET(
     profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
   }
 
+  // Strip `user_id` at the response boundary. The public wall needs the
+  // display `profile` only; the raw owner key must not leave the server.
   const rows = (donations ?? []).map((d) => ({
-    ...d,
+    id: d.id,
+    donor_name: d.donor_name,
+    amount: d.amount,
+    created_at: d.created_at,
     profile: d.user_id ? profileMap[d.user_id] ?? null : null,
   }));
 

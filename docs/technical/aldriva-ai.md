@@ -93,9 +93,16 @@ The following items are actively open and have not yet been implemented or resol
      - On `articles`: queries `cover_image` (actual database column is `cover_image_url`).
      - On `products`: queries `title, cover_image, price, category, product_type` (actual database columns are `name, images, price_type, stripe_price_id`; `title`, `cover_image`, `price`, `category`, and `product_type` do not exist).
    - Non-blocking currently because the engine gracefully catches the query error and falls back to selecting from the live events/fundraisers pool. Product and article promotions will fail to load candidates until updated.
-3. **"About Platform" Ungrounded Fallback Mode [OPEN]**:
-   - Content generation currently requires existing fundraisers or events in the database.
-   - No fallback content generator exists for fresh or low-inventory deployment environments.
+3. **`"About Platform" Ungrounded Fallback Mode [IMPLEMENTED Sep 2026]`**:
+   - `lib/generatePlatformContent.js` generates About-Aldriva captions from the
+     permanent knowledge base in `ai_knowledge_docs` (mission, vision,
+     feature_status, content_levels, content_rules — seeded by
+     `db/migration_95_aldriva_platform_knowledge.sql`).
+   - Output passes through the same `guardBeforeDisplay()` gate plus a
+     structural `checkBrandAccuracy()` code check (throws + audit-logs on
+     seating/invitation, Growth-Studio-as-feature, concept-vertical, or
+     beta-overclaim violations), then writes to `ai_content_items` with
+     `content_type: 'platform'` (allowed by `db/migration_94_platform_content_type.sql`).
 4. **Media Generation Layer (fal.ai, Replicate, ElevenLabs) [OPEN]**:
    - API keys are provisioned in `.env.local`, but **no interface or calling code exists** in the application codebase yet.
 5. **Grok / xAI Provider [OPEN]**:
@@ -107,11 +114,37 @@ The following items are actively open and have not yet been implemented or resol
 
 ---
 
-## 4. Environment Variables Inventory
+## 4. CONTENT_MODE — Grounded vs Platform Content Gate
+
+> **Current target: `platform_only`.** The events/fundraisers in the database
+> (including any "Shadae" / "30-Day Financial Glow-Up"-style rows) are TEST/SEED
+> DATA, not real campaigns. Growth Studio must NOT generate grounded content
+> from them.
+
+| Value | Behavior |
+|---|---|
+| `platform_only` (default) | Both `/api/cron/daily-post` and `/api/cron/promotion-engine` call `generatePlatformContent()` only. `getGroundedDailyContent()` / `getNextPromotion()` are **skipped entirely**, never called. |
+| `grounded` | Historical behavior: pull real fundraisers/events. |
+| `auto` | Grounded first; platform content only when nothing grounded is available. Reserved for later — not the current target. |
+
+- Read by both crons via `getContentMode()` (`lib/generatePlatformContent.js`).
+  Unknown/missing values **fail closed to `platform_only`**.
+- Every cron response and `ai_content_items.snapshot` logs
+  `{ content_mode, content_path }` (`platform` | `grounded` | `platform_fallback`)
+  so any given day's mode is auditable.
+- **Manual gate:** switch `CONTENT_MODE` to `grounded` or `auto` (in
+  `.env.example`, `.env.local`, AND Vercel — all environments) ONLY once the
+  platform has real, non-test event/fundraiser inventory. This must be a human
+  decision, never auto-detection of "real" vs "test" data.
+
+---
+
+## 5. Environment Variables Inventory
 
 ### Actually Read & Used in Application Code
 | Variable | Usage |
 |---|---|
+| `CONTENT_MODE` | Grounded vs platform content gate for both crons (`lib/generatePlatformContent.js`); defaults fail-closed to `platform_only` |
 | `GEMINI_API_KEY` | Primary LLM text generation provider (`lib/ai/providers/gemini.ts`, `lib/generateCaption.js`) |
 | `FB_PAGE_ID` | Facebook target Page ID for publishing (`lib/facebook.js`, `lib/facebookPublisher.js`) |
 | `FB_PAGE_ACCESS_TOKEN` | System User or Page token for Graph API (`lib/facebook.js`, `lib/facebookPublisher.js`) |
@@ -134,7 +167,7 @@ The following items are actively open and have not yet been implemented or resol
 
 ---
 
-## 5. Safe-Column Tool Allowlists (`lib/ai/tools/*.ts`)
+## 6. Safe-Column Tool Allowlists (`lib/ai/tools/*.ts`)
 
 Every AI tool uses a strict column allowlist in its Supabase `.select()` call. `select('*')` is strictly prohibited.
 
@@ -151,7 +184,7 @@ All tool results are filtered by `screenToolResult()` before returning to caller
 
 ---
 
-## 6. Output Guard Validation Pipeline (ADR-0002)
+## 7. Output Guard Validation Pipeline (ADR-0002)
 
 Prompt injection and PII leakage are defended **structurally** at the application layer by `lib/ai/output-guard.ts`.
 

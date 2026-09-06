@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
 import { synthesizeTrends } from '@/lib/ai/trend-synthesis';
 
 export async function POST(req: NextRequest) {
+  // Internal Growth Studio capability: admin-only. Provider selection in the
+  // body is honored only after this gate (server-side policy applies).
+  await requireAdmin();
   try {
     const body = await req.json();
     const { quarantinedContent, focusArea, maxTrends, provider } = body;

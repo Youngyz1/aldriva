@@ -557,7 +557,11 @@ export default async function FundraiserPage({
           <DonorList
             fundraiserId={fundraiser.id}
             initialDonations={recentDonors.map((d) => ({
-              ...d,
+              // Strip `user_id` at the client boundary (see /api/fundraisers/[id]/donors).
+              id: d.id,
+              donor_name: d.donor_name,
+              amount: d.amount,
+              created_at: d.created_at,
               profile: d.user_id ? publicProfileById.get(d.user_id) ?? null : null,
             }))}
             initialHasMore={donationCount > recentDonors.length}

@@ -106,7 +106,7 @@ const nextConfig: NextConfig = {
   // Lets the dev server accept requests from a phone/tablet on the same LAN
   // (e.g. http://192.168.1.4:3000) without the "Blocked cross-origin request"
   // warning, so Fast Refresh/HMR works when testing on a real device.
-  allowedDevOrigins: isDev ? ["172.22.0.1", "192.168.1.3"] : undefined,
+  allowedDevOrigins: isDev ? ["172.22.0.1", "192.168.1.3", "192.168.1.5"] : undefined,
   images: {
     // TEMPORARY: Vercel image optimization disabled due to Hobby plan quota limits (402 errors sitewide). Long-term fix planned: migrate image serving to a self-hosted AWS pipeline (S3 + Lambda + CloudFront). Do not re-enable without confirming quota/plan first.
     unoptimized: true,

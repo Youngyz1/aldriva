@@ -45,7 +45,10 @@ export default function DashboardLayout({
         <DashboardSidebar />
         <main className="min-w-0 flex-1">
           <DashboardMobileNav />
-          <div className="mx-auto max-w-7xl px-3 py-4 pb-8 sm:px-6 sm:py-6 lg:px-8">
+          {/* Bottom padding reserves room for the fixed mobile bottom bar
+              (69px + safe-area, see DashboardMobileNav) below lg, so page
+              content is never hidden underneath it. */}
+          <div className="mx-auto max-w-7xl px-3 pb-[calc(69px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(69px+env(safe-area-inset-bottom))] sm:pt-6 lg:px-8 lg:pb-8">
             {children}
           </div>
         </main>

@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
-  LayoutDashboard, Calendar, Heart, Package, Briefcase,
-  Users, BookOpen, Star, ImageIcon, BarChart2, Settings,
-  ChevronLeft, Globe, ShieldCheck
+  ChevronLeft, Globe
 } from "lucide-react";
+import { getOrgNavItems } from "./org-nav-items";
 
 type Org = {
   id: string;
@@ -26,32 +25,14 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  comingSoon?: boolean;
-};
-
 export default function OrgDashboardSidebar({ org }: { org: Org }) {
   const pathname = usePathname();
   // Base always uses the immutable UUID — never the slug
   const base = `/dashboard/org/${org.id}`;
 
-  const navItems: NavItem[] = [
-    { label: "Overview",    href: `${base}/overview`,    icon: LayoutDashboard },
-    { label: "Events",      href: `${base}/events`,      icon: Calendar },
-    { label: "Fundraisers", href: `${base}/fundraisers`, icon: Heart },
-    { label: "Products",    href: `${base}/products`,    icon: Package },
-    { label: "Services",    href: `${base}/services`,    icon: Briefcase,  comingSoon: true },
-    { label: "Volunteers",  href: `${base}/volunteers`,  icon: Users,      comingSoon: true },
-    { label: "Blog",        href: `${base}/blog`,        icon: BookOpen },
-    { label: "Reviews",     href: `${base}/reviews`,     icon: Star },
-    { label: "Gallery",     href: `${base}/gallery`,     icon: ImageIcon,  comingSoon: true },
-    { label: "Analytics",   href: `${base}/analytics`,   icon: BarChart2 },
-    { label: "Verification", href: `${base}/verify`,     icon: ShieldCheck },
-    { label: "Settings",    href: `${base}/settings`,    icon: Settings },
-  ];
+  // Item definitions live in ./org-nav-items so the mobile pill nav exposes
+  // the exact same destinations; only the rendering differs here.
+  const navItems = getOrgNavItems(base);
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + "/");
@@ -60,7 +41,9 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
   const orgTypeLabel = ORG_TYPE_LABELS[org.org_type ?? "other"] ?? "Organization";
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-slate-950 text-white lg:flex">
+    // Pinned app chrome — see components/nav/AppSidebar for the rationale:
+    // stick below the sticky global navbar (h-16), never under it.
+    <aside className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] w-64 shrink-0 self-start flex-col overflow-y-auto overscroll-contain bg-slate-950 text-white supports-[height:100dvh]:h-[calc(100dvh-4rem)] lg:flex">
       {/* ← Back to account */}
       <div className="border-b border-white/10 px-4 py-3">
         <Link

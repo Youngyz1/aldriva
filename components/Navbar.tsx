@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Heart,
   Menu,
-  Search,
   Settings,
   ShoppingBag,
   Ticket,
@@ -69,9 +68,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [account, setAccount] = useState<Account | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const accountRef = useRef<HTMLDivElement>(null);
 
   function accountFromUser(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined) {
@@ -103,7 +100,6 @@ export default function Navbar() {
 
   useEffect(() => {
     setMenuOpen(false);
-    setSearchOpen(false);
     setAccountOpen(false);
   }, [pathname]);
 
@@ -112,13 +108,6 @@ export default function Navbar() {
     setAccountOpen(false);
     router.push("/login");
     router.refresh();
-  }
-
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
-    setSearchOpen(false);
   }
 
   const accountName = account?.displayName ?? "";
@@ -137,19 +126,8 @@ export default function Navbar() {
           <BrandMark className="[&>img]:h-9 [&>img]:max-w-[7.75rem] sm:[&>img]:h-14 sm:[&>img]:max-w-none" priority />
         </Link>
 
-        {/* Desktop search */}
-        <form onSubmit={submitSearch} className="hidden min-w-0 flex-1 md:block lg:max-w-md xl:max-w-lg">
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search events, fundraisers, organizers…"
-              className="h-10 w-full rounded-full border border-zinc-200 bg-zinc-50 pl-10 pr-4 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-            />
-          </label>
-        </form>
+        {/* Global search was intentionally removed from the navbar — each
+            page provides its own contextual search instead. */}
 
         {/* Desktop nav links */}
         <nav className="hidden items-center gap-1 lg:flex">
@@ -159,16 +137,6 @@ export default function Navbar() {
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {/* Mobile search toggle */}
-          <button
-            type="button"
-            onClick={() => setSearchOpen((o) => !o)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 transition hover:border-orange-200 hover:text-orange-600 md:hidden"
-            aria-label="Search"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-
           {/* Notifications */}
           {account && <NotificationBell userId={account.id} />}
 
@@ -246,25 +214,6 @@ export default function Navbar() {
           </button>
         </div>
       </div>
-
-      {/* Mobile search panel */}
-      {searchOpen && (
-        <div className="border-t border-zinc-100 px-4 py-3 md:hidden">
-          <form onSubmit={submitSearch} className="flex gap-2">
-            <input
-              type="search"
-              autoFocus
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search…"
-              className="h-10 min-w-0 flex-1 rounded-xl border border-zinc-200 px-3 text-sm font-semibold outline-none focus:border-orange-500"
-            />
-            <button type="submit" className="rounded-xl bg-orange-600 px-4 text-sm font-black text-white">
-              Go
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* Mobile menu panel */}
       {menuOpen && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Loader2, AlertCircle, Award, Ticket, ArrowLeft, Download } from "lucide-react";
@@ -26,6 +26,10 @@ function CryptoPendingContent() {
 
   const [error, setError] = useState<string | null>(null);
   const [dots, setDots] = useState("");
+  // Buyer email proof: the status endpoint only reveals the ticket QR code
+  // to the buyer (session or matching email). Prompted when needed below.
+  const [email, setEmail] = useState("");
+  const [emailChecked, setEmailChecked] = useState(false);
 
   // Animated dots for waiting state
   useEffect(() => {
@@ -36,6 +40,49 @@ function CryptoPendingContent() {
     return () => clearInterval(interval);
   }, [status]);
 
+  // Component-scope so the email-proof form can trigger a re-check too.
+  async function checkStatus(proofEmail?: string) {
+    if (!orderId) return;
+    try {
+      const emailParam = (proofEmail ?? email).trim();
+      const res = await fetch(
+        `/api/crypto/status?orderId=${orderId}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ""}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to check status.");
+      }
+      const data = await res.json();
+
+      if (data.status === "confirmed") {
+        settledRef.current = true;
+        setStatus("confirmed");
+        setPaymentDetails({
+          type: data.type,
+          recordId: data.recordId,
+          slug: data.slug,
+          qrCode: data.qrCode,
+          productName: data.productName,
+        });
+      } else if (data.status === "failed") {
+        settledRef.current = true;
+        setStatus("failed");
+      } else {
+        setStatus("waiting");
+        setPaymentDetails({
+          type: data.type,
+          recordId: data.recordId,
+          slug: data.slug,
+          qrCode: data.qrCode,
+          productName: data.productName,
+        });
+      }
+    } catch (err) {
+      console.error("Error checking crypto status:", err);
+    }
+  }
+
+  const settledRef = useRef(false);
+
   useEffect(() => {
     if (!orderId) {
       setError("Missing payment ID. Please check the URL.");
@@ -43,54 +90,21 @@ function CryptoPendingContent() {
       return;
     }
 
-    let isMounted = true;
-    let pollInterval: any;
-
-    async function checkStatus() {
-      try {
-        const res = await fetch(`/api/crypto/status?orderId=${orderId}`);
-        if (!res.ok) {
-          throw new Error("Failed to check status.");
-        }
-        const data = await res.json();
-        
-        if (!isMounted) return;
-
-        if (data.status === "confirmed") {
-          setStatus("confirmed");
-          setPaymentDetails({
-            type: data.type,
-            recordId: data.recordId,
-            slug: data.slug,
-            qrCode: data.qrCode,
-            productName: data.productName,
-          });
-          clearInterval(pollInterval);
-        } else if (data.status === "failed") {
-          setStatus("failed");
-          clearInterval(pollInterval);
-        } else {
-          setStatus("waiting");
-          setPaymentDetails({
-            type: data.type,
-            recordId: data.recordId,
-            slug: data.slug,
-            qrCode: data.qrCode,
-            productName: data.productName,
-          });
-        }
-      } catch (err) {
-        console.error("Error checking crypto status:", err);
-      }
-    }
-
+    settledRef.current = false;
     checkStatus();
-    pollInterval = setInterval(checkStatus, 10000); // Poll every 10 seconds
+    const pollInterval = setInterval(() => {
+      // Stop polling once settled; the email form re-checks on demand.
+      if (settledRef.current) {
+        clearInterval(pollInterval);
+        return;
+      }
+      checkStatus();
+    }, 10000); // Poll every 10 seconds
 
     return () => {
-      isMounted = false;
       clearInterval(pollInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   if (status === "loading") {
@@ -196,6 +210,45 @@ function CryptoPendingContent() {
                 <Ticket className="h-4 w-4" />
                 View Ticket Details →
               </Link>
+            )}
+            {!paymentDetails.qrCode && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setEmailChecked(true);
+                  checkStatus(email);
+                }}
+                className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-left"
+              >
+                <label htmlFor="ticket-email" className="block text-xs font-black uppercase tracking-wider text-zinc-500">
+                  Reveal your ticket
+                </label>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Enter the email used for this purchase to display your ticket.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    id="ticket-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-orange-500"
+                  />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-black text-white hover:bg-zinc-800 transition"
+                  >
+                    Verify
+                  </button>
+                </div>
+                {emailChecked && (
+                  <p className="mt-2 text-xs font-bold text-red-600">
+                    That email does not match this order. Check the purchase email and try again.
+                  </p>
+                )}
+              </form>
             )}
             {paymentDetails.slug && (
               <Link
