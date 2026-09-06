@@ -11,7 +11,7 @@ export interface StatCardItem {
 
 function StatCard({ label, value, accent, icon }: StatCardItem) {
   return (
-    <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm transition hover:border-zinc-300 sm:rounded-2xl sm:p-5">
+    <div className="rounded-xl border border-zinc-200/60 bg-white p-4 shadow-xs transition hover:border-zinc-300 sm:rounded-2xl sm:p-5">
       {icon && (
         <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-50 text-zinc-500">
           {icon}

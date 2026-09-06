@@ -49,7 +49,7 @@ export default function DashboardToolbar({
   showSearch = true,
 }: Props) {
   return (
-    <div className="sticky top-0 z-20 space-y-3 rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5">
+    <div className="sticky top-0 z-20 space-y-3 rounded-xl border border-zinc-200/70 bg-white/95 backdrop-blur-md p-3.5 shadow-xs sm:rounded-2xl sm:p-4">
       {tabs && onTabChange && (
         <div className="flex gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => (

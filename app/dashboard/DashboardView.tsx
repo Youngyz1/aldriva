@@ -53,7 +53,7 @@ function firstRelation<T>(value?: T | T[] | null) {
   return value ?? undefined;
 }
 
-const panelClass = 'rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-6';
+const panelClass = 'rounded-xl border border-zinc-200/70 bg-white p-4 shadow-xs sm:rounded-2xl sm:p-5';
 
 function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
@@ -112,10 +112,10 @@ export default function DashboardView({
   if (!hasOrganizers) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <header className="rounded-xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:rounded-2xl sm:px-6">
-          <p className="text-xs font-black uppercase tracking-wide text-violet-600">Dashboard</p>
+        <header className="pb-1">
+          <p className="text-xs font-black uppercase tracking-wide text-orange-600">Dashboard</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Welcome, {accountLabel}</h1>
-          <p className="mt-2 text-sm font-medium text-zinc-500">Get started by creating your first organization profile.</p>
+          <p className="mt-1 text-sm font-medium text-zinc-500">Get started by creating your first organization profile.</p>
         </header>
         <DashboardEmptyState
           title="No organization profile yet"
@@ -129,25 +129,22 @@ export default function DashboardView({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="rounded-xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:rounded-2xl sm:px-6">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Dashboard</p>
+      <header className="pb-1">
+        <p className="text-xs font-black uppercase tracking-wide text-orange-600">Dashboard</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Welcome back, {accountLabel}</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">Your overview — events, fundraisers, tickets, and donations at a glance.</p>
+        <p className="mt-1 text-sm font-medium text-zinc-500">Your overview — events, fundraisers, tickets, and donations at a glance.</p>
       </header>
 
-      <section className={panelClass}>
-        <h2 className="text-sm font-black uppercase tracking-wide text-zinc-400">Quick Actions</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {quickActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className={`rounded-xl px-4 py-2.5 text-xs font-black transition sm:text-sm ${action.className}`}
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
+      <section className="flex flex-wrap items-center gap-2">
+        {quickActions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition sm:text-sm shadow-xs ${action.className}`}
+          >
+            {action.label}
+          </Link>
+        ))}
       </section>
 
       <DashboardStatsCards items={statItems} className="sm:grid-cols-3 lg:grid-cols-6" />

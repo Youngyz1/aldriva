@@ -4,26 +4,26 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-bold ring-offset-background transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         // Primary
-        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
-        // Secondary (outline/secondary share one bordered, transparent treatment)
-        outline:     "border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
-        secondary:   "border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
+        default:     "bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs",
+        // Secondary / Outline
+        outline:     "border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 hover:text-zinc-950 shadow-xs",
+        secondary:   "border border-zinc-200/80 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950 shadow-xs",
         // Ghost
-        ghost:       "hover:bg-accent hover:text-accent-foreground",
+        ghost:       "hover:bg-zinc-100 hover:text-zinc-900",
         // Text
-        link:        "text-primary underline-offset-4 hover:underline",
+        link:        "text-primary underline-offset-4 hover:underline shadow-none",
         // Functional, non-hierarchy variant
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xs",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm:      "h-9 px-3",
-        lg:      "h-11 px-8",
+        sm:      "h-8 px-3 text-xs rounded-lg",
+        lg:      "h-11 px-6 text-base rounded-xl",
         icon:    "h-10 w-10",
       },
     },

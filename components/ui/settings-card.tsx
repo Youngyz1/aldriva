@@ -13,21 +13,21 @@ export const SettingsCard = React.forwardRef<HTMLDivElement, SettingsCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl border border-zinc-200 bg-white sm:rounded-2xl",
+          "rounded-xl border border-zinc-200/80 bg-white p-5 shadow-xs sm:rounded-2xl sm:p-6 lg:p-8",
           className
         )}
         {...props}
       >
         {/* Card Header */}
         {(title || description) && (
-          <div className="border-b border-zinc-100 p-5 sm:px-6 sm:py-5">
+          <div className="mb-5 sm:mb-6">
             {title && (
               <h3 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl font-sans">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="mt-1.5 text-xs text-zinc-500 sm:text-sm">
+              <p className="mt-1 text-xs text-zinc-500 sm:text-sm">
                 {description}
               </p>
             )}
@@ -35,11 +35,11 @@ export const SettingsCard = React.forwardRef<HTMLDivElement, SettingsCardProps>(
         )}
 
         {/* Card Content */}
-        <div className="p-5 sm:p-6 lg:p-8">{children}</div>
+        <div>{children}</div>
 
         {/* Card Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-zinc-100 bg-zinc-50/50 px-5 py-4 sm:rounded-b-2xl sm:px-6 sm:py-5">
+          <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-zinc-100">
             {footer}
           </div>
         )}
