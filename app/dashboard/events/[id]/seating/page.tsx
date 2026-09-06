@@ -3,6 +3,7 @@ import { getDashboardContext } from "@/lib/dashboard-context";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import SeatingManagerClient from "./SeatingManagerClient";
+import { SeatGeometry, TicketTypeSummary } from "@/lib/seating";
 
 export default async function EventSeatingPage({
   params,
@@ -38,18 +39,48 @@ export default async function EventSeatingPage({
     .eq("id", eventId)
     .single();
 
-  // Fetch venue layout (first layout for this event)
-  const { data: layout } = await admin
+  // Fetch venue layout
+  let { data: layout } = await admin
     .from("venue_layouts")
-    .select("id, name, sections")
+    .select(
+      "id, event_id, name, sections, venue_objects, canvas_width, canvas_height, version, is_published, published_at"
+    )
     .eq("event_id", eventId)
     .maybeSingle();
 
-  // Fetch seats (event-scoped)
+  // If no layout exists yet, create default empty layout
+  if (!layout) {
+    const { data: newLayout } = await admin
+      .from("venue_layouts")
+      .insert({
+        event_id: eventId,
+        name: "Main Hall",
+        sections: [],
+        venue_objects: [],
+        canvas_width: 1200,
+        canvas_height: 800,
+        version: 1,
+        is_published: true,
+      })
+      .select(
+        "id, event_id, name, sections, venue_objects, canvas_width, canvas_height, version, is_published, published_at"
+      )
+      .single();
+    layout = newLayout;
+  }
+
+  // Fetch ticket types for this event
+  const { data: ticketTypes } = await admin
+    .from("tickets")
+    .select("id, event_id, name, price, quantity")
+    .eq("event_id", eventId)
+    .order("price", { ascending: true });
+
+  // Fetch seats with spatial geometry (event-scoped)
   const { data: seats } = await admin
     .from("seats")
     .select(
-      "id, event_id, layout_id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, status, reserved_until, price_override, ticket_id, assigned_invitation_id"
+      "id, event_id, layout_id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, is_accessible, status, reserved_until, price_override, ticket_id, ticket_type_id, assigned_invitation_id, x, y, width, height, rotation, object_type"
     )
     .eq("event_id", eventId)
     .order("section")
@@ -67,18 +98,18 @@ export default async function EventSeatingPage({
       .from("event_invitations")
       .select("id, guest_name, guest_title, organization, invitation_status, rsvp_status")
       .in("id", assignedIds)
-      .eq("event_id", eventId); // event isolation
+      .eq("event_id", eventId);
     (assignedInvitations || []).forEach((inv) => invitationMap.set(inv.id, inv));
   }
 
-  // Fetch all event invitations for the assignment picker (safe fields only)
+  // Fetch all event invitations for the assignment picker
   const { data: allInvitations } = await admin
     .from("event_invitations")
     .select("id, guest_name, guest_title, organization, invitation_status, rsvp_status")
     .eq("event_id", eventId)
     .order("guest_name");
 
-  // Build seat→invitation lookup for current_seat_id
+  // Build seat->invitation lookup
   const invitationSeatMap = new Map<string, string>();
   (seats || []).forEach((s) => {
     if (s.assigned_invitation_id) invitationSeatMap.set(s.assigned_invitation_id, s.id);
@@ -89,7 +120,7 @@ export default async function EventSeatingPage({
     invitation: seat.assigned_invitation_id
       ? (invitationMap.get(seat.assigned_invitation_id) ?? null)
       : null,
-  }));
+  })) as unknown as SeatGeometry[];
 
   const invitationsForPicker = (allInvitations || []).map((inv) => ({
     ...inv,
@@ -100,8 +131,9 @@ export default async function EventSeatingPage({
     <SeatingManagerClient
       eventId={eventId}
       eventTitle={event?.title ?? "Event"}
-      layout={layout ?? null}
-      initialSeats={seatsWithInvitations as Parameters<typeof SeatingManagerClient>[0]["initialSeats"]}
+      layout={layout as Parameters<typeof SeatingManagerClient>[0]["layout"]}
+      ticketTypes={(ticketTypes || []) as TicketTypeSummary[]}
+      initialSeats={seatsWithInvitations}
       invitations={invitationsForPicker}
     />
   );

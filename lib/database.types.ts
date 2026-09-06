@@ -1127,11 +1127,15 @@ export type Database = {
         Row: {
           assigned_invitation_id: string | null
           event_id: string
+          height: number | null
           id: string
+          is_accessible: boolean
           is_vip: boolean
           layout_id: string
+          object_type: string
           price_override: number | null
           reserved_until: string | null
+          rotation: number | null
           row_label: string
           seat_number: number
           section: string
@@ -1140,15 +1144,23 @@ export type Database = {
           table_name: string | null
           table_number: string | null
           ticket_id: string | null
+          ticket_type_id: string | null
+          width: number | null
+          x: number | null
+          y: number | null
         }
         Insert: {
           assigned_invitation_id?: string | null
           event_id: string
+          height?: number | null
           id?: string
+          is_accessible?: boolean
           is_vip?: boolean
           layout_id: string
+          object_type?: string
           price_override?: number | null
           reserved_until?: string | null
+          rotation?: number | null
           row_label: string
           seat_number: number
           section: string
@@ -1157,15 +1169,23 @@ export type Database = {
           table_name?: string | null
           table_number?: string | null
           ticket_id?: string | null
+          ticket_type_id?: string | null
+          width?: number | null
+          x?: number | null
+          y?: number | null
         }
         Update: {
           assigned_invitation_id?: string | null
           event_id?: string
+          height?: number | null
           id?: string
+          is_accessible?: boolean
           is_vip?: boolean
           layout_id?: string
+          object_type?: string
           price_override?: number | null
           reserved_until?: string | null
+          rotation?: number | null
           row_label?: string
           seat_number?: number
           section?: string
@@ -1174,6 +1194,10 @@ export type Database = {
           table_name?: string | null
           table_number?: string | null
           ticket_id?: string | null
+          ticket_type_id?: string | null
+          width?: number | null
+          x?: number | null
+          y?: number | null
         }
         Relationships: [
           {
@@ -1392,25 +1416,43 @@ export type Database = {
       }
       venue_layouts: {
         Row: {
+          canvas_height: number
+          canvas_width: number
           created_at: string | null
           event_id: string
           id: string
+          is_published: boolean
           name: string
+          published_at: string | null
           sections: Json
+          venue_objects: Json
+          version: number
         }
         Insert: {
+          canvas_height?: number
+          canvas_width?: number
           created_at?: string | null
           event_id: string
           id?: string
+          is_published?: boolean
           name?: string
+          published_at?: string | null
           sections?: Json
+          venue_objects?: Json
+          version?: number
         }
         Update: {
+          canvas_height?: number
+          canvas_width?: number
           created_at?: string | null
           event_id?: string
           id?: string
+          is_published?: boolean
           name?: string
+          published_at?: string | null
           sections?: Json
+          venue_objects?: Json
+          version?: number
         }
         Relationships: [
           {

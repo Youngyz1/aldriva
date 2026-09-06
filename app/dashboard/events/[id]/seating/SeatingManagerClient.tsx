@@ -6,6 +6,7 @@ import {
   Users,
   Star,
   StarOff,
+  Accessibility,
   Filter,
   Search,
   X,
@@ -15,37 +16,15 @@ import {
   ChevronRight,
   TableProperties,
   List,
+  Sparkles,
+  Layers,
 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import VenueBuilder from "./VenueBuilder";
+import { SeatGeometry, TicketTypeSummary } from "@/lib/seating";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-export type SeatRow = {
-  id: string;
-  event_id: string;
-  layout_id: string;
-  section: string;
-  row_label: string;
-  seat_number: number;
-  table_number: string | null;
-  table_name: string | null;
-  table_capacity: number | null;
-  is_vip: boolean;
-  status: string;
-  reserved_until: string | null;
-  price_override: number | null;
-  ticket_id: string | null;
-  assigned_invitation_id: string | null;
-  invitation?: {
-    id: string;
-    guest_name: string;
-    guest_title: string | null;
-    organization: string | null;
-    invitation_status: string;
-    rsvp_status: string;
-  } | null;
-};
 
 export type InvitationOption = {
   id: string;
@@ -60,20 +39,27 @@ export type InvitationOption = {
 export type LayoutInfo = {
   id: string;
   name: string;
-  sections: { name: string; rows: number; seatsPerRow: number }[];
+  canvas_width?: number;
+  canvas_height?: number;
+  version?: number;
+  is_published?: boolean;
+  published_at?: string | null;
+  sections?: unknown[];
+  venue_objects?: unknown[];
 } | null;
 
 type Props = {
   eventId: string;
   eventTitle: string;
   layout: LayoutInfo;
-  initialSeats: SeatRow[];
+  ticketTypes?: TicketTypeSummary[];
+  initialSeats: SeatGeometry[];
   invitations: InvitationOption[];
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isActivelyReserved(seat: SeatRow): boolean {
+function isActivelyReserved(seat: SeatGeometry): boolean {
   return (
     seat.status === "reserved" &&
     !!seat.reserved_until &&
@@ -81,11 +67,11 @@ function isActivelyReserved(seat: SeatRow): boolean {
   );
 }
 
-function isAssignable(seat: SeatRow): boolean {
-  return seat.status !== "sold" && !isActivelyReserved(seat);
+function isAssignable(seat: SeatGeometry): boolean {
+  return seat.status !== "sold" && seat.status !== "unavailable" && !isActivelyReserved(seat);
 }
 
-function seatLabel(seat: SeatRow): string {
+function seatLabel(seat: SeatGeometry): string {
   if (seat.table_number) {
     const tablePart = seat.table_name
       ? `Table ${seat.table_number} (${seat.table_name})`
@@ -95,9 +81,11 @@ function seatLabel(seat: SeatRow): string {
   return `${seat.section} · Row ${seat.row_label} · Seat ${seat.seat_number}`;
 }
 
-function statusBadge(seat: SeatRow) {
+function statusBadge(seat: SeatGeometry) {
   if (seat.status === "sold")
     return { label: "Sold", cls: "bg-zinc-100 text-zinc-500 border-zinc-200" };
+  if (seat.status === "unavailable")
+    return { label: "Unavailable", cls: "bg-red-50 text-red-600 border-red-200" };
   if (isActivelyReserved(seat))
     return { label: "Reserved", cls: "bg-amber-50 text-amber-700 border-amber-200" };
   if (seat.assigned_invitation_id)
@@ -117,10 +105,12 @@ export default function SeatingManagerClient({
   eventId,
   eventTitle,
   layout,
+  ticketTypes = [],
   initialSeats,
   invitations: initialInvitations,
 }: Props) {
-  const [seats, setSeats] = useState<SeatRow[]>(initialSeats);
+  const [workspaceMode, setWorkspaceMode] = useState<"canvas" | "roster">("canvas");
+  const [seats, setSeats] = useState<SeatGeometry[]>(initialSeats);
   const [invitations, setInvitations] = useState<InvitationOption[]>(initialInvitations);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
@@ -167,10 +157,11 @@ export default function SeatingManagerClient({
     const reserved = seats.filter((s) => isActivelyReserved(s)).length;
     const guestAssigned = seats.filter((s) => !!s.assigned_invitation_id).length;
     const vip = seats.filter((s) => s.is_vip).length;
+    const accessible = seats.filter((s) => s.is_accessible).length;
     const available = seats.filter(
       (s) => s.status === "available" && !s.assigned_invitation_id && !isActivelyReserved(s)
     ).length;
-    return { total, sold, reserved, guestAssigned, vip, available };
+    return { total, sold, reserved, guestAssigned, vip, accessible, available };
   }, [seats]);
 
   // ── Filtered & Searched Seats ─────────────────────────────────────────────
@@ -187,6 +178,7 @@ export default function SeatingManagerClient({
     else if (filter === "guest")
       result = result.filter((s) => !!s.assigned_invitation_id);
     else if (filter === "vip") result = result.filter((s) => s.is_vip);
+    else if (filter === "accessible") result = result.filter((s) => s.is_accessible);
 
     // Search
     if (search.trim()) {
@@ -207,8 +199,8 @@ export default function SeatingManagerClient({
 
   // ── Table Groups ──────────────────────────────────────────────────────────
   const tableGroups = useMemo(() => {
-    const groups = new Map<string, SeatRow[]>();
-    const ungrouped: SeatRow[] = [];
+    const groups = new Map<string, SeatGeometry[]>();
+    const ungrouped: SeatGeometry[] = [];
     filteredSeats.forEach((s) => {
       if (s.table_number) {
         const key = s.table_number;
@@ -266,7 +258,7 @@ export default function SeatingManagerClient({
     }
   }
 
-  async function handleToggleVip(seat: SeatRow) {
+  async function handleToggleVip(seat: SeatGeometry) {
     const ok = await mutate({
       op: "update_seat_meta",
       seatId: seat.id,
@@ -322,16 +314,12 @@ export default function SeatingManagerClient({
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-5">
       {/* Header */}
       <DashboardPageHeader
         eyebrow="Event Management"
-        title="Seating Manager"
+        title="Seating Manager & Venue Builder"
         description={eventTitle}
       />
 
@@ -349,14 +337,52 @@ export default function SeatingManagerClient({
         </div>
       )}
 
-      {/* No Layout */}
-      {!layout ? (
-        <DashboardEmptyState
-          title="No seating layout configured"
-          description="This event does not have a seating layout. Seating is configured when creating or editing an event. General Admission events do not use assigned seating."
+      {/* Workspace Mode Switcher Tabs */}
+      <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setWorkspaceMode("canvas")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+              workspaceMode === "canvas"
+                ? "bg-violet-600 text-white shadow-xs"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+            }`}
+          >
+            <Sparkles size={14} />
+            Visual SVG Builder
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceMode("roster")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+              workspaceMode === "roster"
+                ? "bg-violet-600 text-white shadow-xs"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+            }`}
+          >
+            <TableProperties size={14} />
+            Table & Guest Roster
+          </button>
+        </div>
+
+        {loading && <Loader2 size={16} className="animate-spin text-violet-500" />}
+      </div>
+
+      {/* Workspace View 1: Interactive SVG Venue Builder */}
+      {workspaceMode === "canvas" ? (
+        <VenueBuilder
+          eventId={eventId}
+          layout={layout as any}
+          initialSeats={seats}
+          ticketTypes={ticketTypes}
+          invitations={invitations}
+          onRefresh={refreshSeats}
+          onToast={showToast}
         />
       ) : (
-        <>
+        /* Workspace View 2: List & Table Groups Roster */
+        <div className="space-y-4">
           {/* Stats Row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
@@ -391,6 +417,7 @@ export default function SeatingManagerClient({
               />
               {search && (
                 <button
+                  type="button"
                   onClick={() => setSearch("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700"
                 >
@@ -402,6 +429,7 @@ export default function SeatingManagerClient({
             {/* View Mode */}
             <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1">
               <button
+                type="button"
                 onClick={() => setViewMode("list")}
                 className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
                   viewMode === "list"
@@ -413,6 +441,7 @@ export default function SeatingManagerClient({
                 List
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode("table-groups")}
                 className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
                   viewMode === "table-groups"
@@ -424,9 +453,6 @@ export default function SeatingManagerClient({
                 Tables
               </button>
             </div>
-
-            {/* Loading */}
-            {loading && <Loader2 size={18} className="animate-spin text-violet-500" />}
           </div>
 
           {/* Filter Chips */}
@@ -438,9 +464,11 @@ export default function SeatingManagerClient({
               { id: "sold", label: "Sold" },
               { id: "guest", label: "Guest Assigned" },
               { id: "vip", label: "VIP" },
+              { id: "accessible", label: "Accessible" },
             ].map(({ id, label }) => (
               <button
                 key={id}
+                type="button"
                 onClick={() => setFilter(id)}
                 className={`rounded-xl border px-3.5 py-1.5 text-xs font-black transition-all ${
                   filter === id
@@ -490,12 +518,20 @@ export default function SeatingManagerClient({
                               <p className="font-black text-zinc-900">
                                 {seat.section} · {seat.row_label}{seat.seat_number}
                               </p>
-                              {seat.is_vip && (
-                                <span className="mt-0.5 inline-flex items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-600">
-                                  <Star size={9} />
-                                  VIP
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {seat.is_vip && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-600">
+                                    <Star size={9} />
+                                    VIP
+                                  </span>
+                                )}
+                                {seat.is_accessible && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-600">
+                                    <Accessibility size={9} />
+                                    Accessible
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="hidden px-4 py-3 sm:table-cell">
                               {seat.table_number ? (
@@ -563,6 +599,7 @@ export default function SeatingManagerClient({
                             </p>
                           </div>
                           <button
+                            type="button"
                             onClick={() => handleMarkTableVip(tableNumber, !allVip)}
                             className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black transition-all ${
                               allVip
@@ -595,6 +632,11 @@ export default function SeatingManagerClient({
                                       VIP
                                     </span>
                                   )}
+                                  {seat.is_accessible && (
+                                    <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-600">
+                                      Accessible
+                                    </span>
+                                  )}
                                   <span className={`rounded-lg border px-2 py-0.5 text-[11px] font-black ${badge.cls}`}>
                                     {badge.label}
                                   </span>
@@ -615,51 +657,18 @@ export default function SeatingManagerClient({
                       </div>
                     );
                   })}
-
-                  {/* Ungrouped seats */}
-                  {tableGroups.ungrouped.length > 0 && (
-                    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-                      <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
-                        <p className="font-black text-zinc-900">General Seating</p>
-                        <p className="text-xs font-semibold text-zinc-500">
-                          {tableGroups.ungrouped.length} seats without table assignment
-                        </p>
-                      </div>
-                      <div className="divide-y divide-zinc-100">
-                        {tableGroups.ungrouped.map((seat) => {
-                          const badge = statusBadge(seat);
-                          const isSelected = seat.id === selectedSeatId;
-                          return (
-                            <div
-                              key={seat.id}
-                              onClick={() => setSelectedSeatId(isSelected ? null : seat.id)}
-                              className={`flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-zinc-50 ${
-                                isSelected ? "bg-violet-50" : ""
-                              }`}
-                            >
-                              <span className="text-sm font-semibold text-zinc-700">
-                                {seat.section} · Row {seat.row_label} · Seat {seat.seat_number}
-                              </span>
-                              <span className={`rounded-lg border px-2 py-0.5 text-[11px] font-black ${badge.cls}`}>
-                                {badge.label}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* Side Panel */}
+            {/* Side Panel Inspector */}
             {selectedSeat && (
               <div className="w-80 shrink-0 rounded-2xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-6">
                 {/* Panel Header */}
                 <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
                   <p className="font-black text-zinc-900">{seatLabel(selectedSeat)}</p>
                   <button
+                    type="button"
                     onClick={() => setSelectedSeatId(null)}
                     className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
                   >
@@ -676,13 +685,7 @@ export default function SeatingManagerClient({
                     </span>
                     {selectedSeat.status === "sold" && (
                       <p className="mt-1.5 text-[11px] font-semibold text-zinc-500">
-                        This seat has been sold. It cannot be assigned to an invited guest.
-                      </p>
-                    )}
-                    {isActivelyReserved(selectedSeat) && (
-                      <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
-                        Active purchase reservation until{" "}
-                        {new Date(selectedSeat.reserved_until!).toLocaleTimeString()}.
+                        This seat has been sold to a ticket buyer.
                       </p>
                     )}
                   </div>
@@ -692,6 +695,7 @@ export default function SeatingManagerClient({
                     <div>
                       <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">VIP</p>
                       <button
+                        type="button"
                         onClick={() => handleToggleVip(selectedSeat)}
                         className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-all ${
                           selectedSeat.is_vip
@@ -704,67 +708,6 @@ export default function SeatingManagerClient({
                       </button>
                     </div>
                   )}
-
-                  {/* Table Metadata */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Table Info</p>
-                      {selectedSeat.status !== "sold" && (
-                        <button
-                          onClick={() => setMetaEditing((e) => !e)}
-                          className="text-[10px] font-black text-violet-600 hover:underline"
-                        >
-                          {metaEditing ? "Cancel" : "Edit"}
-                        </button>
-                      )}
-                    </div>
-                    {metaEditing ? (
-                      <div className="mt-2 space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Table number (e.g. 12)"
-                          value={metaForm.table_number}
-                          onChange={(e) => setMetaForm((f) => ({ ...f, table_number: e.target.value }))}
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Table name (optional)"
-                          value={metaForm.table_name}
-                          onChange={(e) => setMetaForm((f) => ({ ...f, table_name: e.target.value }))}
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Table capacity"
-                          value={metaForm.table_capacity}
-                          min={1}
-                          onChange={(e) => setMetaForm((f) => ({ ...f, table_capacity: e.target.value }))}
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-                        />
-                        <button
-                          onClick={handleSaveMeta}
-                          className="w-full rounded-xl bg-violet-600 py-2 text-xs font-black text-white hover:bg-violet-700"
-                        >
-                          Save Table Info
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-xs font-semibold text-zinc-700">
-                          {selectedSeat.table_number
-                            ? `Table ${selectedSeat.table_number}`
-                            : "No table assigned"}
-                          {selectedSeat.table_name && ` — ${selectedSeat.table_name}`}
-                        </p>
-                        {selectedSeat.table_capacity && (
-                          <p className="text-[11px] text-zinc-500">
-                            Capacity: {selectedSeat.table_capacity}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
 
                   {/* Guest Assignment */}
                   <div>
@@ -781,11 +724,6 @@ export default function SeatingManagerClient({
                             {selectedSeat.invitation.guest_title}
                           </p>
                         )}
-                        {selectedSeat.invitation.organization && (
-                          <p className="text-[11px] text-violet-500">
-                            {selectedSeat.invitation.organization}
-                          </p>
-                        )}
                         <div className="mt-2 flex gap-1.5">
                           <span className="rounded-md border border-violet-200 bg-white px-1.5 py-0.5 text-[10px] font-black text-violet-700">
                             {selectedSeat.invitation.invitation_status}
@@ -796,237 +734,84 @@ export default function SeatingManagerClient({
                         </div>
                         <div className="mt-3 flex gap-2">
                           <button
+                            type="button"
                             onClick={() => setShowAssignModal(true)}
                             className="flex-1 rounded-xl border border-violet-300 bg-white py-1.5 text-xs font-black text-violet-700 hover:bg-violet-50"
                           >
-                            Change Guest
+                            Reassign
                           </button>
                           <button
-                            onClick={() => setConfirmRemove(true)}
-                            className="flex-1 rounded-xl border border-red-200 bg-white py-1.5 text-xs font-black text-red-600 hover:bg-red-50"
+                            type="button"
+                            onClick={handleRemoveSeat}
+                            className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-black text-red-600 hover:bg-red-50"
                           >
                             Remove
                           </button>
                         </div>
-                        {confirmRemove && (
-                          <div className="mt-2 rounded-xl border border-red-100 bg-red-50 p-3">
-                            <p className="text-xs font-black text-red-800">
-                              Remove guest from this seat?
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-red-600">
-                              The invitation and QR credential remain valid.
-                            </p>
-                            <div className="mt-2 flex gap-2">
-                              <button
-                                onClick={handleRemoveSeat}
-                                className="flex-1 rounded-lg bg-red-600 py-1.5 text-xs font-black text-white hover:bg-red-700"
-                              >
-                                Yes, Remove
-                              </button>
-                              <button
-                                onClick={() => setConfirmRemove(false)}
-                                className="flex-1 rounded-lg bg-white py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    ) : selectedSeat.status === "sold" ? (
-                      <p className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-500">
-                        Sold seat — guest assignment not available.
-                      </p>
-                    ) : isActivelyReserved(selectedSeat) ? (
-                      <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs font-semibold text-amber-700">
-                        Seat is temporarily reserved for a buyer — cannot assign guest.
-                      </p>
-                    ) : (
+                    ) : isAssignable(selectedSeat) ? (
                       <button
+                        type="button"
                         onClick={() => setShowAssignModal(true)}
-                        className="w-full rounded-xl bg-violet-600 py-2.5 text-xs font-black text-white hover:bg-violet-700"
+                        className="w-full rounded-xl border border-dashed border-violet-300 bg-violet-50 py-2.5 text-xs font-black text-violet-700 hover:bg-violet-100"
                       >
-                        <Users size={13} className="mr-1.5 inline" />
-                        Assign Guest
+                        + Assign to Invited Guest
                       </button>
+                    ) : (
+                      <p className="text-xs text-zinc-400">Seat cannot be assigned.</p>
                     )}
                   </div>
-
-                  {/* Price info */}
-                  {selectedSeat.price_override != null && (
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Price Override
-                      </p>
-                      <p className="mt-1 text-sm font-black text-zinc-800">
-                        ${selectedSeat.price_override.toFixed(2)}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
           </div>
-        </>
-      )}
-
-      {/* Assign Modal */}
-      {showAssignModal && selectedSeat && (
-        <InvitationAssignModal
-          seat={selectedSeat}
-          invitations={invitations}
-          onAssign={handleAssignSeat}
-          onClose={() => setShowAssignModal(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Invitation Assign Modal ──────────────────────────────────────────────────
-
-function InvitationAssignModal({
-  seat,
-  invitations,
-  onAssign,
-  onClose,
-}: {
-  seat: SeatRow;
-  invitations: InvitationOption[];
-  onAssign: (invitationId: string) => void;
-  onClose: () => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return invitations.filter(
-      (inv) =>
-        inv.guest_name.toLowerCase().includes(q) ||
-        (inv.organization ?? "").toLowerCase().includes(q) ||
-        (inv.guest_title ?? "").toLowerCase().includes(q)
-    );
-  }, [invitations, search]);
-
-  const inactive = (status: string) =>
-    ["cancelled", "revoked", "expired"].includes(status);
-
-  async function handleConfirm() {
-    if (!selected) return;
-    setLoading(true);
-    await onAssign(selected);
-    setLoading(false);
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-          <div>
-            <p className="font-black text-zinc-900">Assign Guest</p>
-            <p className="text-xs font-semibold text-zinc-500">{seatLabel(seat)}</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:text-zinc-700">
-            <X size={16} />
-          </button>
         </div>
+      )}
 
-        <div className="p-4">
-          <div className="relative mb-3">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search guest name or organization…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 py-2 pl-8 pr-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-              autoFocus
-            />
-          </div>
+      {/* ── MODAL: ASSIGN GUEST ────────────────────────────────────────────── */}
+      {showAssignModal && selectedSeat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-black text-zinc-900">
+              Assign Guest to {seatLabel(selectedSeat)}
+            </h3>
 
-          {invitations.length === 0 ? (
-            <p className="py-6 text-center text-sm font-semibold text-zinc-500">
-              No invitations found for this event.
-            </p>
-          ) : (
-            <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-              {filtered.map((inv) => {
-                const isInactive = inactive(inv.invitation_status);
-                const isSelected = selected === inv.id;
-                const hasCurrentSeat = inv.current_seat_id && inv.current_seat_id !== seat.id;
-                return (
-                  <button
+            <div className="max-h-72 overflow-y-auto divide-y divide-zinc-100 rounded-xl border border-zinc-200">
+              {invitations.length === 0 ? (
+                <p className="p-4 text-center text-xs text-zinc-400">No invited guests found for this event.</p>
+              ) : (
+                invitations.map((inv) => (
+                  <div
                     key={inv.id}
-                    disabled={isInactive}
-                    onClick={() => setSelected(isSelected ? null : inv.id)}
-                    className={`flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                      isSelected
-                        ? "border-violet-400 bg-violet-50"
-                        : "border-zinc-200 bg-white hover:bg-zinc-50"
-                    }`}
+                    onClick={() => handleAssignSeat(inv.id)}
+                    className="flex cursor-pointer items-center justify-between p-3 hover:bg-violet-50 transition-colors"
                   >
-                    <div
-                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-                        isSelected ? "border-violet-500 bg-violet-500" : "border-zinc-300"
-                      }`}
-                    >
-                      {isSelected && <Check size={9} className="text-white" />}
+                    <div>
+                      <p className="text-xs font-black text-zinc-900">{inv.guest_name}</p>
+                      {inv.guest_title && <p className="text-[10px] text-zinc-400">{inv.guest_title}</p>}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-black text-zinc-900">{inv.guest_name}</p>
-                      {inv.guest_title && (
-                        <p className="text-[11px] font-semibold text-zinc-500">{inv.guest_title}</p>
-                      )}
-                      {inv.organization && (
-                        <p className="text-[11px] text-zinc-400">{inv.organization}</p>
-                      )}
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-600">
-                          {inv.invitation_status}
-                        </span>
-                        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-600">
-                          RSVP: {inv.rsvp_status}
-                        </span>
-                        {hasCurrentSeat && (
-                          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-black text-amber-700">
-                            Will reassign
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-              {filtered.length === 0 && (
-                <p className="py-4 text-center text-xs font-semibold text-zinc-400">
-                  No invitations match your search.
-                </p>
+                    {inv.current_seat_id === selectedSeat.id && (
+                      <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                        Current Seat
+                      </span>
+                    )}
+                  </div>
+                ))
               )}
             </div>
-          )}
-        </div>
 
-        <div className="flex gap-3 border-t border-zinc-100 px-4 py-4">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-zinc-200 py-2.5 text-sm font-black text-zinc-600 hover:bg-zinc-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!selected || loading}
-            className="flex-1 rounded-xl bg-violet-600 py-2.5 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Confirm Assignment"}
-          </button>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(false)}
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-black text-zinc-600 hover:bg-zinc-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

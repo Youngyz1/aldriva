@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { StripeProvider, PaymentForm, OrderSummary } from "@/components/payments";
+import type { SeatData } from "@/components/SeatMap";
 
 const SeatMap = dynamic(() => import("@/components/SeatMap"), { ssr: false });
 
@@ -27,19 +28,13 @@ type Event = {
   city?: string | null;
 };
 
-type SeatData = {
-  id: string;
-  section: string;
-  row_label: string;
-  seat_number: number;
-  status: "available" | "reserved" | "sold";
-  price_override: number | null;
-};
-
 type VenueLayout = {
   id: string;
   name: string;
-  sections: { name: string; rows: number; seatsPerRow: number }[];
+  canvas_width?: number;
+  canvas_height?: number;
+  sections: any[];
+  venue_objects?: any[];
 };
 
 type Step = "tickets" | "seats" | "review";
@@ -597,6 +592,10 @@ export default function TicketCheckout({
                     <SeatMap
                       seats={allSeats}
                       sections={venueLayout.sections}
+                      venueObjects={venueLayout.venue_objects || []}
+                      canvasWidth={venueLayout.canvas_width || 1000}
+                      canvasHeight={venueLayout.canvas_height || 700}
+                      ticketTypes={tickets as any}
                       basePrice={selectedTicket?.price ?? 0}
                       maxSelectable={quantity}
                       onSelectionChange={setSelectedSeats}

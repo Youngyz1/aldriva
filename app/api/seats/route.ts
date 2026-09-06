@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import {
+  reserveSeatsAtomic,
+  resolveEffectiveSeatPrice,
+  SectionDefinition,
+  TicketTypeSummary,
+} from "@/lib/seating";
 
 const supabaseAdmin = createSupabaseAdmin();
 
-// GET /api/seats?event_id=XXX — get seat availability for an event
+// GET /api/seats?event_id=XXX — get published layout, venue objects, and spatial seat availability
 export async function GET(req: NextRequest) {
   const eventId = req.nextUrl.searchParams.get("event_id");
 
@@ -11,62 +17,90 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "event_id required" }, { status: 400 });
   }
 
+  // 1. Fetch layout
   const { data: layout } = await supabaseAdmin
     .from("venue_layouts")
-    .select("id, name, sections")
+    .select(
+      "id, name, sections, venue_objects, canvas_width, canvas_height, is_published, version"
+    )
     .eq("event_id", eventId)
-    .single();
+    .maybeSingle();
 
   if (!layout) {
-    return NextResponse.json({ layout: null, seats: [] });
+    return NextResponse.json({ layout: null, seats: [], ticket_types: [] });
   }
 
+  // 2. Fetch ticket types
+  const { data: ticketTypes } = await supabaseAdmin
+    .from("tickets")
+    .select("id, event_id, name, price, quantity")
+    .eq("event_id", eventId)
+    .order("price", { ascending: true });
+
+  // 3. Fetch seats
   const { data: seats } = await supabaseAdmin
     .from("seats")
-    .select("id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, status, price_override, assigned_invitation_id")
-    .eq("layout_id", layout.id);
+    .select(
+      "id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, is_accessible, status, reserved_until, price_override, ticket_type_id, assigned_invitation_id, x, y, width, height, rotation, object_type"
+    )
+    .eq("layout_id", layout.id)
+    .order("section")
+    .order("row_label")
+    .order("seat_number");
 
-  return NextResponse.json({ layout, seats: seats || [] });
-}
+  const sectionsList = (layout.sections as unknown as SectionDefinition[]) || [];
+  const ticketTypesList = (ticketTypes as unknown as TicketTypeSummary[]) || [];
 
-// POST /api/seats/reserve — temporarily reserve seats for ticket purchase
-export async function POST(req: NextRequest) {
-  try {
-    const { seatIds } = await req.json();
-
-    if (!seatIds || !Array.isArray(seatIds) || seatIds.length === 0) {
-      return NextResponse.json({ error: "seatIds required" }, { status: 400 });
-    }
-
-    // Check all seats are still available and not assigned to an invited guest
-    const { data: seats } = await supabaseAdmin
-      .from("seats")
-      .select("id, status, reserved_until, assigned_invitation_id")
-      .in("id", seatIds);
-
-    const unavailable = (seats || []).filter(
-      (s) =>
-        s.status === "sold" ||
-        s.assigned_invitation_id !== null ||
-        (s.status === "reserved" && s.reserved_until && new Date(s.reserved_until) > new Date())
+  // Compute effective price for each seat
+  const enrichedSeats = (seats || []).map((s) => {
+    const effectivePrice = resolveEffectiveSeatPrice(
+      s,
+      sectionsList,
+      ticketTypesList,
+      ticketTypesList[0]?.price ?? 0
     );
 
-    if (unavailable.length > 0) {
+    return {
+      ...s,
+      effective_price: effectivePrice,
+    };
+  });
+
+  return NextResponse.json({
+    layout,
+    seats: enrichedSeats,
+    ticket_types: ticketTypesList,
+  });
+}
+
+// POST /api/seats — atomic temporary seat reservation for ticket checkout
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const seatIds = body.seatIds as string[] | undefined;
+    const holdDurationMinutes = (body.holdDurationMinutes as number) || 5;
+
+    if (!seatIds || !Array.isArray(seatIds) || seatIds.length === 0) {
+      return NextResponse.json({ error: "seatIds array is required" }, { status: 400 });
+    }
+
+    // Atomic hold reservation with FOR UPDATE row locks
+    const result = await reserveSeatsAtomic(seatIds, holdDurationMinutes);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Some seats are no longer available.", unavailableIds: unavailable.map((s) => s.id) },
+        {
+          error: result.error || "Some seats are no longer available.",
+          unavailableIds: result.unavailable_ids || [],
+        },
         { status: 409 }
       );
     }
 
-    // Reserve for 5 minutes
-    const reservedUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    await supabaseAdmin
-      .from("seats")
-      .update({ status: "reserved", reserved_until: reservedUntil })
-      .in("id", seatIds);
-
-    return NextResponse.json({ success: true, reservedUntil });
+    return NextResponse.json({
+      success: true,
+      reservedUntil: result.reserved_until,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
