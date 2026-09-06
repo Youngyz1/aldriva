@@ -12,6 +12,7 @@ import EventPageClient from "./EventPageClient";
 import AboutSection from "./AboutSection";
 import StarRating from "@/components/StarRating";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { truncateWords, stripHtml as stripHtmlForPreview } from "@/lib/text";
 import { getSiteUrl } from "@/lib/site-url";
 import { BRAND } from "@/config/branding";
 import { getVisitorCountry } from "@/lib/request-geo";
@@ -103,30 +104,43 @@ export async function generateMetadata({
   const title = event?.title
     ? `${event.title} — Aldriva`
     : "Event — Aldriva";
-  const description =
-    event?.description ||
-    (event?.city ? `Join us in ${event.city}` : "Buy tickets for this event on Aldriva.");
-  const image = normalizeImageUrl(event?.banner, "/og-image.png");
+  // Event descriptions are rich text (HTML) and unbounded — strip tags and
+  // cap length so crawlers get a clean ~150-char preview instead of markup.
+  const description = truncateWords(
+    stripHtmlForPreview(
+      event?.description ||
+        (event?.city
+          ? `Join us in ${event.city}`
+          : "Buy tickets for this event on Aldriva.")
+    ),
+    155
+  );
+  // Omit images when there is no banner rather than pointing at a
+  // placeholder path that 404s ("/og-image.png" exists nowhere in /public).
+  const siteUrl = getSiteUrl();
+  const image = normalizeImageUrl(event?.banner);
 
   return {
-    metadataBase: new URL(getSiteUrl()),
+    metadataBase: new URL(siteUrl),
     title,
     description,
     alternates: {
-      canonical: `${getSiteUrl()}/events/${slug}`,
+      canonical: `${siteUrl}/events/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `${getSiteUrl()}/events/${slug}`,
+      url: `${siteUrl}/events/${slug}`,
       siteName: "Aldriva",
-      images: [{ url: image, width: 1200, height: 630, alt: event?.title || "Event" }],
+      ...(image
+        ? { images: [{ url: image, width: 1200, height: 630, alt: event?.title || "Event" }] }
+        : {}),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [image],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }

@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { truncateWords, stripHtml } from "@/lib/text";
 import OrganizationProfileClient from "./OrganizationProfileClient";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,29 +30,36 @@ export async function generateMetadata({
 
   const resolvedSlug = org?.slug ?? slug;
   const title = org?.name ? `${org.name} — Aldriva` : "Organization — Aldriva";
-  const description =
-    org?.bio || "View this organization's events and fundraisers on Aldriva.";
-  const image = normalizeImageUrl(org?.photo || org?.banner, "/og-image.png");
+  const description = truncateWords(
+    stripHtml(org?.bio || "View this organization's events and fundraisers on Aldriva."),
+    155
+  );
+  // Omit images when there is no photo/banner rather than pointing at a
+  // placeholder path that 404s ("/og-image.png" exists nowhere in /public).
+  const siteUrl = getSiteUrl();
+  const image = normalizeImageUrl(org?.photo || org?.banner);
 
   return {
-    metadataBase: new URL(getSiteUrl()),
+    metadataBase: new URL(siteUrl),
     title,
     description,
     alternates: {
-      canonical: `${getSiteUrl()}/org/${resolvedSlug}`,
+      canonical: `${siteUrl}/org/${resolvedSlug}`,
     },
     openGraph: {
       title,
       description,
-      url: `${getSiteUrl()}/org/${resolvedSlug}`,
+      url: `${siteUrl}/org/${resolvedSlug}`,
       siteName: "Aldriva",
-      images: [{ url: image, width: 1200, height: 630, alt: org?.name || "Organization" }],
+      ...(image
+        ? { images: [{ url: image, width: 1200, height: 630, alt: org?.name || "Organization" }] }
+        : {}),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [image],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }

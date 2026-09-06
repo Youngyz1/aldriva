@@ -9,9 +9,15 @@ export function getSiteUrl() {
   // pages already build their absolute URLs from — prefer it so every page
   // type resolves to one consistent, intentionally-configured origin.
   // NEXT_PUBLIC_APP_URL is kept as a secondary fallback for any deployment
-  // that only has that one set.
+  // that only has that one set. NEXT_PUBLIC_BASE_URL is a third var that
+  // some deployments (and .env.local/.env.example) set instead — without it
+  // here, getSiteUrl() silently falls back to localhost (dev) or the
+  // hardcoded production domain, leaking an uncrawlable/wrong origin into
+  // og:url and og:image tags scraped by Facebook/WhatsApp/Slack.
   const configuredUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL;
   if (configuredUrl) return configuredUrl.replace(/\/$/, "");
 
   // Deliberately never falls back to VERCEL_URL: that's the per-deployment

@@ -9,5 +9,14 @@ export function truncateWords(text: string, max: number): string {
 
 /** Strips HTML tags for previews of rich-text fields; a no-op on plain text. */
 export function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }

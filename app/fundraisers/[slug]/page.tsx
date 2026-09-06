@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { Flag, Zap, HeartHandshake, ShieldCheck } from "lucide-react";
 import FundraiserFloatingActions, { ShareFundraiserButton } from "./FundraiserActions";
 import StarRating from "@/components/StarRating";
-import { safeImageSrc, normalizeImageUrl } from "@/lib/image-url";
+import { safeImageSrc } from "@/lib/image-url";
 import { jsonLdScriptValue } from "@/lib/structured-data";
 import { money } from "@/lib/format";
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
@@ -49,29 +49,42 @@ export async function generateMetadata({
     : "Fundraiser — Aldriva";
   const raised = `$${Number(fundraiser?.raised ?? 0).toLocaleString()}`;
   const goal = `$${Number(fundraiser?.goal ?? 0).toLocaleString()}`;
-  const description =
+  // Link-preview crawlers render the raw description string — no HTML, and
+  // most networks truncate around ~150-200 chars. `story` is rich text
+  // (contains <p>/<br>/<strong>/&nbsp; etc.) and can be thousands of chars,
+  // so strip tags/entities and cut on a word boundary rather than leaking
+  // markup or an unbounded blob into og:description / twitter:description.
+  const rawDescription =
     fundraiser?.story ||
     `${raised} raised of ${goal} goal. Support this fundraiser on Aldriva.`;
+  const description = truncateWords(stripHtml(rawDescription), 155);
   // Use the auto-generated live-data campaign card (opengraph-image.tsx),
   // same as the hero-carousel share-card slide and FundraiserShare's
   // preview — not the raw banner photo, so social previews always show
   // current raised/goal/percentage rather than just the cover image.
+  // Absolute public URL (no auth gate on this route — proxy.ts matcher does
+  // not cover /fundraisers/*, and robots allow it), 1200x630 PNG.
+  // When the slug doesn't resolve there is no campaign to preview — omit
+  // images entirely rather than pointing at a placeholder path that 404s
+  // (the previous "/og-image.png" fallback exists nowhere in /public).
+  const siteUrl = getSiteUrl();
   const image = fundraiser
-    ? `${getSiteUrl()}/fundraisers/${fundraiser.slug}/opengraph-image`
-    : normalizeImageUrl(null, "/og-image.png");
+    ? `${siteUrl}/fundraisers/${fundraiser.slug}/opengraph-image`
+    : null;
 
   return {
-    metadataBase: new URL(getSiteUrl()),
+    metadataBase: new URL(siteUrl),
     title,
     description,
     alternates: {
-      canonical: `${getSiteUrl()}/fundraisers/${slug}`,
+      canonical: `${siteUrl}/fundraisers/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `${getSiteUrl()}/fundraisers/${slug}`,
+      url: `${siteUrl}/fundraisers/${slug}`,
       siteName: "Aldriva",
+      type: "article",
       ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: fundraiser?.title || "Fundraiser" }] } : {}),
     },
     twitter: {

@@ -41,12 +41,30 @@ async function resolveCardPhoto(url?: string | null): Promise<string | null> {
   const safe = safeImageSrc(url);
   if (!safe) return null;
 
+  // Relative site paths (e.g. "/banner.jpg") can't be fetched without an
+  // origin — resolve against the configured site URL.
+  const absolute = safe.startsWith("/")
+    ? `${getSiteUrl()}${safe}`
+    : safe;
+
   try {
-    const proxyUrl = `${getSiteUrl()}/_next/image?url=${encodeURIComponent(safe)}&w=640&q=75`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+    // Fetch the source photo directly. (Previously this went through
+    // /_next/image?url=… for a 640px resize, but next.config sets
+    // images.unoptimized:true, which disables that optimizer endpoint —
+    // the proxied fetch fails and the card silently loses its photo.
+    // Satori/ImageResponse downsamples the embedded data URI itself, so
+    // the resize proxy buys nothing here.)
+    const res = await fetch(absolute, {
+      signal: AbortSignal.timeout(8000),
+      headers: { "User-Agent": "Aldriva-OG-Image/1.0" },
+    });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
+    // Cap embedded payload (~1.5MB) so a huge source photo can't blow up
+    // the OG render.
+    if (buffer.length > 1_500_000) return null;
     return `data:${contentType};base64,${buffer.toString("base64")}`;
   } catch {
     return null;
