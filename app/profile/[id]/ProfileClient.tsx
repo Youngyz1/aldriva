@@ -89,7 +89,9 @@ export default function ProfileClient({
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-6">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+        {/* Open profile header — no card. Inner entity links below are
+            interactive surfaces and keep their boundaries. */}
+        <section className="pb-2">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             {profile.avatar_url ? (
               <img
@@ -149,7 +151,7 @@ export default function ProfileClient({
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <section className="space-y-6">
               {organizers.length > 0 && (
-                <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="space-y-4 border-t border-zinc-200 pt-6">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-orange-700" />
                     <h2 className="text-lg font-black">Organizations</h2>
@@ -186,7 +188,7 @@ export default function ProfileClient({
               )}
 
               {fundraisers.length > 0 && (
-                <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="space-y-4 border-t border-zinc-200 pt-6">
                   <div className="flex items-center gap-2">
                     <HeartHandshake className="h-4 w-4 text-emerald-700" />
                     <h2 className="text-lg font-black">Campaigns</h2>
@@ -224,7 +226,7 @@ export default function ProfileClient({
               )}
             </section>
 
-            <aside className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 lg:self-start">
+            <aside className="border-t border-zinc-200 pt-6 lg:self-start">
               <div className="flex items-center gap-2">
                 <Gift className="h-4 w-4 text-orange-700" />
                 <h2 className="text-lg font-black">Impact</h2>

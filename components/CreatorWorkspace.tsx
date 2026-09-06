@@ -104,8 +104,8 @@ export function CreatorWorkspace({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {/* Mobile top nav — dashboard links only, no search/location/email pill */}
-          <nav className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-zinc-200/80 bg-white px-1.5 py-2 text-center text-[10px] font-black text-slate-700 shadow-sm sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs lg:hidden">
+          {/* Mobile top nav — open divider bar, not a white card */}
+          <nav className="flex items-center gap-1.5 overflow-x-auto border-b border-zinc-200 px-1.5 py-2 text-center text-[10px] font-black text-slate-700 sm:gap-2 sm:px-4 sm:py-3 sm:text-xs lg:hidden">
             {mobileDashboardItems.map((item) => (
               <Link
                 key={item.href}
@@ -117,10 +117,12 @@ export function CreatorWorkspace({
             ))}
           </nav>
 
-          <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:rounded-2xl">
+          {/* Open workspace: content sits on the page canvas. Spacing +
+              dividers create grouping — no outer bordered card. */}
+          <section className="min-w-0 flex-1">
             {/* Header: title + actions only — no search bar, no location bar, no email pill */}
-            <header className="border-b border-zinc-200 bg-white">
-              <div className="flex flex-col justify-between gap-4 px-5 py-5 sm:flex-row sm:items-center">
+            <header className="border-b border-zinc-200">
+              <div className="flex flex-col justify-between gap-4 py-5 sm:flex-row sm:items-center">
                 <div>
                   <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
                   <p className="mt-1 text-sm font-medium text-zinc-500">{description}</p>
@@ -136,7 +138,7 @@ export function CreatorWorkspace({
               </div>
 
               {/* Step rail — slim horizontal, no bordered box */}
-              <div className="px-5 pb-5">
+              <div className="pb-5">
                 <div className="flex items-center">
                   {steps.map((step, index) => {
                     const isActive = index === currentStep;
@@ -184,12 +186,12 @@ export function CreatorWorkspace({
               </div>
             </header>
 
-            <div className="grid gap-5 bg-white p-5 xl:grid-cols-[1fr_320px]">
+            <div className="grid gap-8 py-6 xl:grid-cols-[1fr_320px]">
               <div>{children}</div>
               <aside className="space-y-5">{aside}</aside>
             </div>
 
-            <div className="border-t border-zinc-200 bg-white px-5 py-4">{footer}</div>
+            <div className="border-t border-zinc-200 py-4">{footer}</div>
           </section>
         </div>
       </div>

@@ -53,7 +53,9 @@ function firstRelation<T>(value?: T | T[] | null) {
   return value ?? undefined;
 }
 
-const panelClass = 'rounded-xl border border-zinc-200/70 bg-white p-4 shadow-xs sm:rounded-2xl sm:p-5';
+// Open dashboard section: spacing + a thin top divider create grouping.
+// No bordered card — panels sit directly on the page canvas.
+const panelClass = 'border-t border-zinc-200 pt-4 sm:pt-5';
 
 function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
@@ -155,9 +157,9 @@ export default function DashboardView({
           {events.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">No events yet.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-zinc-100">
               {events.slice(0, 5).map((event) => (
-                <li key={event.id} className="rounded-xl bg-zinc-50/80 p-3 ring-1 ring-zinc-200/70">
+                <li key={event.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-black text-zinc-900">{event.title}</p>
@@ -195,9 +197,9 @@ export default function DashboardView({
           {donations.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">No donations yet.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-zinc-100">
               {donations.slice(0, 5).map((donation) => (
-                <li key={donation.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50/80 p-3 ring-1 ring-zinc-200/70">
+                <li key={donation.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0">
                     <p className="truncate font-black">{donation.donor_name || 'Anonymous'}</p>
                     <p className="text-xs text-zinc-500">{dateLabel(donation.created_at)}</p>
@@ -214,11 +216,11 @@ export default function DashboardView({
           {ticketOrders.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">No ticket sales yet.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-zinc-100">
               {ticketOrders.slice(0, 5).map((order) => {
                 const event = firstRelation(order.events);
                 return (
-                  <li key={order.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50/80 p-3 ring-1 ring-zinc-200/70">
+                  <li key={order.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <p className="truncate font-black">{order.buyer_name || order.buyer_email || 'Guest'}</p>
                       <p className="truncate text-xs text-zinc-500">{event?.title || 'Event'} · Qty {order.quantity}</p>

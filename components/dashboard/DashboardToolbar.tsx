@@ -49,7 +49,10 @@ export default function DashboardToolbar({
   showSearch = true,
 }: Props) {
   return (
-    <div className="sticky top-0 z-20 space-y-3 rounded-xl border border-zinc-200/70 bg-white/95 backdrop-blur-md p-3.5 shadow-xs sm:rounded-2xl sm:p-4">
+    // Open filter bar: blends with the page canvas (bg-zinc-100) instead of
+    // rendering as a white bordered card. The sticky page-bg fill only masks
+    // scrolled content underneath — it is not a visible boundary.
+    <div className="sticky top-0 z-20 space-y-3 bg-zinc-100/95 backdrop-blur-md py-3">
       {tabs && onTabChange && (
         <div className="flex gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => (

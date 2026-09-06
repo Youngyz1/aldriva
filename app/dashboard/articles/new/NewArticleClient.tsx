@@ -212,8 +212,8 @@ export default function NewArticleClient({
         </div>
       )}
 
-      {/* Creation Mode & Templates */}
-      <div className="rounded-3xl border border-zinc-150 bg-white p-6 shadow-sm">
+      {/* Creation Mode & Templates — open section, not a card */}
+      <div className="border-t border-zinc-200 pt-6">
         <ArticleTemplateSelector
           onSelectBlank={handleSelectBlank}
           onSelectAiAssist={() => setIsAiModalOpen(true)}
@@ -226,7 +226,7 @@ export default function NewArticleClient({
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           {/* Title & Excerpt */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <div>
               <label htmlFor="title" className="block text-sm font-black text-zinc-700 mb-1.5">
                 Article Title *
@@ -268,7 +268,7 @@ export default function NewArticleClient({
           </div>
 
           {/* Body Content / Editor */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-black text-zinc-700">
                 Article Body Content *
@@ -301,8 +301,8 @@ export default function NewArticleClient({
             />
           </div>
 
-          {/* SEO Metadata Card */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          {/* SEO Metadata */}
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
               <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400">
                 SEO &amp; Search Optimization (Optional)
@@ -361,8 +361,8 @@ export default function NewArticleClient({
 
         {/* Sidebar Settings Area */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Action Buttons Box */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-3 shadow-sm">
+          {/* Actions */}
+          <div className="space-y-3 border-t border-zinc-200 pt-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
               Actions
             </h3>
@@ -385,7 +385,7 @@ export default function NewArticleClient({
           </div>
 
           {/* Publishing settings */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
               Publishing Settings
             </h3>
@@ -465,7 +465,7 @@ export default function NewArticleClient({
           </div>
 
           {/* Categorisation settings */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
               Categories &amp; Tags
             </h3>
@@ -502,7 +502,7 @@ export default function NewArticleClient({
           </div>
 
           {/* Cover image setting */}
-          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
               Cover Image
             </h3>

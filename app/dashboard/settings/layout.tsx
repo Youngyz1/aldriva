@@ -56,8 +56,8 @@ export default function SettingsLayout({
 
   return (
     <div className="space-y-6">
-      {/* Settings Header */}
-      <header className="rounded-xl border border-zinc-200/80 bg-white px-4 py-3 shadow-xs sm:rounded-2xl sm:px-6 sm:py-5">
+      {/* Settings Header — open, matches the DashboardPageHeader convention */}
+      <header className="pb-1">
         <p className="text-[10px] font-black uppercase tracking-wider text-orange-600 sm:text-xs">
           Dashboard
         </p>

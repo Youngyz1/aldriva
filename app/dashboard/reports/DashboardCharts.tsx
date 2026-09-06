@@ -19,7 +19,8 @@ export type NamedValue = { name: string; value: number };
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+    // Open chart section — title + content on the page canvas, no card.
+    <div className="border-t border-zinc-200 pt-4 sm:pt-5">
       <h2 className="mb-3 text-[10px] font-black uppercase tracking-wide text-zinc-500 sm:mb-5 sm:text-sm">{title}</h2>
       {children}
     </div>

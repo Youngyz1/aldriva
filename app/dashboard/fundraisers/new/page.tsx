@@ -25,7 +25,9 @@ export default async function NewDashboardFundraiserPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
+      {/* Open header — no card. The two option links below are interactive
+          surfaces, so they keep their boundaries. */}
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-emerald-600">Fundraisers</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Create New Fundraiser</h1>
         <p className="mt-1 text-sm font-medium text-zinc-500">

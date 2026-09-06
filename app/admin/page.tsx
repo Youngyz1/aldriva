@@ -72,7 +72,9 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="space-y-8">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm shadow-zinc-200/60 sm:px-6">
+      {/* Open header — matches the DashboardPageHeader convention (no card).
+          Stat cards below are KPI entities, so they keep their boundaries. */}
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Platform Overview</h1>
         <p className="mt-2 text-sm font-medium text-zinc-500">Live platform-wide metrics.</p>

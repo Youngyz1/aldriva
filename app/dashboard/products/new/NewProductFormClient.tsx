@@ -95,7 +95,7 @@ export default function NewProductFormClient({
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Column 1: Basic Details */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Basic Information</h2>
 
             <div>
@@ -161,7 +161,7 @@ export default function NewProductFormClient({
           </div>
 
           {/* Column 2: Pricing & Inventory */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Pricing &amp; Inventory</h2>
 
             <div>
@@ -244,7 +244,7 @@ export default function NewProductFormClient({
         </div>
 
         {/* SEO (Optional) */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">SEO Configurations (Optional)</h2>
 
           <div>
