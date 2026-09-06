@@ -6,7 +6,7 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import { Node } from "@tiptap/core";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import ImageUploadWithCrop, { type ImageUploadWithCropHandle } from "@/components/ImageUploadWithCrop";
 import DOMPurify from "isomorphic-dompurify";
@@ -24,6 +24,9 @@ import {
   Undo2 as UndoIcon,
   Redo2 as RedoIcon,
   Unlink as UnlinkIcon,
+  Sparkles as SparklesIcon,
+  Layers as LayersIcon,
+  Quote as QuoteIcon,
 } from "lucide-react";
 
 // --- Custom Video Node Extension ---
@@ -169,6 +172,8 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   accent?: "green" | "orange";
+  onTriggerAi?: () => void;
+  onTriggerEntityPicker?: () => void;
 }
 
 export default function RichTextEditor({
@@ -176,6 +181,8 @@ export default function RichTextEditor({
   onChange,
   placeholder = "Start writing here...",
   accent = "green",
+  onTriggerAi,
+  onTriggerEntityPicker,
 }: RichTextEditorProps) {
   const [uploading, setUploading] = useState(false);
   const [modalType, setModalType] = useState<"image" | "video" | "link" | null>(null);
@@ -226,8 +233,24 @@ export default function RichTextEditor({
             "img",
             "video",
             "source",
+            "div",
+            "span",
           ],
-          ALLOWED_ATTR: ["src", "href", "target", "rel", "controls", "width", "height", "alt"],
+          ALLOWED_ATTR: [
+            "src",
+            "href",
+            "target",
+            "rel",
+            "controls",
+            "width",
+            "height",
+            "alt",
+            "class",
+            "data-entity-type",
+            "data-entity-id",
+            "data-entity-slug",
+            "data-entity-title",
+          ],
         });
       },
     },
@@ -235,6 +258,13 @@ export default function RichTextEditor({
       onChange(editor.getHTML());
     },
   });
+
+  // Sync external value updates (e.g. from template or AI draft insertion)
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value, { emitUpdate: false });
+    }
+  }, [value, editor]);
 
   if (!editor) return null;
 
@@ -487,6 +517,49 @@ export default function RichTextEditor({
         >
           <LinkVideoIcon className="h-4 w-4" />
         </button>
+
+        <span className="w-px h-6 bg-zinc-200 mx-1 align-self-center self-center" />
+
+        <button
+          type="button"
+          onClick={() => {
+            editor
+              .chain()
+              .focus()
+              .insertContent(
+                '<blockquote class="border-l-4 border-orange-500 pl-4 py-2 italic my-4 text-zinc-800 bg-orange-50/50 rounded-r-xl"><p>Insert highlighted takeaway or quote here...</p></blockquote>'
+              )
+              .run();
+          }}
+          className={buttonStyle(false)}
+          title="Insert Callout Box"
+        >
+          <QuoteIcon className="h-4 w-4" />
+        </button>
+
+        {onTriggerEntityPicker && (
+          <button
+            type="button"
+            onClick={onTriggerEntityPicker}
+            className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-100 transition shadow-sm"
+            title="Reference Aldriva Entity (Fundraiser, Event, Organization)"
+          >
+            <LayersIcon className="h-3.5 w-3.5" />
+            <span>Entity</span>
+          </button>
+        )}
+
+        {onTriggerAi && (
+          <button
+            type="button"
+            onClick={onTriggerAi}
+            className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 px-2.5 py-1.5 text-xs font-black text-violet-800 hover:border-violet-300 hover:from-violet-100 hover:to-purple-100 transition shadow-sm"
+            title="Open AI Writing Assistant"
+          >
+            <SparklesIcon className="h-3.5 w-3.5 text-violet-600" />
+            <span>AI Assist</span>
+          </button>
+        )}
 
         <span className="w-px h-6 bg-zinc-200 mx-1 align-self-center self-center" />
 

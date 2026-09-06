@@ -7,6 +7,10 @@ import type { Metadata } from "next";
 import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import ArticleDetailInteractiveContent from "@/components/articles/ArticleDetailInteractiveContent";
+import ArticleShareBar from "@/components/articles/ArticleShareBar";
+import ArticleRelatedSection from "@/components/articles/ArticleRelatedSection";
+import ArticleCtaBanner from "@/components/articles/ArticleCtaBanner";
+import FollowButton from "@/components/articles/FollowButton";
 import { getSiteUrl } from "@/lib/site-url";
 
 // connection() (inside fetchAndGate, called from an explicit <Suspense> boundary
@@ -231,6 +235,7 @@ export default async function ArticleDetailPage({
                     />
                   )}
                   <span className="font-bold text-zinc-700">{authorName}</span>
+                  <FollowButton authorId={article.owner_id} />
                 </div>
 
                 <div className="flex items-center gap-4 text-zinc-500 font-semibold">
@@ -259,8 +264,15 @@ export default async function ArticleDetailPage({
           }
         />
 
+        {/* Share Bar */}
+        <ArticleShareBar
+          title={article.title}
+          slug={article.slug}
+          excerpt={article.excerpt}
+        />
+
         {/* Categories & Tags */}
-        <div className="mt-12 border-t border-zinc-100 pt-8 space-y-4">
+        <div className="mt-8 border-t border-zinc-100 pt-8 space-y-4">
           {article.categories && article.categories.length > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs font-black uppercase tracking-wider text-zinc-400 mr-2">
@@ -295,6 +307,15 @@ export default async function ArticleDetailPage({
             </div>
           )}
         </div>
+
+        {/* Contextual Action Banner */}
+        <ArticleCtaBanner categories={article.categories || []} />
+
+        {/* Related Articles Pool */}
+        <ArticleRelatedSection
+          currentArticleId={article.id}
+          categories={article.categories || []}
+        />
       </main>
     </>
   );

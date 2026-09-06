@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
 import { hasEntityAccess, ENTITY_ROLES_CONTENT_WRITE, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
+import { sanitizeArticleHtml, MAX_ARTICLE_HTML_LENGTH } from "@/lib/sanitize-html";
 
 function stripHtml(html: string): string {
   return html
@@ -78,6 +79,16 @@ export async function createArticle(input: ArticleInput) {
   if (trimmedBody.length < 20) {
     return { success: false, error: "Body content must be at least 20 characters long" };
   }
+  if (trimmedBody.length > MAX_ARTICLE_HTML_LENGTH) {
+    return { success: false, error: "Body content is too long" };
+  }
+
+  // SECURITY (P0 F-02): strip executable HTML server-side before persistence.
+  // The editor's client-side paste filter is bypassable by direct requests.
+  const sanitizedBody = sanitizeArticleHtml(trimmedBody);
+  if (sanitizedBody.replace(/<[^>]*>/g, " ").trim().length < 20) {
+    return { success: false, error: "Body content must be at least 20 characters long" };
+  }
 
   if (input.excerpt && input.excerpt.length > 320) {
     return { success: false, error: "Excerpt cannot exceed 320 characters" };
@@ -92,7 +103,7 @@ export async function createArticle(input: ArticleInput) {
   }
 
   const slug = await getUniqueSlug(trimmedTitle, supabase);
-  const readingTime = calculateReadingTime(trimmedBody);
+  const readingTime = calculateReadingTime(sanitizedBody);
 
   // Publishing requires admin approval — see
   // migration_38_content_approval_workflow.sql. This action always runs as
@@ -111,7 +122,7 @@ export async function createArticle(input: ArticleInput) {
     owner_id: user.id,
     title: trimmedTitle,
     slug,
-    body: trimmedBody,
+    body: sanitizedBody,
     excerpt: input.excerpt || null,
     cover_image_url: input.cover_image_url || null,
     categories: input.categories,
@@ -180,6 +191,15 @@ export async function updateArticle(id: string, input: ArticleInput) {
   if (trimmedBody.length < 20) {
     return { success: false, error: "Body content must be at least 20 characters long" };
   }
+  if (trimmedBody.length > MAX_ARTICLE_HTML_LENGTH) {
+    return { success: false, error: "Body content is too long" };
+  }
+
+  // SECURITY (P0 F-02): strip executable HTML server-side before persistence.
+  const sanitizedBody = sanitizeArticleHtml(trimmedBody);
+  if (sanitizedBody.replace(/<[^>]*>/g, " ").trim().length < 20) {
+    return { success: false, error: "Body content must be at least 20 characters long" };
+  }
 
   if (input.excerpt && input.excerpt.length > 320) {
     return { success: false, error: "Excerpt cannot exceed 320 characters" };
@@ -194,7 +214,7 @@ export async function updateArticle(id: string, input: ArticleInput) {
   }
 
   const slug = await getUniqueSlug(trimmedTitle, supabase, id);
-  const readingTime = calculateReadingTime(trimmedBody);
+  const readingTime = calculateReadingTime(sanitizedBody);
 
   // Same approval-workflow clamp as createArticle — but here the caller may
   // genuinely be an admin (checked above), in which case 'published'/
@@ -209,7 +229,7 @@ export async function updateArticle(id: string, input: ArticleInput) {
   const updateData = {
     title: trimmedTitle,
     slug,
-    body: trimmedBody,
+    body: sanitizedBody,
     excerpt: input.excerpt || null,
     cover_image_url: input.cover_image_url || null,
     categories: input.categories,
@@ -250,7 +270,7 @@ export async function updateArticle(id: string, input: ArticleInput) {
       oldArticle &&
       (oldArticle.title !== trimmedTitle ||
         oldArticle.excerpt !== (input.excerpt || null) ||
-        oldArticle.body !== trimmedBody)
+        oldArticle.body !== sanitizedBody)
     ) {
       await supabase
         .from("article_audios")

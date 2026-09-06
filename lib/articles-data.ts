@@ -211,3 +211,48 @@ export async function getDistinctArticleCategories(): Promise<string[]> {
   }
   return Array.from(set).sort();
 }
+
+/**
+ * Related articles recommendation: finds published articles sharing at least
+ * one category with the current article, excluding the current article itself.
+ * Falls back to recent published articles if no category overlap is found.
+ */
+export async function getRelatedArticles(
+  currentArticleId: string,
+  categories: string[] = [],
+  limit = 3
+): Promise<ArticleRow[]> {
+  const supabaseAdmin = createSupabaseAdmin();
+  const nowIso = new Date().toISOString();
+
+  let query = supabaseAdmin
+    .from("articles")
+    .select(ARTICLE_LIST_COLUMNS)
+    .eq("status", "published")
+    .eq("visibility", "public")
+    .lte("published_at", nowIso)
+    .neq("id", currentArticleId);
+
+  if (categories && categories.length > 0) {
+    query = query.overlaps("categories", categories);
+  }
+
+  const { data } = await query.order("published_at", { ascending: false }).limit(limit);
+
+  if (data && data.length > 0) {
+    return data as unknown as ArticleRow[];
+  }
+
+  // Fallback to newest overall
+  const { data: fallback } = await supabaseAdmin
+    .from("articles")
+    .select(ARTICLE_LIST_COLUMNS)
+    .eq("status", "published")
+    .eq("visibility", "public")
+    .lte("published_at", nowIso)
+    .neq("id", currentArticleId)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+
+  return (fallback ?? []) as unknown as ArticleRow[];
+}

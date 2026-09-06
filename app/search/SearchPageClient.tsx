@@ -7,6 +7,7 @@ import PublicEmptyState from "@/components/public/PublicEmptyState";
 import EventCard from "@/components/EventCard";
 import FundraiserCard from "@/components/FundraiserCard";
 import OrganizerCard from "@/components/public/OrganizerCard";
+import ArticleCard from "@/components/ArticleCard";
 import ExternalEventCard, { ExternalSourceCredit } from "@/components/events/ExternalEventCard";
 import type { ExternalEvent } from "@/lib/external-events";
 import Link from "next/link";
@@ -40,11 +41,23 @@ type SearchResultsProps = {
     banner: string | null;
     status: string | null;
   }>;
+  articles: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    cover_image_url: string | null;
+    categories: string[] | null;
+    tags: string[] | null;
+    reading_time: number | null;
+    published_at: string | null;
+    created_at: string;
+  }>;
   externalEvents: ExternalEvent[];
 };
 
-function SearchResultsContent({ query, events, fundraisers, organizers, externalEvents }: SearchResultsProps) {
-  const total = events.length + fundraisers.length + organizers.length;
+function SearchResultsContent({ query, events, fundraisers, organizers, articles = [], externalEvents }: SearchResultsProps) {
+  const total = events.length + fundraisers.length + organizers.length + articles.length;
   const hasAnyResults = total > 0 || externalEvents.length > 0;
 
   return (
@@ -55,10 +68,10 @@ function SearchResultsContent({ query, events, fundraisers, organizers, external
           title={query ? `Results for “${query}”` : "Search the platform"}
           description={
             query
-              ? `${total} result${total === 1 ? "" : "s"} across events, fundraisers, and organizers${
+              ? `${total} result${total === 1 ? "" : "s"} across events, fundraisers, stories, and organizations${
                   externalEvents.length > 0 ? ", plus events from other platforms" : ""
                 }.`
-              : "Find events near you, support causes, and discover organizers."
+              : "Find events near you, support causes, read stories, and discover organizers."
           }
         />
 
@@ -183,6 +196,33 @@ function SearchResultsContent({ query, events, fundraisers, organizers, external
                         banner: org.banner,
                         status: org.status,
                       }}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {articles.length > 0 && (
+              <section>
+                <div className="mb-5 flex items-end justify-between">
+                  <h2 className="text-xl font-black text-zinc-950">Stories & Articles</h2>
+                  <Link href="/articles" className="text-sm font-bold text-orange-600 hover:text-orange-700">
+                    View all →
+                  </Link>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {articles.map((art) => (
+                    <ArticleCard
+                      key={art.id}
+                      title={art.title}
+                      slug={art.slug}
+                      excerpt={art.excerpt}
+                      coverImage={art.cover_image_url}
+                      categories={art.categories || []}
+                      tags={art.tags || []}
+                      readingTime={art.reading_time}
+                      publishedAt={art.published_at}
+                      createdAt={art.created_at}
                     />
                   ))}
                 </div>

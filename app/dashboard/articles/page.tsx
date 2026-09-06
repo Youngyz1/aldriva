@@ -9,6 +9,7 @@ import ArticleRowActions from "./ArticleRowActions";
 
 const statusBadge: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 border-zinc-200",
+  pending_review: "bg-purple-50 text-purple-700 border-purple-200",
   published: "bg-emerald-50 text-emerald-700 border-emerald-200",
   scheduled: "bg-blue-50 text-blue-700 border-blue-200",
   archived: "bg-amber-50 text-amber-700 border-amber-200",
@@ -102,6 +103,7 @@ export default async function DashboardArticlesPage({
             >
               <option value="all">All Statuses</option>
               <option value="draft">Draft</option>
+              <option value="pending_review">Pending Review</option>
               <option value="published">Published</option>
               <option value="scheduled">Scheduled</option>
               <option value="archived">Archived</option>

@@ -3,8 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Sparkles, Layers, Wand2 } from "lucide-react";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import ArticleTemplateSelector from "@/components/articles/ArticleTemplateSelector";
+import ArticleAiAssistantModal from "@/components/articles/ArticleAiAssistantModal";
+import ArticleEntityPickerModal, { type AldrivaEntityResult } from "@/components/articles/ArticleEntityPickerModal";
+import { type ArticleTemplate } from "@/lib/article-templates";
 import { createArticle } from "@/lib/actions/articles";
 
 const ARTICLE_COVER_ASPECT = 16 / 9;
@@ -23,6 +28,10 @@ export default function NewArticleClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isEntityPickerOpen, setIsEntityPickerOpen] = useState(false);
+
   const [form, setForm] = useState({
     title: "",
     excerpt: "",
@@ -40,13 +49,94 @@ export default function NewArticleClient({
 
   const [body, setBody] = useState("");
 
+  const handleSelectBlank = () => {
+    setSelectedTemplateId(null);
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSelectTemplate = (template: ArticleTemplate) => {
+    setSelectedTemplateId(template.id);
+    setForm((prev) => ({
+      ...prev,
+      title: prev.title || template.defaultTitle,
+      excerpt: prev.excerpt || template.defaultExcerpt,
+      categoriesStr: prev.categoriesStr || template.defaultCategories.join(", "),
+      tagsStr: prev.tagsStr || template.defaultTags.join(", "),
+    }));
+    setBody(template.defaultBodyHtml);
+  };
+
+  const handleApplyAiDraft = (draft: {
+    title: string;
+    excerpt: string;
+    bodyHtml: string;
+    categories: string[];
+    tags: string[];
+    seoTitle?: string;
+    seoDescription?: string;
+  }) => {
+    setForm((prev) => ({
+      ...prev,
+      title: draft.title,
+      excerpt: draft.excerpt,
+      categoriesStr: draft.categories.join(", "),
+      tagsStr: draft.tags.join(", "),
+      seo_title: draft.seoTitle || prev.seo_title,
+      seo_description: draft.seoDescription || prev.seo_description,
+    }));
+    setBody(draft.bodyHtml);
+    setIsAiModalOpen(false);
+  };
+
+  const handleApplyMetadata = (metadata: {
+    suggestedTitle?: string;
+    suggestedExcerpt?: string;
+    suggestedCategories?: string[];
+    suggestedTags?: string[];
+    seoTitle?: string;
+    seoDescription?: string;
+  }) => {
+    setForm((prev) => ({
+      ...prev,
+      title: metadata.suggestedTitle || prev.title,
+      excerpt: metadata.suggestedExcerpt || prev.excerpt,
+      categoriesStr: metadata.suggestedCategories ? metadata.suggestedCategories.join(", ") : prev.categoriesStr,
+      tagsStr: metadata.suggestedTags ? metadata.suggestedTags.join(", ") : prev.tagsStr,
+      seo_title: metadata.seoTitle || prev.seo_title,
+      seo_description: metadata.seoDescription || prev.seo_description,
+    }));
+    setIsAiModalOpen(false);
+  };
+
+  const handleApplyTextImprovement = (improvedText: string) => {
+    setBody((prev) => `${prev}<p>${improvedText.replace(/\n+/g, "</p><p>")}</p>`);
+    setIsAiModalOpen(false);
+  };
+
+  const handleInsertEntity = (entity: AldrivaEntityResult) => {
+    const routePrefix = entity.type === "fundraiser" ? "fundraisers" : entity.type === "event" ? "events" : "org";
+    const typeLabel = entity.type === "fundraiser" ? "Campaign" : entity.type === "event" ? "Event" : "Organization";
+
+    const entityHtml = `<div data-entity-type="${entity.type}" data-entity-id="${entity.id}" data-entity-slug="${entity.slug}" data-entity-title="${entity.title.replace(/"/g, '&quot;')}" class="aldriva-entity-card-embed my-6 p-4 rounded-2xl border border-zinc-200 bg-zinc-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="p-2 rounded-xl bg-orange-100 text-orange-600 font-bold text-xs uppercase">${typeLabel}</div>
+    <div>
+      <h4 class="font-black text-zinc-900 text-sm">${entity.title}</h4>
+      <p class="text-xs text-zinc-500 font-semibold">${entity.subtitle || ""}</p>
+    </div>
+  </div>
+  <a href="/${routePrefix}/${entity.slug}" target="_blank" rel="noopener noreferrer" class="text-xs font-black bg-orange-600 text-white px-3.5 py-2 rounded-xl hover:bg-orange-700 transition">View ${typeLabel} →</a>
+</div>`;
+
+    setBody((prev) => `${prev}${entityHtml}`);
+    setIsEntityPickerOpen(false);
+  };
+
+  async function submitWithStatus(
+    targetStatus: "draft" | "published" | "scheduled" | "archived" | "expired" | "rejected"
+  ) {
     setLoading(true);
     setError("");
 
-    // Parse categories and tags
     const categories = form.categoriesStr
       .split(",")
       .map((c) => c.trim())
@@ -57,7 +147,6 @@ export default function NewArticleClient({
       .map((t) => t.trim())
       .filter(Boolean);
 
-    // Call server action
     const res = await createArticle({
       title: form.title,
       body,
@@ -66,8 +155,8 @@ export default function NewArticleClient({
       categories,
       tags,
       visibility: form.visibility,
-      status: form.status,
-      scheduled_for: form.status === "scheduled" && form.scheduled_for ? new Date(form.scheduled_for).toISOString() : null,
+      status: targetStatus,
+      scheduled_for: targetStatus === "scheduled" && form.scheduled_for ? new Date(form.scheduled_for).toISOString() : null,
       organizer_id: form.organizer_id || null,
       seo_title: form.seo_title || null,
       seo_description: form.seo_description || null,
@@ -87,7 +176,7 @@ export default function NewArticleClient({
   return (
     <div className="space-y-6">
       {/* Breadcrumbs / Header */}
-      <div className="flex items-center justify-between border-b border-zinc-150 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-150 pb-5">
         <div>
           <div className="flex items-center gap-2 text-sm font-bold text-zinc-400 mb-1">
             <Link href="/dashboard/articles" className="hover:text-orange-600">
@@ -98,12 +187,23 @@ export default function NewArticleClient({
           </div>
           <h1 className="text-2xl font-black text-zinc-900">Create New Article</h1>
         </div>
-        <Link
-          href="/dashboard/articles"
-          className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
-        >
-          Cancel
-        </Link>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAiModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-2.5 text-xs font-black text-violet-800 hover:border-violet-300 transition shadow-sm"
+          >
+            <Sparkles className="h-4 w-4 text-violet-600" />
+            <span>AI Assistant</span>
+          </button>
+          <Link
+            href="/dashboard/articles"
+            className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+          >
+            Cancel
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -112,10 +212,20 @@ export default function NewArticleClient({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
+      {/* Creation Mode & Templates */}
+      <div className="rounded-3xl border border-zinc-150 bg-white p-6 shadow-sm">
+        <ArticleTemplateSelector
+          onSelectBlank={handleSelectBlank}
+          onSelectAiAssist={() => setIsAiModalOpen(true)}
+          onSelectTemplate={handleSelectTemplate}
+          selectedTemplateId={selectedTemplateId}
+        />
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); submitWithStatus(form.status); }} className="grid gap-6 lg:grid-cols-3">
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Title */}
+          {/* Title & Excerpt */}
           <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
             <div>
               <label htmlFor="title" className="block text-sm font-black text-zinc-700 mb-1.5">
@@ -125,7 +235,7 @@ export default function NewArticleClient({
                 type="text"
                 id="title"
                 required
-                placeholder="e.g. 5 Ways to Optimize Your Fundraising Page"
+                placeholder="e.g. 5 Ways Our Community Exceeded Its Fundraising Goal"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold outline-none focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 transition"
@@ -134,9 +244,18 @@ export default function NewArticleClient({
 
             {/* Excerpt */}
             <div>
-              <label htmlFor="excerpt" className="block text-sm font-black text-zinc-700 mb-1.5">
-                Excerpt
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="excerpt" className="block text-sm font-black text-zinc-700">
+                  Excerpt / Lead Summary
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="text-xs font-bold text-violet-700 hover:underline flex items-center gap-1"
+                >
+                  <Wand2 className="h-3 w-3" /> Auto-summarize
+                </button>
+              </div>
               <textarea
                 id="excerpt"
                 rows={3}
@@ -150,22 +269,52 @@ export default function NewArticleClient({
 
           {/* Body Content / Editor */}
           <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
-            <label className="block text-sm font-black text-zinc-700">
-              Article Content *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-black text-zinc-700">
+                Article Body Content *
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEntityPickerOpen(true)}
+                  className="flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700 hover:bg-orange-100 transition"
+                >
+                  <Layers className="h-3.5 w-3.5" /> Reference Entity
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-black text-violet-700 hover:bg-violet-100 transition"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> AI Assist
+                </button>
+              </div>
+            </div>
+
             <RichTextEditor
               value={body}
               onChange={setBody}
               accent="orange"
               placeholder="Write your article story here..."
+              onTriggerAi={() => setIsAiModalOpen(true)}
+              onTriggerEntityPicker={() => setIsEntityPickerOpen(true)}
             />
           </div>
 
           {/* SEO Metadata Card */}
           <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
-            <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
-              SEO settings (Optional)
-            </h3>
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+              <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400">
+                SEO &amp; Search Optimization (Optional)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(true)}
+                className="text-xs font-bold text-violet-700 hover:underline flex items-center gap-1"
+              >
+                <Sparkles className="h-3 w-3" /> Suggest SEO
+              </button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label htmlFor="seo_title" className="block text-sm font-bold text-zinc-700 mb-1">
@@ -212,16 +361,39 @@ export default function NewArticleClient({
 
         {/* Sidebar Settings Area */}
         <div className="lg:col-span-1 space-y-6">
+          {/* Action Buttons Box */}
+          <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-3 shadow-sm">
+            <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
+              Actions
+            </h3>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => submitWithStatus("published")}
+              className="w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-black text-white hover:bg-orange-700 transition disabled:opacity-50 shadow-md"
+            >
+              {loading ? "Submitting..." : "Submit for Publication"}
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => submitWithStatus("draft")}
+              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-center text-sm font-bold text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50"
+            >
+              Save as Draft
+            </button>
+          </div>
+
           {/* Publishing settings */}
           <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
-              Publishing
+              Publishing Settings
             </h3>
 
             {/* Status */}
             <div>
               <label htmlFor="status" className="block text-sm font-bold text-zinc-700 mb-1">
-                Status
+                Lifecycle Status
               </label>
               <select
                 id="status"
@@ -230,8 +402,8 @@ export default function NewArticleClient({
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold outline-none focus:border-orange-500 focus:bg-white transition"
               >
                 <option value="draft">Draft</option>
-                <option value="published">Publish Immediately</option>
-                <option value="scheduled">Schedule</option>
+                <option value="published">Publish (Pending Approval)</option>
+                <option value="scheduled">Scheduled</option>
                 <option value="archived">Archived</option>
               </select>
             </div>
@@ -295,7 +467,7 @@ export default function NewArticleClient({
           {/* Categorisation settings */}
           <div className="rounded-2xl border border-zinc-150 bg-white p-6 space-y-4 shadow-sm">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-100 pb-3">
-              Categorisation
+              Categories &amp; Tags
             </h3>
 
             {/* Categories */}
@@ -347,17 +519,27 @@ export default function NewArticleClient({
               onError={(msg) => setError(msg)}
             />
           </div>
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-black text-white hover:bg-orange-700 transition disabled:opacity-50"
-          >
-            {loading ? "Creating..." : "Create Article"}
-          </button>
         </div>
       </form>
+
+      {/* AI Assistant Modal */}
+      <ArticleAiAssistantModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        currentTitle={form.title}
+        currentExcerpt={form.excerpt}
+        currentBody={body}
+        onApplyDraft={handleApplyAiDraft}
+        onApplyMetadata={handleApplyMetadata}
+        onApplyTextImprovement={handleApplyTextImprovement}
+      />
+
+      {/* Entity Picker Modal */}
+      <ArticleEntityPickerModal
+        isOpen={isEntityPickerOpen}
+        onClose={() => setIsEntityPickerOpen(false)}
+        onSelectEntity={handleInsertEntity}
+      />
     </div>
   );
 }

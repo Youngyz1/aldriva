@@ -47,6 +47,11 @@ export const RATE_LIMITS = {
    * to prevent order ID / QR code enumeration or brute-force attacks.
    */
   guestLookup: { limit: 10, windowSeconds: 600 },
+
+  /**
+   * AI writing assistant rate limit for authors drafting and polishing articles.
+   */
+  articleAi: { limit: 30, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

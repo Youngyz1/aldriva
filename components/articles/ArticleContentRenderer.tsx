@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useMemo } from "react";
+import { sanitizeArticleHtml } from "@/lib/sanitize-html";
 
 interface ArticleContentRendererProps {
   body: string;
@@ -44,13 +45,19 @@ export default function ArticleContentRenderer({
 
   // Inject data-paragraph-index into block tags in HTML string.
   // Counter starts at blockIndexOffset to match timing_data block indices exactly.
+  //
+  // SECURITY (P0 F-02): the annotated HTML is re-sanitized immediately before
+  // rendering. Stored bodies are sanitized at write time, but historic rows
+  // predate that control — the render path must not trust the database.
+  // `data-paragraph-index` is allowlisted by the sanitizer profile, so the
+  // annotation survives while executable markup is stripped.
   const annotatedHtml = useMemo(() => {
     if (!body) return "";
 
     let blockCounter = blockIndexOffset;
     const blockTagRegex = /<(p|h[1-6]|blockquote|li|figcaption)([^>]*)>/gi;
 
-    return body.replace(blockTagRegex, (fullMatch, tagName, attrs) => {
+    const annotated = body.replace(blockTagRegex, (fullMatch, tagName, attrs) => {
       // Don't re-annotate if already present
       if (attrs.includes("data-paragraph-index")) {
         return fullMatch;
@@ -58,6 +65,8 @@ export default function ArticleContentRenderer({
       const idx = blockCounter++;
       return `<${tagName} data-paragraph-index="${idx}" ${attrs}>`;
     });
+
+    return sanitizeArticleHtml(annotated);
   }, [body, blockIndexOffset]);
 
   // Paragraph highlighting and off-screen auto-scroll

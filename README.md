@@ -70,6 +70,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
   - [Frequently Asked Questions (FAQ)](docs/organizations/faq.md)
   - [Troubleshooting & Diagnostics](docs/organizations/troubleshooting.md)
 
+- **[Aldriva Articles & Publishing Master Index](docs/articles/index.md)** — Complete editorial publishing, AI writing assistance, templates, entity cards, and content moderation guides.
+  - [Creating an Article](docs/articles/creating-an-article.md)
+  - [Using the AI Assistant](docs/articles/using-ai.md)
+  - [Publishing & Editorial Workflow](docs/articles/publishing.md)
+  - [Managing Articles](docs/articles/managing-articles.md)
+  - [Sharing & Discovery](docs/articles/sharing-and-discovery.md)
+  - [Frequently Asked Questions (FAQ)](docs/articles/faq.md)
+  - [Troubleshooting & Diagnostics](docs/articles/troubleshooting.md)
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
