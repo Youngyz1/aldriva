@@ -58,7 +58,8 @@ export default function AdminFundraiserStatusActions({
     status === "pending_review" ? "Pending review" : status === "published" ? "Published" : "Rejected";
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5">
+    // Open section: badge + action buttons carry their own affordance.
+    <section className="border-t border-zinc-200 pt-5">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-black text-zinc-950">Review status</h2>
         <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${badge}`}>{label}</span>

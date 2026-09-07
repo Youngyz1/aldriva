@@ -18,7 +18,9 @@ const DESCRIPTIONS: Record<keyof typeof VERTICAL_CONFIG, string> = {
  */
 export default function OnboardingChoices({ displayName }: { displayName: string }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8">
+    // Open onboarding: heading + choice tiles sit on the page canvas.
+    // Tiles are interactive links and keep their boundaries.
+    <div className="border-t border-zinc-200 pt-6">
       <h1 className="text-2xl font-black tracking-tight text-zinc-950 sm:text-3xl">
         Welcome to Aldriva, {displayName}
       </h1>

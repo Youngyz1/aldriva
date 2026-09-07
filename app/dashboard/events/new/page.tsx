@@ -33,7 +33,8 @@ export default async function NewDashboardEventPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
+      {/* Open header — option links below are interactive surfaces and keep their boundaries. */}
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-orange-600">Events</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Create New Event</h1>
         <p className="mt-1 text-sm font-medium text-zinc-500">

@@ -51,8 +51,8 @@ export default async function SettingsVerificationPage() {
 
   return (
     <div className="space-y-6">
-      {/* Identity Verification */}
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      {/* Identity Verification — open section, CTA keeps its own boundary. */}
+      <section className="border-t border-zinc-200 pt-6 first:border-t-0 first:pt-0">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -77,8 +77,8 @@ export default async function SettingsVerificationPage() {
         </div>
       </section>
 
-      {/* Organization Verification */}
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      {/* Organization Verification — open section, rows keep dividers. */}
+      <section className="border-t border-zinc-200 pt-6">
         <h2 className="font-black text-zinc-950">Organization Verification</h2>
         <p className="mt-1.5 max-w-xl text-sm font-medium text-zinc-500">
           Verified organizations earn donor trust with a public badge.
@@ -86,7 +86,7 @@ export default async function SettingsVerificationPage() {
         </p>
 
         {(organizers ?? []).length === 0 ? (
-          <div className="mt-4 rounded-xl bg-zinc-50 p-6 text-center ring-1 ring-zinc-200/70">
+          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 p-6 text-center">
             <p className="text-sm font-medium text-zinc-500">
               You don&apos;t have any organizations yet.
             </p>
@@ -98,7 +98,7 @@ export default async function SettingsVerificationPage() {
             </Link>
           </div>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-100 rounded-xl ring-1 ring-zinc-200/70">
+          <ul className="mt-4 divide-y divide-zinc-100 border-y border-zinc-100">
             {(organizers ?? []).map((org) => {
               const verified = org.status === "verified";
               return (

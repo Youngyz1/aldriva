@@ -300,7 +300,7 @@ export default function OrgSettingsPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* 1. Identity & General */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-black text-zinc-950">General Info</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -366,7 +366,7 @@ export default function OrgSettingsPage() {
         </section>
 
         {/* Tax & Registration */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="space-y-4 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-lg font-black text-zinc-950">Tax &amp; Registration Details</h2>
             <p className="text-xs text-zinc-500 font-medium mt-0.5">
@@ -400,7 +400,7 @@ export default function OrgSettingsPage() {
         </section>
 
         {/* 2. Contact & Links */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-black text-zinc-950">Contact & Links</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -428,7 +428,7 @@ export default function OrgSettingsPage() {
         </section>
 
         {/* 3. Media (Logo & Banner) */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-5">
+        <section className="space-y-5 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-black text-zinc-950">Media</h2>
           <div className="grid gap-6 md:grid-cols-2">
 
@@ -462,7 +462,7 @@ export default function OrgSettingsPage() {
         </section>
 
         {/* 4. Social Links */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+        <section className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-black text-zinc-950">Social Accounts</h2>
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <label className="block">
@@ -528,8 +528,8 @@ export default function OrgSettingsPage() {
           </div>
         </section>
 
-        {/* 5. Visibility */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        {/* 5. Visibility — radio options keep their selected-state boundaries. */}
+        <section className="border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-black text-zinc-950">Visibility</h2>
           <p className="mt-1 text-xs font-medium text-zinc-500">
             Control the discoverability of your organization's profile.

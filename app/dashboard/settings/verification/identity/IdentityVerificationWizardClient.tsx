@@ -282,9 +282,9 @@ export default function IdentityVerificationWizardClient({
         ))}
       </div>
 
-      {/* STEP 1: Select ID Type */}
+      {/* STEP 1: Select ID Type — radio options keep their selected-state boundaries. */}
       {step === 1 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-base font-black text-zinc-950">Choose Government ID Type</h2>
 
           <div className="space-y-3">
@@ -323,9 +323,9 @@ export default function IdentityVerificationWizardClient({
         </div>
       )}
 
-      {/* STEP 2: Document Upload */}
+      {/* STEP 2: Document Upload — upload tiles keep their own boundaries. */}
       {step === 2 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-base font-black text-zinc-950">Upload Document Images</h2>
             <p className="text-xs text-zinc-500 font-medium mt-0.5">
@@ -339,9 +339,8 @@ export default function IdentityVerificationWizardClient({
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-4 border-t border-zinc-100 pt-4">
             {/* Front Upload */}
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-zinc-900">
@@ -366,11 +365,10 @@ export default function IdentityVerificationWizardClient({
                 }}
                 className="block w-full text-xs text-zinc-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-brand-700"
               />
-            </div>
 
             {/* Back Upload (conditional) */}
             {selectedIdConfig.requiresBack && (
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+              <div className="space-y-3 border-t border-zinc-100 pt-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-zinc-900">ID Back Photo *</span>
@@ -416,9 +414,9 @@ export default function IdentityVerificationWizardClient({
         </div>
       )}
 
-      {/* STEP 3: Review & Submit */}
+      {/* STEP 3: Review & Submit — summary rows use dividers, no outer box. */}
       {step === 3 && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-base font-black text-zinc-950">Review Your Verification Submission</h2>
             <p className="text-xs text-zinc-500 font-medium mt-0.5">
@@ -432,7 +430,7 @@ export default function IdentityVerificationWizardClient({
             </div>
           )}
 
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3 text-xs">
+          <div className="space-y-3 border-t border-zinc-100 pt-4 text-xs">
             <div className="flex justify-between border-b border-zinc-200 pb-2">
               <span className="font-bold text-zinc-500">ID Type:</span>
               <span className="font-black text-zinc-900">{selectedIdConfig.title}</span>

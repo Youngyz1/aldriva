@@ -360,7 +360,7 @@ export default function OrganizersClient() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="rounded-xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:rounded-2xl sm:px-6">
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Organizations</h1>
         <p className="mt-2 text-sm font-medium text-zinc-500">
@@ -645,8 +645,8 @@ export default function OrganizersClient() {
               ))}
             </section>
 
-            {/* Visibility Boost Section */}
-            <section className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
+            {/* Visibility Boost Section — open, inputs keep their boundaries. */}
+            <section className="space-y-4 border-t border-zinc-200 pt-4">
               <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-400">
                 <TrendingUp className="h-4 w-4 text-violet-500" />
                 Visibility Boost
@@ -744,8 +744,8 @@ export default function OrganizersClient() {
               </div>
             </section>
 
-            {/* Capabilities — Payment Enabled / Fundraising Approved */}
-            <section className="rounded-xl border border-zinc-200 bg-white p-4 space-y-3">
+            {/* Capabilities — open, toggle tiles keep their boundaries. */}
+            <section className="space-y-3 border-t border-zinc-200 pt-4">
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Capabilities</h3>
               <p className="text-xs text-zinc-500">
                 Independent from verification status — tracked here, not yet enforced against payment or fundraiser creation.

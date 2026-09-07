@@ -50,7 +50,8 @@ export default function ArticleShareBar({ title, slug, excerpt }: ArticleShareBa
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 my-8">
+    // Open share row: icon buttons keep their own boundaries, the strip needs no box.
+    <div className="flex flex-wrap items-center justify-between gap-4 border-y border-zinc-200 py-4 my-8">
       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-500">
         <Share2 className="h-4 w-4 text-orange-600" />
         <span>Share this story</span>

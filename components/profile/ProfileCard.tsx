@@ -6,17 +6,7 @@ interface ProfileCardProps {
   padding?: boolean;
 }
 
-/** Base bordered card used throughout the profile design system. */
-export default function ProfileCard({ children, className, padding = true }: ProfileCardProps) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-zinc-200 bg-white shadow-sm",
-        padding && "p-5",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
+/** Open profile section — spacing + dividers group content, never a bordered card. */
+export default function ProfileCard({ children, className }: ProfileCardProps) {
+  return <div className={cn(className)}>{children}</div>;
 }

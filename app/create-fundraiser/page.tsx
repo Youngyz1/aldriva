@@ -662,7 +662,7 @@ export default function CreateFundraiserPage() {
           <CreatorPanel title="Review & Publish">
             {/* Organizer → Beneficiary → Fundraiser, so the relationship
                 between who runs it and who it helps reads at a glance. */}
-            <div className="mb-5 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 sm:p-5">
+            <div className="mb-5 border-y border-zinc-200 py-4">
               <p className="text-xs font-black uppercase tracking-wide text-zinc-500">
                 Organized by
               </p>

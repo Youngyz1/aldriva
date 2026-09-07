@@ -295,8 +295,8 @@ export default function DonatePage({
 
   const leftColumn = (
     <>
-      {/* Fundraiser banner */}
-      <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4">
+      {/* Fundraiser banner — open context header, image keeps its rounding. */}
+      <div className="flex items-center gap-4 border-b border-zinc-200 pb-4">
         <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-zinc-100 sm:w-24">
           {safeImageSrc(banner) ? (
             <Image
@@ -323,8 +323,8 @@ export default function DonatePage({
         </div>
       </div>
 
-      {/* Raised amount — sits directly below the campaign card */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-2">
+      {/* Raised amount — open progress block. */}
+      <div className="space-y-2 border-b border-zinc-100 pb-4">
         <div className="flex justify-between text-sm">
           <span className="text-zinc-500">
             ${raised.toLocaleString()} raised
@@ -361,8 +361,8 @@ export default function DonatePage({
         )}
       </div>
 
-      {/* Amount picker — donor types the amount themselves, no preset chips */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+      {/* Amount picker — the bordered input keeps its own boundary. */}
+      <div className="border-b border-zinc-100 pb-6">
         <h3 className="mb-4 text-base font-black">Enter your donation</h3>
 
         <div className="relative flex items-center rounded-2xl border-2 border-zinc-200 px-5 py-4 transition focus-within:border-green-500">
@@ -384,8 +384,8 @@ export default function DonatePage({
         </div>
       </div>
 
-      {/* Tip selector — slider instead of fixed chips, matching GoFundMe */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
+      {/* Tip selector — slider + input keep their own chrome. */}
+      <div className="border-b border-zinc-100 pb-6">
         <h3 className="mb-1 text-base font-black">Add a tip to fundgood</h3>
         <p className="mb-5 text-xs text-zinc-400">
           fundgood has a 0% platform fee for organisers — we rely on the
@@ -465,9 +465,9 @@ export default function DonatePage({
         )}
       </div>
 
-      {/* Donor details */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-3">
-        <h3 className="text-base font-black">Your details</h3>
+      {/* Donor details — inputs keep their own boundaries. */}
+      <div className="space-y-3 border-b border-zinc-100 pb-6">
+        <h3 className="border-b border-zinc-100 pb-2 text-base font-black">Your details</h3>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <input

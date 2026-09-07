@@ -81,8 +81,8 @@ export default async function DashboardBusinessesPage({
         </Link>
       </div>
 
-      {/* Toolbar / Filters */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-100/5">
+      {/* Toolbar / Filters — open bar, inputs carry their own boundaries. Table below keeps containment. */}
+      <div>
         <form method="GET" action="/dashboard/businesses" className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1">
             <input

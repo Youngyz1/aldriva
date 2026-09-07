@@ -39,7 +39,7 @@ export default function CampaignShowcaseMobileList({
 
   return (
     <>
-      <div className="divide-y divide-zinc-100 rounded-2xl border border-zinc-100">
+      <div className="divide-y divide-zinc-100 border-t border-zinc-100">
         {visible.map((item) => (
           <CampaignShowcaseMobileCard
             key={item.id}

@@ -78,9 +78,9 @@ export default async function ProductsPage({
       </div>
 
       <div className="grid gap-8 lg:grid-cols-4">
-        {/* Sidebar filters */}
+        {/* Sidebar filters — open section, not a card. Product cards below are entities and keep their boundaries. */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="rounded-2xl border border-zinc-150 bg-white p-5 shadow-sm">
+          <div className="border-t border-zinc-200 pt-5">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 mb-4">
               Search &amp; Filter
             </h3>

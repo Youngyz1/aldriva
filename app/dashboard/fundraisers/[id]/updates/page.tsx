@@ -31,7 +31,8 @@ export default async function FundraiserUpdatesPage({
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      {/* Open header — backlink + title + description need no card. */}
+      <header className="border-b border-zinc-200 pb-5">
         <Link
           href="/dashboard/fundraisers"
           className="text-sm font-black text-emerald-700 hover:text-emerald-800"

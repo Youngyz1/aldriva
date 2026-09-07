@@ -114,7 +114,7 @@ export default function BeneficiarySelector({
 
       {/* Progressive disclosure — nothing below appears until a type is picked. */}
       {config && (
-        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4 sm:p-5">
+        <div className="space-y-4 border-t border-zinc-200 pt-4">
           {config.value === "self" ? (
             <p className="text-sm font-semibold text-zinc-600">
               This fundraiser will be listed as helping{" "}

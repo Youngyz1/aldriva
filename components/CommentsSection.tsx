@@ -268,7 +268,8 @@ export default function CommentsSection({
   }
 
   return (
-    <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8">
+    // Open comments section: heading + form + list sit on the page canvas.
+    <section className="border-t border-zinc-200 pt-6 sm:pt-8">
       <p className={`text-sm font-black uppercase tracking-wide ${styles.label}`}>
         Community
       </p>

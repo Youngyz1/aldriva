@@ -65,7 +65,8 @@ export default function BeneficiaryInvite({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    // Open invite section: input + button + alerts keep their own chrome.
+    <div className="space-y-1 border-t border-zinc-200 pt-4">
       <p className="text-sm font-black text-zinc-950">Invite {beneficiaryName}</p>
       <p className="mt-1 text-xs font-medium text-zinc-500">
         Optional. Sends a link letting them add their own photo, bio and contact

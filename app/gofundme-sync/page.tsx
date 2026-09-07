@@ -209,7 +209,7 @@ export default function GoFundMeSyncPage() {
 
         <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
           <aside className="space-y-6">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 border-t border-zinc-200 pt-6">
               <h2 className="text-2xl font-black">Add Fundraiser</h2>
 
               <label className="mt-5 block">
@@ -258,7 +258,7 @@ export default function GoFundMeSyncPage() {
             </div>
           </aside>
 
-          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <section className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <h2 className="text-3xl font-black">Sources</h2>

@@ -308,7 +308,7 @@ export default function VerificationWizardClient({
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
                 Submitted Documents ({submission.documents.length})
               </h3>
-              <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-zinc-50/50">
+            <div className="divide-y divide-zinc-100 border-y border-zinc-100">
                 {submission.documents.map((doc, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3.5 text-xs">
                     <div className="flex items-center gap-2.5">
@@ -509,7 +509,7 @@ export default function VerificationWizardClient({
 
       {/* STEP 1: REQUIREMENTS */}
       {step === 1 && (
-        <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-lg font-black text-zinc-950">Step 1: Verification Requirements</h2>
             <p className="text-xs font-medium text-zinc-500">
@@ -541,7 +541,7 @@ export default function VerificationWizardClient({
             ))}
           </div>
 
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+          <div className="border-t border-zinc-100 pt-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -571,7 +571,7 @@ export default function VerificationWizardClient({
 
       {/* STEP 2: UPLOAD DOCUMENTS */}
       {step === 2 && (
-        <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-lg font-black text-zinc-950">Step 2: Upload Documents</h2>
             <p className="text-xs font-medium text-zinc-500">
@@ -688,7 +688,7 @@ export default function VerificationWizardClient({
 
       {/* STEP 3: CONTEXT & NOTES */}
       {step === 3 && (
-        <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-lg font-black text-zinc-950">Step 3: Context &amp; Details</h2>
             <p className="text-xs font-medium text-zinc-500">
@@ -696,8 +696,8 @@ export default function VerificationWizardClient({
             </p>
           </div>
 
-          {/* Read-Only Info Card */}
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 space-y-3">
+          {/* Read-Only Info — open record grid, labels carry hierarchy. */}
+          <div className="space-y-3 border-t border-zinc-100 pt-4">
             <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
               <Building2 className="h-4 w-4 text-orange-600" />
               Organization Record Details
@@ -761,7 +761,7 @@ export default function VerificationWizardClient({
 
       {/* STEP 4: REVIEW & SUBMIT */}
       {step === 4 && (
-        <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="space-y-6 border-t border-zinc-200 pt-6">
           <div>
             <h2 className="text-lg font-black text-zinc-950">Step 4: Review &amp; Submit</h2>
             <p className="text-xs font-medium text-zinc-500">
@@ -804,7 +804,7 @@ export default function VerificationWizardClient({
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-1.5">
                 Submitter Notes
               </h3>
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 text-xs font-medium text-zinc-800 leading-relaxed">
+              <div className="border-t border-zinc-100 pt-3 text-xs font-medium text-zinc-800 leading-relaxed">
                 {notes}
               </div>
             </div>

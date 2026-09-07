@@ -100,7 +100,7 @@ export default function BeneficiaryProfileForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6"
+      className="space-y-5 border-t border-zinc-200 pt-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">

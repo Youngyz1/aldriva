@@ -76,7 +76,8 @@ export default async function AccountAnalyticsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+      {/* Open placeholder — centered text needs no card. KPI tiles above are metric entities and keep their boundaries. */}
+      <div className="border-t border-zinc-200 py-10 text-center">
         <BarChart2 className="mx-auto h-12 w-12 text-zinc-300 mb-4" />
         <h3 className="text-lg font-black text-zinc-950">Detailed charts are coming soon</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-500">

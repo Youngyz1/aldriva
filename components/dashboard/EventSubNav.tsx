@@ -39,7 +39,8 @@ export default function EventSubNav({
   };
 
   return (
-    <div className="mb-6 rounded-2xl border border-zinc-200/80 bg-white p-2.5 shadow-sm">
+    // Open tab nav: tabs carry their own active states, no outer card.
+    <div className="mb-6 border-b border-zinc-200 pb-3">
       {eventTitle && (
         <div className="mb-2 flex items-center justify-between border-b border-zinc-100 px-3 pb-2.5">
           <h2 className="truncate text-sm font-black text-zinc-900">{eventTitle}</h2>

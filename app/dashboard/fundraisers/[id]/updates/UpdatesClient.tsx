@@ -102,9 +102,10 @@ export default function UpdatesClient({
         </div>
       )}
 
-      <form onSubmit={postUpdate} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-black">Post new update</h2>
-        <div className="mt-5 space-y-4">
+      {/* Open composer: inputs + button keep their own boundaries. */}
+      <form onSubmit={postUpdate} className="space-y-4 border-t border-zinc-200 pt-6">
+        <h2 className="border-b border-zinc-100 pb-3 text-xl font-black">Post new update</h2>
+        <div className="space-y-4">
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -131,8 +132,9 @@ export default function UpdatesClient({
         </div>
       </form>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-black">Existing updates</h2>
+      {/* Open list: divide-y rows separate updates, no outer box. */}
+      <section className="space-y-4 border-t border-zinc-200 pt-6">
+        <h2 className="border-b border-zinc-100 pb-3 text-xl font-black">Existing updates</h2>
         {updates.length === 0 ? (
           <p className="mt-4 text-sm font-semibold text-zinc-500">No updates yet.</p>
         ) : (

@@ -88,14 +88,14 @@ export default async function OrgOverviewPage({
         )}
       </div>
 
-      {/* Recent Events */}
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      {/* Recent Events — divide-y rows separate items, no outer box. */}
+      <section className="border-t border-zinc-200 pt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-black text-zinc-950">Recent Events</h2>
           <Link href={`${base}/events`} className="text-sm font-bold text-orange-600 hover:underline">View all →</Link>
         </div>
         {(recentEvents ?? []).length === 0 ? (
-          <div className="rounded-xl bg-zinc-50 p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-zinc-300 py-10 text-center">
             <p className="text-sm font-medium text-zinc-500">No events yet.</p>
             <Link href="/create-event" className="mt-3 inline-block rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700">
               Create Event
@@ -119,8 +119,8 @@ export default async function OrgOverviewPage({
         )}
       </section>
 
-      {/* Quick Actions */}
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      {/* Quick Actions — buttons carry their own affordance, no wrapper box. */}
+      <section className="border-t border-zinc-200 pt-6">
         <h2 className="mb-4 font-black text-zinc-950">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           <Link href="/create-event" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700">+ New Event</Link>

@@ -138,9 +138,9 @@ export default function CheckinsClient({ eventId, eventTitle }: Props) {
       {/* Headline Stats Cards */}
       {stats && <DashboardStatsCards items={statItems} />}
 
-      {/* Breakdown by Scanner Section */}
+      {/* Breakdown by Scanner Section — stat tiles keep their boundaries. */}
       {scannerBreakdown.length > 0 && (
-        <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs sm:p-6 space-y-4">
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-sm font-black uppercase tracking-wider text-zinc-800 flex items-center gap-2">
             <UserCheck size={18} className="text-orange-600" /> Door Staff Breakdown
           </h2>

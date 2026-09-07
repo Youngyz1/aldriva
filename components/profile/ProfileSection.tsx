@@ -8,12 +8,12 @@ interface ProfileSectionProps {
   className?: string;
 }
 
-/** A titled ProfileCard — the "About", "Connect", etc. block reused across every profile type. */
+/** A titled open profile section — the "About", "Connect", etc. block reused across every profile type. */
 export default function ProfileSection({ title, action, children, className }: ProfileSectionProps) {
   return (
-    <ProfileCard className={cn(className)}>
+    <ProfileCard className={cn("border-t border-zinc-200 pt-5", className)}>
       {(title || action) && (
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-3">
           {title && (
             <h2 className="text-sm font-black uppercase tracking-wide text-zinc-400">{title}</h2>
           )}

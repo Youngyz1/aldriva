@@ -363,17 +363,17 @@ export default function OrganizationProfileClient({
           {/* ── Left column: bio + social + stats ── */}
           <aside className="space-y-5 lg:col-span-1">
 
-            {/* Bio */}
+            {/* Bio — open text, heading carries hierarchy. */}
             {org.bio && (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-2 text-sm font-black uppercase tracking-wide text-zinc-400">About</h2>
+              <div className="border-t border-zinc-200 pt-5">
+                <h2 className="mb-2 border-b border-zinc-100 pb-2 text-sm font-black uppercase tracking-wide text-zinc-400">About</h2>
                 <p className="text-sm leading-relaxed text-zinc-700">{org.bio}</p>
               </div>
             )}
 
-            {/* Impact stats */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-black uppercase tracking-wide text-zinc-400">Impact</h2>
+            {/* Impact stats — open numbers, dividers suffice. */}
+            <div className="border-t border-zinc-200 pt-5">
+              <h2 className="mb-4 border-b border-zinc-100 pb-2 text-sm font-black uppercase tracking-wide text-zinc-400">Impact</h2>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <p className="text-xl font-black text-zinc-950">{formatCount(events.length + (org.events_offset ?? 0))}</p>
@@ -390,9 +390,9 @@ export default function OrganizationProfileClient({
               </div>
             </div>
 
-            {/* Contact & Links */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-black uppercase tracking-wide text-zinc-400">Connect</h2>
+            {/* Contact & Links — open list, links keep their affordances. */}
+            <div className="border-t border-zinc-200 pt-5">
+              <h2 className="mb-4 border-b border-zinc-100 pb-2 text-sm font-black uppercase tracking-wide text-zinc-400">Connect</h2>
               <div className="space-y-3">
                 {org.website && (
                   <a
@@ -429,9 +429,9 @@ export default function OrganizationProfileClient({
 
           </aside>
 
-          {/* ── Right column: tabs (events + fundraisers) ── */}
+          {/* ── Right column: tabs (events + fundraisers) — open workspace, rows keep their boundaries. ── */}
           <div className="lg:col-span-2">
-            <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-t border-zinc-200 pt-2">
 
               {/* Tab bar */}
               <div className="flex border-b border-zinc-100">

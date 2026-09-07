@@ -24,13 +24,15 @@ export default function AdaptiveQuickActions({
   const primaryConfig = VERTICAL_CONFIG[primary.key];
 
   return (
-    <div className={`rounded-xl border border-zinc-200 bg-white ${className ?? ""}`}>
-      <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
+    // Open rail: heading + action tiles sit on the canvas, no outer card.
+    // Tiles are interactive links and keep their boundaries.
+    <div className={`border-t border-zinc-200 pt-5 ${className ?? ""}`}>
+      <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
         <Zap className="h-4 w-4 text-slate-400" aria-hidden />
         <h2 className="text-sm font-semibold text-slate-900">Quick Actions</h2>
       </div>
 
-      <div className="p-4">
+      <div className="pt-4">
         <Link
           href={primaryConfig.createHref}
           className="group flex min-h-[76px] items-center gap-4 rounded-xl bg-brand-700 px-5 py-4 text-left shadow-sm transition-all duration-150 hover:bg-brand-800 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"

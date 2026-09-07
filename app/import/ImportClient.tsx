@@ -608,7 +608,7 @@ export default function ImportClient() {
 
         <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
           <aside className="space-y-6">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 border-t border-zinc-200 pt-6">
               <label className="mb-3 block text-sm font-black uppercase tracking-wide text-zinc-500">
                 Import type
               </label>
@@ -628,7 +628,7 @@ export default function ImportClient() {
             </div>
 
             {mode === "events" && (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <div className="space-y-4 border-t border-zinc-200 pt-6">
                 <label className="mb-3 block text-sm font-black uppercase tracking-wide text-zinc-500">
                   Organization profile
                 </label>
@@ -670,7 +670,7 @@ export default function ImportClient() {
               </div>
             )}
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 border-t border-zinc-200 pt-6">
               <label className="mb-3 block text-sm font-black uppercase tracking-wide text-zinc-500">
                 CSV file
               </label>
@@ -682,7 +682,7 @@ export default function ImportClient() {
               />
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 border-t border-zinc-200 pt-6">
               <label className="mb-3 block text-sm font-black uppercase tracking-wide text-zinc-500">
                 Import from URL
               </label>
@@ -705,7 +705,7 @@ export default function ImportClient() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 border-t border-zinc-200 pt-6">
               <h2 className="text-xl font-black">CSV template</h2>
               <pre className="mt-4 overflow-x-auto rounded-xl bg-zinc-950 p-4 text-sm leading-6 text-white">
                 {exampleCsv(mode)}
@@ -713,7 +713,7 @@ export default function ImportClient() {
             </div>
           </aside>
 
-          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <section className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <h2 className="text-3xl font-black">Preview</h2>

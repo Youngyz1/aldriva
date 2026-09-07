@@ -84,8 +84,8 @@ export default async function DashboardArticlesPage({
         </Link>
       </div>
 
-      {/* Toolbar / Filters */}
-      <div className="rounded-xl border border-zinc-200/70 bg-white/95 backdrop-blur-md p-3.5 shadow-xs sm:rounded-2xl sm:p-4">
+      {/* Toolbar / Filters — open bar, inputs carry their own boundaries. Table below keeps containment. */}
+      <div>
         <form method="GET" action="/dashboard/articles" className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1">
             <input

@@ -55,7 +55,7 @@ function EventsResultsSkeleton() {
         <div className="mb-6 h-8 w-48 animate-pulse rounded bg-zinc-200" />
         {cardGrid}
       </div>
-      <div className="rounded-3xl border-t-4 border-orange-600 bg-white p-6 shadow-sm ring-1 ring-zinc-100 sm:p-8">
+      <div className="border-t-4 border-orange-600 pt-6 sm:pt-8">
         <div className="mb-6 h-8 w-48 animate-pulse rounded bg-zinc-200" />
         {cardGrid}
       </div>

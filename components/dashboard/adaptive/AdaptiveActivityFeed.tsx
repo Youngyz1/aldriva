@@ -16,8 +16,9 @@ export default function AdaptiveActivityFeed({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-zinc-200 bg-white ${className ?? ""}`}>
-      <div className="flex items-center gap-2 border-b border-zinc-200 px-5 py-4">
+    // Open feed: header row + timeline sit on the canvas, no outer card.
+    <div className={`border-t border-zinc-200 pt-5 ${className ?? ""}`}>
+      <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
         <ActivityIcon className="h-4 w-4 text-slate-400" aria-hidden />
         <h2 className="text-sm font-semibold text-slate-900">Recent Activity</h2>
       </div>
@@ -29,7 +30,7 @@ export default function AdaptiveActivityFeed({
           description="Donations, new fundraisers, events, articles, listings, and products will show up here."
         />
       ) : (
-        <ul className="space-y-0 px-5 py-3" role="list" aria-label="Recent activity">
+        <ul className="py-3" role="list" aria-label="Recent activity">
           {activities.map((activity, idx) => {
             const config = getActivityIconConfig(activity.type);
             const Icon = config.icon;

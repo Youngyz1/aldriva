@@ -331,15 +331,10 @@ export default async function EventsResultsSection({
           </div>
         )}
 
-        {/* ── Discover More — a sliding Embla rail (DiscoverMoreCarousel),
-            same shared carousel infrastructure as Trending Events above it,
-            inside a white rounded-card treatment with a coral top accent so
-            it still reads as a clearly separate section from Trending rather
-            than an unlabeled continuation of the same block. Renders the
-            default getEventList query; default sort is date_asc — soonest
-            event date first (id as tie-breaker). ── */}
+        {/* ── Discover More — open section; the carousel + EventCards keep
+            their own boundaries. Spacing + heading separate it from Trending. ── */}
         {!hideEventsSidebar && (
-          <div className="rounded-3xl border-t-4 border-orange-600 bg-white p-6 shadow-sm ring-1 ring-zinc-100 sm:p-8">
+          <div className="border-t-4 border-orange-600 pt-6 sm:pt-8">
             {supabaseNormalized.length > 0 ? (
               <DiscoverMoreCarousel
                 items={supabaseNormalized.map((event) => ({

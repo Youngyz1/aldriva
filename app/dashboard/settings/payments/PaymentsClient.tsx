@@ -369,9 +369,9 @@ export default function PaymentsClient({
         </div>
       </SettingsCard>
 
-      {/* Payout History / Ledger Table */}
-      <div className="rounded-xl border border-zinc-200/80 bg-white p-5 sm:rounded-2xl sm:p-6 shadow-xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Payout History / Ledger Table — open section, table keeps its own structure. */}
+      <div className="border-t border-zinc-200 pt-6">
+        <div className="flex flex-col gap-2 border-b border-zinc-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl font-sans">
               Payout Ledger
@@ -392,7 +392,7 @@ export default function PaymentsClient({
         </div>
 
         {payouts.length === 0 ? (
-          <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-zinc-100 p-8 text-center bg-zinc-50/20">
+          <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 p-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-orange-500">
               <Sparkles size={20} />
             </div>

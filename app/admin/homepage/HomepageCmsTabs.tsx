@@ -338,8 +338,8 @@ export default function HomepageCmsTabs({
         </div>
       )}
 
-      {/* Page header */}
-      <header className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm sm:px-6">
+      {/* Page header — open, matches the admin overview convention. */}
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">CMS</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight text-zinc-950">Homepage CMS</h1>
         <p className="mt-1 text-sm font-medium text-zinc-500">
@@ -359,8 +359,8 @@ export default function HomepageCmsTabs({
         </div>
       )}
 
-      {/* Tab bar */}
-      <div className="flex flex-wrap gap-0.5 overflow-x-auto rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-sm">
+      {/* Tab bar — open row, tabs carry their own active states. */}
+      <div className="flex flex-wrap gap-1.5 overflow-x-auto border-b border-zinc-200 pb-3">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -384,7 +384,7 @@ export default function HomepageCmsTabs({
       {/* ══════════════ HERO TAB ══════════════ */}
       {activeTab === "hero" && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <form onSubmit={saveSettings} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">Hero Block</h2>
             <div>
               <FieldLabel>Background Image URL</FieldLabel>
@@ -454,7 +454,7 @@ export default function HomepageCmsTabs({
       {/* ══════════════ EVENTS LANDING TAB ══════════════ */}
       {activeTab === "events_landing" && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <form onSubmit={saveSettings} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Events Landing Hero</h2>
             <div>
               <FieldLabel>Background Image URL</FieldLabel>
@@ -512,7 +512,7 @@ export default function HomepageCmsTabs({
       {activeTab === "fundraisers_landing" && (
         <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <form onSubmit={saveSettings} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Fundraisers Landing Hero</h2>
             <div>
               <FieldLabel>Background Image URL</FieldLabel>
@@ -571,7 +571,7 @@ export default function HomepageCmsTabs({
       {/* ══════════════ ORGANIZERS LANDING TAB ══════════════ */}
       {activeTab === "organizers_landing" && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <form onSubmit={saveSettings} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Organizations Landing Hero</h2>
             <div>
               <FieldLabel>Background Image URL</FieldLabel>
@@ -629,7 +629,7 @@ export default function HomepageCmsTabs({
       {activeTab === "events" && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Featured list */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-zinc-950">Featured Events</h2>
               <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-black text-orange-700">{featuredEvents.length} items</span>
@@ -659,7 +659,7 @@ export default function HomepageCmsTabs({
           </div>
 
           {/* Search */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">Search &amp; Add Events</h2>
             <div className="relative">
               <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
@@ -697,7 +697,7 @@ export default function HomepageCmsTabs({
       {/* ══════════════ FEATURED FUNDRAISERS TAB ══════════════ */}
       {activeTab === "fundraisers" && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-zinc-950">Featured Fundraisers</h2>
               <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">{featuredFundraisers.length} items</span>
@@ -723,7 +723,7 @@ export default function HomepageCmsTabs({
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">Search &amp; Add Fundraisers</h2>
             <div className="relative">
               <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
@@ -776,7 +776,7 @@ export default function HomepageCmsTabs({
       {/* ══════════════ SEO TAB ══════════════ */}
       {activeTab === "seo" && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <form onSubmit={saveSettings} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+          <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">SEO &amp; Social</h2>
             <div>
               <FieldLabel>Meta Title</FieldLabel>
@@ -891,7 +891,7 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       {/* Table */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Homepage Categories</h2>
         {categories.length === 0
           ? <p className="py-8 text-center text-sm text-zinc-400">No categories. Run migration and add some.</p>
@@ -946,7 +946,7 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
       </div>
 
       {/* Add form */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Add Category</h2>
         <form onSubmit={addCat} className="space-y-4">
           <div><FieldLabel>Name</FieldLabel><input value={nName} onChange={e=>setNName(e.target.value)} placeholder="e.g. Music" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
@@ -1026,7 +1026,7 @@ function TestimonialsPanel({ testimonials, setTestimonials, flash, setErr }: {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       {/* Table */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Testimonials</h2>
         {testimonials.length === 0
           ? <p className="py-8 text-center text-sm text-zinc-400">No testimonials yet. Add some using the form.</p>
@@ -1080,7 +1080,7 @@ function TestimonialsPanel({ testimonials, setTestimonials, flash, setErr }: {
       </div>
 
       {/* Add form */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Add Testimonial</h2>
         <form onSubmit={save} className="space-y-3">
           <div><FieldLabel>Full Name *</FieldLabel><input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Jane Smith" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
@@ -1148,7 +1148,7 @@ function SponsorsPanel({ sponsors, setSponsors, flash, setErr }: {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       {/* Table */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Sponsors</h2>
         {sponsors.length === 0
           ? <p className="py-8 text-center text-sm text-zinc-400">No sponsors yet.</p>
@@ -1199,7 +1199,7 @@ function SponsorsPanel({ sponsors, setSponsors, flash, setErr }: {
       </div>
 
       {/* Add form */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-black text-zinc-950">Add Sponsor</h2>
         <form onSubmit={save} className="space-y-3">
           <div><FieldLabel>Sponsor Name *</FieldLabel><input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Acme Corp" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>

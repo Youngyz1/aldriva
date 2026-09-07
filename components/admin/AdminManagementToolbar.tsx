@@ -71,7 +71,9 @@ export default function AdminManagementToolbar({
   onToggleFilters,
 }: Props) {
   return (
-    <div className="sticky top-0 z-20 space-y-3 rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5">
+    // Open filter bar: blends with the page canvas (bg-zinc-100) instead of
+    // rendering as a white bordered card — same convention as DashboardToolbar.
+    <div className="sticky top-0 z-20 space-y-3 bg-zinc-100/95 backdrop-blur-md py-3">
       {tabs && onTabChange && (
         <div className="flex gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => (

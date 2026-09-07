@@ -81,7 +81,8 @@ export default function FundraiserImportPanel({ fundraiserId }: { fundraiserId: 
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+    // Open section: textareas keep their own boundaries.
+    <section className="space-y-5 border-t border-zinc-200 pt-6">
       <h2 className="text-lg font-black text-zinc-950">Import donors &amp; comments</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Paste historical records from an external platform (e.g. GoFundMe). Imported donations set this

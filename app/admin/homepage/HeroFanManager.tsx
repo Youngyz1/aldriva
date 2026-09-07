@@ -107,7 +107,8 @@ export default function HeroFanManager({ initialImages }: { initialImages: strin
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+    // Open section: image tiles keep their own boundaries.
+    <div className="space-y-4 border-t border-zinc-200 pt-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-black text-zinc-950">Hero Photo Fan</h2>

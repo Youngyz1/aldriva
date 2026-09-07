@@ -220,8 +220,8 @@ export default function OperationsDashboardClient({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column (2 spans): Check-in Stream & Seating Breakdown */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Quick Operations Shortcuts */}
-          <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+          {/* Quick Operations Shortcuts — links keep their boundaries. */}
+          <div className="border-t border-zinc-200 pt-5">
             <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
               Operational Command Shortcuts
             </h3>
@@ -262,8 +262,8 @@ export default function OperationsDashboardClient({
             </div>
           </div>
 
-          {/* Recent Door Check-ins Stream */}
-          <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+          {/* Recent Door Check-ins Stream — divide-y rows separate items. */}
+          <div className="border-t border-zinc-200 pt-5">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
               <div>
                 <h3 className="text-sm font-black text-zinc-900">Live Check-in Activity</h3>
@@ -316,8 +316,8 @@ export default function OperationsDashboardClient({
 
         {/* Right Column: Seating Status & Audit Trail */}
         <div className="space-y-6">
-          {/* Seating Occupancy Snapshot */}
-          <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+          {/* Seating Occupancy Snapshot — progress bars carry hierarchy. */}
+          <div className="border-t border-zinc-200 pt-5">
             <h3 className="text-sm font-black text-zinc-900">Seating Distribution</h3>
             <div className="mt-4 space-y-3">
               <div>
@@ -382,8 +382,8 @@ export default function OperationsDashboardClient({
             </div>
           </div>
 
-          {/* Operational Audit Log Stream */}
-          <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+          {/* Operational Audit Log Stream — log rows keep their boundaries. */}
+          <div className="border-t border-zinc-200 pt-5">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-zinc-600" />

@@ -145,7 +145,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
+      <header className="pb-1">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Link href="/admin/users" className="text-xs font-black uppercase tracking-wide text-violet-600 hover:text-violet-700">
@@ -179,8 +179,9 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-xl font-black">Profile Information</h2>
+        {/* Open: dl rows already use dividers. */}
+        <div className="border-t border-zinc-200 pt-6">
+          <h2 className="border-b border-zinc-100 pb-3 text-xl font-black">Profile Information</h2>
           <dl className="mt-5 grid gap-4 text-sm">
             {[
               ["Full name", fullName],
@@ -199,8 +200,9 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-xl font-black">Activity Summary</h2>
+        {/* Open: inner KPI tiles keep their boundaries. */}
+        <div className="border-t border-zinc-200 pt-6">
+          <h2 className="border-b border-zinc-100 pb-3 text-xl font-black">Activity Summary</h2>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
               ["Owned organizers", `${organizerRows.length}`],
@@ -219,7 +221,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
+      {/* Open: rows keep their own boundaries. */}
+      <section className="border-t border-zinc-200 pt-6">
         <SectionHeader title="Organizations Owned By User" href="/admin/organizers" action="Moderate organizations" />
         <div className="mt-5 grid gap-3">
           {organizerRows.length === 0 ? (
@@ -366,11 +369,12 @@ function TwoColumnSection({
 }) {
   return (
     <section className="grid gap-6 xl:grid-cols-2">
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
+      {/* Open columns: CompactRows keep their own boundaries. */}
+      <div className="border-t border-zinc-200 pt-6">
         <SectionHeader title={leftTitle} href={leftHref} action={leftAction} />
         <div className="mt-5">{children[0]}</div>
       </div>
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="border-t border-zinc-200 pt-6">
         <SectionHeader title={rightTitle} href={rightHref} action={rightAction} />
         <div className="mt-5">{children[1]}</div>
       </div>

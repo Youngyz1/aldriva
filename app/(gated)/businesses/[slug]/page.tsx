@@ -241,8 +241,8 @@ export default async function BusinessDetailPage({
             </p>
           </div>
 
-          {/* Sidebar Contacts */}
-          <div className="md:col-span-1 rounded-2xl border border-zinc-150 bg-white p-5 space-y-4 shadow-sm">
+          {/* Sidebar Contacts — open list, heading divider groups it. */}
+          <div className="md:col-span-1 space-y-4 border-t border-zinc-200 pt-5 md:border-t-0 md:pt-0">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 border-b border-zinc-100 pb-2">
               Contact &amp; Location
             </h3>

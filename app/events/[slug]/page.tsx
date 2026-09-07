@@ -663,16 +663,16 @@ export default async function EventPage({
                 <h2 className="text-xl font-black mb-4">Good to know</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {eventHighlights && (
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                      <h3 className="font-black mb-3">Highlights</h3>
+                    <div className="border-t border-zinc-200 pt-4">
+                      <h3 className="mb-3 border-b border-zinc-100 pb-2 font-black">Highlights</h3>
                       <p className="text-sm text-zinc-600 whitespace-pre-wrap">
                         {eventHighlights}
                       </p>
                     </div>
                   )}
                   {eventRefundPolicy && (
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                      <h3 className="font-black mb-3">Refund Policy</h3>
+                    <div className="border-t border-zinc-200 pt-4">
+                      <h3 className="mb-3 border-b border-zinc-100 pb-2 font-black">Refund Policy</h3>
                       <p className="text-sm text-zinc-600 whitespace-pre-wrap">
                         {eventRefundPolicy}
                       </p>
@@ -694,7 +694,8 @@ export default async function EventPage({
             {primaryOrganizerName && (
               <section>
                 <h2 className="text-xl font-black mb-4">Organised by</h2>
-                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
+                {/* Open organizer block: avatar + follow/contact buttons keep their own chrome. */}
+                <div className="border-t border-zinc-200 pt-5">
                   <div className="flex items-start gap-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full">
                       {primaryOrganizerPhoto ? (
@@ -820,8 +821,9 @@ export default async function EventPage({
             {(event.venue || event.city || eventAddress) && (
               <section>
                 <h2 className="text-xl font-black mb-4">Venue location</h2>
-                <div className="rounded-2xl border border-zinc-200 overflow-hidden">
-                  <div className="px-5 pt-5 pb-3">
+                {/* Open venue block: address + map + transport pills sit on the canvas. */}
+                <div className="space-y-4 border-t border-zinc-200 pt-5">
+                  <div className="pb-1">
                     <p className="font-bold text-zinc-900">
                       {event.venue || "Venue"}
                     </p>
@@ -859,8 +861,8 @@ export default async function EventPage({
                       View on Google Maps ↗
                     </a>
                   )}
-                  {/* How to get there */}
-                  <div className="border-t border-zinc-100 px-5 py-4">
+                  {/* How to get there — transport pills keep their boundaries. */}
+                  <div className="border-t border-zinc-100 py-4">
                     <p className="mb-3 text-sm font-bold text-zinc-500">
                       How do you want to get there?
                     </p>
@@ -1033,7 +1035,8 @@ function FaqSection({ organizerName }: { organizerName: string }) {
   ];
 
   return (
-    <div className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 overflow-hidden">
+    // Open FAQ rows: dividers separate items, no outer box.
+    <div className="divide-y divide-zinc-100 border-y border-zinc-100">
       {faqs.map(([question, answer]) => (
         <FaqItem key={question} question={question} answer={answer} />
       ))}
@@ -1049,7 +1052,7 @@ function FaqItem({
   answer: string;
 }) {
   return (
-    <details className="group bg-white px-5 py-1">
+    <details className="group py-1">
       <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 font-bold text-zinc-950 list-none">
         {question}
         <svg

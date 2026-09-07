@@ -258,8 +258,8 @@ export default function PayoutsAdminClient({
         </div>
       )}
 
-      {/* Filters & Search Toolbar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+      {/* Filters & Search Toolbar — open bar, tabs + search keep their own chrome. */}
+      <div className="flex flex-col gap-4 border-b border-zinc-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Status Tabs */}
         <div className="flex flex-wrap gap-1">
           {["all", "requested", "processing", "completed", "failed", "cancelled"].map((st) => (

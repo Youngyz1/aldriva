@@ -236,9 +236,9 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
         </div>
       )}
 
-      {/* Invite Staff Form Card */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs sm:p-6">
-        <h2 className="text-lg font-black text-zinc-950 flex items-center gap-2">
+      {/* Invite Staff Form — open, inputs + button keep their boundaries. */}
+      <div className="space-y-4 border-t border-zinc-200 pt-6">
+        <h2 className="flex items-center gap-2 border-b border-zinc-100 pb-3 text-lg font-black text-zinc-950">
           <UserPlus size={18} className="text-orange-600" /> Invite Event Staff
         </h2>
         <form onSubmit={handleSendInvite} className="mt-4 grid gap-4 sm:grid-cols-3 items-end">

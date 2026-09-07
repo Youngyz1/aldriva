@@ -111,7 +111,7 @@ export default function EditBusinessFormClient({ business }: { business: Busines
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Column 1: Basic Details */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Basic Information</h2>
 
             <div>
@@ -176,7 +176,7 @@ export default function EditBusinessFormClient({ business }: { business: Busines
           </div>
 
           {/* Column 2: Contact & Location */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Contact & Location</h2>
 
             <div className="grid grid-cols-2 gap-4">
@@ -253,7 +253,7 @@ export default function EditBusinessFormClient({ business }: { business: Busines
         </div>
 
         {/* SEO */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100/5 space-y-4">
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">SEO Configurations</h2>
 
           <div>

@@ -65,7 +65,7 @@ export default function AdminEventsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-4 shadow-sm sm:px-6">
+      <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Events</h1>
         <p className="mt-2 text-sm font-medium text-zinc-500">Moderate and feature events.</p>

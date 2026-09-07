@@ -10,8 +10,9 @@ type Organizer = { id: string; name: string; photo?: string | null };
  *  own bespoke section heading. */
 export default function OrganizationsPanel({ organizers }: { organizers: Organizer[] }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+    // Open panel: header row + org links sit on the canvas, no outer card.
+    <div className="border-t border-zinc-200 pt-5">
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-3">
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-slate-400" aria-hidden />
           <h2 className="text-sm font-semibold text-slate-900">Your Organizations</h2>
@@ -25,7 +26,7 @@ export default function OrganizationsPanel({ organizers }: { organizers: Organiz
         </Link>
       </div>
 
-      <div className="p-4">
+      <div className="pt-4">
         {organizers.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-10 text-center">
             <Building2 className="mb-2 h-8 w-8 text-zinc-300" aria-hidden />
