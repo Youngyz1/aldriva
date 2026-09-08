@@ -18,6 +18,9 @@ export const rootMetadata: Metadata = {
   verification: {
     google: "po4G29Q4YxDRxL3h7QbPGk_Wz4eYvinBleV7ISM5LBA",
   },
+  other: {
+    "facebook-domain-verification": "xn6hl21ddavcol6umm4bbj3hg3n4k3",
+  },
   openGraph: {
     siteName: BRAND.name,
     title: BRAND.seo.defaultTitle,
