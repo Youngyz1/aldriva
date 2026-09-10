@@ -230,7 +230,7 @@ export default function EditEventPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-7 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-8">
           <label className="block">
             <span className="mb-2 block font-bold">Organization Profile</span>
             <select
@@ -298,11 +298,12 @@ export default function EditEventPage() {
             />
           </div>
 
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <h2 className="mb-4 text-lg font-black text-zinc-950">Event Banner</h2>
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-black text-zinc-950">Event Banner</h2>
             <ImageUploadWithCrop
               value={form.banner}
               aspectRatio={EVENT_BANNER_ASPECT}
+              fitMode="fit"
               previewClassName="h-40 w-full rounded-2xl"
               label="Upload banner"
               bucket="event-banners"

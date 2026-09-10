@@ -369,7 +369,7 @@ export default function EditFundraiserPage() {
 
         {error && <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 font-semibold text-red-700">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-7 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-8">
           <input value={form.title} onChange={(event) => update("title", event.target.value)} required placeholder="Fundraiser title" className={inputClass} />
           {/* Optional organizational affiliation — only shown when the
               user actually has an organizer to attach. "Personal
@@ -389,9 +389,9 @@ export default function EditFundraiserPage() {
             <input value={form.goal} onChange={(event) => update("goal", event.target.value)} required type="number" min="1" placeholder="Goal" className={inputClass} />
             <input value={form.raised} onChange={(event) => update("raised", event.target.value)} type="number" min="0" placeholder="Raised so far" className={inputClass} />
           </div>
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <h2 className="mb-1 text-lg font-black text-zinc-950">Who are you fundraising for?</h2>
-            <p className="mb-4 text-sm font-semibold text-zinc-500">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-black text-zinc-950">Who are you fundraising for?</h2>
+            <p className="text-sm font-semibold text-zinc-500">
               The organizer runs this fundraiser — the beneficiary is who it helps.
             </p>
             <BeneficiarySelector
@@ -414,8 +414,8 @@ export default function EditFundraiserPage() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <h2 className="mb-4 text-lg font-black text-zinc-950">Banner Image</h2>
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-black text-zinc-950">Banner Image</h2>
             <div className="flex items-center gap-4">
               {form.banner && (
                 <img src={form.banner} alt="Banner" className="h-20 w-32 shrink-0 rounded-xl border border-zinc-200 object-cover" />
@@ -424,14 +424,15 @@ export default function EditFundraiserPage() {
                 bucket="fundraiser-media"
                 folder="fundraiser-photos"
                 aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
+                fitMode="fit"
                 onUploaded={(url) => update("banner", url)}
                 onError={setError}
                 label={form.banner ? "Change banner" : "Upload banner"}
               />
             </div>
           </div>
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <div className="mb-4">
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <div>
               <h2 className="text-lg font-black text-zinc-950">Banner Carousel Photos</h2>
               <p className="mt-1 text-sm font-semibold leading-6 text-zinc-500">
                 Add as many photos as you need. These appear at the top of the fundraiser and can each have a caption.
@@ -439,7 +440,7 @@ export default function EditFundraiserPage() {
             </div>
             <div className="space-y-4">
               {galleryItems.map((item, index) => (
-                <div key={index} className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <div key={index} className="border-t border-zinc-200 pt-4">
                   <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
                     <div>
                       <span className="mb-2 block text-xs font-black uppercase tracking-wide text-zinc-500">Photo {index + 1}</span>
@@ -451,6 +452,7 @@ export default function EditFundraiserPage() {
                           bucket="fundraiser-media"
                           folder="fundraiser-photos"
                           aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
+                          fitMode="fit"
                           onUploaded={(url) => updateGalleryItem(index, "url", url)}
                           onError={setError}
                           label={item.url ? "Change photo" : "Upload photo"}
@@ -486,8 +488,8 @@ export default function EditFundraiserPage() {
               Add another photo
             </button>
           </div>
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <h2 className="mb-4 text-lg font-black text-zinc-950">Category</h2>
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-black text-zinc-950">Category</h2>
             <label className="block">
               <span className="mb-2 block text-sm font-black text-zinc-800">Campaign Category *</span>
               <SearchableSelect
