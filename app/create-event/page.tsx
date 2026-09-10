@@ -384,7 +384,7 @@ export default function CreateEventPage() {
       <CreatorPanel title="Preview">
         <div className="overflow-hidden rounded-xl bg-zinc-100">
           {bannerPreview ? (
-            <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${bannerPreview})` }} />
+            <div className="h-32 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url(${bannerPreview})` }} />
           ) : (
             <div className="flex h-32 items-center justify-center text-zinc-400">
               <i className="ti ti-photo text-4xl" aria-hidden="true" />
@@ -524,10 +524,11 @@ export default function CreateEventPage() {
 
             <CreatorPanel title="Event Image">
               <div className="grid gap-5">
-                <CreatorField label="Event Banner" hint="Wide image, cropped to a 16:9 banner shape.">
+                <CreatorField label="Event Banner" hint="The full image is preserved — nothing is cropped out.">
                   <ImageUploadWithCrop
                     value={bannerPreview}
                     aspectRatio={EVENT_BANNER_ASPECT}
+                    fitMode="fit"
                     previewClassName="h-32 w-full rounded-xl"
                     label="Upload banner"
                     onCropped={(file, previewUrl) => {

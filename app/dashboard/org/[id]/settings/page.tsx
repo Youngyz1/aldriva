@@ -438,6 +438,7 @@ export default function OrgSettingsPage() {
               <ImageUploadWithCrop
                 value={photoPreview || form.photo}
                 aspectRatio={1}
+                fitMode="fit"
                 previewClassName="h-20 w-20 rounded-xl"
                 label="Choose Photo"
                 onCropped={handleCroppedPhoto}
@@ -450,6 +451,7 @@ export default function OrgSettingsPage() {
               <ImageUploadWithCrop
                 value={bannerPreview || form.banner}
                 aspectRatio={ORGANIZER_BANNER_ASPECT}
+                fitMode="fit"
                 previewClassName="h-20 w-36 rounded-xl"
                 label="Choose Banner"
                 minWidth={MIN_BANNER_WIDTH}

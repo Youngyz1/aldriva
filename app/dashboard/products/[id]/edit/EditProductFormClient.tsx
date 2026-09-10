@@ -166,6 +166,7 @@ export default function EditProductFormClient({
 
               <ImageUploadWithCrop
                 aspectRatio={1}
+                fitMode="fit"
                 previewClassName="hidden"
                 label={atImageLimit ? `Maximum ${MAX_IMAGES} images reached` : "+ Add Image"}
                 disabled={atImageLimit}

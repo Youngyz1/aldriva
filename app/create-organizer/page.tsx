@@ -261,6 +261,7 @@ export default function CreateOrganizerPage() {
             <ImageUploadWithCrop
               value={bannerPreview}
               aspectRatio={ORGANIZER_BANNER_ASPECT}
+              fitMode="fit"
               previewClassName="h-48 w-full rounded-2xl"
               label="Upload banner"
               minWidth={MIN_BANNER_WIDTH}
@@ -276,6 +277,7 @@ export default function CreateOrganizerPage() {
             <ImageUploadWithCrop
               value={photoPreview}
               aspectRatio={1}
+              fitMode="fit"
               previewClassName="h-28 w-28 rounded-2xl"
               label="Upload Logo"
               hint="JPG, PNG, or WebP recommended"

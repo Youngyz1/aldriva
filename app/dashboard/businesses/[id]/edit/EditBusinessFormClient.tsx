@@ -164,6 +164,7 @@ export default function EditBusinessFormClient({ business }: { business: Busines
               <ImageUploadWithCrop
                 value={form.logo}
                 aspectRatio={1}
+                fitMode="fit"
                 previewClassName="h-20 w-20 rounded-2xl"
                 label="Upload logo"
                 bucket="fundraiser-media"

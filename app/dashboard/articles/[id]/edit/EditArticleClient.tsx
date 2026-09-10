@@ -479,6 +479,7 @@ export default function EditArticleClient({
             <ImageUploadWithCrop
               value={form.cover_image_url}
               aspectRatio={ARTICLE_COVER_ASPECT}
+              fitMode="fit"
               previewClassName="h-32 w-full rounded-xl"
               label="Upload cover image"
               bucket="fundraiser-media"

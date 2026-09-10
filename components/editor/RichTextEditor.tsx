@@ -366,6 +366,7 @@ export default function RichTextEditor({
       <ImageUploadWithCrop
         ref={imageCropRef}
         hideTrigger
+        fitMode="fit"
         bucket="fundraiser-media"
         folder="editor-images"
         onUploaded={(url) => editor.chain().focus().setImage({ src: url }).run()}
