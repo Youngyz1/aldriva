@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdmin } from "@/lib/auth";
 import { createArticle, updateArticle } from "@/lib/actions/articles";
 import { createSupabaseServer } from "@/lib/supabase-server";
 
@@ -14,6 +15,12 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ success: false, error: "Not logged in" }, { status: 401 });
+  }
+
+  // Test scaffold, not a product flow: admins only, even in non-production.
+  // (Production is already hard-blocked by the NODE_ENV gate above.)
+  if (!(await isAdmin())) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
   console.log(`[E2E API] User authenticated: ${user.id}`);
@@ -32,7 +39,8 @@ export async function GET() {
   });
 
   if (!createRes.success || !createRes.data) {
-    return NextResponse.json({ success: false, error: "Failed to create", details: createRes.error }, { status: 500 });
+    console.error("[E2E API] Article create failed:", createRes.error);
+    return NextResponse.json({ success: false, error: "Failed to create" }, { status: 500 });
   }
 
   const articleId = createRes.data.id;
@@ -55,7 +63,8 @@ export async function GET() {
   if (!updateRes.success || !updateRes.data) {
     // Cleanup draft on failure
     await supabase.from("articles").delete().eq("id", articleId);
-    return NextResponse.json({ success: false, error: "Failed to update", details: updateRes.error }, { status: 500 });
+    console.error("[E2E API] Article update failed:", updateRes.error);
+    return NextResponse.json({ success: false, error: "Failed to update" }, { status: 500 });
   }
 
   const finalSlug = updateRes.data.slug;
