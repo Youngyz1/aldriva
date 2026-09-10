@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { removeSeatFromInvitation } from "@/lib/invitations";
-import { assignSeatToInvitationAtomic, SeatGeometry } from "@/lib/seating";
+import { assignSeatToInvitationAtomic, SeatGeometry, partitionSeatSaves, isPersistedSeatId } from "@/lib/seating";
 
 const admin = createSupabaseAdmin();
 
@@ -204,55 +204,102 @@ export async function PATCH(
       .eq("event_id", eventId);
 
     if (layoutErr) {
+      console.error("[seating:save_layout:layout]", { eventId, code: layoutErr.code, message: layoutErr.message });
       return NextResponse.json({ error: `Layout save failed: ${layoutErr.message}` }, { status: 500 });
     }
 
-    // 3. Process seats if provided
-    if (Array.isArray(updatedSeats) && updatedSeats.length > 0) {
-      // Separate into updates vs inserts
-      const existingSeatUpdates: Partial<SeatGeometry>[] = [];
-      const newSeatInserts: Partial<SeatGeometry>[] = [];
-
-      for (const s of updatedSeats) {
-        if (s.id && !s.id.startsWith("temp-") && !s.id.startsWith("new-")) {
-          existingSeatUpdates.push(s);
-        } else {
-          newSeatInserts.push(s);
-        }
+    // 3. Delete seats removed on the canvas FIRST, so re-added rows can
+    // reuse the same logical keys in the same save (delete/re-add would
+    // otherwise collide with not-yet-deleted rows). Only real UUIDs reach
+    // the database — client temp ids refer to rows that were never
+    // persisted, so they need no server delete.
+    const deleteIds = Array.isArray(
+      (body as { deleteIds?: unknown }).deleteIds
+    )
+      ? ((body as { deleteIds?: unknown }).deleteIds as unknown[]).filter(isPersistedSeatId)
+      : [];
+    if (deleteIds.length > 0) {
+      const { data: doomed } = await admin
+        .from("seats")
+        .select("id, status, assigned_invitation_id")
+        .in("id", deleteIds)
+        .eq("event_id", eventId);
+      const protectedDeletes = (doomed || []).filter(
+        (s) => s.status === "sold" || s.assigned_invitation_id !== null
+      );
+      if (protectedDeletes.length > 0) {
+        return NextResponse.json(
+          {
+            error: "Cannot delete seats that are sold or assigned to an active guest.",
+            protectedSeatIds: protectedDeletes.map((s) => s.id),
+          },
+          { status: 409 }
+        );
       }
+      const { error: saveDeleteErr } = await admin
+        .from("seats")
+        .delete()
+        .in("id", deleteIds)
+        .eq("event_id", eventId);
+      if (saveDeleteErr) {
+        console.error("[seating:save_layout:delete]", { eventId, code: saveDeleteErr.code, message: saveDeleteErr.message });
+        return NextResponse.json({ error: `Seat delete failed: ${saveDeleteErr.message}` }, { status: 500 });
+      }
+    }
 
-      // Batch update existing seats (updating spatial geometry and visual properties without overwriting status/sold)
-      for (const s of existingSeatUpdates) {
-        const seatUpdate: Record<string, unknown> = {};
-        if (s.x !== undefined) seatUpdate.x = s.x;
-        if (s.y !== undefined) seatUpdate.y = s.y;
-        if (s.width !== undefined) seatUpdate.width = s.width;
-        if (s.height !== undefined) seatUpdate.height = s.height;
-        if (s.rotation !== undefined) seatUpdate.rotation = s.rotation;
-        if (s.section !== undefined) seatUpdate.section = s.section;
-        if (s.row_label !== undefined) seatUpdate.row_label = s.row_label;
-        if (s.seat_number !== undefined) seatUpdate.seat_number = s.seat_number;
-        if (s.table_number !== undefined) seatUpdate.table_number = s.table_number;
-        if (s.table_name !== undefined) seatUpdate.table_name = s.table_name;
-        if (s.table_capacity !== undefined) seatUpdate.table_capacity = s.table_capacity;
-        if (s.is_vip !== undefined) seatUpdate.is_vip = s.is_vip;
-        if (s.is_accessible !== undefined) seatUpdate.is_accessible = s.is_accessible;
-        if (s.price_override !== undefined) seatUpdate.price_override = s.price_override;
-        if (s.ticket_type_id !== undefined) seatUpdate.ticket_type_id = s.ticket_type_id;
-        if (s.object_type !== undefined) seatUpdate.object_type = s.object_type;
-        // Only allow status changes to available/unavailable (never overwrite sold/reserved from editor)
-        if (s.status === "available" || s.status === "unavailable") {
-          // Only update status if the seat is not currently sold
-          // Safe query will skip sold seats in DB
-        }
+    // 4. Process seats if provided (full-layout sync).
+    // The canvas sends its ENTIRE seat list on every save: persisted UUIDs
+    // are updates, client temp ids (`new-…`, `dup-…`, …) are inserts. Temp
+    // ids are never sent to the database (the DB issues real ids), so a
+    // re-sent unsaved seat can never collide as a phantom update, and a
+    // temp id can never hit a UUID-typed query.
+    if (Array.isArray(updatedSeats) && updatedSeats.length > 0) {
+      const { updates: existingSeatUpdates, inserts: newSeatInserts } =
+        partitionSeatSaves(updatedSeats);
 
-        if (Object.keys(seatUpdate).length > 0) {
-          await admin
-            .from("seats")
-            .update(seatUpdate)
-            .eq("id", s.id!)
-            .eq("event_id", eventId)
-            .neq("status", "sold"); // Protect sold seats from commercial state tampering
+      // Chunked concurrent updates for existing seats (updating spatial geometry and visual properties without overwriting status/sold)
+      const CHUNK_SIZE = 15;
+      for (let i = 0; i < existingSeatUpdates.length; i += CHUNK_SIZE) {
+        const chunk = existingSeatUpdates.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(
+          chunk.map(async (s) => {
+            const seatUpdate: Record<string, unknown> = {};
+            if (s.x !== undefined) seatUpdate.x = s.x;
+            if (s.y !== undefined) seatUpdate.y = s.y;
+            if (s.width !== undefined) seatUpdate.width = s.width;
+            if (s.height !== undefined) seatUpdate.height = s.height;
+            if (s.rotation !== undefined) seatUpdate.rotation = s.rotation;
+            if (s.section !== undefined) seatUpdate.section = s.section;
+            if (s.row_label !== undefined) seatUpdate.row_label = s.row_label;
+            if (s.seat_number !== undefined) seatUpdate.seat_number = s.seat_number;
+            if (s.table_number !== undefined) seatUpdate.table_number = s.table_number;
+            if (s.table_name !== undefined) seatUpdate.table_name = s.table_name;
+            if (s.table_capacity !== undefined) seatUpdate.table_capacity = s.table_capacity;
+            if (s.is_vip !== undefined) seatUpdate.is_vip = s.is_vip;
+            if (s.is_accessible !== undefined) seatUpdate.is_accessible = s.is_accessible;
+            if (s.price_override !== undefined) seatUpdate.price_override = s.price_override;
+            if (s.ticket_type_id !== undefined) seatUpdate.ticket_type_id = s.ticket_type_id;
+            if (s.object_type !== undefined) seatUpdate.object_type = s.object_type;
+
+            if (Object.keys(seatUpdate).length === 0) return null;
+
+            const { error: seatUpdateErr } = await admin
+              .from("seats")
+              .update(seatUpdate)
+              .eq("id", s.id!)
+              .eq("event_id", eventId)
+              .neq("status", "sold"); // Protect sold seats from commercial state tampering
+            return seatUpdateErr;
+          })
+        );
+
+        const firstErr = results.find(Boolean);
+        if (firstErr) {
+          console.error("[seating:save_layout:update]", { eventId, code: firstErr.code, message: firstErr.message });
+          return NextResponse.json(
+            { error: `Seat update failed: ${firstErr.message}` },
+            { status: 500 }
+          );
         }
       }
 
@@ -280,11 +327,58 @@ export async function PATCH(
           status: s.status === "unavailable" ? "unavailable" : "available",
         }));
 
-        await admin.from("seats").insert(insertRows);
+        // In-memory duplicate key check to reject payload collisions cleanly
+        const seenKeys = new Set<string>();
+        for (const row of insertRows) {
+          const key = `${row.section}:::${row.row_label}:::${row.seat_number}`;
+          if (seenKeys.has(key)) {
+            return NextResponse.json(
+              {
+                error: `Duplicate seat in payload: ${row.section}, Row ${row.row_label}, Seat ${row.seat_number}.`,
+              },
+              { status: 409 }
+            );
+          }
+          seenKeys.add(key);
+        }
+
+        const { error: seatInsertErr } = await admin.from("seats").insert(insertRows);
+        if (seatInsertErr) {
+          const duplicate =
+            typeof seatInsertErr === "object" &&
+            seatInsertErr !== null &&
+            (seatInsertErr as { code?: string }).code === "23505";
+          console.error("[seating:save_layout:insert]", { eventId, code: seatInsertErr.code, count: insertRows.length, message: seatInsertErr.message });
+          return NextResponse.json(
+            {
+              error: duplicate
+                ? "These seats already exist (duplicate section, row, and seat number). Rename the section or reload the layout."
+                : `Seat save failed: ${seatInsertErr.message}`,
+            },
+            { status: duplicate ? 409 : 500 }
+          );
+        }
       }
     }
 
-    return NextResponse.json({ success: true });
+    // 5. Return the authoritative seat list so the client can drop temp ids
+    // and converge on database truth (prevents re-inserting the same seats
+    // as duplicates on the next save).
+    const { data: savedSeats, error: savedErr } = await admin
+      .from("seats")
+      .select(
+        "id, event_id, layout_id, section, row_label, seat_number, table_number, table_name, table_capacity, is_vip, is_accessible, status, reserved_until, price_override, ticket_id, ticket_type_id, assigned_invitation_id, x, y, width, height, rotation, object_type"
+      )
+      .eq("event_id", eventId)
+      .order("section")
+      .order("row_label")
+      .order("seat_number");
+
+    if (savedErr) {
+      return NextResponse.json({ error: `Failed to reload seats: ${savedErr.message}` }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, savedSeats: savedSeats ?? [] });
   }
 
   // ── 2. bulk_create_seats ──────────────────────────────────────────────────
@@ -378,13 +472,16 @@ export async function PATCH(
       });
 
       if (!result.success) {
-        return NextResponse.json({ error: result.error || "Assignment failed" }, { status: 409 });
+        if (result.error && result.error !== "Assignment failed") {
+          console.error("[events/[id]/seating]", result.error);
+        }
+        return NextResponse.json({ error: "Assignment failed" }, { status: 409 });
       }
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Assignment failed";
-      return NextResponse.json({ error: msg }, { status: 409 });
+      console.error("[events/[id]/seating]", err);
+      return NextResponse.json({ error: "Assignment failed" }, { status: 409 });
     }
   }
 
@@ -399,8 +496,8 @@ export async function PATCH(
       const result = await removeSeatFromInvitation(eventId, invitationId);
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Removal failed";
-      return NextResponse.json({ error: msg }, { status: 500 });
+      console.error("[events/[id]/seating]", err);
+      return NextResponse.json({ error: "Removal failed" }, { status: 500 });
     }
   }
 
@@ -440,6 +537,12 @@ export async function PATCH(
 
     if (!seatId) {
       return NextResponse.json({ error: "seatId is required" }, { status: 422 });
+    }
+
+    // Client temp ids (`new-…`, `dup-…`) never address persisted rows —
+    // reject them as bad requests instead of letting them fail as DB errors.
+    if (!isPersistedSeatId(seatId)) {
+      return NextResponse.json({ error: "Unknown seat" }, { status: 422 });
     }
 
     // Verify seat belongs to event
@@ -498,6 +601,11 @@ export async function PATCH(
 
     if (seatIds.length === 0) {
       return NextResponse.json({ error: "seatId or seatIds required" }, { status: 422 });
+    }
+
+    // Same temp-id guard as update_seat_meta above.
+    if (!seatIds.every(isPersistedSeatId)) {
+      return NextResponse.json({ error: "Unknown seat" }, { status: 422 });
     }
 
     // Verify none of the seats are sold or checked in!
