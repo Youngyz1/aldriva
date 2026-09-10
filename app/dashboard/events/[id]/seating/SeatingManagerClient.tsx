@@ -18,11 +18,16 @@ import {
   List,
   Sparkles,
   Layers,
+  Sliders,
+  Bot,
 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import VenueBuilder from "./VenueBuilder";
+import ManualBuilder, { ManualSectionFormItem } from "./ManualBuilder";
+import AiAssistantPanel from "./AiAssistantPanel";
 import { SeatGeometry, TicketTypeSummary } from "@/lib/seating";
+import { summarizeSeatingPlan } from "@/lib/seating-summary";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -109,7 +114,8 @@ export default function SeatingManagerClient({
   initialSeats,
   invitations: initialInvitations,
 }: Props) {
-  const [workspaceMode, setWorkspaceMode] = useState<"canvas" | "roster">("canvas");
+  const [workspaceMode, setWorkspaceMode] = useState<"canvas" | "manual" | "roster" | "ai">("canvas");
+  const [layoutState, setLayoutState] = useState<LayoutInfo>(layout);
   const [seats, setSeats] = useState<SeatGeometry[]>(initialSeats);
   const [invitations, setInvitations] = useState<InvitationOption[]>(initialInvitations);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
@@ -121,7 +127,46 @@ export default function SeatingManagerClient({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [metaEditing, setMetaEditing] = useState(false);
+  // AI Assistant: pending sections from AI proposal + key to force ManualBuilder remount on each Apply
+  const [aiPendingSections, setAiPendingSections] = useState<ManualSectionFormItem[] | null>(null);
+  const [aiApplyKey, setAiApplyKey] = useState(0);
+  // Phase 6E: source label for the applied AI proposal (handoff banner).
+  const [aiAppliedSource, setAiAppliedSource] = useState<string | null>(null);
+  // Phase 6E: unsaved-change signals from the builders. Guard tab switches
+  // and AI applies so dirty work is never silently discarded.
+  const [manualDirty, setManualDirty] = useState(false);
+  const [visualDirty, setVisualDirty] = useState(false);
+  const hasUnsavedChanges = manualDirty || visualDirty;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleManualDirty = useCallback((dirty: boolean) => setManualDirty(dirty), []);
+  const handleVisualDirty = useCallback((dirty: boolean) => setVisualDirty(dirty), []);
+
+  function requestWorkspaceMode(next: "canvas" | "manual" | "roster" | "ai") {
+    if (next === workspaceMode) return;
+    const leavingDirtyBuilder =
+      (workspaceMode === "manual" && manualDirty) ||
+      (workspaceMode === "canvas" && visualDirty);
+    if (
+      leavingDirtyBuilder &&
+      !window.confirm(
+        "You have unsaved seating changes. Switch views without saving? Your edits will be lost."
+      )
+    ) {
+      return;
+    }
+    setWorkspaceMode(next);
+  }
+
+  // Phase 6E: warn on page unload only when real unsaved builder work exists.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const selectedSeat = useMemo(
     () => seats.find((s) => s.id === selectedSeatId) ?? null,
@@ -143,6 +188,9 @@ export default function SeatingManagerClient({
       const data = await res.json();
       setSeats(data.seats ?? []);
       setInvitations(data.invitations ?? []);
+      if (data.layout) setLayoutState(data.layout);
+      // Phase 6E: credential snapshot may be stale after any seat change.
+      setCredCache({});
     } catch {
       showToast("error", "Failed to refresh seating data.");
     } finally {
@@ -150,19 +198,69 @@ export default function SeatingManagerClient({
     }
   }, [eventId]);
 
-  // ── Derived Stats ─────────────────────────────────────────────────────────
+  // ── Phase 6E: guest credential status (read-only) ─────────────────────────
+  // For a seat holding an invitation assignment, surface the linked
+  // ticketInstance credential/check-in state from the existing guests
+  // endpoint (invitation_id join — no new API, no schema change).
+  // Cached per invitation; the raw QR string is never rendered.
+  type GuestCredential = {
+    status: string;
+    checked_in_at: string | null;
+    seat_label: string | null;
+  } | null;
+  const [credCache, setCredCache] = useState<Record<string, GuestCredential>>({});
+  const assignedInvitationId = selectedSeat?.assigned_invitation_id ?? null;
+  useEffect(() => {
+    if (!assignedInvitationId || assignedInvitationId in credCache) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/events/${eventId}/guests`);
+        if (!res.ok) throw new Error("guest lookup failed");
+        const data = await res.json();
+        const match = (data.guests ?? []).find(
+          (g: { id?: string }) => g?.id === assignedInvitationId
+        );
+        const ti = match?.ticketInstance ?? null;
+        if (!cancelled) {
+          setCredCache((prev) => ({
+            ...prev,
+            [assignedInvitationId]: ti
+              ? {
+                  status: String(ti.status ?? "unknown"),
+                  checked_in_at: ti.checked_in_at ?? null,
+                  seat_label: ti.seat_label ?? null,
+                }
+              : null,
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setCredCache((prev) => ({ ...prev, [assignedInvitationId]: null }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignedInvitationId, eventId, credCache]);
+
+  // ── Derived Stats (Phase 6E: single shared derivation — Manual, AI and  // Visual all describe the same seats through summarizeSeatingPlan) ─────────
   const stats = useMemo(() => {
-    const total = seats.length;
-    const sold = seats.filter((s) => s.status === "sold").length;
-    const reserved = seats.filter((s) => isActivelyReserved(s)).length;
-    const guestAssigned = seats.filter((s) => !!s.assigned_invitation_id).length;
-    const vip = seats.filter((s) => s.is_vip).length;
-    const accessible = seats.filter((s) => s.is_accessible).length;
-    const available = seats.filter(
-      (s) => s.status === "available" && !s.assigned_invitation_id && !isActivelyReserved(s)
-    ).length;
-    return { total, sold, reserved, guestAssigned, vip, accessible, available };
-  }, [seats]);
+    const summary = summarizeSeatingPlan(
+      seats,
+      (layoutState?.venue_objects as Array<{ type?: string }> | undefined) ?? []
+    );
+    return {
+      total: summary.total,
+      sold: summary.sold,
+      reserved: summary.reserved,
+      guestAssigned: summary.guestAssigned,
+      vip: summary.vip,
+      accessible: summary.accessible,
+      available: summary.available,
+    };
+  }, [seats, layoutState]);
 
   // ── Filtered & Searched Seats ─────────────────────────────────────────────
   const filteredSeats = useMemo(() => {
@@ -337,12 +435,15 @@ export default function SeatingManagerClient({
         </div>
       )}
 
-      {/* Workspace Mode Switcher Tabs */}
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
-        <div className="flex items-center gap-2">
+      {/* Workspace Mode Switcher Tabs — Phase 6E: Manual, AI and Visual are
+          three views of the same seating plan, persisted through one pipeline. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3">
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Seating workspace views">
           <button
             type="button"
-            onClick={() => setWorkspaceMode("canvas")}
+            role="tab"
+            aria-selected={workspaceMode === "canvas"}
+            onClick={() => requestWorkspaceMode("canvas")}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
               workspaceMode === "canvas"
                 ? "bg-violet-600 text-white shadow-xs"
@@ -351,10 +452,32 @@ export default function SeatingManagerClient({
           >
             <Sparkles size={14} />
             Visual SVG Builder
+            {visualDirty && (
+              <span aria-label="unsaved changes" className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            )}
           </button>
           <button
             type="button"
-            onClick={() => setWorkspaceMode("roster")}
+            role="tab"
+            aria-selected={workspaceMode === "manual"}
+            onClick={() => requestWorkspaceMode("manual")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+              workspaceMode === "manual"
+                ? "bg-violet-600 text-white shadow-xs"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+            }`}
+          >
+            <Sliders size={14} />
+            Manual Builder
+            {manualDirty && (
+              <span aria-label="unsaved changes" className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceMode === "roster"}
+            onClick={() => requestWorkspaceMode("roster")}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
               workspaceMode === "roster"
                 ? "bg-violet-600 text-white shadow-xs"
@@ -364,20 +487,118 @@ export default function SeatingManagerClient({
             <TableProperties size={14} />
             Table & Guest Roster
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceMode === "ai"}
+            onClick={() => requestWorkspaceMode("ai")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+              workspaceMode === "ai"
+                ? "bg-violet-600 text-white shadow-xs"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+            }`}
+          >
+            <Bot size={14} />
+            AI Assistant
+          </button>
         </div>
 
         {loading && <Loader2 size={16} className="animate-spin text-violet-500" />}
       </div>
 
-      {/* Workspace View 1: Interactive SVG Venue Builder */}
+      {/* Phase 6E: unified plan status — one line proving all views share a plan. */}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500" aria-live="polite">
+        <span>One plan — Manual, AI &amp; Visual save through the same pipeline.</span>
+        <span>
+          <span className="font-black text-zinc-900">{stats.total}</span> seats
+        </span>
+        <span>
+          <span className="font-black text-emerald-700">{stats.available}</span> available
+        </span>
+        <span>
+          <span className="font-black text-violet-700">{stats.guestAssigned}</span> assigned
+        </span>
+        {stats.sold > 0 && (
+          <span>
+            <span className="font-black text-zinc-500">{stats.sold}</span> sold
+          </span>
+        )}
+        {stats.vip > 0 && (
+          <span>
+            <span className="font-black text-orange-600">{stats.vip}</span> VIP
+          </span>
+        )}
+        {hasUnsavedChanges && (
+          <span className="font-black text-amber-600">● Unsaved changes</span>
+        )}
+      </p>
+
+      {/* Workspace Views */}
       {workspaceMode === "canvas" ? (
         <VenueBuilder
           eventId={eventId}
-          layout={layout as any}
+          layout={layoutState as any}
           initialSeats={seats}
           ticketTypes={ticketTypes}
           invitations={invitations}
           onRefresh={refreshSeats}
+          onToast={showToast}
+          onDirtyChange={handleVisualDirty}
+        />
+      ) : workspaceMode === "manual" ? (
+        // key={aiApplyKey} forces a full remount each time AI applies a new plan,
+        // proving state synchronization rather than relying on one-time useState init.
+        <ManualBuilder
+          key={aiApplyKey}
+          eventId={eventId}
+          layoutId={layoutState?.id || ""}
+          canvasWidth={layoutState?.canvas_width || 1200}
+          canvasHeight={layoutState?.canvas_height || 800}
+          initialSeats={seats}
+          venueObjects={((layoutState?.venue_objects as any) || [])}
+          sections={((layoutState?.sections as any) || [])}
+          ticketTypes={ticketTypes}
+          aiSections={aiPendingSections ?? undefined}
+          appliedSource={aiAppliedSource}
+          onDirtyChange={handleManualDirty}
+          onSaved={async (savedSeats, savedVenueObjects) => {
+            setSeats(savedSeats);
+            if (savedVenueObjects && layoutState) {
+              setLayoutState((prev) => (prev ? { ...prev, venue_objects: savedVenueObjects } : prev));
+            }
+            await refreshSeats();
+          }}
+          onToast={showToast}
+          onSwitchToVisual={() => requestWorkspaceMode("canvas")}
+          onSwitchToRoster={() => requestWorkspaceMode("roster")}
+        />
+      ) : workspaceMode === "ai" ? (
+        <AiAssistantPanel
+          eventId={eventId}
+          existingSeatsCount={stats.total}
+          existingVipCount={stats.vip}
+          existingRegularCount={stats.total - stats.vip - stats.accessible}
+          existingAccessibleCount={stats.accessible}
+          existingSectionsCount={
+            Array.isArray(layoutState?.sections) ? layoutState.sections.length : 0
+          }
+          onApplyConfig={(formSections) => {
+            // Phase 6E: applying an AI plan discards unmounted Manual state —
+            // guard when the builder holds unsaved work of its own.
+            if (
+              manualDirty &&
+              !window.confirm(
+                "The Manual Builder has unsaved changes. Replace them with the AI plan?"
+              )
+            ) {
+              return;
+            }
+            // Store AI sections and increment key to force ManualBuilder remount
+            setAiPendingSections(formSections);
+            setAiAppliedSource("AI Seating Assistant");
+            setAiApplyKey((k) => k + 1);
+            setWorkspaceMode("manual");
+          }}
           onToast={showToast}
         />
       ) : (
@@ -748,6 +969,41 @@ export default function SeatingManagerClient({
                             Remove
                           </button>
                         </div>
+                        {/* Phase 6E: linked credential / check-in state (read-only,
+                            existing guest → ticketInstance relationship). */}
+                        {selectedSeat.assigned_invitation_id && (
+                          <p className="mt-2 text-[11px] font-semibold text-violet-600">
+                            {!(selectedSeat.assigned_invitation_id in credCache) ? (
+                              "Checking guest credential…"
+                            ) : credCache[selectedSeat.assigned_invitation_id] ? (
+                              <>
+                                Credential:{" "}
+                                {credCache[selectedSeat.assigned_invitation_id]?.status ===
+                                "used" ? (
+                                  <>
+                                    Used
+                                    {credCache[selectedSeat.assigned_invitation_id]
+                                      ?.checked_in_at &&
+                                      ` · checked in ${new Date(
+                                        credCache[selectedSeat.assigned_invitation_id]!
+                                          .checked_in_at as string
+                                      ).toLocaleString()}`}
+                                  </>
+                                ) : (
+                                  <>
+                                    {credCache[selectedSeat.assigned_invitation_id]?.status ??
+                                      "Valid"}{" "}
+                                    · not checked in yet
+                                  </>
+                                )}
+                                {credCache[selectedSeat.assigned_invitation_id]?.seat_label &&
+                                  ` · Seat ${credCache[selectedSeat.assigned_invitation_id]?.seat_label}`}
+                              </>
+                            ) : (
+                              "No ticket credential found for this guest yet."
+                            )}
+                          </p>
+                        )}
                       </div>
                     ) : isAssignable(selectedSeat) ? (
                       <button

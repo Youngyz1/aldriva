@@ -37,6 +37,13 @@ import {
   TicketTypeSummary,
   generateSectionSeatsGrid,
   generateTableSeats,
+  generateCanonicalSeatingPlan,
+  parseCountInput,
+  isPersistedSeatId,
+  checkLayoutProtection,
+  nextRowStartIndex,
+  sectionBottomEdge,
+  nextTableNumber,
 } from "@/lib/seating";
 
 interface Props {
@@ -65,6 +72,12 @@ interface Props {
   }[];
   onRefresh: () => Promise<void>;
   onToast: (type: "success" | "error", message: string) => void;
+  /**
+   * Phase 6E: notifies the unified workspace when the canvas holds unsaved
+   * changes so tab switches can be guarded. Optional; mirrors the existing
+   * hasUnsavedChanges state without changing save behavior.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export default function VenueBuilder({
@@ -75,6 +88,7 @@ export default function VenueBuilder({
   invitations,
   onRefresh,
   onToast,
+  onDirtyChange,
 }: Props) {
   const [seats, setSeats] = useState<SeatGeometry[]>(initialSeats);
   const [venueObjects, setVenueObjects] = useState<VenueObject[]>(
@@ -99,6 +113,11 @@ export default function VenueBuilder({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(true);
 
+  // Phase 6E: surface the existing dirty flag to the unified workspace.
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
+
   // Modal tools
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
@@ -112,9 +131,12 @@ export default function VenueBuilder({
   const lastPan = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Keep local state in sync when initialSeats prop changes
+  // Keep local state and persisted ID index in sync when initialSeats prop changes
   useEffect(() => {
     setSeats(initialSeats);
+    lastSavedIdsRef.current = new Set(
+      initialSeats.map((s) => s.id).filter(isPersistedSeatId)
+    );
   }, [initialSeats]);
 
   // Prevent parent page scrolling & handle external mouse wheel + trackpad panning/zooming
@@ -199,9 +221,59 @@ export default function VenueBuilder({
   }, [seats]);
 
   // ── SAVE LAYOUT ──────────────────────────────────────────────────────────
+  // Tracks the ids the server last persisted, so seats removed on the canvas
+  // can be reported as deleteIds (full-layout sync). Initialized from the
+  // loaded layout and refreshed from every successful save response.
+  const lastSavedIdsRef = useRef<Set<string>>(
+    new Set(initialSeats.map((s) => s.id))
+  );
+
+  // ── RESET LAYOUT ───────────────────────────────────────────────────────────
+  // Clears the workspace back to an empty layout in local state only.
+  // Sold/assigned seats are protected: they stay, so the existing save path
+  // never receives them as deletes (the server would 409 them anyway).
+  // Nothing is destroyed until the organizer explicitly saves.
+  const handleResetLayout = useCallback(() => {
+    if (seats.length === 0 && venueObjects.length === 0) return;
+    const protection = checkLayoutProtection(seats, "replace");
+    const keptIds = new Set(protection.protectedSeats.map((s) => s.id));
+    const message = [
+      "Reset layout?",
+      "",
+      `This clears ${seats.length - keptIds.size} seat(s)${
+        venueObjects.length && keptIds.size === 0 ? ` and ${venueObjects.length} venue object(s)` : ""
+      } from the workspace and returns it to an empty layout.`,
+      ...(keptIds.size > 0
+        ? ["", `${keptIds.size} sold/assigned seat(s) are protected and will be kept.`]
+        : []),
+      "",
+      "Nothing is deleted until you save.",
+    ].join("\n");
+    if (!window.confirm(message)) return;
+    setSeats((prev) => prev.filter((s) => keptIds.has(s.id)));
+    if (keptIds.size === 0) {
+      setVenueObjects([]);
+      setSections([]);
+    }
+    setSelectedSeatIds(new Set());
+    setSelectedObjectId(null);
+    setIsInspectorOpen(false);
+    setHasUnsavedChanges(true);
+    onToast(
+      "success",
+      keptIds.size > 0
+        ? `Workspace cleared. ${keptIds.size} protected seat(s) kept — save to apply.`
+        : "Workspace cleared. Save to apply the empty layout."
+    );
+  }, [seats, venueObjects.length, onToast]);
+
   const handleSaveLayout = useCallback(async () => {
     setIsSaving(true);
     try {
+      const currentIds = new Set(seats.map((s) => s.id));
+      const deleteIds = [...lastSavedIdsRef.current].filter(
+        (id) => isPersistedSeatId(id) && !currentIds.has(id)
+      );
       const res = await fetch(`/api/events/${eventId}/seating`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -213,6 +285,7 @@ export default function VenueBuilder({
           sections,
           venue_objects: venueObjects,
           seats,
+          deleteIds,
         }),
       });
 
@@ -221,6 +294,14 @@ export default function VenueBuilder({
         throw new Error(data.error || "Failed to save layout.");
       }
 
+      // Adopt database truth: drops client temp ids, so the next save sends
+      // updates for these rows instead of re-inserting them as duplicates.
+      if (Array.isArray(data.savedSeats)) {
+        const fresh = data.savedSeats as SeatGeometry[];
+        setSeats(fresh);
+        lastSavedIdsRef.current = new Set(fresh.map((s) => s.id));
+        setSelectedSeatIds(new Set());
+      }
       setHasUnsavedChanges(false);
       onToast("success", "Venue layout saved successfully.");
       await onRefresh();
@@ -473,7 +554,21 @@ export default function VenueBuilder({
   };
 
   // ── SECTION / ROW MODAL FORM STATE ───────────────────────────────────────
-  const [sectionForm, setSectionForm] = useState({
+  // rows / seatsPerRow are `number | ""`: clearing a number input yields "",
+  // and storing NaN (parseInt("") === NaN) would feed NaN into the input's
+  // `value` prop on the next render. Generation uses `Number(...) || <default>`
+  // so "" safely falls back there; the input renders empty while editing.
+  const [sectionForm, setSectionForm] = useState<{
+    name: string;
+    rows: number | "";
+    seatsPerRow: number | "";
+    startX: number;
+    startY: number;
+    defaultPrice: string;
+    ticketTypeId: string;
+    isVip: boolean;
+    isAccessible: boolean;
+  }>({
     name: "Section A",
     rows: 4,
     seatsPerRow: 10,
@@ -486,21 +581,35 @@ export default function VenueBuilder({
   });
 
   const handleGenerateSection = () => {
-    const generated = generateSectionSeatsGrid({
+    const sectionName = sectionForm.name || "General";
+    // Append semantics: continue row labels (and vertical origin) past the
+    // rows this section already has on the canvas. Regenerating from row A
+    // would collide with persisted rows under the seats uniqueness
+    // constraint and fail the next save with a duplicate error.
+    const sectionSeats = seats.filter((s) => s.section === sectionName);
+    const startRowIndex = nextRowStartIndex(sectionSeats, sectionName);
+    const bottom = sectionBottomEdge(sectionSeats);
+    const planResult = generateCanonicalSeatingPlan({
       eventId,
       layoutId: layout.id,
-      sectionName: sectionForm.name || "General",
-      rowsCount: Number(sectionForm.rows) || 1,
-      seatsPerRow: Number(sectionForm.seatsPerRow) || 1,
-      startX: Number(sectionForm.startX) || 80,
-      startY: Number(sectionForm.startY) || 150,
-      defaultPrice: sectionForm.defaultPrice ? parseFloat(sectionForm.defaultPrice) : null,
-      ticketTypeId: sectionForm.ticketTypeId || null,
-      isVip: sectionForm.isVip,
-      isAccessible: sectionForm.isAccessible,
+      sections: [
+        {
+          name: sectionName,
+          mode: "rows",
+          rowCount: Number(sectionForm.rows) || 1,
+          seatsPerRow: Number(sectionForm.seatsPerRow) || 1,
+          startX: Number(sectionForm.startX) || 80,
+          startY: bottom === null ? Number(sectionForm.startY) || 150 : bottom + 12,
+          startRowIndex,
+          defaultPrice: sectionForm.defaultPrice ? parseFloat(sectionForm.defaultPrice) : null,
+          ticketTypeId: sectionForm.ticketTypeId || null,
+          isVip: sectionForm.isVip,
+          isAccessible: sectionForm.isAccessible,
+        },
+      ],
     });
 
-    const newSeats: SeatGeometry[] = generated.map((s, idx) => ({
+    const newSeats: SeatGeometry[] = planResult.seats.map((s, idx) => ({
       ...s,
       id: `new-${Date.now()}-${idx}`,
     }));
@@ -525,7 +634,18 @@ export default function VenueBuilder({
   };
 
   // ── TABLE MODAL FORM STATE ───────────────────────────────────────────────
-  const [tableForm, setTableForm] = useState({
+  // capacity is `number | ""` for the same reason as sectionForm.rows above:
+  // an emptied number input must never put NaN into state.
+  const [tableForm, setTableForm] = useState<{
+    tableNumber: string;
+    tableName: string;
+    capacity: number | "";
+    shape: "round" | "rect";
+    startX: number;
+    startY: number;
+    isVip: boolean;
+    priceOverride: string;
+  }>({
     tableNumber: "1",
     tableName: "VIP Table",
     capacity: 8,
@@ -537,26 +657,33 @@ export default function VenueBuilder({
   });
 
   const handleGenerateTable = () => {
-    const generated = generateTableSeats({
+    const planResult = generateCanonicalSeatingPlan({
       eventId,
       layoutId: layout.id,
-      tableNumber: tableForm.tableNumber,
-      tableName: tableForm.tableName,
-      tableCapacity: Number(tableForm.capacity) || 6,
-      tableX: Number(tableForm.startX) || 150,
-      tableY: Number(tableForm.startY) || 150,
-      tableShape: tableForm.shape,
-      isVip: tableForm.isVip,
-      priceOverride: tableForm.priceOverride ? parseFloat(tableForm.priceOverride) : null,
+      sections: [
+        {
+          name: `Table ${tableForm.tableNumber}`,
+          mode: "tables",
+          tableCount: 1,
+          seatsPerTable: Number(tableForm.capacity) || 6,
+          tableShape: tableForm.shape,
+          startTableNumber: parseInt(tableForm.tableNumber, 10) || 1,
+          tableNamePrefix: tableForm.tableName || undefined,
+          startX: Number(tableForm.startX) || 150,
+          startY: Number(tableForm.startY) || 150,
+          isVip: tableForm.isVip,
+          defaultPrice: tableForm.priceOverride ? parseFloat(tableForm.priceOverride) : null,
+        },
+      ],
     });
 
-    const newSeats: SeatGeometry[] = generated.map((s, idx) => ({
+    const newSeats: SeatGeometry[] = planResult.seats.map((s, idx) => ({
       ...s,
       id: `new-table-${Date.now()}-${idx}`,
     }));
 
     // Add table visual shape object
-    const tableObject: VenueObject = {
+    const tableObject: VenueObject = planResult.venueObjects[0] || {
       id: `table-shape-${Date.now()}`,
       type: "table",
       name: `Table ${tableForm.tableNumber}`,
@@ -659,8 +786,10 @@ export default function VenueBuilder({
 
   return (
     <div className="space-y-3 select-none">
-      {/* ── UNIFIED FLAT WORKSPACE CONTAINER ────────────────────────────────── */}
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs">
+      {/* ── UNIFIED FLAT WORKSPACE CONTAINER ──────────────────────────────────
+          Open workspace: no decorative card. The toolbar keeps its divider,
+          the canvas keeps its functional pan/zoom surface. */}
+      <div className="flex flex-col overflow-hidden">
         {/* ── TOP UNIFIED TOOLBAR (Fixed Height, No Wrap to prevent shaking) ──── */}
         <div className="flex h-14 min-h-[56px] items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 overflow-x-auto">
           {/* Left tools palette */}
@@ -675,7 +804,14 @@ export default function VenueBuilder({
             </button>
             <button
               type="button"
-              onClick={() => setShowTableModal(true)}
+              onClick={() => {
+                // Refresh the default to the next free table number so a new
+                // table doesn't regenerate Table-1 seat keys (which would
+                // collide under the seats uniqueness constraint on save).
+                // The input stays editable for explicit numbering.
+                setTableForm((f) => ({ ...f, tableNumber: nextTableNumber(seats, venueObjects) }));
+                setShowTableModal(true);
+              }}
               className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition-all shrink-0"
             >
               <TableIcon size={13} />
@@ -807,6 +943,19 @@ export default function VenueBuilder({
               {isPublished ? "Published" : "Draft"}
             </button>
 
+            {/* Reset Layout */}
+            <button
+              type="button"
+              onClick={handleResetLayout}
+              disabled={isSaving || (seats.length === 0 && venueObjects.length === 0)}
+              title="Reset layout"
+              aria-label="Reset layout"
+              className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-black text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 size={13} />
+              Reset
+            </button>
+
             {/* Save Button */}
             <button
               type="button"
@@ -867,6 +1016,13 @@ export default function VenueBuilder({
 
         {/* ── WORKSPACE BODY: FULL-WIDTH INTERNAL SCROLLING/PANNING VIEWPORT ── */}
         <div className="relative w-full min-h-[640px] h-[calc(100vh-250px)] overflow-hidden">
+          {/* Save lock: blocks canvas/inspector edits while a save is in
+              flight, so the post-save server-truth adoption below can never
+              discard mid-save edits. Above the inspector (z-30), below the
+              modals (z-50). */}
+          {isSaving && (
+            <div className="absolute inset-0 z-40 cursor-wait bg-white/20" aria-hidden />
+          )}
           {/* Primary Plain SVG Canvas Viewport */}
           <div
             ref={canvasRef}
@@ -1512,7 +1668,7 @@ export default function VenueBuilder({
                     min={1}
                     max={26}
                     value={sectionForm.rows}
-                    onChange={(e) => setSectionForm((f) => ({ ...f, rows: parseInt(e.target.value, 10) }))}
+                    onChange={(e) => setSectionForm((f) => ({ ...f, rows: parseCountInput(e.target.value) }))}
                     className="w-full rounded-xl border border-zinc-200 p-2.5 text-xs font-bold"
                   />
                 </div>
@@ -1523,7 +1679,7 @@ export default function VenueBuilder({
                     min={1}
                     max={50}
                     value={sectionForm.seatsPerRow}
-                    onChange={(e) => setSectionForm((f) => ({ ...f, seatsPerRow: parseInt(e.target.value, 10) }))}
+                    onChange={(e) => setSectionForm((f) => ({ ...f, seatsPerRow: parseCountInput(e.target.value) }))}
                     className="w-full rounded-xl border border-zinc-200 p-2.5 text-xs font-bold"
                   />
                 </div>
@@ -1582,7 +1738,8 @@ export default function VenueBuilder({
               <button
                 type="button"
                 onClick={handleGenerateSection}
-                className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700"
+                disabled={isSaving}
+                className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 Generate Seats
               </button>
@@ -1615,7 +1772,7 @@ export default function VenueBuilder({
                     min={2}
                     max={24}
                     value={tableForm.capacity}
-                    onChange={(e) => setTableForm((f) => ({ ...f, capacity: parseInt(e.target.value, 10) }))}
+                    onChange={(e) => setTableForm((f) => ({ ...f, capacity: parseCountInput(e.target.value) }))}
                     className="w-full rounded-xl border border-zinc-200 p-2.5 text-xs font-bold"
                   />
                 </div>
