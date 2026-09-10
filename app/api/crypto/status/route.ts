@@ -238,7 +238,7 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     console.error("crypto/status route error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
+      { error: "Could not check payment status. Please try again." },
       { status: 500 }
     );
   }

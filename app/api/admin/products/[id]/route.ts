@@ -32,7 +32,8 @@ export async function PATCH(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products/[id]]", error);
+    return NextResponse.json({ error: "Could not review the product." }, { status: 500 });
   }
   if (!updated) {
     return NextResponse.json(
@@ -60,7 +61,8 @@ export async function DELETE(
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products/[id]]", error);
+    return NextResponse.json({ error: "Could not delete the product." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

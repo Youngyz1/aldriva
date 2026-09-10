@@ -360,7 +360,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("crypto webhook route error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
+      { error: "Webhook processing failed." },
       { status: 500 }
     );
   }

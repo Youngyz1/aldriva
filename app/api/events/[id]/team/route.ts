@@ -99,7 +99,7 @@ export async function GET(
       invitations: invitations ?? [],
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/[id]/team]", err);
+    return NextResponse.json({ error: "Could not load the team. Please try again." }, { status: 500 });
   }
 }

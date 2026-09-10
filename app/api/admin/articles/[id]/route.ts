@@ -22,7 +22,8 @@ export async function PATCH(
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/articles/[id]]", error);
+      return NextResponse.json({ error: "Could not update the article." }, { status: 500 });
     }
     return NextResponse.json({ success: true });
   }
@@ -46,7 +47,8 @@ export async function PATCH(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/articles/[id]]", error);
+      return NextResponse.json({ error: "Could not review the article." }, { status: 500 });
     }
     if (!updated) {
       return NextResponse.json(
@@ -75,11 +77,12 @@ export async function DELETE(
 
   const { error } = await supabaseAdmin
     .from("articles")
-    .delete()
-    .eq("id", id);
+      .delete()
+      .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/articles/[id]]", error);
+    return NextResponse.json({ error: "Could not delete the article." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

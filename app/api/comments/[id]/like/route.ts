@@ -169,7 +169,8 @@ export async function POST(
     // 23505 = unique violation: a concurrent request won the race. Our visitor
     // is "liked" only if it was our cookie that got the row.
     if (error.code !== "23505") {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[comments/[id]/like]", error);
+      return NextResponse.json({ error: "Could not like the comment. Please try again." }, { status: 500 });
     }
     const { data: recheck } = await supabaseAdmin
       .from("comment_likes")

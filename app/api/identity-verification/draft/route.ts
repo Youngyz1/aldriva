@@ -30,8 +30,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ submission });
   } catch (err: any) {
+    console.error("[identity-verification/draft]", err);
     return NextResponse.json(
-      { error: err.message || "Failed to save draft." },
+      { error: "Failed to save draft." },
       { status: 400 }
     );
   }

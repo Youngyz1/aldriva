@@ -104,7 +104,8 @@ export async function POST(
     .createSignedUploadUrl(path);
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Failed to create signed upload URL." }, { status: 500 });
+    console.error("[organizer-verification/upload-url]", error);
+    return NextResponse.json({ error: "Failed to create signed upload URL." }, { status: 500 });
   }
 
   // Also get a signed read URL for client-side preview

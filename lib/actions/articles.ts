@@ -147,7 +147,7 @@ export async function createArticle(input: ArticleInput) {
 
   if (error) {
     console.error("Error creating article:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Could not create the article. Please try again." };
   }
 
   revalidatePath("/articles");
@@ -255,7 +255,7 @@ export async function updateArticle(id: string, input: ArticleInput) {
 
   if (error) {
     console.error("Error updating article:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Could not update the article. Please try again." };
   }
 
   // Audio Invalidation: If spoken content changed, mark audio as stale (Correction 12)
@@ -321,7 +321,7 @@ export async function deleteArticle(id: string) {
 
   if (error) {
     console.error("Error deleting article:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Could not delete the article. Please try again." };
   }
 
   revalidatePath("/articles");

@@ -55,7 +55,8 @@ export async function GET(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[dashboard/organizers/[id]/registration]", error);
+    return NextResponse.json({ error: "Failed to load registration details." }, { status: 500 });
   }
 
   return NextResponse.json({

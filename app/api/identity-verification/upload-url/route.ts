@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
     .createSignedUploadUrl(path);
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Failed to create signed upload URL." }, { status: 500 });
+    console.error("[identity-verification/upload-url]", error);
+    return NextResponse.json({ error: "Failed to create signed upload URL." }, { status: 500 });
   }
 
   const { data: readData } = await supabaseAdmin.storage

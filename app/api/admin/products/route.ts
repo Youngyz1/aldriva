@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
       total_pages: Math.ceil(total / perPage),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to load products.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[admin/products]", err);
+    return NextResponse.json({ error: "Failed to load products." }, { status: 500 });
   }
 }

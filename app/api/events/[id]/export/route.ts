@@ -214,7 +214,7 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Failed to generate export.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[events/[id]/export]", err);
+    return NextResponse.json({ error: "Failed to generate export." }, { status: 500 });
   }
 }

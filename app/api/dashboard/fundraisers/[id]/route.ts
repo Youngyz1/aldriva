@@ -54,8 +54,8 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: result.message }, { status: 409 });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to delete fundraiser.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[dashboard/fundraisers/[id]]", error);
+    return NextResponse.json({ error: 'Unable to delete fundraiser.' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

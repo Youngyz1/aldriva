@@ -31,8 +31,9 @@ export async function POST(
     const result = await rsvpInvitation({ token, response });
     return NextResponse.json(result);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to update RSVP.";
-    const status = message.includes("not found") ? 404 : 409;
-    return NextResponse.json({ error: message }, { status });
+    console.error("[invitation/rsvp]", err);
+    const raw = err instanceof Error ? err.message : "";
+    const status = raw.includes("not found") ? 404 : 409;
+    return NextResponse.json({ error: status === 404 ? "Invitation not found." : "Could not update RSVP." }, { status });
   }
 }

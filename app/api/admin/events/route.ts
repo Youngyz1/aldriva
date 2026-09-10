@@ -25,7 +25,8 @@ export async function GET() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/events]", error);
+    return NextResponse.json({ error: "Failed to load events." }, { status: 500 });
   }
 
   const events = (data ?? []).map((e) => {

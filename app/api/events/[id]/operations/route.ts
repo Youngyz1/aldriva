@@ -39,7 +39,7 @@ export async function GET(
       auditHistory: auditHistory?.items || [],
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Failed to load operational metrics.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[events/[id]/operations]", err);
+    return NextResponse.json({ error: "Failed to load operational metrics." }, { status: 500 });
   }
 }

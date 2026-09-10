@@ -279,8 +279,8 @@ export async function POST(
       emailMessage,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Failed to create guest invitation.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[events/[id]/guests]", err);
+    return NextResponse.json({ error: "Failed to create guest invitation." }, { status: 500 });
   }
 }
 
@@ -397,8 +397,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update guest";
-      return NextResponse.json({ error: msg }, { status: 400 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to update guest" }, { status: 400 });
     }
   }
 
@@ -421,8 +421,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to send invitation email";
-      return NextResponse.json({ error: msg }, { status: 400 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to send invitation email" }, { status: 400 });
     }
   }
 
@@ -445,8 +445,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to cancel invitation";
-      return NextResponse.json({ error: msg }, { status: 409 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to cancel invitation" }, { status: 409 });
     }
   }
 
@@ -469,8 +469,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to restore invitation";
-      return NextResponse.json({ error: msg }, { status: 409 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to restore invitation" }, { status: 409 });
     }
   }
 
@@ -500,8 +500,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to assign seat";
-      return NextResponse.json({ error: msg }, { status: 409 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to assign seat" }, { status: 409 });
     }
   }
 
@@ -521,8 +521,8 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to remove seat";
-      return NextResponse.json({ error: msg }, { status: 500 });
+      console.error("[events/[id]/guests]", err);
+      return NextResponse.json({ error: "Failed to remove seat" }, { status: 500 });
     }
   }
 

@@ -46,8 +46,9 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, submission });
   } catch (err: any) {
+    console.error("[admin/identity-verifications/[id]]", err);
     return NextResponse.json(
-      { error: err.message || "Failed to review identity submission." },
+      { error: "Failed to review identity submission." },
       { status: 500 }
     );
   }

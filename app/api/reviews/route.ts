@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
     .limit(50);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[reviews]", error);
+    return NextResponse.json({ error: "Failed to load reviews." }, { status: 500 });
   }
 
   const userIds = Array.from(
@@ -166,7 +167,8 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[reviews]", error);
+    return NextResponse.json({ error: "Could not submit the review." }, { status: 500 });
   }
 
   return NextResponse.json({ review: data }, { status: 201 });

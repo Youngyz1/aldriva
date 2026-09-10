@@ -116,7 +116,8 @@ export async function createBusiness(input: BusinessInput) {
     .single();
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error creating business:", error);
+    return { success: false, error: "Could not create the business. Please try again." };
   }
 
   revalidatePath("/businesses");
@@ -200,7 +201,8 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
     .single();
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error updating business:", error);
+    return { success: false, error: "Could not update the business. Please try again." };
   }
 
   revalidatePath("/businesses");
@@ -224,7 +226,8 @@ export async function deleteBusiness(id: string) {
     .eq("owner_id", user.id);
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error deleting business:", error);
+    return { success: false, error: "Could not delete the business. Please try again." };
   }
 
   revalidatePath("/businesses");

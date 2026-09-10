@@ -54,7 +54,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true, message: "Invitation cancelled successfully." });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/[id]/team/invitations]", err);
+    return NextResponse.json({ error: "Could not process the invitation. Please try again." }, { status: 500 });
   }
 }

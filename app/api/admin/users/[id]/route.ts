@@ -26,8 +26,8 @@ export async function GET(
     }
     return NextResponse.json({ user });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to load user.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[admin/users/[id]]", err);
+    return NextResponse.json({ error: 'Failed to load user.' }, { status: 500 });
   }
 }
 
@@ -114,7 +114,8 @@ export async function PATCH(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/users/[id]]", error);
+    return NextResponse.json({ error: "Could not update the user." }, { status: 500 });
   }
 
   if (!updatedProfile) {

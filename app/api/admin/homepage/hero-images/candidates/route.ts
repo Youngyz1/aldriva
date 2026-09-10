@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/homepage/hero-images/candidates]", error);
+    return NextResponse.json({ error: "Failed to load candidates." }, { status: 500 });
   }
 
   const candidates = (data ?? [])

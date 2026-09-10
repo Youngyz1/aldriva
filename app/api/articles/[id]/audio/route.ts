@@ -234,7 +234,7 @@ export async function POST(
     );
 
     return NextResponse.json(
-      { error: "Audio synthesis failed", details: err.message },
+      { error: "Audio synthesis failed" },
       { status: 500 }
     );
   }

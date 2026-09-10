@@ -70,7 +70,8 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/reviews/[id]]", error);
+    return NextResponse.json({ error: "Could not update the review." }, { status: 500 });
   }
 
   if (!data) {
@@ -99,7 +100,8 @@ export async function DELETE(
   const { error } = await supabaseAdmin.from("reviews").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/reviews/[id]]", error);
+    return NextResponse.json({ error: "Could not delete the review." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

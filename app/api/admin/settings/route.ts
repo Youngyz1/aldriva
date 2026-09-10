@@ -27,7 +27,8 @@ export async function GET() {
     .order("key");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/settings]", error);
+    return NextResponse.json({ error: "Failed to load settings." }, { status: 500 });
   }
 
   return NextResponse.json({ settings: data ?? [] });
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     .upsert(rows, { onConflict: "key" });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/settings]", error);
+    return NextResponse.json({ error: "Could not save settings." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, count: rows.length });

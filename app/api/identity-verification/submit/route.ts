@@ -24,8 +24,9 @@ export async function POST(req: NextRequest) {
     const submission = await submitUserIdentityVerification(user.id, submission_id);
     return NextResponse.json({ submission });
   } catch (err: any) {
+    console.error("[identity-verification/submit]", err);
     return NextResponse.json(
-      { error: err.message || "Failed to submit identity verification." },
+      { error: "Failed to submit identity verification." },
       { status: 400 }
     );
   }

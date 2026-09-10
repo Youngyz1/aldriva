@@ -28,7 +28,8 @@ export async function GET() {
     .order("position", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/homepage/categories]", error);
+    return NextResponse.json({ error: "Failed to load categories." }, { status: 500 });
   }
 
   return NextResponse.json({ categories: data ?? [] });
@@ -59,13 +60,17 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[admin/homepage/categories]", error);
+      return NextResponse.json({ error: "Could not create the category." }, { status: 500 });
+    }
 
     revalidatePath("/", "page");
     revalidatePath("/events", "page");
     return NextResponse.json({ success: true, category: data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("[admin/homepage/categories]", err);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }
 
@@ -89,7 +94,8 @@ export async function PATCH(req: NextRequest) {
       const results = await Promise.all(updates);
       const failed = results.find((r) => r.error);
       if (failed) {
-        return NextResponse.json({ error: failed.error?.message }, { status: 500 });
+        console.error("[admin/homepage/categories]", failed.error);
+        return NextResponse.json({ error: "Could not reorder categories." }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });
@@ -118,12 +124,14 @@ export async function PATCH(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/categories]", error);
+      return NextResponse.json({ error: "Could not update the category." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, category: data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("[admin/homepage/categories]", err);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }
 
@@ -144,7 +152,10 @@ export async function DELETE(req: NextRequest) {
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[admin/homepage/categories]", error);
+    return NextResponse.json({ error: "Could not delete the category." }, { status: 500 });
+  }
 
   revalidatePath("/", "page");
   revalidatePath("/events", "page");

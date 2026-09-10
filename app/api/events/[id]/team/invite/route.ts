@@ -218,7 +218,7 @@ export async function POST(
       message: defaultMsg,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/[id]/team/invite]", err);
+    return NextResponse.json({ error: "Could not send the invitation. Please try again." }, { status: 500 });
   }
 }

@@ -27,8 +27,8 @@ export async function GET(
     }
     return NextResponse.json({ organizer });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to load organizer.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[admin/organizers/[id]]", err);
+    return NextResponse.json({ error: 'Failed to load organizer.' }, { status: 500 });
   }
 }
 
@@ -97,7 +97,8 @@ export async function PATCH(
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/organizers/[id]]", error);
+    return NextResponse.json({ error: "Could not update the organizer." }, { status: 500 });
   }
 
   if (currentUser) {

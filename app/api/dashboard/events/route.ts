@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       total_pages: result.total_pages,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to load events.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[dashboard/events]", err);
+    return NextResponse.json({ error: 'Failed to load events.' }, { status: 500 });
   }
 }

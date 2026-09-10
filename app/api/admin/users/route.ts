@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       current_user_id: currentUser?.id ?? null,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to load users.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[admin/users]", err);
+    return NextResponse.json({ error: 'Failed to load users.' }, { status: 500 });
   }
 }

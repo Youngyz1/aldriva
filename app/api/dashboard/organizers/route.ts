@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       total_pages: result.total_pages,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to load organizers.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[dashboard/organizers]", err);
+    return NextResponse.json({ error: 'Failed to load organizers.' }, { status: 500 });
   }
 }

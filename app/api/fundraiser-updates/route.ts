@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[fundraiser-updates]", error);
+    return NextResponse.json({ error: "Could not save the update." }, { status: 500 });
   }
 
   return NextResponse.json({ update: data }, { status: 201 });

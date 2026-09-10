@@ -56,7 +56,8 @@ export async function PATCH(
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/events/[id]]", error);
+    return NextResponse.json({ error: "Could not update the event." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, event: { ...update } });

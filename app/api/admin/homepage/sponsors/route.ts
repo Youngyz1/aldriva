@@ -25,7 +25,10 @@ export async function GET() {
     .select("*")
     .order("position", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[admin/homepage/sponsors]", error);
+    return NextResponse.json({ error: "Failed to load sponsors." }, { status: 500 });
+  }
   return NextResponse.json({ sponsors: data ?? [] });
 }
 
@@ -44,11 +47,15 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[admin/homepage/sponsors]", error);
+      return NextResponse.json({ error: "Could not create the sponsor." }, { status: 500 });
+    }
     revalidatePath("/", "page");
     return NextResponse.json({ success: true, sponsor: data });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    console.error("[admin/homepage/sponsors]", e);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }
 
@@ -84,11 +91,15 @@ export async function PATCH(req: NextRequest) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[admin/homepage/sponsors]", error);
+      return NextResponse.json({ error: "Could not update the sponsor." }, { status: 500 });
+    }
     revalidatePath("/", "page");
     return NextResponse.json({ success: true, sponsor: data });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    console.error("[admin/homepage/sponsors]", e);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }
 
@@ -99,7 +110,10 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID required." }, { status: 400 });
 
   const { error } = await supabaseAdmin.from("homepage_sponsors").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[admin/homepage/sponsors]", error);
+    return NextResponse.json({ error: "Could not delete the sponsor." }, { status: 500 });
+  }
   revalidatePath("/", "page");
   return NextResponse.json({ success: true });
 }

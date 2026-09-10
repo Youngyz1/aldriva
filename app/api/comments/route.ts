@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[comments]", error);
+    return NextResponse.json({ error: "Failed to load comments." }, { status: 500 });
   }
 
   const comments = data || [];
@@ -263,8 +264,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This fundraiser no longer exists." }, { status: 404 });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to verify fundraiser.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[comments]", error);
+    return NextResponse.json({ error: "Unable to verify fundraiser." }, { status: 500 });
   }
 
   const { data, error } = await supabaseAdmin
@@ -282,7 +283,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[comments]", error);
+    return NextResponse.json({ error: "Could not post the comment." }, { status: 500 });
   }
 
   const { data: profile } = data.user_id

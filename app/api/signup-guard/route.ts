@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("[signup-guard error]", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 
   const matches = data as Array<{ pending_id: string; purge_date: string }> | null;

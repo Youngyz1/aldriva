@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
     .upsert(rows, { onConflict: "key" });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/homepage/settings]", error);
+    return NextResponse.json({ error: "Could not save settings." }, { status: 500 });
   }
 
   // Bust the cached homepage and events page so changes are visible immediately

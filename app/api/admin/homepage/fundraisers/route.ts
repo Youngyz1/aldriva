@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
       .limit(30);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/fundraisers]", error);
+      return NextResponse.json({ error: "Failed to load fundraisers." }, { status: 500 });
     }
     return NextResponse.json({ fundraisers: data ?? [] });
   } else {
@@ -46,7 +47,8 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/fundraisers]", error);
+      return NextResponse.json({ error: "Failed to load fundraisers." }, { status: 500 });
     }
     return NextResponse.json({ fundraisers: data ?? [] });
   }
@@ -74,12 +76,14 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/fundraisers]", error);
+      return NextResponse.json({ error: "Could not update the fundraiser." }, { status: 500 });
     }
 
     revalidatePath("/", "page");
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("[admin/homepage/fundraisers]", err);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }

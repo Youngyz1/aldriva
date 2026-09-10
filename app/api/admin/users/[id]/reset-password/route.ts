@@ -21,7 +21,8 @@ export async function POST(
   const email = data.user?.email;
 
   if (userError || !email) {
-    return NextResponse.json({ error: userError?.message ?? "User email not found." }, { status: 404 });
+    if (userError) console.error("[admin/users/[id]/reset-password]", userError);
+    return NextResponse.json({ error: "User email not found." }, { status: 404 });
   }
 
   const appUrl = getSiteUrl();
@@ -31,7 +32,8 @@ export async function POST(
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/users/[id]/reset-password]", error);
+    return NextResponse.json({ error: "Could not send the reset email." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

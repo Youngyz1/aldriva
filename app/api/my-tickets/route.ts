@@ -77,7 +77,8 @@ export async function GET(req: NextRequest) {
 
     const { data: orders, error } = await query;
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[my-tickets]", error);
+      return NextResponse.json({ error: "Could not load tickets." }, { status: 500 });
     }
 
     return await formatResponseWithTickets(orders ?? []);
@@ -128,7 +129,8 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[my-tickets]", error);
+    return NextResponse.json({ error: "Could not load tickets." }, { status: 500 });
   }
 
   return await formatResponseWithTickets(orders ?? []);

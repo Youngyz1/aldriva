@@ -229,7 +229,7 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/[id]/checkins]", err);
+    return NextResponse.json({ error: "Could not load check-ins. Please try again." }, { status: 500 });
   }
 }

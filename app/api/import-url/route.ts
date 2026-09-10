@@ -391,7 +391,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Could not import this URL.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[import-url]", err);
+    return NextResponse.json({ error: "Could not import this URL." }, { status: 500 });
   }
 }

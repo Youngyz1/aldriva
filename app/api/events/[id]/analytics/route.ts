@@ -43,7 +43,7 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Failed to load event analytics.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[events/[id]/analytics]", err);
+    return NextResponse.json({ error: "Failed to load event analytics." }, { status: 500 });
   }
 }

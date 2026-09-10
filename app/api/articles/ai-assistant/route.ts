@@ -286,7 +286,7 @@ Return only the social media post text.`;
   } catch (err: unknown) {
     console.error("Article AI Assistant error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI assistant service error" },
+      { error: "AI assistant service error" },
       { status: 500 }
     );
   }

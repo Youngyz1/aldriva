@@ -16,6 +16,6 @@ export async function POST(request) {
     return Response.json({ success: true, postId });
   } catch (err) {
     console.error(err);
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json({ error: "Content automation failed." }, { status: 500 });
   }
 }

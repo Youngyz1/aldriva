@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
       total_pages: Math.ceil(total / perPage),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to load businesses.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[admin/businesses]", err);
+    return NextResponse.json({ error: "Failed to load businesses." }, { status: 500 });
   }
 }

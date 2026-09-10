@@ -105,7 +105,7 @@ export async function POST(request) {
         });
       } catch (fallbackErr) {
         console.error('[DailyPost Cron] Fallback text post also failed:', fallbackErr.message);
-        return Response.json({ error: fallbackErr.message, ...meta }, { status: 500 });
+        return Response.json({ error: "Daily post failed.", ...meta }, { status: 500 });
       }
     }
   }
@@ -116,6 +116,6 @@ export async function POST(request) {
     return Response.json({ success: true, postId, withImage: false, ...meta });
   } catch (err) {
     console.error('[DailyPost Cron] Text post failed:', err.message);
-    return Response.json({ error: err.message, ...meta }, { status: 500 });
+    return Response.json({ error: "Daily post failed.", ...meta }, { status: 500 });
   }
 }

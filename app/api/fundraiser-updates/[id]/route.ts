@@ -65,7 +65,8 @@ export async function DELETE(
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[fundraiser-updates/[id]]", error);
+    return NextResponse.json({ error: "Could not delete the update." }, { status: 500 });
   }
 
   return NextResponse.json({ deleted: true });

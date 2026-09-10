@@ -117,7 +117,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true, emailed: true, acceptUrl });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/[id]/team/invitations/resend]", err);
+    return NextResponse.json({ error: "Could not resend the invitation. Please try again." }, { status: 500 });
   }
 }

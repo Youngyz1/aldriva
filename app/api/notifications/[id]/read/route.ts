@@ -30,7 +30,8 @@ export async function PATCH(
     .is("read_at", null);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[notifications/[id]/read]", error);
+    return NextResponse.json({ error: "Could not mark the notification as read." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

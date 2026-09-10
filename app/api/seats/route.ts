@@ -88,9 +88,12 @@ export async function POST(req: NextRequest) {
     const result = await reserveSeatsAtomic(seatIds, holdDurationMinutes);
 
     if (!result.success) {
+      if (result.error && result.error !== "Some seats are no longer available.") {
+        console.error("[seats]", result.error);
+      }
       return NextResponse.json(
         {
-          error: result.error || "Some seats are no longer available.",
+          error: "Some seats are no longer available.",
           unavailableIds: result.unavailable_ids || [],
         },
         { status: 409 }
@@ -102,7 +105,7 @@ export async function POST(req: NextRequest) {
       reservedUntil: result.reserved_until,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[seats]", err);
+    return NextResponse.json({ error: "Could not load seats. Please try again." }, { status: 500 });
   }
 }

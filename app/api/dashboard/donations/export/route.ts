@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Export failed.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[dashboard/donations/export]", err);
+    return NextResponse.json({ error: 'Export failed.' }, { status: 500 });
   }
 }

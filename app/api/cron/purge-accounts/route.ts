@@ -81,8 +81,7 @@ export async function POST(request: NextRequest) {
       failed: ids.length - purged,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[PurgeAccounts Cron] Fatal error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[PurgeAccounts Cron] Fatal error:", err);
+    return NextResponse.json({ error: "Account purge failed." }, { status: 500 });
   }
 }

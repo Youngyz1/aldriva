@@ -45,21 +45,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: result.message }, { status: 409 });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to delete events.';
-      return NextResponse.json({ error: message }, { status: 500 });
+      console.error("[dashboard/events/bulk]", error);
+      return NextResponse.json({ error: 'Unable to delete events.' }, { status: 500 });
     }
   } else if (action === 'publish') {
     const { error } = await supabaseAdmin
       .from('events')
       .update({ status: 'approved' })
       .in('id', ownedIds);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[dashboard/events/bulk]", error);
+      return NextResponse.json({ error: 'Unable to publish events.' }, { status: 500 });
+    }
   } else if (action === 'unpublish') {
     const { error } = await supabaseAdmin
       .from('events')
       .update({ status: 'pending' })
       .in('id', ownedIds);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[dashboard/events/bulk]", error);
+      return NextResponse.json({ error: 'Unable to unpublish events.' }, { status: 500 });
+    }
   } else {
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
   }

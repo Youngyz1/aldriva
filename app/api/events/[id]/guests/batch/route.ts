@@ -54,8 +54,9 @@ export async function POST(
       const preview = await validateGuestRows(rawRows, eventId);
       return NextResponse.json(preview);
     } catch (err: any) {
+      console.error("[events/[id]/guests/batch]", err);
       return NextResponse.json(
-        { error: err.message || "Failed to parse and validate CSV." },
+        { error: "Failed to parse and validate CSV." },
         { status: 500 }
       );
     }
@@ -73,8 +74,9 @@ export async function POST(
       const preview = await validateGuestRows(rawRows, eventId);
       return NextResponse.json(preview);
     } catch (err: any) {
+      console.error("[events/[id]/guests/batch]", err);
       return NextResponse.json(
-        { error: err.message || "Failed to revalidate rows." },
+        { error: "Failed to revalidate rows." },
         { status: 500 }
       );
     }
@@ -101,8 +103,9 @@ export async function POST(
 
       return NextResponse.json(result);
     } catch (err: any) {
+      console.error("[events/[id]/guests/batch]", err);
       return NextResponse.json(
-        { error: err.message || "Batch import failed during atomic commit." },
+        { error: "Batch import failed during atomic commit." },
         { status: 409 }
       );
     }

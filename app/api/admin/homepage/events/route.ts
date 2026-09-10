@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
       .limit(30);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/events]", error);
+      return NextResponse.json({ error: "Failed to load events." }, { status: 500 });
     }
     return NextResponse.json({ events: data ?? [] });
   } else {
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest) {
       .order("event_date", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/events]", error);
+      return NextResponse.json({ error: "Failed to load events." }, { status: 500 });
     }
     return NextResponse.json({ events: data ?? [] });
   }
@@ -75,12 +77,14 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[admin/homepage/events]", error);
+      return NextResponse.json({ error: "Could not update the event." }, { status: 500 });
     }
 
     revalidatePath("/", "page");
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("[admin/homepage/events]", err);
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 }

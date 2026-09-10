@@ -129,8 +129,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insertError || !created) {
+    if (insertError) console.error("[beneficiary/resolve]", insertError);
     return NextResponse.json(
-      { error: insertError?.message ?? "Could not save the beneficiary." },
+      { error: "Could not save the beneficiary." },
       { status: 500 }
     );
   }

@@ -213,8 +213,9 @@ export async function POST(req: NextRequest) {
       `,
     });
   } catch (err) {
+    console.error("[beneficiary/invite]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not send the invite email." },
+      { error: "Could not send the invite email." },
       { status: 500 }
     );
   }

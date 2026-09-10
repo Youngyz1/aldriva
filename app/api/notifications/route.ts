@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
   ]);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[notifications]", error);
+    return NextResponse.json({ error: "Failed to load notifications." }, { status: 500 });
   }
 
   return NextResponse.json({

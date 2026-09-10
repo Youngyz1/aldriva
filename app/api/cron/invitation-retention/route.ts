@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       message: `Successfully purged private invitation data for ${invitationIds.length} expired records.`,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Retention cleanup failed." }, { status: 500 });
+    console.error("[cron/invitation-retention]", err);
+    return NextResponse.json({ error: "Retention cleanup failed." }, { status: 500 });
   }
 }

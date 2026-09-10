@@ -48,7 +48,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   if (body.visibility) updates.visibility = body.visibility;
 
   const { error } = await supabaseAdmin.from('events').update(updates).eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[dashboard/events/[id]]", error);
+    return NextResponse.json({ error: 'Unable to update event.' }, { status: 500 });
+  }
 
   const event = await getDashboardEventDetail(auth.ctx.userId, auth.ctx.organizerIds, id);
   return NextResponse.json({ event });
@@ -81,8 +84,8 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: result.message }, { status: 409 });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to delete event.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[dashboard/events/[id]]", error);
+    return NextResponse.json({ error: 'Unable to delete event.' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
     .in('id', ids);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/organizers/bulk]", error);
+    return NextResponse.json({ error: "Could not update organizers." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, updated: ids.length, status });

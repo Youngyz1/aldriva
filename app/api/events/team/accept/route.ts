@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       role: invite.role,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[events/team/accept]", err);
+    return NextResponse.json({ error: "Could not accept the invitation. Please try again." }, { status: 500 });
   }
 }

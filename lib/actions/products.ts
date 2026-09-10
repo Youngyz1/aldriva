@@ -125,7 +125,8 @@ export async function createProduct(input: ProductInput) {
     .single();
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error creating product:", error);
+    return { success: false, error: "Could not create the product. Please try again." };
   }
 
   revalidatePath("/products");
@@ -206,7 +207,8 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     .single();
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error updating product:", error);
+    return { success: false, error: "Could not update the product. Please try again." };
   }
 
   revalidatePath("/products");
@@ -233,7 +235,8 @@ export async function deleteProduct(id: string) {
     .eq("owner_id", user.id);
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Error deleting product:", error);
+    return { success: false, error: "Could not delete the product. Please try again." };
   }
 
   revalidatePath("/products");

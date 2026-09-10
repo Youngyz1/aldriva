@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[beneficiary/claim]", error);
+    return NextResponse.json({ error: "Could not process the claim. Please try again." }, { status: 500 });
   }
   if (!claimed) {
     return NextResponse.json(

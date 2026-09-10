@@ -151,7 +151,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     console.error("[donate/intent]", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Could not start the payment. Please try again." }, { status: 500 });
   }
 }

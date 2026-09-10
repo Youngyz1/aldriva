@@ -46,7 +46,8 @@ export async function POST(
       .neq("lifecycle_state", "PURGED");
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[events/[id]/lifecycle]", error);
+      return NextResponse.json({ error: "Could not update the event lifecycle." }, { status: 500 });
     }
 
     // Also update event status if needed
@@ -82,7 +83,8 @@ export async function POST(
       .eq("lifecycle_state", "EVENT_ENDED");
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[events/[id]/lifecycle]", error);
+      return NextResponse.json({ error: "Could not update the event lifecycle." }, { status: 500 });
     }
 
     await logEventAction({

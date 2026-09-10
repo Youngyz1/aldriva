@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
       total_pages: Math.ceil(total / perPage),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to load articles.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[admin/articles]", err);
+    return NextResponse.json({ error: "Failed to load articles." }, { status: 500 });
   }
 }

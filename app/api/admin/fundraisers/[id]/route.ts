@@ -85,7 +85,8 @@ export async function PATCH(
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/fundraisers/[id]]", error);
+    return NextResponse.json({ error: "Could not update the fundraiser." }, { status: 500 });
   }
 
   // A status change flips a campaign's public visibility, so bust the cached
