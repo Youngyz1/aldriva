@@ -202,10 +202,13 @@ export default function CreateOrganizerPage() {
         user_id:  session.user.id,
       };
 
+      // Select only `id`: the P0 RLS migration revokes table-wide SELECT on
+      // organizers for anon/authenticated (sensitive registration columns),
+      // so a bare .select() would fail — and only the id is used below.
       const { data: newOrg, error: insertErr } = await supabase
         .from("organizers")
         .insert(payload)
-        .select()
+        .select("id")
         .single();
 
       if (insertErr) {
