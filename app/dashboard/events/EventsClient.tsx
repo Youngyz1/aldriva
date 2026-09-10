@@ -9,6 +9,7 @@ import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 import { DashboardBulkActionButton } from "@/components/dashboard/DashboardBulkActions";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
@@ -394,49 +395,31 @@ function EventsClientInner() {
                             📷 Scan Tickets
                           </Link>
                         ) : (
-                          <>
-                            {actionIds.includes("checkins") && (
-                              <Link
-                                href={`/dashboard/events/${row.id}/checkins`}
-                                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                              >
-                                Check-Ins
-                              </Link>
-                            )}
-                            {actionIds.includes("scan") && (
-                              <Link
-                                href={`/dashboard/events/${row.id}/scan`}
-                                className="rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-100"
-                              >
-                                Scan
-                              </Link>
-                            )}
-                            {actionIds.includes("team") && (
-                              <Link
-                                href={`/dashboard/events/${row.id}/team`}
-                                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                              >
-                                Team
-                              </Link>
-                            )}
-                            {actionIds.includes("edit") && actionIds.includes("delete") && (
-                              <>
-                                <Link
-                                  href={`/events/edit/${row.id}`}
-                                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                                >
-                                  Edit
-                                </Link>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteTarget(row)}
-                                  className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
-                          </>
+                          <RowActionsMenu
+                            ariaLabel={`Actions for ${row.title}`}
+                            items={[
+                              ...(actionIds.includes("checkins")
+                                ? [{ key: "checkins", label: "Check-Ins", href: `/dashboard/events/${row.id}/checkins` }]
+                                : []),
+                              ...(actionIds.includes("scan")
+                                ? [{ key: "scan", label: "Scan", href: `/dashboard/events/${row.id}/scan` }]
+                                : []),
+                              ...(actionIds.includes("team")
+                                ? [{ key: "team", label: "Team", href: `/dashboard/events/${row.id}/team` }]
+                                : []),
+                              ...(actionIds.includes("edit")
+                                ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
+                                : []),
+                              ...(actionIds.includes("delete")
+                                ? [{
+                                    key: "delete",
+                                    label: "Delete",
+                                    destructive: true,
+                                    onSelect: () => setDeleteTarget(row),
+                                  }]
+                                : []),
+                            ]}
+                          />
                         )}
                       </div>
                     </td>

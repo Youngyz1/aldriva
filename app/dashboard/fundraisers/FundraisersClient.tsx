@@ -9,6 +9,7 @@ import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import { useDashboardParams } from "@/hooks/use-dashboard-params";
@@ -272,8 +273,13 @@ function FundraisersClientInner() {
                   <ProgressBar raised={row.raised} goal={row.goal} percentage={row.progress} height={8} showLabel={true} />
                 </div>
                 <div className="mt-4 flex flex-wrap gap-1.5">
-                  <Link href={`/fundraisers/edit/${row.id}`} className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50">Edit</Link>
-                  <button type="button" onClick={() => setDeleteTarget(row)} className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50">Delete</button>
+                  <RowActionsMenu
+                    ariaLabel={`Actions for ${row.title}`}
+                    items={[
+                      { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
+                      { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
+                    ]}
+                  />
                 </div>
               </article>
             ))}
@@ -314,9 +320,14 @@ function FundraisersClientInner() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
-                        <button type="button" onClick={() => openDrawer(row.id)} className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50">View</button>
-                        <Link href={`/fundraisers/edit/${row.id}`} className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50">Edit</Link>
-                        <button type="button" onClick={() => setDeleteTarget(row)} className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-700 hover:bg-red-50">Delete</button>
+                        <RowActionsMenu
+                          ariaLabel={`Actions for ${row.title}`}
+                          items={[
+                            { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
+                            { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
+                            { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>

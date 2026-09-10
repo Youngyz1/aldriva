@@ -642,6 +642,10 @@ export default function CreateEventPage() {
 
             <CreatorPanel title="Venue Layout & Seat Map">
               <div className="space-y-5">
+                <p className="text-xs text-zinc-500">
+                  Optional starting layout. Ticket tiers above stay independent — link them to seats,
+                  and configure VIP, accessible, and table seating, later under Event Seating.
+                </p>
                 <div>
                   <p className="text-xs font-black uppercase tracking-wider text-zinc-500 mb-2">Starting Preset</p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

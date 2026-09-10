@@ -241,8 +241,9 @@ export default function ScannerClient({ eventId, eventTitle, eventDetails }: Pro
         }
       />
 
-      {/* Main Scanner Container */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white overflow-hidden shadow-sm">
+      {/* Scanner workspace sits directly on the page background. The camera
+          surface and status/result cards keep their own boundaries. */}
+      <div className="space-y-4">
         {/* Result Overlay State Banner */}
         {result ? (
           <div className="p-6 text-center space-y-4">
@@ -337,7 +338,7 @@ export default function ScannerClient({ eventId, eventTitle, eventDetails }: Pro
         ) : (
           <div>
             {/* Camera Feed Area */}
-            <div className="relative aspect-square max-h-[360px] bg-black flex items-center justify-center overflow-hidden">
+            <div className="relative aspect-square max-h-[360px] bg-black flex items-center justify-center overflow-hidden rounded-2xl">
               <video
                 ref={videoRef}
                 playsInline
@@ -378,7 +379,7 @@ export default function ScannerClient({ eventId, eventTitle, eventDetails }: Pro
             </div>
 
             {/* Manual Entry Fallback Form */}
-            <div className="p-4 bg-zinc-50 border-t border-zinc-200">
+            <div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

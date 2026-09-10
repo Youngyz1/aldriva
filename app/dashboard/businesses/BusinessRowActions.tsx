@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useRef, useState } from "react";
+import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 
 type Business = {
   id: string;
@@ -30,6 +30,7 @@ export default function BusinessRowActions({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const deleteFormRef = useRef<HTMLFormElement>(null);
 
   // Payment is now an optional Featured upgrade, decoupled from publish
   // status — offer it whenever the owner picked a paid tier but hasn't
@@ -89,39 +90,40 @@ export default function BusinessRowActions({
           </button>
         )}
 
-        {(business.status === "active" || business.status === "pending_review") && (
-          <Link
-            href={`/businesses/${business.slug}`}
-            target="_blank"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-          >
-            {business.status === "active" ? "View Public" : "Preview"}
-          </Link>
-        )}
+        <RowActionsMenu
+          ariaLabel={`Actions for ${business.name}`}
+          items={[
+            ...((business.status === "active" || business.status === "pending_review")
+              ? [{
+                  key: "view",
+                  label: business.status === "active" ? "View Public" : "Preview",
+                  href: `/businesses/${business.slug}`,
+                  external: true,
+                }]
+              : []),
+            { key: "edit", label: "Edit", href: `/dashboard/businesses/${business.id}/edit` },
+            {
+              key: "delete",
+              label: "Delete",
+              destructive: true,
+              onSelect: () => deleteFormRef.current?.requestSubmit(),
+            },
+          ]}
+        />
 
-        <Link
-          href={`/dashboard/businesses/${business.id}/edit`}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-        >
-          Edit
-        </Link>
-
+        {/* Hidden delete form: preserves the existing server action + confirm. */}
         <form
+          ref={deleteFormRef}
           action={onDelete}
           onSubmit={(e) => {
             if (!confirm("Are you sure you want to delete this business listing?")) {
               e.preventDefault();
             }
           }}
-          className="inline-block"
+          className="hidden"
+          aria-hidden="true"
         >
           <input type="hidden" name="id" value={business.id} />
-          <button
-            type="submit"
-            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 transition"
-          >
-            Delete
-          </button>
         </form>
       </div>
 

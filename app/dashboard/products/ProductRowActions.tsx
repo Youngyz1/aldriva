@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
+import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 
 type Product = {
   id: string;
@@ -17,19 +19,10 @@ export default function ProductRowActions({
 }) {
   const canDelete = product.status === "archived";
   const canViewPublic = product.status === "active" || product.status === "out_of_stock";
+  const deleteFormRef = useRef<HTMLFormElement>(null);
 
   return (
     <div className="flex items-center justify-end gap-2">
-      {canViewPublic && (
-        <Link
-          href={`/products/${product.slug}`}
-          target="_blank"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-        >
-          View Public
-        </Link>
-      )}
-
       <Link
         href={`/dashboard/products/${product.id}/edit`}
         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
@@ -37,7 +30,26 @@ export default function ProductRowActions({
         Edit
       </Link>
 
+      <RowActionsMenu
+        ariaLabel={`Actions for product ${product.slug}`}
+        items={[
+          ...(canViewPublic
+            ? [{ key: "view", label: "View Public", href: `/products/${product.slug}`, external: true }]
+            : []),
+          {
+            key: "delete",
+            label: "Delete",
+            destructive: true,
+            disabled: !canDelete,
+            disabledReason: canDelete ? undefined : "Archive this product before deleting it.",
+            onSelect: () => deleteFormRef.current?.requestSubmit(),
+          },
+        ]}
+      />
+
+      {/* Hidden delete form: preserves the existing server action + confirm. */}
       <form
+        ref={deleteFormRef}
         action={onDelete}
         onSubmit={(e) => {
           if (!canDelete) {
@@ -48,17 +60,10 @@ export default function ProductRowActions({
             e.preventDefault();
           }
         }}
-        className="inline-block"
+        className="hidden"
+        aria-hidden="true"
       >
         <input type="hidden" name="id" value={product.id} />
-        <button
-          type="submit"
-          disabled={!canDelete}
-          title={canDelete ? undefined : "Archive this product before deleting it."}
-          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition"
-        >
-          Delete
-        </button>
       </form>
     </div>
   );
