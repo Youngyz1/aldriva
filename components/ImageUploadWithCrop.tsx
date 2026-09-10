@@ -12,6 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getCroppedImg } from "@/lib/getCroppedImg";
+import {
+  computeContainLayout,
+  getContainedImg,
+  FIT_MIN_ZOOM,
+} from "@/lib/imageFit";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";
 import { getImageDimensions } from "@/lib/image-dimensions";
@@ -54,6 +59,18 @@ export interface ImageUploadWithCropProps {
   upsert?: boolean;
   onUploaded?: (url: string) => void;
 
+  /**
+   * "crop" (default) keeps the legacy forced-crop editor: the crop rectangle
+   * is extracted and anything outside it is discarded.
+   *
+   * "fit" is an opt-in full-image editor: the entire source image is always
+   * preserved (contained in the requested `aspectRatio` frame, never
+   * cover-cropped). Zoom-out/reposition only add padding — cropping is
+   * impossible by construction. Use for event banners; avatars and other
+   * existing flows keep "crop" unless they explicitly opt in.
+   */
+  fitMode?: "crop" | "fit";
+
   /** Defer-upload mode: caller receives the cropped File (and an object-URL preview) and handles upload itself. */
   onCropped?: (file: File, previewUrl: string) => void;
 
@@ -69,6 +86,12 @@ function fileNameForCrop(original: File) {
   const dot = original.name.lastIndexOf(".");
   const base = dot > 0 ? original.name.slice(0, dot) : original.name;
   return `${base}-cropped.jpg`;
+}
+
+function fileNameForFit(original: File) {
+  const dot = original.name.lastIndexOf(".");
+  const base = dot > 0 ? original.name.slice(0, dot) : original.name;
+  return `${base}-full.jpg`;
 }
 
 function ImageUploadWithCrop(
@@ -91,6 +114,7 @@ function ImageUploadWithCrop(
     onCropped,
     onError,
     onRemove,
+    fitMode = "crop",
   }: ImageUploadWithCropProps,
   ref: React.ForwardedRef<ImageUploadWithCropHandle>
 ) {
@@ -110,6 +134,12 @@ function ImageUploadWithCrop(
   const [uploading, setUploading] = useState(false);
   const [checkingDimensions, setCheckingDimensions] = useState(false);
   const [error, setError] = useState("");
+  // Fit-mode ("preserve the whole image") editor state. Untouched in crop mode.
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  const [fitZoom, setFitZoom] = useState(1);
+  const [fitPan, setFitPan] = useState({ x: 0, y: 0 });
+  const fitStageRef = useRef<HTMLDivElement>(null);
+  const fitDragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
 
   const selectedImageUrlRef = useRef<string | null>(null);
 
@@ -161,6 +191,19 @@ function ImageUploadWithCrop(
     setZoom(1);
     setCroppedAreaPixels(null);
     setEffectiveAspect(aspectRatio ?? 1);
+    // Fit mode needs the natural size to contain the whole image; fall back
+    // to the crop editor if dimensions can't be read.
+    setNaturalSize(null);
+    setFitZoom(1);
+    setFitPan({ x: 0, y: 0 });
+    if (fitMode === "fit") {
+      try {
+        const { width, height } = await getImageDimensions(file);
+        if (width > 0 && height > 0) setNaturalSize({ width, height });
+      } catch {
+        // leave naturalSize null -> crop-editor fallback below
+      }
+    }
     setCropModalOpen(true);
   }
 
@@ -181,17 +224,79 @@ function ImageUploadWithCrop(
     setSelectedImageUrl(null);
     setSelectedFile(null);
     setCroppedAreaPixels(null);
+    setNaturalSize(null);
+    setFitZoom(1);
+    setFitPan({ x: 0, y: 0 });
+  }
+
+  const useFitEditor = fitMode === "fit" && naturalSize !== null;
+  const fitFrameAspect =
+    aspectRatio ?? (naturalSize ? naturalSize.width / naturalSize.height : 1);
+
+  function resetFitView() {
+    setFitZoom(1);
+    setFitPan({ x: 0, y: 0 });
+  }
+
+  function handleFitPointerDown(e: React.PointerEvent) {
+    if (!fitStageRef.current) return;
+    fitDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      panX: fitPan.x,
+      panY: fitPan.y,
+    };
+    fitStageRef.current.setPointerCapture(e.pointerId);
+  }
+
+  function handleFitPointerMove(e: React.PointerEvent) {
+    const drag = fitDragRef.current;
+    const stage = fitStageRef.current;
+    if (!drag || !stage || !naturalSize) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    // Map stage pixels to output pixels via the layout frame ratio.
+    const layout = computeContainLayout({
+      srcWidth: naturalSize.width,
+      srcHeight: naturalSize.height,
+      frameAspect: fitFrameAspect,
+      zoom: fitZoom,
+    });
+    const scale = layout.frameWidth / rect.width;
+    setFitPan({
+      x: drag.panX + (e.clientX - drag.startX) * scale,
+      y: drag.panY + (e.clientY - drag.startY) * scale,
+    });
+  }
+
+  function handleFitPointerUp() {
+    fitDragRef.current = null;
   }
 
   async function confirmCrop() {
-    if (!selectedImageUrl || !selectedFile || !croppedAreaPixels) return;
+    if (!selectedImageUrl || !selectedFile) return;
+    // Fit mode renders the whole image (contain) instead of extracting a
+    // crop rectangle, so no crop area is required.
+    const isFit = useFitEditor;
+    if (!isFit && !croppedAreaPixels) return;
 
     setUploading(true);
     setError("");
 
     try {
-      const blob = await getCroppedImg(selectedImageUrl, croppedAreaPixels, "image/jpeg", 0.92);
-      const croppedFile = new File([blob], fileNameForCrop(selectedFile), { type: "image/jpeg" });
+      const blob = isFit
+        ? await getContainedImg(selectedImageUrl, {
+            frameAspect: fitFrameAspect,
+            zoom: fitZoom,
+            panX: fitPan.x,
+            panY: fitPan.y,
+          })
+        : await getCroppedImg(selectedImageUrl, croppedAreaPixels as Area, "image/jpeg", 0.92);
+      const croppedFile = new File(
+        [blob],
+        isFit ? fileNameForFit(selectedFile) : fileNameForCrop(selectedFile),
+        { type: "image/jpeg" }
+      );
       const croppedPreviewUrl = URL.createObjectURL(blob);
 
       if (onCropped) {
@@ -200,6 +305,9 @@ function ImageUploadWithCrop(
         setSelectedImageUrl(null);
         setSelectedFile(null);
         setCroppedAreaPixels(null);
+        setNaturalSize(null);
+        setFitZoom(1);
+        setFitPan({ x: 0, y: 0 });
         setUploading(false);
         return;
       }
@@ -217,6 +325,9 @@ function ImageUploadWithCrop(
       setSelectedImageUrl(null);
       setSelectedFile(null);
       setCroppedAreaPixels(null);
+      setNaturalSize(null);
+      setFitZoom(1);
+      setFitPan({ x: 0, y: 0 });
     } catch (err) {
       const message =
         err instanceof UploadImageError
@@ -231,6 +342,20 @@ function ImageUploadWithCrop(
   }
 
   const previewSrc = value || null;
+
+  // Fit-stage layout (percentages are scale-invariant, so this doubles as
+  // the drag/pan model and the save-time layout).
+  const fitLayout =
+    useFitEditor && naturalSize
+      ? computeContainLayout({
+          srcWidth: naturalSize.width,
+          srcHeight: naturalSize.height,
+          frameAspect: fitFrameAspect,
+          zoom: fitZoom,
+          panX: fitPan.x,
+          panY: fitPan.y,
+        })
+      : null;
 
   return (
     <div>
@@ -254,7 +379,14 @@ function ImageUploadWithCrop(
           >
             {previewSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewSrc} alt="" className="h-full w-full object-cover" />
+              <img
+                src={previewSrc}
+                alt=""
+                className={cn(
+                  "h-full w-full",
+                  fitMode === "fit" ? "object-contain" : "object-cover"
+                )}
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-zinc-300">
                 <Upload className="h-6 w-6" />
@@ -302,34 +434,91 @@ function ImageUploadWithCrop(
             <DialogTitle>Position your photo</DialogTitle>
           </DialogHeader>
 
-          <div className="relative h-80 w-full overflow-hidden rounded-xl bg-zinc-900">
-            {selectedImageUrl && (
-              <Cropper
-                image={selectedImageUrl}
-                crop={crop}
-                zoom={zoom}
-                aspect={effectiveAspect}
-                cropShape={cropShape}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-                onMediaLoaded={handleMediaLoaded}
+          {/* Fit mode shows the WHOLE image contained in the banner frame
+              (drag to reposition within the padding); crop mode keeps the
+              legacy crop box. */}
+          {fitLayout && selectedImageUrl ? (
+            <div
+              ref={fitStageRef}
+              className="relative w-full cursor-grab overflow-hidden rounded-xl bg-zinc-100 active:cursor-grabbing"
+              style={{ aspectRatio: `${fitFrameAspect}`, touchAction: "none" }}
+              onPointerDown={handleFitPointerDown}
+              onPointerMove={handleFitPointerMove}
+              onPointerUp={handleFitPointerUp}
+              onPointerCancel={handleFitPointerUp}
+              role="application"
+              aria-label="Banner preview. Drag to reposition the full image."
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedImageUrl}
+                alt=""
+                draggable={false}
+                className="absolute max-w-none select-none"
+                style={{
+                  width: `${(fitLayout.imageWidth / fitLayout.frameWidth) * 100}%`,
+                  height: `${(fitLayout.imageHeight / fitLayout.frameHeight) * 100}%`,
+                  left: `${(fitLayout.offsetX / fitLayout.frameWidth) * 100}%`,
+                  top: `${(fitLayout.offsetY / fitLayout.frameHeight) * 100}%`,
+                }}
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="relative h-80 w-full overflow-hidden rounded-xl bg-zinc-900">
+              {selectedImageUrl && (
+                <Cropper
+                  image={selectedImageUrl}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={effectiveAspect}
+                  cropShape={cropShape}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                  onMediaLoaded={handleMediaLoaded}
+                />
+              )}
+            </div>
+          )}
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-black uppercase tracking-wide text-zinc-500">Zoom</span>
-            <input
-              type="range"
-              min={1}
-              max={4}
-              step={0.01}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-full accent-orange-600"
-            />
-          </div>
+          {fitLayout ? (
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-xs font-black uppercase tracking-wide text-zinc-500">Zoom</span>
+              <input
+                type="range"
+                min={FIT_MIN_ZOOM}
+                max={1}
+                step={0.01}
+                value={fitZoom}
+                onChange={(e) => {
+                  setFitZoom(Number(e.target.value));
+                }}
+                className="w-full accent-orange-600"
+                aria-label="Zoom out (the full image always stays visible)"
+              />
+              <button
+                type="button"
+                onClick={resetFitView}
+                disabled={uploading}
+                className="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-black text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Reset
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-black uppercase tracking-wide text-zinc-500">Zoom</span>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-orange-600"
+              />
+            </div>
+          )}
 
           {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
 
@@ -345,7 +534,7 @@ function ImageUploadWithCrop(
             <button
               type="button"
               onClick={confirmCrop}
-              disabled={uploading || !croppedAreaPixels}
+              disabled={uploading || (!useFitEditor && !croppedAreaPixels)}
               className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-orange-700 disabled:opacity-50"
             >
               {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
