@@ -43,7 +43,7 @@ export default function VenueMap({ lat, lng, title, venue, city }: Props) {
           <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M20 0C8.954 0 0 8.954 0 20c0 15 20 28 20 28S40 35 40 20C40 8.954 31.046 0 20 0z" fill="#f97316"/>
             <circle cx="20" cy="20" r="8" fill="white"/>
-            <text x="20" y="24" text-anchor="middle" font-size="10" fill="#f97316">🎭</text>
+            <circle cx="20" cy="20" r="4" fill="#f97316"/>
           </svg>
         </div>`,
         iconAnchor: [20, 48],

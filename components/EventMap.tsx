@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MapPin } from "lucide-react";
 
 type EventPin = {
   id: string;
@@ -64,7 +65,7 @@ export default function EventMap({ events, userLat, userLng, height = "420px" }:
         });
         L.marker([userLat, userLng], { icon: userIcon })
           .addTo(map)
-          .bindPopup("📍 You are here");
+          .bindPopup("You are here");
       }
 
       // Event markers
@@ -81,7 +82,7 @@ export default function EventMap({ events, userLat, userLng, height = "420px" }:
             transform:rotate(-45deg);
             box-shadow:0 4px 12px rgba(249,115,22,0.5);
             cursor:pointer;
-          "><div style="transform:rotate(45deg);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;">🎭</div></div>`,
+          "><div style="transform:rotate(45deg);width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><div style="width:10px;height:10px;background:white;border-radius:50%;"></div></div></div>`,
           iconAnchor: [18, 36],
           iconSize: [36, 36],
         });
@@ -181,7 +182,7 @@ export default function EventMap({ events, userLat, userLng, height = "420px" }:
       {mapReady && mappableEvents.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-4 text-center shadow-lg">
-            <p className="text-2xl mb-2">🗺️</p>
+            <div className="w-10 h-10 mx-auto mb-2 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-600"><MapPin className="h-5 w-5" /></div>
             <p className="font-bold text-zinc-700">No events pinned on the map yet</p>
             <p className="text-sm text-zinc-500 mt-1">Events appear here once organizers add their venue location</p>
           </div>

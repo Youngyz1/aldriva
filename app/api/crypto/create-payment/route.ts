@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { getSiteUrl } from "@/lib/site-url";
+import { resolveTicketCheckoutPricing } from "@/lib/ticket-pricing";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
@@ -23,6 +25,11 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServer();
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData.user?.id ?? null;
+
+    // Money-moving endpoint: same paymentIntent tier as checkout/donate.
+    // Signed-in callers key on user id; guests fall back to IP.
+    const limited = await enforceRateLimit("paymentIntent", req, userId);
+    if (limited) return limited;
     const {
       amount,
       currency = "usd",
@@ -41,7 +48,9 @@ export async function POST(req: NextRequest) {
       quantity = 1,
     } = body;
 
-    const numAmount = Number(amount);
+    // Donations are donor-chosen amounts (validated below). Ticket totals
+    // are ALWAYS re-derived from the database — see the ticket branch.
+    let numAmount = Number(amount);
     if (!type || !numAmount || numAmount <= 0) {
       return NextResponse.json(
         { error: "Invalid payment details: type and amount are required." },
@@ -89,8 +98,32 @@ export async function POST(req: NextRequest) {
       if (!eventId) {
         return NextResponse.json({ error: "eventId is required for ticket purchases." }, { status: 400 });
       }
-      
-      // Look up event slug for cancel_url
+
+      // SECURITY: the client MUST NOT set the ticket price. Re-derive the
+      // authoritative total from the database (tier → seat → section pricing,
+      // plus event/ticket/seat relationship and inventory checks). A
+      // tampered `amount` can never reduce what the buyer is charged.
+      const pricing = await resolveTicketCheckoutPricing(supabaseAdmin, {
+        eventId,
+        ticketId,
+        seatId,
+        quantity,
+      });
+
+      if (!pricing.ok) {
+        return NextResponse.json({ error: pricing.error }, { status: pricing.status });
+      }
+
+      if (pricing.totalCents <= 0) {
+        return NextResponse.json(
+          { error: "This ticket is free — please use the free checkout." },
+          { status: 400 }
+        );
+      }
+
+      numAmount = pricing.totalCents / 100;
+
+      // Look up event slug for cancel_url (already validated by pricing).
       const { data: event, error: eventErr } = await supabaseAdmin
         .from("events")
         .select("slug, title")
@@ -191,14 +224,18 @@ export async function POST(req: NextRequest) {
       }
     } else if (type === "ticket") {
       const qrCode = generateQRCode();
-      const safeQuantity = Math.max(1, Number(quantity) || 1);
+      // Mirror the authoritative pricing validation (1–100); the price
+      // itself was already re-derived from the database above.
+      const safeQuantity = Math.min(100, Math.max(1, Math.floor(Number(quantity)) || 1));
 
-      // Reserve seat if applicable
+      // Reserve seat if applicable (seat validity already enforced by the
+      // authoritative pricing check above; re-scope writes to the event).
       if (seatId) {
         const { data: seatData, error: seatCheckError } = await supabaseAdmin
           .from("seats")
           .select("status")
           .eq("id", seatId)
+          .eq("event_id", eventId)
           .single();
 
         if (seatCheckError || seatData?.status !== "available") {
@@ -212,6 +249,7 @@ export async function POST(req: NextRequest) {
             reserved_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour for crypto confirmations
           })
           .eq("id", seatId)
+          .eq("event_id", eventId)
           .eq("status", "available");
 
         if (reserveError) {
@@ -244,7 +282,8 @@ export async function POST(req: NextRequest) {
           await supabaseAdmin
             .from("seats")
             .update({ status: "available", reserved_until: null })
-            .eq("id", seatId);
+            .eq("id", seatId)
+            .eq("event_id", eventId);
         }
         return NextResponse.json({ error: "Database error recording ticket order." }, { status: 500 });
       }
@@ -254,7 +293,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("create-payment route error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
+      { error: "Could not start the payment. Please try again." },
       { status: 500 }
     );
   }

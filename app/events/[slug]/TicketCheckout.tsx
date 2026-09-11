@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -314,14 +315,15 @@ export default function TicketCheckout({
   // ─── Free ticket handler ─────────────────────────────────────────────────────
 
   async function handleFreeTicket() {
+    // Idempotency key: retries of the same click must not mint duplicate tickets.
+    const attemptId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ticketName: selectedTicket?.name,
-        ticketPrice: 0,
-        eventTitle: event.title,
-        eventSlug: event.slug,
         eventId: event.id,
         ticketId: selectedTicket?.id,
         seatId: selectedSeats[0]?.id || null,
@@ -329,6 +331,7 @@ export default function TicketCheckout({
         quantity: selectedSeats.length || quantity,
         buyerEmail: buyerEmail || null,
         buyerName: buyerName || null,
+        checkoutAttemptId: attemptId,
       }),
     });
     const data = await res.json();
@@ -366,7 +369,7 @@ export default function TicketCheckout({
             </svg>
           </button>
 
-          <div className="text-5xl mb-4">🎉</div>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-8 w-8" /></div>
           <h2 className="text-2xl font-black text-zinc-950">Ticket Booked!</h2>
           <p className="text-zinc-500 mt-2 text-sm">
             Check your email for your ticket confirmation.
@@ -550,7 +553,7 @@ export default function TicketCheckout({
                         </div>
                         {goingFast && (
                           <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-600">
-                            🔥 Going fast
+                            Going fast
                           </span>
                         )}
                       </div>

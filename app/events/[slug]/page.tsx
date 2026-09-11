@@ -1,3 +1,4 @@
+import { Car, Bus, Bike, Footprints } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { cache } from "react";
@@ -868,11 +869,11 @@ export default async function EventPage({
                     </p>
                     <div className="flex flex-wrap gap-4">
                       {[
-                        { label: "Driving", icon: "🚗" },
-                        { label: "Public transport", icon: "🚌" },
-                        { label: "Biking", icon: "🚲" },
-                        { label: "Walking", icon: "🚶" },
-                      ].map(({ label, icon }) => (
+                        { label: "Driving", icon: Car },
+                        { label: "Public transport", icon: Bus },
+                        { label: "Biking", icon: Bike },
+                        { label: "Walking", icon: Footprints },
+                      ].map(({ label, icon: IconComponent }) => (
                         <a
                           key={label}
                           href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
@@ -888,7 +889,7 @@ export default async function EventPage({
                           rel="noreferrer"
                           className="flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-orange-300 hover:text-orange-600 transition"
                         >
-                          <span>{icon}</span>
+                          <IconComponent className="h-4 w-4" />
                           {label}
                         </a>
                       ))}

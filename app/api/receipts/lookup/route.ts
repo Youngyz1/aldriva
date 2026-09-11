@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
 
 const supabaseAdmin = createClient(
@@ -18,6 +19,10 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Stripe session retrieve per call; IDs are guessable (guestLookup tier).
+  const limited = await enforceRateLimit("guestLookup", request);
+  if (limited) return limited;
 
   let piId = paymentIntentId || "";
 

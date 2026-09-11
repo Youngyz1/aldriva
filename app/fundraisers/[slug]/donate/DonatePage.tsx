@@ -623,6 +623,10 @@ export default function DonatePage({
 
       <p className="text-center text-xs text-zinc-400">
         By donating, you agree to our{" "}
+        <a href="/terms" className="underline hover:text-zinc-600">
+          Terms of Service
+        </a>{" "}
+        and{" "}
         <a href="/privacy" className="underline hover:text-zinc-600">
           Privacy Policy
         </a>
@@ -659,6 +663,10 @@ export default function DonatePage({
       legalText={
         <>
           Donations processed securely via Stripe or NOWPayments.{" "}
+          <a href="/terms" className="underline hover:text-zinc-600">
+            Terms
+          </a>{" "}
+          ·{" "}
           <a href="/privacy" className="underline hover:text-zinc-600">
             Privacy Policy
           </a>

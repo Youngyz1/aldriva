@@ -138,7 +138,7 @@ export function InvitationCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            ✨ Elegant
+            Elegant
           </button>
           <button
             onClick={() => setTemplate("modern")}
@@ -148,7 +148,7 @@ export function InvitationCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            ⚡ Modern
+            Modern
           </button>
           <button
             onClick={() => setTemplate("minimal")}
@@ -158,7 +158,7 @@ export function InvitationCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            📄 Minimal
+            Minimal
           </button>
         </div>
       )}

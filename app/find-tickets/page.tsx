@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Search, Mail, Key, ArrowRight, Download, MailCheck, AlertTriangle } from "lucide-react";
+import { Search, Mail, Key, ArrowRight, Download, MailCheck, AlertTriangle, Ticket } from "lucide-react";
 
 type Order = {
   id: string;
@@ -343,7 +343,7 @@ export default function FindTicketsPage() {
         {/* Results section */}
         {searched && orders.length === 0 && (
           <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-zinc-300 shadow-sm">
-            <p className="text-5xl mb-4">🎟️</p>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400"><Ticket className="h-8 w-8" /></div>
             <h2 className="text-xl font-black">No tickets found</h2>
             <p className="text-zinc-500 mt-2 text-sm">
               We couldn&apos;t find any orders matching <strong>{activeTab === "email" ? email : orderId}</strong>.<br />

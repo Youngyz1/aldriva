@@ -17,8 +17,10 @@ export interface CampaignShowcaseItem {
   donorCount?: number;
 }
 
+import { type LucideIcon } from "lucide-react";
+
 export interface CampaignShowcaseEmptyState {
-  icon?: string;
+  icon?: React.ReactNode | LucideIcon | React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
   action?: { label: string; href: string };

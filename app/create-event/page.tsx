@@ -13,6 +13,12 @@ import {
   inputClass,
 } from "@/components/CreatorWorkspace";
 import { supabase } from "@/lib/supabase";
+import {
+  validateVideoMagicBytes,
+  videoMimeToExtension,
+  VIDEO_MAX_BYTES,
+  VIDEO_MAGIC_HEAD_BYTES,
+} from "@/lib/video-validation";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
@@ -236,9 +242,26 @@ export default function CreateEventPage() {
     let video_url: string | null = null;
     if (videoFile) {
       setUploadProgress("Uploading video...");
-      const ext = videoFile.name.split(".").pop();
+      if (videoFile.size > VIDEO_MAX_BYTES) {
+        setError("Video exceeds the 50MB size limit.");
+        setLoading(false);
+        return;
+      }
+      // Magic-byte check on actual file content: accept="video/*" and the
+      // filename extension are both client-supplied and spoofable on their own.
+      const head = new Uint8Array(await videoFile.slice(0, VIDEO_MAGIC_HEAD_BYTES).arrayBuffer());
+      const validation = validateVideoMagicBytes(head, videoFile.size);
+      if (!validation.valid) {
+        setError(validation.error ?? "Unsupported video format. Use MP4, WebM, Ogg, or QuickTime.");
+        setLoading(false);
+        return;
+      }
+      // Extension and stored content type come from detected bytes.
+      const ext = videoMimeToExtension(validation.mimeType ?? "video/mp4");
       const fileName = `${slug}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("event-videos").upload(fileName, videoFile);
+      const { error: uploadError } = await supabase.storage
+        .from("event-videos")
+        .upload(fileName, videoFile, { contentType: validation.mimeType ?? videoFile.type });
 
       if (uploadError) {
         setError("Video upload failed: " + uploadError.message);

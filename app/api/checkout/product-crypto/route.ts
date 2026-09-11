@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServer();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Money-moving endpoint: same paymentIntent tier as checkout/donate.
+    // Signed-in buyers key on user id; guests fall back to IP.
+    const limited = await enforceRateLimit("paymentIntent", req, user?.id ?? null);
+    if (limited) return limited;
 
     const { productId, quantity: rawQuantity, buyerEmail, buyerName } = await req.json();
     if (!productId) {
@@ -52,8 +58,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 
-    if (product.status === "archived") {
-      return NextResponse.json({ error: "This product is no longer available." }, { status: 400 });
+    // Only approved, purchasable products can be bought (same gate as the
+    // Stripe checkout route, the public listing, and RLS SELECT).
+    if (product.status !== "active" && product.status !== "out_of_stock") {
+      return NextResponse.json({ error: "This product is not available for purchase." }, { status: 400 });
     }
 
     if (product.stock_quantity !== null && product.stock_quantity < quantity) {
@@ -165,7 +173,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("product-crypto-checkout route error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
+      { error: "Could not complete checkout. Please try again." },
       { status: 500 }
     );
   }

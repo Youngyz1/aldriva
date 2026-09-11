@@ -116,8 +116,10 @@ export async function uploadGuestPortrait(
 
     if (error) {
       console.warn("[uploadGuestPortrait] Storage upload warning:", error.message);
-      const publicUrl = "/api/storage/guest-images/" + filename;
-      return { success: true, imageUrl: publicUrl };
+      // Do NOT return a fallback URL: there is no app/api/storage route, so
+      // any URL under /api/storage/guest-images/ would 404, and reporting
+      // success for a failed upload corrupts the caller's record.
+      return { success: false, error: error.message || "Failed to upload image." };
     }
 
     const { data: publicUrlData } = admin.storage

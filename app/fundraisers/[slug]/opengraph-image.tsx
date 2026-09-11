@@ -10,9 +10,16 @@ import { money } from "@/lib/format";
 import { getSiteUrl } from "@/lib/site-url";
 import { truncateWords } from "@/lib/text";
 
-// Node.js runtime (not edge) so we can read the local font/logo files below.
-export const runtime = "nodejs";
-export const revalidate = 300;
+// Node.js is the default and required runtime under cacheComponents, so no
+// explicit `runtime` export (rejected by the validator). Kept implicit:
+// this route reads local font/logo files via node:fs, which needs Node.
+// NOTE: `export const revalidate = 300` was also removed — the revalidate
+// segment config is rejected when cacheComponents is enabled (since v16.0.0,
+// pre-existing breakage from the cacheComponents Phase 0 commit, not from the
+// 16.3 upgrade). Under cacheComponents data is dynamic by default, so each
+// scrape renders fresh card data instead of serving a 5-minute-stale image.
+// If scrape-time caching is wanted later, wrap the data fetch in `use cache`
+// + cacheLife (cannot be applied to the ImageResponse itself).
 
 export const alt = "Aldriva fundraiser campaign card";
 export const size = { width: 1200, height: 630 };

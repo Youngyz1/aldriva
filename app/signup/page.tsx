@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { passwordRules, validatePassword } from "@/lib/password-policy";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,11 +23,9 @@ export default function SignupPage() {
   });
 
   const password = form.password;
-  const isMinLength = password.length >= 8;
-  const hasCapitalLetter = /[A-Z]/.test(password);
-  const hasLetter = /[a-zA-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
+  // Strength-meter flags — same single policy as the submit gate below.
+  const { isMinLength, hasCapitalLetter, hasLetter, hasNumber, hasSpecialChar } =
+    passwordRules(password);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,14 +59,11 @@ export default function SignupPage() {
     setError("");
     setSuccess(false);
 
-    const isMinLength = form.password.length >= 8;
-    const hasCapitalLetter = /[A-Z]/.test(form.password);
-    const hasLetter = /[a-zA-Z]/.test(form.password);
-    const hasNumber = /[0-9]/.test(form.password);
-    const hasSpecialChar = /[^a-zA-Z0-9]/.test(form.password);
-
-    if (!isMinLength || !hasCapitalLetter || !hasLetter || !hasNumber || !hasSpecialChar) {
-      setError("Password does not meet the security requirements.");
+    // Shared policy with reset-password (lib/password-policy.ts) — both
+    // flows must enforce identical requirements.
+    const policy = validatePassword(form.password);
+    if (!policy.valid) {
+      setError(policy.error ?? "Password does not meet the security requirements.");
       return;
     }
 
@@ -153,58 +149,15 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="w-full min-h-screen flex">
+    <div className="w-full min-h-screen bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
 
-      {/* LEFT — Hero */}
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-slate-900 via-orange-900 to-orange-600 items-center justify-center p-12 relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-orange-300 blur-3xl" />
-        </div>
-        <div className="text-white max-w-lg relative z-10">
+      {/* Centered glass card */}
+      <div className="w-full max-w-md rounded-3xl bg-gradient-to-b from-white to-zinc-50/60 border border-zinc-200/70 shadow-2xl p-8">
+
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-12">
-            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-10 w-10 object-contain rounded-xl" />
-            <span className="text-2xl font-black tracking-tight">
-              Aldriva
-            </span>
-          </div>
-
-          <h1 className="text-5xl font-bold mb-6 leading-tight">
-            Create events, raise funds, find sponsors.
-          </h1>
-          <p className="text-lg text-orange-100 mb-10">
-            Join thousands of organizers already using Aldriva to run
-            successful events and campaigns.
-          </p>
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-3xl font-black text-white">10K+</p>
-              <p className="text-sm text-orange-200">Events hosted</p>
-            </div>
-            <div>
-              <p className="text-3xl font-black text-white">$2M+</p>
-              <p className="text-sm text-orange-200">Funds raised</p>
-            </div>
-            <div>
-              <p className="text-3xl font-black text-white">98%</p>
-              <p className="text-sm text-orange-200">Satisfaction</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT — Form */}
-      <div className="flex-1 bg-zinc-50 flex items-center justify-center p-8 lg:p-12">
-        <div className="w-full max-w-md">
-
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-8">
-            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-8 w-8 object-contain rounded-lg" />
-            <span className="text-xl font-black">Aldriva</span>
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <img src="/icons/icon-source.png" alt="Aldriva Logo" className="h-9 w-9 object-contain rounded-xl" />
+            <span className="text-2xl font-black">Aldriva</span>
           </div>
 
           <h2 className="text-3xl font-black text-zinc-900 mb-2">
@@ -259,7 +212,7 @@ export default function SignupPage() {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={googleLoading}
-                className="w-full flex items-center justify-center gap-3 bg-white border border-zinc-300 rounded-2xl px-5 py-4 font-bold text-zinc-800 hover:bg-zinc-50 transition shadow-sm disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-3 bg-white border border-zinc-300 rounded-full px-5 py-4 font-bold text-zinc-800 hover:bg-zinc-50 transition shadow-sm disabled:opacity-50"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -296,7 +249,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowEmailForm(true)}
-                  className="w-full border border-zinc-300 bg-white rounded-2xl px-5 py-4 font-bold text-zinc-600 hover:bg-zinc-50 transition shadow-sm"
+                  className="w-full border border-zinc-300 bg-white rounded-full px-5 py-4 font-bold text-zinc-600 hover:bg-zinc-50 transition shadow-sm"
                 >
                   Continue with Email
                 </button>
@@ -450,7 +403,7 @@ export default function SignupPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-4 rounded-2xl font-bold text-lg transition"
+                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-4 rounded-full font-bold text-lg transition shadow-lg shadow-orange-500/25"
                   >
                     {loading ? "Creating account..." : "Create Account"}
                   </button>
@@ -467,13 +420,16 @@ export default function SignupPage() {
 
               <p className="text-xs text-zinc-400 text-center mt-6">
                 By creating an account you agree to our{" "}
+                <Link href="/terms" className="underline hover:text-zinc-600">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
                 <Link href="/privacy" className="underline hover:text-zinc-600">
                   Privacy Policy
                 </Link>
               </p>
             </>
           )}
-        </div>
       </div>
     </div>
   );

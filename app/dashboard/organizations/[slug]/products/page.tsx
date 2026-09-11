@@ -1,4 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package, Plus } from "lucide-react";
 
@@ -8,6 +10,8 @@ export default async function OrgProductsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   const supabase = createSupabaseAdmin();
 
   const { data: org } = await supabase
@@ -15,6 +19,10 @@ export default async function OrgProductsPage({
     .select("id, user_id")
     .eq("slug", slug)
     .maybeSingle();
+
+  // Defense-in-depth (see dashboard/org/[id]/products): never let a
+  // user-controlled slug select another tenant's products.
+  if (!org || org.user_id !== user.id) redirect("/dashboard");
 
   const { data: products } = org
     ? await supabase

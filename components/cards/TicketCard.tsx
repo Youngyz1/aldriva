@@ -134,7 +134,7 @@ export function TicketCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            ⚡ Modern
+            Modern
           </button>
           <button
             onClick={() => setTemplate("concert")}
@@ -144,7 +144,7 @@ export function TicketCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            🎸 Concert Stub
+            Concert Stub
           </button>
           <button
             onClick={() => setTemplate("premium")}
@@ -154,7 +154,7 @@ export function TicketCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            👑 VIP Gold
+            VIP Gold
           </button>
           <button
             onClick={() => setTemplate("minimal")}
@@ -164,7 +164,7 @@ export function TicketCard({
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            📄 Minimal
+            Minimal
           </button>
         </div>
       )}

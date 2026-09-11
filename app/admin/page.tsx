@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from "@/lib/auth";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -49,6 +50,8 @@ function StatCard({
 }
 
 export default async function AdminOverviewPage() {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   const [
     { count: userCount },
     { count: organizerCount },

@@ -18,9 +18,9 @@ const supportLinks = [
   ["Find Tickets", "/find-tickets"],
 ] as const;
 
-// NOTE: there is no /terms route in the app — legal links point at the
-// existing /privacy and /cookies pages only. Do not invent routes here.
+// Legal links — only link to routes that exist. Do not invent routes here.
 const legalLinks = [
+  ["Terms", "/terms"],
   ["Privacy", "/privacy"],
   ["Cookies", "/cookies"],
 ] as const;

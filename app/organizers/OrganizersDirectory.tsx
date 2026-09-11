@@ -1,3 +1,4 @@
+import { Building2 } from "lucide-react";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { CallToAction } from "@/components/ui/call-to-action";
@@ -272,7 +273,7 @@ export default async function OrganizersDirectory({
         </>
       ) : (
         <PublicEmptyState
-          icon="👋"
+          icon={Building2}
           title="No organizations found"
           description={query ? "Try a different search term." : "Be the first to join the directory."}
           action={{ label: "Create an Organization", href: "/create-organizer" }}

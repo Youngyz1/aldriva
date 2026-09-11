@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { getSiteUrl } from "@/lib/site-url";
 
 export async function POST(req: NextRequest) {
@@ -11,6 +12,10 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Money-moving endpoint: same paymentIntent tier as checkout/donate.
+    const limited = await enforceRateLimit("paymentIntent", req, user.id);
+    if (limited) return limited;
 
     const { businessId } = await req.json();
     if (!businessId) {
@@ -84,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[checkout/business]", err);
+    return NextResponse.json({ error: "Could not complete checkout. Please try again." }, { status: 500 });
   }
 }

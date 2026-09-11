@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import EventCard from "@/components/EventCard";
 import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import { slugifyCity } from "@/lib/city-slug";
 
 type TMEvent = {
@@ -218,7 +219,7 @@ export default function NearbyEvents() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-8 py-12 text-center">
-            <p className="text-3xl mb-3">🎭</p>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-200/60 text-zinc-500"><CalendarDays className="h-6 w-6" /></div>
             <p className="font-bold text-lg">No upcoming events found in {city?.split(",")[0]}</p>
             <p className="text-zinc-500 mt-1 text-sm">Try searching a nearby city</p>
             <Link

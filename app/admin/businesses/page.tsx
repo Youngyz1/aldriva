@@ -1,7 +1,10 @@
 import { Suspense } from "react";
+import { requireAdmin } from "@/lib/auth";
 import BusinessesClient from "./BusinessesClient";
 
-export default function AdminBusinessesPage() {
+export default async function AdminBusinessesPage() {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   return (
     <Suspense
       fallback={

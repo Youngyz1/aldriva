@@ -34,7 +34,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { getCachedTicketmasterEvent } from "@/lib/ticketmaster-event";
 
 // ---------------------------------------------------------------------------
 // Article access-control helper
@@ -223,6 +222,25 @@ async function checkProductAccess(
   if (userId === product.owner_id) return true;
 
   return isAuthorizedAdmin(userId);
+}
+
+// ---------------------------------------------------------------------------
+// Ticketmaster existence-check helper — lightweight fetch without next/cache.
+// ---------------------------------------------------------------------------
+async function checkTicketmasterAccess(id: string): Promise<boolean> {
+  const apiKey = process.env.TICKETMASTER_API_KEY;
+  if (!apiKey) return false;
+  try {
+    const params = new URLSearchParams({ apikey: apiKey });
+    const response = await fetch(
+      `https://app.ticketmaster.com/discovery/v2/events/${encodeURIComponent(id)}.json?${params.toString()}`,
+      { cache: "no-store" }
+    );
+    if (response.status === 404) return false;
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -454,18 +472,11 @@ export async function proxy(req: NextRequest) {
   // -------------------------------------------------------------------------
   const ticketmasterIdMatch = pathname.match(/^\/external-events\/ticketmaster\/([^/]+)$/);
   if (ticketmasterIdMatch) {
-    const id = decodeURIComponent(ticketmasterIdMatch[1]);
-    try {
-      const result = await getCachedTicketmasterEvent(id);
-      if (result.status === "not_found") {
-        const notFoundUrl = req.nextUrl.clone();
-        notFoundUrl.pathname = "/_not-found";
-        return NextResponse.rewrite(notFoundUrl, { status: 404 });
-      }
-    } catch {
-      // Transient Ticketmaster failure — let the page handle it (renders its
-      // own "couldn't load, try again" state) rather than 404ing a possibly
-      // real event.
+    const allowed = await checkTicketmasterAccess(ticketmasterIdMatch[1]);
+    if (!allowed) {
+      const notFoundUrl = req.nextUrl.clone();
+      notFoundUrl.pathname = "/_not-found";
+      return NextResponse.rewrite(notFoundUrl, { status: 404 });
     }
   }
 
@@ -475,6 +486,11 @@ export async function proxy(req: NextRequest) {
   // header is ever absent, preserving defense-in-depth.
   if (isVerifiedAdmin) {
     const requestHeaders = new Headers(req.headers);
+    // Actively drop any client-supplied header first: only the value set
+    // fresh below (after the role check above) may survive. Without this, a
+    // future refactor that sets the header conditionally could let a spoofed
+    // incoming value pass through untouched.
+    requestHeaders.delete("x-admin-verified");
     requestHeaders.set("x-admin-verified", "1");
     const verifiedRes = NextResponse.next({ request: { headers: requestHeaders } });
     for (const cookie of res.cookies.getAll()) {

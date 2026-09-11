@@ -392,7 +392,7 @@ function EventsClientInner() {
                             href={`/dashboard/events/${row.id}/scan`}
                             className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-black text-white hover:bg-orange-700 shadow-sm"
                           >
-                            📷 Scan Tickets
+                            Scan Tickets
                           </Link>
                         ) : (
                           <RowActionsMenu

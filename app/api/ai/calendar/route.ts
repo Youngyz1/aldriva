@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import {
   saveTrendToCalendar,
   getCalendarItems,
@@ -10,6 +11,8 @@ import {
 export async function GET(req: NextRequest) {
   // Internal Growth Studio capability: admin-only (same gate as /api/ai/chat).
   await requireAdmin();
+  const getLimited = await enforceRateLimit("articleAi", req);
+  if (getLimited) return getLimited;
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') as ContentCalendarStatus | null;
@@ -21,18 +24,21 @@ export async function GET(req: NextRequest) {
     });
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      console.error("[api/ai/calendar]", result.error);
+      return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ items: result.items });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[api/ai/calendar]", err);
+    return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   await requireAdmin();
+  const postLimited = await enforceRateLimit("articleAi", req);
+  if (postLimited) return postLimited;
   try {
     const body = await req.json();
     const { trend, adminNotes } = body;
@@ -47,18 +53,21 @@ export async function POST(req: NextRequest) {
     const result = await saveTrendToCalendar(trend, adminNotes);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      console.error("[api/ai/calendar]", result.error);
+      return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, item: result.item });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[api/ai/calendar]", err);
+    return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
   await requireAdmin();
+  const patchLimited = await enforceRateLimit("articleAi", req);
+  if (patchLimited) return patchLimited;
   try {
     const body = await req.json();
     const { id, status } = body;
@@ -73,12 +82,13 @@ export async function PATCH(req: NextRequest) {
     const result = await updateCalendarItemStatus(id, status);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      console.error("[api/ai/calendar]", result.error);
+      return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[api/ai/calendar]", err);
+    return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }

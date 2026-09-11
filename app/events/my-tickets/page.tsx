@@ -237,7 +237,7 @@ export default function EventsMyTicketsPage() {
 
             {userEmail && !loading && orders.length === 0 && (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-zinc-300">
-                <p className="text-5xl mb-4">🎟️</p>
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400"><Ticket className="h-8 w-8" /></div>
                 <h2 className="text-2xl font-black">No tickets found</h2>
                 <p className="text-zinc-500 mt-2">
                   Tickets linked to your account will appear here.

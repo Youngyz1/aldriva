@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, XCircle, Clock, Undo2 } from "lucide-react";
+// from "react";
 import { BRAND } from "@/config/branding";
 
 type TicketOrder = {
@@ -88,28 +90,28 @@ export default function VerifyTicketPage({ params }: { params: Promise<{ code: s
       color: "text-green-700",
       bg: "bg-green-50",
       border: "border-green-300",
-      icon: "✅",
+      icon: "valid",
       label: "VALID — Ready for Entry",
     },
     used: {
       color: "text-zinc-600",
       bg: "bg-zinc-100",
       border: "border-zinc-300",
-      icon: "✔️",
+      icon: "used",
       label: "ALREADY CHECKED IN",
     },
     cancelled: {
       color: "text-red-700",
       bg: "bg-red-50",
       border: "border-red-300",
-      icon: "❌",
+      icon: "cancelled",
       label: "CANCELLED",
     },
     refunded: {
       color: "text-orange-700",
       bg: "bg-orange-50",
       border: "border-orange-300",
-      icon: "↩️",
+      icon: "refunded",
       label: "REFUNDED",
     },
   };
@@ -138,7 +140,7 @@ export default function VerifyTicketPage({ params }: { params: Promise<{ code: s
 
         {error && (
           <div className="bg-white rounded-3xl p-8 text-center shadow-2xl">
-            <div className="text-6xl mb-4">❌</div>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600"><XCircle className="h-10 w-10" /></div>
             <h2 className="text-2xl font-black text-red-600">Invalid Ticket</h2>
             <p className="text-zinc-500 mt-2">{error}</p>
             <p className="text-xs text-zinc-400 font-mono mt-4 break-all">{code}</p>
@@ -149,7 +151,12 @@ export default function VerifyTicketPage({ params }: { params: Promise<{ code: s
           <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
             {/* Status Banner */}
             <div className={`${cfg.bg} ${cfg.border} border-b px-6 py-5 text-center`}>
-              <div className="text-4xl mb-2">{cfg.icon}</div>
+              <div className={`mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full ${cfg.bg}`}>
+                {cfg.icon === "valid" && <CheckCircle2 className="h-8 w-8 text-green-600" />}
+                {cfg.icon === "used" && <Clock className="h-8 w-8 text-zinc-500" />}
+                {cfg.icon === "cancelled" && <XCircle className="h-8 w-8 text-red-600" />}
+                {cfg.icon === "refunded" && <Undo2 className="h-8 w-8 text-orange-600" />}
+              </div>
               <p className={`text-lg font-black ${cfg.color}`}>{cfg.label}</p>
             </div>
 
@@ -229,7 +236,7 @@ export default function VerifyTicketPage({ params }: { params: Promise<{ code: s
                     disabled={checking}
                     className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-black py-4 rounded-2xl text-lg transition"
                   >
-                    {checking ? "Checking in..." : "✓ Check In Guest"}
+                    {checking ? "Checking in..." : "Check In Guest"}
                   </button>
                 )}
               </div>

@@ -20,6 +20,8 @@ export interface AIToolCall {
   };
 }
 
+export type AIToolScope = 'public_read' | 'tenant_scoped' | 'transactional' | 'admin';
+
 export interface AIToolDefinition {
   name: string;
   description: string;
@@ -28,6 +30,16 @@ export interface AIToolDefinition {
     properties: Record<string, unknown>;
     required?: string[];
   };
+  /**
+   * Tool trust tier. The 8 catalog/fetch tools are 'public_read'.
+   * Tenant-scoped business tools resolve their tenant from a
+   * server-derived TenantContext (never a model-supplied id).
+   * 'transactional' tools perform side effects (notifications) via existing
+   * service modules only.
+   * 'admin' tools read admin-only tables (e.g. ai_content_items) and must
+   * only be offered on admin-gated routes — never on a non-admin surface.
+   */
+  scope?: AIToolScope;
 }
 
 export interface AIGenerateOptions {

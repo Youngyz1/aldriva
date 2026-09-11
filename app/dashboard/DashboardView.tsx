@@ -177,7 +177,7 @@ export default function DashboardView({
                       href={`/dashboard/events/${event.id}/scan`}
                       className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] font-black text-orange-700 hover:bg-orange-100"
                     >
-                      📷 Scan
+                      Scan
                     </Link>
                     <Link
                       href={`/dashboard/events/${event.id}/team`}

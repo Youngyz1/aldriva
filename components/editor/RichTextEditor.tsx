@@ -8,6 +8,11 @@ import Image from "@tiptap/extension-image";
 import { Node } from "@tiptap/core";
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  validateVideoMagicBytes,
+  videoMimeToExtension,
+  VIDEO_MAGIC_HEAD_BYTES,
+} from "@/lib/video-validation";
 import ImageUploadWithCrop, { type ImageUploadWithCropHandle } from "@/components/ImageUploadWithCrop";
 import DOMPurify from "isomorphic-dompurify";
 import {
@@ -327,15 +332,27 @@ export default function RichTextEditor({
       return;
     }
 
+    // Magic-byte check on actual file content: file.type and the filename
+    // extension are both client-supplied and spoofable on their own.
+    const head = new Uint8Array(await file.slice(0, VIDEO_MAGIC_HEAD_BYTES).arrayBuffer());
+    const validation = validateVideoMagicBytes(head, file.size);
+    if (!validation.valid) {
+      alert(validation.error ?? "Unsupported video format.");
+      return;
+    }
+
     try {
       setUploading(true);
-      const ext = file.name.split(".").pop();
+      // Extension comes from detected bytes, not the original filename.
+      const ext = videoMimeToExtension(validation.mimeType ?? file.type);
       const fileName = `editor-videos/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
 
       // Choose bucket based on theme (fundraiser videos -> "videos", event videos -> "event-videos")
       const bucketName = accent === "green" ? "videos" : "event-videos";
 
-      const { error: uploadError } = await supabase.storage.from(bucketName).upload(fileName, file);
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, { contentType: validation.mimeType ?? file.type });
 
       if (uploadError) throw uploadError;
 

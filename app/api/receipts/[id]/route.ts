@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { generateReceiptPdf } from "@/lib/receipt";
 import Stripe from "stripe";
 
@@ -21,6 +22,10 @@ export async function GET(
   if (!UUID_PATTERN.test(id)) {
     return NextResponse.json({ error: "Invalid receipt ID." }, { status: 400 });
   }
+
+  // PDF generation + Stripe reads per call; IDs are guessable (guestLookup tier).
+  const limited = await enforceRateLimit("guestLookup", request);
+  if (limited) return limited;
 
   // Retrieve donation
   const { data: donation, error: donError } = await supabaseAdmin

@@ -2,9 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AtSign, ChevronDown, Globe, MessageCircle, Moon, Network, Send, Sun } from "lucide-react";
+import { usePathname } from "next/navigation";
+import {
+  Send,
+  Sun,
+  Moon,
+  ChevronDown,
+} from "lucide-react";
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
 import BrandMark from "@/components/BrandMark";
-import { PwaInstallButton } from "@/components/PwaRegister";
 import { BRAND } from "@/config/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,44 +22,37 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PwaInstallButton } from "@/components/PwaRegister";
 import { cn } from "@/lib/utils";
 
 const quickLinks = [
   ["Home", "/"],
-  ["About", "/about"],
+  ["About Us", "/about"],
   ["Events", "/events"],
   ["Fundraisers", "/fundraisers"],
-  ["Organizations", "/organizers"],
-  ["Platform Reviews", "/reviews"],
-  ["Search", "/search"],
-  ["Create Event", "/create-event"],
-  ["Start Fundraiser", "/create-fundraiser"],
-  ["Privacy", "/privacy"],
-  ["Cookies", "/cookies"],
+  ["Find Tickets", "/find-tickets"],
+  ["Terms of Service", "/terms"],
+  ["Privacy Policy", "/privacy"],
+  ["Cookie Policy", "/cookies"],
 ] as const;
 
 const socialLinks = [
-  ["Community", Globe],
-  ["Updates", MessageCircle],
-  ["Email", AtSign],
-  ["Partners", Network],
+  ["Facebook", FaFacebookF],
+  ["Twitter", FaXTwitter],
+  ["Instagram", FaInstagram],
+  ["LinkedIn", FaLinkedinIn],
 ] as const;
 
-/**
- * Collapsible section header, rendered ONLY below the `lg` breakpoint.
- * Desktop renders a plain heading instead (see usage below) so the link
- * markup itself is never duplicated for SEO / accessibility.
- */
 function MobileSectionToggle({
-  sectionId,
   label,
   open,
   onToggle,
+  sectionId,
 }: {
-  sectionId: string;
   label: string;
   open: boolean;
   onToggle: () => void;
+  sectionId: string;
 }) {
   return (
     <button
@@ -61,12 +60,14 @@ function MobileSectionToggle({
       aria-expanded={open}
       aria-controls={sectionId}
       onClick={onToggle}
-      className="flex w-full items-center justify-between rounded-lg py-3 text-left text-base font-bold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 lg:hidden"
+      className="flex w-full items-center justify-between py-3 text-left font-bold text-zinc-900 lg:hidden dark:text-white"
     >
-      {label}
+      <span>{label}</span>
       <ChevronDown
-        aria-hidden="true"
-        className={cn("h-4 w-4 shrink-0 text-zinc-500 transition-transform", open && "rotate-180")}
+        className={cn(
+          "h-4 w-4 text-zinc-500 transition-transform duration-200",
+          open && "rotate-180"
+        )}
       />
     </button>
   );
@@ -74,66 +75,73 @@ function MobileSectionToggle({
 
 function DesktopSectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mb-3 hidden text-base font-bold tracking-tight lg:block lg:text-sm">
+    <h3 className="mb-4 hidden text-sm font-bold tracking-tight text-zinc-950 lg:block dark:text-white">
       {children}
     </h3>
   );
 }
 
-export function MarketingFooter() {
-  const [isDarkMode, setIsDarkMode] = React.useState(false);
-  // Mobile accordion: which collapsible section is open (all collapsed by
-  // default to keep the mobile footer short). Desktop (`lg:`) always shows
-  // every section via CSS, independent of this state.
+export function MarketingFooter({
+  showNewsletter,
+}: {
+  showNewsletter?: boolean;
+}) {
+  const pathname = usePathname();
+  const shouldShowNewsletter = showNewsletter ?? pathname === "/";
   const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
 
   React.useEffect(() => {
-    const savedTheme = window.localStorage.getItem("Aldriva-theme");
-    if (savedTheme === "dark") setIsDarkMode(true);
+    if (typeof document !== "undefined") {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    }
   }, []);
 
-  React.useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode);
-    window.localStorage.setItem("Aldriva-theme", isDarkMode ? "dark" : "light");
-  }, [isDarkMode]);
+  const toggle = (section: string) => {
+    setOpenSection((prev) => (prev === section ? null : section));
+  };
 
-  function handleSubscribe(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-  }
-
-  function toggle(section: string) {
-    setOpenSection((current) => (current === section ? null : section));
-  }
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
 
   return (
     <footer className="relative border-t border-zinc-200 bg-white text-zinc-950 transition-colors duration-300 dark:border-zinc-900 dark:bg-zinc-950 dark:text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8 md:px-10 lg:px-8">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
-          {/* Brand + newsletter — always visible on every breakpoint. */}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:px-8 lg:py-12">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:gap-8">
+          {/* Brand + optional newsletter (Home page only) */}
           <div className="pb-4 lg:pb-0">
             <BrandMark textClassName="text-zinc-950 dark:text-white" />
-            <h2 className="mt-4 text-lg font-bold tracking-tight sm:text-xl lg:text-lg">
-              Stay connected
-            </h2>
-            <p className="mb-4 mt-2 max-w-xs text-xs leading-5 text-zinc-600 sm:text-sm dark:text-zinc-400">
-              Get event launches, fundraiser updates, and platform news.
-            </p>
-            <form onSubmit={handleSubscribe} className="relative w-full max-w-xs">
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                aria-label="Email address for platform updates"
-                className="h-10 w-full rounded-full border-zinc-200 bg-white px-4 pr-12 text-sm font-medium text-zinc-950 placeholder:text-zinc-500 focus-visible:ring-orange-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="absolute right-1 top-1 h-8 w-8 rounded-full bg-orange-600 text-white transition-transform hover:scale-105 hover:bg-orange-700"
-              >
-                <Send className="h-4 w-4" />
-                <span className="sr-only">Subscribe</span>
-              </Button>
-            </form>
+            {shouldShowNewsletter ? (
+              <>
+                <h2 className="mt-4 text-lg font-bold tracking-tight sm:text-xl lg:text-lg">
+                  Stay connected
+                </h2>
+                <p className="mb-4 mt-2 max-w-xs text-xs leading-5 text-zinc-600 sm:text-sm dark:text-zinc-400">
+                  Get event launches, fundraiser updates, and platform news.
+                </p>
+                <form onSubmit={handleSubscribe} className="relative w-full max-w-xs">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    aria-label="Email address for platform updates"
+                    className="h-10 w-full rounded-full border-zinc-200 bg-white px-4 pr-12 text-sm font-medium text-zinc-950 placeholder:text-zinc-500 focus-visible:ring-orange-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+                  />
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="absolute right-1 top-1 h-8 w-8 rounded-full bg-orange-600 text-white transition-transform hover:scale-105 hover:bg-orange-700"
+                  >
+                    <Send className="h-4 w-4" />
+                    <span className="sr-only">Subscribe</span>
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <p className="mt-3 max-w-xs text-xs leading-5 text-zinc-600 sm:text-sm dark:text-zinc-400">
+                Events, fundraising &amp; community commerce.
+              </p>
+            )}
           </div>
 
           {/* Quick links — collapsible on mobile, static grid column on desktop. */}
@@ -254,11 +262,17 @@ export function MarketingFooter() {
  * the bottom of the viewport on short pages. Use in `layout.tsx` files of
  * pure-marketing segments, or wrap mixed-segment list pages.
  */
-export function MarketingSection({ children }: { children: React.ReactNode }) {
+export function MarketingSection({
+  children,
+  showNewsletter,
+}: {
+  children: React.ReactNode;
+  showNewsletter?: boolean;
+}) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex-1">{children}</div>
-      <MarketingFooter />
+      <MarketingFooter showNewsletter={showNewsletter} />
     </div>
   );
 }

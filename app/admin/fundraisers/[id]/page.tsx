@@ -8,6 +8,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { requireAdmin } from "@/lib/auth";
 import { money } from "@/lib/format";
 import { formatAdminDate } from "@/lib/admin-query";
 import FundraiserImportPanel from "@/components/admin/FundraiserImportPanel";
@@ -21,6 +22,8 @@ export default async function AdminFundraiserManagePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   const { id } = await params;
   const admin = createSupabaseAdmin();
 

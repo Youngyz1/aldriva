@@ -29,6 +29,11 @@ export const getContentHistoryDefinition: AIToolDefinition = {
     'Retrieves a history of AI-generated content items from the Aldriva AI system. ' +
     'Use this to see what has recently been promoted or generated, to avoid repetition ' +
     'and track what was published where.',
+  // Admin-only source (ai_content_items is admin-RLS, migration_88): this
+  // tool must only be offered on admin-gated routes, never on a
+  // public/tenant surface. Sole execution path is the admin-gated
+  // app/api/ai/chat route via executeAITool.
+  scope: 'admin',
   parameters: {
     type: 'object',
     properties: {

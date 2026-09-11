@@ -1,4 +1,5 @@
 import TrendingCarousel from "@/app/events/TrendingCarousel";
+import { Calendar } from "lucide-react";
 import DiscoverMoreCarousel from "@/app/events/DiscoverMoreCarousel";
 import ExternalEventsCarousel from "@/components/events/ExternalEventsCarousel";
 import PublicEmptyState from "@/components/public/PublicEmptyState";
@@ -353,7 +354,7 @@ export default async function EventsResultsSection({
                   Discover More
                 </h3>
                 <PublicEmptyState
-                  icon="🎭"
+                  icon={Calendar}
                   title="No events found"
                   description="Try another location or date range."
                   action={{ label: "Create event", href: "/create-event" }}

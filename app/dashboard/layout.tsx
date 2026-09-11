@@ -30,13 +30,16 @@ export default function DashboardLayout({
     });
   }, [router]);
 
+  if (!authed) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-zinc-100 text-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-950">
-      {!authed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-100">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-600 border-t-transparent" />
-        </div>
-      )}
       {/* Main layout */}
       <div className="flex">
         <DashboardSidebar />

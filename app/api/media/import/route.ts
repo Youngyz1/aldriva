@@ -10,6 +10,11 @@ import {
   DEFAULT_VIDEO_TYPES,
   uploadPublicFile,
 } from "@/lib/uploads";
+import {
+  validateVideoMagicBytes,
+  videoMimeToExtension,
+  VIDEO_MAGIC_HEAD_BYTES,
+} from "@/lib/video-validation";
 
 const FETCH_HEADERS = {
   "User-Agent":
@@ -238,8 +243,32 @@ async function uploadFetchedMedia({
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const file = new File([arrayBuffer], `imported.${extensionForContentType(contentType)}`, {
-    type: contentType,
+  const fetchedBytes = new Uint8Array(arrayBuffer);
+
+  // Magic-byte check on the downloaded bytes: the remote Content-Type
+  // header is attacker-controlled and must not be trusted on its own.
+  // Images keep the existing header-based handling; direct video files
+  // must additionally match a known video container signature.
+  let fileType = contentType;
+  let fileName = `imported.${extensionForContentType(contentType)}`;
+  if (kind === "direct-video-file") {
+    const validation = validateVideoMagicBytes(
+      fetchedBytes.length > VIDEO_MAGIC_HEAD_BYTES
+        ? fetchedBytes.slice(0, VIDEO_MAGIC_HEAD_BYTES)
+        : fetchedBytes,
+      fetchedBytes.length,
+      maxBytes
+    );
+    if (!validation.valid) {
+      throw new Error(validation.error ?? "Downloaded file is not a valid video.");
+    }
+    // Store the detected (not the claimed) type and extension.
+    fileType = validation.mimeType ?? contentType;
+    fileName = `imported.${videoMimeToExtension(fileType)}`;
+  }
+
+  const file = new File([arrayBuffer], fileName, {
+    type: fileType,
   });
 
   const uploaded = await uploadPublicFile({
@@ -333,7 +362,7 @@ export async function POST(req: NextRequest) {
       size: uploaded.size,
     });
   } catch (err) {
-    const reason = err instanceof Error ? err.message : "Could not import that media URL.";
-    return jsonError(reason, 502);
+    console.error("[media/import]", err);
+    return jsonError("Could not import that media URL.", 502);
   }
 }

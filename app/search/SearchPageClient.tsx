@@ -1,5 +1,7 @@
 "use client";
 
+import { Search } from "lucide-react";
+
 import { Suspense } from "react";
 import PublicSearchBar from "@/components/public/PublicSearchBar";
 import PublicPageHeader from "@/components/public/PublicPageHeader";
@@ -85,7 +87,7 @@ function SearchResultsContent({ query, events, fundraisers, organizers, articles
 
         {!hasAnyResults ? (
           <PublicEmptyState
-            icon="🔍"
+            icon={Search}
             title={query ? "No results found" : "Start searching"}
             description={
               query

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type SyncBody = {
   sourceId?: string;
@@ -323,6 +324,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Admin access required." }, { status: 403 });
     }
 
+    // External-fetch-heavy sync (importUrl tier), keyed on the admin caller.
+    const limited = await enforceRateLimit("importUrl", req, user.id);
+    if (limited) return limited;
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("status")
@@ -361,7 +366,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ imported, skipped, results });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Eventbrite sync failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[eventbrite-sync]", err);
+    return NextResponse.json({ error: "Eventbrite sync failed." }, { status: 500 });
   }
 }

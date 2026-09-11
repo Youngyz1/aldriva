@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from "@/lib/auth";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -36,6 +37,8 @@ const statusClasses: Record<string, string> = {
 };
 
 export default async function AdminPaymentsPage() {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   const [{ data: orders }, { data: donations }] = await Promise.all([
     supabaseAdmin
       .from('ticket_orders')

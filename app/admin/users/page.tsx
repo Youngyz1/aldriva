@@ -1,7 +1,10 @@
 import { Suspense } from "react";
+import { requireAdmin } from "@/lib/auth";
 import UsersClient from "./UsersClient";
 
-export default function AdminUsersPage() {
+export default async function AdminUsersPage() {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   return (
     <Suspense
       fallback={

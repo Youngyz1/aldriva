@@ -4,6 +4,7 @@
  */
 
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/auth";
 import {
   HOMEPAGE_SETTING_KEYS,
   getHomepageSettings,
@@ -21,6 +22,8 @@ export const metadata = {
 };
 
 export default async function AdminHomepagePage() {
+  // Explicit gate (F-10): do not rely solely on the layout header shortcut.
+  await requireAdmin();
   const supabase = await createSupabaseServer();
   let migrationMissing = false;
 

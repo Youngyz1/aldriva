@@ -1,4 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { resolveSafeNextPath } from "@/lib/safe-redirect";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -16,10 +17,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Redirect to `next` if it's a valid relative path, otherwise go home
-  if (next && next.startsWith("/")) {
-    return NextResponse.redirect(`${origin}${next}`);
-  }
-
-  return NextResponse.redirect(`${origin}/`);
+  // Redirect to `next` only when it resolves to a same-origin path.
+  return NextResponse.redirect(`${origin}${resolveSafeNextPath(next, origin)}`);
 }

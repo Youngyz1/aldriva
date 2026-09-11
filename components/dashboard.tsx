@@ -208,7 +208,7 @@ export function Dashboard() {
             Overview
           </p>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
-            Welcome back 👋
+            Welcome back
           </h1>
           <p className="mt-1 text-sm text-white/40">{formatted}</p>
         </div>

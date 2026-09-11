@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { tagCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -24,6 +25,10 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Money-moving endpoint: same paymentIntent tier as checkout/donate.
+    const limited = await enforceRateLimit("paymentIntent", req, user.id);
+    if (limited) return limited;
 
     const { businessId } = await req.json();
     if (!businessId) {
@@ -112,7 +117,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("business-crypto route error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
+      { error: "Could not complete checkout. Please try again." },
       { status: 500 }
     );
   }

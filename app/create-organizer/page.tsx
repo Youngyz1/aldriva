@@ -367,8 +367,8 @@ export default function CreateOrganizerPage() {
             />
           </div>
 
-          {/* VISIBILITY */}
-          <fieldset className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
+          {/* VISIBILITY — radio options keep their selected-state boundaries. */}
+          <fieldset className="border-t border-zinc-200 pt-5">
             <legend className="text-lg font-black text-zinc-950">Profile Visibility</legend>
             <p className="mt-1 text-sm font-semibold text-zinc-500">
               Choose whether this profile should be public or private.

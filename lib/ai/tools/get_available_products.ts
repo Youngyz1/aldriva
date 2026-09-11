@@ -2,16 +2,17 @@
  * lib/ai/tools/get_available_products.ts
  *
  * Safe-column allowlist tool: returns only the explicitly listed columns for
- * available (in-stock, approved) digital products. Based on
- * migration_37_products.sql schema and Phase 0.5 report analysis.
+ * live products. Aligned to the REAL products schema
+ * (db/migration_37_products.sql + migration_38 status set):
  *
  * Safe columns:
- *   id, title, slug, description, cover_image, price, category, product_type
+ *   id, name, slug, description, price_type, stock_quantity, status
  *
  * Excluded (never sent to model):
- *   seller_id, stripe_price_id, stripe_product_id, download_url,
- *   file_path, internal_notes, and any column added in future migrations
- *   not listed here.
+ *   owner_id, business_id, stripe_price_id, images, seo_*, and any column
+ *   added in future migrations not listed here. The charged price lives on
+ *   product_orders snapshots / Stripe, not on products — there is no price
+ *   column to expose.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -20,7 +21,7 @@ import { screenToolResult } from '../output-guard';
 
 // ── Allowlisted columns ───────────────────────────────────────────────────────
 const SAFE_COLUMNS =
-  'id, title, slug, description, cover_image, price, category, product_type' as const;
+  'id, name, slug, description, price_type, stock_quantity, status' as const;
 
 // ── Tool definition ───────────────────────────────────────────────────────────
 export const getAvailableProductsDefinition: AIToolDefinition = {
@@ -36,17 +37,9 @@ export const getAvailableProductsDefinition: AIToolDefinition = {
         type: 'number',
         description: 'Maximum number of products to return (default 10, max 20).',
       },
-      category: {
+      price_type: {
         type: 'string',
-        description: 'Optional category filter (e.g. "ebook", "course", "template").',
-      },
-      product_type: {
-        type: 'string',
-        description: 'Optional product type filter.',
-      },
-      max_price: {
-        type: 'number',
-        description: 'Optional maximum price filter (in platform currency units).',
+        description: 'Optional price-type filter ("one_time" or "subscription").',
       },
     },
     required: [],
@@ -56,20 +49,17 @@ export const getAvailableProductsDefinition: AIToolDefinition = {
 // ── Tool executor ─────────────────────────────────────────────────────────────
 export interface GetAvailableProductsArgs {
   limit?: number;
-  category?: string;
-  product_type?: string;
-  max_price?: number;
+  price_type?: string;
 }
 
 export interface AvailableProduct {
   id: string;
-  title: string;
+  name: string;
   slug: string;
   description: string | null;
-  cover_image: string | null;
-  price: number;
-  category: string | null;
-  product_type: string | null;
+  price_type: string | null;
+  stock_quantity: number | null;
+  status: string | null;
 }
 
 export async function getAvailableProducts(
@@ -83,28 +73,19 @@ export async function getAvailableProducts(
   const limit = Math.min(args.limit ?? 10, 20);
 
   // ── Hard-coded allowlist SELECT — no select('*') ──────────────────────────
-  // [V3 HOOK] Per-user isolation: add .eq('seller_id', requestingUserId) here
-  // when V3 introduces sellers who can only surface their own products.
-  let query = supabase
+  const query = supabase
     .from('products')
     .select(SAFE_COLUMNS)
-    .eq('status', 'active')
+    .in('status', ['active', 'out_of_stock'])
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (args.category) {
-    query = query.eq('category', args.category);
-  }
+  const filtered =
+    args.price_type !== undefined
+      ? query.eq('price_type', args.price_type)
+      : query;
 
-  if (args.product_type) {
-    query = query.eq('product_type', args.product_type);
-  }
-
-  if (args.max_price !== undefined) {
-    query = query.lte('price', args.max_price);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await filtered;
 
   if (error) {
     throw new Error(`[get_available_products] Database error: ${error.message}`);

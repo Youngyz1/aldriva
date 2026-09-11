@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSupabaseServer } from "@/lib/supabase-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-05-27.dahlia",
@@ -20,8 +21,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const limited = await enforceRateLimit("paymentIntent", req);
-    if (limited) return limited;
+    // IP bucket (existing) plus a per-user bucket for signed-in callers, so
+    // one authenticated abuser cannot hide behind a shared/NAT IP allowance
+    // and one IP's abuse cannot lock out every other buyer behind the same IP.
+    const ipLimited = await enforceRateLimit("paymentIntent", req);
+    if (ipLimited) return ipLimited;
+
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const userLimited = await enforceRateLimit("paymentIntent", req, user.id);
+      if (userLimited) return userLimited;
+    }
 
     const body = await req.json();
     const {
@@ -205,7 +216,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[create-payment-intent]", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Could not start the payment. Please try again." }, { status: 500 });
   }
 }

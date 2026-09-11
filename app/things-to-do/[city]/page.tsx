@@ -4,6 +4,7 @@ import { getSiteUrl } from "@/lib/site-url";
 import EventCard from "@/components/EventCard";
 import ExternalEventCard, { ExternalSourceCredit } from "@/components/events/ExternalEventCard";
 import Link from "next/link";
+import { Calendar, MapPin, Globe } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { searchExternalEvents } from "@/lib/external-events";
 import { slugifyCity } from "@/lib/city-slug";
@@ -122,7 +123,7 @@ export default async function ThingsToDoPage({
       {/* Events in this city */}
       <section className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-black">📅 Upcoming Events in {decodedCity}</h2>
+          <h2 className="text-2xl font-black">Upcoming Events in {decodedCity}</h2>
           <Link 
             href={`/events/city/${slugifyCity(decodedCity)}`}
             className="text-orange-500 font-semibold hover:text-orange-600"
@@ -156,7 +157,7 @@ export default async function ThingsToDoPage({
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-dashed border-zinc-300 p-12 text-center">
-            <p className="text-4xl mb-4">🎭</p>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 font-bold"><Calendar className="h-8 w-8" /></div>
             <h3 className="text-xl font-black">No events found in {decodedCity}</h3>
             <p className="text-zinc-500 mt-2">
               Be the first to <Link href="/create-event" className="text-orange-500 font-semibold hover:underline">create an event</Link> in this city!
@@ -170,7 +171,7 @@ export default async function ThingsToDoPage({
         <section className="max-w-7xl mx-auto px-6 py-8">
           <div className="mb-6">
             <p className="text-xs font-black uppercase tracking-wider text-orange-500">Beyond Aldriva</p>
-            <h2 className="text-2xl font-black mt-1">🎟️ Happening in {decodedCity}</h2>
+            <h2 className="text-2xl font-black mt-1">Happening in {decodedCity}</h2>
             <p className="text-sm font-medium text-zinc-500 mt-1">
               Live from other platforms — tickets are sold on the source site.
             </p>
@@ -187,7 +188,7 @@ export default async function ThingsToDoPage({
       {/* More things to do - external suggestions */}
       <section className="bg-white py-12">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-black mb-6">🔍 Quick search</h2>
+          <h2 className="text-2xl font-black mb-6">Quick search</h2>
           <p className="text-zinc-600 mb-6">
             Looking for something specific? Search our events database:
           </p>
@@ -216,7 +217,7 @@ export default async function ThingsToDoPage({
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-6 bg-blue-50 rounded-xl hover:bg-blue-100 transition"
             >
-              <span className="text-3xl">🗺️</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 font-bold"><MapPin className="h-5 w-5" /></span>
               <div>
                 <p className="font-bold text-zinc-900">View on Google Maps</p>
                 <p className="text-sm text-zinc-600">Find attractions and places near {decodedCity}</p>
@@ -228,7 +229,7 @@ export default async function ThingsToDoPage({
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-6 bg-green-50 rounded-xl hover:bg-green-100 transition"
             >
-              <span className="text-3xl">🔎</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-green-600 font-bold"><Globe className="h-5 w-5" /></span>
               <div>
                 <p className="font-bold text-zinc-900">Google Search</p>
                 <p className="text-sm text-zinc-600">More things to do in {decodedCity}</p>

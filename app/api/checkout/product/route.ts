@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { getSiteUrl } from "@/lib/site-url";
 
 const supabaseAdmin = createClient(
@@ -15,6 +16,11 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServer();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Money-moving endpoint: same paymentIntent tier as checkout/donate.
+    // Signed-in buyers key on user id; guests fall back to IP.
+    const limited = await enforceRateLimit("paymentIntent", req, user?.id ?? null);
+    if (limited) return limited;
 
     const { productId, quantity: rawQuantity, buyerEmail, buyerName } = await req.json();
     if (!productId) {
@@ -52,8 +58,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 
-    if (product.status === "archived") {
-      return NextResponse.json({ error: "This product is no longer available." }, { status: 400 });
+    // Only approved, purchasable products can be bought. In particular
+    // pending_review / rejected products (the default for newly created
+    // products per the approval workflow) must never reach a Stripe
+    // session — same gate as the public listing and RLS SELECT.
+    if (product.status !== "active" && product.status !== "out_of_stock") {
+      return NextResponse.json({ error: "This product is not available for purchase." }, { status: 400 });
     }
 
     if (product.stock_quantity !== null && product.stock_quantity < quantity) {
@@ -131,8 +141,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
     console.error("product-checkout route error:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Could not complete checkout. Please try again." }, { status: 500 });
   }
 }

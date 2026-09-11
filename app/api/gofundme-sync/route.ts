@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { isAdmin } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type SyncBody = {
   sourceId?: string;
@@ -369,6 +370,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Admin access required." }, { status: 403 });
     }
 
+    // External-fetch-heavy sync (importUrl tier), keyed on the admin caller.
+    const limited = await enforceRateLimit("importUrl", req, user.id);
+    if (limited) return limited;
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("status")
@@ -407,7 +412,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ imported, updated, results });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "GoFundMe sync failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[gofundme-sync]", err);
+    return NextResponse.json({ error: "GoFundMe sync failed." }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
 
@@ -34,6 +35,10 @@ export async function GET(request: NextRequest) {
   if (!query || query.length < 2) {
     return NextResponse.json({ results: [] });
   }
+
+  // Outbound fetch per call against a free upstream quota (importUrl tier).
+  const limited = await enforceRateLimit("importUrl", request);
+  if (limited) return limited;
 
   const nominatimUrl = new URL(NOMINATIM_SEARCH_URL);
   nominatimUrl.searchParams.set("q", query);

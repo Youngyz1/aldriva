@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Nominatim API (OpenStreetMap) - free, no API key required
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
@@ -8,6 +9,10 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q");
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");
+
+  // Outbound fetch per call against a free upstream quota (importUrl tier).
+  const limited = await enforceRateLimit("importUrl", request);
+  if (limited) return limited;
 
   // Reverse geocode: coordinates -> city name
   if (lat && lng) {

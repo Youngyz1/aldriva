@@ -1,4 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package, Plus } from "lucide-react";
 
@@ -8,6 +10,8 @@ export default async function OrgProductsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   const supabase = createSupabaseAdmin();
 
   // Products are owned by user_id, so we need to resolve user_id from org id
@@ -16,6 +20,11 @@ export default async function OrgProductsPage({
     .select("user_id")
     .eq("id", id)
     .maybeSingle();
+
+  // Defense-in-depth: the parent layout already enforces org ownership, but
+  // this page must not rely on it alone — a user-controlled id must never
+  // select another tenant's products through the service-role client.
+  if (!org || org.user_id !== user.id) redirect("/dashboard");
 
   const { data: products } = org
     ? await supabase

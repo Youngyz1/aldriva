@@ -1,3 +1,4 @@
+import { Heart } from "lucide-react";
 import PublicPagination from "@/components/public/PublicPagination";
 import CampaignShowcase, {
   type CampaignShowcaseItem,
@@ -159,7 +160,7 @@ export default async function FundraisersBrowseSection({
         featured={showcaseFeatured}
         items={showcaseItems}
         emptyState={{
-          icon: "💚",
+          icon: Heart,
           title: "No fundraisers found",
           description: "Try a different filter to discover more campaigns to support.",
           action: { label: "Start a fundraiser", href: "/create-fundraiser" },

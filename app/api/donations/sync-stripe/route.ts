@@ -1,10 +1,12 @@
 import Stripe from "stripe";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { isAdmin } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { recordDonationFromSession } from "@/lib/donations";
 import { createSupabaseServer } from "@/lib/supabase-server";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServer();
   const {
     data: { user },
@@ -13,6 +15,18 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Authorization fix (F-07B): this route performs 50+ billable Stripe API
+  // reads per call. Any authenticated user could previously trigger it.
+  // Admin-only, same gate as other admin API routes.
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Even admins must not be able to loop it: paymentIntent tier, keyed on
+  // the admin caller.
+  const limited = await enforceRateLimit("paymentIntent", req, user.id);
+  if (limited) return limited;
 
   if (!process.env.STRIPE_SECRET_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Sync is not configured." }, { status: 500 });

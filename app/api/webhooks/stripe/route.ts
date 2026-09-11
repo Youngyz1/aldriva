@@ -410,8 +410,19 @@ async function handlePaymentIntentSucceeded(
       return;
     }
 
-    const totalAmount = parseFloat(meta.total_amount) || pi.amount / 100;
-    const currency = meta.currency ?? pi.currency ?? "usd";
+    // SECURITY: Stripe's charge amount is the source of truth for the order
+    // total. Metadata is set at intent-creation time and must never override
+    // what was actually charged — it is only a fallback for historical
+    // intents whose metadata lacks totals.
+    const stripeAmount = typeof pi.amount === "number" && Number.isFinite(pi.amount) ? pi.amount / 100 : NaN;
+    const metaAmount = parseFloat(meta.total_amount);
+    const totalAmount =
+      stripeAmount > 0
+        ? stripeAmount
+        : Number.isFinite(metaAmount) && metaAmount >= 0
+          ? metaAmount
+          : 0;
+    const currency = pi.currency ?? meta.currency ?? "usd";
 
     // pi.charges is an expandable field — cast to avoid TS error on the unexpanded type
     const piAny = pi as unknown as Record<string, unknown>;
@@ -511,7 +522,8 @@ async function handlePaymentIntentSucceeded(
       await supabaseAdmin
         .from("seats")
         .update({ status: "sold", reserved_until: null })
-        .eq("id", meta.seat_id);
+        .eq("id", meta.seat_id)
+        .eq("event_id", event_id);
     }
 
     if (recipientEmail) {
@@ -543,8 +555,18 @@ async function handlePaymentIntentSucceeded(
   if (kind === "donation" && meta.fundraiser_id) {
     const resolvedUserId = metadataUserId(meta);
 
-    const amount = parseFloat(meta.donation_amount) || pi.amount / 100;
-    const currency = (meta.currency ?? pi.currency ?? "usd").toUpperCase();
+    // SECURITY: Stripe's charge amount is the source of truth (see ticket
+    // branch above). Metadata is fallback-only.
+    const stripeDonationAmount =
+      typeof pi.amount === "number" && Number.isFinite(pi.amount) ? pi.amount / 100 : NaN;
+    const metaDonationAmount = parseFloat(meta.donation_amount);
+    const amount =
+      stripeDonationAmount > 0
+        ? stripeDonationAmount
+        : Number.isFinite(metaDonationAmount) && metaDonationAmount >= 0
+          ? metaDonationAmount
+          : 0;
+    const currency = (pi.currency ?? meta.currency ?? "usd").toUpperCase();
 
     type DonationRpcRow = { donation_id: string; donor_user_id: string | null; is_new: boolean };
 
@@ -703,8 +725,8 @@ async function handlePaymentIntentSucceeded(
     await notifyOrganizerOfDonation({
       fundraiserId: meta.fundraiser_id,
       donorName:    meta.donor_name || "Anonymous",
-      amount:       parseFloat(meta.donation_amount) || pi.amount / 100,
-      currency:     (meta.currency ?? pi.currency ?? "usd").toUpperCase(),
+      amount,
+      currency,
       message:      meta.message || null,
       base:         baseUrl(),
     });
@@ -722,7 +744,15 @@ async function handleCheckoutSessionCompleted(
   const meta = session.metadata ?? {};
 
   if (meta.kind === "donation") {
-    await recordDonationFromSession(session);
+    const record = await recordDonationFromSession(session);
+
+    // Exactly-once downstream fan-out: the payment_intent.succeeded
+    // handler already notifies when IT creates the row (isNewDonation).
+    // Without this gate every legacy-checkout donation would notify twice
+    // (once per webhook event) on top of duplicate receipts/certs.
+    if (!record.inserted) {
+      return;
+    }
 
     const piId =
       typeof session.payment_intent === "string" ? session.payment_intent : null;
@@ -851,7 +881,19 @@ async function handleCheckoutSessionCompleted(
   }
 
   const qty = parseInt(quantity) || 1;
-  const totalAmount = parseFloat(total_amount) || (session.amount_total ?? 0) / 100;
+  // SECURITY: Stripe's session total is the source of truth. Metadata is
+  // attacker-influenced at session-creation time — fallback only.
+  const sessionTotal =
+    typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+      ? session.amount_total / 100
+      : NaN;
+  const metaTotal = parseFloat(total_amount);
+  const totalAmount =
+    sessionTotal > 0
+      ? sessionTotal
+      : Number.isFinite(metaTotal) && metaTotal >= 0
+        ? metaTotal
+        : 0;
   const currency = session.currency ?? "usd";
   const recipientEmail = buyer_email || session.customer_email || null;
   const piId = typeof session.payment_intent === "string" ? session.payment_intent : null;
@@ -909,7 +951,8 @@ async function handleCheckoutSessionCompleted(
     await supabaseAdmin
       .from("seats")
       .update({ status: "sold", reserved_until: null })
-      .eq("id", seat_id);
+      .eq("id", seat_id)
+      .eq("event_id", event_id);
   }
 
   if (recipientEmail) {

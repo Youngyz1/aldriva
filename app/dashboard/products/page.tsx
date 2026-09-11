@@ -1,3 +1,4 @@
+import { ShoppingBag } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDashboardContext } from "@/lib/dashboard-context";
@@ -116,7 +117,7 @@ export default async function DashboardProductsPage({
       {!products || products.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-100 bg-white p-12 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 mb-4">
-            🛍️
+            <ShoppingBag className="h-6 w-6" />
           </div>
           <h3 className="text-lg font-bold text-slate-900">No products yet</h3>
           <p className="mt-1 text-sm font-semibold text-slate-500 max-w-sm">

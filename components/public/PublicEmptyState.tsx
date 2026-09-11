@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type PublicEmptyStateProps = {
-  icon?: string;
+  icon?: React.ReactNode | LucideIcon | React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
   action?: { label: string; href: string };
@@ -10,12 +11,26 @@ type PublicEmptyStateProps = {
 };
 
 export default function PublicEmptyState({
-  icon = "✨",
+  icon,
   title,
   description,
   action,
   className,
 }: PublicEmptyStateProps) {
+  const renderIcon = () => {
+    if (!icon) {
+      return <Sparkles className="h-8 w-8 text-zinc-400" />;
+    }
+    if (typeof icon === "function") {
+      const IconComponent = icon as LucideIcon;
+      return <IconComponent className="h-8 w-8 text-zinc-400" />;
+    }
+    if (typeof icon === "string") {
+      return <span className="text-2xl">{icon}</span>;
+    }
+    return icon;
+  };
+
   return (
     <div
       className={cn(
@@ -23,10 +38,10 @@ export default function PublicEmptyState({
         className
       )}
     >
-      <p className="text-4xl" aria-hidden>
-        {icon}
-      </p>
-      <h2 className="mt-4 text-xl font-black text-zinc-950 sm:text-2xl">{title}</h2>
+      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+        {renderIcon()}
+      </div>
+      <h2 className="mt-2 text-xl font-black text-zinc-950 sm:text-2xl">{title}</h2>
       {description && <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500 sm:text-base">{description}</p>}
       {action && (
         <Link

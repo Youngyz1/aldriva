@@ -29,8 +29,8 @@
  *  - A segment `layout.tsx` must only render a footer when EVERY page under
  *    it shares that tier (e.g. `app/organizers/[id]/edit` is footer-free, so
  *    `app/organizers/[id]` opts in at the page level, not via layout).
- *  - Only link to routes that exist (there is deliberately no /terms link —
- *    legal pages are /privacy and /cookies).
+ *  - Only link to routes that exist (legal pages are /terms, /privacy
+ *    and /cookies).
  */
 export { MarketingFooter, MarketingSection } from "./MarketingFooter";
 export { CompactFooter, CompactSection } from "./CompactFooter";

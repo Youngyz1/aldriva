@@ -136,6 +136,15 @@ export async function uploadImage(
       // fetch() throws a bare TypeError ("Failed to fetch") on network-level failure
       throw new UploadImageError("network_error", undefined, err);
     }
+    if (err instanceof Error && /row-level security/i.test(err.message)) {
+      // Storage RLS denial (e.g. uploading into another event's path).
+      // Never surface raw policy internals; the denial itself is the signal.
+      throw new UploadImageError(
+        "upload_failed",
+        "You don't have permission to upload this image.",
+        err
+      );
+    }
     throw new UploadImageError(
       "upload_failed",
       err instanceof Error ? err.message : undefined,

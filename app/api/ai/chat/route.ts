@@ -11,15 +11,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { getAIProvider } from '@/lib/ai/provider-factory';
 import { guardBeforeDisplay } from '@/lib/ai/output-guard';
-import { ALL_AI_TOOL_DEFINITIONS, executeAITool } from '@/lib/ai/tools-registry';
+import { executeAITool } from '@/lib/ai/tools-registry';
+import { PUBLIC_AI_TOOL_DEFINITIONS, ADMIN_AI_TOOL_DEFINITIONS } from '@/lib/ai/tools-registry';
 import { AIMessage } from '@/lib/ai/types';
 
 export async function POST(req: NextRequest) {
   try {
     // 1. Mandatory Admin Gate
     await requireAdmin();
+
+    // LLM + tool calls per request: same per-caller AI budget as the
+    // article assistant (articleAi tier).
+    const limited = await enforceRateLimit("articleAi", req);
+    if (limited) return limited;
 
     const body = await req.json();
     const {
@@ -74,8 +81,15 @@ export async function POST(req: NextRequest) {
     const executedToolCalls: Array<{ tool: string; args: string; result: unknown }> = [];
 
     if (enableTools) {
-      // Step 1: Request model generation with tools
-      const toolCallResult = await aiProvider.toolCall(messages, ALL_AI_TOOL_DEFINITIONS);
+      // Admin-gated route: offer public catalog tools + admin tools only.
+      // Tenant-scoped tools are intentionally excluded — they require a
+      // server-derived TenantContext via executeTenantTool(), which this
+      // route does not establish, so offering them would only leak the
+      // internal tool surface to the model.
+      const toolCallResult = await aiProvider.toolCall(messages, [
+        ...PUBLIC_AI_TOOL_DEFINITIONS,
+        ...ADMIN_AI_TOOL_DEFINITIONS,
+      ]);
 
       if (toolCallResult.toolCalls && toolCallResult.toolCalls.length > 0) {
         // Model requested tool calls — execute each tool
@@ -161,8 +175,9 @@ export async function POST(req: NextRequest) {
       provider: aiProvider.id,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    const status = message.includes('Unauthorized') || message.includes('Forbidden') ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    console.error("[api/ai/chat]", err);
+    const raw = err instanceof Error ? err.message : String(err);
+    const status = raw.includes('Unauthorized') || raw.includes('Forbidden') ? 403 : 500;
+    return NextResponse.json({ error: "AI service error. Please try again." }, { status });
   }
 }

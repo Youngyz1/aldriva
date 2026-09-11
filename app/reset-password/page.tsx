@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { validatePassword } from "@/lib/password-policy";
 
 const invalidLinkMessage =
   "This reset link is invalid or has expired. Please request a new one.";
@@ -92,8 +93,11 @@ function ResetPasswordForm() {
     setError("");
     setSuccess(false);
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    // Same policy as signup (lib/password-policy.ts) — reset must not be
+    // a downgrade path for the credential.
+    const policy = validatePassword(password);
+    if (!policy.valid) {
+      setError(policy.error ?? "Password does not meet the security requirements.");
       return;
     }
 
