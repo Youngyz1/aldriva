@@ -9,7 +9,7 @@ import {
   Moon,
   ChevronDown,
 } from "lucide-react";
-import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok } from "react-icons/fa6";
 import BrandMark from "@/components/BrandMark";
 import { BRAND } from "@/config/branding";
 import { Button } from "@/components/ui/button";
@@ -37,10 +37,10 @@ const quickLinks = [
 ] as const;
 
 const socialLinks = [
-  ["Facebook", FaFacebookF],
-  ["Twitter", FaXTwitter],
-  ["Instagram", FaInstagram],
-  ["LinkedIn", FaLinkedinIn],
+  ["Facebook", FaFacebookF, "https://www.facebook.com/profile.php?id=61592673256673"],
+  ["Instagram", FaInstagram, "https://www.instagram.com/aldriva_llc/"],
+  ["LinkedIn", FaLinkedinIn, "https://www.linkedin.com/company/aldriva"],
+  ["TikTok", FaTiktok, "https://www.tiktok.com/@aldrivallc?_r=1&_t=ZS-99f1wXWbYaT"],
 ] as const;
 
 function MobileSectionToggle({
@@ -210,16 +210,24 @@ export function MarketingFooter({
             </h3>
             <div className="mb-4 flex flex-wrap gap-2">
               <TooltipProvider>
-                {socialLinks.map(([label, Icon]) => (
+                {socialLinks.map(([label, Icon, href]) => (
                   <Tooltip key={label}>
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-9 w-9 rounded-full border-zinc-200 bg-white text-zinc-700 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        asChild
+                        className="h-9 w-9 rounded-full border-zinc-200 bg-white text-zinc-700 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
                       >
-                        <Icon className="h-4 w-4" />
-                        <span className="sr-only">{label}</span>
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Visit Aldriva on ${label}`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span className="sr-only">{label}</span>
+                        </a>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
