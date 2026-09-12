@@ -35,7 +35,7 @@ export async function generateMetadata({
     155
   );
   // Omit images when there is no photo/banner rather than pointing at a
-  // placeholder path that 404s ("/og-image.png" exists nowhere in /public).
+  // generic placeholder.
   const siteUrl = getSiteUrl();
   const image = normalizeImageUrl(org?.photo || org?.banner);
 

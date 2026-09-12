@@ -65,8 +65,7 @@ export async function generateMetadata({
   // Absolute public URL (no auth gate on this route — proxy.ts matcher does
   // not cover /fundraisers/*, and robots allow it), 1200x630 PNG.
   // When the slug doesn't resolve there is no campaign to preview — omit
-  // images entirely rather than pointing at a placeholder path that 404s
-  // (the previous "/og-image.png" fallback exists nowhere in /public).
+  // images entirely rather than pointing at a generic placeholder.
   const siteUrl = getSiteUrl();
   const image = fundraiser
     ? `${siteUrl}/fundraisers/${fundraiser.slug}/opengraph-image`

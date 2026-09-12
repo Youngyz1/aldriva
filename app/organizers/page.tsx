@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     description: "Discover organizations and causes on Aldriva.",
     url: `${getSiteUrl()}/organizers`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aldriva Organizations" }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630, alt: "Aldriva Organizations" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
 // Fallback for OrganizersDirectory — the "Search Directory" heading (no

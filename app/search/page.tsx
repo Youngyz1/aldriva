@@ -13,9 +13,9 @@ export const metadata: Metadata = {
     description: "Search events, fundraisers, and organizers on Aldriva.",
     url: `${getSiteUrl()}/search`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Search Aldriva" }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630, alt: "Search Aldriva" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
 // The external grid is 4-wide; cap at 3 rows so the "Events elsewhere" section

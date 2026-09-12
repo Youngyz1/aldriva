@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     description: "Read Aldriva's cookie policy.",
     url: `${getSiteUrl()}/cookies`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630 }],
   },
 };
 

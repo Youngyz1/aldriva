@@ -31,10 +31,10 @@ export const BRAND = {
     // field either (confirmed: no call site references BRAND.assets.logoDark).
     logoDark: "/logo-dark.png",
     favicon: "/favicon.ico",
-    // No 1200x630 OG card asset exists in /public yet — this path (and the
-    // separate hardcoded /og-image.png used by ~15 page-level metadata
-    // blocks) 404s until a real asset is added.
-    ogImage: "/og-image.jpg",
+    // Versioned OG card (real PNG, 1200x630, current Aldriva branding).
+    // Versioned filename is intentional: WhatsApp/social scrapers cache by
+    // image URL, so a new filename forces a refetch of the current brand.
+    ogImage: "/aldriva-og-image-v2.png",
   },
 
   // Default SEO

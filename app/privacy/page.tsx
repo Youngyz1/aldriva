@@ -16,13 +16,13 @@ export const metadata: Metadata = {
     description: "Read Aldriva's privacy policy.",
     url: `${getSiteUrl()}/privacy`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Privacy Policy — Aldriva",
     description: "Read Aldriva's privacy policy.",
-    images: ["/og-image.png"],
+    images: ["/aldriva-og-image-v2.png"],
   },
 };
 

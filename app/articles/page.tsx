@@ -30,9 +30,9 @@ export const metadata: Metadata = {
       "Discover stories that inspire change — insights, success stories, business ideas, fundraising journeys, technology, and community impact from creators around the world.",
     url: `${getSiteUrl()}/articles`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aldriva Articles" }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630, alt: "Aldriva Articles" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
 export default function ArticlesLandingPage({

@@ -14,9 +14,9 @@ export const metadata: Metadata = {
     description: "Sponsor events and causes on Aldriva.",
     url: `${getSiteUrl()}/sponsors`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aldriva Sponsors" }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630, alt: "Aldriva Sponsors" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
 

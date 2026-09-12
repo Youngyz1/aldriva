@@ -203,6 +203,15 @@ export function getHomepageSettings(
   if (!settings.seoOgImageUrl.startsWith("http")) {
     settings.seoOgImageUrl = settings.imageUrl;
   }
+  // Legacy-brand guard: pre-rebrand CMS rows advertised a Fund4AGoodCause
+  // OG image (fund4agoodcause.com). Never serve that domain as our social
+  // preview — fall back to the canonical versioned Aldriva OG card
+  // (relative URL resolves against the page's metadataBase). The CMS row
+  // itself should still be updated via the admin UI; this only stops the
+  // old brand leaking to scrapers.
+  if (/fund4a?good/i.test(settings.seoOgImageUrl)) {
+    settings.seoOgImageUrl = BRAND.assets.ogImage;
+  }
 
   // URL fallback validations for landing images
   if (settings.eventsHeroImageUrl && !settings.eventsHeroImageUrl.startsWith("http")) {

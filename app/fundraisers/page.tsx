@@ -23,9 +23,9 @@ export const metadata: Metadata = {
     description: "Support causes and fundraising campaigns near you.",
     url: `${getSiteUrl()}/fundraisers`,
     siteName: "Aldriva",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Aldriva Fundraisers" }],
+    images: [{ url: "/aldriva-og-image-v2.png", width: 1200, height: 630, alt: "Aldriva Fundraisers" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
 // Fallback for FundraisersBrowseSection — a big-card + 4-card grid, matching
