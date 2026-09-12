@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -247,9 +248,15 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Slide-out Mobile Navigation Drawer */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+      {/* Slide-out Mobile Navigation Drawer.
+          Rendered via portal to document.body: the sticky header above uses
+          backdrop-blur (backdrop-filter), which establishes a containing
+          block that traps position:fixed descendants to the header's own
+          64px box instead of the viewport. Portaling escapes that context
+          so inset-0 genuinely covers the viewport. */}
+      {menuOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
@@ -424,8 +431,9 @@ export default function Navbar() {
               </div>
             )}
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </header>
   );
 }
