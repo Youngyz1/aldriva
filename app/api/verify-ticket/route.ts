@@ -220,7 +220,7 @@ async function findTicketByCode(code: string) {
 
 // GET /api/verify-ticket?code=XXXXX — look up ticket status
 export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
+  const code = req.nextUrl.searchParams.get("code") || req.nextUrl.searchParams.get("qr");
 
   if (!code) {
     return NextResponse.json({ error: "No code provided." }, { status: 400 });

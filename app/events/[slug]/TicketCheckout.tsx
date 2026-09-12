@@ -526,7 +526,14 @@ export default function TicketCheckout({
                     return (
                       <div
                         key={ticket.id}
+                        onClick={() => {
+                          if (seatMapAvailable) {
+                            setSelectedQuantities({ [ticket.id]: 1 });
+                          }
+                        }}
                         className={`rounded-2xl border p-4 transition ${
+                          seatMapAvailable ? "cursor-pointer" : ""
+                        } ${
                           isSelected
                             ? "border-orange-400 ring-2 ring-orange-400 ring-offset-1 bg-orange-50"
                             : "border-zinc-200 hover:border-zinc-300"
