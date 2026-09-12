@@ -63,6 +63,8 @@ export function ImageAutoSlider({
               alt={`Event photo ${(i % images.length) + 1}`}
               className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
               loading="lazy"
+              width={800}
+              height={600}
             />
           </div>
         ))}

@@ -642,11 +642,13 @@ export default function TicketCheckout({
                     <div className="space-y-4 text-left">
                       <h4 className="text-base font-bold text-zinc-900 mb-2">Contact Information</h4>
                       <div className="space-y-3">
-                        <label className="block">
+                        <label htmlFor="ticket-buyer-name" className="block">
                           <span className="block text-sm font-semibold text-zinc-700 mb-1">
                             Full Name <span className="text-red-500">*</span>
                           </span>
                           <input
+                            id="ticket-buyer-name"
+                            name="name"
                             type="text"
                             placeholder="Enter your full name"
                             value={buyerName}
@@ -655,11 +657,13 @@ export default function TicketCheckout({
                             required
                           />
                         </label>
-                        <label className="block">
+                        <label htmlFor="ticket-buyer-email" className="block">
                           <span className="block text-sm font-semibold text-zinc-700 mb-1">
                             Email Address <span className="text-red-500">*</span>
                           </span>
                           <input
+                            id="ticket-buyer-email"
+                            name="email"
                             type="email"
                             placeholder="you@example.com"
                             value={buyerEmail}

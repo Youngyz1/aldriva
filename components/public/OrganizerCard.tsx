@@ -50,6 +50,8 @@ export default function OrganizerCard({
             alt=""
             loading="lazy"
             decoding="async"
+            width={1200}
+            height={300}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -76,6 +78,8 @@ export default function OrganizerCard({
                 alt={organizer.name}
                 loading="lazy"
                 decoding="async"
+                width={64}
+                height={64}
                 className="h-full w-full object-cover"
               />
             ) : (
