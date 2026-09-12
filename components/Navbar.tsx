@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Settings,
   ShoppingBag,
   Ticket,
   UserRound,
@@ -205,10 +204,6 @@ export default function Navbar() {
                     <UserRound className="h-4 w-4" />
                     View Profile
                   </Link>
-                  <Link href="/dashboard/settings/profile" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
-                    <Settings className="h-4 w-4" />
-                    Account settings
-                  </Link>
                   <div className="my-1 border-t border-zinc-100" />
                   <button
                     type="button"
@@ -389,28 +384,12 @@ export default function Navbar() {
                     Account
                   </p>
                   <Link
-                    href="/dashboard"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 transition"
-                  >
-                    <LayoutDashboard className="h-4 w-4 shrink-0 text-zinc-500" />
-                    Dashboard
-                  </Link>
-                  <Link
                     href="/events/my-tickets"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 transition"
                   >
                     <Ticket className="h-4 w-4 shrink-0 text-zinc-500" />
                     My tickets
-                  </Link>
-                  <Link
-                    href="/dashboard/settings/profile"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 transition"
-                  >
-                    <Settings className="h-4 w-4 shrink-0 text-zinc-500" />
-                    Account settings
                   </Link>
                 </div>
               )}
