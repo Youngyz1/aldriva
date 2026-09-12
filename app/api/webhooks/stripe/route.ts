@@ -372,11 +372,16 @@ async function sendTicketEmail(params: {
   seatLabel: string | null;
   isFree: boolean;
   base: string;
+  referenceId?: string;
 }) {
   try {
-    await fetch(`${params.base}/api/send-ticket`, {
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const res = await fetch(`${params.base}/api/send-ticket`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(internalSecret ? { "x-internal-secret": internalSecret } : {}),
+      },
       body: JSON.stringify({
         buyerEmail: params.buyerEmail,
         buyerName: params.buyerName,
@@ -387,8 +392,16 @@ async function sendTicketEmail(params: {
         isFree: params.isFree,
       }),
     });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error(
+        `[webhook] /api/send-ticket failed with status ${res.status} for reference=${params.referenceId || params.qrCode}:`,
+        data
+      );
+    }
   } catch (err) {
-    console.error("[webhook] Failed to send ticket email:", err);
+    console.error(`[webhook] Failed to send ticket email for reference=${params.referenceId || params.qrCode}:`, err);
   }
 }
 
@@ -536,7 +549,10 @@ async function handlePaymentIntentSucceeded(
         seatLabel: meta.seat_label || null,
         isFree: false,
         base: baseUrl(),
+        referenceId: pi.id,
       });
+    } else {
+      console.warn(`[webhook] No recipient email resolved for ticket intent pi=${pi.id}, skipping email dispatch.`);
     }
 
     await notifyOrganizerOfTicketPurchase({
@@ -965,7 +981,10 @@ async function handleCheckoutSessionCompleted(
       seatLabel: seat_label || null,
       isFree: false,
       base: baseUrl(),
+      referenceId: session.id,
     });
+  } else {
+    console.warn(`[webhook] No recipient email resolved for ticket session session=${session.id}, skipping email dispatch.`);
   }
 
   await notifyOrganizerOfTicketPurchase({

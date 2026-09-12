@@ -60,10 +60,7 @@ export default function TicketCheckout({
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<Step>("tickets");
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(
-    tickets[0] || null
-  );
-  const [quantity, setQuantity] = useState(1);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
   const [paid, setPaid] = useState(searchParams.get("success") === "true");
 
   // Seat map state
@@ -129,15 +126,19 @@ export default function TicketCheckout({
 
   const locationLabel = [event.venue, event.city].filter(Boolean).join(", ");
 
+  const totalQuantity = Object.values(selectedQuantities).reduce((sum, q) => sum + q, 0);
+  const primaryTicket = tickets.find((t) => (selectedQuantities[t.id] || 0) > 0) || tickets[0] || null;
+
   const effectivePrice =
     selectedSeats.length > 0
       ? selectedSeats.reduce(
-          (sum, s) => sum + (s.price_override ?? selectedTicket?.price ?? 0),
+          (sum, s) => sum + (s.price_override ?? primaryTicket?.price ?? 0),
           0
         )
-      : selectedTicket
-      ? selectedTicket.price * quantity
-      : 0;
+      : tickets.reduce(
+          (sum, t) => sum + t.price * (selectedQuantities[t.id] || 0),
+          0
+        );
 
   const seatLabel =
     selectedSeats.length > 0
@@ -146,13 +147,18 @@ export default function TicketCheckout({
           .join(", ")
       : null;
 
-  const summaryItems = selectedTicket
-    ? [
-        { label: "Ticket", value: selectedTicket.name },
-        ...(seatLabel ? [{ label: "Seat(s)", value: seatLabel }] : []),
-        { label: "Qty", value: String(selectedSeats.length || quantity) },
-      ]
-    : [];
+  const summaryItems =
+    selectedSeats.length > 0
+      ? [
+          { label: "Seat(s)", value: seatLabel || "Assigned" },
+          { label: "Qty", value: String(selectedSeats.length) },
+        ]
+      : tickets
+          .filter((t) => (selectedQuantities[t.id] || 0) > 0)
+          .map((t) => ({
+            label: `${t.name} (x${selectedQuantities[t.id]})`,
+            value: formatPrice(t.price * selectedQuantities[t.id]),
+          }));
 
   // ─── Prepare Stripe PaymentIntent ────────────────────────────────────────────
   async function preparePayment(attemptId: string) {
@@ -175,19 +181,24 @@ export default function TicketCheckout({
       }
     }
 
+    const items = Object.entries(selectedQuantities)
+      .filter(([_, qty]) => qty > 0)
+      .map(([ticketId, quantity]) => ({ ticketId, quantity }));
+
     const res = await fetch("/api/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ticketName: selectedTicket?.name,
-        ticketPrice: effectivePrice / (selectedSeats.length || quantity),
+        items: items.length > 0 ? items : primaryTicket ? [{ ticketId: primaryTicket.id, quantity: selectedSeats.length || 1 }] : [],
+        ticketName: primaryTicket?.name,
+        ticketPrice: effectivePrice / (selectedSeats.length || totalQuantity || 1),
         eventTitle: event.title,
         eventSlug: event.slug,
         eventId: event.id,
-        ticketId: selectedTicket?.id,
+        ticketId: primaryTicket?.id,
         seatId: selectedSeats[0]?.id || null,
         seatLabel: seatLabel || null,
-        quantity: selectedSeats.length || quantity,
+        quantity: selectedSeats.length || totalQuantity,
         buyerEmail: buyerEmail || null,
         buyerName: buyerName || null,
         currency: "usd",
@@ -229,6 +240,10 @@ export default function TicketCheckout({
         }
       }
 
+      const items = Object.entries(selectedQuantities)
+        .filter(([_, qty]) => qty > 0)
+        .map(([ticketId, quantity]) => ({ ticketId, quantity }));
+
       const res = await fetch("/api/crypto/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,10 +253,11 @@ export default function TicketCheckout({
           eventId: event.id,
           donorName: buyerName,
           donorEmail: buyerEmail,
-          ticketId: selectedTicket?.id,
+          ticketId: primaryTicket?.id,
+          items: items.length > 0 ? items : undefined,
           seatId: selectedSeats[0]?.id || null,
           seatLabel: seatLabel || null,
-          quantity: selectedSeats.length || quantity,
+          quantity: selectedSeats.length || totalQuantity,
           type: "ticket",
         }),
       });
@@ -320,15 +336,20 @@ export default function TicketCheckout({
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const items = Object.entries(selectedQuantities)
+      .filter(([_, qty]) => qty > 0)
+      .map(([ticketId, quantity]) => ({ ticketId, quantity }));
+
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         eventId: event.id,
-        ticketId: selectedTicket?.id,
+        ticketId: primaryTicket?.id,
+        items: items.length > 0 ? items : undefined,
         seatId: selectedSeats[0]?.id || null,
         seatLabel: seatLabel || null,
-        quantity: selectedSeats.length || quantity,
+        quantity: selectedSeats.length || totalQuantity,
         buyerEmail: buyerEmail || null,
         buyerName: buyerName || null,
         checkoutAttemptId: attemptId,
@@ -498,17 +519,14 @@ export default function TicketCheckout({
               {step === "tickets" && (
                 <div className="space-y-3">
                   {tickets.map((ticket) => {
-                    const isSelected = selectedTicket?.id === ticket.id;
+                    const count = selectedQuantities[ticket.id] || 0;
+                    const isSelected = count > 0;
                     const remaining = ticket.quantity;
                     const goingFast = remaining > 0 && remaining <= 5;
                     return (
                       <div
                         key={ticket.id}
-                        onClick={() => {
-                          setSelectedTicket(ticket);
-                          setQuantity(1);
-                        }}
-                        className={`rounded-2xl border p-4 cursor-pointer transition ${
+                        className={`rounded-2xl border p-4 transition ${
                           isSelected
                             ? "border-orange-400 ring-2 ring-orange-400 ring-offset-1 bg-orange-50"
                             : "border-zinc-200 hover:border-zinc-300"
@@ -516,25 +534,35 @@ export default function TicketCheckout({
                       >
                         <div className="flex items-center justify-between gap-4">
                           <h3 className="font-bold">{ticket.name}</h3>
-                          {isSelected && !seatMapAvailable && (
-                            <div
-                              className="flex items-center gap-3 shrink-0"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                          {!seatMapAvailable && (
+                            <div className="flex items-center gap-3 shrink-0">
                               <button
-                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                className="w-8 h-8 rounded-full border border-zinc-300 bg-white font-bold hover:bg-zinc-100"
+                                type="button"
+                                onClick={() =>
+                                  setSelectedQuantities((prev) => ({
+                                    ...prev,
+                                    [ticket.id]: Math.max(0, (prev[ticket.id] || 0) - 1),
+                                  }))
+                                }
+                                disabled={count === 0}
+                                className="w-8 h-8 rounded-full border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                               >
                                 −
                               </button>
-                              <span className="font-bold w-4 text-center">{quantity}</span>
+                              <span className="font-bold w-4 text-center">{count}</span>
                               <button
-                                onClick={() =>
-                                  setQuantity(
-                                    remaining ? Math.min(remaining, quantity + 1) : quantity + 1
-                                  )
-                                }
-                                className="w-8 h-8 rounded-full border border-zinc-300 bg-white font-bold hover:bg-zinc-100"
+                                type="button"
+                                onClick={() => {
+                                  const max = remaining > 0 ? remaining : 99;
+                                  if (count < max) {
+                                    setSelectedQuantities((prev) => ({
+                                      ...prev,
+                                      [ticket.id]: (prev[ticket.id] || 0) + 1,
+                                    }));
+                                  }
+                                }}
+                                disabled={remaining > 0 && count >= remaining}
+                                className="w-8 h-8 rounded-full border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                               >
                                 +
                               </button>
@@ -543,7 +571,7 @@ export default function TicketCheckout({
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-3">
                           <p className="font-bold text-lg">
-                            {formatPrice(isSelected ? ticket.price * quantity : ticket.price)}
+                            {formatPrice(count > 0 ? ticket.price * count : ticket.price)}
                           </p>
                           {remaining > 0 && (
                             <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
@@ -560,20 +588,24 @@ export default function TicketCheckout({
                     );
                   })}
 
-                  {selectedTicket && (
+                  {totalQuantity > 0 && (
                     <p className="text-sm text-zinc-500 pt-1 lg:hidden">
                       Total: <span className="font-bold text-black">{formatPrice(effectivePrice)}</span>
                     </p>
                   )}
 
-                  {selectedTicket && (
-                    <button
-                      onClick={() => (seatMapAvailable ? setStep("seats") : goToReview())}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg mt-2 transition"
-                    >
-                      {seatMapAvailable ? "Choose Your Seat →" : "Check out"}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => (seatMapAvailable ? setStep("seats") : goToReview())}
+                    disabled={totalQuantity === 0}
+                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-200 disabled:text-zinc-400 text-white py-4 rounded-2xl font-bold text-lg mt-2 transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {seatMapAvailable
+                      ? "Choose Your Seat →"
+                      : totalQuantity > 0
+                      ? `Check out (${totalQuantity} ticket${totalQuantity > 1 ? "s" : ""}) · ${formatPrice(effectivePrice)}`
+                      : "Select Tickets to Check out"}
+                  </button>
                 </div>
               )}
 
@@ -583,7 +615,7 @@ export default function TicketCheckout({
                   <div>
                     <h3 className="text-xl font-black">Choose Your Seat</h3>
                     <p className="text-zinc-500 text-sm mt-1">
-                      Ticket: <strong>{selectedTicket?.name}</strong> · Click seats to select
+                      Ticket: <strong>{primaryTicket?.name}</strong> · Click seats to select
                     </p>
                   </div>
 
@@ -599,8 +631,8 @@ export default function TicketCheckout({
                       canvasWidth={venueLayout.canvas_width || 1000}
                       canvasHeight={venueLayout.canvas_height || 700}
                       ticketTypes={tickets as any}
-                      basePrice={selectedTicket?.price ?? 0}
-                      maxSelectable={quantity}
+                      basePrice={primaryTicket?.price ?? 0}
+                      maxSelectable={totalQuantity || 1}
                       onSelectionChange={setSelectedSeats}
                     />
                   ) : null}
@@ -867,7 +899,7 @@ export default function TicketCheckout({
                 />
               </div>
               <div className="p-6 flex-1 overflow-y-auto">
-                {selectedTicket ? (
+                {totalQuantity > 0 || selectedSeats.length > 0 ? (
                   <OrderSummary
                     title="Order summary"
                     accentColor="#f97316"

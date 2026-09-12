@@ -114,7 +114,13 @@ export async function calculateEventOperationalMetrics(eventId: string): Promise
     .eq("event_id", eventId);
 
   const ordersList = ticketOrders || [];
-  const paidOrders = ordersList.filter((o) => o.status === "completed" || o.status === "paid");
+  const paidOrders = ordersList.filter(
+    (o) =>
+      o.status === "valid" ||
+      o.status === "used" ||
+      o.status === "completed" ||
+      o.status === "paid"
+  );
   const paidSold = paidOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
   const grossRevenue = paidOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 

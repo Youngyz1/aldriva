@@ -10,10 +10,19 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
-    // Abuse-shaped endpoint (resends entry credentials by email): strict
-    // rate limit first, matching the guest-lookup budget convention.
-    const rateLimitRes = await enforceRateLimit("guestLookup", req);
-    if (rateLimitRes) return rateLimitRes;
+    const internalSecret = req.headers.get("x-internal-secret");
+    const configuredSecret =
+      process.env.INTERNAL_API_SECRET;
+    const isInternalCall = Boolean(
+      configuredSecret && internalSecret && internalSecret === configuredSecret
+    );
+
+    if (!isInternalCall) {
+      // Abuse-shaped endpoint (resends entry credentials by email): strict
+      // rate limit first, matching the guest-lookup budget convention.
+      const rateLimitRes = await enforceRateLimit("guestLookup", req);
+      if (rateLimitRes) return rateLimitRes;
+    }
 
     const {
       buyerEmail,

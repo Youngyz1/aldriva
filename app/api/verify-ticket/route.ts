@@ -36,6 +36,8 @@ async function canManageEvent(userId: string | null, eventId: string | null) {
 
 // Helper to look up ticket_instance (or legacy ticket_order) by QR code
 async function findTicketByCode(code: string) {
+  const cleanCode = code.trim().replace(/\/+$/, "").toUpperCase();
+
   // 1. Try querying ticket_instances first
   const { data: inst } = await supabaseAdmin
     .from("ticket_instances")
@@ -75,7 +77,7 @@ async function findTicketByCode(code: string) {
         banner
       )
     `)
-    .eq("qr_code", code)
+    .eq("qr_code", cleanCode)
     .maybeSingle();
 
   if (inst) {
@@ -163,7 +165,7 @@ async function findTicketByCode(code: string) {
         banner
       )
     `)
-    .eq("qr_code", code)
+    .eq("qr_code", cleanCode)
     .maybeSingle();
 
   if (!legacyOrder) return null;

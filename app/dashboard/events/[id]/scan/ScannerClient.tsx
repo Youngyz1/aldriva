@@ -70,12 +70,16 @@ export default function ScannerClient({ eventId, eventTitle, eventDetails }: Pro
 
       setLoading(true);
 
-      // Extract code if raw string is full URL e.g. https://domain/verify/CODE
+      // Extract code if raw string is full URL e.g. https://domain/verify/CODE or https://domain/ticket-confirmation?qr=CODE
       let cleanCode = rawCode.trim();
-      if (cleanCode.includes("/verify/")) {
+      if (cleanCode.includes("qr=")) {
+        const qrPart = cleanCode.split("qr=")[1];
+        cleanCode = qrPart.split("&")[0].split("#")[0];
+      } else if (cleanCode.includes("/verify/")) {
         const parts = cleanCode.split("/verify/");
         cleanCode = parts[parts.length - 1].split("?")[0].split("#")[0];
       }
+      cleanCode = cleanCode.replace(/\/+$/, "").trim().toUpperCase();
 
       try {
         const res = await fetch("/api/verify-ticket", {
