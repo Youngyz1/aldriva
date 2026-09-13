@@ -31,7 +31,7 @@ export function getSiteUrl() {
   // "deployed somewhere" — falling back to the real production domain
   // there, and only using localhost when neither configured var nor
   // VERCEL_ENV is present.
-  if (!process.env.VERCEL_ENV) {
+  if (process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV) {
     return "http://localhost:3000";
   }
 
