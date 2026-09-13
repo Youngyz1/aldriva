@@ -191,7 +191,7 @@ export function getHomepageSettings(
   if (dbSettings.organizers_hero_description) settings.organizersHeroDescription = dbSettings.organizers_hero_description;
 
   // Validation
-  if (!settings.imageUrl.startsWith("http")) {
+  if (!settings.imageUrl.startsWith("http") && !settings.imageUrl.startsWith("/")) {
     settings.imageUrl = DEFAULT_HOMEPAGE_SETTINGS.imageUrl;
   }
   if (!settings.buttonHref.startsWith("/") && !settings.buttonHref.startsWith("http")) {
@@ -200,7 +200,7 @@ export function getHomepageSettings(
   if (settings.secondaryButtonHref && !settings.secondaryButtonHref.startsWith("/") && !settings.secondaryButtonHref.startsWith("http")) {
     settings.secondaryButtonHref = DEFAULT_HOMEPAGE_SETTINGS.secondaryButtonHref;
   }
-  if (!settings.seoOgImageUrl.startsWith("http")) {
+  if (!settings.seoOgImageUrl.startsWith("http") && !settings.seoOgImageUrl.startsWith("/")) {
     settings.seoOgImageUrl = settings.imageUrl;
   }
   // Legacy-brand guard: pre-rebrand CMS rows advertised a Fund4AGoodCause
@@ -214,13 +214,13 @@ export function getHomepageSettings(
   }
 
   // URL fallback validations for landing images
-  if (settings.eventsHeroImageUrl && !settings.eventsHeroImageUrl.startsWith("http")) {
+  if (settings.eventsHeroImageUrl && !settings.eventsHeroImageUrl.startsWith("http") && !settings.eventsHeroImageUrl.startsWith("/")) {
     settings.eventsHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.eventsHeroImageUrl;
   }
-  if (settings.fundraisersHeroImageUrl && !settings.fundraisersHeroImageUrl.startsWith("http")) {
+  if (settings.fundraisersHeroImageUrl && !settings.fundraisersHeroImageUrl.startsWith("http") && !settings.fundraisersHeroImageUrl.startsWith("/")) {
     settings.fundraisersHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.fundraisersHeroImageUrl;
   }
-  if (settings.organizersHeroImageUrl && !settings.organizersHeroImageUrl.startsWith("http")) {
+  if (settings.organizersHeroImageUrl && !settings.organizersHeroImageUrl.startsWith("http") && !settings.organizersHeroImageUrl.startsWith("/")) {
     settings.organizersHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.organizersHeroImageUrl;
   }
 
