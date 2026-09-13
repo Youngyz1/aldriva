@@ -26,8 +26,10 @@ import {
   Globe,
   ImageIcon,
   UserCircle2,
+  Upload,
 } from "lucide-react";
 import { HomepageSettings } from "@/lib/homepage-hero";
+import { useImageUpload, ALLOWED_IMAGE_TYPES } from "@/hooks/use-image-upload";
 import HeroFanManager from "./HeroFanManager";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -112,6 +114,149 @@ function SaveBtn({ saving, label }: { saving: boolean; label: string }) {
     >
       {saving ? "Saving…" : label}
     </button>
+  );
+}
+
+interface CmsImageFieldProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  folder: string;
+  bucket?: string;
+  placeholder?: string;
+  helpText?: string;
+  aspectRatioHint?: string;
+  aspectRatioCheck?: boolean;
+}
+
+function CmsImageField({
+  label,
+  value,
+  onChange,
+  folder,
+  bucket = "cms-media",
+  placeholder = "https://… or /…",
+  helpText,
+  aspectRatioHint,
+  aspectRatioCheck = false,
+}: CmsImageFieldProps) {
+  const [aspectWarning, setAspectWarning] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const { uploading, fileInputRef, triggerUpload, handleFileChange } = useImageUpload({
+    bucket,
+    folder,
+    onSuccess: (url) => {
+      setUploadError(null);
+      onChange(url);
+    },
+    onError: (err) => {
+      setUploadError(err);
+    },
+  });
+
+  const onFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    setAspectWarning(null);
+    const file = e.target.files?.[0];
+    if (file && aspectRatioCheck) {
+      try {
+        const bmp = await createImageBitmap(file);
+        const ratio = bmp.width / bmp.height;
+        // 1200/630 = ~1.905. Warn if aspect ratio deviates significantly
+        if (ratio < 1.6 || ratio > 2.2) {
+          setAspectWarning(
+            `Advisory: Uploaded image is ${bmp.width}×${bmp.height}px (${ratio.toFixed(2)}:1). Social platforms render best with 1200×630px (1.91:1).`
+          );
+        }
+        bmp.close();
+      } catch {
+        // non-blocking
+      }
+    }
+    handleFileChange(e);
+  };
+
+  return (
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Preview Thumbnail */}
+        <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 flex items-center justify-center">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt={label}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-zinc-300" />
+          )}
+        </div>
+
+        {/* URL Input */}
+        <div className="flex-1 min-w-0">
+          <Input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              setUploadError(null);
+              onChange(e.target.value);
+            }}
+            placeholder={placeholder}
+          />
+        </div>
+
+        {/* Upload Button */}
+        <div className="shrink-0">
+          <button
+            type="button"
+            onClick={triggerUpload}
+            disabled={uploading}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-black text-zinc-800 transition hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin text-violet-600" />
+                <span>Uploading…</span>
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 text-zinc-600" />
+                <span>Upload image</span>
+              </>
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ALLOWED_IMAGE_TYPES.join(",")}
+            onChange={onFileInputChange}
+            className="hidden"
+          />
+        </div>
+      </div>
+
+      {aspectRatioHint && (
+        <p className="text-xs text-zinc-400 font-medium">{aspectRatioHint}</p>
+      )}
+
+      {aspectWarning && (
+        <p className="text-xs text-amber-600 font-semibold">{aspectWarning}</p>
+      )}
+
+      {uploadError && (
+        <p className="text-xs text-red-600 font-semibold">{uploadError}</p>
+      )}
+
+      {helpText && (
+        <p className="text-xs text-zinc-400">{helpText}</p>
+      )}
+    </div>
   );
 }
 
@@ -386,10 +531,14 @@ export default function HomepageCmsTabs({
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">Hero Block</h2>
-            <div>
-              <FieldLabel>Background Image URL</FieldLabel>
-              <Input type="url" value={settings.imageUrl} onChange={e => setSettings({...settings, imageUrl: e.target.value})} placeholder="https://…" />
-            </div>
+            <CmsImageField
+              label="Background Image"
+              value={settings.imageUrl}
+              onChange={val => setSettings({ ...settings, imageUrl: val })}
+              folder="hero"
+              placeholder="https://… or /…"
+              helpText="Background image for the main homepage hero banner."
+            />
             <div>
               <FieldLabel>Eyebrow / Subtitle</FieldLabel>
               <Input value={settings.subtitle} onChange={e => setSettings({...settings, subtitle: e.target.value, eyebrow: e.target.value})} placeholder="EVENTS • FUNDRAISING" />
@@ -456,10 +605,14 @@ export default function HomepageCmsTabs({
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Events Landing Hero</h2>
-            <div>
-              <FieldLabel>Background Image URL</FieldLabel>
-              <Input type="url" value={settings.eventsHeroImageUrl} onChange={e => setSettings({...settings, eventsHeroImageUrl: e.target.value})} placeholder="https://…" />
-            </div>
+            <CmsImageField
+              label="Background Image"
+              value={settings.eventsHeroImageUrl}
+              onChange={val => setSettings({ ...settings, eventsHeroImageUrl: val })}
+              folder="events-landing"
+              placeholder="https://… or /…"
+              helpText="Hero background for the /events landing page."
+            />
             <div>
               <FieldLabel>Eyebrow / Subtitle</FieldLabel>
               <Input value={settings.eventsHeroEyebrow} onChange={e => setSettings({...settings, eventsHeroEyebrow: e.target.value})} placeholder="LIVE EXPERIENCES" />
@@ -514,10 +667,14 @@ export default function HomepageCmsTabs({
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Fundraisers Landing Hero</h2>
-            <div>
-              <FieldLabel>Background Image URL</FieldLabel>
-              <Input type="url" value={settings.fundraisersHeroImageUrl} onChange={e => setSettings({...settings, fundraisersHeroImageUrl: e.target.value})} placeholder="https://…" />
-            </div>
+            <CmsImageField
+              label="Background Image"
+              value={settings.fundraisersHeroImageUrl}
+              onChange={val => setSettings({ ...settings, fundraisersHeroImageUrl: val })}
+              folder="fundraisers-landing"
+              placeholder="https://… or /…"
+              helpText="Hero background for the /fundraisers landing page."
+            />
             <div>
               <FieldLabel>Eyebrow / Subtitle</FieldLabel>
               <Input value={settings.fundraisersHeroEyebrow} onChange={e => setSettings({...settings, fundraisersHeroEyebrow: e.target.value})} placeholder="COMMUNITY FUNDRAISING" />
@@ -573,10 +730,14 @@ export default function HomepageCmsTabs({
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Organizations Landing Hero</h2>
-            <div>
-              <FieldLabel>Background Image URL</FieldLabel>
-              <Input type="url" value={settings.organizersHeroImageUrl} onChange={e => setSettings({...settings, organizersHeroImageUrl: e.target.value})} placeholder="https://…" />
-            </div>
+            <CmsImageField
+              label="Background Image"
+              value={settings.organizersHeroImageUrl}
+              onChange={val => setSettings({ ...settings, organizersHeroImageUrl: val })}
+              folder="organizers-landing"
+              placeholder="https://… or /…"
+              helpText="Hero background for the /organizers directory landing page."
+            />
             <div>
               <FieldLabel>Eyebrow / Subtitle</FieldLabel>
               <Input value={settings.organizersHeroEyebrow} onChange={e => setSettings({...settings, organizersHeroEyebrow: e.target.value})} placeholder="ORGANIZER DIRECTORY" />
@@ -788,10 +949,15 @@ export default function HomepageCmsTabs({
               <Textarea rows={3} value={settings.seoDescription} onChange={e => setSettings({...settings, seoDescription: e.target.value})} placeholder="Discover events, buy tickets, support causes." />
               <p className="mt-1 text-xs text-zinc-400">{settings.seoDescription.length} / 160 chars</p>
             </div>
-            <div>
-              <FieldLabel>Open Graph / Twitter Image URL</FieldLabel>
-              <Input type="url" value={settings.seoOgImageUrl} onChange={e => setSettings({...settings, seoOgImageUrl: e.target.value})} placeholder="https://…" />
-            </div>
+            <CmsImageField
+              label="Open Graph / Twitter Image"
+              value={settings.seoOgImageUrl}
+              onChange={val => setSettings({ ...settings, seoOgImageUrl: val })}
+              folder="seo"
+              placeholder="https://… or /…"
+              aspectRatioHint="Recommended: 1200 × 630 px (1.91:1 aspect ratio) for social preview cards."
+              aspectRatioCheck={true}
+            />
             <SaveBtn saving={saving} label="Save SEO Settings" />
           </form>
 
