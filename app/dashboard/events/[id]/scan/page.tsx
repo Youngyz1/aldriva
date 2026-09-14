@@ -30,17 +30,30 @@ export default async function EventScannerPage({
     );
   }
 
-  // Fetch event title for header
+  // Fetch event details and staff member entrance assignment
   const admin = createSupabaseAdmin();
-  const { data: event } = await admin
-    .from("events")
-    .select("id, title, event_date, venue, city")
-    .eq("id", eventId)
-    .single();
+  const [{ data: event }, { data: teamMember }] = await Promise.all([
+    admin
+      .from("events")
+      .select("id, title, event_date, venue, city")
+      .eq("id", eventId)
+      .single(),
+    admin
+      .from("event_team_members")
+      .select("entrance_id")
+      .eq("event_id", eventId)
+      .eq("user_id", ctx.user.id)
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
+
+  const assignedEntrance = teamMember?.entrance_id || null;
 
   return (
     <ScannerClient
       eventId={eventId}
+      userId={ctx.user.id}
+      assignedEntrance={assignedEntrance}
       eventTitle={event?.title || "Event Door Scanner"}
       eventDetails={
         event

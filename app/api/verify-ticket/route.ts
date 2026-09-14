@@ -74,7 +74,8 @@ async function findTicketByCode(code: string) {
         event_date,
         venue,
         city,
-        banner
+        banner,
+        ticket_template
       )
     `)
     .eq("qr_code", cleanCode)
@@ -162,7 +163,8 @@ async function findTicketByCode(code: string) {
         event_date,
         venue,
         city,
-        banner
+        banner,
+        ticket_template
       )
     `)
     .eq("qr_code", cleanCode)

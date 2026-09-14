@@ -43,7 +43,10 @@ export async function GET(
     const search = searchParams.get("search")?.trim().toLowerCase() || "";
     const scannerId = searchParams.get("scanner_id") || "all";
 
-    // 1. Calculate Headline Stats on ticket_instances
+    // 1. Calculate Headline Stats on ticket_instances & conflicts
+    let conflictsCount = 0;
+    let conflictsData: any[] = [];
+
     const [{ count: totalSold }, { count: checkedIn }, { count: notArrived }] = await Promise.all([
       admin
         .from("ticket_instances")
@@ -62,27 +65,54 @@ export async function GET(
         .eq("status", "valid"),
     ]);
 
+    try {
+      const { count: cCount, data: cData } = await admin
+        .from("offline_scan_conflicts")
+        .select("id, ticket_instance_id, offline_scan_id, device_id, entrance_id, delegating_user_id, scanned_by_user_id, offline_scanned_at, conflict_reason, winning_checkin_id, created_at", { count: "exact" })
+        .eq("event_id", eventId)
+        .order("offline_scanned_at", { ascending: false })
+        .limit(50);
+      conflictsCount = cCount ?? 0;
+      conflictsData = cData ?? [];
+    } catch {
+      // Ignore if table not yet created
+    }
+
     const soldCount = totalSold ?? 0;
     const checkedInCount = checkedIn ?? 0;
     const notArrivedCount = notArrived ?? 0;
     const attendanceRate = soldCount > 0 ? Math.round((checkedInCount / soldCount) * 100) : 0;
 
-    // 2. Fetch Scanner Breakdown from ticket_checkins
+    // 2. Fetch Scanner Breakdown & Audit info from ticket_checkins
     const { data: checkinAudits } = await admin
       .from("ticket_checkins")
-      .select("scanned_by_user_id, ticket_instance_id, ticket_order_id")
+      .select("id, scanned_by_user_id, ticket_instance_id, ticket_order_id, scan_source, offline_scan_id, device_id, entrance_id")
       .eq("event_id", eventId);
 
-    const auditMap: Record<string, string | null> = {};
+    const auditMap: Record<string, {
+      scanned_by_user_id: string | null;
+      delegating_user_id: string | null;
+      scan_source: string | null;
+      offline_scanned_at: string | null;
+      device_id: string | null;
+    }> = {};
     const scannerCounts: Record<string, number> = {};
     let attributedTotal = 0;
 
     for (const audit of checkinAudits ?? []) {
+      const entry = {
+        scanned_by_user_id: audit.scanned_by_user_id,
+        delegating_user_id: (audit as any).delegating_user_id || null,
+        scan_source: audit.scan_source || "online",
+        offline_scanned_at: (audit as any).offline_scanned_at || null,
+        device_id: audit.device_id,
+      };
+
       if (audit.ticket_instance_id) {
-        auditMap[audit.ticket_instance_id] = audit.scanned_by_user_id;
+        auditMap[audit.ticket_instance_id] = entry;
       }
       if (audit.ticket_order_id) {
-        auditMap[audit.ticket_order_id] = audit.scanned_by_user_id;
+        auditMap[audit.ticket_order_id] = entry;
       }
       if (audit.scanned_by_user_id) {
         scannerCounts[audit.scanned_by_user_id] = (scannerCounts[audit.scanned_by_user_id] || 0) + 1;
@@ -92,15 +122,21 @@ export async function GET(
 
     const unattributedCount = Math.max(0, checkedInCount - attributedTotal);
 
-    // Fetch staff profiles for scanner breakdown
-    const scannerUserIds = Object.keys(scannerCounts);
+    // Fetch staff profiles for scanner breakdown & delegating users
+    const allProfileUserIds = Array.from(new Set([
+      ...Object.keys(scannerCounts),
+      ...(checkinAudits ?? []).map((a: any) => a.delegating_user_id).filter(Boolean) as string[],
+      ...(conflictsData ?? []).map((c: any) => c.scanned_by_user_id).filter(Boolean) as string[],
+      ...(conflictsData ?? []).map((c: any) => c.delegating_user_id).filter(Boolean) as string[],
+    ]));
+
     let staffMap: Record<string, { name: string; email: string }> = {};
 
-    if (scannerUserIds.length > 0) {
+    if (allProfileUserIds.length > 0) {
       const { data: profiles } = await admin
         .from("profiles")
         .select("id, full_name, email")
-        .in("id", scannerUserIds);
+        .in("id", allProfileUserIds);
 
       for (const p of profiles ?? []) {
         staffMap[p.id] = {
@@ -110,7 +146,7 @@ export async function GET(
       }
     }
 
-    const scannerBreakdown = scannerUserIds.map((userId) => ({
+    const scannerBreakdown = Object.keys(scannerCounts).map((userId) => ({
       scanner_id: userId,
       name: staffMap[userId]?.name || "Staff Member",
       email: staffMap[userId]?.email || "",
@@ -172,7 +208,9 @@ export async function GET(
     // Enrich history instances with buyer information and scanner attribution
     const enrichedHistory = (historyInstances ?? []).map((inst) => {
       const orderData = inst.ticket_orders as any;
-      const scannedById = auditMap[inst.id] || (inst.order_id ? auditMap[inst.order_id] : null) || null;
+      const audit = auditMap[inst.id] || (inst.order_id ? auditMap[inst.order_id] : null);
+      const scannedById = audit?.scanned_by_user_id || null;
+      const delegatingById = audit?.delegating_user_id || null;
       const tierName = (inst.ticket_id ? ticketNameMap.get(inst.ticket_id) : null) || "Standard Entry";
 
       return {
@@ -188,6 +226,10 @@ export async function GET(
         qr_code: inst.qr_code,
         scanned_by_id: scannedById,
         scanned_by_name: scannedById ? staffMap[scannedById]?.name || "Staff Member" : "Unattributed / Bulk",
+        delegating_by_id: delegatingById,
+        delegating_by_name: delegatingById ? staffMap[delegatingById]?.name || "Prep Staff" : null,
+        scan_source: audit?.scan_source || "online",
+        offline_scanned_at: audit?.offline_scanned_at || null,
       };
     });
 
@@ -212,6 +254,20 @@ export async function GET(
 
     const totalPages = Math.ceil((totalHistoryCount ?? 0) / perPage) || 1;
 
+    // Enrich conflict details
+    const enrichedConflicts = (conflictsData ?? []).map((c) => ({
+      id: c.id,
+      ticket_instance_id: c.ticket_instance_id,
+      offline_scan_id: c.offline_scan_id,
+      device_id: c.device_id,
+      entrance_id: c.entrance_id,
+      scanned_by_name: c.scanned_by_user_id ? staffMap[c.scanned_by_user_id]?.name || "Staff Member" : "Unknown",
+      delegating_by_name: c.delegating_user_id ? staffMap[c.delegating_user_id]?.name || "Prep Staff" : "Unknown",
+      offline_scanned_at: c.offline_scanned_at,
+      conflict_reason: c.conflict_reason,
+      created_at: c.created_at,
+    }));
+
     return NextResponse.json({
       stats: {
         total_sold: soldCount,
@@ -219,6 +275,8 @@ export async function GET(
         not_arrived: notArrivedCount,
         attendance_rate: attendanceRate,
       },
+      conflicts_count: conflictsCount,
+      conflicts: enrichedConflicts,
       scanner_breakdown: scannerBreakdown,
       history: {
         items: finalHistory,
