@@ -114,7 +114,7 @@ async function buildOrderResponse(
   // Fetch Event Details
   const { data: eventData } = await admin
     .from("events")
-    .select("id, title, slug, event_date, venue, city, banner")
+    .select("id, title, slug, event_date, venue, city, banner, ticket_template")
     .eq("id", primaryOrder.event_id)
     .maybeSingle();
 
@@ -243,6 +243,7 @@ async function buildOrderResponse(
           venue: eventData.venue || null,
           city: eventData.city || null,
           banner: eventData.banner || null,
+          ticketTemplate: eventData.ticket_template || "modern",
         }
       : null,
     tickets,

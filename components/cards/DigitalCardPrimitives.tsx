@@ -48,6 +48,7 @@ export type CardEventInfo = {
   venue?: string | null;
   city?: string | null;
   banner?: string | null;
+  ticketTemplate?: "modern" | "concert" | "premium" | "minimal" | null;
 };
 
 export type CardStatusType = "valid" | "used" | "cancelled" | "pending" | "declined" | "expired";
@@ -96,7 +97,8 @@ export function CardHeader({
   theme?: CardTheme;
 }) {
   const isMinimal = theme === "minimal";
-  const isElegant = theme === "elegant";
+  const isElegant = theme === "elegant" || theme === "premium";
+  const isConcert = theme === "concert";
 
   return (
     <div className="relative">
@@ -117,10 +119,12 @@ export function CardHeader({
         <div
           className={`h-32 w-full flex items-center justify-between px-6 ${
             isElegant
-              ? "bg-gradient-to-r from-amber-950/80 via-stone-900 to-amber-950/80 border-b border-amber-500/20"
+              ? "bg-gradient-to-r from-amber-950 via-stone-900 to-amber-950 border-b border-amber-500/30 text-amber-100"
               : isMinimal
               ? "bg-zinc-100 border-b border-zinc-200 text-zinc-900"
-              : "bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700"
+              : isConcert
+              ? "bg-zinc-950 border-b-2 border-dashed border-zinc-700 text-white"
+              : "bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 text-white"
           }`}
         >
           <div>
@@ -142,6 +146,8 @@ export function CardHeader({
                 ? "bg-amber-500/20 border border-amber-400/40 text-amber-200"
                 : isMinimal
                 ? "bg-zinc-900 text-white"
+                : isConcert
+                ? "bg-white text-zinc-950"
                 : "bg-orange-500/90 text-white"
             }`}
           >

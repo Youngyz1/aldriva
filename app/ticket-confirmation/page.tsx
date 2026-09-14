@@ -91,6 +91,7 @@ function TicketConfirmationContent() {
               venue: o.events?.venue || null,
               city: o.events?.city || null,
               banner: o.events?.banner || null,
+              ticketTemplate: o.events?.ticket_template || "modern",
             };
 
             const singleTicket: TicketItem = {
@@ -171,6 +172,7 @@ function TicketConfirmationContent() {
             venue: data.event?.venue || null,
             city: data.event?.city || null,
             banner: data.event?.banner || null,
+            ticketTemplate: data.event?.ticketTemplate || "modern",
           };
 
           const resolvedTickets: TicketItem[] = data.tickets.map((t: any) => ({
@@ -356,8 +358,8 @@ function TicketConfirmationContent() {
               buyerEmail={orderInfo?.buyerEmail}
               status={t.status}
               issuedAt={t.issuedAt}
-              initialTemplate="modern"
-              allowTemplateSwitching={true}
+              initialTemplate={event.ticketTemplate || "modern"}
+              allowTemplateSwitching={false}
             />
           </div>
         ))}

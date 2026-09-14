@@ -66,11 +66,20 @@ export function TicketCard({
   buyerEmail,
   status = "valid",
   issuedAt,
-  initialTemplate = "modern",
-  allowTemplateSwitching = true,
+  initialTemplate,
+  allowTemplateSwitching = false,
 }: TicketCardProps) {
-  const [template, setTemplate] = useState<"modern" | "concert" | "premium" | "minimal">(initialTemplate);
+  const resolvedInitial = initialTemplate || event.ticketTemplate || "modern";
+  const [template, setTemplate] = useState<"modern" | "concert" | "premium" | "minimal">(resolvedInitial);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  React.useEffect(() => {
+    if (initialTemplate) {
+      setTemplate(initialTemplate);
+    } else if (event.ticketTemplate) {
+      setTemplate(event.ticketTemplate);
+    }
+  }, [initialTemplate, event.ticketTemplate]);
 
   const isFree = price === 0;
   const isVip = Boolean(seat?.isVip);

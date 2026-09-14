@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { QrCode, Users, CheckCircle2, Edit3, ExternalLink, LayoutDashboard, Mail, Activity } from "lucide-react";
+import { QrCode, Users, CheckCircle2, Edit3, ExternalLink, LayoutDashboard, Mail, Activity, Palette, Sparkles } from "lucide-react";
 import {
   canShowEventPublicPage,
   getEventSubNavTabs,
@@ -33,6 +33,8 @@ export default function EventSubNav({
     checkins: CheckCircle2,
     scan: QrCode,
     guests: Mail,
+    "ticket-design": Palette,
+    "invitation-design": Sparkles,
     seating: LayoutDashboard,
     team: Users,
     edit: Edit3,
