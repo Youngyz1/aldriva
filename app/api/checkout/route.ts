@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
           },
         ],
         mode: "payment",
-        success_url: `${baseUrl}/ticket-confirmation?qr=${qrCode}&event=${event.slug}&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${baseUrl}/ticket-confirmation?session_id={CHECKOUT_SESSION_ID}&event=${event.slug}`,
         cancel_url: `${baseUrl}/events/${event.slug}?cancelled=true`,
         metadata: {
           qr_code: qrCode,

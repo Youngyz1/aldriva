@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       ticketId,
       seatId,
       seatLabel,
+      seats,
       quantity = 1,
     } = body;
 
@@ -228,18 +229,27 @@ export async function POST(req: NextRequest) {
       // itself was already re-derived from the database above.
       const safeQuantity = Math.min(100, Math.max(1, Math.floor(Number(quantity)) || 1));
 
-      // Reserve seat if applicable (seat validity already enforced by the
-      // authoritative pricing check above; re-scope writes to the event).
-      if (seatId) {
+      // Reserve seat(s) if applicable
+      const seatIdsToReserve = Array.isArray(seats) && seats.length > 0
+        ? seats.map((s: any) => s.id).filter(Boolean)
+        : seatId
+        ? [seatId]
+        : [];
+
+      if (seatIdsToReserve.length > 0) {
         const { data: seatData, error: seatCheckError } = await supabaseAdmin
           .from("seats")
-          .select("status")
-          .eq("id", seatId)
-          .eq("event_id", eventId)
-          .single();
+          .select("id, status, reserved_until")
+          .in("id", seatIdsToReserve)
+          .eq("event_id", eventId);
 
-        if (seatCheckError || seatData?.status !== "available") {
-          return NextResponse.json({ error: "Seat is no longer available." }, { status: 400 });
+        const now = new Date();
+        const unavailable = (seatData || []).filter(
+          (s) => s.status !== "available" && !(s.status === "reserved" && s.reserved_until && new Date(s.reserved_until) > now)
+        );
+
+        if (seatCheckError || !seatData || seatData.length !== seatIdsToReserve.length || unavailable.length > 0) {
+          return NextResponse.json({ error: "One or more seats are no longer available." }, { status: 400 });
         }
 
         const { error: reserveError } = await supabaseAdmin
@@ -248,13 +258,12 @@ export async function POST(req: NextRequest) {
             status: "reserved",
             reserved_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour for crypto confirmations
           })
-          .eq("id", seatId)
-          .eq("event_id", eventId)
-          .eq("status", "available");
+          .in("id", seatIdsToReserve)
+          .eq("event_id", eventId);
 
         if (reserveError) {
           console.error("Seat reservation error:", reserveError);
-          return NextResponse.json({ error: "Failed to reserve seat." }, { status: 500 });
+          return NextResponse.json({ error: "Failed to reserve seats." }, { status: 500 });
         }
       }
 

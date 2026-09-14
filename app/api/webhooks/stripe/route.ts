@@ -6,6 +6,7 @@ import { recordDonationFromSession } from "@/lib/donations";
 import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
+import { notifyProductPurchase } from "@/lib/product-notifications";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
 import { getSiteUrl } from "@/lib/site-url";
@@ -480,8 +481,34 @@ async function handlePaymentIntentSucceeded(
       ];
     }
 
+    // Parse multi-seat metadata if present
+    let seatItems: Array<{
+      seat_id: string;
+      ticket_id: string;
+      seat_label: string;
+    }> = [];
+
+    if (meta.seats_json) {
+      try {
+        const parsed = JSON.parse(meta.seats_json);
+        if (Array.isArray(parsed)) {
+          seatItems = parsed
+            .map((item: any) => ({
+              seat_id: item.seat_id || item.id || item.s,
+              ticket_id: item.ticket_id || item.ticketId || item.t,
+              seat_label: item.seat_label || item.label || item.l || "",
+            }))
+            .filter((s) => Boolean(s.seat_id));
+        }
+      } catch (err) {
+        console.error("[webhook] Failed to parse seats_json metadata:", err);
+      }
+    }
+
     const totalQty =
-      lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0) || 1;
+      seatItems.length > 0
+        ? seatItems.length
+        : lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0) || 1;
 
     const rpcResult = await supabaseAdmin
       .rpc("record_ticket_and_credit", {
@@ -498,6 +525,7 @@ async function handlePaymentIntentSucceeded(
         p_stripe_payment_intent_id: pi.id,
         p_stripe_session_id: null,
         p_items_json: lineItems.length > 0 ? lineItems : null,
+        p_seats_json: seatItems.length > 0 ? seatItems : null,
       })
       .returns<TicketRpcRow[]>();
 
@@ -531,7 +559,14 @@ async function handlePaymentIntentSucceeded(
 
     console.log(`[webhook] Ticket recorded & credited (new) primaryId=${primaryOrderId} pi=${pi.id}`);
 
-    if (meta.seat_id) {
+    if (seatItems.length > 0) {
+      const seatIds = seatItems.map((s) => s.seat_id);
+      await supabaseAdmin
+        .from("seats")
+        .update({ status: "sold", reserved_until: null })
+        .in("id", seatIds)
+        .eq("event_id", event_id);
+    } else if (meta.seat_id) {
       await supabaseAdmin
         .from("seats")
         .update({ status: "sold", reserved_until: null })
@@ -858,7 +893,13 @@ async function handleCheckoutSessionCompleted(
       typeof session.payment_intent === "string" ? session.payment_intent : undefined;
 
     try {
-      await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+      const result = await markProductOrderPaid(orderId, { stripePaymentIntentId: piId });
+      // Exactly-once fan-out: buyer + seller purchase notifications only when
+      // this delivery actually flipped the order (webhook retries re-enter
+      // with was_newly_paid=false and must stay silent).
+      if (result.was_newly_paid) {
+        await notifyProductPurchase(orderId);
+      }
     } catch (err: unknown) {
       const errorMessage = (err as Error)?.message ?? "Failed to mark product order paid";
       console.error("[webhook] markProductOrderPaid error:", errorMessage);
@@ -916,6 +957,29 @@ async function handleCheckoutSessionCompleted(
 
   type TicketRpcRow = { ticket_order_id: string; is_new: boolean };
 
+  let seatItems: Array<{
+    seat_id: string;
+    ticket_id: string;
+    seat_label: string;
+  }> = [];
+
+  if (meta.seats_json) {
+    try {
+      const parsed = JSON.parse(meta.seats_json);
+      if (Array.isArray(parsed)) {
+        seatItems = parsed
+          .map((item: any) => ({
+            seat_id: item.seat_id || item.id || item.s,
+            ticket_id: item.ticket_id || item.ticketId || item.t,
+            seat_label: item.seat_label || item.label || item.l || "",
+          }))
+          .filter((s) => Boolean(s.seat_id));
+      }
+    } catch (err) {
+      console.error("[webhook] Failed to parse seats_json session metadata:", err);
+    }
+  }
+
   const rpcResult = await supabaseAdmin
     .rpc("record_ticket_and_credit", {
       p_event_id: event_id,
@@ -924,12 +988,14 @@ async function handleCheckoutSessionCompleted(
       p_seat_label: seat_label || null,
       p_buyer_email: recipientEmail,
       p_buyer_name: buyer_name || null,
-      p_quantity: qty,
+      p_quantity: seatItems.length > 0 ? seatItems.length : qty,
       p_total_amount: totalAmount,
       p_currency: currency,
       p_qr_code: qr_code,
       p_stripe_payment_intent_id: piId,
       p_stripe_session_id: session.id,
+      p_items_json: null,
+      p_seats_json: seatItems.length > 0 ? seatItems : null,
     })
     .returns<TicketRpcRow[]>();
 
@@ -963,7 +1029,14 @@ async function handleCheckoutSessionCompleted(
 
   console.log(`[webhook] Ticket recorded & credited (new) id=${ticketOrderId} session=${session.id}`);
 
-  if (seat_id) {
+  if (seatItems.length > 0) {
+    const seatIds = seatItems.map((s) => s.seat_id);
+    await supabaseAdmin
+      .from("seats")
+      .update({ status: "sold", reserved_until: null })
+      .in("id", seatIds)
+      .eq("event_id", event_id);
+  } else if (seat_id) {
     await supabaseAdmin
       .from("seats")
       .update({ status: "sold", reserved_until: null })

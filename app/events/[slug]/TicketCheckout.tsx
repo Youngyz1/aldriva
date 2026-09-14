@@ -80,6 +80,7 @@ export default function TicketCheckout({
 
   // Stripe inline payment
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [preparingPayment, setPreparingPayment] = useState(false);
   const [checkoutAttemptId, setCheckoutAttemptId] = useState<string | null>(null);
@@ -132,7 +133,7 @@ export default function TicketCheckout({
   const effectivePrice =
     selectedSeats.length > 0
       ? selectedSeats.reduce(
-          (sum, s) => sum + (s.price_override ?? primaryTicket?.price ?? 0),
+          (sum, s) => sum + (s.effective_price ?? s.price_override ?? primaryTicket?.price ?? 0),
           0
         )
       : tickets.reduce(
@@ -143,7 +144,11 @@ export default function TicketCheckout({
   const seatLabel =
     selectedSeats.length > 0
       ? selectedSeats
-          .map((s) => `${s.section}-${s.row_label}${s.seat_number}`)
+          .map((s) =>
+            s.table_number
+              ? `Table ${s.table_number}-S${s.seat_number}`
+              : `${s.section}-${s.row_label}${s.seat_number}`
+          )
           .join(", ")
       : null;
 
@@ -151,7 +156,23 @@ export default function TicketCheckout({
     selectedSeats.length > 0
       ? [
           { label: "Seat(s)", value: seatLabel || "Assigned" },
-          { label: "Qty", value: String(selectedSeats.length) },
+          { label: "Total Seats", value: String(selectedSeats.length) },
+          ...tickets
+            .map((t) => {
+              const matching = selectedSeats.filter(
+                (s) => (s.ticket_type_id || primaryTicket?.id) === t.id
+              );
+              if (matching.length === 0) return null;
+              const tierSum = matching.reduce(
+                (sum, s) => sum + (s.effective_price ?? s.price_override ?? t.price),
+                0
+              );
+              return {
+                label: `${t.name} (x${matching.length})`,
+                value: formatPrice(tierSum),
+              };
+            })
+            .filter((item): item is { label: string; value: string } => item !== null),
         ]
       : tickets
           .filter((t) => (selectedQuantities[t.id] || 0) > 0)
@@ -185,11 +206,24 @@ export default function TicketCheckout({
       .filter(([_, qty]) => qty > 0)
       .map(([ticketId, quantity]) => ({ ticketId, quantity }));
 
+    const seatsPayload =
+      selectedSeats.length > 0
+        ? selectedSeats.map((s) => ({
+            id: s.id,
+            ticketId: s.ticket_type_id || primaryTicket?.id,
+            label: s.table_number
+              ? `Table ${s.table_number}-S${s.seat_number}`
+              : `${s.section}-${s.row_label}${s.seat_number}`,
+            price: s.effective_price ?? s.price_override ?? 0,
+          }))
+        : undefined;
+
     const res = await fetch("/api/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         items: items.length > 0 ? items : primaryTicket ? [{ ticketId: primaryTicket.id, quantity: selectedSeats.length || 1 }] : [],
+        seats: seatsPayload,
         ticketName: primaryTicket?.name,
         ticketPrice: effectivePrice / (selectedSeats.length || totalQuantity || 1),
         eventTitle: event.title,
@@ -209,6 +243,8 @@ export default function TicketCheckout({
     const data = await res.json();
     if (data.clientSecret) {
       setClientSecret(data.clientSecret);
+      const piId = data.paymentIntentId || (typeof data.clientSecret === "string" ? data.clientSecret.split("_secret_")[0] : null);
+      setPaymentIntentId(piId);
       setQrCode(data.qrCode ?? null);
     } else {
       alert("Could not initialise payment. Please try again.");
@@ -244,6 +280,18 @@ export default function TicketCheckout({
         .filter(([_, qty]) => qty > 0)
         .map(([ticketId, quantity]) => ({ ticketId, quantity }));
 
+      const seatsPayload =
+        selectedSeats.length > 0
+          ? selectedSeats.map((s) => ({
+              id: s.id,
+              ticketId: s.ticket_type_id || primaryTicket?.id,
+              label: s.table_number
+                ? `Table ${s.table_number}-S${s.seat_number}`
+                : `${s.section}-${s.row_label}${s.seat_number}`,
+              price: s.effective_price ?? s.price_override ?? 0,
+            }))
+          : undefined;
+
       const res = await fetch("/api/crypto/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,6 +303,7 @@ export default function TicketCheckout({
           donorEmail: buyerEmail,
           ticketId: primaryTicket?.id,
           items: items.length > 0 ? items : undefined,
+          seats: seatsPayload,
           seatId: selectedSeats[0]?.id || null,
           seatLabel: seatLabel || null,
           quantity: selectedSeats.length || totalQuantity,
@@ -280,6 +329,7 @@ export default function TicketCheckout({
     setContactInfoSubmitted(false);
     setValidationError(null);
     setClientSecret(null);
+    setPaymentIntentId(null);
     setCheckoutAttemptId(null);
     setQrCode(null);
     setPreparingPayment(false);
@@ -395,14 +445,21 @@ export default function TicketCheckout({
           <p className="text-zinc-500 mt-2 text-sm">
             Check your email for your ticket confirmation.
           </p>
-          {qrCode && (
+          {paymentIntentId ? (
+            <a
+              href={`/ticket-confirmation?payment_intent_id=${paymentIntentId}&event=${event.slug}`}
+              className="mt-6 inline-block w-full rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white transition hover:bg-orange-600 shadow-md"
+            >
+              View Ticket →
+            </a>
+          ) : qrCode ? (
             <a
               href={`/ticket-confirmation?qr=${qrCode}&event=${event.slug}`}
               className="mt-6 inline-block w-full rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white transition hover:bg-orange-600 shadow-md"
             >
               View Ticket →
             </a>
-          )}
+          ) : null}
           <button
             onClick={() => {
               window.location.href = `/events/${event.slug}`;
@@ -604,11 +661,11 @@ export default function TicketCheckout({
                   <button
                     type="button"
                     onClick={() => (seatMapAvailable ? setStep("seats") : goToReview())}
-                    disabled={totalQuantity === 0}
+                    disabled={!seatMapAvailable && totalQuantity === 0}
                     className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-200 disabled:text-zinc-400 text-white py-4 rounded-2xl font-bold text-lg mt-2 transition cursor-pointer disabled:cursor-not-allowed"
                   >
                     {seatMapAvailable
-                      ? "Choose Your Seat →"
+                      ? "Choose Seats on Map →"
                       : totalQuantity > 0
                       ? `Check out (${totalQuantity} ticket${totalQuantity > 1 ? "s" : ""}) · ${formatPrice(effectivePrice)}`
                       : "Select Tickets to Check out"}
@@ -620,9 +677,9 @@ export default function TicketCheckout({
               {step === "seats" && seatMapAvailable && (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-xl font-black">Choose Your Seat</h3>
+                    <h3 className="text-xl font-black">Choose Your Seat(s)</h3>
                     <p className="text-zinc-500 text-sm mt-1">
-                      Ticket: <strong>{primaryTicket?.name}</strong> · Click seats to select
+                      Click any available seat to select (up to 10 seats)
                     </p>
                   </div>
 
@@ -638,9 +695,17 @@ export default function TicketCheckout({
                       canvasWidth={venueLayout.canvas_width || 1000}
                       canvasHeight={venueLayout.canvas_height || 700}
                       ticketTypes={tickets as any}
-                      basePrice={primaryTicket?.price ?? 0}
-                      maxSelectable={totalQuantity || 1}
-                      onSelectionChange={setSelectedSeats}
+                      basePrice={primaryTicket?.price ?? lowestPrice ?? 0}
+                      maxSelectable={10}
+                      onSelectionChange={(selected) => {
+                        setSelectedSeats(selected);
+                        const counts: Record<string, number> = {};
+                        for (const s of selected) {
+                          const tid = s.ticket_type_id || primaryTicket?.id || tickets[0]?.id;
+                          if (tid) counts[tid] = (counts[tid] || 0) + 1;
+                        }
+                        setSelectedQuantities(counts);
+                      }}
                     />
                   ) : null}
 
@@ -850,6 +915,7 @@ export default function TicketCheckout({
                             onBack={() => {
                               setContactInfoSubmitted(false);
                               setClientSecret(null);
+                              setPaymentIntentId(null);
                               setCheckoutAttemptId(null);
                               setQrCode(null);
                             }}
@@ -864,6 +930,7 @@ export default function TicketCheckout({
                           <button
                             onClick={() => {
                               setClientSecret(null);
+                              setPaymentIntentId(null);
                               setCheckoutAttemptId(null);
                               if (checkoutAttemptId) {
                                 preparePayment(checkoutAttemptId);
@@ -881,6 +948,7 @@ export default function TicketCheckout({
                             onClick={() => {
                               setContactInfoSubmitted(false);
                               setClientSecret(null);
+                              setPaymentIntentId(null);
                               setCheckoutAttemptId(null);
                               setQrCode(null);
                             }}
