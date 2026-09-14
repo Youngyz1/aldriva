@@ -144,7 +144,8 @@ export async function getInvitationByToken(token: string) {
         end_date,
         venue,
         city,
-        banner
+        banner,
+        invitation_template_id
       )
     `)
     .eq("token", token)
@@ -436,7 +437,8 @@ export async function sendInvitationEmail(
         title,
         event_date,
         venue,
-        city
+        city,
+        invitation_template_id
       )
     `)
     .eq("id", params.invitationId)
@@ -479,6 +481,8 @@ export async function sendInvitationEmail(
   const { getSiteUrl } = await import("@/lib/site-url");
   const siteUrl = getSiteUrl().replace(/\/$/, "");
   const invitationUrl = `${siteUrl}/invitation/${invitation.token}`;
+  const invitationCardImageUrl = `${siteUrl}/api/invitation/${invitation.token}/card.png`;
+  const hasCustomTemplate = Boolean(eventData?.invitation_template_id);
 
   const guestDisplayName = invitation.guest_title
     ? `${invitation.guest_title} ${invitation.guest_name}`
@@ -524,11 +528,19 @@ export async function sendInvitationEmail(
           <tr>
             <td align="center">
               <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:580px;width:100%;">
-                <!-- Header Banner -->
+                <!-- Header: Custom Card PNG if template set, else Gradient Banner -->
                 <tr>
-                  <td style="background:linear-gradient(135deg,#7c3aed,#9333ea);padding:36px;text-align:center;">
-                    <p style="margin:0;color:#e9d5ff;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Official Invitation</p>
-                    <h1 style="margin:8px 0 0;color:#ffffff;font-size:26px;font-weight:900;line-height:1.2;">${escapeHtml(eventTitle)}</h1>
+                  <td style="padding:0;margin:0;">
+                    ${
+                      hasCustomTemplate
+                        ? `<a href="${invitationUrl}" style="display:block;text-decoration:none;border-bottom:1px solid #e5e7eb;">
+                            <img src="${invitationCardImageUrl}" alt="${escapeHtml(eventTitle)} Invitation" width="580" style="width:100%;max-width:580px;height:auto;display:block;border:0;" />
+                          </a>`
+                        : `<div style="background:linear-gradient(135deg,#7c3aed,#9333ea);padding:36px;text-align:center;">
+                            <p style="margin:0;color:#e9d5ff;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Official Invitation</p>
+                            <h1 style="margin:8px 0 0;color:#ffffff;font-size:26px;font-weight:900;line-height:1.2;">${escapeHtml(eventTitle)}</h1>
+                          </div>`
+                    }
                   </td>
                 </tr>
 

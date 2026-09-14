@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { InvitationCard } from "@/components/cards/InvitationCard";
+import { InvitationTemplate } from "@/lib/invitation-types";
+import { InvitationCardRenderer } from "@/components/invitation/InvitationCardRenderer";
 
 type Props = {
   token: string;
+  template?: InvitationTemplate | null;
   guest: {
     name: string;
     title: string | null;
@@ -37,6 +40,7 @@ type Props = {
 
 export default function InvitationClient({
   token,
+  template,
   guest,
   event,
   ticketInstance,
@@ -86,6 +90,24 @@ export default function InvitationClient({
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black px-4 py-10 sm:py-16 text-zinc-100 flex flex-col items-center justify-center print:bg-white print:p-0 print:text-zinc-900">
+      {template && (
+        <div className="w-full max-w-xl mb-6 shadow-2xl rounded-2xl overflow-hidden">
+          <InvitationCardRenderer
+            template={template}
+            data={{
+              eventTitle: event.title,
+              guestName: currentGuest.name,
+              guestTitle: currentGuest.title,
+              organization: currentGuest.organization,
+              eventDate: event.eventDate,
+              venue: event.venue,
+              city: event.city,
+              headerBadgeText: currentGuest.title ? "VIP GUEST INVITATION" : "OFFICIAL INVITATION",
+            }}
+          />
+        </div>
+      )}
+
       <InvitationCard
         token={token}
         guest={currentGuest}
@@ -96,7 +118,8 @@ export default function InvitationClient({
         submittingRsvp={submittingRsvp}
         rsvpFeedback={rsvpFeedback}
         initialTemplate="elegant"
-        allowTemplateSwitching={true}
+        allowTemplateSwitching={false}
+        hideHeader={Boolean(template)}
       />
     </main>
   );

@@ -62,6 +62,8 @@ async function InvitationLoader({ token }: { token: string }) {
 
   const { invitation, ticketInstance, seat } = result;
   const event = invitation.events as any;
+  const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
+  const template = await getInvitationTemplateById(event?.invitation_template_id);
 
   // Format seat label nicely if available
   let seatDisplay: {
@@ -93,6 +95,7 @@ async function InvitationLoader({ token }: { token: string }) {
   return (
     <InvitationClient
       token={token}
+      template={template}
       guest={{
         name: invitation.guest_name,
         title: invitation.guest_title,

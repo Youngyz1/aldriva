@@ -56,6 +56,7 @@ export type InvitationCardProps = {
   rsvpFeedback: { type: "success" | "error"; text: string } | null;
   initialTemplate?: "elegant" | "modern" | "minimal";
   allowTemplateSwitching?: boolean;
+  hideHeader?: boolean;
 };
 
 export function InvitationCard({
@@ -69,6 +70,7 @@ export function InvitationCard({
   rsvpFeedback,
   initialTemplate = "elegant",
   allowTemplateSwitching = true,
+  hideHeader = false,
 }: InvitationCardProps) {
   const [template, setTemplate] = useState<"elegant" | "modern" | "minimal">(initialTemplate);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -128,7 +130,7 @@ export function InvitationCard({
   return (
     <div className="flex flex-col items-center w-full max-w-lg mx-auto">
       {/* Optional Template Selector */}
-      {allowTemplateSwitching && (
+      {allowTemplateSwitching && !hideHeader && (
         <div className="flex items-center gap-1.5 p-1 bg-zinc-900/90 border border-zinc-800 rounded-2xl mb-4 backdrop-blur-md shadow-lg print:hidden">
           <button
             onClick={() => setTemplate("elegant")}
@@ -165,47 +167,51 @@ export function InvitationCard({
 
       {/* Main Card */}
       <CardContainer theme={template}>
-        <CardHeader
-          event={event}
-          badgeText={seat?.isVip ? "VIP Guest Pass" : "Honored Guest"}
-          theme={template}
-        />
+        {!hideHeader && (
+          <CardHeader
+            event={event}
+            badgeText={seat?.isVip ? "VIP Guest Pass" : "Honored Guest"}
+            theme={template}
+          />
+        )}
 
         <div className="p-6 sm:p-8">
-          {/* Guest Personalization */}
-          <div className="text-center pb-6 border-b border-zinc-800/60">
-            <span
-              className={`text-[11px] font-black uppercase tracking-widest ${
-                template === "elegant"
-                  ? "text-amber-400"
-                  : template === "minimal"
-                  ? "text-orange-600"
-                  : "text-orange-400"
-              }`}
-            >
-              Exclusive Invitation
-            </span>
-            <h1
-              className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${
-                template === "minimal" ? "text-zinc-900" : "text-white"
-              }`}
-            >
-              {guest.name}
-            </h1>
-            {(guest.title || guest.organization) && (
-              <p
-                className={`text-sm font-medium mt-1 flex items-center justify-center gap-1.5 ${
-                  template === "minimal" ? "text-zinc-500" : "text-zinc-400"
+          {/* Guest Personalization (shown only if header not replaced by template artwork) */}
+          {!hideHeader && (
+            <div className="text-center pb-6 border-b border-zinc-800/60">
+              <span
+                className={`text-[11px] font-black uppercase tracking-widest ${
+                  template === "elegant"
+                    ? "text-amber-400"
+                    : template === "minimal"
+                    ? "text-orange-600"
+                    : "text-orange-400"
                 }`}
               >
-                {guest.organization && <Building className="w-3.5 h-3.5" />}
-                {[guest.title, guest.organization].filter(Boolean).join(" · ")}
-              </p>
-            )}
-          </div>
+                Exclusive Invitation
+              </span>
+              <h1
+                className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${
+                  template === "minimal" ? "text-zinc-900" : "text-white"
+                }`}
+              >
+                {guest.name}
+              </h1>
+              {(guest.title || guest.organization) && (
+                <p
+                  className={`text-sm font-medium mt-1 flex items-center justify-center gap-1.5 ${
+                    template === "minimal" ? "text-zinc-500" : "text-zinc-400"
+                  }`}
+                >
+                  {guest.organization && <Building className="w-3.5 h-3.5" />}
+                  {[guest.title, guest.organization].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+          )}
 
-          {/* Event Metadata */}
-          <CardEventMeta event={event} theme={template} />
+          {/* Event Metadata (shown only if header not replaced) */}
+          {!hideHeader && <CardEventMeta event={event} theme={template} />}
 
           {/* Seating Assignment */}
           {seat && (
