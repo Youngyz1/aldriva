@@ -165,15 +165,6 @@ async function geocodeAddress(
   }
 }
 
-function getHostingYears(createdAt: string) {
-  return Math.max(
-    1,
-    Math.floor(
-      (Date.now() - new Date(createdAt).getTime()) /
-        (1000 * 60 * 60 * 24 * 365)
-    )
-  );
-}
 
 function eventStatusUrl(status: string | null | undefined) {
   switch ((status || "").toLowerCase()) {
@@ -214,44 +205,12 @@ export default async function EventPage({
   const { data: organizer } = event.organizer_id
     ? await supabase
         .from("organizers")
-        .select("id, name, bio, photo, website, status, created_at, follower_offset, events_offset")
+        .select("id, name, bio, photo, website, status, created_at")
         .eq("id", event.organizer_id)
         .single()
     : { data: null };
 
   const tickets = await getTicketsByEventId(event.id);
-
-
-  // Count organizer's events and fundraisers
-  const [
-    { count: organizerEventCount },
-    { count: organizerFundraiserCount },
-    { data: followerCountRow },
-  ] = await Promise.all([
-    organizer?.id
-      ? supabase
-          .from("events")
-          .select("id", { count: "exact", head: true })
-          .eq("organizer_id", organizer.id)
-          .eq("visibility", "public")
-      : Promise.resolve({ count: 0 }),
-    organizer?.id
-      ? supabase
-          .from("fundraisers")
-          .select("id", { count: "exact", head: true })
-          .eq("organizer_id", organizer.id)
-      : Promise.resolve({ count: 0 }),
-    // Aggregate view rather than a head-count over organizer_follows:
-    // migration_53 restricted that table to the follower and the organizer,
-    // so an anonymous count over the raw table would now always see 0.
-    organizer?.id
-      ? supabase
-          .from("organizer_follower_counts")
-          .select("follower_count")
-          .eq("organizer_id", organizer.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
 
   // More events from same organizer, falling back to any other public
   // events happening within a 2-week window of this event's date.
@@ -367,9 +326,6 @@ export default async function EventPage({
       })
     : "Date TBA";
 
-  const hostingYears = organizer?.created_at
-    ? getHostingYears(organizer.created_at)
-    : null;
 
   // ── Title size scales down for longer event names so the hero
   // block doesn't balloon in height on long titles ───────────────
@@ -683,118 +639,44 @@ export default async function EventPage({
               </section>
             )}
 
-            {/* Collapsible FAQ */}
-            <section>
-              <h2 className="text-xl font-black mb-4">
-                Frequently asked questions
-              </h2>
-              <FaqSection organizerName={primaryOrganizerName} />
-            </section>
-
             {/* Organizer */}
             {primaryOrganizerName && (
               <section>
                 <h2 className="text-xl font-black mb-4">Organised by</h2>
-                {/* Open organizer block: avatar + follow/contact buttons keep their own chrome. */}
-                <div className="border-t border-zinc-200 pt-5">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full">
-                      {primaryOrganizerPhoto ? (
-                        <Image
-                          src={primaryOrganizerPhoto}
-                          alt={primaryOrganizerName}
-                          width={56}
-                          height={56}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <LocalBrandedPlaceholder
-                          variant="avatar"
-                          title={primaryOrganizerName}
-                          initials={primaryOrganizerName.charAt(0).toUpperCase()}
-                          className="from-orange-100 to-orange-100 text-base text-orange-700"
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <div>
-                          {primaryOrganizerUrl ? (
-                            <a
-                              href={primaryOrganizerUrl}
-                              target={
-                                primaryOrganizerUrl.startsWith("http")
-                                  ? "_blank"
-                                  : undefined
-                              }
-                              rel={
-                                primaryOrganizerUrl.startsWith("http")
-                                  ? "noreferrer"
-                                  : undefined
-                              }
-                              className="inline-flex flex-wrap items-center gap-2 break-words text-base font-black text-zinc-950 hover:text-orange-600"
-                            >
-                              {primaryOrganizerName}
-                              <VerifiedBadge
-                                verified={organizer?.status === "verified"}
-                              />
-                            </a>
-                          ) : (
-                            <span className="inline-flex flex-wrap items-center gap-2 break-words text-base font-black">
-                              {primaryOrganizerName}
-                              <VerifiedBadge
-                                verified={organizer?.status === "verified"}
-                              />
-                            </span>
-                          )}
-                          {organizer && (
-                            <div className="mt-1 flex gap-5 text-sm text-zinc-500">
-                              <span>
-                                <strong className="text-zinc-800">
-                                  {Number(followerCountRow?.follower_count ?? 0) + (organizer.follower_offset ?? 0)}
-                                </strong>{" "}
-                                Followers
-                              </span>
-                              <span>
-                                <strong className="text-zinc-800">
-                                  {(organizerEventCount ?? 0) +
-                                    (organizer.events_offset ?? 0) +
-                                    (organizerFundraiserCount ?? 0)}
-                                </strong>{" "}
-                                Events
-                              </span>
-                              {hostingYears && (
-                                <span>
-                                  <strong className="text-zinc-800">
-                                    {hostingYears}
-                                  </strong>{" "}
-                                  {hostingYears === 1 ? "year" : "years"}{" "}
-                                  hosting
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {organizer && (
-                          <div className="flex gap-3 shrink-0">
-                            <a
-                              href={`mailto:${BRAND.supportEmail}?subject=Contact%20${encodeURIComponent(
-                                primaryOrganizerName
-                              )}`}
-                              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-100 transition"
-                            >
-                              Contact
-                            </a>
-                            <a
-                              href={`/organizers/${organizer.id}`}
-                              className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-600 transition"
-                            >
-                              Follow
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-zinc-200">
+                    {primaryOrganizerPhoto ? (
+                      <Image
+                        src={primaryOrganizerPhoto}
+                        alt={primaryOrganizerName}
+                        width={48}
+                        height={48}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <LocalBrandedPlaceholder
+                        variant="avatar"
+                        title={primaryOrganizerName}
+                        initials={primaryOrganizerName.charAt(0).toUpperCase()}
+                        className="from-orange-100 to-orange-100 text-sm text-orange-700 font-bold"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    {primaryOrganizerUrl ? (
+                      <a
+                        href={primaryOrganizerUrl}
+                        className="inline-flex items-center gap-1.5 text-base font-bold text-zinc-950 hover:text-orange-600 transition"
+                      >
+                        {primaryOrganizerName}
+                        <VerifiedBadge verified={organizer?.status === "verified"} />
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-base font-bold text-zinc-950">
+                        {primaryOrganizerName}
+                        <VerifiedBadge verified={organizer?.status === "verified"} />
+                      </span>
+                    )}
                   </div>
                 </div>
               </section>
@@ -835,33 +717,14 @@ export default async function EventPage({
                       <p className="text-sm text-zinc-500">{event.city}</p>
                     )}
                   </div>
-                  {mapLat && mapLng ? (
-                    <VenueMapClient
-                      lat={mapLat}
-                      lng={mapLng}
-                      title={event.title}
-                      venue={event.venue}
-                      city={event.city}
-                    />
-                  ) : (
-                    /* No coordinates at all — show a Google Maps link instead */
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                        [eventAddress, event.venue, event.city]
-                          .filter(Boolean)
-                          .join(", ")
-                      )}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex h-40 items-center justify-center gap-2 bg-zinc-50 text-sm font-bold text-orange-600 hover:bg-orange-50 transition"
-                    >
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      View on Google Maps ↗
-                    </a>
-                  )}
+                  <VenueMapClient
+                    lat={mapLat}
+                    lng={mapLng}
+                    title={event.title}
+                    venue={event.venue}
+                    city={event.city}
+                    address={eventAddress}
+                  />
                   {/* How to get there — transport pills keep their boundaries. */}
                   <div className="border-t border-zinc-100 py-4">
                     <p className="mb-3 text-sm font-bold text-zinc-500">
@@ -877,7 +740,7 @@ export default async function EventPage({
                         <a
                           key={label}
                           href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                            [event.venue, event.city]
+                            [event.venue, eventAddress, event.city]
                               .filter(Boolean)
                               .join(", ")
                           )}&travelmode=${
@@ -923,8 +786,6 @@ export default async function EventPage({
                 Report this event
               </a>
             </div>
-
-
 
             {/* More events from organizer */}
             {moreEvents && moreEvents.length > 0 && (
@@ -992,85 +853,6 @@ export default async function EventPage({
           </div>
         </div>
       </div>
-
-      {/* ── Sticky bottom bar ─────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/95 backdrop-blur px-4 py-3 lg:hidden">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-4">
-          <div>
-            <p className="text-base font-black">{ticketLabel}</p>
-            <p className="text-xs text-zinc-500">{formattedDate}</p>
-          </div>
-          <a
-            href="#tickets"
-            className="rounded-xl bg-orange-500 px-6 py-3 text-sm font-black text-white hover:bg-orange-600 transition"
-          >
-            Reserve a spot
-          </a>
-        </div>
-      </div>
     </main>
-  );
-}
-
-// ── Collapsible FAQ ──────────────────────────────────────
-function FaqSection({ organizerName }: { organizerName: string }) {
-  const faqs: [string, string][] = [
-    [
-      "How do I get my ticket?",
-      "After checkout you will see your QR code ticket on screen. Download or screenshot it — you can also print it. Show the QR code to staff at the door.",
-    ],
-    [
-      "Can I share this event?",
-      "Yes. Copy the page link and share it with friends or your community.",
-    ],
-    [
-      "Who should I contact about event details?",
-      organizerName
-        ? `Contact ${organizerName} using the organizer link when available.`
-        : "Use the source or organizer information listed on this page.",
-    ],
-    [
-      "What is the refund policy?",
-      "No refunds unless the event is cancelled by the organizer. Contact the organizer directly for special circumstances.",
-    ],
-  ];
-
-  return (
-    // Open FAQ rows: dividers separate items, no outer box.
-    <div className="divide-y divide-zinc-100 border-y border-zinc-100">
-      {faqs.map(([question, answer]) => (
-        <FaqItem key={question} question={question} answer={answer} />
-      ))}
-    </div>
-  );
-}
-
-function FaqItem({
-  question,
-  answer,
-}: {
-  question: string;
-  answer: string;
-}) {
-  return (
-    <details className="group py-1">
-      <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 font-bold text-zinc-950 list-none">
-        {question}
-        <svg
-          className="h-4 w-4 shrink-0 text-zinc-400 transition group-open:rotate-180"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </summary>
-      <p className="pb-4 text-sm leading-relaxed text-zinc-600">{answer}</p>
-    </details>
   );
 }

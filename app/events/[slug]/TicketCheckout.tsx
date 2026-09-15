@@ -475,8 +475,8 @@ export default function TicketCheckout({
 
   return (
     <>
-      {/* ── Collapsed trigger card (sits in the sidebar) ──────────────────── */}
-      <div className="rounded-3xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-24 overflow-hidden p-6 sm:p-8">
+      {/* ── Collapsed trigger card (sits in the desktop sidebar, hidden on mobile) ──────────────────── */}
+      <div className="hidden lg:block rounded-3xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-24 overflow-hidden p-6 sm:p-8">
         {lowestPrice !== null && (
           <>
             <p className="text-zinc-500 mb-1">Starting from</p>
@@ -508,6 +508,43 @@ export default function TicketCheckout({
             Tickets are not available yet.
           </p>
         )}
+      </div>
+
+      {/* ── Sticky bottom bar on mobile (opens checkout modal directly) ───────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/95 backdrop-blur px-4 py-3 lg:hidden shadow-lg">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-4">
+          <div>
+            <p className="text-base font-black">
+              {lowestPrice === null
+                ? "Tickets TBA"
+                : lowestPrice === 0
+                ? "Free"
+                : formatPrice(lowestPrice)}
+            </p>
+            {formattedDate && <p className="text-xs text-zinc-500">{formattedDate}</p>}
+          </div>
+          {tickets.length > 0 ? (
+            <button
+              onClick={() => setIsOpen(true)}
+              className="rounded-xl bg-orange-500 px-6 py-3 text-sm font-black text-white hover:bg-orange-600 transition shadow-sm"
+            >
+              Get Tickets
+            </button>
+          ) : event.source_url ? (
+            <a
+              href={event.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-orange-500 px-6 py-3 text-sm font-black text-white hover:bg-orange-600 transition shadow-sm"
+            >
+              Get Tickets
+            </a>
+          ) : (
+            <span className="rounded-xl bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-500">
+              Unavailable
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Checkout modal ─────────────────────────────────────────────────── */}
