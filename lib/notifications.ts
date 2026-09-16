@@ -15,9 +15,12 @@ export type NotificationType =
   | "fundraiser_approved"
   | "fundraiser_rejected"
   | "follow"
-  | "ticket_purchase";
+  | "ticket_purchase"
+  | "product_purchase"
+  | "product_update"
+  | "product_refund";
 
-export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer";
+export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer" | "product";
 
 interface NotificationEmail {
   to: string;
