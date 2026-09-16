@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Users } from "lucide-react";
+import { Users, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeImageSrc } from "@/lib/image-url";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -27,6 +27,7 @@ type FundraiserCardProps = {
   /** Suppresses the "for …" line for self-beneficiary campaigns, where the
    *  beneficiary is the organizer and the line carries no new information. */
   beneficiaryType?: string | null;
+  variant?: "default" | "green";
 };
 
 export default function FundraiserCard({
@@ -42,6 +43,7 @@ export default function FundraiserCard({
   organizer,
   beneficiaryName,
   beneficiaryType,
+  variant = "default",
 }: FundraiserCardProps) {
   const [imgError, setImgError] = useState(false);
   const progress = calculateFundraisingPercentage(raised, goal);
@@ -65,6 +67,11 @@ export default function FundraiserCard({
               className="object-cover transition duration-500 group-hover:scale-105"
               onError={() => setImgError(true)}
             />
+          ) : variant === "green" ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-700 to-emerald-900 text-white">
+              <Heart className="h-8 w-8 opacity-90" aria-hidden="true" />
+              <span className="text-xs font-bold uppercase tracking-wide opacity-90">Campaign</span>
+            </div>
           ) : (
             <LocalBrandedPlaceholder variant="fundraiser" title={title} />
           )}
@@ -106,9 +113,16 @@ export default function FundraiserCard({
               <p className="text-sm font-semibold text-zinc-600 truncate">
                 <span className="font-black text-zinc-950">${raised.toLocaleString()}</span> raised of ${goal.toLocaleString()}
               </p>
-              <span className="shrink-0 text-xs font-black text-zinc-950">{progress}%</span>
+              <span
+                className={cn(
+                  "shrink-0 text-xs font-black",
+                  variant === "green" ? "text-emerald-700" : "text-zinc-950"
+                )}
+              >
+                {progress}%
+              </span>
             </div>
-            <ProgressBar percentage={progress} height={8} />
+            <ProgressBar percentage={progress} height={8} variant={variant} />
             {donorCount !== undefined && donorCount > 0 && (
               <div className="mt-2 flex items-center justify-end text-xs font-semibold text-zinc-500">
                 <span className="inline-flex items-center gap-1">
@@ -119,7 +133,14 @@ export default function FundraiserCard({
             )}
           </div>
 
-          <span className="mt-4 block w-full rounded-xl bg-brand-700 py-2.5 text-center text-sm font-black text-white transition group-hover:bg-brand-800">
+          <span
+            className={cn(
+              "mt-4 block w-full rounded-xl py-2.5 text-center text-sm font-black transition",
+              variant === "green"
+                ? "bg-lime-400 text-emerald-950 group-hover:bg-lime-300"
+                : "bg-brand-700 text-white group-hover:bg-brand-800"
+            )}
+          >
             Donate now
           </span>
         </div>

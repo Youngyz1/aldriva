@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Heart } from "lucide-react";
 import PublicPagination from "@/components/public/PublicPagination";
 import CampaignShowcase, {
@@ -152,19 +153,63 @@ export default async function FundraisersBrowseSection({
     return `/fundraisers?${params.toString()}`;
   }
 
+  const filterLabels: Record<FundraiserSmartFilter, string> = {
+    all: "Browse all",
+    "close-to-target": "Close to Target",
+    "just-launched": "Just Launched",
+    "needs-momentum": "Needs Momentum",
+    trending: "Trending",
+  };
+  const filterLabel = filterLabels[smartFilter];
+  const isFiltered = smartFilter !== "all";
+
+  const emptyState =
+    smartFilter === "just-launched"
+      ? {
+          icon: <Heart className="h-8 w-8" />,
+          title: "No new campaigns right now",
+          description:
+            "There are no campaigns launched in the last 30 days. Try another filter or check back soon.",
+          action: { label: "Browse all fundraisers", href: "/fundraisers" },
+        }
+      : {
+          icon: <Heart className="h-8 w-8" />,
+          title: "No fundraisers found",
+          description: "Try a different filter to discover more campaigns to support.",
+          action: { label: "Start a fundraiser", href: "/create-fundraiser" },
+        };
+
   return (
     <>
+      {isFiltered && (
+        <div className="mb-6">
+          <nav className="mb-2 flex items-center gap-2 text-sm text-zinc-500">
+            <Link href="/fundraisers" className="hover:text-zinc-800 hover:underline">
+              Fundraisers
+            </Link>
+            <span aria-hidden className="text-zinc-300">/</span>
+            <span className="font-bold text-zinc-900">{filterLabel}</span>
+          </nav>
+          <h2 className="text-2xl font-black tracking-tight text-zinc-950 sm:text-3xl">
+            {filterLabel}
+          </h2>
+          <p className="mt-1 text-sm font-medium text-zinc-500">
+            {smartFilter === "just-launched"
+              ? "Recently launched campaigns — newest first"
+              : smartFilter === "close-to-target"
+                ? "Campaigns close to reaching their goal"
+                : smartFilter === "needs-momentum"
+                  ? "Campaigns that need a boost"
+                  : "Trending campaigns loved by donors"}
+          </p>
+        </div>
+      )}
       <CampaignShowcase
         basePath="/fundraisers"
         activeFilter={smartFilter}
         featured={showcaseFeatured}
         items={showcaseItems}
-        emptyState={{
-          icon: Heart,
-          title: "No fundraisers found",
-          description: "Try a different filter to discover more campaigns to support.",
-          action: { label: "Start a fundraiser", href: "/create-fundraiser" },
-        }}
+        emptyState={emptyState}
       />
 
       {fundraisers && fundraisers.length > 0 && (

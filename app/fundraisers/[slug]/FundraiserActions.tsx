@@ -47,11 +47,11 @@ export function ShareFundraiserButton({
       }
     >
       {status === "copied" ? (
-        <Check className="h-4 w-4 text-brand-300" />
+        <Check className="h-4 w-4" />
       ) : status === "failed" ? (
         <AlertCircle className="h-4 w-4 text-red-500" />
       ) : (
-        <Share2 className="h-4 w-4 text-brand-300" />
+        <Share2 className="h-4 w-4" />
       )}
       <span>{status === "copied" ? "Link copied!" : status === "failed" ? "Failed to copy" : "Share"}</span>
     </button>
@@ -66,6 +66,7 @@ export default function FundraiserFloatingActions({
   percentage,
   donationCount,
   donationCardId = "main-donation-card",
+  variant = "default",
 }: {
   title: string;
   slug: string;
@@ -74,8 +75,10 @@ export default function FundraiserFloatingActions({
   percentage: number;
   donationCount?: number;
   donationCardId?: string;
+  variant?: "default" | "green";
 }) {
   const [isFloatingVisible, setIsFloatingVisible] = useState(false);
+  const isGreen = variant === "green";
 
   useEffect(() => {
     const donationCard = document.getElementById(donationCardId);
@@ -108,7 +111,7 @@ export default function FundraiserFloatingActions({
     <div
       data-campaign-floating-actions
       data-visible={isFloatingVisible}
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-4 pt-3 pb-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur transition-[transform,opacity] duration-300 ease-out will-change-transform motion-reduce:transition-none ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-4 pt-3 pb-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur transition-[transform,opacity] duration-300 ease-out will-change-transform motion-reduce:transition-none md:hidden ${
         isFloatingVisible
           ? "translate-y-0 opacity-100 pointer-events-auto"
           : "translate-y-full opacity-0 pointer-events-none"
@@ -149,12 +152,20 @@ export default function FundraiserFloatingActions({
           <ShareFundraiserButton
             title={title}
             tabIndex={isFloatingVisible ? 0 : -1}
-            className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-brand-900 px-4 text-xs sm:text-sm font-black text-brand-300 shadow-sm transition hover:bg-brand-950 active:scale-[0.98]"
+            className={
+              isGreen
+                ? "flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-emerald-950 px-4 text-xs sm:text-sm font-black text-lime-400 shadow-sm transition hover:bg-emerald-900 active:scale-[0.98]"
+                : "flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-full bg-brand-900 px-4 text-xs sm:text-sm font-black text-brand-300 shadow-sm transition hover:bg-brand-950 active:scale-[0.98]"
+            }
           />
           <a
             href={`/fundraisers/${slug}/donate`}
             tabIndex={isFloatingVisible ? 0 : -1}
-            className="flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-brand-300 px-4 text-xs sm:text-sm font-black text-brand-900 shadow-sm transition hover:bg-brand-400 active:scale-[0.98]"
+            className={
+              isGreen
+                ? "flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-lime-400 px-4 text-xs sm:text-sm font-black text-emerald-950 shadow-sm transition hover:bg-lime-300 active:scale-[0.98]"
+                : "flex flex-1 min-h-[44px] items-center justify-center rounded-full bg-brand-300 px-4 text-xs sm:text-sm font-black text-brand-900 shadow-sm transition hover:bg-brand-400 active:scale-[0.98]"
+            }
           >
             Donate now
           </a>

@@ -30,7 +30,6 @@ import {
 } from "@/lib/fundraiser-data";
 import {
   resolveBeneficiary,
-  beneficiaryForLabel,
   beneficiaryTypeLabel,
 } from "@/lib/beneficiary";
 import { getSiteUrl } from "@/lib/site-url";
@@ -485,32 +484,17 @@ export default async function FundraiserPage({
             media={media}
             title={fundraiser.title}
             category={fundraiserCategory}
+            organizerName={organizerName}
+            organizerProfileUrl={organizerProfileId ? `/organizers/${organizerProfileId}` : null}
+            variant="green"
           />
         </div>
       </div>
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
-        {/* Organizer → beneficiary attribution. Sits directly beneath the
-            title (which is overlaid on the hero photo above), so the first
-            thing read after the campaign name is who runs it and who it
-            helps. */}
-        {beneficiary && (
-          <p className="-mb-4 text-sm font-medium text-zinc-500">
-            Organized by{" "}
-            {organizerProfileId ? (
-              <Link
-                href={`/organizers/${organizerProfileId}`}
-                className="font-black text-zinc-900 hover:text-brand-700 hover:underline"
-              >
-                {organizerName}
-              </Link>
-            ) : (
-              <span className="font-black text-zinc-900">{organizerName}</span>
-            )}
-            <span aria-hidden> · </span>
-            for <span className="font-black text-zinc-900">{beneficiaryForLabel(beneficiary)}</span>
-          </p>
-        )}
+        {/* Organizer attribution is now rendered as an overlay on the hero
+            image inside FundraiserMediaSlider (see organizerName /
+            organizerProfileUrl props above) — no redundant byline here. */}
 
         {/* Raised / progress / goal / donation count + Donate + Share — the
             first fundraising content the user sees, immediately below the
@@ -550,13 +534,13 @@ export default async function FundraiserPage({
           <div className="flex gap-2.5">
             <a
               href={`/fundraisers/${fundraiser.slug}/donate`}
-              className="flex min-h-[48px] flex-1 items-center justify-center whitespace-nowrap rounded-full bg-brand-300 px-4 py-3.5 text-base font-black text-brand-900 transition hover:bg-brand-400 active:scale-[0.98] shadow-sm sm:px-6"
+              className="flex min-h-[48px] flex-1 items-center justify-center whitespace-nowrap rounded-full bg-lime-400 px-4 py-3.5 text-base font-black text-emerald-950 transition hover:bg-lime-300 active:scale-[0.98] shadow-sm sm:px-6"
             >
               Donate now
             </a>
             <ShareFundraiserButton
               title={fundraiser.title}
-              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-900 px-4 py-3.5 text-base font-black text-brand-300 transition hover:bg-brand-950 active:scale-[0.98] shadow-sm sm:px-6"
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-emerald-950 px-4 py-3.5 text-base font-black text-lime-400 transition hover:bg-emerald-900 active:scale-[0.98] shadow-sm sm:px-6"
             />
           </div>
         </section>
@@ -701,7 +685,7 @@ export default async function FundraiserPage({
                     {beneficiaryName}
                   </span>
                 )}
-                <span className="mt-1 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-bold text-brand-800">
+                <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800">
                   {/* Relationship when we have one ("Mother"), otherwise the
                       beneficiary type ("Registered charity"), falling back to
                       the generic label. */}
@@ -745,27 +729,27 @@ export default async function FundraiserPage({
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-3">
           <div className="text-center sm:text-left">
-            <Zap className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
+            <Zap className="mx-auto h-8 w-8 text-emerald-400 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Easy</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Donate quickly and securely
             </p>
           </div>
           <div className="text-center sm:text-left">
-            <HeartHandshake className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
+            <HeartHandshake className="mx-auto h-8 w-8 text-emerald-400 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Powerful</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Send help directly to the people and causes you care about
             </p>
           </div>
           <div className="text-center sm:text-left">
-            <ShieldCheck className="mx-auto h-8 w-8 text-brand-700 sm:mx-0" />
+            <ShieldCheck className="mx-auto h-8 w-8 text-emerald-400 sm:mx-0" />
             <h3 className="mt-3 text-lg font-black text-zinc-950">Trusted</h3>
             <p className="mt-1 text-sm text-zinc-600">
               Every fundraiser is reviewed —{" "}
               <Link
                 href="/reviews"
-                className="font-bold text-brand-800 hover:underline"
+                className="font-bold text-emerald-600 underline decoration-emerald-600/30 underline-offset-2 hover:decoration-emerald-600"
               >
                 see what real donors are saying
               </Link>
@@ -776,22 +760,23 @@ export default async function FundraiserPage({
 
       {/* ── Related fundraisers ─────────────────────────────────────── */}
       {relatedFundraisers.length > 0 && (
-        <section className="bg-brand-950 py-12">
+        <section className="bg-emerald-950 py-12">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="mb-8">
-              <p className="text-xs font-black uppercase tracking-wider text-brand-400">
+              <p className="text-xs font-black uppercase tracking-wider text-lime-400">
                 Making a Difference
               </p>
               <h2 className="mt-1 text-3xl font-black text-white">
                 More ways to make a difference
               </h2>
-              <p className="mt-1 text-sm font-medium text-brand-100/70">
+              <p className="mt-1 text-sm font-medium text-emerald-100/70">
                 Other fundraisers you might want to support.
               </p>
             </div>
             <RelatedFundraiserCarousel
               fundraisers={relatedFundraisers}
               excludeId={fundraiser.id}
+              variant="green"
             />
           </div>
         </section>
@@ -805,6 +790,7 @@ export default async function FundraiserPage({
         goal={goal}
         percentage={percentage}
         donationCount={donationCount}
+        variant="green"
       />
     </main>
   );

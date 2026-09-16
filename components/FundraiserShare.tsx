@@ -104,12 +104,12 @@ export default function FundraiserShare({
                 {donateSlug && (
                   <Link
                     href={`/fundraisers/${donateSlug}/donate`}
-                    className="inline-flex items-center justify-center shrink-0 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 px-2.5 py-0.5 text-[10px] font-extrabold shadow-sm transition active:scale-95 text-center"
+                    className="inline-flex items-center justify-center shrink-0 rounded-full bg-lime-400 hover:bg-lime-300 text-emerald-950 px-2.5 py-0.5 text-[10px] font-extrabold shadow-sm transition active:scale-95 text-center"
                   >
                     Donate now!
                   </Link>
                 )}
-                <div className="shrink-0 rounded-full bg-brand-900/80 text-brand-200 px-2 py-0.5 text-[10px] font-semibold text-center truncate">
+                <div className="shrink-0 rounded-full bg-emerald-950/80 text-lime-200 px-2 py-0.5 text-[10px] font-semibold text-center truncate">
                   {raisedLabel} raised
                 </div>
               </div>
@@ -141,15 +141,6 @@ export default function FundraiserShare({
           as the card gets wider on desktop. 3/2 matches typical photos, so
           the framing stays consistent at every width. */}
       <div className="relative aspect-[3/2] w-full shrink-0 overflow-hidden bg-zinc-100">
-        {/* Logo Mark */}
-        <div className="absolute left-1/2 -translate-x-1/2 z-10 top-3">
-          <img
-            src="/icons/icon-source.png"
-            alt="Aldriva Logo"
-            className="w-auto object-contain h-8"
-          />
-        </div>
-
         {safeSrc ? (
           <img
             src={safeSrc}
@@ -173,7 +164,7 @@ export default function FundraiserShare({
             {donateSlug && (
               <Link
                 href={`/fundraisers/${donateSlug}/donate`}
-                className="bg-brand-700 text-white font-black shadow-md rotate-[2deg] shrink-0 hover:bg-brand-800 transition active:scale-95 truncate px-2.5 sm:px-3 py-1.5 text-xs"
+                className="bg-lime-400 text-emerald-950 font-black shadow-md rotate-[2deg] shrink-0 hover:bg-lime-300 transition active:scale-95 truncate px-2.5 sm:px-3 py-1.5 text-xs"
               >
                 Donate now
               </Link>

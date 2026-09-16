@@ -1,10 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ShieldCheck } from "lucide-react";
-import { cacheLife } from "next/cache";
 
 import TrustBand from "@/components/marketing/TrustBand";
-import { getCuratedFundraiserImages } from "@/lib/fundraiser-data";
 
 /**
  * Fundraisers trust band. Both inline links are real destinations:
@@ -12,34 +9,20 @@ import { getCuratedFundraiserImages } from "@/lib/fundraiser-data";
  *  - #faq     : in-page FAQ anchor (placeholder — FAQ isn't built yet; the
  *               future FAQ section must carry id="faq", per the project note).
  *
- * Right column: a real, warm campaign photo from the same verified curated Hero
- * pool (getCuratedFundraiserImages). Of that pool, this is the only genuine
- * person/moment photo — MAREA is a promo poster and "we-can-do-it" is a video —
- * so it necessarily reuses the Hero's primary image. If the fetch ever returns
- * nothing, it degrades to a branded ShieldCheck tile rather than stock imagery.
+ * Right column: Donation.jpeg from public/images/Donation.jpeg — verified at
+ * public/images/Donation.jpeg (capital D, case-sensitive). Replaces the
+ * previous curated fundraiser photo (getCuratedFundraiserImages) per request.
  */
-const TRUST_IMAGE_SLUG =
-  "donate-to-supporting-miracle-amiris-recovery-and-rebuilding-organized-by-destiny-keith";
-
-export default async function TrustSection() {
-  "use cache";
-  cacheLife({ revalidate: 600 });
-
-  const [trustImage] = await getCuratedFundraiserImages([TRUST_IMAGE_SLUG]);
-
-  const media = trustImage ? (
+export default function TrustSection() {
+  const media = (
     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl shadow-xl ring-1 ring-white/10">
       <Image
-        src={trustImage}
-        alt="A parent and child sharing a joyful moment outdoors"
+        src="/images/Donation.jpeg"
+        alt="Mother and child — safe and secure donations"
         fill
         sizes="(max-width: 1024px) 100vw, 40vw"
         className="object-cover"
       />
-    </div>
-  ) : (
-    <div className="flex aspect-[4/3] w-full items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white/85 shadow-xl ring-1 ring-white/10">
-      <ShieldCheck className="h-24 w-24" />
     </div>
   );
 

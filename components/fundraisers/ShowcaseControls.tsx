@@ -33,12 +33,68 @@ export default function ShowcaseControls({ basePath, activeFilter }: ShowcaseCon
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Every smart filter now has its own standalone route (mirroring
+  // event-platform's /campaigns/[category] pattern). The dropdown should
+  // feel like an in-page filter switcher — update the URL and re-render
+  // results in place without leaving the shared page shell. "Browse all"
+  // uses /fundraisers/browse-all (same shell as other filters) rather than
+  // the marketing-heavy /fundraisers base page, so switching never feels
+  // like leaving the Just Launched experience.
+  const FILTER_TO_PATH: Record<string, string> = {
+    all: "/fundraisers/browse-all",
+    "just-launched": "/fundraisers/just-launched",
+    "close-to-target": "/fundraisers/close-to-target",
+    "needs-momentum": "/fundraisers/needs-momentum",
+    trending: "/fundraisers/trending",
+  };
+
   function onFilterChange(value: string) {
+    const targetPath = FILTER_TO_PATH[value] ?? "/fundraisers";
+
+    // Standalone filter routes share the same shell (breadcrumb + heading + grid).
+    // Switching between them should feel like an in-page filter change — update
+    // URL and re-render results in place without leaving the shared page shell.
+    // "Browse all" from a standalone route goes to its own standalone
+    // /browse-all (same shell) rather than the marketing-heavy /fundraisers base,
+    // so the heading/breadcrumb update in place.
+    const isStandalone = basePath.startsWith("/fundraisers/") && basePath !== "/fundraisers";
+
+    if (FILTER_TO_PATH[activeFilter] && FILTER_TO_PATH[value]) {
+      // From the marketing base, "Browse all" stays on the base page itself.
+      if (basePath === "/fundraisers" && value === "all") {
+        if (window.location.pathname === "/fundraisers") return;
+        router.push("/fundraisers");
+        return;
+      }
+      // For "all" from a standalone route, keep the same shell by going to
+      // /fundraisers/browse-all instead of the marketing-heavy base.
+      if (value === "all" && isStandalone) {
+        if (window.location.pathname === "/fundraisers/browse-all") return;
+        router.push("/fundraisers/browse-all");
+        return;
+      }
+      if (targetPath === window.location.pathname) return;
+      router.push(targetPath);
+      return;
+    }
+
+    // From the marketing-heavy /fundraisers base, other filters go to their standalone routes.
+    if (basePath === "/fundraisers" && FILTER_TO_PATH[value]) {
+      // "all" already handled above, so this is for just-launched etc.
+      router.push(FILTER_TO_PATH[value]);
+      return;
+    }
+
+    // Fallback for any remaining query-param usage (e.g. direct /fundraisers?filter=... links)
     const params = new URLSearchParams(searchParams.toString());
     if (value && value !== "all") params.set("filter", value);
     else params.delete("filter");
     params.delete("page");
     const qs = params.toString();
+    if (FILTER_TO_PATH[value]) {
+      router.push(FILTER_TO_PATH[value]);
+      return;
+    }
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 

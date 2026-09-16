@@ -10,6 +10,7 @@ export type ProgressBarProps = {
   showLabel?: boolean;
   className?: string;
   animated?: boolean;
+  variant?: "default" | "green";
 };
 
 function formatMoney(amount: number): string {
@@ -28,6 +29,7 @@ export default function ProgressBar({
   showLabel = false,
   className = "",
   animated = true,
+  variant = "default",
 }: ProgressBarProps) {
   const targetPct = (() => {
     if (percentage !== undefined && percentage !== null) {
@@ -88,7 +90,9 @@ export default function ProgressBar({
           className="absolute inset-0 rounded-full"
           style={{
             background:
-              "linear-gradient(90deg, #22C55E 0%, #84CC16 35%, #EAB308 70%, #F97316 100%)",
+              variant === "green"
+                ? "#059669"
+                : "linear-gradient(90deg, #22C55E 0%, #84CC16 35%, #EAB308 70%, #F97316 100%)",
             clipPath: `inset(0 ${100 - mountedPct}% 0 0 round 9999px)`,
             transition: "clip-path 800ms cubic-bezier(0.33, 1, 0.68, 1)",
           }}

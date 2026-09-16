@@ -163,45 +163,79 @@ export default async function Image({
                 left: 24,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                background: "#FFFFFF",
-                borderRadius: 999,
-                padding: 8,
-                border: "1px solid #E5E7EB",
+                gap: 12,
               }}
             >
-              <div style={{ display: "flex", position: "relative", alignItems: "center", justifyContent: "center" }}>
-                <svg
-                  width="90"
-                  height="90"
-                  viewBox="0 0 90 90"
-                  style={{ transform: "rotate(-90deg)", display: "flex" }}
-                >
-                  <circle cx="45" cy="45" r="40" fill="none" stroke="#E5E7EB" strokeWidth="6" />
-                  <circle
-                    cx="45" cy="45" r="40"
-                    fill="none"
-                    stroke={progressColor}
-                    strokeWidth="6"
-                    strokeDasharray={String(2 * Math.PI * 40)}
-                    strokeDashoffset={String(2 * Math.PI * 40 - (Math.min(card.percentage, 100) / 100) * 2 * Math.PI * 40)}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div
-                  style={{
-                    position: "absolute",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: "#0B0F0E",
-                  }}
-                >
-                  {card.percentage}%
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#FFFFFF",
+                  borderRadius: 999,
+                  padding: 8,
+                  border: "1px solid #E5E7EB",
+                }}
+              >
+                <div style={{ display: "flex", position: "relative", alignItems: "center", justifyContent: "center" }}>
+                  <svg
+                    width="90"
+                    height="90"
+                    viewBox="0 0 90 90"
+                    style={{ transform: "rotate(-90deg)", display: "flex" }}
+                  >
+                    <circle cx="45" cy="45" r="40" fill="none" stroke="#E5E7EB" strokeWidth="6" />
+                    <circle
+                      cx="45" cy="45" r="40"
+                      fill="none"
+                      stroke={progressColor}
+                      strokeWidth="6"
+                      strokeDasharray={String(2 * Math.PI * 40)}
+                      strokeDashoffset={String(2 * Math.PI * 40 - (Math.min(card.percentage, 100) / 100) * 2 * Math.PI * 40)}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div
+                    style={{
+                      position: "absolute",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      fontSize: 20,
+                      fontWeight: 700,
+                      color: "#0B0F0E",
+                    }}
+                  >
+                    {card.percentage}%
+                  </div>
                 </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  background: "#a3e635",
+                  color: "#022c22",
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+              >
+                Donate now
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  background: "#a3e635",
+                  color: "#022c22",
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+              >
+                {raisedLabel} raised
               </div>
             </div>
           </div>
@@ -237,8 +271,21 @@ export default async function Image({
               <div
                 style={{
                   display: "flex",
-                  background: BRAND.emerald,
-                  color: "#FFFFFF",
+                  background: "#a3e635",
+                  color: "#022c22",
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  fontSize: 22,
+                  fontWeight: 700,
+                }}
+              >
+                Donate now
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  background: "#a3e635",
+                  color: "#022c22",
                   padding: "8px 18px",
                   borderRadius: 999,
                   fontSize: 22,
