@@ -1,5 +1,6 @@
 import { getSiteUrl } from "@/lib/site-url";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import EventsPageView, { type EventsPageFilters } from "@/app/events/EventsPageView";
 import { MarketingSection } from "@/components/footers";
 
@@ -20,19 +21,20 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
-export default function EventsPage({
+export default async function EventsPage({
   searchParams,
 }: {
   searchParams: Promise<EventsPageFilters>;
 }) {
-  // `filters` is passed down unawaited — reading searchParams is itself a
-  // request-time operation under Cache Components, so it happens inside the
-  // Suspense-wrapped dynamic components (EventsFilterHeader,
-  // EventsResultsSection) rather than blocking this page from returning its
-  // static shell.
-  // Events list is a public discovery surface → full marketing footer.
-  // Wrapped at the page level (NOT in an app/events/layout.tsx) so the
-  // event detail, edit, my-tickets and team flows keep their own tiers.
+  const resolved = await searchParams;
+  if (resolved?.q?.trim()) {
+    const params = new URLSearchParams();
+    Object.entries(resolved).forEach(([k, v]) => {
+      if (v) params.set(k, String(v));
+    });
+    redirect(`/events/search?${params.toString()}`);
+  }
+
   return (
     <MarketingSection>
       <EventsPageView

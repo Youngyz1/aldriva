@@ -55,11 +55,21 @@ type SearchResultsProps = {
     published_at: string | null;
     created_at: string;
   }>;
+  products: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    cover_image_url: string | null;
+    images: string[] | null;
+    product_type: string | null;
+    category: string | null;
+  }>;
   externalEvents: ExternalEvent[];
 };
 
-function SearchResultsContent({ query, events, fundraisers, organizers, articles = [], externalEvents }: SearchResultsProps) {
-  const total = events.length + fundraisers.length + organizers.length + articles.length;
+function SearchResultsContent({ query, events, fundraisers, organizers, articles = [], products = [], externalEvents }: SearchResultsProps) {
+  const total = events.length + fundraisers.length + organizers.length + articles.length + products.length;
   const hasAnyResults = total > 0 || externalEvents.length > 0;
 
   return (
@@ -70,7 +80,7 @@ function SearchResultsContent({ query, events, fundraisers, organizers, articles
           title={query ? `Results for “${query}”` : "Search the platform"}
           description={
             query
-              ? `${total} result${total === 1 ? "" : "s"} across events, fundraisers, stories, and organizations${
+              ? `${total} result${total === 1 ? "" : "s"} across events, fundraisers, stories, organizations, and products${
                   externalEvents.length > 0 ? ", plus events from other platforms" : ""
                 }.`
               : "Find events near you, support causes, read stories, and discover organizers."
@@ -87,14 +97,18 @@ function SearchResultsContent({ query, events, fundraisers, organizers, articles
 
         {!hasAnyResults ? (
           <PublicEmptyState
-            icon={Search}
-            title={query ? "No results found" : "Start searching"}
+            icon={<Search className="h-8 w-8" />}
+            title={query ? `No results for "${query}"` : "Start searching"}
             description={
               query
-                ? "Try different keywords or browse categories below."
+                ? "Check spelling, try different keywords, or browse a section directly."
                 : "Enter a keyword to search across the platform."
             }
-            action={{ label: "Browse events", href: "/events" }}
+            action={
+              query
+                ? { label: "Browse fundraisers", href: "/fundraisers" }
+                : { label: "Browse events", href: "/events" }
+            }
           />
         ) : (
           <div className="space-y-12">
@@ -200,6 +214,50 @@ function SearchResultsContent({ query, events, fundraisers, organizers, articles
                       }}
                     />
                   ))}
+                </div>
+              </section>
+            )}
+
+            {products.length > 0 && (
+              <section>
+                <div className="mb-5 flex items-end justify-between">
+                  <h2 className="text-xl font-black text-zinc-950">Shop Products</h2>
+                  <Link href={`/products?q=${encodeURIComponent(query)}`} className="text-sm font-bold text-orange-600 hover:text-orange-700">
+                    View all →
+                  </Link>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {products.map((p) => {
+                    const cover = p.cover_image_url || p.images?.[0];
+                    return (
+                      <Link
+                        key={p.id}
+                        href={`/products/${p.slug}`}
+                        className="group rounded-2xl border border-zinc-200 bg-white p-5 transition hover:shadow-md"
+                      >
+                        {cover ? (
+                          <img
+                            src={cover}
+                            alt={p.name}
+                            className="mb-4 aspect-video w-full rounded-xl bg-slate-100 object-cover"
+                            loading="lazy"
+                          />
+                        ) : null}
+                        <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                          {p.product_type && p.product_type !== "other"
+                            ? p.product_type.replace(/_/g, " ")
+                            : "Shop"}
+                          {p.category ? ` · ${p.category}` : ""}
+                        </p>
+                        <h3 className="mt-1 text-base font-black text-zinc-900 group-hover:text-orange-600 transition">
+                          {p.name}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-sm font-semibold text-zinc-500">
+                          {p.description}
+                        </p>
+                      </Link>
+                    );
+                  })}
                 </div>
               </section>
             )}

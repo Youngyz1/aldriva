@@ -22,14 +22,24 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/aldriva-og-image-v2.png"] },
 };
 
+import { redirect } from "next/navigation";
+
 const PAGE_SIZE = 12;
 
 export default async function JustLaunchedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string }>;
 }) {
   const resolved = await searchParams;
+  if (resolved?.q?.trim()) {
+    const params = new URLSearchParams();
+    params.set("q", resolved.q.trim());
+    params.set("filter", "just-launched");
+    if (resolved.page) params.set("page", resolved.page);
+    redirect(`/fundraisers/search?${params.toString()}`);
+  }
+
   const page = Math.max(1, parseInt(resolved.page || "1", 10) || 1);
 
   // Initial data for just-launched — also used as the initial state for the

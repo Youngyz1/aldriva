@@ -5,6 +5,7 @@ import { getDonationCounts } from "@/lib/donation-counts";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const filter = searchParams.get("filter") as any || "all";
+  const q = searchParams.get("q")?.trim() || undefined;
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
   const pageSize = Math.max(1, parseInt(searchParams.get("pageSize") || "12", 10) || 12);
 
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const { fundraisers, total } = await getFundraiserList({
       smartFilter,
+      searchQuery: q,
       page,
       pageSize,
     });

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { Heart, Search } from "lucide-react";
 
 import { type CampaignShowcaseItem } from "@/components/fundraisers/CampaignShowcase";
 import CampaignShowcasePager from "@/components/fundraisers/CampaignShowcasePager";
@@ -62,15 +62,18 @@ export default function FilterableCampaignShowcase({
   initialItems,
   initialTotal,
   initialPage,
+  initialSearch = "",
 }: {
   initialFilter: Filter;
   initialItems: CampaignShowcaseItem[];
   initialTotal: number;
   initialPage: number;
+  initialSearch?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [filter, setFilter] = useState<Filter>(initialFilter);
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [items, setItems] = useState<CampaignShowcaseItem[]>(initialItems);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(initialPage);
@@ -79,39 +82,50 @@ export default function FilterableCampaignShowcase({
   const meta = FILTER_META[filter] ?? FILTER_META.all;
   const totalPages = Math.max(1, Math.ceil(total / 12));
 
-  // Sync URL when filter changes (shareable/bookmarkable) without full navigation feel
+  const emptyTitle = meta.emptyTitle;
+  const emptyDesc = meta.emptyDesc;
+
+  // Sync URL when filter changes
   useEffect(() => {
     const expectedPath = FILTER_TO_PATH[filter];
-    if (expectedPath && pathname !== expectedPath) {
-      // Use replace to avoid pushing a new history entry for in-page filter switch
+    if (pathname !== expectedPath) {
       window.history.replaceState(null, "", expectedPath);
     }
   }, [filter, pathname]);
 
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = searchInput.trim();
+    if (trimmed) {
+      const params = new URLSearchParams();
+      params.set("q", trimmed);
+      if (filter !== "all") {
+        params.set("filter", filter);
+      }
+      router.push(`/fundraisers/search?${params.toString()}`);
+    } else {
+      router.push(FILTER_TO_PATH[filter]);
+    }
+  }
+
   async function handleFilterChange(newFilter: string) {
-    console.log("[Filterable] handleFilterChange", newFilter, "current", filter);
     const nextFilter = (["all", "just-launched", "close-to-target", "needs-momentum", "trending"].includes(newFilter)
       ? newFilter
       : "all") as Filter;
 
-    if (nextFilter === filter) {
-      console.log("[Filterable] same filter, return");
-      return;
-    }
+    if (nextFilter === filter) return;
 
-    console.log("[Filterable] switching to", nextFilter);
     setFilter(nextFilter);
     setPage(1);
 
-    // Update URL in place
     const nextPath = FILTER_TO_PATH[nextFilter];
-    console.log("[Filterable] nextPath", nextPath);
     window.history.replaceState(null, "", nextPath);
 
-    // Fetch new data client-side
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/fundraisers/list?filter=${nextFilter}&page=1&pageSize=12`);
+        const res = await fetch(
+          `/api/fundraisers/list?filter=${nextFilter}&page=1&pageSize=12`
+        );
         const data = await res.json();
         setItems(
           (data.fundraisers || []).map((f: any) => ({
@@ -136,11 +150,14 @@ export default function FilterableCampaignShowcase({
   async function handlePageChange(newPage: number) {
     setPage(newPage);
     const path = FILTER_TO_PATH[filter] ?? "/fundraisers/browse-all";
-    window.history.replaceState(null, "", newPage === 1 ? path : `${path}?page=${newPage}`);
+    const pagePart = newPage === 1 ? "" : `?page=${newPage}`;
+    window.history.replaceState(null, "", `${path}${pagePart}`);
 
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/fundraisers/list?filter=${filter}&page=${newPage}&pageSize=12`);
+        const res = await fetch(
+          `/api/fundraisers/list?filter=${filter}&page=${newPage}&pageSize=12`
+        );
         const data = await res.json();
         setItems(
           (data.fundraisers || []).map((f: any) => ({
@@ -180,9 +197,20 @@ export default function FilterableCampaignShowcase({
         <p className="mt-2 max-w-2xl text-sm font-medium text-zinc-500 sm:text-base">{meta.description}</p>
       </div>
 
-      {/* In-page filter switcher — updates results in place without leaving shell */}
-      <div className="mb-6">
-        <label className="relative block">
+      {/* Search + filter — same row, not navbar, matching Events page pattern */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search fundraisers..."
+            aria-label="Search fundraisers"
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+        </form>
+        <label className="relative block sm:w-56 shrink-0">
           <span className="sr-only">Filter campaigns</span>
           <select
             value={filter}
@@ -205,8 +233,8 @@ export default function FilterableCampaignShowcase({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
               <Heart className="h-8 w-8" />
             </div>
-            <h2 className="mt-2 text-xl font-black text-zinc-950 sm:text-2xl">{meta.emptyTitle}</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500 sm:text-base">{meta.emptyDesc}</p>
+            <h2 className="mt-2 text-xl font-black text-zinc-950 sm:text-2xl">{emptyTitle}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500 sm:text-base">{emptyDesc}</p>
             <Link
               href="/fundraisers/browse-all"
               className="mt-6 inline-flex rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white transition hover:bg-orange-700"

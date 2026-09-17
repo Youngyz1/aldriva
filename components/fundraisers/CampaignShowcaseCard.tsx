@@ -105,7 +105,7 @@ export default function CampaignShowcaseCard({
           </h3>
 
           <div className="mt-3">
-            <p className="text-lg font-black text-brand-800">
+            <p className="text-lg font-black text-zinc-900">
               ${raised.toLocaleString()}{" "}
               <span className="text-sm font-semibold text-zinc-500">raised</span>
             </p>

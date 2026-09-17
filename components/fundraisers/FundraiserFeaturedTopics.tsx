@@ -1,5 +1,3 @@
-import { Sprout } from "lucide-react";
-
 import FeaturedTopics, { type FeaturedTopic } from "@/components/marketing/FeaturedTopics";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { getFundraiserList } from "@/lib/fundraiser-data";
@@ -10,9 +8,8 @@ import { getFundraiserList } from "@/lib/fundraiser-data";
  *     campaign that has an actual banner image. Links directly to that
  *     campaign's detail page (/fundraisers/{slug}), not the filtered list.
  *  2. Just launched  → dedicated standalone route /fundraisers/just-launched
- *     (not a query param on the shared /fundraisers page). Its only campaign
- *     ("Tiny Toadlets") has NO banner image, so this card uses a branded tile
- *     rather than a stock photo (deliberately avoiding stock imagery).
+ *     — now uses public/images/toadlet.jpeg (verified at public/images/toadlet.jpeg)
+ *     with next/image object-cover, same as the other two cards.
  *  3. Learn more     → the real /reviews page. Uses /images/reviews-card.png
  *     (public/images/reviews-card.png) with next/image object-cover.
  */
@@ -63,7 +60,8 @@ export default async function FundraiserFeaturedTopics() {
     {
       tag: "Just launched",
       tone: "emerald-soft",
-      icon: <Sprout className="h-12 w-12" />,
+      image: "/images/toadlet.jpeg",
+      imageAlt: "Help the Tiny Toadlets Cross the Road this Summer",
       title: "Help the Tiny Toadlets Cross the Road this Summer",
       href: "/fundraisers/just-launched",
       cta: "Donate now",

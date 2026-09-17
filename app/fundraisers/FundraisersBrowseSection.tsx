@@ -163,21 +163,34 @@ export default async function FundraisersBrowseSection({
   const filterLabel = filterLabels[smartFilter];
   const isFiltered = smartFilter !== "all";
 
-  const emptyState =
-    smartFilter === "just-launched"
-      ? {
-          icon: <Heart className="h-8 w-8" />,
-          title: "No new campaigns right now",
-          description:
-            "There are no campaigns launched in the last 30 days. Try another filter or check back soon.",
-          action: { label: "Browse all fundraisers", href: "/fundraisers" },
-        }
-      : {
-          icon: <Heart className="h-8 w-8" />,
-          title: "No fundraisers found",
-          description: "Try a different filter to discover more campaigns to support.",
-          action: { label: "Start a fundraiser", href: "/create-fundraiser" },
-        };
+  const hasSearch = Boolean(query);
+  const emptyState = (() => {
+    if (hasSearch) {
+      const filterSuffix = isFiltered ? ` in ${filterLabel}` : "";
+      return {
+        icon: <Heart className="h-8 w-8" />,
+        title: `No results for "${query}"${filterSuffix}`,
+        description:
+          "Check spelling, try different keywords, or browse all fundraisers.",
+        action: { label: "Browse fundraisers", href: "/fundraisers" },
+      };
+    }
+    if (smartFilter === "just-launched") {
+      return {
+        icon: <Heart className="h-8 w-8" />,
+        title: "No new campaigns right now",
+        description:
+          "There are no campaigns launched in the last 30 days. Try another filter or check back soon.",
+        action: { label: "Browse all fundraisers", href: "/fundraisers" },
+      };
+    }
+    return {
+      icon: <Heart className="h-8 w-8" />,
+      title: "No fundraisers found",
+      description: "Try a different filter to discover more campaigns to support.",
+      action: { label: "Start a fundraiser", href: "/create-fundraiser" },
+    };
+  })();
 
   return (
     <>

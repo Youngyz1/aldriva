@@ -588,6 +588,7 @@ async function getSmartFilteredFundraiserList(
 ): Promise<FundraiserListResult> {
   const categories = params.categories;
   const excludeIds = params.excludeIds;
+  const searchQuery = params.searchQuery?.trim().toLowerCase();
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 12;
 
@@ -608,6 +609,16 @@ async function getSmartFilteredFundraiserList(
   if (excludeIds && excludeIds.length > 0) {
     const excluded = new Set(excludeIds);
     rows = rows.filter((row) => !excluded.has(row.id));
+  }
+
+  if (searchQuery) {
+    rows = rows.filter((row) => {
+      const haystack = [row.title, row.category, row.organizer, row.beneficiary_name]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(searchQuery);
+    });
   }
 
   const donationCounts =

@@ -40,6 +40,7 @@ export default async function SearchPage({
         fundraisers={[]}
         organizers={[]}
         articles={[]}
+        products={[]}
         externalEvents={[]}
       />
     );
@@ -51,7 +52,7 @@ export default async function SearchPage({
   // Live external event results (Ticketmaster + SeatGeek) run in parallel with
   // the DB queries — no added latency. Fetched per view and never stored; the
   // lib handles the 5-min cache, rate-limit warning, and source attribution.
-  const [eventsResult, fundraisersResult, organizersResult, articlesResult, externalEvents] =
+  const [eventsResult, fundraisersResult, organizersResult, articlesResult, productsResult, externalEvents] =
     await Promise.all([
       supabase
         .from("events")
@@ -87,6 +88,13 @@ export default async function SearchPage({
         .or(`title.ilike.${pattern},excerpt.ilike.${pattern}`)
         .order("published_at", { ascending: false })
         .limit(6),
+      supabase
+        .from("products")
+        .select("id, name, slug, description, cover_image_url, images, product_type, category")
+        .in("status", ["active", "out_of_stock"])
+        .or(`name.ilike.${pattern},description.ilike.${pattern}`)
+        .order("created_at", { ascending: false })
+        .limit(6),
       searchExternalEvents({ query }),
     ]);
 
@@ -97,6 +105,16 @@ export default async function SearchPage({
       fundraisers={fundraisersResult.data ?? []}
       organizers={organizersResult.data ?? []}
       articles={articlesResult.data ?? []}
+      products={(productsResult.data ?? []) as Array<{
+        id: string;
+        name: string;
+        slug: string;
+        description: string;
+        cover_image_url: string | null;
+        images: string[] | null;
+        product_type: string | null;
+        category: string | null;
+      }>}
       externalEvents={externalEvents.slice(0, MAX_EXTERNAL_RESULTS)}
     />
   );

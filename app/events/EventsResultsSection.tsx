@@ -354,10 +354,14 @@ export default async function EventsResultsSection({
                   Discover More
                 </h3>
                 <PublicEmptyState
-                  icon={Calendar}
-                  title="No events found"
-                  description="Try another location or date range."
-                  action={{ label: "Create event", href: "/create-event" }}
+                  icon={<Calendar className="h-8 w-8" />}
+                  title={query ? `No events found for "${query}"` : "No events found"}
+                  description={
+                    query
+                      ? "Check spelling, try different keywords, or browse all events."
+                      : "Try another location or date range."
+                  }
+                  action={{ label: query ? "Browse events" : "Create event", href: query ? "/events" : "/create-event" }}
                 />
               </>
             )}

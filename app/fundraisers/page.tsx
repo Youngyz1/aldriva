@@ -62,11 +62,22 @@ function FundraisersBrowseSkeleton() {
   );
 }
 
-export default function FundraisersPage({
+import { redirect } from "next/navigation";
+
+export default async function FundraisersPage({
   searchParams,
 }: {
   searchParams: Promise<FundraisersPageFilters>;
 }) {
+  const resolved = await searchParams;
+  if (resolved?.q?.trim()) {
+    const params = new URLSearchParams();
+    Object.entries(resolved).forEach(([k, v]) => {
+      if (v) params.set(k, String(v));
+    });
+    redirect(`/fundraisers/search?${params.toString()}`);
+  }
+
   // Fundraisers list is a public discovery surface → full marketing
   // footer. Page-level (NOT a segment layout) so detail/edit keep theirs.
   return (

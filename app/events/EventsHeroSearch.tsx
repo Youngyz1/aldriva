@@ -6,19 +6,21 @@ import { useRouter } from "next/navigation";
 import { Search, Ticket } from "lucide-react";
 
 /**
- * Standalone search section on /events, directly below the marketing hero.
- * Wires to the same endpoint as the nav-bar search (`/search?q=…`) rather
- * than a second search system. Find Tickets sits beside it as a secondary
- * action linking to the existing /find-tickets route.
+ * Standalone search section on /events and /events/search.
+ * Navigates to dedicated /events/search?q=... on submit.
  */
-export default function EventsHeroSearch() {
+export default function EventsHeroSearch({
+  defaultQuery = "",
+}: {
+  defaultQuery?: string;
+} = {}) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultQuery);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const q = query.trim();
-    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
+    router.push(q ? `/events/search?q=${encodeURIComponent(q)}` : "/events");
   }
 
   return (
