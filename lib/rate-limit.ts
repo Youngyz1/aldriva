@@ -49,6 +49,14 @@ export const RATE_LIMITS = {
   guestLookup: { limit: 10, windowSeconds: 600 },
 
   /**
+   * Shop digital-asset endpoints (upload-url, asset confirm/manage,
+   * downloads). Abuse means billable storage egress. Generous: a creator
+   * uploading a multi-file kit plus a buyer fetching each file stays well
+   * under budget; enumeration/brute-force does not.
+   */
+  productAsset: { limit: 30, windowSeconds: 3600 },
+
+  /**
    * AI writing assistant rate limit for authors drafting and polishing articles.
    */
   articleAi: { limit: 30, windowSeconds: 60 },

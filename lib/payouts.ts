@@ -286,8 +286,44 @@ export async function requestRecipientPayout(
   }
 
   const currency = (input.currency || "usd").toLowerCase();
-  const recipientId = await resolveAndAuthorizeRecipient(user.id, input.recipientType, input.entityId);
   const supabaseAdmin = createSupabaseAdmin();
+
+  // DEC-0016: Enforce KYC / Identity Verification before funds can be requested/debited
+  const { data: requesterProfile, error: profileErr } = await supabaseAdmin
+    .from("profiles")
+    .select("id, identity_status, status")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileErr || !requesterProfile || requesterProfile.identity_status !== "verified") {
+    throw new Error("Identity verification is required before requesting payouts. Please complete identity verification in your account settings.");
+  }
+
+  if (input.recipientType === "organizer" && input.entityId) {
+    const { data: orgRecord, error: orgErr } = await supabaseAdmin
+      .from("organizers")
+      .select("id, payment_enabled, status")
+      .eq("id", input.entityId)
+      .maybeSingle();
+
+    if (orgErr || !orgRecord || !orgRecord.payment_enabled || orgRecord.status !== "verified") {
+      throw new Error("Organizer payment capability is not enabled. Please contact support or complete organization verification.");
+    }
+  }
+
+  if (input.recipientType === "business" && input.entityId) {
+    const { data: bizRecord, error: bizErr } = await supabaseAdmin
+      .from("businesses")
+      .select("id, is_flagged, status")
+      .eq("id", input.entityId)
+      .maybeSingle();
+
+    if (bizErr || !bizRecord || bizRecord.is_flagged || bizRecord.status === "archived") {
+      throw new Error("Business payout capability is restricted. Please contact support.");
+    }
+  }
+
+  const recipientId = await resolveAndAuthorizeRecipient(user.id, input.recipientType, input.entityId);
 
   const idempotencyKey = input.idempotencyKey || `req_${crypto.randomUUID()}`;
 

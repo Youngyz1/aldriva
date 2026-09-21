@@ -1,7 +1,3 @@
-import {
-  LayoutDashboard, Building2, BarChart2, Mail, Settings,
-  Calendar, Users, Newspaper, Store, ShoppingBag, Heart,
-} from "lucide-react";
 import type { NavGroup } from "@/components/nav/nav-active";
 
 /**
@@ -12,22 +8,10 @@ import type { NavGroup } from "@/components/nav/nav-active";
 export const dashboardNavGroups: NavGroup[] = [
   {
     items: [
-      { label: "Overview",        href: "/dashboard",                 icon: LayoutDashboard, exact: true },
-      { label: "Organizations",   href: "/dashboard/organizations",   icon: Building2 },
-      { label: "Analytics",       href: "/dashboard/analytics",       icon: BarChart2 },
-      { label: "Messages",        href: "/dashboard/messages",        icon: Mail },
-      { label: "Settings",        href: "/dashboard/settings",        icon: Settings },
-    ],
-  },
-  {
-    label: "Manage",
-    items: [
-      { label: "Fundraisers", href: "/dashboard/fundraisers", icon: Heart },
-      { label: "Events",      href: "/dashboard/events",      icon: Calendar },
-      { label: "Attendees",   href: "/dashboard/attendees",   icon: Users },
-      { label: "Articles",    href: "/dashboard/articles",    icon: Newspaper },
-      { label: "Businesses",  href: "/dashboard/businesses",  icon: Store },
-      { label: "Products",    href: "/dashboard/products",    icon: ShoppingBag },
+      { label: "Overview",        href: "/dashboard",                 icon: "LayoutDashboard", exact: true },
+      { label: "Analytics",       href: "/dashboard/analytics",       icon: "BarChart2" },
+      { label: "Messages",        href: "/dashboard/messages",        icon: "Mail" },
+      { label: "Settings",        href: "/dashboard/settings",        icon: "Settings" },
     ],
   },
 ];

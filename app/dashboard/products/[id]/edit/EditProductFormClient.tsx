@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateProduct } from "@/lib/actions/products";
 import { MAX_IMAGES } from "@/lib/products-constants";
+import { isDigitalProductType } from "@/lib/digital-products";
+import DigitalProductFields, {
+  type DigitalFormState,
+} from "@/components/products/DigitalProductFields";
+import AssetManager from "@/components/products/AssetManager";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 
 type Product = {
@@ -19,6 +24,15 @@ type Product = {
   business_id: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  subtitle: string | null;
+  product_type: string | null;
+  category: string | null;
+  tags: string[] | null;
+  cover_image_url: string | null;
+  license: string | null;
+  version: string | null;
+  update_policy: string | null;
+  preview_images: string[] | null;
 };
 
 export default function EditProductFormClient({
@@ -44,6 +58,19 @@ export default function EditProductFormClient({
     seo_title: product.seo_title || "",
     seo_description: product.seo_description || "",
   });
+  const [digital, setDigital] = useState<DigitalFormState>({
+    product_type: product.product_type || "other",
+    subtitle: product.subtitle || "",
+    category: product.category || "",
+    tags: (product.tags || []).join(", "),
+    cover_image_url: product.cover_image_url || "",
+    license: product.license || "personal",
+    version: product.version || "1.0",
+    update_policy: product.update_policy || "",
+    preview_images: product.preview_images || [],
+  });
+
+  const isDigital = isDigitalProductType(digital.product_type);
 
   function addImage(url: string) {
     setForm((prev) => ({ ...prev, images: [...prev.images, url] }));
@@ -66,11 +93,20 @@ export default function EditProductFormClient({
       images: form.images,
       price_type: form.price_type,
       stripe_price_id: form.stripe_price_id || null,
-      stock_quantity: form.stock_quantity === "" ? null : Number(form.stock_quantity),
+      stock_quantity: isDigital ? null : form.stock_quantity === "" ? null : Number(form.stock_quantity),
       status: form.status,
       business_id: form.business_id || null,
       seo_title: form.seo_title || null,
       seo_description: form.seo_description || null,
+      subtitle: digital.subtitle || null,
+      product_type: digital.product_type,
+      category: digital.category || null,
+      tags: digital.tags,
+      cover_image_url: digital.cover_image_url || null,
+      license: digital.license,
+      version: digital.version || "1.0",
+      update_policy: digital.update_policy || null,
+      preview_images: digital.preview_images,
     });
 
     setLoading(false);
@@ -231,14 +267,20 @@ export default function EditProductFormClient({
 
             <div>
               <label className="block text-sm font-black text-zinc-600 mb-1">Stock Quantity</label>
-              <input
-                type="number"
-                min={0}
-                value={form.stock_quantity}
-                onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
-                placeholder="Leave blank for unlimited / digital good"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-              />
+              {isDigital ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500">
+                  Digital products don&apos;t use inventory — buyers get file access on payment.
+                </p>
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  value={form.stock_quantity}
+                  onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+                  placeholder="Leave blank for unlimited / digital good"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+                />
+              )}
             </div>
 
             <div>
@@ -272,6 +314,10 @@ export default function EditProductFormClient({
             )}
           </div>
         </div>
+
+        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} />
+
+        {isDigital && <AssetManager productId={product.id} />}
 
         {/* SEO */}
         <div className="space-y-4 border-t border-zinc-200 pt-6">

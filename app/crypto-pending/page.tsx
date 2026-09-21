@@ -185,10 +185,16 @@ function CryptoPendingContent() {
           </div>
         ) : isProduct ? (
           <div className="space-y-4">
+            <Link
+              href="/products/library"
+              className="flex items-center justify-center gap-2 w-full rounded-2xl bg-orange-500 hover:bg-orange-600 py-4 text-sm font-black text-white transition shadow-md"
+            >
+              Open My Library →
+            </Link>
             {paymentDetails.slug && (
               <Link
                 href={`/products/${paymentDetails.slug}`}
-                className="flex items-center justify-center gap-2 w-full rounded-2xl bg-orange-500 hover:bg-orange-600 py-4 text-sm font-black text-white transition shadow-md"
+                className="block text-sm font-bold text-zinc-500 hover:text-zinc-800 transition py-2"
               >
                 View Product →
               </Link>

@@ -127,3 +127,49 @@ export function sanitizeArticleHtml(dirty: unknown): string {
     ALLOW_DATA_ATTR: false,
   });
 }
+
+/**
+ * Strict allowlist-based URL sanitizer for href and src attributes.
+ * Allows: http:, https:, mailto:, tel:, and relative paths (/, #, ?, ./, ../).
+ * Strips dangerous schemes like javascript:, data:, vbscript:.
+ * Always returns a safe URL string or the fallback string (default: "").
+ */
+export function sanitizeUrl(url: unknown, fallback = ""): string {
+  if (typeof url !== "string") return fallback;
+  const trimmed = url.trim();
+  if (!trimmed) return fallback;
+
+  // Relative URLs and anchor targets are safe
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("?") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  ) {
+    // Extra safety: block protocol-relative //evil.com if not intended or sanitize
+    if (trimmed.startsWith("//")) {
+      return fallback;
+    }
+    return trimmed;
+  }
+
+  // Absolute URLs must start with allowed protocols
+  const isAllowedScheme = /^(https?:|mailto:|tel:)/i.test(trimmed);
+  if (!isAllowedScheme) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const proto = parsed.protocol.toLowerCase();
+    if (proto === "http:" || proto === "https:" || proto === "mailto:" || proto === "tel:") {
+      return trimmed;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+

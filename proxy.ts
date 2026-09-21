@@ -225,6 +225,79 @@ async function checkProductAccess(
 }
 
 // ---------------------------------------------------------------------------
+// Tenant website access-control helper — mirrors checkArticleAccess.
+//
+// Gate logic:
+//   - If the site does not exist → 404.
+//   - If status = 'published' → allow (public access).
+//   - If status ≠ 'published' (draft / archived):
+//       - Anonymous visitors → 404 (no hint that a draft exists).
+//       - Authenticated entity members (any role) → allow preview.
+//       - Authenticated platform admins → allow preview.
+//       - Everyone else → 404.
+//
+// Runs with no-store / service-role key exactly like other proxy gates.
+// Fetches only 3 indexed columns (status, tenant_id, 2 bytes each);
+// no streaming, no RLS bypass for public visitors.
+// ---------------------------------------------------------------------------
+async function checkWebsiteAccess(
+  slug: string,
+  userId: string | null
+): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/tenant_websites?slug=eq.${encodeURIComponent(slug)}&select=status,tenant_id&limit=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!res.ok) return false; // Fail closed: on fetch error, deny anonymous access.
+
+  const rows = (await res.json()) as Array<{
+    status: string;
+    tenant_id: string;
+  }>;
+
+  if (!rows.length) return false; // Site does not exist → 404.
+
+  const site = rows[0];
+
+  // Published sites are publicly accessible.
+  if (site.status === "published") return true;
+
+  // Draft / archived — only entity members and admins can preview.
+  if (!userId) return false;
+
+  // Check entity membership for this tenant (any role grants preview access).
+  const memberRes = await fetch(
+    `${supabaseUrl}/rest/v1/entity_members?entity_id=eq.${encodeURIComponent(site.tenant_id)}&user_id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (memberRes.ok) {
+    const members = (await memberRes.json()) as Array<{ role: string }>;
+    if (members.length > 0) return true; // Any entity role grants draft preview.
+  }
+
+  // Fall back to platform-admin check (same helper as other gates).
+  return isAuthorizedAdmin(userId);
+}
+
+// ---------------------------------------------------------------------------
 // Ticketmaster existence-check helper — lightweight fetch without next/cache.
 // ---------------------------------------------------------------------------
 async function checkTicketmasterAccess(id: string): Promise<boolean> {
@@ -439,14 +512,14 @@ export async function proxy(req: NextRequest) {
 
   // -------------------------------------------------------------------------
   // Product access-control gate. Same streaming/status-code constraint as
-  // the article gate above. "order-confirmation" is a real sibling page
-  // (app/products/order-confirmation), not a product slug — excluded so the
-  // gate doesn't 404 it.
+  // the article gate above. "order-confirmation" and "library" are real
+  // sibling pages (app/products/order-confirmation, app/products/library),
+  // not product slugs — excluded so the gate doesn't 404 them.
   // -------------------------------------------------------------------------
   const productSlugMatch = pathname.match(/^\/products\/([^/]+)$/);
   if (productSlugMatch) {
     const slug = productSlugMatch[1];
-    if (slug !== "order-confirmation") {
+    if (slug !== "order-confirmation" && slug !== "library") {
       const allowed = await checkProductAccess(slug, user?.id ?? null);
       if (!allowed) {
         const notFoundUrl = req.nextUrl.clone();
@@ -473,6 +546,31 @@ export async function proxy(req: NextRequest) {
   const ticketmasterIdMatch = pathname.match(/^\/external-events\/ticketmaster\/([^/]+)$/);
   if (ticketmasterIdMatch) {
     const allowed = await checkTicketmasterAccess(ticketmasterIdMatch[1]);
+    if (!allowed) {
+      const notFoundUrl = req.nextUrl.clone();
+      notFoundUrl.pathname = "/_not-found";
+      return NextResponse.rewrite(notFoundUrl, { status: 404 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Tenant website access-control gate.
+  //
+  // Matches /site/<slug> and /site/<slug>/<any-subpage>. The slug is the first
+  // segment only — subpages resolve inside the catch-all page component.
+  //
+  // Same streaming/status-code constraint as the article gate above: if a
+  // draft-site page starts rendering and notFound() fires after the 200 header
+  // is flushed, the status cannot be changed retroactively. This pre-stream
+  // check is the only reliable path to a real HTTP 404 for unlisted sites.
+  //
+  // Draft/archived sites are allowed through for authenticated entity members
+  // (any role) and platform admins to support preview workflows.
+  // -------------------------------------------------------------------------
+  const websiteSlugMatch = pathname.match(/^\/site\/([^/]+)(?:\/.*)?$/);
+  if (websiteSlugMatch) {
+    const slug = websiteSlugMatch[1];
+    const allowed = await checkWebsiteAccess(slug, user?.id ?? null);
     if (!allowed) {
       const notFoundUrl = req.nextUrl.clone();
       notFoundUrl.pathname = "/_not-found";
@@ -518,9 +616,14 @@ export const config = {
     // Business detail pages — same reason. Excluded: /businesses (list).
     "/businesses/:slug([^/]+)",
     // Product detail pages — same reason. Excluded: /products (list),
-    // /products/order-confirmation (real sibling page, not a slug).
+    // /products/order-confirmation + /products/library (real sibling pages,
+    // not slugs — the gate itself skips them, see above).
     "/products/:slug([^/]+)",
     // Ticketmaster external-event detail pages — same reason.
     "/external-events/ticketmaster/:id",
+    // Tenant public website pages — access gate must run before streaming
+    // begins so draft/archived sites return a real HTTP 404 to anonymous
+    // visitors. Matches /site/<slug> and /site/<slug>/<any-subpage>.
+    "/site/:path*",
   ],
 };

@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
-import { getAdaptiveDashboardData } from "@/lib/dashboard-activity";
-import AdaptiveDashboardView from "@/components/dashboard/adaptive/AdaptiveDashboardView";
+import { getMyThingsData } from "@/lib/my-things";
+import { MyThingsView } from "@/components/dashboard/MyThingsView";
 
 export default async function DashboardPage() {
   const ctx = await getDashboardContext();
   if (!ctx) redirect("/login");
 
-  const { user, organizers, organizerIds } = ctx;
+  const { user } = ctx;
   const displayName = (user.user_metadata?.display_name as string | undefined)?.trim() || "User";
 
-  const data = await getAdaptiveDashboardData({ userId: user.id, organizerIds });
+  const { sections, hasAny } = await getMyThingsData(ctx);
 
-  return <AdaptiveDashboardView displayName={displayName} organizers={organizers} data={data} />;
+  return <MyThingsView displayName={displayName} sections={sections} hasAny={hasAny} />;
 }

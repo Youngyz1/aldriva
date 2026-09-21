@@ -6,6 +6,7 @@ import { processDonationReceipt } from "@/lib/receipt";
 import { recalculateFundraiserRaised } from "@/lib/donations";
 import { parseCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { markProductOrderPaid } from "@/lib/productOrders";
+import { notifyProductPurchase } from "@/lib/product-notifications";
 import { getSiteUrl } from "@/lib/site-url";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -345,7 +346,10 @@ export async function POST(req: NextRequest) {
         } else if (tagged.kind === "business") {
           await activateBusinessListing(tagged.id);
         } else if (tagged.kind === "product") {
-          await markProductOrderPaid(tagged.id, { cryptoPaymentId: payment_id });
+          const result = await markProductOrderPaid(tagged.id, { cryptoPaymentId: payment_id });
+          if (result.was_newly_paid) {
+            await notifyProductPurchase(tagged.id);
+          }
         }
       } else {
         console.warn(

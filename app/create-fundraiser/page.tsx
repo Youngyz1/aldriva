@@ -403,7 +403,7 @@ export default function CreateFundraiserPage() {
     }
 
     localStorage.removeItem("fundraiser-draft");
-    router.push(`/fundraisers/${slug}`);
+    router.push(`/dashboard/fundraisers/${insertedFundraiser.id}/overview`);
   }
 
   if (checking) {

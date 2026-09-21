@@ -29,6 +29,13 @@ type EventCardProps = {
   /** Restyle for a dark background: transparent body, rounded image tile,
    *  light title/location text (used inside the dark /events hero). */
   onDark?: boolean;
+  /**
+   * Next.js Image `sizes` attribute. Defaults to a grid-layout value
+   * (`100vw / 50vw / 33vw`). Carousel call sites should pass a carousel-
+   * correct value (e.g. `"(max-width: 640px) 82vw, …"`) to avoid the browser
+   * fetching wider images than the card actually occupies.
+   */
+  sizes?: string;
 };
 
 export default function EventCard({
@@ -44,6 +51,7 @@ export default function EventCard({
   eventDate,
   showSave = true,
   onDark = false,
+  sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
 }: EventCardProps) {
   const router = useRouter();
   const compact = variant === "compact";
@@ -107,7 +115,7 @@ export default function EventCard({
             src={imageSrc}
             alt={title}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes={sizes}
             className="object-cover transition duration-500 group-hover:scale-105"
             onError={() => setImageFailed(true)}
           />

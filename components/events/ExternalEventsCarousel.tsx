@@ -25,7 +25,7 @@ export default function ExternalEventsCarousel({ events }: { events: ExternalEve
   const showArrows = events.length > 3;
 
   return (
-    <Carousel opts={{ align: "start" }}>
+    <Carousel opts={{ align: "start", duration: 15 }}>
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-black text-zinc-950 sm:text-3xl">More Events</h2>

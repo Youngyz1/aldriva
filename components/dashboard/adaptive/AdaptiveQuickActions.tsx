@@ -1,15 +1,8 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
+import { Zap, Plus, ArrowRight } from "lucide-react";
 import { VERTICAL_CONFIG, type VerticalStat, type VerticalPrompt } from "@/lib/dashboard-activity";
+import { Button } from "@/components/ui/button";
 
-/**
- * Primary tile = the user's most active vertical (by raw item count).
- * Secondary tiles = create-again actions for their other active verticals,
- * same bordered/slate-50 treatment as event-platform's QuickActions.
- * Untouched verticals get a de-emphasized text-link row at the bottom,
- * not full cards — the KPI section's GetStartedPromptCard already covers
- * that ground with more visual weight; this is just a lower-priority nudge.
- */
 export default function AdaptiveQuickActions({
   activeVerticals,
   untouchedVerticals,
@@ -20,72 +13,62 @@ export default function AdaptiveQuickActions({
   className?: string;
 }) {
   const ranked = [...activeVerticals].sort((a, b) => b.count - a.count);
-  const [primary, ...secondary] = ranked;
+  const [primary, ...secondary] = ranked.length > 0 ? ranked : [{ key: "fundraisers" as const, count: 0, label: "Fundraiser", value: "", icon: VERTICAL_CONFIG.fundraisers.icon, iconBg: "", iconColor: "", href: "" }];
   const primaryConfig = VERTICAL_CONFIG[primary.key];
 
   return (
-    // Open rail: heading + action tiles sit on the canvas, no outer card.
-    // Tiles are interactive links and keep their boundaries.
-    <div className={`border-t border-zinc-200 pt-5 ${className ?? ""}`}>
+    <div className={`rounded-xl border border-zinc-200/80 bg-white p-5 shadow-xs ${className ?? ""}`}>
       <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-        <Zap className="h-4 w-4 text-slate-400" aria-hidden />
-        <h2 className="text-sm font-semibold text-slate-900">Quick Actions</h2>
+        <Zap className="h-4 w-4 text-brand-700" aria-hidden />
+        <h3 className="text-sm font-bold text-zinc-950">Quick Actions</h3>
       </div>
 
-      <div className="pt-4">
+      <div className="pt-4 space-y-3">
+        {/* Dominant Quick Action */}
         <Link
           href={primaryConfig.createHref}
-          className="group flex min-h-[76px] items-center gap-4 rounded-xl bg-brand-700 px-5 py-4 text-left shadow-sm transition-all duration-150 hover:bg-brand-800 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+          className="group relative flex items-center justify-between overflow-hidden rounded-xl bg-primary p-4 text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-[0.98]"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15">
-            <primaryConfig.icon className="h-5 w-5 text-white" aria-hidden />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
+              <primaryConfig.icon className="h-5 w-5 text-white" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold truncate leading-tight">
+                {primaryConfig.createAgainCta}
+              </p>
+              <p className="text-[11px] text-white/80 mt-0.5">
+                Primary active module
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-white">{primaryConfig.createAgainCta}</p>
-            <p className="text-xs text-brand-100">Your most active vertical</p>
-          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>
 
-        {secondary.length > 0 && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {secondary.map((vertical) => {
-              const config = VERTICAL_CONFIG[vertical.key];
+        {/* Secondary Action Buttons Grid */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {Object.values(VERTICAL_CONFIG)
+            .filter((v) => v.key !== primary.key)
+            .slice(0, 4)
+            .map((vertical) => {
+              const Icon = vertical.icon;
               return (
                 <Link
                   key={vertical.key}
-                  href={config.createHref}
-                  className="group flex min-h-[72px] flex-col items-start gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition-all duration-150 hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                  href={vertical.createHref}
+                  className="group flex flex-col items-start gap-1 rounded-lg border border-zinc-200/80 bg-white p-2.5 transition hover:border-zinc-300 hover:bg-zinc-50"
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white transition-colors group-hover:border-brand-200 group-hover:bg-brand-100">
-                    <config.icon className="h-3.5 w-3.5 text-brand-700" aria-hidden />
+                  <div className="flex items-center gap-1.5 text-zinc-600 group-hover:text-zinc-950">
+                    <Icon className="h-3.5 w-3.5 text-zinc-500" aria-hidden />
+                    <span className="text-xs font-semibold">{vertical.label}</span>
                   </div>
-                  <p className="text-xs font-semibold leading-none text-slate-900">
-                    {config.createAgainCta}
-                  </p>
+                  <span className="text-[11px] font-medium text-brand-700 group-hover:underline line-clamp-1">
+                    + {vertical.createCta}
+                  </span>
                 </Link>
               );
             })}
-          </div>
-        )}
-
-        {untouchedVerticals.length > 0 && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Also try
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-              {untouchedVerticals.map((prompt) => (
-                <Link
-                  key={prompt.key}
-                  href={prompt.href}
-                  className="text-xs font-medium text-slate-500 hover:text-brand-700 hover:underline"
-                >
-                  {prompt.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

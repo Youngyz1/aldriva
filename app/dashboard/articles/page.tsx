@@ -6,6 +6,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { deleteArticle } from "@/lib/actions/articles";
 import { revalidatePath } from "next/cache";
 import ArticleRowActions from "./ArticleRowActions";
+import StickyTableToolbar from "@/components/ui/sticky-table-toolbar";
 
 const statusBadge: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 border-zinc-200",
@@ -84,8 +85,7 @@ export default async function DashboardArticlesPage({
         </Link>
       </div>
 
-      {/* Toolbar / Filters — open bar, inputs carry their own boundaries. Table below keeps containment. */}
-      <div>
+      <StickyTableToolbar>
         <form method="GET" action="/dashboard/articles" className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1">
             <input
@@ -117,7 +117,7 @@ export default async function DashboardArticlesPage({
             Apply
           </button>
         </form>
-      </div>
+      </StickyTableToolbar>
 
       {/* Articles Table / List */}
       {articles && articles.length > 0 ? (

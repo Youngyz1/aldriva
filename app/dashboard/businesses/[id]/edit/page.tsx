@@ -29,9 +29,12 @@ export default async function EditBusinessPage({
     redirect("/dashboard/businesses");
   }
 
+  const tenantId =
+    business.organizer_id || ctx.organizerId || ctx.organizer?.id || ctx.organizers[0]?.id || ctx.user.id;
+
   return (
     <div className="flex-1 p-6 max-w-4xl mx-auto">
-      <EditBusinessFormClient business={business} />
+      <EditBusinessFormClient business={business} tenantId={tenantId} />
     </div>
   );
 }

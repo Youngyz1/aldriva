@@ -15,10 +15,10 @@ import { getOrgNavItems } from "./org-nav-items";
  * Fixed positioning removes it from document flow — the org content wrapper
  * reserves 69px for it (see ./layout.tsx).
  */
-export default function OrgMobileNav({ orgId }: { orgId: string }) {
-  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`);
+export default function OrgMobileNav({ orgId, hasEvents, hasFundraisers, hasProducts, hasWebsite }: { orgId: string; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean }) {
+  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
   return (
-    <div className="fixed bottom-[calc(69px+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-zinc-200 bg-white px-3 py-2.5 sm:px-6 lg:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 sm:px-6 lg:hidden">
       <div className="overflow-x-auto">
         <MobilePillNav items={navItems} ariaLabel="Organization workspace navigation" />
       </div>

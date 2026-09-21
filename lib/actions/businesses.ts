@@ -109,7 +109,7 @@ export async function createBusiness(input: BusinessInput) {
       state: input.state || null,
       country: input.country || null,
       listing_tier: input.listing_tier,
-      status: "pending_review",
+      status: "published",
       is_flagged: false,
     })
     .select("id, slug")

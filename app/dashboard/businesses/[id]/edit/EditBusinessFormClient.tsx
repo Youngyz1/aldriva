@@ -25,7 +25,13 @@ type Business = {
   seo_description: string | null;
 };
 
-export default function EditBusinessFormClient({ business }: { business: Business }) {
+export default function EditBusinessFormClient({
+  business,
+  tenantId,
+}: {
+  business: Business;
+  tenantId: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -167,8 +173,8 @@ export default function EditBusinessFormClient({ business }: { business: Busines
                 fitMode="fit"
                 previewClassName="h-20 w-20 rounded-2xl"
                 label="Upload logo"
-                bucket="fundraiser-media"
-                folder="business-logos"
+                bucket="cms-media"
+                folder={`${tenantId}/business-logos`}
                 onUploaded={(url) => setForm((prev) => ({ ...prev, logo: url }))}
                 onRemove={() => setForm((prev) => ({ ...prev, logo: "" }))}
                 onError={(msg) => setError(msg)}

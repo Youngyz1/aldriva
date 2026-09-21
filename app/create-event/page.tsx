@@ -373,7 +373,7 @@ export default function CreateEventPage() {
     }
 
     localStorage.removeItem("event-draft");
-    router.push(`/events/${slug}`);
+    router.push(`/dashboard/events/${createdEvent.id}/overview`);
   }
 
   if (checking) {

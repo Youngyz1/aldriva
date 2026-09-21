@@ -6,5 +6,5 @@ export default async function EventRootPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  redirect(`/dashboard/events/${eventId}/operations`);
+  redirect(`/dashboard/events/${eventId}/overview`);
 }
