@@ -1,11 +1,11 @@
 # Aldriva — Current Implementation State & Living Status
 
 > **WHERE ARE WE RIGHT NOW?**  
-> **Current Phase**: **Business Mini Website Extended — Atomic Instantiation, Element Editing, Section/Container Controls, Stable Reordering, Template Library, My Media (LANDED)**  
-> **Prerequisites**: **migrations 130 (tenant_websites.metadata), 131 (atomic create_website_from_template), 132 (businesses.business_type + business_branches), 133 (events.subcategory), 134 (homepage promotions), 135 (profile locale) — present in repository, 130–133 verified applied**  
-> **Next Step**: **Phase 5 — Products, Services & Menus (migration 136, planned)**  
-> **Last Verified**: 2026-09-24 — Full checklist verified (business taxonomy, event taxonomy, website inheritance, atomic instantiation, element editing, section/container, reordering, template library, My Media)  
-> **Test Suite**: 650/650 passing (36 suites, 0 failures)  
+> **Current Phase**: **Phase 5 — Products, Services & Menus (COMPLETE)**  
+> **Prerequisites**: **migrations 130 (tenant_websites.metadata), 131 (atomic create_website_from_template), 132 (businesses.business_type + business_branches), 133 (events.subcategory), 134 (homepage promotions), 135 (profile locale), 136 (services + service_tiers + menu_sections + menu_items) — present in repository, 130–136 hermetic verified**  
+> **Next Step**: **Phase 6 — Unified Commerce (planned)**  
+> **Last Verified**: 2026-09-24 — Full checklist verified (services, service tiers, menu sections/items, dietary/allergens/modifiers, public services/menu blocks, tenant isolation)  
+> **Test Suite**: 669/669 passing (36 suites, 0 failures)  
 > **TypeScript Health**: 0 errors (`npx tsc --noEmit --skipLibCheck` verified)  
 > **Build Health**: Next.js 16.3.4 production build verified (compiled successfully, Turbopack)
 

@@ -3,7 +3,6 @@ import { requireTenantContext } from "@/lib/tenant-context";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 export default async function MenuPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: organizerId } = await params;

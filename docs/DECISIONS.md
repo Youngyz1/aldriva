@@ -193,6 +193,16 @@
   - `MediaUploadField` 3 tabs `Upload | My Media | Direct URL` (`mode==="myMedia"`); Direct URL still `sanitizeUrl(manualUrl)` with `javascript:`/`data:` rejection. `MyMediaPicker` never calls `uploadImage`/`createSignedUrl`.
   - **Connected Media** (Instagram/Facebook/YouTube) is explicitly **out-of-scope** and verified absent (`my-media.test.cjs` asserts no Instagram/Facebook in picker/field).
 
+### DEC-0024: Services / Service Tiers / Menu Sections / Menu Items Catalog (Phase 5)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`db/migration_136_services_and_menus.sql`, `lib/actions/services.ts`, `lib/actions/menus.ts`, `lib/website-embeds.ts`, `components/site/blocks/BlockRenderer.tsx`)
+- **Key Tenets**:
+  - Catalog is tenant-scoped to `organizers.id` (1:N `services` → `service_tiers`, 1:N `menu_sections` → `menu_items`). `menu_items.organizer_id` is denormalized for RLS but enforced by DB trigger `check_menu_item_organizer_match` (`BEFORE INSERT OR UPDATE`, `RAISE EXCEPTION 23503` if mismatch), not app-only.
+  - No `service_categories` table — category is `services.title`/search, not duplicate taxonomy (per DEC-0018). Prices are local `NUMERIC(12,2)` (`0..999999.99`), not Stripe `stripe_price_id` (products remain Stripe). No checkout/cart/booking in Phase 5.
+  - Visibility is `is_active BOOLEAN` only (no `draft|active|archived` enum). Public RLS `FOR SELECT USING (is_active=true)` (plus `menu_sections.is_active` gate for items); tenant members `is_entity_member(organizer_id, …)` for all; editors `INSERT/UPDATE`, managers `DELETE` (DEC-0011 pattern).
+  - Bounds: `title 1..120`/`slug ^[a-z0-9-]+$` unique per organizer (10 bounded retries via `createSlug`), `name 1..80`, `description 2000/500`, `duration 5..1440`, `position 0..999` unique per scope, `dietary_tags 7 enums` (`vegan`…`nut_free`) max 12, `allergens 6 enums` (`nuts`…`shellfish`) max 12, `modifiers JSONB` max 12 `{name 1..80, price_delta -10000..10000}`, all validated in SQL `CHECK` + GIN indexes and `sanitizeUrl` on `image_url`.
+  - Website integration is **blocks** `services_embed`/`menu_embed` (`limit 1..12`, `selected*Ids` UUID max 12) with resolvers `resolveServicesEmbed`/`resolveMenuEmbed` (`createSupabaseAdmin`, `WHERE organizer_id=tenantId`, `is_active` public filter, no `owner_id` fallback), rendered as `ServiceCard` (grid/list) + `MenuGrid` (sections + allergen/dietary `Badge`, `is_featured`). QR-ready is `/site/[slug]` page containing `menu_embed` (no QR generation subsystem).
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

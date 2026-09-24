@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 const NAME_MAX = 80;
 const DESC_MAX = 500;
 const PRICE_MAX = 999999.99;
-const POSITION_MAX = 999;
+// POSITION_MAX bounded via CHECK 0..999 in migration (removed to satisfy lint)
 const MAX_ARRAY = 12;
 const DIETARY_TAGS = ["vegan", "vegetarian", "gluten_free", "halal", "kosher", "dairy_free", "nut_free"] as const;
 const ALLERGENS = ["nuts", "dairy", "gluten", "soy", "eggs", "shellfish"] as const;
@@ -89,7 +89,7 @@ export async function listMenuSections(organizerId: string) {
 export async function createMenuSection(organizerId: string, input: { name: string; description?: string | null; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const nameErr = validateName(input.name);
@@ -112,7 +112,7 @@ export async function createMenuSection(organizerId: string, input: { name: stri
 export async function updateMenuSection(sectionId: string, organizerId: string, input: { name?: string; description?: string | null; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -138,7 +138,7 @@ export async function updateMenuSection(sectionId: string, organizerId: string, 
 export async function deleteMenuSection(sectionId: string, organizerId: string) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -153,7 +153,7 @@ export async function deleteMenuSection(sectionId: string, organizerId: string) 
 export async function createMenuItem(sectionId: string, organizerId: string, input: { name: string; description?: string | null; price: number; image_url?: string | null; dietary_tags?: string[]; allergens?: string[]; modifiers?: { name: string; price_delta: number }[]; position?: number; is_active?: boolean; is_featured?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const nameErr = validateName(input.name);
@@ -199,7 +199,7 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
 export async function updateMenuItem(itemId: string, sectionId: string, organizerId: string, input: { name?: string; description?: string | null; price?: number; image_url?: string | null; dietary_tags?: string[]; allergens?: string[]; modifiers?: { name: string; price_delta: number }[]; position?: number; is_active?: boolean; is_featured?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -252,7 +252,7 @@ export async function updateMenuItem(itemId: string, sectionId: string, organize
 export async function deleteMenuItem(itemId: string, sectionId: string, organizerId: string) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();

@@ -5,6 +5,15 @@
 
 ---
 
+## [2026-09] — Phase 5: Products, Services & Menus (2026-09-24)
+
+### Phase 5 — Services, Service Tiers, Menu Sections/Items, Public Blocks (2026-09-24)
+- `db/migration_136_services_and_menus.sql` (services, service_tiers, menu_sections, menu_items, RLS, trigger `check_menu_item_organizer_match`, GIN, position/price/duration bounds) + rollback + mirror `supabase/migrations/20260925000000`
+- `lib/actions/services.ts` CRUD + tiers with `requireTenantContext`, `createSlug` retry 10, `sanitizeUrl`, bounded validation, `revalidatePath`; `lib/actions/menus.ts` sections/items with dietary 7/allergens 6/modifiers JSONB -10000..10000, organizer match check
+- Dashboard `app/dashboard/org/[id]/services/page.tsx` + `services/new` + `services/[serviceId]/page.tsx` (ServiceForm with MediaUploadField services, Switch is_active) + `menu/page.tsx` (sections + items, QR-ready note) + nav Services/Menu (Briefcase/Utensils)
+- Website `lib/website-blocks.ts` + `lib/website-embeds.ts` `services_embed`/`menu_embed` (limit 1..12, selected IDs UUID, tenant `organizer_id`, `is_active` public filter) + `BlockRenderer` `ServicesEmbedBlockRenderer`/`MenuEmbedBlockRenderer` (grid/list, dietary/allergen badges, DraftBadge)
+- Tests `lib/__tests__/services-and-menus.test.cjs` §1–§5 (10+9 checks), `lib/__tests__/website-blocks.test.cjs` 14 types, 669/669 (36 suites)
+
 ## [2026-09] — Hardening & Landing — Business Mini Website Extended + Platform Parallel Updates (2026-09-24)
 
 ### Business Mini Website — Hardening & Landing (2026-09-24)

@@ -100,7 +100,7 @@ export async function getServiceById(serviceId: string, organizerId: string) {
 export async function createService(organizerId: string, input: { title: string; description?: string; duration_minutes?: number | null; price: number; image_url?: string | null; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const titleErr = validateTitle(input.title);
@@ -158,7 +158,7 @@ export async function createService(organizerId: string, input: { title: string;
 export async function updateService(serviceId: string, organizerId: string, input: { title?: string; description?: string | null; duration_minutes?: number | null; price?: number; image_url?: string | null; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -208,7 +208,7 @@ export async function updateService(serviceId: string, organizerId: string, inpu
 export async function deleteService(serviceId: string, organizerId: string) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -221,7 +221,7 @@ export async function deleteService(serviceId: string, organizerId: string) {
 export async function reorderServices(organizerId: string, orderedIds: string[]) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: false, error: "Invalid order" };
@@ -242,7 +242,7 @@ export async function reorderServices(organizerId: string, orderedIds: string[])
 export async function createServiceTier(serviceId: string, organizerId: string, input: { name: string; description?: string | null; duration_minutes?: number | null; price: number; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   if (typeof input.name !== "string" || input.name.trim().length < 1 || input.name.trim().length > TIER_NAME_MAX) return { success: false, error: `Tier name must be 1–${TIER_NAME_MAX}` };
@@ -275,7 +275,7 @@ export async function createServiceTier(serviceId: string, organizerId: string, 
 export async function updateServiceTier(tierId: string, serviceId: string, organizerId: string, input: { name?: string; description?: string | null; duration_minutes?: number | null; price?: number; position?: number; is_active?: boolean }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
@@ -320,7 +320,7 @@ export async function updateServiceTier(tierId: string, serviceId: string, organ
 export async function deleteServiceTier(tierId: string, serviceId: string, organizerId: string) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager"]);
-  } catch (e: any) {
+  } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
