@@ -231,7 +231,8 @@ export async function reorderServices(organizerId: string, orderedIds: string[])
   const { data: existing } = await admin.from("services").select("id").eq("organizer_id", organizerId).in("id", orderedIds);
   if (!existing || existing.length !== orderedIds.length) return { success: false, error: "Invalid service IDs" };
   for (let i = 0; i < orderedIds.length; i++) {
-    await admin.from("services").update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]).eq("organizer_id", organizerId);
+    const { error } = await admin.from("services").update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]).eq("organizer_id", organizerId);
+    if (error) return { success: false, error: "Failed to reorder services" };
   }
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true };
@@ -311,7 +312,7 @@ export async function updateServiceTier(tierId: string, serviceId: string, organ
   }
   if (input.is_active !== undefined) updates.is_active = Boolean(input.is_active);
 
-  const { data, error } = await admin.from("service_tiers").update(updates).eq("id", tierId).select("*").single();
+  const { data, error } = await admin.from("service_tiers").update(updates).eq("id", tierId).eq("service_id", serviceId).select("*").single();
   if (error) return { success: false, error: "Failed to update tier" };
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true, data };
@@ -324,11 +325,13 @@ export async function deleteServiceTier(tierId: string, serviceId: string, organ
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
-  const { error } = await admin.from("service_tiers").delete().eq("id", tierId).eq("service_id", serviceId);
-  if (error) return { success: false, error: "Failed to delete tier" };
-  // Verify service still belongs to organizer (prevent cross-tenant attachment via direct tier id guess)
+  // Verify ownership BEFORE delete (service-role bypasses RLS, so check must precede write)
   const { data: service } = await admin.from("services").select("id").eq("id", serviceId).eq("organizer_id", organizerId).maybeSingle();
   if (!service) return { success: false, error: "Service not found or not owned by tenant" };
+  const { data: tier } = await admin.from("service_tiers").select("id").eq("id", tierId).eq("service_id", serviceId).maybeSingle();
+  if (!tier) return { success: false, error: "Tier not found" };
+  const { error } = await admin.from("service_tiers").delete().eq("id", tierId).eq("service_id", serviceId);
+  if (error) return { success: false, error: "Failed to delete tier" };
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true };
 }
