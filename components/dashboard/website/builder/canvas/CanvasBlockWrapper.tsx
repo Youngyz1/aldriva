@@ -20,16 +20,21 @@ import {
   AlertCircle,
   Plus,
   SlidersHorizontal,
+  EyeOff,
+  Smartphone,
 } from "lucide-react";
+import { getBackgroundStyle, getContainerClass, getSpacingClass } from "@/lib/section-helpers";
 
 interface CanvasBlockWrapperProps {
   block: Block;
   index: number;
   totalBlocks: number;
   isSelected: boolean;
+  selectedElementPath?: string | null;
   validationIssues?: ValidationErrorIssue[];
   embedOptions?: BuilderEmbedOptions;
   onSelect: (index: number) => void;
+  onSelectElement?: (blockId: string, path: string) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onDuplicate: (index: number) => void;
   onRemove: (index: number) => void;
@@ -41,15 +46,25 @@ export function CanvasBlockWrapper({
   index,
   totalBlocks,
   isSelected,
+  selectedElementPath,
   validationIssues,
   embedOptions,
   onSelect,
+  onSelectElement,
   onMove,
   onDuplicate,
   onRemove,
   onInsertBelow,
 }: CanvasBlockWrapperProps) {
   const hasErrors = Boolean(validationIssues && validationIssues.length > 0);
+  const raw = block as unknown as Record<string, unknown>;
+  const isHidden = raw.visible === false;
+  const isHiddenOnMobile = Boolean(raw.hiddenOnMobile);
+  const spacingClass = getSpacingClass(raw.spacing as never);
+  const containerClass = getContainerClass(raw.container as never);
+  const bg = raw.background as Record<string, unknown> | undefined;
+  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
+  const hasBg = Boolean(bgStyle && Object.keys(bgStyle as object).length > 0);
 
   return (
     <div className="relative group/block mb-4">
@@ -83,6 +98,7 @@ export function CanvasBlockWrapper({
             disabled={index === 0}
             className="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-20 dark:hover:bg-zinc-700"
             title="Move Up"
+            aria-label={`Move ${block.type.replace("_", " ")} section up`}
           >
             <ChevronUp className="h-3.5 w-3.5" />
           </button>
@@ -93,6 +109,7 @@ export function CanvasBlockWrapper({
             disabled={index === totalBlocks - 1}
             className="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-20 dark:hover:bg-zinc-700"
             title="Move Down"
+            aria-label={`Move ${block.type.replace("_", " ")} section down`}
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
@@ -140,9 +157,43 @@ export function CanvasBlockWrapper({
           </div>
         )}
 
-        {/* Inner Block Visual Render */}
-        <div className="overflow-hidden rounded-xl pointer-events-none select-none">
-          <CanvasBlockPreview block={block} embedOptions={embedOptions} />
+        {/* Section envelope visual state — builder-only */}
+        {((isHidden || isHiddenOnMobile || Boolean(raw.container as string | undefined))) && (
+          <div className="flex flex-wrap items-center gap-2 px-2 py-1 text-[11px] font-medium">
+            {isHidden && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5">
+                <EyeOff className="h-3 w-3" /> Hidden — not visible publicly
+              </span>
+            )}
+            {isHiddenOnMobile && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200 px-2 py-0.5">
+                <Smartphone className="h-3 w-3" /> Hidden on mobile
+              </span>
+            )}
+            {hasBg && <span className="text-zinc-400">· Background applied</span>}
+            <span className="text-zinc-400">· Spacing: {String((raw.spacing as string) ?? "default")}</span>
+            {(raw.container as string | undefined) ? <span className="text-zinc-400">· Container: {String(raw.container as string)}</span> : <span className="text-zinc-500">· Container: constrained</span>}
+          </div>
+        )}
+
+        {/* Inner Block Visual Render — editor-only interactivity */}
+        <div
+          className={`overflow-hidden rounded-xl ${isHidden ? "opacity-60 grayscale-[0.15]" : ""} ${spacingClass} ${containerClass}`}
+          style={hasBg ? (bgStyle as React.CSSProperties) : undefined}
+        >
+          <CanvasBlockPreview
+            block={block}
+            embedOptions={embedOptions}
+            selectedElementPath={selectedElementPath ?? null}
+            onSelectElement={
+              onSelectElement
+                ? (path) => {
+                    const bid = (block as { id?: string }).id;
+                    if (bid) onSelectElement(bid, path);
+                  }
+                : undefined
+            }
+          />
         </div>
       </div>
 

@@ -15,8 +15,46 @@ import { sanitizeUrl, MAX_ARTICLE_HTML_LENGTH } from "./sanitize-html";
 
 // ── 1. Block Component Types ──────────────────────────────────────────────────
 
-export interface BaseBlock {
+// ── Section Envelope (Stage B) ────────────────────────────────────────────
+// Stable identity and controlled presentation for every block/section.
+// Established now for visual editing, reorder, duplication, history, and
+// future AI operations without building the full editor UI.
+
+export type SectionSpacing = "compact" | "default" | "roomy";
+
+export type SectionContainer = "constrained" | "wide" | "narrow" | "full";
+
+export interface SectionBackground {
+  color?: string;
+  image?: string;
+  overlay?: number; // 0 | 0.25 | 0.5 | 0.75 — opacity of dark overlay over image
+}
+
+export interface SectionEnvelope {
+  /** Stable UUID — mandatory for identity (generated if missing on legacy data). */
+  id: string;
+  /** Hide without delete — default true. */
+  visible?: boolean;
+  /** Section vertical spacing token. */
+  spacing?: SectionSpacing;
+  /** Section background override. */
+  background?: SectionBackground;
+  /** Hide on mobile breakpoint. */
+  hiddenOnMobile?: boolean;
+  /** Section container width — default constrained, backward compatible when undefined. */
+  container?: SectionContainer;
+}
+
+export interface BaseBlock extends Partial<SectionEnvelope> {
   type: string;
+  /** Convenience required alias for narrowed blocks — ensured by normalizeBlocks. */
+  id?: string;
+}
+
+// Repeatable item identity — stable id for reorder/dedup/history
+
+export interface WithItemId {
+  id?: string;
 }
 
 export interface HeroBlock extends BaseBlock {
@@ -35,7 +73,7 @@ export interface HeroBlock extends BaseBlock {
   badge?: string;
 }
 
-export interface FeatureItem {
+export interface FeatureItem extends WithItemId {
   title: string;
   description?: string;
   icon?: string;
@@ -50,7 +88,7 @@ export interface FeaturesBlock extends BaseBlock {
   columns?: 2 | 3 | 4;
 }
 
-export interface AboutHighlight {
+export interface AboutHighlight extends WithItemId {
   label: string;
   value: string;
   icon?: string;
@@ -68,7 +106,7 @@ export interface AboutBlock extends BaseBlock {
   highlights?: AboutHighlight[];
 }
 
-export interface GalleryImage {
+export interface GalleryImage extends WithItemId {
   src: string;
   alt?: string;
   caption?: string;
@@ -83,7 +121,7 @@ export interface GalleryBlock extends BaseBlock {
   layout?: "grid" | "masonry" | "carousel";
 }
 
-export interface TestimonialItem {
+export interface TestimonialItem extends WithItemId {
   quote: string;
   author?: string;
   role?: string;
@@ -111,7 +149,7 @@ export interface ContactBlock extends BaseBlock {
   mapQuery?: string;
 }
 
-export interface FaqItem {
+export interface FaqItem extends WithItemId {
   question: string;
   answer: string;
 }
@@ -324,6 +362,136 @@ function clampEmbedLimit(val: unknown): number {
   );
 }
 
+// ── Section Envelope & Stable ID Helpers (Stage B) ──────────────────────────
+
+export function generateStableId(): string {
+  try {
+    // Prefer Web Crypto / Node 16+ global
+    if (typeof crypto !== "undefined" && typeof (crypto as unknown as { randomUUID?: () => string }).randomUUID === "function") {
+      return (crypto as unknown as { randomUUID: () => string }).randomUUID!();
+    }
+  } catch {
+    // fall through
+  }
+  // Deterministic fallback (not cryptographically strong — only for legacy data normalization)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function isValidUuid(value: unknown): boolean {
+  return typeof value === "string" && UUID_REGEX.test(value.trim());
+}
+
+function extractSectionEnvelope(raw: Record<string, unknown>): Partial<SectionEnvelope> {
+  const envelope: Partial<SectionEnvelope> = {};
+  if (isValidUuid(raw.id)) {
+    envelope.id = (raw.id as string).trim();
+  }
+  if (typeof raw.visible === "boolean") {
+    envelope.visible = raw.visible;
+  }
+  if (raw.spacing === "compact" || raw.spacing === "default" || raw.spacing === "roomy") {
+    envelope.spacing = raw.spacing as SectionSpacing;
+  }
+  if (typeof raw.hiddenOnMobile === "boolean") {
+    envelope.hiddenOnMobile = raw.hiddenOnMobile;
+  }
+  if (raw.container === "constrained" || raw.container === "wide" || raw.container === "narrow" || raw.container === "full") {
+    envelope.container = raw.container as SectionContainer;
+  }
+  if (raw.background && typeof raw.background === "object" && raw.background !== null) {
+    const bg = raw.background as Record<string, unknown>;
+    const out: SectionBackground = {};
+    if (typeof bg.color === "string" && bg.color.trim()) {
+      out.color = bg.color.trim().slice(0, 50);
+    }
+    if (typeof bg.image === "string" && sanitizeUrl(bg.image)) {
+      out.image = sanitizeUrl(bg.image) as string;
+    }
+    if (typeof bg.overlay === "number" && [0, 0.25, 0.5, 0.75].includes(bg.overlay)) {
+      out.overlay = bg.overlay;
+    }
+    if (Object.keys(out).length > 0) {
+      envelope.background = out;
+    }
+  }
+  return envelope;
+}
+
+function validateItemIdField(val: unknown): string | undefined {
+  if (typeof val !== "string") return undefined;
+  const trimmed = val.trim();
+  if (UUID_REGEX.test(trimmed)) return trimmed;
+  return undefined;
+}
+
+function ensureItemId<T extends WithItemId>(item: T): T {
+  if (isValidUuid((item as Record<string, unknown>).id)) return item;
+  return { ...item, id: generateStableId() } as T;
+}
+
+/**
+ * Ensures a block has a stable id and that all repeatable items have ids.
+ * Does not mutate the original object.
+ */
+export function normalizeBlock<T extends Block>(block: T): T {
+  const rawId = (block as unknown as Record<string, unknown>).id;
+  const withId = typeof rawId === "string" && rawId.trim().length > 0
+    ? (block as Block)
+    : ({ ...block, id: generateStableId() } as Block);
+
+  const b = withId as unknown as Record<string, unknown>;
+
+  // Normalize repeatable items idempotently
+  if (Array.isArray(b.items)) {
+    b.items = (b.items as WithItemId[]).map((it) => ensureItemId(it as WithItemId));
+  }
+  if (Array.isArray(b.images)) {
+    b.images = (b.images as WithItemId[]).map((im) => ensureItemId(im as WithItemId));
+  }
+  if (Array.isArray(b.highlights)) {
+    b.highlights = (b.highlights as WithItemId[]).map((h) => ensureItemId(h as WithItemId));
+  }
+
+  // Apply defaults for envelope (visible defaults to true when not present)
+  if (typeof b.visible !== "boolean") {
+    // leave undefined — treated as true by rendering, but normalize to explicit true for consistency
+    // Do not force; keep undefined to remain backward compatible with stored JSON
+  }
+
+  return b as unknown as T;
+}
+
+export function normalizeBlocks(blocks: Block[]): Block[] {
+  if (!Array.isArray(blocks)) return [];
+  return blocks.map((b) => normalizeBlock(b));
+}
+
+export function cloneBlockWithNewIds(block: Block): Block {
+  const cloned: Block = JSON.parse(JSON.stringify(block));
+  (cloned as unknown as Record<string, unknown>).id = generateStableId();
+  const c = cloned as unknown as Record<string, unknown>;
+  if (Array.isArray(c.items)) {
+    c.items = (c.items as WithItemId[]).map((it) => ({ ...it, id: generateStableId() }));
+  }
+  if (Array.isArray(c.images)) {
+    c.images = (c.images as WithItemId[]).map((im) => ({ ...im, id: generateStableId() }));
+  }
+  if (Array.isArray(c.highlights)) {
+    c.highlights = (c.highlights as WithItemId[]).map((h) => ({ ...h, id: generateStableId() }));
+  }
+  return cloned;
+}
+
+export function isBlockVisible(block: Block): boolean {
+  const v = (block as unknown as Record<string, unknown>).visible;
+  if (typeof v === "boolean") return v;
+  return true;
+}
+
 /**
  * Validates a single block against the schema, returning a structured result.
  */
@@ -339,6 +507,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
   }
 
   const obj = raw as Record<string, unknown>;
+  const envelope = extractSectionEnvelope(obj);
   const type = obj.type;
 
   if (typeof type !== "string" || !KNOWN_BLOCK_TYPES.includes(type as BlockType)) {
@@ -422,6 +591,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "hero",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           ...(backgroundImage ? { backgroundImage } : {}),
@@ -495,7 +665,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         const href = validateUrlField(it.href, `items[${idx}].href`, issues);
 
         if (title) {
+          const itemId = validateItemIdField(it.id);
           items.push({
+            ...(itemId ? { id: itemId } : {}),
             title,
             ...(description ? { description } : {}),
             ...(icon ? { icon } : {}),
@@ -516,6 +688,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "features",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           items,
@@ -607,7 +780,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         );
 
         if (label && value) {
+          const hlId = validateItemIdField(h.id);
           highlights.push({
+            ...(hlId ? { id: hlId } : {}),
             label,
             value,
             ...(icon ? { icon } : {}),
@@ -627,6 +802,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "about",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           ...(story ? { story } : {}),
@@ -693,7 +869,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         );
 
         if (src) {
+          const imgId = validateItemIdField(im.id);
           images.push({
+            ...(imgId ? { id: imgId } : {}),
             src,
             ...(alt ? { alt } : {}),
             ...(caption ? { caption } : {}),
@@ -713,6 +891,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "gallery",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           images,
@@ -784,7 +963,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           rawRating >= 1 && rawRating <= 5 ? Math.round(rawRating) : undefined;
 
         if (quote) {
+          const tId = validateItemIdField(t.id);
           items.push({
+            ...(tId ? { id: tId } : {}),
             quote,
             ...(author ? { author } : {}),
             ...(role ? { role } : {}),
@@ -806,6 +987,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "testimonials",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           items,
@@ -871,6 +1053,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "contact",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           ...(email ? { email } : {}),
@@ -931,7 +1114,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         );
 
         if (question && answer) {
-          items.push({ question, answer });
+          const fId = validateItemIdField(it.id);
+          items.push({ ...(fId ? { id: fId } : {}), question, answer });
         }
       });
 
@@ -947,6 +1131,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "faq",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           items,
@@ -1007,6 +1192,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "events_embed",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           limit,
@@ -1070,6 +1256,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "products_embed",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           limit,
@@ -1134,6 +1321,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "fundraiser_embed",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           limit,
@@ -1172,6 +1360,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "rich_text",
+          ...envelope,
           html: String(rawHtml),
         },
       };
@@ -1214,6 +1403,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "cta_banner",
+          ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           ...(ctaLabel ? { ctaLabel } : {}),
@@ -1296,10 +1486,12 @@ export function parseBlock(raw: unknown): Block | null {
   }
 
   // Graceful fallback for rendering legacy / malformed rows
+  const envelope = extractSectionEnvelope(obj);
   switch (type) {
     case "hero":
       return {
         type: "hero",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         backgroundImage: sanitizeUrl(obj.backgroundImage) || undefined,
@@ -1317,11 +1509,13 @@ export function parseBlock(raw: unknown): Block | null {
     case "features":
       return {
         type: "features",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         columns: obj.columns === 2 || obj.columns === 4 ? obj.columns : 3,
         items: Array.isArray(obj.items)
           ? obj.items.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).map((it) => ({
+              ...(isValidUuid((it as Record<string, unknown>)?.id) ? { id: String((it as Record<string, unknown>).id).trim() } : {}),
               title: typeof it?.title === "string" ? it.title.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : "Feature",
               description: typeof it?.description === "string" ? it.description.slice(0, 500) : undefined,
               icon: typeof it?.icon === "string" ? it.icon.slice(0, 50) : undefined,
@@ -1333,6 +1527,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "about":
       return {
         type: "about",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         story: typeof obj.story === "string" ? obj.story.slice(0, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH) : undefined,
@@ -1342,6 +1537,7 @@ export function parseBlock(raw: unknown): Block | null {
         founderImage: sanitizeUrl(obj.founderImage) || undefined,
         highlights: Array.isArray(obj.highlights)
           ? obj.highlights.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).map((h) => ({
+              ...(isValidUuid((h as Record<string, unknown>)?.id) ? { id: String((h as Record<string, unknown>).id).trim() } : {}),
               label: typeof h?.label === "string" ? h.label.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : "",
               value: typeof h?.value === "string" ? h.value.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : "",
               icon: typeof h?.icon === "string" ? h.icon.slice(0, 50) : undefined,
@@ -1352,6 +1548,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "gallery":
       return {
         type: "gallery",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         columns: obj.columns === 2 || obj.columns === 4 ? obj.columns : 3,
@@ -1360,6 +1557,7 @@ export function parseBlock(raw: unknown): Block | null {
           ? obj.images
               .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
               .map((img) => ({
+                ...(isValidUuid((img as Record<string, unknown>)?.id) ? { id: String((img as Record<string, unknown>).id).trim() } : {}),
                 src: sanitizeUrl(img?.src) || "",
                 alt: typeof img?.alt === "string" ? img.alt.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
                 caption: typeof img?.caption === "string" ? img.caption.slice(0, 300) : undefined,
@@ -1371,6 +1569,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "testimonials":
       return {
         type: "testimonials",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         layout: obj.layout === "carousel" ? "carousel" : "grid",
@@ -1378,6 +1577,7 @@ export function parseBlock(raw: unknown): Block | null {
           ? obj.items
               .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
               .map((t) => ({
+                ...(isValidUuid((t as Record<string, unknown>)?.id) ? { id: String((t as Record<string, unknown>).id).trim() } : {}),
                 quote: typeof t?.quote === "string" ? t.quote.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : "",
                 author: typeof t?.author === "string" ? t.author.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
                 role: typeof t?.role === "string" ? t.role.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
@@ -1391,6 +1591,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "contact":
       return {
         type: "contact",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         email: typeof obj.email === "string" ? obj.email.slice(0, BLOCK_LIMITS.EMAIL_MAX_LENGTH) : undefined,
@@ -1404,12 +1605,14 @@ export function parseBlock(raw: unknown): Block | null {
     case "faq":
       return {
         type: "faq",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         items: Array.isArray(obj.items)
           ? obj.items
               .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
               .map((it) => ({
+                ...(isValidUuid((it as Record<string, unknown>)?.id) ? { id: String((it as Record<string, unknown>).id).trim() } : {}),
                 question: typeof it?.question === "string" ? it.question.slice(0, 300) : "",
                 answer: typeof it?.answer === "string" ? it.answer.slice(0, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH) : "",
               }))
@@ -1420,6 +1623,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "events_embed":
       return {
         type: "events_embed",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         limit: clampEmbedLimit(obj.limit),
@@ -1436,6 +1640,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "products_embed":
       return {
         type: "products_embed",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         limit: clampEmbedLimit(obj.limit),
@@ -1452,6 +1657,7 @@ export function parseBlock(raw: unknown): Block | null {
     case "fundraiser_embed":
       return {
         type: "fundraiser_embed",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         limit: clampEmbedLimit(obj.limit),
@@ -1468,12 +1674,14 @@ export function parseBlock(raw: unknown): Block | null {
     case "rich_text":
       return {
         type: "rich_text",
+        ...envelope,
         html: typeof obj.html === "string" ? obj.html.slice(0, MAX_ARTICLE_HTML_LENGTH) : "",
       };
 
     case "cta_banner":
       return {
         type: "cta_banner",
+        ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         ctaLabel: typeof obj.ctaLabel === "string" ? obj.ctaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,

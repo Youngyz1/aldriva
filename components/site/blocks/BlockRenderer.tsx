@@ -40,7 +40,11 @@ import {
   FundraiserEmbedBlock,
   RichTextBlock,
   CtaBannerBlock,
+  isBlockVisible,
 } from "@/lib/website-blocks";
+import { getBackgroundStyle, getContainerClass, getHiddenOnMobileClass, getSpacingClass } from "@/lib/section-helpers";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 import {
   resolveEventsEmbed,
   resolveProductsEmbed,
@@ -147,19 +151,13 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
               {(block.ctaLabel || block.secondaryCtaLabel) && (
                 <div className="flex flex-wrap gap-3 pt-2">
                   {block.ctaLabel && safeCtaHref && (
-                    <a
-                      href={safeCtaHref}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[var(--site-primary,#c2410c)] px-6 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-[var(--site-primary-hover,#9a3412)]"
-                    >
+                    <a href={safeCtaHref} className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
                       {block.ctaLabel}
                       <ArrowRight className="h-4 w-4" />
                     </a>
                   )}
                   {block.secondaryCtaLabel && safeSecCtaHref && (
-                    <a
-                      href={safeSecCtaHref}
-                      className="inline-flex items-center rounded-xl border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-50"
-                    >
+                    <a href={safeSecCtaHref} className={cn(buttonVariants({ variant: "outline" }))}>
                       {block.secondaryCtaLabel}
                     </a>
                   )}
@@ -324,7 +322,7 @@ function FeaturesBlockRenderer({ block }: { block: FeaturesBlock }) {
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       <div className={`grid grid-cols-1 gap-6 ${colClass}`}>
         {(block.items ?? []).map((item, i) => {
@@ -370,7 +368,7 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
   const safeFounderImage = block.founderImage ? sanitizeUrl(block.founderImage) : "";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 items-start">
@@ -461,7 +459,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       {layout === "carousel" ? (
@@ -553,7 +551,7 @@ function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       <div
@@ -635,7 +633,7 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
     : "";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 items-start">
@@ -748,7 +746,7 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
 
 function FaqBlockRenderer({ block }: { block: FaqBlock }) {
   return (
-    <section className="mx-auto w-full max-w-3xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
         {(block.items ?? []).map((item, i) => (
@@ -787,7 +785,7 @@ async function EventsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading || "Upcoming Events"} subheading={block.subheading} />
 
       {events.length === 0 ? (
@@ -928,7 +926,7 @@ async function ProductsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading || "Featured Products"} subheading={block.subheading} />
 
       {products.length === 0 ? (
@@ -1067,7 +1065,7 @@ async function FundraiserEmbedBlockRenderer({
 
   if (fundraisers.length === 0) {
     return (
-      <section className="mx-auto w-full max-w-6xl px-6 py-16">
+      <section className="w-full py-16">
         <SectionHeading heading={block.heading || "Fundraising Campaigns"} subheading={block.subheading} />
         <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
           No active fundraisers at this time.
@@ -1086,7 +1084,7 @@ async function FundraiserEmbedBlockRenderer({
     );
 
     return (
-      <section className="mx-auto w-full max-w-6xl px-6 py-16">
+      <section className="w-full py-16">
         <SectionHeading heading={block.heading} subheading={block.subheading} />
         <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs lg:grid lg:grid-cols-12 items-center">
           {safeImage && (
@@ -1150,7 +1148,7 @@ async function FundraiserEmbedBlockRenderer({
 
   // Layout: Grid / Cards
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-16">
+    <section className="w-full py-16">
       <SectionHeading heading={block.heading || "Active Campaigns"} subheading={block.subheading} />
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {fundraisers.map((f: ResolvedFundraiserItem) => {
@@ -1279,6 +1277,52 @@ function CtaBannerBlockRenderer({ block }: { block: CtaBannerBlock }) {
   );
 }
 
+// ── Section Envelope Wrapper (G2 + H1) ───────────────────────────────────────
+function SectionEnvelopeWrapper({ block, children }: { block: Block; children: React.ReactNode }) {
+  const raw = block as unknown as Record<string, unknown>;
+  const hiddenOnMobile = Boolean(raw.hiddenOnMobile);
+  const spacing = raw.spacing as string | undefined;
+  const bg = raw.background as Record<string, unknown> | undefined;
+  const container = raw.container as string | undefined;
+
+  const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
+  const spacingClass = spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
+  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
+  const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
+  const containerClass = getContainerClass(container as never);
+
+  // Respect visibility — hidden sections already filtered via isBlockVisible at call sites, but keep guard
+  const isVisible = raw.visible !== false;
+  if (!isVisible) return null as unknown as React.ReactElement;
+
+  const wrapperStyle = bgStyle as React.CSSProperties | undefined;
+  // Outer section carries background, spacing, visibility, overlay — full-width
+  const outerClass = [hiddenClass, spacingClass, hasOverlay ? "relative" : ""].filter(Boolean).join(" ");
+  const hasOuter = Boolean(hiddenClass || spacingClass || bgStyle || hasOverlay);
+
+  if (hasOuter) {
+    return (
+      <div className={outerClass} style={wrapperStyle}>
+        {hasOverlay && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: `rgba(0,0,0,${(bg as Record<string, unknown>).overlay})`,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+        <div className={`relative ${containerClass}`}>{children}</div>
+      </div>
+    );
+  }
+
+  // No outer background/spacing — still constrain content via container so narrow/wide/full take effect
+  return <div className={containerClass}>{children}</div>;
+}
+
 // ── Main Dispatcher ──────────────────────────────────────────────────────────
 
 export async function BlockRenderer({
@@ -1296,53 +1340,71 @@ export async function BlockRenderer({
 
   const b = block as Block;
 
+  // G2: hidden sections do not render publicly
+  if (!isBlockVisible(b)) return null;
+
+  let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      return <HeroBlockRenderer block={b} />;
+      content = <HeroBlockRenderer block={b} />;
+      break;
     case "features":
-      return <FeaturesBlockRenderer block={b} />;
+      content = <FeaturesBlockRenderer block={b} />;
+      break;
     case "about":
-      return <AboutBlockRenderer block={b} />;
+      content = <AboutBlockRenderer block={b} />;
+      break;
     case "gallery":
-      return <GalleryBlockRenderer block={b} />;
+      content = <GalleryBlockRenderer block={b} />;
+      break;
     case "testimonials":
-      return <TestimonialsBlockRenderer block={b} />;
+      content = <TestimonialsBlockRenderer block={b} />;
+      break;
     case "contact":
-      return <ContactBlockRenderer block={b} />;
+      content = <ContactBlockRenderer block={b} />;
+      break;
     case "faq":
-      return <FaqBlockRenderer block={b} />;
+      content = <FaqBlockRenderer block={b} />;
+      break;
     case "events_embed":
-      return (
+      content = (
         <EventsEmbedBlockRenderer
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
         />
       );
+      break;
     case "products_embed":
-      return (
+      content = (
         <ProductsEmbedBlockRenderer
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
         />
       );
+      break;
     case "fundraiser_embed":
-      return (
+      content = (
         <FundraiserEmbedBlockRenderer
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
         />
       );
+      break;
     case "rich_text":
-      return <RichTextBlockRenderer block={b} />;
+      content = <RichTextBlockRenderer block={b} />;
+      break;
     case "cta_banner":
-      return <CtaBannerBlockRenderer block={b} />;
+      content = <CtaBannerBlockRenderer block={b} />;
+      break;
     default:
       console.warn(
         `[BlockRenderer] Unknown block type: "${(b as { type: string }).type}" — skipping.`
       );
       return null;
   }
+
+  return <SectionEnvelopeWrapper block={b}>{content}</SectionEnvelopeWrapper>;
 }
