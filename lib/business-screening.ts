@@ -284,6 +284,12 @@ export function screenBusiness(input: ScreenInput, context: ScreenContext): Scre
     decision = "queue";
   }
 
+  // Duplicate 1-2 should queue even if score is low (trust would otherwise approve)
+  if (totalDupes > 0 && totalDupes < 3 && decision === "approve") {
+    decision = "queue";
+    riskScore = Math.max(riskScore, APPROVE_THRESHOLD + 1);
+  }
+
   // Ensure riskScore reflects decision threshold extremes for hard blocks
   if (decision === "reject" && riskScore < REJECT_THRESHOLD) riskScore = REJECT_THRESHOLD;
   if (decision === "approve" && riskScore > APPROVE_THRESHOLD) riskScore = Math.min(riskScore, APPROVE_THRESHOLD);
