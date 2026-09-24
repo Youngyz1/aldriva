@@ -293,3 +293,45 @@ export async function deleteMenuItem(itemId: string, sectionId: string, organize
   revalidatePath(`/dashboard/org/${organizerId}/menu`);
   return { success: true };
 }
+
+export async function reorderMenuSections(organizerId: string, orderedIds: string[]) {
+  try {
+    await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
+  } catch {
+    return { success: false, error: "Forbidden: insufficient entity permissions" };
+  }
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: false, error: "Invalid order" };
+  if (orderedIds.length > 100) return { success: false, error: "Too many items" };
+  if (new Set(orderedIds).size !== orderedIds.length) return { success: false, error: "Duplicate ids" };
+  const admin = createSupabaseAdmin();
+  const { data: existing } = await admin.from("menu_sections").select("id").eq("organizer_id", organizerId).in("id", orderedIds);
+  if (!existing || existing.length !== orderedIds.length) return { success: false, error: "Invalid section IDs" };
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await admin.from("menu_sections").update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]).eq("organizer_id", organizerId);
+    if (error) return { success: false, error: "Failed to reorder sections" };
+  }
+  revalidatePath(`/dashboard/org/${organizerId}/menu`);
+  return { success: true };
+}
+
+export async function reorderMenuItems(sectionId: string, organizerId: string, orderedIds: string[]) {
+  try {
+    await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
+  } catch {
+    return { success: false, error: "Forbidden: insufficient entity permissions" };
+  }
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: false, error: "Invalid order" };
+  if (orderedIds.length > 100) return { success: false, error: "Too many items" };
+  if (new Set(orderedIds).size !== orderedIds.length) return { success: false, error: "Duplicate ids" };
+  const admin = createSupabaseAdmin();
+  const { data: section } = await admin.from("menu_sections").select("id").eq("id", sectionId).eq("organizer_id", organizerId).maybeSingle();
+  if (!section) return { success: false, error: "Section not found or not owned by tenant" };
+  const { data: existing } = await admin.from("menu_items").select("id").eq("section_id", sectionId).eq("organizer_id", organizerId).in("id", orderedIds);
+  if (!existing || existing.length !== orderedIds.length) return { success: false, error: "Invalid menu item IDs" };
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await admin.from("menu_items").update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]).eq("section_id", sectionId).eq("organizer_id", organizerId);
+    if (error) return { success: false, error: "Failed to reorder items" };
+  }
+  revalidatePath(`/dashboard/org/${organizerId}/menu`);
+  return { success: true };
+}

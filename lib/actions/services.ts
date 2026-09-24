@@ -362,3 +362,25 @@ export async function deleteServiceTier(tierId: string, serviceId: string, organ
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true };
 }
+
+export async function reorderServiceTiers(serviceId: string, organizerId: string, orderedIds: string[]) {
+  try {
+    await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
+  } catch {
+    return { success: false, error: "Forbidden: insufficient entity permissions" };
+  }
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { success: false, error: "Invalid order" };
+  if (orderedIds.length > 100) return { success: false, error: "Too many items" };
+  if (new Set(orderedIds).size !== orderedIds.length) return { success: false, error: "Duplicate ids" };
+  const admin = createSupabaseAdmin();
+  const { data: service } = await admin.from("services").select("id").eq("id", serviceId).eq("organizer_id", organizerId).maybeSingle();
+  if (!service) return { success: false, error: "Service not found or not owned by tenant" };
+  const { data: existing } = await admin.from("service_tiers").select("id").eq("service_id", serviceId).in("id", orderedIds);
+  if (!existing || existing.length !== orderedIds.length) return { success: false, error: "Invalid tier IDs" };
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await admin.from("service_tiers").update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]).eq("service_id", serviceId);
+    if (error) return { success: false, error: "Failed to reorder tiers" };
+  }
+  revalidatePath(`/dashboard/org/${organizerId}/services`);
+  return { success: true };
+}
