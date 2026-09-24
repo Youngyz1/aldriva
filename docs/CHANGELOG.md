@@ -7,12 +7,14 @@
 
 ## [2026-09] — Phase 5: Products, Services & Menus (2026-09-24)
 
-### Phase 5 — Services, Service Tiers, Menu Sections/Items, Public Blocks (2026-09-24)
-- `db/migration_136_services_and_menus.sql` (services, service_tiers, menu_sections, menu_items, RLS, trigger `check_menu_item_organizer_match`, GIN, position/price/duration bounds) + rollback + mirror `supabase/migrations/20260925000000`
-- `lib/actions/services.ts` CRUD + tiers with `requireTenantContext`, `createSlug` retry 10, `sanitizeUrl`, bounded validation, `revalidatePath`; `lib/actions/menus.ts` sections/items with dietary 7/allergens 6/modifiers JSONB -10000..10000, organizer match check
-- Dashboard `app/dashboard/org/[id]/services/page.tsx` + `services/new` + `services/[serviceId]/page.tsx` (ServiceForm with MediaUploadField services, Switch is_active) + `menu/page.tsx` (sections + items, QR-ready note) + nav Services/Menu (Briefcase/Utensils)
-- Website `lib/website-blocks.ts` + `lib/website-embeds.ts` `services_embed`/`menu_embed` (limit 1..12, selected IDs UUID, tenant `organizer_id`, `is_active` public filter) + `BlockRenderer` `ServicesEmbedBlockRenderer`/`MenuEmbedBlockRenderer` (grid/list, dietary/allergen badges, DraftBadge)
-- Tests `lib/__tests__/services-and-menus.test.cjs` §1–§5 (10+9 checks), `lib/__tests__/website-blocks.test.cjs` 14 types, 669/669 (36 suites)
+### Phase 5 — Services, Service Tiers, Menu Sections/Items, Public Blocks (2026-09-24) — corrected 2026-09-24 live verification
+- `db/migration_136_services_and_menus.sql` — **corrected live version applied 2026-09-24**: renamed `menu_items_dietary_tags_enum_check`/`menu_items_allergens_enum_check` (avoid 42710), added `menu_modifiers_valid(jsonb)` IMMUTABLE function before `menu_items` and `CHECK (menu_modifiers_valid(modifiers))` (no subquery in CHECK), **removed** `UNIQUE (service_tiers/pos, menu_sections/pos, menu_items/pos)` (position not unique; fixes 23505 on second create and reorder collisions). Valid inserts succeed, bad dietary tag and malformed modifier rejected 23514 verified live. RLS and `check_menu_item_organizer_match` trigger NOT yet non-admin tested.
+- Rollback corrected: drops triggers, then tables children-first WITHOUT CASCADE, then functions last including `menu_modifiers_valid(jsonb)`. Mirror `supabase/migrations/20260925000000` byte-identical to `db/` (test asserts).
+- `lib/actions/services.ts` — **security fix**: `deleteServiceTier` now verifies `services.organizer_id` BEFORE delete (was delete-before-check, bypassed RLS via service-role); `updateServiceTier` now scopes final update with `.eq(service_id, serviceId)`; `reorderServices` bails on any update failure; position defaults to `max+1` (capped 999) when not provided; slug loop now random-suffix fallback on 9-attempt exhaustion and 23505 treated as slug-only retryable.
+- `lib/actions/menus.ts` — position `max+1` default for sections/items, `validatePosition` restored and used in `updateMenuSection`/`updateMenuItem`, `POSITION_MAX` restored, same showInactive removal.
+- Website `lib/website-blocks.ts` removed `showInactive` from `services_embed`/`menu_embed` (was ignored by resolvers; prefer removal over plumbing); `lib/website-embeds.ts` resolvers still filter `is_active` only; prices in dashboard `/services` and `BlockRenderer` left with hardcoded `$` plus `TODO: multi-currency not in Phase 5` and Known Issues note.
+- Dashboard: `/services` page previously overwrote `ComingSoonPage` (git show 79de55d confirms no valuable content lost, only placeholder); `/menu` remains read-only (sections+items list, no create/edit UI), tier manager placeholder text, no Move Up/Down UI.
+- Tests `services-and-menus.test.cjs` §1–§5 updated for live constraints (renamed enum checks, `menu_modifiers_valid` before table, no UNIQUE position, no subquery, rollback order no CASCADE, delete-before-check static index test), plus tightened never-fail assertions, 670/670
 
 ## [2026-09] — Hardening & Landing — Business Mini Website Extended + Platform Parallel Updates (2026-09-24)
 

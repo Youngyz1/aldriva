@@ -3,7 +3,7 @@
 > **Status**: Verified Technical Reference  
 > **Canonical Migration Source**: `db/` (Migrations 1 to 136)  
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Verified**: 2026-09-24 — 669/669 tests, `npx tsc --noEmit --skipLibCheck` 0, build Pass. Migrations **130–131 (Business Mini Website)** + **132–135 (taxonomy/promotions/i18n)** + **136 (services + service_tiers + menu_sections + menu_items)** present in repository; **130–136 hermetic verified** (130–133 previously manually applied, 134–136 pending live).
+> **Last Verified**: 2026-09-24 — 670/670 tests, `npx tsc --noEmit --skipLibCheck` 0, build Pass. Migrations **130–131 (Business Mini Website)** + **132–135 (taxonomy/promotions/i18n)** + **136 (services + service_tiers + menu_sections + menu_items)** present in repository; **136 corrected live applied 2026-09-24** (valid insert + bad dietary/modifier 23514 verified; RLS/trigger not yet non-admin tested), 130–135 earlier.
 
 ---
 
@@ -129,4 +129,4 @@ The following tables are planned for future phases (DO NOT create before respect
 - **Bookings (Phase 7)**: `booking_resources`, `booking_slots`, `reservations`.
 - **POS Integration (Phase 11)**: `pos_connectors`, `pos_sync_logs`, `normalized_sales`.
 
-> **Note:** Migrations 130–135 are **present in repository** (`db/` canonical + `supabase/migrations/` mirrors without rollbacks). Migrations **130–133 verified applied** per `docs/CURRENT-STATE.md` (130 metadata, 131 atomic, 132 business_type/branches, 133 event subcategory). Migrations **134–135 (promotions, locale) pending live application** — not claimed live (hermetic tests only).
+> **Note:** Migrations 130–136 are **present in repository** (`db/` canonical + `supabase/migrations/` mirrors without rollbacks, 136 byte-identical per test). **136 corrected live applied 2026-09-24** (valid insert succeeds; bad dietary tag and malformed modifier rejected 23514; position uniqueness removed, `menu_modifiers_valid(jsonb)` added, constraints renamed). RLS and `check_menu_item_organizer_match` 23503 **not yet** non-admin tested. 130–133 earlier applied; 134–135 (promotions, locale) still pending live (hermetic only).
