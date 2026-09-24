@@ -98,6 +98,14 @@ export const BLOCK_EDIT_SCHEMA: Record<BlockType, Record<string, EditFieldDef>> 
     "ctaLabel": { type: "text", label: "CTA Label" },
     "ctaHref": { type: "action", label: "CTA Destination" },
   },
+  services_embed: {
+    "heading": { type: "text", label: "Heading" },
+    "subheading": { type: "textarea", label: "Subheading" },
+  },
+  menu_embed: {
+    "heading": { type: "text", label: "Heading" },
+    "subheading": { type: "textarea", label: "Subheading" },
+  },
 };
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);

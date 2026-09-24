@@ -209,6 +209,26 @@ export interface CtaBannerBlock extends BaseBlock {
   variant?: "brand" | "dark" | "light";
 }
 
+export interface ServicesEmbedBlock extends BaseBlock {
+  type: "services_embed";
+  heading?: string;
+  subheading?: string;
+  limit?: number; // Clamped 1..12, default 6
+  layout?: "grid" | "list";
+  showInactive?: boolean; // Only visible to team members
+  selectedServiceIds?: string[]; // Optional specific service IDs (max 12 UUIDs)
+}
+
+export interface MenuEmbedBlock extends BaseBlock {
+  type: "menu_embed";
+  heading?: string;
+  subheading?: string;
+  limit?: number; // Clamped 1..12 sections, default 6
+  layout?: "grid" | "list";
+  showInactive?: boolean;
+  selectedSectionIds?: string[]; // Optional specific section IDs (max 12 UUIDs)
+}
+
 export type Block =
   | HeroBlock
   | FeaturesBlock
@@ -220,6 +240,8 @@ export type Block =
   | EventsEmbedBlock
   | ProductsEmbedBlock
   | FundraiserEmbedBlock
+  | ServicesEmbedBlock
+  | MenuEmbedBlock
   | RichTextBlock
   | CtaBannerBlock;
 
@@ -234,6 +256,8 @@ export const KNOWN_BLOCK_TYPES = [
   "events_embed",
   "products_embed",
   "fundraiser_embed",
+  "services_embed",
+  "menu_embed",
   "rich_text",
   "cta_banner",
 ] as const;
@@ -1366,6 +1390,40 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       };
     }
 
+    case "services_embed": {
+      const heading = validateStringField(obj.heading, "heading", BLOCK_LIMITS.HEADING_MAX_LENGTH, issues);
+      const subheading = validateStringField(obj.subheading, "subheading", BLOCK_LIMITS.SUBHEADING_MAX_LENGTH, issues);
+      const limit = clampEmbedLimit(obj.limit);
+      const layout = obj.layout === "list" ? "list" : "grid";
+      const showInactive = Boolean(obj.showInactive);
+      const rawSelected = Array.isArray(obj.selectedServiceIds) ? obj.selectedServiceIds : [];
+      if (rawSelected.length > BLOCK_LIMITS.MAX_ARRAY_ITEMS) issues.push({ path: "selectedServiceIds", message: `selectedServiceIds accepts at most ${BLOCK_LIMITS.MAX_ARRAY_ITEMS} IDs` });
+      const selectedServiceIds: string[] = [];
+      rawSelected.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).forEach((id, idx) => {
+        const validId = validateUuidField(id, `selectedServiceIds[${idx}]`, issues);
+        if (validId) selectedServiceIds.push(validId);
+      });
+      if (issues.length > 0) return { success: false, error: "Validation failed for services_embed block.", issues };
+      return { success: true, data: { type: "services_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, showInactive, ...(selectedServiceIds.length > 0 ? { selectedServiceIds } : {}) } };
+    }
+
+    case "menu_embed": {
+      const heading = validateStringField(obj.heading, "heading", BLOCK_LIMITS.HEADING_MAX_LENGTH, issues);
+      const subheading = validateStringField(obj.subheading, "subheading", BLOCK_LIMITS.SUBHEADING_MAX_LENGTH, issues);
+      const limit = clampEmbedLimit(obj.limit);
+      const layout = obj.layout === "list" ? "list" : "grid";
+      const showInactive = Boolean(obj.showInactive);
+      const rawSelected = Array.isArray(obj.selectedSectionIds) ? obj.selectedSectionIds : [];
+      if (rawSelected.length > BLOCK_LIMITS.MAX_ARRAY_ITEMS) issues.push({ path: "selectedSectionIds", message: `selectedSectionIds accepts at most ${BLOCK_LIMITS.MAX_ARRAY_ITEMS} IDs` });
+      const selectedSectionIds: string[] = [];
+      rawSelected.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).forEach((id, idx) => {
+        const validId = validateUuidField(id, `selectedSectionIds[${idx}]`, issues);
+        if (validId) selectedSectionIds.push(validId);
+      });
+      if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, showInactive, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}) } };
+    }
+
     case "cta_banner": {
       const heading = validateStringField(
         obj.heading,
@@ -1676,6 +1734,34 @@ export function parseBlock(raw: unknown): Block | null {
         type: "rich_text",
         ...envelope,
         html: typeof obj.html === "string" ? obj.html.slice(0, MAX_ARTICLE_HTML_LENGTH) : "",
+      };
+
+    case "services_embed":
+      return {
+        type: "services_embed",
+        ...envelope,
+        heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
+        subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
+        limit: clampEmbedLimit(obj.limit),
+        layout: obj.layout === "list" ? "list" : "grid",
+        showInactive: Boolean(obj.showInactive),
+        selectedServiceIds: Array.isArray(obj.selectedServiceIds)
+          ? obj.selectedServiceIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
+          : undefined,
+      };
+
+    case "menu_embed":
+      return {
+        type: "menu_embed",
+        ...envelope,
+        heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
+        subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
+        limit: clampEmbedLimit(obj.limit),
+        layout: obj.layout === "list" ? "list" : "grid",
+        showInactive: Boolean(obj.showInactive),
+        selectedSectionIds: Array.isArray(obj.selectedSectionIds)
+          ? obj.selectedSectionIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
+          : undefined,
       };
 
     case "cta_banner":

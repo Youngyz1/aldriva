@@ -38,6 +38,8 @@ import {
   EventsEmbedBlock,
   ProductsEmbedBlock,
   FundraiserEmbedBlock,
+  ServicesEmbedBlock,
+  MenuEmbedBlock,
   RichTextBlock,
   CtaBannerBlock,
   isBlockVisible,
@@ -49,9 +51,13 @@ import {
   resolveEventsEmbed,
   resolveProductsEmbed,
   resolveFundraiserEmbed,
+  resolveServicesEmbed,
+  resolveMenuEmbed,
   ResolvedEventItem,
   ResolvedProductItem,
   ResolvedFundraiserItem,
+  ResolvedServiceItem,
+  ResolvedMenuSection,
 } from "@/lib/website-embeds";
 import {
   Calendar,
@@ -1222,7 +1228,155 @@ async function FundraiserEmbedBlockRenderer({
   );
 }
 
-// ── 11. Legacy Rich Text Block ───────────────────────────────────────────────
+// ── 11. Services Embed Block (Live Data) ────────────────────────────────────
+
+async function ServicesEmbedBlockRenderer({
+  block,
+  tenantId,
+  isTeamMember,
+}: {
+  block: ServicesEmbedBlock;
+  tenantId?: string;
+  isTeamMember?: boolean;
+}) {
+  const services = tenantId ? await resolveServicesEmbed(block, tenantId, Boolean(isTeamMember)) : [];
+  const layout = block.layout ?? "grid";
+  return (
+    <section className="w-full py-16">
+      <SectionHeading heading={block.heading || "Our Services"} subheading={block.subheading} />
+      {services.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">No services available at this time.</div>
+      ) : layout === "list" ? (
+        <div className="flex flex-col gap-4">
+          {services.map((svc: ResolvedServiceItem) => {
+            const safeImg = svc.image_url ? sanitizeUrl(svc.image_url) : "";
+            return (
+              <div key={svc.id} className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                    {safeImg ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={safeImg} alt={svc.title} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-zinc-400"><Tag className="h-5 w-5" /></div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2"><h3 className="text-base font-bold text-zinc-900">{svc.title}</h3>{svc.isDraft && <DraftBadge />}</div>
+                    {svc.description && <p className="mt-0.5 text-xs text-zinc-500 line-clamp-1">{svc.description}</p>}
+                    {svc.duration_minutes && <p className="text-xs text-zinc-400">{svc.duration_minutes} min</p>}
+                  </div>
+                </div>
+                <div className="text-sm font-semibold text-zinc-900">${svc.price.toFixed(2)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map((svc: ResolvedServiceItem) => {
+            const safeImg = svc.image_url ? sanitizeUrl(svc.image_url) : "";
+            return (
+              <div key={svc.id} className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
+                <div className="relative aspect-4/3 w-full bg-zinc-100">
+                  {safeImg ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={safeImg} alt={svc.title} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-zinc-400"><Tag className="h-8 w-8" /></div>
+                  )}
+                  {svc.isDraft && <div className="absolute top-3 left-3"><DraftBadge /></div>}
+                </div>
+                <div className="p-5">
+                  <h3 className="text-base font-bold text-zinc-900">{svc.title}</h3>
+                  {svc.description && <p className="mt-1 text-xs text-zinc-500 line-clamp-2">{svc.description}</p>}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-sm font-bold">${svc.price.toFixed(2)}</span>
+                    {svc.duration_minutes && <span className="text-xs text-zinc-500">{svc.duration_minutes} min</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── 12. Menu Embed Block (Live Data) ───────────────────────────────────────
+
+async function MenuEmbedBlockRenderer({
+  block,
+  tenantId,
+  isTeamMember,
+}: {
+  block: MenuEmbedBlock;
+  tenantId?: string;
+  isTeamMember?: boolean;
+}) {
+  const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
+  return (
+    <section className="w-full py-16">
+      <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} />
+      {sections.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">No menu available at this time.</div>
+      ) : (
+        <div className="space-y-8">
+          {sections.map((sec: ResolvedMenuSection) => (
+            <div key={sec.id} className="rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-zinc-900">{sec.name}</h3>
+                {sec.isDraft && <DraftBadge />}
+              </div>
+              {sec.description && <p className="mt-1 text-sm text-zinc-500">{sec.description}</p>}
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {sec.items.length === 0 ? (
+                  <div className="text-xs text-zinc-400">No items in this section.</div>
+                ) : (
+                  sec.items.map((it) => {
+                    const safeImg = it.image_url ? sanitizeUrl(it.image_url) : "";
+                    return (
+                      <div key={it.id} className="flex gap-3 rounded-lg border border-zinc-100 p-3">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                          {safeImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-zinc-300"><Tag className="h-4 w-4" /></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-zinc-900">{it.name}</span>
+                            {it.is_featured && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Featured</span>}
+                            {it.isDraft && <DraftBadge />}
+                          </div>
+                          {it.description && <p className="text-xs text-zinc-500 line-clamp-1">{it.description}</p>}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {it.dietary_tags.map((t) => (
+                              <span key={t} className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200 capitalize">{t.replace("_"," ")}</span>
+                            ))}
+                            {it.allergens.map((a) => (
+                              <span key={a} className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 border border-red-200 capitalize">{a}</span>
+                            ))}
+                          </div>
+                          <div className="mt-1 text-xs font-semibold">${Number(it.price).toFixed(2)} {it.modifiers.length > 0 && <span className="font-normal text-zinc-500">+ {it.modifiers.length} modifiers</span>}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── 13. Legacy Rich Text Block ───────────────────────────────────────────────
 
 function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
   const safeHtml = sanitizeArticleHtml(block.html);
@@ -1387,6 +1541,24 @@ export async function BlockRenderer({
     case "fundraiser_embed":
       content = (
         <FundraiserEmbedBlockRenderer
+          block={b}
+          tenantId={tenantId}
+          isTeamMember={isTeamMember}
+        />
+      );
+      break;
+    case "services_embed":
+      content = (
+        <ServicesEmbedBlockRenderer
+          block={b}
+          tenantId={tenantId}
+          isTeamMember={isTeamMember}
+        />
+      );
+      break;
+    case "menu_embed":
+      content = (
+        <MenuEmbedBlockRenderer
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}

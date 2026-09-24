@@ -15,6 +15,8 @@ export function getOrgNavItems(base: string, opts?: { hasEvents?: boolean; hasFu
     { label: "Events",       href: `${base}/events`,      icon: "Calendar" },
     { label: "Fundraisers",  href: `${base}/fundraisers`, icon: "Heart" },
     { label: "Products",     href: `${base}/products`,    icon: "Package" },
+    { label: "Services",     href: `${base}/services`,    icon: "Briefcase" },
+    { label: "Menu",         href: `${base}/menu`,        icon: "Utensils" },
     { label: "Reviews",      href: `${base}/reviews`,     icon: "Star" },
     { label: "Analytics",    href: `${base}/analytics`,   icon: "BarChart2" },
     { label: "Settings",     href: `${base}/settings`,    icon: "Settings" },

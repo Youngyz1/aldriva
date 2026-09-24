@@ -21,6 +21,8 @@ import type {
   EventsEmbedBlock,
   ProductsEmbedBlock,
   FundraiserEmbedBlock,
+  ServicesEmbedBlock,
+  MenuEmbedBlock,
 } from "./website-blocks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -62,6 +64,41 @@ export interface ResolvedFundraiserItem {
   is_active: boolean;
   status: string | null;
   isDraft: boolean;
+}
+
+export interface ResolvedServiceItem {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number | null;
+  image_url: string | null;
+  is_active: boolean;
+  isDraft: boolean;
+}
+
+export interface ResolvedMenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  dietary_tags: string[];
+  allergens: string[];
+  modifiers: { name: string; price_delta: number }[];
+  is_active: boolean;
+  is_featured: boolean;
+  isDraft: boolean;
+}
+
+export interface ResolvedMenuSection {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  isDraft: boolean;
+  items: ResolvedMenuItem[];
 }
 
 export const EMBED_LIMIT_MAX = 12;
@@ -245,5 +282,83 @@ export async function resolveFundraiserEmbed(
     is_active: Boolean(item.is_active),
     status: item.status ?? null,
     isDraft: !item.is_active,
+  }));
+}
+
+export async function resolveServicesEmbed(
+  block: ServicesEmbedBlock,
+  tenantId: string,
+  isTeamMember: boolean,
+  client?: SupabaseClient
+): Promise<ResolvedServiceItem[]> {
+  if (!tenantId || typeof tenantId !== "string") return [];
+  const supabase = client ?? createSupabaseAdmin();
+  const limit = clampLimit(block.limit);
+  let query = supabase.from("services").select("id, title, slug, description, price, duration_minutes, image_url, is_active").eq("organizer_id", tenantId);
+  if (!isTeamMember) query = query.eq("is_active", true);
+  if (block.selectedServiceIds && block.selectedServiceIds.length > 0) query = query.in("id", block.selectedServiceIds);
+  query = query.order("position", { ascending: true }).order("created_at", { ascending: true }).limit(limit);
+  const { data, error } = await query;
+  if (error || !Array.isArray(data)) return [];
+  return data.map((item) => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    description: item.description ?? null,
+    price: Number(item.price),
+    duration_minutes: item.duration_minutes ?? null,
+    image_url: item.image_url ?? null,
+    is_active: Boolean(item.is_active),
+    isDraft: !item.is_active,
+  }));
+}
+
+export async function resolveMenuEmbed(
+  block: MenuEmbedBlock,
+  tenantId: string,
+  isTeamMember: boolean,
+  client?: SupabaseClient
+): Promise<ResolvedMenuSection[]> {
+  if (!tenantId || typeof tenantId !== "string") return [];
+  const supabase = client ?? createSupabaseAdmin();
+  const limit = clampLimit(block.limit);
+  let sectionQuery = supabase.from("menu_sections").select("id, name, description, is_active").eq("organizer_id", tenantId);
+  if (!isTeamMember) sectionQuery = sectionQuery.eq("is_active", true);
+  if (block.selectedSectionIds && block.selectedSectionIds.length > 0) sectionQuery = sectionQuery.in("id", block.selectedSectionIds);
+  sectionQuery = sectionQuery.order("position", { ascending: true }).limit(limit);
+  const { data: sections, error: secErr } = await sectionQuery;
+  if (secErr || !Array.isArray(sections) || sections.length === 0) return [];
+  const sectionIds = sections.map((s) => s.id);
+  let itemQuery = supabase.from("menu_items").select("id, section_id, name, description, price, image_url, dietary_tags, allergens, modifiers, is_active, is_featured").in("section_id", sectionIds);
+  if (!isTeamMember) itemQuery = itemQuery.eq("is_active", true);
+  // also ensure section is active for public
+  itemQuery = itemQuery.order("position", { ascending: true });
+  const { data: items } = await itemQuery;
+  const itemsBySection: Record<string, ResolvedMenuItem[]> = {};
+  for (const it of (items || []) as any[]) {
+    const mapped: ResolvedMenuItem = {
+      id: it.id,
+      name: it.name,
+      description: it.description ?? null,
+      price: Number(it.price),
+      image_url: it.image_url ?? null,
+      dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : [],
+      allergens: Array.isArray(it.allergens) ? it.allergens : [],
+      modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
+      is_active: Boolean(it.is_active),
+      is_featured: Boolean(it.is_featured),
+      isDraft: !it.is_active,
+    };
+    // For public, filter items where parent section is inactive already handled by sectionQuery, but double-check
+    itemsBySection[it.section_id] = itemsBySection[it.section_id] || [];
+    itemsBySection[it.section_id].push(mapped);
+  }
+  return sections.map((sec) => ({
+    id: sec.id,
+    name: sec.name,
+    description: sec.description ?? null,
+    is_active: Boolean(sec.is_active),
+    isDraft: !sec.is_active,
+    items: itemsBySection[sec.id] || [],
   }));
 }
