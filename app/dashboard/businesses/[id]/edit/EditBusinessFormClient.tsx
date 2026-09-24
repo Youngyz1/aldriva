@@ -37,6 +37,7 @@ export default function EditBusinessFormClient({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
     name: business.name,
@@ -83,6 +84,21 @@ export default function EditBusinessFormClient({
     setLoading(false);
 
     if (res.success) {
+      const decision = (res as any).decision as string | undefined;
+      const message = (res as any).message as string | undefined;
+      if (decision === "re_screen_queued") {
+        setSuccess(message || "Your changes are under review — listing queued for manual review.");
+        setError("");
+        // Stay on edit page so owner can see queued state, but also allow navigation
+        setTimeout(() => {
+          router.push("/dashboard/businesses");
+          router.refresh();
+        }, 1200);
+        return;
+      }
+      if (decision === "re_screen_passed") {
+        setSuccess("Changes saved and re-screen passed.");
+      }
       router.push("/dashboard/businesses");
       router.refresh();
     } else {
@@ -115,6 +131,11 @@ export default function EditBusinessFormClient({
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm font-semibold text-red-800">
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm font-semibold text-amber-800">
+          {success}
         </div>
       )}
 

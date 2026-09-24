@@ -15,6 +15,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -61,12 +62,27 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
 
     if (res.success && res.data) {
       const { id } = res.data;
+      const decision = (res as any).decision as string | undefined;
+      const message = (res as any).message as string | undefined;
+      const rejection_reason = (res as any).rejection_reason as string | undefined;
+      if (decision === "reject") {
+        setError(rejection_reason || message || "Your listing was not approved. You can edit and resubmit.");
+        setLoading(false);
+        return;
+      }
+      if (decision === "approve") {
+        setSuccess(message || "Your business is now live.");
+      } else if (decision === "queue") {
+        setSuccess(message || "Your listing is under review — usually within minutes.");
+      }
       if (form.listing_tier === "free") {
-        // Free tier is pending review; send to entity dashboard (not yet publicly visible)
-        router.push(`/dashboard/businesses/${id}/overview`);
-        router.refresh();
+        // Show status-aware message, then redirect to overview (not yet publicly visible unless approved)
+        setTimeout(() => {
+          router.push(`/dashboard/businesses/${id}/overview`);
+          router.refresh();
+        }, 800);
       } else {
-        // Paid tiers go to checkout
+        // Paid tiers go to checkout (still respect screening: if queued/rejected, checkout still required but listing not live)
         try {
           const checkoutRes = await fetch("/api/checkout/business", {
             method: "POST",
@@ -116,6 +132,11 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm font-semibold text-red-800">
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm font-semibold text-emerald-800">
+          {success}
         </div>
       )}
 
