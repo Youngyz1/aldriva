@@ -385,7 +385,27 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
   let reScreenDecision: string | null = null;
   let reScreenMessage: string | null = null;
 
-  if (didScreenedFieldChange && wasActive) {
+  const wasRejected = existingBusiness?.status === "rejected";
+
+  if (didScreenedFieldChange && (wasActive || wasRejected)) {
+    // For rejected listings, cap resubmissions at 3 per 24h per listing
+    if (wasRejected) {
+      try {
+        const adminCap = createSupabaseAdmin();
+        const since24hCap = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: recentRescreens } = await adminCap.from("business_moderation_events").select("id", { count: "exact", head: true }).eq("business_id", id).in("decision", ["re_screen_queued", "re_screen_passed"]).gte("created_at", since24hCap);
+        if ((recentRescreens || 0) >= 3) {
+          return {
+            success: false,
+            error: "You have reached the resubmission limit for this listing. Please try again tomorrow.",
+          };
+        }
+      } catch (e) {
+        console.error("Failed to check resubmission cap:", e);
+        // Fail open for cap check? Allow to proceed to screening
+      }
+    }
+
     try {
       const admin = createSupabaseAdmin();
       // Gather context similar to create
@@ -434,7 +454,7 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
           name: (input.name ?? existingBusiness?.name ?? "") as string,
           description: newDescription,
           website: newWebsiteRaw,
-          email: existingBusiness ? null : null, // email/phone not in existingBusiness select? Use input if provided
+          email: existingBusiness ? null : null,
           phone: newPhoneRaw,
           industry: newIndustry,
           category: newCategory,
@@ -454,24 +474,40 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
         }
       );
 
-      if (screened.decision !== "approve") {
-        // Re-queue: set back to pending_review via admin (trigger allows service role)
-        await admin.from("businesses").update({ status: "pending_review", screening_risk_score: screened.riskScore, screened_at: new Date().toISOString() }).eq("id", id);
-        await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_queued", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
-        reScreenDecision = "re_screen_queued";
-        reScreenMessage = "Your changes are under review — listing queued for manual review.";
-      } else {
-        await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_passed", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
-        // Also update screening columns even though still active
-        await admin.from("businesses").update({ screening_risk_score: screened.riskScore, screened_at: new Date().toISOString() }).eq("id", id);
-        reScreenDecision = "re_screen_passed";
+      if (wasActive) {
+        if (screened.decision !== "approve") {
+          // Re-queue: set back to pending_review via admin with conditional write
+          await admin.from("businesses").update({ status: "pending_review", screening_risk_score: screened.riskScore, screened_at: new Date().toISOString() }).eq("id", id).eq("status", "active");
+          await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_queued", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
+          reScreenDecision = "re_screen_queued";
+          reScreenMessage = "Your changes are under review — listing queued for manual review.";
+        } else {
+          await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_passed", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
+          await admin.from("businesses").update({ screening_risk_score: screened.riskScore, screened_at: new Date().toISOString() }).eq("id", id).eq("status", "active");
+          reScreenDecision = "re_screen_passed";
+        }
+      } else if (wasRejected) {
+        // For rejected: approve -> active, otherwise -> pending_review (never leave rejected, never auto-reject repeatedly)
+        if (screened.decision === "approve") {
+          await admin.from("businesses").update({ status: "active", screening_risk_score: screened.riskScore, screened_at: new Date().toISOString(), rejection_reason: null }).eq("id", id).eq("status", "rejected");
+          await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_passed", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
+          reScreenDecision = "re_screen_passed";
+          reScreenMessage = "Your listing has been approved and is now live.";
+        } else {
+          // queue or reject both become pending_review for human review, with re_screen_queued event (never expose rule names)
+          await admin.from("businesses").update({ status: "pending_review", screening_risk_score: screened.riskScore, screened_at: new Date().toISOString() }).eq("id", id).eq("status", "rejected");
+          await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_queued", risk_score: screened.riskScore, reasons: screened.reasons, actor: null });
+          reScreenDecision = "re_screen_queued";
+          reScreenMessage = "Your changes are under review — usually within minutes. A human will review your listing.";
+        }
       }
     } catch (e) {
-      console.error("Re-screen failed, leaving active (fail-closed for active -> queued on error? logging):", e);
-      // For active listings, fail-closed means we queue on error to be safe
+      console.error("Re-screen failed, leaving pending_review (fail-closed):", e);
       try {
         const admin = createSupabaseAdmin();
-        await admin.from("businesses").update({ status: "pending_review", screening_risk_score: 50, screened_at: new Date().toISOString() }).eq("id", id);
+        // For both active and rejected, fail-closed to pending_review if we were re-screening
+        const targetStatus = wasActive ? "active" : "rejected";
+        await admin.from("businesses").update({ status: "pending_review", screening_risk_score: 50, screened_at: new Date().toISOString() }).eq("id", id).eq("status", targetStatus);
         await admin.from("business_moderation_events").insert({ business_id: id, decision: "re_screen_queued", risk_score: 50, reasons: ["Re-screen error, queued"], actor: null });
         reScreenDecision = "re_screen_queued";
         reScreenMessage = "Your changes are under review.";

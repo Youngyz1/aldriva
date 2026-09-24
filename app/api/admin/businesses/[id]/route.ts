@@ -60,9 +60,9 @@ export async function PATCH(
       const supabase = await createSupabaseServer();
       const { data: { user } } = await supabase.auth.getUser();
       const actor = user?.id || null;
-      // Fetch current risk score for event
+      // Fetch current risk score for event — never insert null (column is NOT NULL)
       const { data: biz } = await supabaseAdmin.from("businesses").select("screening_risk_score").eq("id", id).maybeSingle();
-      const risk = (biz as any)?.screening_risk_score ?? (body.status === "active" ? 0 : 100);
+      const risk = (biz as any)?.screening_risk_score ?? 0;
       await supabaseAdmin.from("business_moderation_events").insert({
         business_id: id,
         decision: body.status === "active" ? "manual_approved" : "manual_rejected",
