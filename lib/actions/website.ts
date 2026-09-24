@@ -174,6 +174,14 @@ export async function createTenantWebsite(organizerId: string, input?: TenantWeb
   const headerConfig = { ...DEFAULT_HEADER_CONFIG, ...(input?.header_config || {}) };
   const footerConfig = { ...DEFAULT_FOOTER_CONFIG, ...(input?.footer_config || {}) };
 
+  // Stage C: build metadata payload (websiteCategory, template hints, etc.)
+  const metadata: Record<string, unknown> = {
+    ...(input?.metadata || {}),
+  };
+  if (input?.websiteCategory) {
+    metadata.websiteCategory = input.websiteCategory;
+  }
+
   // 1. Insert website row
   const { data: website, error: insertError } = await supabaseAdmin
     .from("tenant_websites")
@@ -186,6 +194,7 @@ export async function createTenantWebsite(organizerId: string, input?: TenantWeb
       header_config: headerConfig,
       footer_config: footerConfig,
       status: input?.status || "draft",
+      ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
     })
     .select("*")
     .single();
@@ -304,6 +313,24 @@ export async function updateTenantWebsite(websiteId: string, updates: Partial<Te
         .eq("id", websiteId)
         .single();
       updatePayload.footer_config = { ...(current?.footer_config || DEFAULT_FOOTER_CONFIG), ...updates.footer_config };
+    }
+
+    if (updates.metadata) {
+      const { data: current } = await supabaseAdmin
+        .from("tenant_websites")
+        .select("metadata")
+        .eq("id", websiteId)
+        .single();
+      updatePayload.metadata = { ...((current?.metadata as Record<string, unknown>) || {}), ...updates.metadata };
+    }
+    if (updates.websiteCategory) {
+      const { data: current } = await supabaseAdmin
+        .from("tenant_websites")
+        .select("metadata")
+        .eq("id", websiteId)
+        .single();
+      const existingMeta = (current?.metadata as Record<string, unknown>) || {};
+      updatePayload.metadata = { ...existingMeta, websiteCategory: updates.websiteCategory };
     }
 
     const { data: updated, error } = await supabaseAdmin

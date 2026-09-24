@@ -3,22 +3,14 @@ import { getSiteUrl } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { getUserEntityMemberships } from "@/lib/entity-auth";
+import { getProfileMenuData, type ProfileMenuData } from "@/lib/profile-menu-data";
 import ProfileClient from "./ProfileClient";
 
 type PublicProfile = {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
-};
-
-type PublicOrganizer = {
-  id: string;
-  name: string | null;
-  slug: string | null;
-  photo: string | null;
-  bio: string | null;
-  status: string | null;
-  verified_at: string | null;
 };
 
 type PublicFundraiser = {
@@ -33,6 +25,51 @@ type PublicFundraiser = {
   category: string | null;
   created_at: string | null;
   status: string | null;
+};
+
+type PublicEvent = {
+  id: string;
+  title: string;
+  slug: string | null;
+  banner: string | null;
+  event_date: string | null;
+  venue: string | null;
+  city: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
+type PublicBusiness = {
+  id: string;
+  name: string;
+  slug: string | null;
+  logo_url: string | null;
+  banner_url: string | null;
+  category: string | null;
+  city: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
+type PublicArticle = {
+  id: string;
+  title: string;
+  slug: string;
+  cover_image: string | null;
+  excerpt: string | null;
+  category: string | null;
+  status: string | null;
+  published_at: string | null;
+  created_at: string | null;
+};
+
+type PublicProduct = {
+  id: string;
+  name: string;
+  slug: string | null;
+  price: number | string | null;
+  status: string | null;
+  created_at: string | null;
 };
 
 type DonationActivity = {
@@ -96,7 +133,7 @@ function publicDonationActivity(rows: DonationRow[]): DonationActivity[] {
       };
     })
     .filter((row): row is DonationActivity => Boolean(row))
-    .slice(0, 6);
+    .slice(0, 12);
 }
 
 export async function generateMetadata({
@@ -133,31 +170,94 @@ export default async function PublicProfilePage({
   const supabaseAdmin = createSupabaseAdmin();
 
   let viewerId: string | null = null;
+  let viewerEmail: string | null = null;
+
   try {
     const supabaseServer = await createSupabaseServer();
     const {
       data: { user },
     } = await supabaseServer.auth.getUser();
     viewerId = user?.id ?? null;
+    viewerEmail = user?.email ?? null;
   } catch {
     // Public page: unauthenticated visitors can still view public profile data.
   }
 
   const isOwnProfile = viewerId === id;
 
+  // Personal fundraisers only: organizer_id IS NULL
   let fundraisersQuery = supabaseAdmin
     .from("fundraisers")
     .select("id, title, slug, banner, image_url, goal, raised, raised_amount, category, created_at, status")
     .eq("user_id", id)
+    .is("organizer_id", null)
     .is("deleted_at", null);
 
   if (!isOwnProfile) {
     fundraisersQuery = fundraisersQuery.eq("status", "published");
   }
+  fundraisersQuery = fundraisersQuery.order("created_at", { ascending: false }).limit(12);
 
-  fundraisersQuery = fundraisersQuery.order("created_at", { ascending: false }).limit(6);
+  // Personal events only: organizer_id IS NULL
+  let eventsQuery = supabaseAdmin
+    .from("events")
+    .select("id, title, slug, banner, event_date, venue, city, status, created_at")
+    .eq("user_id", id)
+    .is("organizer_id", null);
 
-  const [profileResult, followerResult, followingResult, organizersResult, fundraisersResult, donationsResult] = await Promise.all([
+  if (!isOwnProfile) {
+    eventsQuery = eventsQuery.eq("status", "published");
+  }
+  eventsQuery = eventsQuery.order("created_at", { ascending: false }).limit(12);
+
+  // Personal businesses only: organizer_id IS NULL
+  let businessesQuery = supabaseAdmin
+    .from("businesses")
+    .select("id, name, slug, logo_url, banner_url, category, city, status, created_at")
+    .eq("owner_id", id)
+    .is("organizer_id", null);
+
+  if (!isOwnProfile) {
+    businessesQuery = businessesQuery.eq("status", "published");
+  }
+  businessesQuery = businessesQuery.order("created_at", { ascending: false }).limit(12);
+
+  // Personal articles only: organizer_id IS NULL
+  let articlesQuery = supabaseAdmin
+    .from("articles")
+    .select("id, title, slug, cover_image, excerpt, category, status, published_at, created_at")
+    .eq("owner_id", id)
+    .is("organizer_id", null);
+
+  if (!isOwnProfile) {
+    articlesQuery = articlesQuery.eq("status", "published").eq("visibility", "public");
+  }
+  articlesQuery = articlesQuery.order("created_at", { ascending: false }).limit(12);
+
+  // Personal products only: business_id IS NULL
+  let productsQuery = supabaseAdmin
+    .from("products")
+    .select("id, name, slug, price, status, created_at")
+    .eq("owner_id", id)
+    .is("business_id", null);
+
+  if (!isOwnProfile) {
+    productsQuery = productsQuery.eq("status", "published");
+  }
+  productsQuery = productsQuery.order("created_at", { ascending: false }).limit(12);
+
+  // Base profile & stats query
+  const [
+    profileResult,
+    followerResult,
+    followingResult,
+    fundraisersResult,
+    eventsResult,
+    businessesResult,
+    articlesResult,
+    productsResult,
+    donationsResult,
+  ] = await Promise.all([
     supabaseAdmin
       .from("public_profiles")
       .select("id, display_name, avatar_url")
@@ -171,15 +271,11 @@ export default async function PublicProfilePage({
       .from("follows")
       .select("*", { count: "exact", head: true })
       .eq("follower_id", id),
-    supabaseAdmin
-      .from("organizers")
-      .select("id, name, slug, photo, bio, status, verified_at")
-      .eq("user_id", id)
-      .eq("visibility", "public")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(6),
     fundraisersQuery,
+    eventsQuery,
+    businessesQuery,
+    articlesQuery,
+    productsQuery,
     supabaseAdmin
       .from("donations")
       .select("id, amount, created_at, fundraisers(title, slug, status, deleted_at)")
@@ -187,7 +283,7 @@ export default async function PublicProfilePage({
       .in("status", ["completed", "succeeded"])
       .neq("donor_name", "Anonymous")
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(20),
   ]);
 
   const rawProfile = profileResult.data as PublicProfile | null;
@@ -205,6 +301,20 @@ export default async function PublicProfilePage({
     isFollowing = Boolean(followRow);
   }
 
+  // Profile Menu data: strictly for the profile owner
+  let profileMenuData: ProfileMenuData | null = null;
+  if (isOwnProfile && viewerId) {
+    // Resolve organizer IDs for owner
+    const [{ data: ownedOrgs }, entityRoles] = await Promise.all([
+      supabaseAdmin.from("organizers").select("id").eq("user_id", viewerId).is("deleted_at", null),
+      getUserEntityMemberships(viewerId),
+    ]);
+    const ownedIds = (ownedOrgs ?? []).map((o) => o.id);
+    const allOrgIds = Array.from(new Set([...ownedIds, ...Object.keys(entityRoles)]));
+
+    profileMenuData = await getProfileMenuData(id, viewerId, viewerEmail, allOrgIds);
+  }
+
   return (
     <ProfileClient
       profile={profile}
@@ -213,9 +323,13 @@ export default async function PublicProfilePage({
       isFollowing={isFollowing}
       isOwnProfile={isOwnProfile}
       isLoggedIn={Boolean(viewerId)}
-      organizers={(organizersResult.data ?? []) as PublicOrganizer[]}
       fundraisers={(fundraisersResult.data ?? []) as PublicFundraiser[]}
+      events={(eventsResult.data ?? []) as PublicEvent[]}
+      businesses={(businessesResult.data ?? []) as PublicBusiness[]}
+      articles={(articlesResult.data ?? []) as PublicArticle[]}
+      products={(productsResult.data ?? []) as PublicProduct[]}
       donations={publicDonationActivity((donationsResult.data ?? []) as DonationRow[])}
+      menuData={profileMenuData}
     />
   );
 }

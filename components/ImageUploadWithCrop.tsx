@@ -227,6 +227,8 @@ function ImageUploadWithCrop(
     setNaturalSize(null);
     setFitZoom(1);
     setFitPan({ x: 0, y: 0 });
+    setError("");
+    setCheckingDimensions(false);
   }
 
   const useFitEditor = fitMode === "fit" && naturalSize !== null;

@@ -2,6 +2,7 @@ import EventsLocationDateBar from "@/components/events/EventsLocationDateBar";
 import { getCachedEventCities } from "@/lib/event-cities";
 import { getVisitorCity } from "@/lib/request-geo";
 import { resolveEventFilters, type EventsPageFilters } from "@/lib/events-filters";
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Location-aware heading + Location/date filter bar — the one piece of
@@ -27,7 +28,8 @@ export default async function EventsFilterHeader({
   // been searched.
   const visitorCity = await getVisitorCity();
   const displayLocation = location || visitorCity;
-  const locationHeading = displayLocation ? `Events in ${displayLocation}` : "Events";
+  const t = await getTranslations('Events');
+  const locationHeading = displayLocation ? t('eventsIn', {city: displayLocation}) : t('allEvents');
 
   // City suggestions for the Location autocomplete (cleaned + deduped).
   const eventCities = await getCachedEventCities();

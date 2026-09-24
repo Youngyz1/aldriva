@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Shared 404 body — used by both app/not-found.tsx (default root layout) and
@@ -6,28 +7,28 @@ import Link from "next/link";
  * routes), which can't inherit from each other since they're separate root
  * layouts. Keeping the actual content in one place avoids the two drifting.
  */
-export default function PageNotFoundContent() {
+export default async function PageNotFoundContent() {
+  const t = await getTranslations('NotFound');
   return (
     <main className="min-h-screen bg-white text-zinc-950 flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
-        <p className="text-6xl font-black text-orange-500">404</p>
-        <h1 className="mt-4 text-2xl font-black">Page not found</h1>
+        <p className="text-6xl font-black text-orange-500">{t('title')}</p>
+        <h1 className="mt-4 text-2xl font-black">{t('heading')}</h1>
         <p className="mt-3 text-zinc-500 leading-7">
-          The page you are looking for might have been removed, renamed, or
-          never existed. Check the URL or head back to discover events near you.
+          {t('description')}
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/events"
             className="w-full sm:w-auto rounded-xl bg-orange-500 px-6 py-3 font-black text-white hover:bg-orange-600 transition"
           >
-            Browse events
+            {t('browseEvents')}
           </Link>
           <Link
             href="/"
             className="w-full sm:w-auto rounded-xl border border-zinc-200 px-6 py-3 font-bold text-zinc-700 hover:bg-zinc-50 transition"
           >
-            Go home
+            {t('goHome')}
           </Link>
         </div>
       </div>

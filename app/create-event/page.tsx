@@ -23,6 +23,7 @@ import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { EVENT_CATEGORIES, SUBCATEGORIES_BY_CATEGORY, isValidEventCategory, isValidEventSubcategory } from "@/lib/event-taxonomy";
 
 const EVENT_BANNER_ASPECT = 16 / 9;
 
@@ -120,7 +121,8 @@ export default function CreateEventPage() {
   const [form, setForm] = useState({
     organizer_id: "",
     title: "",
-    category: "Music",
+    category: "Music & Concerts",
+    subcategory: "Concert",
     event_type: "In person",
     event_date: "",
     end_date: "",
@@ -190,7 +192,14 @@ export default function CreateEventPage() {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     setNotice("");
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const { name, value } = event.target;
+    if (name === "category") {
+      const subs = SUBCATEGORIES_BY_CATEGORY[value as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? [];
+      const newSub = subs.includes(form.subcategory as never) ? form.subcategory : subs[0] ?? "";
+      setForm({ ...form, category: value, subcategory: newSub });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   }
 
   function saveDraft() {
@@ -274,6 +283,17 @@ export default function CreateEventPage() {
       setUploadProgress("");
     }
 
+    if (!isValidEventCategory(form.category)) {
+      setError("Invalid event category");
+      setLoading(false);
+      return;
+    }
+    if (!isValidEventSubcategory(form.category, form.subcategory)) {
+      setError("Invalid subcategory for the selected category");
+      setLoading(false);
+      return;
+    }
+
     const { data: createdEvent, error: eventError } = await supabase
       .from("events")
       .insert({
@@ -281,6 +301,7 @@ export default function CreateEventPage() {
         slug,
         description: form.description,
         category: form.category,
+        subcategory: form.subcategory,
         event_type: form.event_type,
         venue: form.venue,
         city: form.city,
@@ -529,19 +550,26 @@ export default function CreateEventPage() {
                 <div className="grid gap-5 md:grid-cols-2">
                   <CreatorField label="Category">
                     <select name="category" value={form.category} onChange={handleChange} className={inputClass}>
-                      {["Music", "Business", "Technology", "Sports", "Dating", "Education", "Nightlife", "Holidays", "Performing & Visual Arts", "Charity", "Community"].map((category) => (
-                        <option key={category}>{category}</option>
+                      {EVENT_CATEGORIES.map((cat) => (
+                        <option key={cat}>{cat}</option>
                       ))}
                     </select>
                   </CreatorField>
-                  <CreatorField label="Event Type">
-                    <select name="event_type" value={form.event_type} onChange={handleChange} className={inputClass}>
-                      <option>In person</option>
-                      <option>Virtual</option>
-                      <option>Hybrid</option>
+                  <CreatorField label="Subcategory">
+                    <select name="subcategory" value={form.subcategory} onChange={handleChange} className={inputClass}>
+                      {(SUBCATEGORIES_BY_CATEGORY[form.category as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? []).map((sub) => (
+                        <option key={sub}>{sub}</option>
+                      ))}
                     </select>
                   </CreatorField>
                 </div>
+                <CreatorField label="Event Type">
+                  <select name="event_type" value={form.event_type} onChange={handleChange} className={inputClass}>
+                    <option>In person</option>
+                    <option>Virtual</option>
+                    <option>Hybrid</option>
+                  </select>
+                </CreatorField>
               </div>
             </CreatorPanel>
 
@@ -773,7 +801,7 @@ export default function CreateEventPage() {
               {[
                 ["Event", form.title || "Not set"],
                 ["Organization", organizerName],
-                ["Category", `${form.category} / ${form.event_type}`],
+                ["Category", `${form.category} → ${form.subcategory} / ${form.event_type}`],
                 ["Date", form.event_date || "Not set"],
                 ["Location", [form.venue, form.city].filter(Boolean).join(", ") || "Not set"],
                 ["Tickets", [form.ticket1_name, form.ticket2_name, form.ticket3_name].filter(Boolean).join(", ")],

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTranslations } from 'next-intl';
 import { motion } from "framer-motion";
 import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
@@ -34,8 +35,13 @@ const ORG_TYPE_LABELS: Record<string, string> = {
 
 export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, hasProducts, hasWebsite }: { org: Org; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean }) {
   const pathname = usePathname();
+  const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
+  const rawNavItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
+  const navItems = rawNavItems.map(item => {
+    const key = item.label.toLowerCase() as any;
+    try { return { ...item, label: t(key) }; } catch { return item; }
+  });
   const [open, setOpen] = useState(false);
   const [isHoverCapable, setIsHoverCapable] = useState(true);
   useEffect(() => {
@@ -93,7 +99,7 @@ export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, ha
             <div className="border-b border-zinc-100 px-4 py-3">
               <Link href="/dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900">
                 <ChevronLeft className="h-3.5 w-3.5" />
-                All Organizations
+                {t('backToDashboard')}
               </Link>
             </div>
             <div className="border-b border-zinc-100 p-4">
@@ -108,7 +114,7 @@ export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, ha
               </div>
               <Link href={org.slug ? `/org/${org.slug}` : `/organizers/${org.id}`} target="_blank" className="mt-3 flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-50">
                 <Globe className="h-3 w-3" />
-                View Public Profile
+                {t('viewPublicProfile')}
               </Link>
             </div>
             <nav className="flex-1 space-y-0.5 p-3 text-sm">

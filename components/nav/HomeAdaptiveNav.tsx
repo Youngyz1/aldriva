@@ -2,29 +2,31 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { label: "Home", href: "/" },
-  { label: "Events", href: "/events" },
-  { label: "Fundraisers", href: "/fundraisers" },
-  { label: "Articles", href: "/articles" },
-  { label: "Businesses", href: "/businesses" },
-  { label: "Shop", href: "/products" },
-] as const;
-
-function getActiveLabel(pathname: string): string {
-  const match = NAV_ITEMS.slice().reverse().find((item) => {
-    if (item.href === "/") return pathname === "/";
-    return pathname.startsWith(item.href);
-  });
-  return match?.label ?? "Home";
-}
-
 export default function HomeAdaptiveNav() {
   const pathname = usePathname();
+  const t = useTranslations('Navigation');
+  const NAV_ITEMS = [
+    { label: t('home'), href: "/" },
+    { label: t('events'), href: "/events" },
+    { label: t('fundraisers'), href: "/fundraisers" },
+    { label: t('articles'), href: "/articles" },
+    { label: t('businesses'), href: "/businesses" },
+    { label: t('shop'), href: "/products" },
+  ] as const;
+
+  function getActiveLabel(pathname: string): string {
+    const match = NAV_ITEMS.slice().reverse().find((item) => {
+      if (item.href === "/") return pathname === "/";
+      return pathname.startsWith(item.href);
+    });
+    return match?.label ?? t('home');
+  }
+
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLabel = getActiveLabel(pathname ?? "/");
@@ -115,7 +117,7 @@ export default function HomeAdaptiveNav() {
                   );
                 })}
                 {/* When active is Home, Home already in trigger, don't duplicate */}
-                {activeLabel === "Home" &&
+                {activeLabel === t('home') &&
                   NAV_ITEMS.slice(1).map((item) => null)}
               </div>
 

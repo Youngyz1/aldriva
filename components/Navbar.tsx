@@ -2,18 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  LayoutDashboard,
-  ShoppingBag,
-  Ticket,
-  UserRound,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useTranslations } from 'next-intl';
+import { ChevronDown, UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrandMark from "@/components/BrandMark";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { cn } from "@/lib/utils";
 import HomeAdaptiveNav from "@/components/nav/HomeAdaptiveNav";
 
@@ -24,8 +20,8 @@ type Account = {
 };
 
 export default function Navbar() {
-  const router = useRouter();
   const pathname = usePathname();
+  const tNav = useTranslations('Navigation');
   const [account, setAccount] = useState<Account | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -67,20 +63,11 @@ export default function Navbar() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setAccountOpen(false);
-      }
+      if (e.key === "Escape") setAccountOpen(false);
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setAccountOpen(false);
-    router.push("/login");
-    router.refresh();
-  }
 
   const accountName = account?.displayName ?? "";
   const initials = accountName ? accountName.slice(0, 2).toUpperCase() : "";
@@ -99,6 +86,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <LanguageSwitcher variant="inline" />
           {account && <NotificationBell userId={account.id} />}
 
           {account ? (
@@ -121,53 +109,44 @@ export default function Navbar() {
                 </span>
                 <ChevronDown className={cn("hidden h-4 w-4 text-zinc-400 sm:block transition-transform", accountOpen && "rotate-180")} />
               </button>
+
               {accountOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-200 bg-white py-2 shadow-xl">
+                <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-zinc-200 bg-white py-2 shadow-xl">
                   <p className="truncate px-4 py-2 text-sm font-black text-zinc-900">{accountName}</p>
                   <div className="my-1 border-t border-zinc-100" />
-                  <Link href="/dashboard" className="block px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
-                    Dashboard
-                  </Link>
-                  <Link href="/events/my-tickets" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
-                    <Ticket className="h-4 w-4" />
-                    My tickets
-                  </Link>
-                  <Link href="/products/library" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
-                    <ShoppingBag className="h-4 w-4" />
-                    My library
-                  </Link>
-                  <Link href={publicProfileHref} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600">
+                  <Link
+                    href={publicProfileHref}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600"
+                    onClick={() => setAccountOpen(false)}
+                  >
                     <UserRound className="h-4 w-4" />
-                    View Profile
+                    {tNav('profile')}
                   </Link>
                   <div className="my-1 border-t border-zinc-100" />
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="block w-full px-4 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50"
-                  >
-                    Log out
-                  </button>
+                  <div className="px-4 py-2">
+                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-400">{tNav('language')}</p>
+                    <LanguageSwitcher variant="dropdown" />
+                  </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
               <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-700 hover:text-orange-600">
-                Log in
+                {tNav('login')}
               </Link>
               <Link
                 href="/signup"
                 className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white transition hover:bg-zinc-800"
               >
-                Sign up
+                {tNav('signup')}
               </Link>
             </div>
           )}
-          {/* Mobile login link when not authenticated and Home is centered */}
+          {/* Mobile login link when not authenticated */}
           {!account && (
             <Link href="/login" className="rounded-lg px-2 py-1 text-xs font-bold text-zinc-700 sm:hidden">
-              Log in
+              {tNav('login')}
             </Link>
           )}
         </div>

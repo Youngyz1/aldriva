@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBusiness } from "@/lib/actions/businesses";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
+import { INDUSTRIES, getCategoriesForIndustry, getBusinessTypesForCategory } from "@/lib/business-taxonomy";
 
 interface NewBusinessFormClientProps {
   tenantId: string;
@@ -20,6 +21,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
     description: "",
     industry: "",
     category: "",
+    business_type: "",
     logo: "",
     website: "",
     email: "",
@@ -43,6 +45,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
       description: form.description,
       industry: form.industry,
       category: form.category,
+      business_type: form.business_type || null,
       logo: form.logo || null,
       website: form.website || null,
       email: form.email || null,
@@ -146,44 +149,75 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-black text-zinc-600 mb-1">Industry *</label>
-                <input
-                  type="text"
+                <select
                   required
                   value={form.industry}
-                  onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                  placeholder="e.g. Technology"
+                  onChange={(e) => {
+                    const ind = e.target.value;
+                    const cats = ind ? getCategoriesForIndustry(ind) : [];
+                    const newCat = cats.includes(form.category) ? form.category : cats[0] || "";
+                    const types = newCat ? getBusinessTypesForCategory(newCat) : [];
+                    const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
+                    setForm({ ...form, industry: ind, category: newCat, business_type: newType });
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-                />
+                >
+                  <option value="">Select Industry</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-black text-zinc-600 mb-1">Category *</label>
-                <input
-                  type="text"
+                <select
                   required
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  placeholder="e.g. Software Development"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-                />
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    const types = cat ? getBusinessTypesForCategory(cat) : [];
+                    const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
+                    setForm({ ...form, category: cat, business_type: newType });
+                  }}
+                  disabled={!form.industry}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
+                >
+                  <option value="">Select Category</option>
+                  {form.industry && getCategoriesForIndustry(form.industry).map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Business Type *</label>
+                <select
+                  required
+                  value={form.business_type}
+                  onChange={(e) => setForm({ ...form, business_type: e.target.value })}
+                  disabled={!form.category}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
+                >
+                  <option value="">Select Business Type</option>
+                  {form.category && getBusinessTypesForCategory(form.category).map((bt) => (
+                    <option key={bt} value={bt}>{bt}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-black text-zinc-600 mb-1">Logo</label>
-              <ImageUploadWithCrop
+              <MediaUploadField
+                label="Logo"
+                description="Upload or select from My Media"
                 value={form.logo}
+                tenantId={tenantId}
+                folderSubpath="business-logos"
                 aspectRatio={1}
-                fitMode="fit"
-                previewClassName="h-20 w-20 rounded-2xl"
-                label="Upload logo"
-                bucket="cms-media"
-                folder={`${tenantId}/business-logos`}
-                onUploaded={(url) => setForm((prev) => ({ ...prev, logo: url }))}
-                onRemove={() => setForm((prev) => ({ ...prev, logo: "" }))}
-                onError={(msg) => setError(msg)}
+                cropShape="round"
+                onChange={(url) => setForm((prev) => ({ ...prev, logo: url }))}
               />
             </div>
           </div>

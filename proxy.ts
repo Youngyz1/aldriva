@@ -36,6 +36,49 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // ---------------------------------------------------------------------------
+// i18n locale handling (next-intl compatible)
+// Detects locale from path prefix > cookie > Accept-Language > default
+// and normalizes prefixed URLs via rewrite to the canonical (non-prefixed)
+// internal path so the App Router files do not need to move to app/[locale].
+// ---------------------------------------------------------------------------
+const SUPPORTED_LOCALES = ['en', 'fr'] as const;
+type SupportedLocale = typeof SUPPORTED_LOCALES[number];
+const DEFAULT_LOCALE: SupportedLocale = 'en';
+const LOCALE_COOKIE = 'NEXT_LOCALE';
+const LOCALE_HEADER = 'x-next-intl-locale';
+
+function isSupportedLocale(v: string | null | undefined): v is SupportedLocale {
+  return !!v && (SUPPORTED_LOCALES as readonly string[]).includes(v);
+}
+
+function localeFromAcceptLanguage(header: string | null | undefined): SupportedLocale {
+  if (!header) return DEFAULT_LOCALE;
+  const parts = header.split(',').map(p => p.split(';')[0].trim().toLowerCase());
+  for (const part of parts) {
+    if (part.startsWith('fr')) return 'fr';
+    if (part.startsWith('en')) return 'en';
+  }
+  return DEFAULT_LOCALE;
+}
+
+function getLocaleFromPath(pathname: string): {locale: SupportedLocale | null; stripped: string} {
+  const m = pathname.match(/^\/(en|fr)(?=\/|$)/);
+  if (!m) return {locale: null, stripped: pathname};
+  const locale = m[1] as SupportedLocale;
+  // Strip ALL leading locale segments to recover from already-corrupted URLs like /en/fr/...
+  let stripped = pathname;
+  // Remove up to 5 leading locale prefixes (safety cap to avoid loop)
+  for (let i = 0; i < 5; i++) {
+    const inner = stripped.match(/^\/(en|fr)(?=\/|$)/);
+    if (!inner) break;
+    stripped = stripped.replace(/^\/(en|fr)(?=\/|$)/, '') || '/';
+  }
+  if (stripped === '') stripped = '/';
+  if (!stripped.startsWith('/')) stripped = `/${stripped}`;
+  return {locale, stripped};
+}
+
+// ---------------------------------------------------------------------------
 // Article access-control helper
 // Runs a lightweight REST API call (no full DB client) to check article
 // visibility before the page component starts streaming.
@@ -344,7 +387,9 @@ function redirectAndSignOut(
   notice: [string, string]
 ) {
   const url = req.nextUrl.clone();
-  url.pathname = pathname;
+  const {locale: reqPathLocale} = getLocaleFromPath(req.nextUrl.pathname);
+  const localePrefix = reqPathLocale ? `/${reqPathLocale}` : '';
+  url.pathname = `${localePrefix}${pathname}`;
   url.search = "";
   url.searchParams.set(notice[0], notice[1]);
 
@@ -363,7 +408,17 @@ function redirectAndSignOut(
 }
 
 export async function proxy(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
+  // ---- Locale resolution (path prefix > cookie > Accept-Language > default) ----
+  const rawPathname = req.nextUrl.pathname;
+  const {locale: pathLocale, stripped: strippedPath} = getLocaleFromPath(rawPathname);
+  const cookieLocale = req.cookies.get(LOCALE_COOKIE)?.value ?? null;
+  const acceptLang = req.headers.get('accept-language');
+  const inferredLocale: SupportedLocale = pathLocale ?? (isSupportedLocale(cookieLocale) ? cookieLocale as SupportedLocale : localeFromAcceptLanguage(acceptLang));
+  const effectiveLocale: SupportedLocale = inferredLocale;
+
+  // For routing/logic we use the stripped path (so /en/dashboard -> /dashboard)
+  const pathname = strippedPath;
+  const hasLocalePrefix = pathLocale !== null;
 
   const isProtected =
     pathname.startsWith("/dashboard") ||
@@ -374,7 +429,32 @@ export async function proxy(req: NextRequest) {
   const isAdminPath = pathname.startsWith("/admin");
 
   // Response object that Supabase can attach refreshed cookies to.
-  const res = NextResponse.next();
+  // If the request had a locale prefix, rewrite internally to the stripped path
+  // so App Router resolves /en/dashboard -> /dashboard file.
+  // Propagate locale via request header so app/layout can read via headers().
+  const localeRequestHeaders = new Headers(req.headers);
+  localeRequestHeaders.set(LOCALE_HEADER, effectiveLocale);
+  let res: NextResponse;
+  if (hasLocalePrefix) {
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = pathname;
+    res = NextResponse.rewrite(rewriteUrl, { request: { headers: localeRequestHeaders } });
+  } else {
+    res = NextResponse.next({ request: { headers: localeRequestHeaders } });
+  }
+
+  // Also set on response for debugging/client
+  res.headers.set(LOCALE_HEADER, effectiveLocale);
+  // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale
+  const existingCookie = req.cookies.get(LOCALE_COOKIE)?.value;
+  if (hasLocalePrefix) {
+    if (existingCookie !== effectiveLocale) {
+      res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
+    }
+  } else if (!existingCookie) {
+    // First visit without explicit cookie — persist negotiation result
+    res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -403,8 +483,9 @@ export async function proxy(req: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = req.nextUrl.clone();
 
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.pathname = hasLocalePrefix ? `/${effectiveLocale}/login` : "/login";
+    // Preserve original full path (with locale prefix if present) as redirect param
+    loginUrl.searchParams.set("redirect", rawPathname + req.nextUrl.search);
 
     return NextResponse.redirect(loginUrl);
   }
@@ -412,7 +493,7 @@ export async function proxy(req: NextRequest) {
   // Redirect already-authenticated users away from login/signup.
   if ((pathname === "/login" || pathname === "/signup") && user) {
     const homeUrl = req.nextUrl.clone();
-    homeUrl.pathname = "/";
+    homeUrl.pathname = hasLocalePrefix ? `/${effectiveLocale}/` : "/";
     homeUrl.search = "";
     return NextResponse.redirect(homeUrl);
   }
@@ -584,13 +665,24 @@ export async function proxy(req: NextRequest) {
   // header is ever absent, preserving defense-in-depth.
   if (isVerifiedAdmin) {
     const requestHeaders = new Headers(req.headers);
+    // Propagate locale header to downstream layout
+    requestHeaders.set(LOCALE_HEADER, effectiveLocale);
     // Actively drop any client-supplied header first: only the value set
     // fresh below (after the role check above) may survive. Without this, a
     // future refactor that sets the header conditionally could let a spoofed
     // incoming value pass through untouched.
     requestHeaders.delete("x-admin-verified");
     requestHeaders.set("x-admin-verified", "1");
-    const verifiedRes = NextResponse.next({ request: { headers: requestHeaders } });
+    let verifiedRes: NextResponse;
+    if (hasLocalePrefix) {
+      const rewriteUrl = req.nextUrl.clone();
+      rewriteUrl.pathname = pathname;
+      verifiedRes = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
+    } else {
+      verifiedRes = NextResponse.next({ request: { headers: requestHeaders } });
+    }
+    // Propagate locale header
+    verifiedRes.headers.set(LOCALE_HEADER, effectiveLocale);
     for (const cookie of res.cookies.getAll()) {
       verifiedRes.cookies.set(cookie);
     }
@@ -602,6 +694,11 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
+    "/en",
+    "/fr",
+    "/en/:path*",
+    "/fr/:path*",
     "/dashboard/:path*",
     "/admin/:path*",
     "/my-tickets",
@@ -625,5 +722,7 @@ export const config = {
     // begins so draft/archived sites return a real HTTP 404 to anonymous
     // visitors. Matches /site/<slug> and /site/<slug>/<any-subpage>.
     "/site/:path*",
+    // Fallback for any other page to ensure locale handling runs
+    "/((?!api|_next|_vercel|_proxy|.*\\..*).*)",
   ],
 };

@@ -104,6 +104,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
+          business_type: string | null
           category: string
           city: string | null
           country: string | null
@@ -131,6 +132,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          business_type?: string | null
           category: string
           city?: string | null
           country?: string | null
@@ -158,6 +160,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          business_type?: string | null
           category?: string
           city?: string | null
           country?: string | null
@@ -184,6 +187,59 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      business_branches: {
+        Row: {
+          address: string | null
+          business_id: string
+          city: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_main: boolean
+          label: string
+          phone: string | null
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          business_id: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_main?: boolean
+          label: string
+          phone?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          business_id?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_main?: boolean
+          label?: string
+          phone?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_branches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comments: {
         Row: {
@@ -440,6 +496,7 @@ export type Database = {
           source_organizer_url: string | null
           status: string | null
           street_address: string | null
+          subcategory: string | null
           title: string
           user_id: string | null
           venue: string | null
@@ -454,6 +511,7 @@ export type Database = {
           banner?: string | null
           category?: string | null
           city?: string | null
+          subcategory?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
@@ -491,6 +549,7 @@ export type Database = {
           banner?: string | null
           category?: string | null
           city?: string | null
+          subcategory?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
@@ -851,6 +910,63 @@ export type Database = {
           position?: number
           quote?: string
           role?: string
+        }
+        Relationships: []
+      }
+      homepage_promotions: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          creative_url: string
+          cta_label: string | null
+          ends_at: string | null
+          entity_slug: string
+          entity_type: string
+          id: string
+          is_visible: boolean
+          media_type: string
+          position: number
+          priority: number
+          starts_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          creative_url: string
+          cta_label?: string | null
+          ends_at?: string | null
+          entity_slug: string
+          entity_type: string
+          id?: string
+          is_visible?: boolean
+          media_type?: string
+          position?: number
+          priority?: number
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          creative_url?: string
+          cta_label?: string | null
+          ends_at?: string | null
+          entity_slug?: string
+          entity_type?: string
+          id?: string
+          is_visible?: boolean
+          media_type?: string
+          position?: number
+          priority?: number
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }

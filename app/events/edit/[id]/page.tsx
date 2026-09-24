@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { EVENT_CATEGORIES, SUBCATEGORIES_BY_CATEGORY, normalizeEventCategory } from "@/lib/event-taxonomy";
 
 const EVENT_BANNER_ASPECT = 16 / 9;
 
@@ -37,7 +38,8 @@ export default function EditEventPage() {
   const [form, setForm] = useState({
     organizer_id: "",
     title: "",
-    category: "",
+    category: "Music & Concerts",
+    subcategory: "",
     event_type: "In person",
     event_date: "",
     end_date: "",
@@ -111,10 +113,13 @@ export default function EditEventPage() {
       setOrganizers(organizerRows ?? []);
       setTickets(loadedTickets);
       setSlug(event.slug);
+      const normalizedCat = normalizeEventCategory(event.category) ?? (event.category || "Music & Concerts");
+      const normalizedSub = (event.subcategory as string) || "";
       setForm({
         organizer_id: event.organizer_id || "",
         title: event.title || "",
-        category: event.category || "",
+        category: normalizedCat,
+        subcategory: normalizedSub,
         event_type: event.event_type || "In person",
         event_date: toDateTimeLocal(event.event_date),
         end_date: toDateTimeLocal(event.end_date),
@@ -137,6 +142,13 @@ export default function EditEventPage() {
   }, [eventId, router]);
 
   function update(field: string, value: string) {
+    if (field === "category") {
+      const subs = (SUBCATEGORIES_BY_CATEGORY as Record<string, readonly string[]>)[value] ?? [];
+      const currentSub = (form as unknown as { subcategory: string }).subcategory;
+      const newSub = subs.includes(currentSub as never) ? currentSub : subs[0] ?? "";
+      setForm((current) => ({ ...current, category: value, subcategory: newSub }));
+      return;
+    }
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -164,12 +176,15 @@ export default function EditEventPage() {
       }
 
       const nextSlug = generateSlug(form.title);
+      const subsForCat = (SUBCATEGORIES_BY_CATEGORY as Record<string, readonly string[]>)[form.category] ?? [];
+      const validatedSub = subsForCat.includes(form.subcategory as never) ? form.subcategory : subsForCat[0] ?? null;
       const { error: updateError } = await supabase
         .from("events")
         .update({
           title: form.title,
           slug: nextSlug,
           category: form.category,
+          subcategory: validatedSub,
           event_type: form.event_type,
           event_date: form.event_date,
           end_date: form.end_date || null,
@@ -257,12 +272,30 @@ export default function EditEventPage() {
           />
 
           <div className="grid gap-5 md:grid-cols-2">
-            <input
+            <select
               value={form.category}
               onChange={(event) => update("category", event.target.value)}
-              placeholder="Category"
-              className="rounded-2xl border border-zinc-300 px-5 py-4 outline-none focus:border-orange-500"
-            />
+              className="rounded-2xl border border-zinc-300 px-5 py-4 outline-none focus:border-orange-500 bg-white"
+            >
+              {EVENT_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+              {form.category && !(EVENT_CATEGORIES as readonly string[]).includes(form.category) && (
+                <option value={form.category}>{form.category} (legacy)</option>
+              )}
+            </select>
+            <select
+              value={form.subcategory}
+              onChange={(event) => update("subcategory", event.target.value)}
+              className="rounded-2xl border border-zinc-300 px-5 py-4 outline-none focus:border-orange-500 bg-white"
+            >
+              {((SUBCATEGORIES_BY_CATEGORY as Record<string, readonly string[]>)[form.category] ?? []).map((sub) => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
+              {form.subcategory && !((SUBCATEGORIES_BY_CATEGORY as Record<string, readonly string[]>)[form.category] ?? []).includes(form.subcategory as never) && (
+                <option value={form.subcategory}>{form.subcategory} (legacy)</option>
+              )}
+            </select>
             <select
               value={form.event_type}
               onChange={(event) => update("event_type", event.target.value)}

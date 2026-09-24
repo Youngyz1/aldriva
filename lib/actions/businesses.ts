@@ -3,6 +3,7 @@
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
+import { isValidIndustry, getCategoriesForIndustry, isValidBusinessTypeForCategory, isValidBusinessType, CATEGORIES_BY_INDUSTRY, BUSINESS_TYPES_BY_CATEGORY, normalizeIndustry } from "@/lib/business-taxonomy";
 
 async function getUniqueSlug(name: string, supabase: any, excludeId?: string): Promise<string> {
   let baseSlug = createSlug(name);
@@ -34,6 +35,7 @@ export type BusinessInput = {
   description: string;
   industry: string;
   category: string;
+  business_type?: string | null;
   logo?: string | null;
   website?: string | null;
   email?: string | null;
@@ -66,14 +68,27 @@ export async function createBusiness(input: BusinessInput) {
     return { success: false, error: "Description must be at least 20 characters long" };
   }
 
-  const trimmedIndustry = input.industry.trim();
-  if (trimmedIndustry.length < 2) {
-    return { success: false, error: "Industry must be at least 2 characters long" };
+  const trimmedIndustryRaw = input.industry.trim();
+  if (!isValidIndustry(trimmedIndustryRaw)) {
+    return { success: false, error: `Invalid industry: ${trimmedIndustryRaw}` };
   }
+  const trimmedIndustry = normalizeIndustry(trimmedIndustryRaw);
 
   const trimmedCategory = input.category.trim();
-  if (trimmedCategory.length < 2) {
-    return { success: false, error: "Category must be at least 2 characters long" };
+  const validCats = getCategoriesForIndustry(trimmedIndustry);
+  if (!validCats.includes(trimmedCategory)) {
+    return { success: false, error: `Category "${trimmedCategory}" must belong to Industry "${trimmedIndustry}"` };
+  }
+
+  let trimmedBusinessType: string | null = null;
+  if (input.business_type !== undefined && input.business_type !== null) {
+    const bt = input.business_type.trim();
+    if (bt) {
+      if (bt !== "Custom Business" && !isValidBusinessTypeForCategory(bt, trimmedCategory)) {
+        return { success: false, error: `Business Type "${bt}" must belong to Category "${trimmedCategory}"` };
+      }
+      trimmedBusinessType = bt;
+    }
   }
 
   if (input.seo_title && input.seo_title.length > 70) {
@@ -100,6 +115,7 @@ export async function createBusiness(input: BusinessInput) {
       description: trimmedDescription,
       industry: trimmedIndustry,
       category: trimmedCategory,
+      business_type: trimmedBusinessType,
       logo: input.logo || null,
       website: input.website || null,
       email: input.email || null,
@@ -153,19 +169,46 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
   }
 
   if (input.industry !== undefined) {
-    const trimmedIndustry = input.industry.trim();
-    if (trimmedIndustry.length < 2) {
-      return { success: false, error: "Industry must be at least 2 characters long" };
+    const trimmedIndustryRaw = input.industry.trim();
+    if (!isValidIndustry(trimmedIndustryRaw)) {
+      return { success: false, error: `Invalid industry: ${trimmedIndustryRaw}` };
     }
-    updates.industry = trimmedIndustry;
+    updates.industry = normalizeIndustry(trimmedIndustryRaw);
   }
 
   if (input.category !== undefined) {
     const trimmedCategory = input.category.trim();
-    if (trimmedCategory.length < 2) {
-      return { success: false, error: "Category must be at least 2 characters long" };
+    const industryForCat = input.industry !== undefined ? input.industry.trim() : null;
+    if (industryForCat) {
+      if (!getCategoriesForIndustry(industryForCat).includes(trimmedCategory)) {
+        return { success: false, error: `Category "${trimmedCategory}" must belong to Industry "${industryForCat}"` };
+      }
+    } else {
+      const allCats = (Object.values(CATEGORIES_BY_INDUSTRY) as unknown as string[][]).flat();
+      if (!allCats.includes(trimmedCategory) && trimmedCategory !== "Other") {
+        return { success: false, error: `Invalid category: ${trimmedCategory}` };
+      }
     }
     updates.category = trimmedCategory;
+  }
+
+  if (input.business_type !== undefined) {
+    const rawBt = input.business_type;
+    const bt = rawBt ? rawBt.trim() : null;
+    if (bt) {
+      const catForCheck = input.category !== undefined ? input.category.trim() : null;
+      if (catForCheck) {
+        if (bt !== "Custom Business" && !isValidBusinessTypeForCategory(bt, catForCheck)) {
+          return { success: false, error: `Business Type "${bt}" must belong to Category "${catForCheck}"` };
+        }
+      } else if (!isValidBusinessType(bt) && bt !== "Custom Business") {
+        const exists = (Object.values(BUSINESS_TYPES_BY_CATEGORY) as unknown as string[][]).some((arr) => arr.includes(bt));
+        if (!exists) return { success: false, error: `Invalid business type: ${bt}` };
+      }
+      updates.business_type = bt;
+    } else {
+      updates.business_type = null;
+    }
   }
 
   if (input.seo_title !== undefined) {

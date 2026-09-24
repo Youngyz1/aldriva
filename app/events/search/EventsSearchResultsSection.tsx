@@ -9,6 +9,7 @@ import PublicEmptyState from "@/components/public/PublicEmptyState";
 import { getEventList, type EventListItem } from "@/lib/event-data";
 import { searchExternalEvents, type ExternalEvent } from "@/lib/external-events";
 import EventsHeroSearch from "@/app/events/EventsHeroSearch";
+import { normalizeEventCategory } from "@/lib/event-taxonomy";
 
 export function EventsSearchResultsSkeleton() {
   return (
@@ -48,20 +49,24 @@ export default async function EventsSearchResultsSection({
     q?: string;
     location?: string;
     category?: string;
+    subcategory?: string;
     sort?: string;
     page?: string;
   }>;
 }) {
-  const { q, location, category, sort } = await searchParams;
+  const { q, location, category: rawCategory, subcategory: rawSub, sort } = await searchParams;
   const query = q?.trim() || "";
+  const category = rawCategory ? (normalizeEventCategory(rawCategory) ?? rawCategory.trim()) : undefined;
+  const subcategory = rawSub?.trim() || undefined;
 
   // 1. Domain-isolated query: touches only events table + external live events API
   const [localResults, externalEvents] = await Promise.all([
-    query || location || category
+    query || location || category || subcategory
       ? getEventList({
           searchQuery: query || undefined,
           location: location || undefined,
           category: category || undefined,
+          subcategory: subcategory || undefined,
           sort: sort === "newest" || sort === "date_desc" ? sort : "date_asc",
           pageSize: 24,
         })
@@ -94,7 +99,7 @@ export default async function EventsSearchResultsSection({
     }));
   }
 
-  if (!query && !location && !category) {
+  if (!query && !location && !category && !subcategory) {
     return (
       <div className="space-y-8">
         <div className="max-w-2xl">

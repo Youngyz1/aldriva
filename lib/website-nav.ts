@@ -45,6 +45,10 @@ export type TenantWebsiteInput = {
   seo_description?: string | null;
   seo_og_image?: string | null;
   status?: WebsiteStatus;
+  /** Stage C: optional per-website metadata (websiteCategory, templateId, etc.) */
+  metadata?: Record<string, unknown>;
+  /** Convenience shorthand — stored inside metadata.websiteCategory when present */
+  websiteCategory?: string;
 };
 
 export type PageInput = {

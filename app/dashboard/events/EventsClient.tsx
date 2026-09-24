@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from 'next-intl';
 import { Loader2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
@@ -46,6 +47,8 @@ function statusLabel(status: string) {
 }
 
 function EventsClientInner() {
+  const t = useTranslations('Events');
+  const tCommon = useTranslations('Common');
   const { page, perPage, search, updateParams, getParam, buildQueryString } = useDashboardParams();
   const { exporting, exportCsv } = useDashboardExport();
 
@@ -209,14 +212,14 @@ function EventsClientInner() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <DashboardPageHeader
-        title="Events"
+        title={t('title')}
         description="Manage events, tickets sold, and revenue across your organizer profiles."
         action={
           <Link
             href="/dashboard/events/new"
             className="shrink-0 rounded-xl bg-orange-600 px-5 py-3 text-sm font-black text-white hover:bg-orange-700"
           >
-            + Create Event
+            + {t('createEvent')}
           </Link>
         }
       />
@@ -225,18 +228,18 @@ function EventsClientInner() {
 
       <DashboardToolbar
         search={search}
-        searchPlaceholder="Search events..."
+        searchPlaceholder={t('searchPlaceholder')}
         onSearchChange={(v) => updateParams({ search: v || null })}
         filters={[
           {
             id: "status",
-            label: "Status",
+            label: tCommon('status'),
             value: status,
             options: [
               { value: "all", label: "All Statuses" },
-              { value: "published", label: "Published" },
-              { value: "draft", label: "Draft" },
-              { value: "rejected", label: "Rejected" },
+              { value: "published", label: t('status.published') },
+              { value: "draft", label: t('status.draft') },
+              { value: "rejected", label: t('status.rejected') },
             ],
             onChange: (v) => updateParams({ status: v === "all" ? null : v }),
           },
@@ -253,7 +256,7 @@ function EventsClientInner() {
           },
           {
             id: "date",
-            label: "Date",
+            label: tCommon('date'),
             value: date,
             options: [
               { value: "all", label: "All Time" },
@@ -267,7 +270,7 @@ function EventsClientInner() {
         ]}
         sort={{
           id: "sort",
-          label: "Sort",
+          label: tCommon('sort'),
           value: sort,
           options: [
             { value: "newest", label: "Newest First" },
@@ -315,9 +318,9 @@ function EventsClientInner() {
         isEmpty={rows.length === 0}
         empty={
           <DashboardEmptyState
-            title="No events yet"
+            title={t('empty')}
             description="Create your first event to start selling tickets."
-            actionLabel="Create Event"
+            actionLabel={t('createEvent')}
             actionHref="/dashboard/events/new"
           />
         }

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { escapePostgrestOrValue } from "@/lib/fundraiser-data";
 import { cacheLife } from "next/cache";
+import { normalizeEventCategory } from "@/lib/event-taxonomy";
 
 export type EventListSort = "date_asc" | "date_desc" | "newest";
 
@@ -9,8 +10,10 @@ export type EventListParams = {
   ids?: string[];
   /** Exclusion filter — keep a section's picks out of another section (dedupe). */
   excludeIds?: string[];
-  /** Single category (events use a fixed category set); matched case-insensitively. */
+  /** Single category (events use a fixed category set); matched case-insensitively. Canonical via lib/event-taxonomy.ts. */
   category?: string;
+  /** Subcategory filter — dependent on category, canonical via lib/event-taxonomy.ts. */
+  subcategory?: string;
   featuredOnly?: boolean;
   /** Limit to events dated now or later. */
   upcoming?: boolean;
@@ -106,7 +109,9 @@ export async function getEventList(
 
   const ids = params.ids;
   const excludeIds = params.excludeIds;
-  const category = params.category;
+  const rawCategory = params.category;
+  const category = rawCategory ? (normalizeEventCategory(rawCategory) ?? rawCategory) : undefined;
+  const subcategory = params.subcategory?.trim() || undefined;
   const featuredOnly = params.featuredOnly ?? false;
   const upcoming = params.upcoming ?? false;
   const dateFrom = params.dateFrom;
@@ -131,9 +136,11 @@ export async function getEventList(
     query = query.not("id", "in", `(${excludeIds.join(",")})`);
   }
   if (category) {
-    // Exact match, case-insensitive (events use a fixed category set) — no
-    // wildcards, so it can't fuzzily bleed into adjacent category names.
+    // Canonical category via lib/event-taxonomy.ts — legacy aliases normalized above; exact match case-insensitive
     query = query.ilike("category", category);
+  }
+  if (subcategory) {
+    query = query.ilike("subcategory", subcategory);
   }
   if (featuredOnly) {
     query = query.eq("is_featured", true);

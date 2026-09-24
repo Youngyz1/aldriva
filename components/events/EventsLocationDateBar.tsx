@@ -2,18 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useTranslations, useLocale } from 'next-intl';
 import { MapPin, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import LocationAutocomplete from "@/components/shared/LocationAutocomplete";
 import { slugifyCity } from "@/lib/city-slug";
 
 export type WhenValue = "today" | "tomorrow" | "weekend" | "next_weekend" | "custom" | "all";
-
-const PRESETS: { value: Exclude<WhenValue, "custom" | "all">; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "tomorrow", label: "Tomorrow" },
-  { value: "weekend", label: "This weekend" },
-  { value: "next_weekend", label: "Next weekend" },
-];
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
@@ -28,12 +22,12 @@ function buildMonthGrid(year: number, month: number): (number | null)[] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   return [...Array(startWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 }
-function monthLabel(year: number, month: number) {
-  return new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+function monthLabelIntl(year: number, month: number, locale: string) {
+  return new Date(year, month, 1).toLocaleDateString(locale as any, { month: "long", year: "numeric" });
 }
-function formatShort(key: string) {
+function formatShortIntl(key: string, locale: string) {
   const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString(locale as any, { month: "short", day: "numeric" });
 }
 
 export default function EventsLocationDateBar({
@@ -49,9 +43,18 @@ export default function EventsLocationDateBar({
   initialTo?: string;
   citySuggestions: string[];
 }) {
+  const t = useTranslations('Events');
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const PRESETS: { value: Exclude<WhenValue, "custom" | "all">; label: string }[] = [
+    { value: "today", label: t('today') },
+    { value: "tomorrow", label: t('tomorrow') },
+    { value: "weekend", label: t('thisWeekend') },
+    { value: "next_weekend", label: t('nextWeekend') },
+  ];
 
   const [locationOpen, setLocationOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
@@ -137,11 +140,11 @@ export default function EventsLocationDateBar({
   const dateLabel = (() => {
     if (initialWhen === "custom" && initialFrom) {
       return initialTo && initialTo !== initialFrom
-        ? `${formatShort(initialFrom)} – ${formatShort(initialTo)}`
-        : formatShort(initialFrom);
+        ? `${formatShortIntl(initialFrom, locale)} – ${formatShortIntl(initialTo, locale)}`
+        : formatShortIntl(initialFrom, locale);
     }
     const preset = PRESETS.find((p) => p.value === initialWhen);
-    return preset ? preset.label : "All dates";
+    return preset ? preset.label : t('allDates');
   })();
   const isDateActive = initialWhen !== "all";
 
@@ -160,7 +163,7 @@ export default function EventsLocationDateBar({
     const todayKey = toKey(today.getFullYear(), today.getMonth(), today.getDate());
     return (
       <div className="flex-1">
-        <p className="mb-3 text-center text-sm font-black text-zinc-950">{monthLabel(year, month)}</p>
+        <p className="mb-3 text-center text-sm font-black text-zinc-950">{monthLabelIntl(year, month, locale)}</p>
         <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
           {WEEKDAY_LABELS.map((wd) => (
             <span key={wd} className="pb-1 font-bold text-zinc-400">{wd}</span>
@@ -208,7 +211,7 @@ export default function EventsLocationDateBar({
           }`}
         >
           <MapPin className="h-4 w-4" />
-          {initialLocation || "Location"}
+          {initialLocation || t('location')}
         </button>
         {locationOpen && (
           <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-2xl border border-zinc-200 bg-white p-3 shadow-xl">
@@ -224,7 +227,7 @@ export default function EventsLocationDateBar({
                 onClick={() => commitLocation("")}
                 className="mt-2 text-xs font-bold text-zinc-400 hover:text-zinc-600"
               >
-                Clear location
+                {t('clearLocation')}
               </button>
             )}
           </div>
@@ -269,7 +272,7 @@ export default function EventsLocationDateBar({
                 type="button"
                 onClick={goPrevMonth}
                 className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100"
-                aria-label="Previous month"
+                aria-label={t('previousMonth')}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -277,7 +280,7 @@ export default function EventsLocationDateBar({
                 type="button"
                 onClick={goNextMonth}
                 className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100"
-                aria-label="Next month"
+                aria-label={t('nextMonth')}
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -294,7 +297,7 @@ export default function EventsLocationDateBar({
                 onClick={clearDate}
                 className="text-xs font-bold text-zinc-400 hover:text-zinc-600"
               >
-                Clear
+                {t('clear')}
               </button>
               <button
                 type="button"
@@ -302,7 +305,7 @@ export default function EventsLocationDateBar({
                 onClick={commitCustomRange}
                 className="rounded-full bg-orange-600 px-6 py-2 text-sm font-black text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
               >
-                Apply
+                {t('apply')}
               </button>
             </div>
           </div>

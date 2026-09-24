@@ -46,6 +46,7 @@ function DonationsClientInner() {
   const status = getParam("status");
   const date = getParam("date");
   const sort = getParam("sort", "newest");
+  const mode = getParam("mode");
 
   const [rows, setRows] = useState<DashboardDonationRow[]>([]);
   const [stats, setStats] = useState<DashboardDonationStats | null>(null);
@@ -65,8 +66,9 @@ function DonationsClientInner() {
         status: status !== "all" ? status : undefined,
         date: date !== "all" ? date : undefined,
         sort: sort !== "newest" ? sort : undefined,
+        mode: mode ? mode : undefined,
       }),
-    [buildQueryString, campaign, status, date, sort]
+    [buildQueryString, campaign, status, date, sort, mode]
   );
 
   const fetchData = useCallback(async () => {
@@ -114,7 +116,7 @@ function DonationsClientInner() {
 
   const statItems = stats
     ? [
-        { label: "Total Raised", value: formatAdminMoney(stats.total_raised) },
+        { label: "Total Amount", value: formatAdminMoney(stats.total_raised) },
         { label: "Donations", value: stats.donations },
         { label: "Average Gift", value: formatAdminMoney(stats.average_gift) },
         { label: "Largest Gift", value: formatAdminMoney(stats.largest_gift) },
@@ -123,13 +125,16 @@ function DonationsClientInner() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <DashboardPageHeader title="Donations" description="All donations received across your fundraising campaigns." />
+      <DashboardPageHeader
+        title="My Donations"
+        description="Donation activity and contributions made on Aldriva."
+      />
 
       {stats && <DashboardStatsCards items={statItems} className="sm:grid-cols-2 lg:grid-cols-4" />}
 
       <DashboardToolbar
         search={search}
-        searchPlaceholder="Search donor..."
+        searchPlaceholder="Search campaign or donor..."
         onSearchChange={(v) => updateParams({ search: v || null })}
         filters={[
           {
@@ -188,7 +193,9 @@ function DonationsClientInner() {
       />
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
       )}
 
       <DashboardTableCard
@@ -202,10 +209,10 @@ function DonationsClientInner() {
         isEmpty={rows.length === 0}
         empty={
           <DashboardEmptyState
-            title="No donations yet"
-            description="Share your fundraiser links to start collecting donations."
-            actionLabel="View Fundraisers"
-            actionHref="/dashboard/fundraisers"
+            title="No donations found"
+            description="You haven't made any donations yet or no records matched your filter."
+            actionLabel="Discover Fundraisers"
+            actionHref="/fundraisers"
           />
         }
       >
@@ -222,21 +229,37 @@ function DonationsClientInner() {
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {rows.map((row) => (
-                <tr key={row.id} className="cursor-pointer hover:bg-zinc-50/70" onClick={() => openDrawer(row.id)}>
+                <tr
+                  key={row.id}
+                  className="cursor-pointer hover:bg-zinc-50/70 transition"
+                  onClick={() => openDrawer(row.id)}
+                >
                   <td className="py-3 pr-4 pl-4">
                     <p className="font-black text-zinc-900">{row.donor_name}</p>
                     {row.donor_email && <p className="text-xs text-zinc-500">{row.donor_email}</p>}
                   </td>
                   <td className="py-3 pr-4 text-zinc-600">
                     {row.campaign_slug ? (
-                      <Link href={`/fundraisers/${row.campaign_slug}`} onClick={(e) => e.stopPropagation()} className="hover:text-violet-700 hover:underline">
+                      <Link
+                        href={`/fundraisers/${row.campaign_slug}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-bold text-orange-700 hover:underline"
+                      >
                         {row.campaign_title}
                       </Link>
-                    ) : row.campaign_title}
+                    ) : (
+                      row.campaign_title
+                    )}
                   </td>
-                  <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.amount)}</td>
+                  <td className="py-3 pr-4 font-black text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.amount)}
+                  </td>
                   <td className="py-3 pr-4">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
+                        statusBadge[row.status] ?? statusBadge.pending
+                      }`}
+                    >
                       {row.status}
                     </span>
                   </td>
@@ -250,12 +273,17 @@ function DonationsClientInner() {
 
       <DashboardDrawer
         open={drawerItem !== null || drawerLoading}
-        onClose={() => { setDrawerItem(null); setDrawerLoading(false); }}
+        onClose={() => {
+          setDrawerItem(null);
+          setDrawerLoading(false);
+        }}
         title={drawerItem?.donor_name ?? "Donation"}
         subtitle={drawerItem ? formatAdminMoney(drawerItem.amount) : undefined}
       >
         {drawerLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-violet-500" /></div>
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+          </div>
         ) : drawerItem ? (
           <div className="space-y-6">
             <section className="grid grid-cols-2 gap-3">
@@ -266,15 +294,22 @@ function DonationsClientInner() {
                 ["Date", formatDonationDateTime(drawerItem.created_at)],
                 ["Email", drawerItem.donor_email || "—"],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</p>
+                <div
+                  key={String(label)}
+                  className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200/70"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                    {label}
+                  </p>
                   <p className="mt-1 font-black capitalize text-zinc-950">{value}</p>
                 </div>
               ))}
             </section>
             {drawerItem.message && (
               <section>
-                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Message</h3>
+                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                  Message
+                </h3>
                 <p className="mt-2 text-sm font-semibold text-zinc-700">{drawerItem.message}</p>
               </section>
             )}
@@ -287,7 +322,13 @@ function DonationsClientInner() {
 
 export default function DonationsClient() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-violet-500" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        </div>
+      }
+    >
       <DonationsClientInner />
     </Suspense>
   );

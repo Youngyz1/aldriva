@@ -1,13 +1,16 @@
 import Link from "next/link";
+import { getTranslations } from 'next-intl/server';
 import { CREATABLE_ENTITY_TYPES } from "@/lib/entity-registry";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-export default function CreatePage() {
+export default async function CreatePage() {
+  const t = await getTranslations('Dashboard');
+  const tCommon = await getTranslations('Common');
   return (
     <div className="space-y-6 max-w-3xl">
       <header className="pb-4 border-b border-zinc-200/80">
-        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Create New</h1>
+        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t('createNew')}</h1>
         <p className="mt-1 text-sm text-zinc-500">What would you like to create?</p>
       </header>
 

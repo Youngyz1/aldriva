@@ -18,7 +18,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { checkTenantAccess, EntityRole, ENTITY_ROLES_ALL } from "@/lib/entity-auth";
-import { validateBlock, Block } from "@/lib/website-blocks";
+import { validateBlock, Block, normalizeBlocks } from "@/lib/website-blocks";
 import { revalidatePath } from "next/cache";
 
 export interface WebsiteActionResult<T = unknown> {
@@ -147,13 +147,16 @@ export async function savePageDraft(
     };
   }
 
-  for (let i = 0; i < draftBlocks.length; i++) {
-    const b = draftBlocks[i];
+  // Normalize blocks to ensure stable ids for enrollment before persistence (Stage B backward compatibility)
+  const normalizedDraftBlocks = normalizeBlocks(draftBlocks as Block[]);
+
+  for (let i = 0; i < normalizedDraftBlocks.length; i++) {
+    const b = normalizedDraftBlocks[i];
     if (
       !b ||
       typeof b !== "object" ||
-      typeof (b as Record<string, unknown>).type !== "string" ||
-      !(b as Record<string, unknown>).type
+      typeof (b as unknown as Record<string, unknown>).type !== "string" ||
+      !(b as unknown as Record<string, unknown>).type
     ) {
       return {
         success: false,
@@ -177,7 +180,7 @@ export async function savePageDraft(
       .upsert(
         {
           page_id: ctx.pageId,
-          blocks: draftBlocks,
+          blocks: normalizedDraftBlocks,
           updated_by: user?.id || null,
           updated_at: now,
         },
@@ -197,7 +200,7 @@ export async function savePageDraft(
     return {
       success: true,
       data: {
-        blockCount: draftBlocks.length,
+        blockCount: normalizedDraftBlocks.length,
         savedAt: upsertData?.updated_at || now,
         version: typeof upsertData?.version === "number" ? upsertData.version : 1,
       },
@@ -271,10 +274,10 @@ export async function getPageBuilderData(
       .eq("page_id", ctx.pageId)
       .maybeSingle();
 
-    const liveBlocks = Array.isArray(ctx.liveBlocks) ? (ctx.liveBlocks as Block[]) : [];
+    const liveBlocks = Array.isArray(ctx.liveBlocks) ? normalizeBlocks(ctx.liveBlocks as Block[]) : [];
     const draftBlocks =
       draftRow?.blocks && Array.isArray(draftRow.blocks)
-        ? (draftRow.blocks as Block[])
+        ? normalizeBlocks(draftRow.blocks as Block[])
         : null;
     const hasDraft = draftBlocks !== null;
     const currentBlocks = hasDraft ? draftBlocks : liveBlocks;

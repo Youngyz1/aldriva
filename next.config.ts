@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
 
 // isDev is true only when BOTH environment signals agree this is not production.
 // VERCEL_ENV is injected by Vercel's build infrastructure and cannot be
@@ -182,4 +183,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
+export default withNextIntl(nextConfig);

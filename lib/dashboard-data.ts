@@ -633,7 +633,9 @@ export async function getDashboardOrganizerDetail(
 }
 
 export async function queryDashboardDonations(params: {
-  organizerIds: string[];
+  organizerIds?: string[];
+  userId?: string;
+  mode?: 'personal' | 'organizer';
   search?: string;
   campaign?: string;
   status?: string;
@@ -643,7 +645,9 @@ export async function queryDashboardDonations(params: {
   perPage?: number;
 }): Promise<PaginatedResult<DashboardDonationRow, DashboardDonationStats>> {
   const {
-    organizerIds,
+    organizerIds = [],
+    userId,
+    mode = organizerIds.length > 0 ? 'organizer' : 'personal',
     search = '',
     campaign = 'all',
     status = 'all',
@@ -660,6 +664,76 @@ export async function queryDashboardDonations(params: {
     largest_gift: 0,
   };
 
+  const dateStart = getDateRangeStart(date);
+
+  // Personal mode: donations made by the current user
+  if (mode === 'personal' || (organizerIds.length === 0 && userId)) {
+    if (!userId) {
+      return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
+    }
+
+    let personalQuery = supabaseAdmin
+      .from('donations')
+      .select('id, fundraiser_id, donor_name, donor_email, amount, status, created_at, fundraisers(id, title, slug)')
+      .eq('user_id', userId);
+
+    if (dateStart) personalQuery = personalQuery.gte('created_at', dateStart);
+
+    const { data: donations, error } = await personalQuery;
+    if (error) throw new Error(error.message);
+
+    let rows: DashboardDonationRow[] = (donations ?? []).map((d: any) => {
+      const fr = Array.isArray(d.fundraisers) ? d.fundraisers[0] : d.fundraisers;
+      return {
+        id: d.id,
+        donor_name: d.donor_name || 'Me',
+        donor_email: d.donor_email || '',
+        campaign_id: d.fundraiser_id,
+        campaign_title: fr?.title ?? '—',
+        campaign_slug: fr?.slug ?? null,
+        amount: Number(d.amount ?? 0),
+        status: d.status ?? 'succeeded',
+        created_at: d.created_at,
+      };
+    });
+
+    if (campaign !== 'all') rows = rows.filter((r) => r.campaign_id === campaign);
+    if (status !== 'all') rows = rows.filter((r) => r.status === status);
+    if (search) {
+      rows = rows.filter((r) =>
+        matchesSearch(search, r.donor_name, r.donor_email, r.campaign_title)
+      );
+    }
+
+    const succeeded = rows.filter((r) => r.status === 'succeeded' || r.status === 'completed');
+    const amounts = succeeded.map((r) => r.amount);
+    const stats: DashboardDonationStats = {
+      total_raised: amounts.reduce((s, n) => s + n, 0),
+      donations: rows.length,
+      average_gift: amounts.length ? amounts.reduce((s, n) => s + n, 0) / amounts.length : 0,
+      largest_gift: amounts.length ? Math.max(...amounts) : 0,
+    };
+
+    switch (sort) {
+      case 'oldest':
+        rows.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case 'amount_high':
+        rows.sort((a, b) => b.amount - a.amount);
+        break;
+      case 'amount_low':
+        rows.sort((a, b) => a.amount - b.amount);
+        break;
+      case 'newest':
+      default:
+        rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    const paged = paginate(rows, page, perPage);
+    return { ...paged, stats };
+  }
+
+  // Organizer mode: donations received across managed organizers
   if (organizerIds.length === 0) {
     return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
   }
@@ -675,7 +749,6 @@ export async function queryDashboardDonations(params: {
     return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
   }
 
-  const dateStart = getDateRangeStart(date);
   let donationQuery = supabaseAdmin
     .from('donations')
     .select('id, fundraiser_id, donor_name, donor_email, amount, status, created_at')
