@@ -62,7 +62,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
     if (res.success && res.data) {
       const { id } = res.data;
       if (form.listing_tier === "free") {
-        // Free tier is active immediately, send to entity dashboard
+        // Free tier is pending review; send to entity dashboard (not yet publicly visible)
         router.push(`/dashboard/businesses/${id}/overview`);
         router.refresh();
       } else {
