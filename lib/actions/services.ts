@@ -120,20 +120,37 @@ export async function createService(organizerId: string, input: { title: string;
   let slug = createSlug(input.title);
   if (!SLUG_REGEX.test(slug)) slug = "service";
   slug = slug.slice(0, SLUG_MAX);
-  // bounded collision retry
+  // bounded collision retry (9 attempts, then random suffix fallback)
   let candidate = slug;
   let counter = 1;
+  let found = false;
   while (counter < 10) {
     const { data: existing } = await admin.from("services").select("id").eq("organizer_id", organizerId).eq("slug", candidate).maybeSingle();
-    if (!existing) break;
+    if (!existing) { found = true; break; }
     candidate = `${slug}-${counter}`;
     counter++;
+  }
+  if (!found) {
+    // attempts exhausted — fall back to random suffix to avoid hard failure
+    candidate = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+    candidate = candidate.slice(0, SLUG_MAX);
+    if (!SLUG_REGEX.test(candidate)) return { success: false, error: "Slug collision: please try a different title" };
+    const { data: existing } = await admin.from("services").select("id").eq("organizer_id", organizerId).eq("slug", candidate).maybeSingle();
+    if (existing) return { success: false, error: "Slug collision: please try a different title" };
   }
   slug = candidate;
   if (slug.length > SLUG_MAX) slug = slug.slice(0, SLUG_MAX);
   if (!SLUG_REGEX.test(slug)) return { success: false, error: "Invalid slug" };
 
   const sanitizedImage = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+
+  // default position: max+1 within organizer scope, capped at POSITION_MAX
+  let position = input.position;
+  if (position === undefined || position === null) {
+    const { data: maxRow } = await admin.from("services").select("position").eq("organizer_id", organizerId).order("position", { ascending: false }).limit(1).maybeSingle();
+    const maxPos = maxRow?.position ?? -1;
+    position = Math.min(maxPos + 1, POSITION_MAX);
+  }
 
   const { data, error } = await admin.from("services").insert({
     organizer_id: organizerId,
@@ -143,11 +160,12 @@ export async function createService(organizerId: string, input: { title: string;
     duration_minutes: input.duration_minutes ?? null,
     price: Number(input.price),
     image_url: sanitizedImage,
-    position: input.position ?? 0,
+    position: Number(position),
     is_active: input.is_active ?? true,
   }).select("*").single();
 
   if (error) {
+    // Only slug conflict is 23505 on UNIQUE(organizer_id, slug) now that position is not unique
     if (error.code === "23505") return { success: false, error: "Service slug already exists" };
     return { success: false, error: "Failed to create service" };
   }
@@ -259,13 +277,20 @@ export async function createServiceTier(serviceId: string, organizerId: string, 
   const { data: service } = await admin.from("services").select("id, organizer_id").eq("id", serviceId).eq("organizer_id", organizerId).maybeSingle();
   if (!service) return { success: false, error: "Service not found or not owned by tenant" };
 
+  let position = input.position;
+  if (position === undefined || position === null) {
+    const { data: maxRow } = await admin.from("service_tiers").select("position").eq("service_id", serviceId).order("position", { ascending: false }).limit(1).maybeSingle();
+    const maxPos = maxRow?.position ?? -1;
+    position = Math.min(maxPos + 1, POSITION_MAX);
+  }
+
   const { data, error } = await admin.from("service_tiers").insert({
     service_id: serviceId,
     name: input.name.trim(),
     description: input.description?.trim() || null,
     duration_minutes: input.duration_minutes ?? null,
     price: Number(input.price),
-    position: input.position ?? 0,
+    position: Number(position),
     is_active: input.is_active ?? true,
   }).select("*").single();
   if (error) return { success: false, error: "Failed to create tier" };

@@ -1267,7 +1267,7 @@ async function ServicesEmbedBlockRenderer({
                     {svc.duration_minutes && <p className="text-xs text-zinc-400">{svc.duration_minutes} min</p>}
                   </div>
                 </div>
-                <div className="text-sm font-semibold text-zinc-900">${svc.price.toFixed(2)}</div>
+                {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="text-sm font-semibold text-zinc-900">${svc.price.toFixed(2)}</div>
               </div>
             );
           })}

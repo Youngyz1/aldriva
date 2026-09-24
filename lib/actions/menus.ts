@@ -9,7 +9,8 @@ import { revalidatePath } from "next/cache";
 const NAME_MAX = 80;
 const DESC_MAX = 500;
 const PRICE_MAX = 999999.99;
-// POSITION_MAX bounded via CHECK 0..999 in migration (removed to satisfy lint)
+const POSITION_MIN = 0;
+const POSITION_MAX = 999;
 const MAX_ARRAY = 12;
 const DIETARY_TAGS = ["vegan", "vegetarian", "gluten_free", "halal", "kosher", "dairy_free", "nut_free"] as const;
 const ALLERGENS = ["nuts", "dairy", "gluten", "soy", "eggs", "shellfish"] as const;
@@ -35,6 +36,12 @@ function validateImageUrl(url: unknown): string | null {
   if (typeof url !== "string") return "Image URL must be string";
   if (url.length > 2048) return "Image URL too long";
   if (!sanitizeUrl(url)) return "Invalid image URL";
+  return null;
+}
+function validatePosition(v: unknown): string | null {
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < POSITION_MIN || n > POSITION_MAX) return `Position must be ${POSITION_MIN}–${POSITION_MAX}`;
   return null;
 }
 
@@ -96,12 +103,20 @@ export async function createMenuSection(organizerId: string, input: { name: stri
   if (nameErr) return { success: false, error: nameErr };
   const descErr = validateDesc(input.description);
   if (descErr) return { success: false, error: descErr };
+  const posErr = validatePosition(input.position);
+  if (posErr) return { success: false, error: posErr };
   const admin = createSupabaseAdmin();
+  let position = input.position;
+  if (position === undefined || position === null) {
+    const { data: maxRow } = await admin.from("menu_sections").select("position").eq("organizer_id", organizerId).order("position", { ascending: false }).limit(1).maybeSingle();
+    const maxPos = maxRow?.position ?? -1;
+    position = Math.min(maxPos + 1, POSITION_MAX);
+  }
   const { data, error } = await admin.from("menu_sections").insert({
     organizer_id: organizerId,
     name: input.name.trim(),
     description: input.description?.trim() || null,
-    position: input.position ?? 0,
+    position: Number(position),
     is_active: input.is_active ?? true,
   }).select("*").single();
   if (error) return { success: false, error: "Failed to create section" };
@@ -114,6 +129,10 @@ export async function updateMenuSection(sectionId: string, organizerId: string, 
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
   } catch {
     return { success: false, error: "Forbidden: insufficient entity permissions" };
+  }
+  if (input.position !== undefined) {
+    const e = validatePosition(input.position);
+    if (e) return { success: false, error: e };
   }
   const admin = createSupabaseAdmin();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -177,6 +196,15 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
   if (!section) return { success: false, error: "Section not found or not owned by tenant" };
 
   const sanitizedImage = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+  let position = input.position;
+  if (position === undefined || position === null) {
+    const { data: maxRow } = await admin.from("menu_items").select("position").eq("section_id", sectionId).order("position", { ascending: false }).limit(1).maybeSingle();
+    const maxPos = maxRow?.position ?? -1;
+    position = Math.min(maxPos + 1, POSITION_MAX);
+  } else {
+    const e = validatePosition(position);
+    if (e) return { success: false, error: e };
+  }
   const { data, error } = await admin.from("menu_items").insert({
     section_id: sectionId,
     organizer_id: organizerId,
@@ -187,7 +215,7 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
     dietary_tags: input.dietary_tags || [],
     allergens: input.allergens || [],
     modifiers: input.modifiers || [],
-    position: input.position ?? 0,
+    position: Number(position),
     is_active: input.is_active ?? true,
     is_featured: input.is_featured ?? false,
   }).select("*").single();
@@ -239,7 +267,11 @@ export async function updateMenuItem(itemId: string, sectionId: string, organize
     if (e) return { success: false, error: e };
     updates.modifiers = input.modifiers;
   }
-  if (input.position !== undefined) updates.position = Number(input.position);
+  if (input.position !== undefined) {
+    const e = validatePosition(input.position);
+    if (e) return { success: false, error: e };
+    updates.position = Number(input.position);
+  }
   if (input.is_active !== undefined) updates.is_active = Boolean(input.is_active);
   if (input.is_featured !== undefined) updates.is_featured = Boolean(input.is_featured);
 

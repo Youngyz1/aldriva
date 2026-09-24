@@ -33,7 +33,7 @@ export default async function ServicesPage({ params }: { params: Promise<{ id: s
             <Link key={s.id} href={`/dashboard/org/${organizerId}/services/${s.id}`} className="rounded-xl border p-4 shadow-xs hover:shadow-sm">
               <div className="font-medium">{s.title}</div>
               <div className="text-sm text-zinc-500 truncate">{s.description || "—"}</div>
-              <div className="mt-2 text-sm font-mono">${Number(s.price).toFixed(2)} {s.duration_minutes ? `· ${s.duration_minutes} min` : ""}</div>
+              {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="mt-2 text-sm font-mono">${Number(s.price).toFixed(2)} {s.duration_minutes ? `· ${s.duration_minutes} min` : ""}</div>
               <div className="mt-1 text-xs">{s.is_active ? "Active" : "Inactive"} · {s.slug}</div>
             </Link>
           ))}
