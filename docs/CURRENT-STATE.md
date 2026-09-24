@@ -1,11 +1,11 @@
 # Aldriva — Current Implementation State & Living Status
 
 > **WHERE ARE WE RIGHT NOW?**  
-> **Current Phase**: **Phase 5 — Products, Services & Menus — SCHEMA + ACTIONS + PUBLIC RENDERING DONE; ADMIN UI PARTIAL**  
-> **Prerequisites**: **migrations 130 (tenant_websites.metadata), 131 (atomic create_website_from_template), 132 (businesses.business_type + business_branches), 133 (events.subcategory), 134 (homepage promotions), 135 (profile locale), 136 (services + service_tiers + menu_sections + menu_items) — 136 applied live 2026-09-24 (valid inserts + bad dietary/modifier rejected 23514 verified; corrected version with menu_modifiers_valid function and position uniqueness removed). Repo copy now synced.**  
-> **Next Step**: **Phase 5 remaining UI: menu section/item create/edit, tier Move Up/Down, /menu read-only → full CRUD**  
-> **Last Verified**: 2026-09-24 — DB-level constraints verified live (dietary/modifier 23514), RLS and organizer-match trigger NOT yet exercised as non-admin user; hermetic tests updated  
-> **Test Suite**: 676/676 passing (36 suites, 0 failures) — menu admin UI + tier manager + reorder actions  
+> **Current Phase**: **Phase 5 + Business Moderation — screening guard (137) + automated review**  
+> **Prerequisites**: **migrations 130 (metadata), 131 (atomic), 132 (business_type), 133 (event subcategory), 134 (promotions), 135 (locale), 136 (services/menus), 137 (business moderation guard + screening: trigger guard_business_owner_update, business_moderation_events, screening columns) — 136 applied live 2026-09-24 (23514 verified), 137 written 2026-09-24 not yet applied live (manual apply required, production).**  
+> **Next Step**: **Verify 137 live manually, then Phase 6**  
+> **Last Verified**: 2026-09-24 — 137 hermetic (trigger, RLS, moderation_events, screening engine unit tests 7/7), live 136 constraints 23514 verified, live 137 NOT yet applied (no DB connection), RLS/trigger not non-admin tested  
+> **Test Suite**: 684/684 passing (36 suites, 0 failures) — screening engine + admin review + moderation guard  
 > **TypeScript Health**: 0 errors (`npx tsc --noEmit --skipLibCheck` verified)  
 > **Build Health**: Next.js 16.3.4 production build verified (compiled successfully, Turbopack)
 

@@ -92,17 +92,6 @@ export interface ScreenResult {
   reasons: string[];
 }
 
-function normalizeName(s: string): string {
-  return s.toLowerCase().trim().replace(/\s+/g, " ");
-}
-function extractDomain(url: string): string | null {
-  try {
-    const u = new URL(url.startsWith("http") ? url : `https://${url}`);
-    return u.hostname.toLowerCase().replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
 function normalizePhone(p: string): string {
   return p.replace(/\D/g, "");
 }
