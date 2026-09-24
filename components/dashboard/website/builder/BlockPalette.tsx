@@ -80,7 +80,7 @@ export function BlockPalette({
   const currentTab = state.sidebarTab;
 
   return (
-    <aside className="flex h-full w-80 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shrink-0 select-none">
+    <aside className="flex h-full w-[min(20rem,85vw)] sm:w-80 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shrink-0 select-none">
       {/* Tab Navigation */}
       <div className="flex border-b border-zinc-200 px-3 pt-3 dark:border-zinc-800">
         <button
@@ -233,13 +233,14 @@ export function BlockPalette({
               </div>
             ) : (
               state.present.map((block, idx) => {
-                const isSelected = state.selectedBlockIndex === idx;
+                const blockIdStable = (block as { id?: string }).id;
+                const isSelected = blockIdStable ? state.selection?.blockId === blockIdStable : state.selectedBlockIndex === idx;
                 const hasValidationError = state.validation?.invalidBlockIndex === idx;
                 const matchingCatalog = BLOCK_CATALOG.find((c) => c.type === block.type);
 
                 return (
                   <div
-                    key={`${block.type}-${idx}`}
+                    key={blockIdStable ? `${block.type}-${blockIdStable}` : `${block.type}-${idx}`}
                     className={`group relative flex items-center justify-between rounded-xl border p-2.5 transition-all ${
                       hasValidationError
                         ? "border-rose-500 bg-rose-50/40 dark:bg-rose-950/20"
@@ -284,6 +285,7 @@ export function BlockPalette({
                         disabled={idx === 0}
                         className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-20 dark:hover:bg-zinc-700"
                         title="Move Up"
+                        aria-label={`Move section ${getBlockTitle(block, idx)} up`}
                       >
                         <ChevronUp className="h-3.5 w-3.5" />
                       </button>
@@ -293,6 +295,7 @@ export function BlockPalette({
                         disabled={idx === state.present.length - 1}
                         className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-20 dark:hover:bg-zinc-700"
                         title="Move Down"
+                        aria-label={`Move section ${getBlockTitle(block, idx)} down`}
                       >
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>

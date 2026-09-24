@@ -4,7 +4,7 @@
  * Default factory templates for all 10 standard + 2 legacy block types.
  */
 
-import { Block } from "@/lib/website-blocks";
+import { Block, normalizeBlock } from "@/lib/website-blocks";
 
 export interface BlockCatalogItem {
   type: string;
@@ -22,7 +22,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "hero",
     description: "High-impact headline banner with background image and call-to-action buttons.",
     iconName: "LayoutTemplate",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "hero",
       heading: "Empowering our Community",
       subheading: "Join us in making a real, lasting impact through our initiatives and community events.",
@@ -40,7 +40,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "content",
     description: "Responsive 2, 3, or 4 column grid of key programs or product highlights.",
     iconName: "Grid",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "features",
       heading: "What We Do",
       subheading: "Discover the programs and initiatives making a difference in our community.",
@@ -70,7 +70,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "content",
     description: "Narrative story, mission statement, founder profile, and metric milestones.",
     iconName: "User",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "about",
       heading: "Our Story & Purpose",
       subheading: "Driven by compassion, community, and actionable change.",
@@ -91,7 +91,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "media",
     description: "Visual grid, masonry, or carousel showcase of event photos and achievements.",
     iconName: "Image",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "gallery",
       heading: "Moments & Milestones",
       subheading: "Highlights from our recent community events and workshops.",
@@ -122,7 +122,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "social",
     description: "Quotes from donors, volunteers, and customers with star ratings.",
     iconName: "MessageSquareQuote",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "testimonials",
       heading: "Voices of Impact",
       subheading: "What our supporters and community partners say about our work.",
@@ -149,7 +149,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "content",
     description: "Direct contact channels (email, phone, address, office hours) and location preview.",
     iconName: "PhoneCall",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "contact",
       heading: "Get in Touch",
       subheading: "Have questions or want to partner with us? We'd love to hear from you.",
@@ -166,7 +166,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "content",
     description: "Accessible collapsible questions and answers for quick visitor help.",
     iconName: "HelpCircle",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "faq",
       heading: "Frequently Asked Questions",
       subheading: "Find quick answers to common questions about our initiatives.",
@@ -192,7 +192,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "embeds",
     description: "Dynamic feed displaying live upcoming events and ticket registration.",
     iconName: "Calendar",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "events_embed",
       heading: "Upcoming Events",
       subheading: "Join us at our upcoming workshops, fundraisers, and community sessions.",
@@ -208,7 +208,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "embeds",
     description: "Showcase merchandise, tickets, or digital goods from your storefront.",
     iconName: "ShoppingBag",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "products_embed",
       heading: "Merchandise & Products",
       subheading: "Support our mission by purchasing official merchandise and materials.",
@@ -224,7 +224,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "embeds",
     description: "Display active fundraising progress bars and donation callouts.",
     iconName: "HeartHandshake",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "fundraiser_embed",
       heading: "Featured Campaign",
       subheading: "Help us reach our funding goal to support families in need.",
@@ -239,7 +239,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "legacy",
     description: "Custom rich formatted text, paragraphs, and announcements.",
     iconName: "FileText",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "rich_text",
       html: "<p>Welcome to our official website. Stay tuned for exciting updates, project announcements, and opportunities to connect with our community.</p>",
     }),
@@ -250,7 +250,7 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     category: "legacy",
     description: "Bold full-width call to action banner prompting user registration.",
     iconName: "Megaphone",
-    createDefault: (): Block => ({
+    createDefault: (): Block => normalizeBlock({
       type: "cta_banner",
       heading: "Ready to Make a Difference?",
       subheading: "Join hundreds of community members today and start taking action.",

@@ -4,7 +4,7 @@
  * Types for the Aldriva Visual Website Builder Canvas & State Management (Phase 4 Task 4.3).
  */
 
-import { Block } from "@/lib/website-blocks";
+import { Block, SectionEnvelope } from "@/lib/website-blocks";
 import { EntityRole } from "@/lib/entity-auth";
 import { BuilderEmbedOptions } from "@/lib/actions/website-builder";
 
@@ -24,6 +24,11 @@ export interface ValidationState {
   errorMessage?: string;
 }
 
+export type Selection =
+  | { type: "block"; pageId: string; blockId: string }
+  | { type: "element"; pageId: string; blockId: string; path: string }
+  | null;
+
 export interface BuilderState {
   // Undo / Redo History Stacks (In-Memory Canvas State)
   past: Block[][];
@@ -31,7 +36,8 @@ export interface BuilderState {
   future: Block[][];
 
   // Selection & UI State
-  selectedBlockIndex: number | null;
+  selectedBlockIndex: number | null; // derived from selection for backward compat
+  selection: Selection | null;
   device: BuilderDevice;
   sidebarTab: "add" | "structure";
 
@@ -67,7 +73,12 @@ export interface BuilderState {
 export type BuilderAction =
   | { type: "SET_BLOCKS"; blocks: Block[]; markDirty?: boolean }
   | { type: "SELECT_BLOCK"; index: number | null }
+  | { type: "SELECT_BLOCK_BY_ID"; blockId: string | null }
+  | { type: "SELECT_ELEMENT"; blockId: string; path: string }
+  | { type: "CLEAR_SELECTION" }
   | { type: "UPDATE_BLOCK"; index: number; block: Block }
+  | { type: "UPDATE_ELEMENT"; blockId: string; path: string; value: unknown }
+  | { type: "UPDATE_SECTION"; blockId: string; patch: Partial<SectionEnvelope> }
   | { type: "ADD_BLOCK"; block: Block; insertAtIndex?: number }
   | { type: "REMOVE_BLOCK"; index: number }
   | { type: "MOVE_BLOCK"; fromIndex: number; toIndex: number }

@@ -57,12 +57,14 @@ export default function WebsiteBuilderClient({
 }: WebsiteBuilderClientProps) {
   const initialBlocks = initialData.blocks || [];
 
+  const firstId = (initialBlocks[0] as { id?: string } | undefined)?.id ?? null;
   const initialState: BuilderState = {
     past: [],
     present: initialBlocks,
     future: [],
 
     selectedBlockIndex: initialBlocks.length > 0 ? 0 : null,
+    selection: firstId ? { type: "block", pageId: initialData.pageId, blockId: firstId } : null,
     device: "desktop",
     sidebarTab: "add",
 
@@ -96,6 +98,20 @@ export default function WebsiteBuilderClient({
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [mobileSheet, setMobileSheet] = useState<"blocks" | "structure" | "properties" | "preview" | null>(null);
+
+  const selectByIndex = useCallback((idx: number | null) => {
+    if (idx == null) {
+      dispatch({ type: "CLEAR_SELECTION" });
+      return;
+    }
+    const b = stateRef.current.present[idx] as { id?: string } | undefined;
+    if (b?.id) dispatch({ type: "SELECT_BLOCK_BY_ID", blockId: b.id });
+    else dispatch({ type: "SELECT_BLOCK", index: idx });
+  }, []);
+
+  const selectElement = useCallback((blockId: string, path: string) => {
+    dispatch({ type: "SELECT_ELEMENT", blockId, path });
+  }, []);
 
   // References for race-safe autosave / publish orchestration
   const stateRef = useRef(state);
@@ -319,9 +335,16 @@ export default function WebsiteBuilderClient({
   }, [performSaveDraft]);
 
   const selectedBlock =
-    state.selectedBlockIndex !== null && state.selectedBlockIndex < state.present.length
-      ? state.present[state.selectedBlockIndex]
-      : null;
+    state.selection && state.selection.blockId
+      ? (state.present.find((b) => (b as { id?: string }).id === state.selection!.blockId) ?? null)
+      : state.selectedBlockIndex !== null && state.selectedBlockIndex < state.present.length
+        ? state.present[state.selectedBlockIndex]
+        : null;
+  const selectedBlockIndexDerived =
+    state.selection?.blockId != null
+      ? state.present.findIndex((b) => (b as { id?: string }).id === state.selection!.blockId)
+      : state.selectedBlockIndex;
+  const selectedElementPath = state.selection?.type === "element" ? state.selection.path : null;
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-zinc-100 font-sans dark:bg-zinc-950">
@@ -381,7 +404,7 @@ export default function WebsiteBuilderClient({
               onAddBlock={(newBlock, insertAtIndex) => {
                 dispatch({ type: "ADD_BLOCK", block: newBlock, insertAtIndex });
               }}
-              onSelectBlock={(idx) => dispatch({ type: "SELECT_BLOCK", index: idx })}
+              onSelectBlock={(idx) => selectByIndex(idx)}
               onMoveBlock={(from, to) => dispatch({ type: "MOVE_BLOCK", fromIndex: from, toIndex: to })}
               onDuplicateBlock={(idx) => dispatch({ type: "DUPLICATE_BLOCK", index: idx })}
               onRemoveBlock={(idx) => dispatch({ type: "REMOVE_BLOCK", index: idx })}
@@ -404,7 +427,9 @@ export default function WebsiteBuilderClient({
         {/* Panel B: Center Canvas — full-screen on mobile */}
         <BuilderCanvas
           state={state}
-          onSelectBlock={(idx) => dispatch({ type: "SELECT_BLOCK", index: idx })}
+          onSelectBlock={(idx) => selectByIndex(idx)}
+          onSelectElement={(blockId, path) => selectElement(blockId, path)}
+          onClearSelection={() => dispatch({ type: "CLEAR_SELECTION" })}
           onMoveBlock={(from, to) => dispatch({ type: "MOVE_BLOCK", fromIndex: from, toIndex: to })}
           onDuplicateBlock={(idx) => dispatch({ type: "DUPLICATE_BLOCK", index: idx })}
           onRemoveBlock={(idx) => dispatch({ type: "REMOVE_BLOCK", index: idx })}
@@ -436,24 +461,38 @@ export default function WebsiteBuilderClient({
           </button>
         )}
 
-        {/* Panel C: Right Inspector — desktop only */}
+        {/* Panel C: Right Inspector — desktop only (H7 responsive: avoids 375 clipping) */}
         {!previewMode && !rightCollapsed && (
-          <aside className="hidden lg:flex h-full w-96 flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shrink-0 select-none overflow-hidden">
-            {selectedBlock && state.selectedBlockIndex !== null ? (
+          <aside className="hidden lg:flex h-full w-[min(24rem,90vw)] lg:w-96 flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shrink-0 select-none overflow-hidden">
+            {selectedBlock ? (
               <BlockInspector
                 block={selectedBlock}
                 onChange={(updatedBlock) => {
-                  dispatch({
-                    type: "UPDATE_BLOCK",
-                    index: state.selectedBlockIndex!,
-                    block: updatedBlock,
-                  });
+                  const idx = selectedBlockIndexDerived;
+                  if (idx != null && idx >= 0) {
+                    dispatch({
+                      type: "UPDATE_BLOCK",
+                      index: idx,
+                      block: updatedBlock,
+                    });
+                  }
                 }}
                 tenantId={state.tenantId}
                 availableEvents={state.availableEmbedOptions?.events}
                 availableProducts={state.availableEmbedOptions?.products}
                 availableFundraisers={state.availableEmbedOptions?.fundraisers}
-                onClose={() => dispatch({ type: "SELECT_BLOCK", index: null })}
+                onClose={() => dispatch({ type: "CLEAR_SELECTION" })}
+                selectedPath={selectedElementPath}
+                onElementChange={(path, value) => {
+                  const bid = (selectedBlock as { id?: string }).id;
+                  if (!bid) return;
+                  dispatch({ type: "UPDATE_ELEMENT", blockId: bid, path, value });
+                }}
+                onSectionChange={(patch) => {
+                  const bid = (selectedBlock as { id?: string }).id;
+                  if (!bid) return;
+                  dispatch({ type: "UPDATE_SECTION", blockId: bid, patch: patch as never });
+                }}
               />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
@@ -518,7 +557,7 @@ export default function WebsiteBuilderClient({
               state={{ ...state, sidebarTab: "structure" } as never}
               onAddBlock={() => {}}
               onSelectBlock={(idx) => {
-                dispatch({ type: "SELECT_BLOCK", index: idx });
+                selectByIndex(idx);
                 setMobileSheet("properties");
               }}
               onMoveBlock={(from, to) => dispatch({ type: "MOVE_BLOCK", fromIndex: from, toIndex: to })}
@@ -535,15 +574,29 @@ export default function WebsiteBuilderClient({
             <SheetTitle>Properties</SheetTitle>
           </SheetHeader>
           <div className="max-h-[65vh] overflow-y-auto">
-            {selectedBlock && state.selectedBlockIndex !== null ? (
+            {selectedBlock ? (
               <BlockInspector
                 block={selectedBlock}
-                onChange={(updatedBlock) => dispatch({ type: "UPDATE_BLOCK", index: state.selectedBlockIndex!, block: updatedBlock })}
+                onChange={(updatedBlock) => {
+                  const idx = selectedBlockIndexDerived;
+                  if (idx != null) dispatch({ type: "UPDATE_BLOCK", index: idx, block: updatedBlock });
+                }}
                 tenantId={state.tenantId}
                 availableEvents={state.availableEmbedOptions?.events}
                 availableProducts={state.availableEmbedOptions?.products}
                 availableFundraisers={state.availableEmbedOptions?.fundraisers}
                 onClose={() => setMobileSheet(null)}
+                selectedPath={selectedElementPath}
+                onElementChange={(path, value) => {
+                  const bid = (selectedBlock as { id?: string }).id;
+                  if (!bid) return;
+                  dispatch({ type: "UPDATE_ELEMENT", blockId: bid, path, value });
+                }}
+                onSectionChange={(patch) => {
+                  const bid = (selectedBlock as { id?: string }).id;
+                  if (!bid) return;
+                  dispatch({ type: "UPDATE_SECTION", blockId: bid, patch: patch as never });
+                }}
               />
             ) : (
               <div className="p-8 text-center text-sm text-muted-foreground">Select a block to edit its properties.</div>

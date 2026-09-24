@@ -14,6 +14,8 @@ import { LayoutTemplate, Plus } from "lucide-react";
 interface BuilderCanvasProps {
   state: BuilderState;
   onSelectBlock: (index: number | null) => void;
+  onSelectElement?: (blockId: string, path: string) => void;
+  onClearSelection?: () => void;
   onMoveBlock: (fromIndex: number, toIndex: number) => void;
   onDuplicateBlock: (index: number) => void;
   onRemoveBlock: (index: number) => void;
@@ -23,6 +25,8 @@ interface BuilderCanvasProps {
 export function BuilderCanvas({
   state,
   onSelectBlock,
+  onSelectElement,
+  onClearSelection,
   onMoveBlock,
   onDuplicateBlock,
   onRemoveBlock,
@@ -41,7 +45,7 @@ export function BuilderCanvas({
   return (
     <main
       className="flex-1 overflow-y-auto bg-zinc-100/80 p-4 sm:p-6 lg:p-8 dark:bg-zinc-950 flex flex-col items-center min-w-0"
-      onClick={() => onSelectBlock(null)}
+      onClick={() => (onClearSelection ? onClearSelection() : onSelectBlock(null))}
     >
       <div
         className={`transition-all duration-300 ease-in-out ${deviceContainerClass}`}
@@ -72,7 +76,11 @@ export function BuilderCanvas({
           /* Block List in Canvas */
           <div className="space-y-2">
             {blocks.map((block, index) => {
-              const isSelected = state.selectedBlockIndex === index;
+              const blockId = (block as { id?: string }).id;
+              const isSelected =
+                state.selection?.blockId === blockId || state.selectedBlockIndex === index;
+              const isElementSelected = state.selection?.type === "element" && state.selection.blockId === blockId;
+              const selectedPath = isElementSelected ? (state.selection as { path: string }).path : null;
               const validationIssues =
                 state.validation?.invalidBlockIndex === index
                   ? state.validation.issues
@@ -80,14 +88,16 @@ export function BuilderCanvas({
 
               return (
                 <CanvasBlockWrapper
-                  key={`${block.type}-${index}`}
+                  key={blockId ? `${block.type}-${blockId}` : `${block.type}-${index}`}
                   block={block}
                   index={index}
                   totalBlocks={blocks.length}
                   isSelected={isSelected}
+                  selectedElementPath={selectedPath}
                   validationIssues={validationIssues}
                   embedOptions={state.availableEmbedOptions}
                   onSelect={onSelectBlock}
+                  onSelectElement={onSelectElement}
                   onMove={onMoveBlock}
                   onDuplicate={onDuplicateBlock}
                   onRemove={onRemoveBlock}
