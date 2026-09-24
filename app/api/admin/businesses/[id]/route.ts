@@ -29,8 +29,12 @@ export async function PATCH(
 
   // Approve/reject — only valid from pending_review.
   if (body.status === "active" || body.status === "rejected") {
-    const updatePayload: Record<string, unknown> = { status: body.status };
+    const updatePayload: Record<string, unknown> = {
+      status: body.status,
+      screened_at: new Date().toISOString(),
+    };
     updatePayload.rejection_reason = body.status === "rejected" ? (body.rejection_reason || null) : null;
+    // Also update screening_risk_score to reflect manual decision (keep existing or set 0 for approve, 100 for reject if not provided)
 
     const { data: updated, error } = await supabaseAdmin
       .from("businesses")
@@ -49,6 +53,25 @@ export async function PATCH(
         { error: "Business is not pending review (already decided or archived)." },
         { status: 409 }
       );
+    }
+    // Insert manual moderation event (service role, actor = admin id)
+    try {
+      const { createSupabaseServer } = await import("@/lib/supabase-server");
+      const supabase = await createSupabaseServer();
+      const { data: { user } } = await supabase.auth.getUser();
+      const actor = user?.id || null;
+      // Fetch current risk score for event
+      const { data: biz } = await supabaseAdmin.from("businesses").select("screening_risk_score").eq("id", id).maybeSingle();
+      const risk = (biz as any)?.screening_risk_score ?? (body.status === "active" ? 0 : 100);
+      await supabaseAdmin.from("business_moderation_events").insert({
+        business_id: id,
+        decision: body.status === "active" ? "manual_approved" : "manual_rejected",
+        risk_score: risk,
+        reasons: body.rejection_reason ? [body.rejection_reason] : [],
+        actor,
+      });
+    } catch (e) {
+      console.error("[admin/businesses/[id]] moderation event insert failed", e);
     }
     return NextResponse.json({ success: true });
   }
