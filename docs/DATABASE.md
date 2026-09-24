@@ -1,9 +1,9 @@
 # Aldriva — Database Architecture, Schema Reference & Migrations
 
 > **Status**: Verified Technical Reference  
-> **Canonical Migration Source**: `db/` (Migrations 1 to 136)  
+> **Canonical Migration Source**: `db/` (Migrations 1 to 137)  
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Verified**: 2026-09-24 — 670/670 tests, `npx tsc --noEmit --skipLibCheck` 0, build Pass. Migrations **130–131 (Business Mini Website)** + **132–135 (taxonomy/promotions/i18n)** + **136 (services + service_tiers + menu_sections + menu_items)** present in repository; **136 corrected live applied 2026-09-24** (valid insert + bad dietary/modifier 23514 verified; RLS/trigger not yet non-admin tested), 130–135 earlier.
+> **Last Verified**: 2026-09-24 — 684/684 tests, `npx tsc --noEmit --skipLibCheck` 0, build Pass. Migrations **130–131 (Business Mini Website)** + **132–135 (taxonomy/promotions/i18n)** + **136 (services/menus)** + **137 (business moderation guard + business_moderation_events, screening columns)** present in repository; **136 corrected live applied 2026-09-24** (23514 verified), **137 written 2026-09-24 not yet applied live (manual apply required)**.
 
 ---
 
