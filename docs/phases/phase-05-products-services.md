@@ -23,47 +23,44 @@ Expand the business catalog beyond digital marketplace goods to support physical
 - [x] Task 5.2: Implement server actions in `lib/actions/services.ts` and `lib/actions/menus.ts`. — **COMPLETE 2026-09-24**
 - [x] Task 5.3: Build tenant dashboard management views for services and menus. — **COMPLETE 2026-09-24** (`/services` + `/services/[serviceId]` + `/menu`)
 - [x] Task 5.4: Build public menu and service rendering components. — **COMPLETE 2026-09-24** (`services_embed`/`menu_embed` blocks + resolvers + BlockRenderer)
-- [x] Task 5.5: Add automated tests in `lib/__tests__/services-and-menus.test.cjs` and append to `package.json`. — **COMPLETE 2026-09-24** (21 checks, 672/672)
+- [x] Task 5.5: Add automated tests in `lib/__tests__/services-and-menus.test.cjs` and append to `package.json`. — **COMPLETE 2026-09-24** (26 checks, 676/676)
 
 ## 6. Acceptance Criteria
-- [x] Businesses can list structured services with duration and pricing. — via `services` table + dashboard `/services` CRUD (create/edit/delete/reorder/visibility) — **DONE**
-- [ ] Restaurants and cafes can publish digital QR-ready menus with sections and allergen badges — **PARTIAL**: DB + actions + public `menu_embed` done; dashboard `/menu` is read-only (no create/edit UI for sections/items), no Move Up/Down, QR is text note `/site/[slug]/menu` (page must be built by owner manually)
-- [x] All tests passing. — **672/672 (36 suites) hermetic; live DB constraints 23514 verified, RLS/trigger not yet non-admin tested**
+- [x] Businesses can list structured services with duration and pricing. — via `services` table + dashboard `/services` (ServicesManager with Move Up/Down + delete ConfirmDialog + visibility) — **DONE**
+- [x] Restaurants and cafes can publish digital QR-ready menus with sections and allergen badges — via `menu_sections`/`menu_items` (dietary/allergens/modifiers) + dashboard `/menu` (MenuManager with section/item create/edit/delete/move + ModifiersEditor) + public `menu_embed` block (allergen/dietary badges, featured) — **DONE** (QR is stable `/site/[slug]` page with Menu block, no QR generation)
+- [x] All tests passing. — **676/676 (36 suites) hermetic; live DB constraints 23514 verified, RLS/trigger not yet non-admin tested**
 
-## 6b. Known Issues (2026-09-24 live review)
-- `/menu` dashboard is read-only (actions `lib/actions/menus.ts` exist but no section/item create/edit UI).
-- Tier manager in `services/[serviceId]/page.tsx` is placeholder text line, no add/edit/reorder/delete UI, no Move Up/Down.
-- No Move Up/Down UI for services or menu ordering beyond backend `reorderServices`.
-- Prices in `app/dashboard/org/[id]/services/page.tsx` and `components/site/blocks/BlockRenderer.tsx` hardcoded `$` — TODO: multi-currency not in Phase 5.
-- `showInactive` removed from `services_embed`/`menu_embed` (was ignored); `resolveServicesEmbed`/`resolveMenuEmbed` now filter `is_active` only.
+## 6b. Known Issues (2026-09-24)
+- Prices in `app/dashboard/org/[id]/services/page.tsx` and `components/site/blocks/BlockRenderer.tsx` hardcoded `$` — `TODO: multi-currency not in Phase 5`.
+- `showInactive` removed from `services_embed`/`menu_embed` (was ignored by resolvers; prefer removal).
 - Live RLS and `check_menu_item_organizer_match` trigger (23503) not yet exercised as non-admin user.
+- QR generation out of scope; menu published via Menu block in website builder.
 
 ## 7. Current Status
-**PARTIAL — SCHEMA + ACTIONS + PUBLIC RENDERING DONE; ADMIN UI PARTIAL (2026-09-24)**
+**PARTIAL — SCHEMA + ACTIONS + PUBLIC + ADMIN UI DONE; LIVE VERIFICATION OPEN (2026-09-24)**
 
-Applied live 2026-09-24: corrected 136 (renamed enum constraints, `menu_modifiers_valid` function, removed UNIQUE position). Valid inserts and bad dietary/modifier 23514 verified live; RLS/trigger not yet non-admin tested.
+Applied live 2026-09-24: corrected 136 (renamed enum constraints, `menu_modifiers_valid` function, removed UNIQUE position). Valid inserts and bad dietary/modifier 23514 verified live; RLS/trigger not yet non-admin tested. Admin UI now complete (sections/items/tiers with Move Up/Down + ConfirmDialog, role-aware).
 
 > **Note:** Original doc referenced `migration_126`; latest canonical is **136** (126 was `website_delete_rls_fix`, shipped 2026-09-17). No `service_categories` created (intentionally omitted per DEC-0018/0024). Prices are local `NUMERIC(12,2)` for Phase 5, not Stripe. `menu_items.organizer_id` denormalized with DB trigger enforcing `= menu_sections.organizer_id`.
 
 ## 8. Completed Work
 - Digital products and shop catalog verified complete in Phase 0.
-- **2026-09-24 Phase 5**: `db/migration_136_services_and_menus.sql` 4 tables (services, service_tiers, menu_sections, menu_items) with RLS (is_active public + is_entity_member tenant, editors INSERT/UPDATE, managers DELETE), indexes, GIN, position/price/duration bounds, dietary 7/allergens 6/modifiers JSONB, trigger `check_menu_item_organizer_match`; `lib/actions/services.ts` + `lib/actions/menus.ts` with `requireTenantContext`, `createSlug` retry, `sanitizeUrl`, bounded validation; dashboard `app/dashboard/org/[id]/services/*` + `menu/page.tsx` (ServiceForm MediaUploadField services, Move Up/Down, is_active Switch) + nav Services/Menu; website `services_embed`/`menu_embed` (limit 1..12, selected IDs UUID) + resolvers + `ServiceCard`/`MenuGrid` renderers; tests `services-and-menus.test.cjs` §1–§5.
+- **2026-09-24 Phase 5**: `db/migration_136_services_and_menus.sql` 4 tables (services, service_tiers, menu_sections, menu_items) with RLS (is_active public + is_entity_member tenant, editors INSERT/UPDATE, managers DELETE), indexes, GIN, position/price/duration bounds, dietary 7/allergens 6/modifiers JSONB, trigger `check_menu_item_organizer_match`; `lib/actions/services.ts` + `lib/actions/menus.ts` with `requireTenantContext`, `createSlug` race-safe, `sanitizeUrl`, bounded validation, `reorderMenuSections`/`reorderMenuItems`/`reorderServiceTiers` (ownership BEFORE write, duplicate/length guards, bail on failure); dashboard `app/dashboard/org/[id]/services/*` (ServicesManager with Move Up/Down + ConfirmDialog delete) + `services/[serviceId]/page.tsx` (TierManager with create/edit/delete/move, zero tiers valid) + `menu/page.tsx` (MenuManager with section create/edit/delete/move + item create/edit/delete/move + ModifiersEditor max 12 + dietary/allergen checkboxes + MediaUploadField menu) + nav Services/Menu; role-aware UI via `checkTenantAccess` (viewers/finance read-only, editors no delete, owner/admin/manager full); website `services_embed`/`menu_embed` + `ServicesEmbedBlockRenderer`/`MenuEmbedBlockRenderer` inline; tests `services-and-menus.test.cjs` §1–§5 + reorder/admin UI.
 
 ## 9. Remaining Work
-- Menu dashboard: `menu_sections`/`menu_items` create/edit UI (currently read-only list), section/item Move Up/Down, visibility toggles beyond backend.
-- Service tiers: full add/edit/reorder/delete UI (currently placeholder text in `services/[serviceId]/page.tsx`), Move Up/Down.
-- Services `reorderServices` UI wiring (backend ready, no button).
-- QR-ready: make `/site/[slug]/menu` an official public route or document that owner must add `menu_embed` to a website page.
-- Multi-currency: replace hardcoded `$` with locale/currency prop (TODO).
-- Live verification: exercise RLS as viewer/editor and trigger mismatch 23503 as non-admin user.
+- Live verification: exercise RLS as viewer/editor and `check_menu_item_organizer_match` 23503 as non-admin user (not done).
+- Multi-currency: hardcoded `$` in dashboard `services/page.tsx` and `BlockRenderer` remains `TODO: multi-currency not in Phase 5`.
+- QR generation: out of scope; menu is published via adding a Menu block in the website builder (`/site/[slug]` page), no QR subsystem.
 
 ## 10. Known Issues
-- None.
+- Live RLS and organizer-match trigger not yet exercised as non-admin user.
+- Prices hardcoded `$` (TODO).
+- QR generation out of scope.
 
-## 11. Verification Requirements (Actual Results 2026-09-24)
-- `npm test` → 672/672 (36 suites). ✅
+## 11. Verification Requirements (Actual Results 2026-09-24 post admin UI)
+- `npm test` → 676/676 (36 suites). ✅
 - `npx tsc --noEmit --skipLibCheck` → 0 errors. ✅
-- `npx eslint` (phase5 surface) → 0 errors. ✅
+- `npx eslint` (phase5 surface: `lib/actions/services.ts`, `lib/actions/menus.ts`, `components/dashboard/menu/*`, `components/dashboard/services/*`, `app/dashboard/org/[id]/services/*`, `app/dashboard/org/[id]/menu/*`) → 0 errors. ✅
 - `npm run build` → compiled successfully. ✅
 
 ## 12. Next Step
