@@ -19,7 +19,7 @@ Unify the checkout experience across physical products, digital deliverables, ev
 - Services catalog (Phase 5).
 
 ## 5. Tasks
-- [ ] Task 6.1: Author `db/migration_127_cart_and_discounts.sql` (and rollback twin) for promo codes and multi-item orders.
+- [ ] Task 6.1: Author `db/migration_138_cart_and_discounts.sql` (and rollback twin) for promo codes and multi-item orders. *(Note: migration 137 was allocated to Phase 5 hardening `business_moderation_guard_and_screening`, so Phase 6 shifts from 137 to 138.)*
 - [ ] Task 6.2: Build client cart state provider (`components/cart/CartProvider.tsx`).
 - [ ] Task 6.3: Implement multi-line checkout route `/api/checkout/cart`.
 - [ ] Task 6.4: Update Stripe webhook handler to fulfill multi-item line orders.
