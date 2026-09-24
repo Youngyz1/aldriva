@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 import { InspectorField } from "./InspectorField";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
 import { sanitizeUrl } from "@/lib/sanitize-html";
-import { Link as LinkIcon, Upload, X } from "lucide-react";
+import { Link as LinkIcon, Upload, X, Images } from "lucide-react";
+import { MyMediaPicker } from "@/components/dashboard/website/builder/media/MyMediaPicker";
 
 interface MediaUploadFieldProps {
   label: string;
@@ -30,8 +31,12 @@ export function MediaUploadField({
   onChange,
   requiredForPublish,
 }: MediaUploadFieldProps) {
-  const [mode, setMode] = useState<"upload" | "url">("upload");
+  const [mode, setMode] = useState<"upload" | "myMedia" | "url">("upload");
   const [manualUrl, setManualUrl] = useState(value || "");
+
+  useEffect(() => {
+    setManualUrl(value || "");
+  }, [value]);
 
   const urlError = manualUrl && !sanitizeUrl(manualUrl)
     ? "Invalid or disallowed URL scheme. Must be http, https, or relative URL."
@@ -66,9 +71,9 @@ export function MediaUploadField({
       error={urlError}
     >
       <div className="space-y-2">
-        {/* Toggle Mode */}
+        {/* Toggle Mode — Upload | My Media | Direct URL */}
         <div className="flex items-center justify-between">
-          <div className="flex rounded-lg bg-zinc-100 dark:bg-zinc-800 p-0.5 text-xs">
+          <div className="flex rounded-lg bg-zinc-100 dark:bg-zinc-800 p-0.5 text-xs gap-0.5">
             <button
               type="button"
               onClick={() => setMode("upload")}
@@ -80,6 +85,18 @@ export function MediaUploadField({
             >
               <Upload className="w-3 h-3" />
               Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("myMedia")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors ${
+                mode === "myMedia"
+                  ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
+              }`}
+            >
+              <Images className="w-3 h-3" />
+              My Media
             </button>
             <button
               type="button"
@@ -121,6 +138,17 @@ export function MediaUploadField({
                 onChange(uploadedUrl);
               }}
               previewClassName="w-full h-36 rounded-lg object-cover"
+            />
+          </div>
+        ) : mode === "myMedia" ? (
+          <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 bg-white dark:bg-zinc-900">
+            <MyMediaPicker
+              tenantId={tenantId}
+              selectedUrl={value || manualUrl || null}
+              onSelect={(publicUrl) => {
+                setManualUrl(publicUrl);
+                onChange(publicUrl);
+              }}
             />
           </div>
         ) : (
