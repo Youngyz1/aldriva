@@ -117,30 +117,10 @@ export async function createService(organizerId: string, input: { title: string;
   if (posErr) return { success: false, error: posErr };
 
   const admin = createSupabaseAdmin();
-  let slug = createSlug(input.title);
-  if (!SLUG_REGEX.test(slug)) slug = "service";
-  slug = slug.slice(0, SLUG_MAX);
-  // bounded collision retry (9 attempts, then random suffix fallback)
-  let candidate = slug;
-  let counter = 1;
-  let found = false;
-  while (counter < 10) {
-    const { data: existing } = await admin.from("services").select("id").eq("organizer_id", organizerId).eq("slug", candidate).maybeSingle();
-    if (!existing) { found = true; break; }
-    candidate = `${slug}-${counter}`;
-    counter++;
-  }
-  if (!found) {
-    // attempts exhausted — fall back to random suffix to avoid hard failure
-    candidate = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
-    candidate = candidate.slice(0, SLUG_MAX);
-    if (!SLUG_REGEX.test(candidate)) return { success: false, error: "Slug collision: please try a different title" };
-    const { data: existing } = await admin.from("services").select("id").eq("organizer_id", organizerId).eq("slug", candidate).maybeSingle();
-    if (existing) return { success: false, error: "Slug collision: please try a different title" };
-  }
-  slug = candidate;
-  if (slug.length > SLUG_MAX) slug = slug.slice(0, SLUG_MAX);
-  if (!SLUG_REGEX.test(slug)) return { success: false, error: "Invalid slug" };
+  let base = createSlug(input.title);
+  if (!SLUG_REGEX.test(base)) base = "service";
+  base = base.slice(0, SLUG_MAX - 6).replace(/-+$/, "");
+  if (!base) base = "service";
 
   const sanitizedImage = input.image_url ? sanitizeUrl(input.image_url) || null : null;
 
@@ -152,22 +132,45 @@ export async function createService(organizerId: string, input: { title: string;
     position = Math.min(maxPos + 1, POSITION_MAX);
   }
 
-  const { data, error } = await admin.from("services").insert({
-    organizer_id: organizerId,
-    title: input.title.trim(),
-    slug,
-    description: input.description?.trim() || null,
-    duration_minutes: input.duration_minutes ?? null,
-    price: Number(input.price),
-    image_url: sanitizedImage,
-    position: Number(position),
-    is_active: input.is_active ?? true,
-  }).select("*").single();
+  let data: any = null;
+  let lastError: any = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    let candidate: string;
+    if (attempt === 0) candidate = base;
+    else if (attempt < 9) candidate = `${base}-${attempt + 1}`;
+    else {
+      const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 4);
+      candidate = `${base}-${suffix}`;
+    }
+    // candidate already <= SLUG_MAX and matches SLUG_REGEX by construction
+    const { data: inserted, error } = await admin.from("services").insert({
+      organizer_id: organizerId,
+      title: input.title.trim(),
+      slug: candidate,
+      description: input.description?.trim() || null,
+      duration_minutes: input.duration_minutes ?? null,
+      price: Number(input.price),
+      image_url: sanitizedImage,
+      position: Number(position),
+      is_active: input.is_active ?? true,
+    }).select("*").single();
 
-  if (error) {
-    // Only slug conflict is 23505 on UNIQUE(organizer_id, slug) now that position is not unique
-    if (error.code === "23505") return { success: false, error: "Service slug already exists" };
+    if (!error && inserted) {
+      data = inserted;
+      lastError = null;
+      break;
+    }
+    if (error && (error as any).code === "23505") {
+      lastError = error;
+      continue;
+    }
     return { success: false, error: "Failed to create service" };
+  }
+  if (!data) {
+    if (lastError && (lastError as any).code === "23505") {
+      return { success: false, error: "Slug collision: please try a different title" };
+    }
+    return { success: false, error: "Slug collision: please try a different title" };
   }
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true, data };
@@ -305,11 +308,10 @@ export async function updateServiceTier(tierId: string, serviceId: string, organ
     return { success: false, error: "Forbidden: insufficient entity permissions" };
   }
   const admin = createSupabaseAdmin();
-  // verify tier belongs to service and service belongs to organizer
-  const { data: tier } = await admin.from("service_tiers").select("id, service_id").eq("id", tierId).eq("service_id", serviceId).maybeSingle();
-  if (!tier) return { success: false, error: "Tier not found" };
   const { data: service } = await admin.from("services").select("id").eq("id", serviceId).eq("organizer_id", organizerId).maybeSingle();
   if (!service) return { success: false, error: "Service not found or not owned by tenant" };
+  const { data: tier } = await admin.from("service_tiers").select("id, service_id").eq("id", tierId).eq("service_id", serviceId).maybeSingle();
+  if (!tier) return { success: false, error: "Tier not found" };
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.name !== undefined) {
