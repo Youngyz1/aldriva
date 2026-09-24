@@ -40,7 +40,10 @@ Create a modular, accessible, and responsive block component catalog for busines
 - [x] All tests passing (339/339).
 
 ## 7. Current Status
-**COMPLETE** — Verified September 2026. 339/339 tests passing, 0 TypeScript errors, 0 ESLint warnings.
+**COMPLETE — Extended Stages Landed** — Verified 2026-09-24. Original 339/339 plus extended Stages A–K/I: 650/650 (36 suites), 0 TypeScript errors, 0 ESLint warnings, build Pass.
+
+> **Original scope (Tasks 3.1–3.4)**: COMPLETE Sep 2026 (339 tests).  
+> **Extended Business Mini Website stages (A–K/I, landed 2026-09-24)**: Template registry (A), Section Envelope + stable IDs (B), Category mapping (C, migration 130), Atomic instantiation + hydration (E, migration 131), Element editing (G), Section/Container controls (G2/H1), Stable reordering (J), Template Library preview (K), My Media (I). All verified 650/650, no new packages, no Connected Media.
 
 ## 8. Completed Work
 
@@ -82,8 +85,9 @@ Create a modular, accessible, and responsive block component catalog for busines
 
 ## 11. Verification Requirements (Actual Results)
 - `npx eslint components/site/blocks/BlockRenderer.tsx lib/website-blocks.ts lib/website-embeds.ts app/site/[slug]/[[...page]]/page.tsx` → exit 0, 0 errors, 0 warnings. ✅
-- `npx tsc --noEmit` → exit 0, 0 type errors. ✅
-- `npm test` → **339/339 tests pass, 0 failures** (20 suites). ✅
+- `npx tsc --noEmit --skipLibCheck` → exit 0, 0 type errors. ✅
+- `npm test` → **650/650 tests pass, 0 failures** (36 suites). ✅
+- `npm run build` → compiled successfully (Turbopack). ✅
 
 ## 12. Next Step
-Phase 4: Visual Website Editor Canvas — drag-and-drop block placement UI using the `lib/website-blocks.ts` schema.
+Phase 4: Visual Website Editor Canvas — drag-and-drop block placement UI using the `lib/website-blocks.ts` schema. Extended stages now landed; next is Phase 5 (migration 136, planned).

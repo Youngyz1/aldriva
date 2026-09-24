@@ -35,7 +35,10 @@ Build an intuitive, real-time visual page builder inside the tenant dashboard al
 - [x] Shared tenant authorization helper `checkTenantAccess()` enforces consistent RBAC across all builder entrypoints.
 
 ## 7. Current Status
-**COMPLETE & VERIFIED** (Tasks 4.1, 4.2, 4.3 & 4.4 all passing)
+**COMPLETE & VERIFIED — Extended Stages Landed** (Tasks 4.1–4.4 original + Stages G–K/I landed 2026-09-24)
+
+> **Original scope (4.1–4.4)**: COMPLETE Sep 2026 (411 tests).  
+> **Extended Business Mini Website stages (landed 2026-09-24)**: Element editing (G), Section/Container controls (G2/H1), Stable reordering (J), Template Library preview (K), My Media (I), Atomic instantiation integration (E via NewWebsiteClient). All verified 650/650 (36 suites), no drag library, no Connected Media.
 
 ## 8. Completed Work
 - `lib/actions/website-builder.ts`:
@@ -70,19 +73,26 @@ Build an intuitive, real-time visual page builder inside the tenant dashboard al
   - `lib/dashboard/__tests__/website-builder-inspectors.test.cjs`
   - `lib/dashboard/__tests__/website-builder-canvas.test.cjs`
   - `lib/security/__tests__/website-builder-integration.test.cjs`
-  - Total test suite: 411/411 passing (21 suites, 0 failures).
+  - `lib/__tests__/website-builder-g.test.cjs`
+  - `lib/__tests__/website-builder-g2.test.cjs`
+  - `lib/__tests__/website-builder-h1j.test.cjs`
+  - `lib/__tests__/website-builder-hj.test.cjs`
+  - `lib/__tests__/website-template-library.test.cjs`
+  - `lib/__tests__/website-atomic-instantiation.test.cjs`
+  - `lib/__tests__/my-media.test.cjs`
+  - Total test suite: **650/650 passing (36 suites, 0 failures)** (verified 2026-09-24, includes extended stages).
 
 ## 9. Remaining Work
-- None (Phase 4 complete). Ready for Phase 5.
+- None (Phase 4 base + extended stages complete). Ready for Phase 5.
 
 ## 10. Known Issues
 - None.
 
-## 11. Verification Requirements
-- `npm test` passes 100%.
-- `npx tsc --noEmit` passes with 0 errors.
-- `npx eslint` passes with 0 errors.
-- `npm run build` succeeds (exit 0).
+## 11. Verification Requirements (Actual Results 2026-09-24)
+- `npm test` → 650/650 passing (36 suites). ✅
+- `npx tsc --noEmit --skipLibCheck` → 0 errors. ✅
+- `npx eslint lib/website-blocks.ts lib/website-*/ components/dashboard/website/* components/site/blocks/*` → 0 errors. ✅
+- `npm run build` → compiled successfully (Turbopack, 110s). ✅
 
 ## 12. Next Step
-Execute after Phase 3 completion.
+Phase 5 — Products, Services & Menus (migration 136, planned). Do NOT start until docs sync complete.

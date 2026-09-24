@@ -120,8 +120,78 @@
   - This creates a single source of truth for URL allowlisting rules: dangerous schemes (`javascript:`, `data:`, `vbscript:`), protocol-relative URLs (`//...`), and length bounds are enforced once and inherited at both layers.
   - Any future change to `sanitizeUrl()` logic (e.g., adding a new dangerous scheme) automatically applies to both validation and rendering without requiring a parallel update.
 
+### DEC-0016: Code-Owned Immutable Template Registry (Phase 3 — Stages A–C)
+- **Decision Date**: 2026-09-21
+- **Status**: Shipped & Active (`lib/website-template-registry.ts`, `lib/website-category.ts`, `lib/website-templates.ts` shim)
+- **Key Tenets**:
+  - Canonical website templates are code-owned, immutable, and versioned (`id@version`, e.g. `restaurant-delight@1.0.0`). No `website_templates` DB mirror is created at this stage (deferred to marketplace/analytics when needed).
+  - Template schema is complete-website shaped (`metadata + theme/header/footer + pages[] + navigation`), not `defaultBlocks: Block[]` alone. Multi-page support is part of the schema from day one.
+  - Legacy `business-starter`, `restaurant-delight`, etc. are preserved via compatibility shim in `lib/website-templates.ts` (maps `TEMPLATE_REGISTRY` home page blocks to `WEBSITE_TEMPLATES.defaultBlocks`), so existing creation flows continue to work.
+  - Version bump creates a new `id@version` entry; existing `id@version` rows are never mutated after a website has been created from them (immutability guarantee).
+
+### DEC-0017: Stable Block & Item IDs + Section Envelope (Phase 3 — Stage B)
+- **Decision Date**: 2026-09-21
+- **Status**: Shipped & Active (`lib/website-blocks.ts`, `components/dashboard/website/builder/defaultBlocks.ts`, `components/dashboard/website/builder/builderReducer.ts`, `lib/actions/website-builder.ts`)
+- **Key Tenets**:
+  - Every block/section carries a stable `id: UUID` (`BaseBlock` extends `Partial<SectionEnvelope>`). Repeatable items (`features.items`, `gallery.images`, `testimonials.items`, `faq.items`, `about.highlights`) also carry stable `id: UUID`.
+  - `normalizeBlock` / `normalizeBlocks` idempotently backfill missing ids for legacy JSONB data without altering semantic content; `cloneBlockWithNewIds` assigns fresh ids on duplication (builder `DUPLICATE_BLOCK`).
+  - Strategy is application-level normalization, not a mandatory data migration. `validateBlock` preserves `id` and envelope (`visible`, `spacing`, `background`, `hiddenOnMobile`) when present and valid; `parseBlock` fallback also preserves envelope.
+  - Builder reducer normalizes on `SET_BLOCKS`/`ADD_BLOCK` and on `getPageBuilderData`/`savePageDraft` so draft and publish paths both operate on id-stable data. No `type-index` identity remains for history/reorder/AI operations.
+
+### DEC-0018: Business Category vs Website Template Family (Phase 3 — Stage C)
+- **Decision Date**: 2026-09-21
+- **Status**: Shipped & Active (`lib/website-category.ts`, `db/migration_130_website_category_and_metadata.sql`, `lib/actions/website.ts`, `app/dashboard/org/[id]/website/new/NewWebsiteClient.tsx`)
+- **Key Tenets**:
+  - Business category (what the org is, authoritative `organizers.org_type` plus optional `businesses.category`) and website template family (how the site is presented) are distinct. Business category may map to multiple template families.
+  - No duplicate taxonomy is created. `mapOrgTypeToWebsiteCategory` and `refineWebsiteCategoryFromBusinessCategory` derive `WebsiteCategory` from existing fields (`organizers.org_type` CHECK: `nonprofit|business|restaurant|...`). Compatibility is centralized in `lib/website-category.ts` (`isTemplateCompatibleWithCategory`, `getCompatibleTemplates`).
+  - `tenant_websites.metadata JSONB` (migration 130) stores `websiteCategory` (and future `templateId/templateVersion`) without adding a dedicated column per concern. No RLS change; GIN index on `metadata`. Existing rows default to `'{}'`.
+
 ---
 
+
+### DEC-0019: Atomic Website Creation with CreationRequestId Idempotency (Phase 3 Stage E)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`db/migration_131_website_atomic_creation.sql`, `lib/actions/website-instantiation.ts`, `lib/website-hydration.ts`)
+- **Key Tenets**:
+  - Website + pages + drafts + navigation are created in a **single transaction** (`BEGIN; … COMMIT;` + `EXCEPTION WHEN OTHERS THEN RAISE;`). No partial state on failure.
+  - Concurrency race boundary is `INSERT … ON CONFLICT (tenant_id) DO NOTHING` + `RETURNING id INTO v_inserted_website_id`; concurrent retries do not rely on `SELECT-before-INSERT`.
+  - Idempotency is `metadata->>'creationRequestId'` (`crypto.randomUUID()` per `NewWebsiteClient` request) compared after conflict (`v_existing.metadata->>'creationRequestId' = v_request_id` → `idempotent:true`; otherwise `23505`).
+  - RPC is `SECURITY DEFINER` with pinned `search_path=public,pg_temp`, `REVOKE ALL FROM PUBLIC, anon, authenticated`, `GRANT TO service_role` only. Application authorizes via `getCurrentUser` + `requireTenantContext` (owner/admin/manager) before `supabaseAdmin.rpc`.
+  - Hydration is **whitelisted** (`ALLOW_HYDRATION_FIELDS` 6 fields, `TOKEN_MAP` `{{organizer.name}}` etc.) and executed **before** RPC (`cloneBlockWithNewIds` → `normalizeBlocks` → `hydrateBlocks` → `validateBlocks`). No external fetch/file upload inside transaction. No `tax_id`/sensitive column leakage.
+
+### DEC-0020: Controlled Element Editing with Prototype-Pollution Guard (Stage G)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`lib/website-block-edit-schema.ts`, `components/dashboard/website/builder/builderReducer.ts`, `components/dashboard/website/builder/canvas/CanvasBlockPreview.tsx`)
+- **Key Tenets**:
+  - Only explicitly whitelisted paths (`isEditablePath` per block type) can be mutated via `UPDATE_ELEMENT`; arbitrary paths return original block and do not mark `isDirty` or push history.
+  - `__proto__`, `prototype`, `constructor` and `heading.__proto__` style paths are rejected; `setElementValue` returns original block and preserves `({}).polluted === undefined`.
+  - Block structure remains valid after edit (`validateBlock` still passes). Editor overlays (`data-element-path`, `ring-brand-600`) live only in `CanvasBlockPreview`, never in public `BlockRenderer`.
+
+### DEC-0021: Section Envelope Container & Outer/Inner Rendering Parity (Stages G2/H1)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`lib/section-helpers.ts`, `lib/website-blocks.ts`, `components/dashboard/website/builder/inspectors/SectionInspector.tsx`, `components/site/blocks/BlockRenderer.tsx`)
+- **Key Tenets**:
+  - `SectionEnvelope` carries `visible`, `spacing`, `background`, `hiddenOnMobile`, `container` (`constrained|wide|narrow|full` default `constrained` for backward compat). `extractSectionEnvelope` allows only 4 container values; invalid rejected.
+  - Helpers: `getSpacingClass` (`compact→py-6`, `default→py-12`, `roomy→py-16`), `getContainerClass` (`constrained→max-w-6xl`, `narrow→max-w-3xl`, `wide→max-w-7xl`, `full→w-full`), `getHiddenOnMobileClass` (`hidden sm:block`), `getBackgroundStyle` with `sanitizeUrl` on `background.image` (`javascript:`/`data:text/html` stripped, background cleared).
+  - Public `BlockRenderer` `SectionEnvelopeWrapper` renders **outer** `background/style` + `outerClass` vs **inner** `containerClass` wrapping children; builder `CanvasBlockWrapper` mirrors same helpers and shows `Container:` visual so WYSIWYG parity is maintained. No second competing section model.
+
+### DEC-0022: Stable Block Reordering Without Drag Library (Stage J)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`components/dashboard/website/builder/builderReducer.ts`, `components/dashboard/website/builder/BlockPalette.tsx`, `components/dashboard/website/builder/canvas/CanvasBlockWrapper.tsx`)
+- **Key Tenets**:
+  - Reordering is `MOVE_BLOCK {fromIndex,toIndex}` via `splice(fromIndex,1)` + insert, history 1 entry, `isDirty:true`, selection reconciled by stable `blockId` (both block and element selections). Envelope/item IDs preserved, array order only, no duplication/deletion.
+  - `BlockPalette` structure tab and `CanvasBlockWrapper` expose `Move Up`/`Move Down` with `aria-label`, `ChevronUp/Down`, `disabled` at `0` / `totalBlocks-1`. No `dnd-kit`, `react-beautiful-dnd`, or `puck` dependency.
+  - Public `app/site/[slug]/[[...page]]/page.tsx` maps `blocks.map((block,idx)=>` in array order with no `sort`, preserving builder order. `normalizeBlocks`/`validateBlock` also preserve order.
+
+### DEC-0023: My Media — Tenant-Scoped Reusable Media Without Connected Media (Stage I)
+- **Decision Date**: 2026-09-24
+- **Status**: Shipped & Active (`lib/media/my-media.ts`, `components/dashboard/website/builder/media/MyMediaPicker.tsx`, `components/dashboard/website/builder/inspectors/common/MediaUploadField.tsx`)
+- **Key Tenets**:
+  - Media lives in **public** `cms-media` bucket (verified `migration_117` `public=true`, 5MB, jpeg/png/webp) under `<tenant_id>/<heroes|gallery|team|avatars|blocks>/` (preserved architecture, no new bucket, no `media_assets` table).
+  - `listTenantMedia` is tenant-scoped: `isValidTenantId` UUID regex + `isSafeTenantPath` (`fullPath.startsWith(tenantId+"/")` + no `..`/`//` + segment checks) + `supabase.storage.from(CMS_MEDIA_BUCKET).list(prefix,{limit:100,sortBy:updated_at desc})` + `getPublicUrl` + `sanitizeUrl` (unsafe URLs skipped). Static hermetic tests verify 650/650.
+  - `MyMediaPicker` shows `isSelected` ring + `Check`, `Use` calls `onSelect(safeUrl)` reusing same URL across blocks without new upload, `Delete` requires `ConfirmDialog` destructive + `deleteTenantMedia(tenantId,path)` with tenant-path check + list refresh.
+  - `MediaUploadField` 3 tabs `Upload | My Media | Direct URL` (`mode==="myMedia"`); Direct URL still `sanitizeUrl(manualUrl)` with `javascript:`/`data:` rejection. `MyMediaPicker` never calls `uploadImage`/`createSignedUrl`.
+  - **Connected Media** (Instagram/Facebook/YouTube) is explicitly **out-of-scope** and verified absent (`my-media.test.cjs` asserts no Instagram/Facebook in picker/field).
 
 ## 2. Proposed & Under Review Decisions
 
