@@ -5,6 +5,7 @@
 -- Prices are local NUMERIC(12,2) for this phase — Stripe remains for products only.
 -- Visibility is is_active BOOLEAN only (no draft/active/archived enum in Phase 5).
 -- Dietary tags / allergens are bounded enums (max 12), modifiers JSONB bounded (max 12).
+-- Note: position is NOT unique (ordering ties break on created_at) so creates and reorders never collide.
 
 BEGIN;
 
@@ -33,7 +34,6 @@ CREATE INDEX IF NOT EXISTS idx_services_organizer_id ON services(organizer_id);
 CREATE INDEX IF NOT EXISTS idx_services_organizer_active ON services(organizer_id, is_active) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_services_organizer_position ON services(organizer_id, position ASC);
 
--- updated_at trigger
 CREATE OR REPLACE FUNCTION update_services_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -59,8 +59,7 @@ CREATE TABLE IF NOT EXISTS service_tiers (
   position integer NOT NULL DEFAULT 0 CHECK (position >= 0 AND position <= 999),
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (service_id, position)
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE service_tiers IS 'Pricing tiers for a service (e.g. Basic/Standard/Premium). Zero tiers allowed — simple service with base price is valid. ON DELETE CASCADE when parent service is deleted.';
@@ -91,8 +90,7 @@ CREATE TABLE IF NOT EXISTS menu_sections (
   position integer NOT NULL DEFAULT 0 CHECK (position >= 0 AND position <= 999),
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (organizer_id, position)
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE menu_sections IS 'Menu sections/categories for restaurant/hospitality digital menus, ordered, tenant-scoped.';
@@ -115,6 +113,26 @@ CREATE TRIGGER trg_menu_sections_updated_at
 
 -- ── 4. menu_items ────────────────────────────────────────────────────────
 
+-- CHECK constraints cannot contain subqueries, so modifier validation lives in a function.
+CREATE OR REPLACE FUNCTION menu_modifiers_valid(m jsonb)
+RETURNS boolean
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN m IS NULL OR jsonb_typeof(m) <> 'array' THEN false
+    WHEN jsonb_array_length(m) > 12 THEN false
+    ELSE NOT EXISTS (
+      SELECT 1 FROM jsonb_array_elements(m) AS elem
+      WHERE CASE
+        WHEN jsonb_typeof(elem) <> 'object' THEN false
+        WHEN jsonb_typeof(elem->'name') IS DISTINCT FROM 'string' THEN false
+        WHEN char_length(elem->>'name') NOT BETWEEN 1 AND 80 THEN false
+        WHEN jsonb_typeof(elem->'price_delta') IS DISTINCT FROM 'number' THEN false
+        ELSE (elem->>'price_delta')::numeric BETWEEN -10000 AND 10000
+      END IS NOT TRUE
+    )
+  END
+$$;
+
 CREATE TABLE IF NOT EXISTS menu_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section_id uuid NOT NULL REFERENCES menu_sections(id) ON DELETE CASCADE,
@@ -123,40 +141,23 @@ CREATE TABLE IF NOT EXISTS menu_items (
   description text CHECK (description IS NULL OR char_length(description) <= 500),
   price numeric(12,2) NOT NULL CHECK (price >= 0 AND price <= 999999.99),
   image_url text CHECK (image_url IS NULL OR char_length(image_url) <= 2048),
-  dietary_tags text[] NOT NULL DEFAULT ARRAY[]::text[] CHECK (array_length(dietary_tags, 1) IS NULL OR array_length(dietary_tags, 1) <= 12),
-  allergens text[] NOT NULL DEFAULT ARRAY[]::text[] CHECK (array_length(allergens, 1) IS NULL OR array_length(allergens, 1) <= 12),
+  dietary_tags text[] NOT NULL DEFAULT ARRAY[]::text[]
+    CHECK (array_length(dietary_tags, 1) IS NULL OR array_length(dietary_tags, 1) <= 12),
+  allergens text[] NOT NULL DEFAULT ARRAY[]::text[]
+    CHECK (array_length(allergens, 1) IS NULL OR array_length(allergens, 1) <= 12),
   modifiers jsonb NOT NULL DEFAULT '[]'::jsonb,
   position integer NOT NULL DEFAULT 0 CHECK (position >= 0 AND position <= 999),
   is_active boolean NOT NULL DEFAULT true,
   is_featured boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (section_id, position),
-  CONSTRAINT menu_items_dietary_tags_check CHECK (
+  CONSTRAINT menu_items_dietary_tags_enum_check CHECK (
     dietary_tags <@ ARRAY['vegan','vegetarian','gluten_free','halal','kosher','dairy_free','nut_free']::text[]
   ),
-  CONSTRAINT menu_items_allergens_check CHECK (
+  CONSTRAINT menu_items_allergens_enum_check CHECK (
     allergens <@ ARRAY['nuts','dairy','gluten','soy','eggs','shellfish']::text[]
   ),
-  CONSTRAINT menu_items_modifiers_check CHECK (
-    jsonb_typeof(modifiers) = 'array' AND
-    (
-      SELECT COUNT(*) FROM jsonb_array_elements(modifiers)
-    ) <= 12 AND
-    (
-      SELECT bool_and(
-        jsonb_typeof(elem) = 'object' AND
-        elem ? 'name' AND
-        jsonb_typeof(elem->'name') = 'string' AND
-        char_length(elem->>'name') >= 1 AND
-        char_length(elem->>'name') <= 80 AND
-        elem ? 'price_delta' AND
-        jsonb_typeof(elem->'price_delta') = 'number' AND
-        (elem->>'price_delta')::numeric >= -10000 AND
-        (elem->>'price_delta')::numeric <= 10000
-      ) FROM jsonb_array_elements(modifiers) AS elem
-    )
-  )
+  CONSTRAINT menu_items_modifiers_check CHECK (menu_modifiers_valid(modifiers))
 );
 
 COMMENT ON TABLE menu_items IS 'Menu items (dishes) belonging to a menu_section. organizer_id is denormalized for simple RLS but enforced by trigger to match section.organizer_id.';
@@ -214,13 +215,12 @@ ALTER TABLE service_tiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 
--- services: public can view active
+-- services
 DROP POLICY IF EXISTS "Public can view active services" ON services;
 CREATE POLICY "Public can view active services"
   ON services FOR SELECT
   USING (is_active = true);
 
--- services: tenant members can view all (via is_entity_member)
 DROP POLICY IF EXISTS "Tenant members can view services" ON services;
 CREATE POLICY "Tenant members can view services"
   ON services FOR SELECT
@@ -234,7 +234,6 @@ CREATE POLICY "Tenant members can view services"
     )
   );
 
--- services: tenant editors can insert/update
 DROP POLICY IF EXISTS "Tenant editors can insert services" ON services;
 CREATE POLICY "Tenant editors can insert services"
   ON services FOR INSERT
@@ -270,7 +269,6 @@ CREATE POLICY "Tenant editors can update services"
     )
   );
 
--- services: only owner/admin/manager can delete
 DROP POLICY IF EXISTS "Tenant managers can delete services" ON services;
 CREATE POLICY "Tenant managers can delete services"
   ON services FOR DELETE
@@ -284,7 +282,7 @@ CREATE POLICY "Tenant managers can delete services"
     )
   );
 
--- service_tiers: public can view active tiers where parent service is active
+-- service_tiers (access derived from parent service)
 DROP POLICY IF EXISTS "Public can view active service tiers" ON service_tiers;
 CREATE POLICY "Public can view active service tiers"
   ON service_tiers FOR SELECT
@@ -388,7 +386,7 @@ CREATE POLICY "Tenant managers can delete service tiers"
     )
   );
 
--- menu_sections: public can view active
+-- menu_sections
 DROP POLICY IF EXISTS "Public can view active menu sections" ON menu_sections;
 CREATE POLICY "Public can view active menu sections"
   ON menu_sections FOR SELECT
@@ -455,7 +453,7 @@ CREATE POLICY "Tenant managers can delete menu sections"
     )
   );
 
--- menu_items: public can view active where section is active
+-- menu_items
 DROP POLICY IF EXISTS "Public can view active menu items" ON menu_items;
 CREATE POLICY "Public can view active menu items"
   ON menu_items FOR SELECT
