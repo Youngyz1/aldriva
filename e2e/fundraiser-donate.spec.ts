@@ -24,8 +24,31 @@ test.beforeAll(() => {
 test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   await page.goto(`/fundraisers/${slug}/donate`);
 
+  // Pre-flight (runbook Part A): prove Stripe TEST mode before touching
+  // payment. Stripe.js v9 (repo: @stripe/stripe-js ^9.8.0) talks to
+  // https://api.stripe.com/v1/* (elements/sessions at setup,
+  // payment_methods at confirm), always carrying the publishable key as the
+  // form-encoded `key` field (query param on GETs). Capture the first such
+  // request — Elements setup fires it during page load, well before submit.
+  // Timeout rejects loudly (no silent pass); a non-pk_test key fails the
+  // assertion before the Donate button is ever clicked, so confirmPayment
+  // (the only charge path) can never execute against live keys.
+  const stripeReqPromise = page.waitForRequest(
+    (req) => req.url().startsWith('https://api.stripe.com/v1/'),
+    { timeout: 20_000 } // generous: covers slow staging cold starts; setup fires in seconds
+  );
+
   // Amount picker (placeholder "0", minimum $1).
   await page.getByPlaceholder('0').fill('5');
+
+  const stripeReq = await stripeReqPromise;
+  const fromQuery = new URL(stripeReq.url()).searchParams.get('key');
+  const fromBody = new URLSearchParams(stripeReq.postData() ?? '').get('key');
+  const publishableKey = fromQuery ?? fromBody;
+  expect(
+    publishableKey,
+    'Stripe publishable key must be test mode (pk_test) — refusing to run against live keys'
+  ).toMatch(/^pk_test/);
 
   // Optional donor fields — fill to exercise the full form path.
   await page.getByPlaceholder(/your name/i).fill('QA Smoke');
