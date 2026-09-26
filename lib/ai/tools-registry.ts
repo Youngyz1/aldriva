@@ -103,6 +103,10 @@ import {
   getRecentWebhookFailuresDefinition,
   getRecentWebhookFailures,
 } from './tools/sentinel/sentinel-webhooks';
+import {
+  requestQaRunDefinition,
+  requestQaRun,
+} from './tools/qa/request-qa-run';
 
 /**
  * Tool scope tiers:
@@ -147,6 +151,7 @@ export const TENANT_AI_TOOL_DEFINITIONS = [
   getActiveIncidentsDefinition,
   getGuardRejectionsDefinition,
   getRecentWebhookFailuresDefinition,
+  requestQaRunDefinition,
 ];
 
 const TENANT_TOOL_NAMES = new Set(TENANT_AI_TOOL_DEFINITIONS.map((d) => d.name));
@@ -280,6 +285,8 @@ export async function executeTenantTool(
       return await getGuardRejections(ctx, parsedArgs as Parameters<typeof getGuardRejections>[1]);
     case 'get_recent_webhook_failures':
       return await getRecentWebhookFailures(ctx, parsedArgs as Parameters<typeof getRecentWebhookFailures>[1]);
+    case 'request_qa_run':
+      return await requestQaRun(ctx, parsedArgs as Parameters<typeof requestQaRun>[1]);
     default:
       throw new Error(`Unknown tenant AI tool requested: "${name}"`);
   }

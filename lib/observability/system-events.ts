@@ -14,7 +14,8 @@ export type SystemEventKind =
   | 'storage_error'
   | 'guard_rejection'
   | 'approval_block'
-  | 'agent_tool_error';
+  | 'agent_tool_error'
+  | 'qa_failure';
 
 export interface InsertEventInput {
   kind: SystemEventKind;
@@ -61,6 +62,13 @@ function deriveSeverity(params: { kind: SystemEventKind; errorCode?: string | nu
     return 's2';
   }
   if (kind === 'webhook_error') return 's1';
+  if (kind === 'qa_failure') {
+    // Stage 7: the ingest route precomputes escalation. error_code carries
+    // `qa_escalated:<suite>` (3rd+ consecutive failing day → s2) or
+    // `qa_first:<suite>` (s3). Staging failures never reach s1 by design.
+    if (errorCode && errorCode.startsWith('qa_escalated')) return 's2';
+    return 's3';
+  }
   return 's4';
 }
 
