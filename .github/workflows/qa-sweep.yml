@@ -1,0 +1,111 @@
+# .github/workflows/qa-sweep.yml — Stage 7 QA execution worker.
+#
+# WHAT THIS IS: the execution plane. A scheduled run polls the Aldriva
+# control plane for approved QA work (claiming at most one unit), runs the
+# standing smoke suite against STAGING, and ingests results back. It never
+# touches production: the target URL comes only from QA_STAGING_URL, and
+# payment steps use Stripe test cards (declined-by-construction on live keys).
+#
+# REQUIRED REPOSITORY SECRETS (human-provisioned, never in code):
+#   ALDRIVA_BASE_URL     Control-plane origin, e.g. https://app.example.com
+#   QA_INGEST_TOKEN      Layer-1 poll credential (claim + poll only)
+#   QA_STAGING_URL       Playwright baseURL, e.g. https://staging.example.com
+#   QA_TEST_EMAIL        Staging harness user login
+#   QA_TEST_PASSWORD     Staging harness user password
+#   QA_SEED_FUNDRAISER_SLUG  Seeded staging fundraiser for the donate spec
+#
+# STAGING PREREQUISITES (out-of-repo checklist, see design §6):
+#   separate Supabase project, pinned preview deploy, harness tenant +
+#   users, Stripe test mode. DO NOT point QA_STAGING_URL at production.
+
+name: qa-sweep
+
+on:
+  schedule:
+    # Nightly 03:17 UTC — off-hour minute dodges GitHub's documented
+    # top-of-hour scheduling load (slip/drop risk). Minimum granularity
+    # is 5 min; delays of 5–60 min under platform load are normal.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Suite to run (default: standing smoke)'
+        required: false
+        default: 'smoke'
+
+concurrency:
+  group: qa-sweep
+  cancel-in-progress: false # never overlap two workers on the same queue
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Poll and claim QA work
+        id: claim
+        env:
+          ALDRIVA_BASE_URL: ${{ secrets.ALDRIVA_BASE_URL }}
+          QA_INGEST_TOKEN: ${{ secrets.QA_INGEST_TOKEN }}
+        run: |
+          RESP=$(curl -sS -w '\n%{http_code}' --get "$ALDRIVA_BASE_URL/api/qa/poll" \
+            -H "Authorization: Bearer $QA_INGEST_TOKEN" \
+            --data-urlencode "worker_run_id=${{ github.run_id }}")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY=$(echo "$RESP" | head -n -1)
+          echo "poll http=$CODE"
+          if [ "$CODE" != "200" ]; then echo "$BODY"; exit 1; fi
+          echo "$BODY" > /tmp/qa_claim.json
+          CLAIMED=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/qa_claim.json','utf8')).claimed === true ? 'yes' : 'no')")
+          echo "claimed=$CLAIMED" >> "$GITHUB_OUTPUT"
+          if [ "$CLAIMED" = "yes" ]; then
+            node -e "
+              const c = JSON.parse(require('fs').readFileSync('/tmp/qa_claim.json','utf8'));
+              require('fs').appendFileSync(process.env.GITHUB_ENV, 'QA_RUN_ID=' + c.run.id + '\n');
+              require('fs').appendFileSync(process.env.GITHUB_ENV, 'QA_CLAIM_TOKEN=' + c.claimToken + '\n');
+            "
+          fi
+
+      - name: Run smoke suite (staging only)
+        if: steps.claim.outputs.claimed == 'yes'
+        env:
+          QA_STAGING_URL: ${{ secrets.QA_STAGING_URL }}
+          QA_TEST_EMAIL: ${{ secrets.QA_TEST_EMAIL }}
+          QA_TEST_PASSWORD: ${{ secrets.QA_TEST_PASSWORD }}
+          QA_SEED_FUNDRAISER_SLUG: ${{ secrets.QA_SEED_FUNDRAISER_SLUG }}
+        run: |
+          if [ -z "$QA_STAGING_URL" ]; then echo "QA_STAGING_URL is required — refusing to run without an explicit target"; exit 1; fi
+          npx playwright test --project=chromium 2>&1 | tee /tmp/qa_playwright.log; echo "pw_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Ingest results
+        if: always() && steps.claim.outputs.claimed == 'yes' && env.QA_RUN_ID != ''
+        env:
+          ALDRIVA_BASE_URL: ${{ secrets.ALDRIVA_BASE_URL }}
+        run: |
+          node scripts/qa-ingest.mjs
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-failure-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
