@@ -40,6 +40,11 @@ DECLARE
   candidate text;
   attempt int := 0;
 BEGIN
+  -- Guard: skip on clean/staging environments where this production user does not exist
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = 'b6413fac-8b28-4ec3-ac67-6dd521fac0e9') THEN
+    RETURN;
+  END IF;
+
   -- fundraiser 800e3fd5 -> "Isaiah Garza"
   LOOP
     candidate := CASE WHEN attempt = 0 THEN 'isaiah-garza' ELSE 'isaiah-garza-' || (attempt + 1) END;
@@ -68,6 +73,11 @@ DECLARE
   candidate text;
   attempt int := 0;
 BEGIN
+  -- Guard: skip on clean/staging environments where this production user does not exist
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = '21b8bbfc-95c6-4ea9-aa2e-51b3460a0865') THEN
+    RETURN;
+  END IF;
+
   -- event 90fb0c4f -> fresh organizer, named from the event title
   -- (no per-row source_organizer_name signal existed to use instead)
   LOOP

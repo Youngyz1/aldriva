@@ -15,6 +15,9 @@
 -- standard SQL unique constraints never conflict on NULL vs NULL, so rows
 -- with no payment_intent_id (imported/legacy comments) are unaffected.
 
+ALTER TABLE comments
+  ADD COLUMN IF NOT EXISTS payment_intent_id text;
+
 DROP INDEX IF EXISTS comments_payment_intent_id_key;
 
 CREATE UNIQUE INDEX IF NOT EXISTS comments_payment_intent_id_key

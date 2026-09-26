@@ -530,37 +530,6 @@ CREATE TABLE IF NOT EXISTS "public"."homepage_testimonials" (
 ALTER TABLE "public"."homepage_testimonials" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."homepage_promotions" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "entity_type" "text" NOT NULL,
-    "entity_slug" "text" NOT NULL,
-    "creative_url" "text" NOT NULL,
-    "media_type" "text" DEFAULT 'image'::"text" NOT NULL,
-    "cta_label" "text",
-    "position" integer DEFAULT 0 NOT NULL,
-    "priority" integer DEFAULT 0 NOT NULL,
-    "is_visible" boolean DEFAULT false NOT NULL,
-    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
-    "starts_at" timestamp with time zone,
-    "ends_at" timestamp with time zone,
-    "created_by" "uuid",
-    "approved_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "homepage_promotions_cta_label_check" CHECK ((("cta_label" IS NULL) OR (("char_length"(TRIM(BOTH FROM "cta_label")) >= 1) AND ("char_length"(TRIM(BOTH FROM "cta_label")) <= 80)))),
-    CONSTRAINT "homepage_promotions_creative_url_check" CHECK ((("char_length"("creative_url") >= 1) AND ("char_length"("creative_url") <= 2048))),
-    CONSTRAINT "homepage_promotions_entity_slug_check" CHECK ((("char_length"("entity_slug") >= 1) AND ("char_length"("entity_slug") <= 300))),
-    CONSTRAINT "homepage_promotions_entity_type_check" CHECK (("entity_type" = ANY (ARRAY['event'::"text", 'business'::"text", 'product'::"text", 'fundraiser'::"text", 'article'::"text", 'organizer'::"text"]))),
-    CONSTRAINT "homepage_promotions_media_type_check" CHECK (("media_type" = ANY (ARRAY['image'::"text", 'video'::"text"]))),
-    CONSTRAINT "homepage_promotions_position_check" CHECK (("position" >= 0)),
-    CONSTRAINT "homepage_promotions_priority_check" CHECK (("priority" >= 0)),
-    CONSTRAINT "homepage_promotions_schedule_check" CHECK ((("ends_at" IS NULL) OR ("starts_at" IS NULL) OR ("ends_at" > "starts_at"))),
-    CONSTRAINT "homepage_promotions_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'pending_review'::"text", 'active'::"text", 'expired'::"text", 'archived'::"text"])))
-);
-
-
-ALTER TABLE "public"."homepage_promotions" OWNER TO "postgres";
-
 
 CREATE TABLE IF NOT EXISTS "public"."organizer_follows" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
