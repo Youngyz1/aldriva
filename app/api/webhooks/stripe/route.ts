@@ -10,6 +10,7 @@ import { notifyProductPurchase } from "@/lib/product-notifications";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
 import { getSiteUrl } from "@/lib/site-url";
+import { insertSystemEvent } from "@/lib/observability/system-events";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -1119,6 +1120,16 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error("[webhook] Handler error:", err);
+    void insertSystemEvent({
+      kind: 'webhook_error',
+      severity_hint: 'error',
+      route: 'POST /api/webhooks/stripe',
+      status_code: 500,
+      error_code: event?.type ?? 'webhook_handler',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: { stripeEventId: (event as unknown as { id?: string })?.id, stripeType: event?.type },
+      source: 'aldriva',
+    });
   }
 
   return NextResponse.json({ received: true });

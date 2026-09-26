@@ -101,7 +101,8 @@ export function logInputRejection(
   reason: string,
   excerpt: string,
   sourceUrl?: string,
-  verdict: InputGuardVerdict = 'flagged'
+  verdict: InputGuardVerdict = 'flagged',
+  tenantId?: string | null
 ): void {
   const timestamp = new Date().toISOString();
   console.warn(
@@ -125,6 +126,7 @@ export function logInputRejection(
         excerpt: excerptWithUrl,
         content_type: 'external_url',
         verdict,
+        tenant_id: tenantId ?? null,
       })
       .then(({ error }) => {
         if (error) {

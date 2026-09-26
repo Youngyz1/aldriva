@@ -18,6 +18,8 @@ export interface AIToolCall {
     name: string;
     arguments: string; // JSON formatted parameters string
   };
+  /** Gemini thought_signature — encrypted reasoning continuity token. Required to replay for Gemini 3+ functionCall turns. */
+  thoughtSignature?: string;
 }
 
 export type AIToolScope = 'public_read' | 'tenant_scoped' | 'transactional' | 'admin';
@@ -48,6 +50,19 @@ export interface AIGenerateOptions {
   systemPrompt?: string;
   timeoutMs?: number;
   model?: string;
+  /**
+   * Gemini tool calling mode. When set to NONE on a final synthesis turn,
+   * forces a text-only response even if history contains prior functionCalls.
+   * Without this, a payload with no `tools` key is still ambiguous when the
+   * history already contains functionCall/functionResponse — Gemini may return
+   * more functionCalls instead of text (observed on sentinel sweep).
+   */
+  toolConfig?: {
+    functionCallingConfig?: {
+      mode?: 'AUTO' | 'ANY' | 'NONE';
+      allowedFunctionNames?: string[];
+    };
+  };
 }
 
 export interface AIGenerateResult {

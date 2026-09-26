@@ -95,6 +95,7 @@ export function logRejection(
     contentType?: string;
     sourceId?: string;
     verdict?: 'flagged' | 'rejected';
+    tenantId?: string | null;
   }
 ): void {
   const timestamp = new Date().toISOString();
@@ -120,6 +121,7 @@ export function logRejection(
         content_type: options?.contentType ?? null,
         source_id: options?.sourceId ?? null,
         verdict,
+        tenant_id: options?.tenantId ?? null,
       })
       .then(({ error }) => {
         if (error) {

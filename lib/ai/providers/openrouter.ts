@@ -104,11 +104,12 @@ export class OpenRouterProvider implements AIProvider {
     const messages = this.normalizeMessages(prompt, options?.systemPrompt);
     const timeoutMs = options?.timeoutMs || 15000;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       model,
       messages,
       temperature: options?.temperature ?? 0.7,
       ...(options?.maxTokens ? { max_tokens: options.maxTokens } : {}),
+      ...(options?.toolConfig?.functionCallingConfig?.mode === 'NONE' ? { tool_choice: 'none' as const } : {}),
     };
 
     const res = await this.fetchWithTimeout(

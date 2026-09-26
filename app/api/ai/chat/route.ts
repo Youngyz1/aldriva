@@ -17,6 +17,7 @@ import { guardBeforeDisplay } from '@/lib/ai/output-guard';
 import { executeAITool } from '@/lib/ai/tools-registry';
 import { PUBLIC_AI_TOOL_DEFINITIONS, ADMIN_AI_TOOL_DEFINITIONS } from '@/lib/ai/tools-registry';
 import { AIMessage } from '@/lib/ai/types';
+import { insertSystemEvent } from '@/lib/observability/system-events';
 
 export async function POST(req: NextRequest) {
   try {
@@ -92,7 +93,13 @@ export async function POST(req: NextRequest) {
       ]);
 
       if (toolCallResult.toolCalls && toolCallResult.toolCalls.length > 0) {
-        // Model requested tool calls — execute each tool
+        // Batch tool history so Gemini sees parallel calls as 1 model content.
+        // Per-call push (assistant+tool per iteration) broke parallel replay:
+        // it split one parallel model turn into N sequential steps, making
+        // Gemini demand a thought_signature on position 2's now-first-in-step
+        // functionCall — which legitimately has none (only first parallel has sig).
+        const batchCalls: typeof toolCallResult.toolCalls = [];
+        const batchToolMessages: AIMessage[] = [];
         for (const call of toolCallResult.toolCalls) {
           const toolName = call.function.name;
           const toolArgsStr = call.function.arguments;
@@ -104,15 +111,8 @@ export async function POST(req: NextRequest) {
               args: toolArgsStr,
               result: toolResultData,
             });
-
-            // Append assistant tool_call message and tool response message
-            messages.push({
-              role: 'assistant',
-              content: toolCallResult.text || '',
-              tool_calls: [call],
-            });
-
-            messages.push({
+            batchCalls.push(call);
+            batchToolMessages.push({
               role: 'tool',
               name: toolName,
               tool_call_id: call.id,
@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
           } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error(`[api/ai/chat] Tool ${toolName} execution error:`, errorMsg);
-            messages.push({
+            batchCalls.push(call);
+            batchToolMessages.push({
               role: 'tool',
               name: toolName,
               tool_call_id: call.id,
@@ -129,9 +130,22 @@ export async function POST(req: NextRequest) {
             });
           }
         }
+        // Flush as one model content with N functionCalls, then coalesced user
+        // content with N functionResponses (formatMessages merges consecutive tools).
+        messages.push({
+          role: 'assistant',
+          content: toolCallResult.text || '',
+          tool_calls: batchCalls,
+        });
+        for (const tm of batchToolMessages) messages.push(tm);
 
         // Step 2: Final turn after tool results are added to history
-        const secondTurn = await aiProvider.generateText(messages);
+        // Do NOT swallow thought_signature 400s — let outer catch emit
+        // system_events so the failure is visible instead of masked by empty.
+        // Force text-only: without toolConfig:NONE Gemini may return more
+        // functionCalls (observed in orchestrator sentinel sweep) even when
+        // payload has no tools, because history already contains tool turns.
+        const secondTurn = await aiProvider.generateText(messages, { toolConfig: { functionCallingConfig: { mode: 'NONE' } } });
         finalResponseText = secondTurn.text;
       } else {
         finalResponseText = toolCallResult.text || '';
@@ -155,6 +169,16 @@ export async function POST(req: NextRequest) {
       }
     } catch (guardErr: unknown) {
       const reason = guardErr instanceof Error ? guardErr.message : String(guardErr);
+      void insertSystemEvent({
+        kind: 'guard_rejection',
+        severity_hint: 'warn',
+        route: 'POST /api/ai/chat',
+        status_code: 422,
+        error_code: 'output_guard_rejected',
+        message: reason.slice(0, 2000),
+        metadata: { guardVerdict: 'rejected', toolCalls: executedToolCalls.length, provider: aiProvider.id },
+        source: 'aldriva',
+      });
       return NextResponse.json(
         {
           error: 'Content rejected by Output Guard',
@@ -178,6 +202,17 @@ export async function POST(req: NextRequest) {
     console.error("[api/ai/chat]", err);
     const raw = err instanceof Error ? err.message : String(err);
     const status = raw.includes('Unauthorized') || raw.includes('Forbidden') ? 403 : 500;
+    const isProviderError = /gemini|openrouter|provider|503|timeout/i.test(raw);
+    void insertSystemEvent({
+      kind: status === 403 ? 'approval_block' : 'api_error',
+      severity_hint: status === 403 ? 'warn' : 'error',
+      route: 'POST /api/ai/chat',
+      status_code: status,
+      error_code: isProviderError ? 'provider_error' : status === 403 ? 'auth_forbidden' : 'unhandled',
+      message: raw.slice(0, 2000),
+      metadata: { provider: 'unknown' },
+      source: 'aldriva',
+    });
     return NextResponse.json({ error: "AI service error. Please try again." }, { status });
   }
 }

@@ -87,6 +87,22 @@ import {
   createTenantNotification,
   notifyOwner,
 } from './tools/tenant/tenant-notifications';
+import {
+  getRecentEventsDefinition,
+  getRecentEvents,
+} from './tools/sentinel/sentinel-events';
+import {
+  getActiveIncidentsDefinition,
+  getActiveIncidents,
+} from './tools/sentinel/sentinel-incidents';
+import {
+  getGuardRejectionsDefinition,
+  getGuardRejections,
+} from './tools/sentinel/sentinel-guards';
+import {
+  getRecentWebhookFailuresDefinition,
+  getRecentWebhookFailures,
+} from './tools/sentinel/sentinel-webhooks';
 
 /**
  * Tool scope tiers:
@@ -127,6 +143,10 @@ export const TENANT_AI_TOOL_DEFINITIONS = [
   getPaymentStatusDefinition,
   createTenantNotificationDefinition,
   notifyOwnerDefinition,
+  getRecentEventsDefinition,
+  getActiveIncidentsDefinition,
+  getGuardRejectionsDefinition,
+  getRecentWebhookFailuresDefinition,
 ];
 
 const TENANT_TOOL_NAMES = new Set(TENANT_AI_TOOL_DEFINITIONS.map((d) => d.name));
@@ -252,6 +272,14 @@ export async function executeTenantTool(
       return await createTenantNotification(ctx, parsedArgs as unknown as Parameters<typeof createTenantNotification>[1]);
     case 'notifyOwner':
       return await notifyOwner(ctx, parsedArgs as unknown as Parameters<typeof notifyOwner>[1]);
+    case 'get_recent_events':
+      return await getRecentEvents(ctx, parsedArgs as Parameters<typeof getRecentEvents>[1]);
+    case 'get_active_incidents':
+      return await getActiveIncidents(ctx, parsedArgs as Parameters<typeof getActiveIncidents>[1]);
+    case 'get_guard_rejections':
+      return await getGuardRejections(ctx, parsedArgs as Parameters<typeof getGuardRejections>[1]);
+    case 'get_recent_webhook_failures':
+      return await getRecentWebhookFailures(ctx, parsedArgs as Parameters<typeof getRecentWebhookFailures>[1]);
     default:
       throw new Error(`Unknown tenant AI tool requested: "${name}"`);
   }

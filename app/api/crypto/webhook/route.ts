@@ -8,6 +8,7 @@ import { parseCryptoOrderId, getNowPaymentsConfig } from "@/lib/cryptoPayment";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { notifyProductPurchase } from "@/lib/product-notifications";
 import { getSiteUrl } from "@/lib/site-url";
+import { insertSystemEvent } from "@/lib/observability/system-events";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
@@ -363,6 +364,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
     console.error("crypto webhook route error:", err);
+    void insertSystemEvent({
+      kind: 'webhook_error',
+      severity_hint: 'error',
+      route: 'POST /api/crypto/webhook',
+      status_code: 500,
+      error_code: 'crypto_webhook',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: {},
+      source: 'aldriva',
+    });
     return NextResponse.json(
       { error: "Webhook processing failed." },
       { status: 500 }
