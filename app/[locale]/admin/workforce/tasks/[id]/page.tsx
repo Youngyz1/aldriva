@@ -101,8 +101,8 @@ export default async function WorkforceTaskDetailPage({ params }: { params: Prom
                 <div className="text-sm text-white">{r.summary.slice(0, 300)}</div>
                 <div className="text-sm text-zinc-500">
                   {r.report_type} · {new Date(r.created_at).toLocaleString()} ·{" "}
-                  <Link href="/admin/workforce/reports" className="hover:text-white">
-                    open Reports
+                  <Link href={`/admin/workforce/reports/${r.id}`} className="hover:text-white">
+                    open report
                   </Link>
                 </div>
               </li>
