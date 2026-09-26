@@ -17,6 +17,11 @@
  * Every list is bounded (LIMIT) and ordered newest-first.
  */
 
+// Live-presence derivation lives in ./agents (single source of truth —
+// Stage 2 resolution: stored `status` is the admin lifecycle, `busy`
+// derives from live run state; both are displayed, distinctly labeled).
+import { derivePresence } from './agents';
+
 /**
  * The caller supplies any PostgREST-style client (real Supabase server
  * client or hermetic fake). `from()` returns `any` deliberately: the real
@@ -222,7 +227,6 @@ export interface CommandCenterViewModel {
   };
 }
 
-const BUSY_RUN = new Set(['running', 'awaiting_approval']);
 const ACTIVE_TASK = new Set(['queued', 'running', 'awaiting_approval']);
 
 /**
@@ -234,7 +238,9 @@ export function buildCommandCenterViewModel(raw: CommandCenterRaw): CommandCente
   const agentNameById: Record<string, string> = {};
   for (const a of raw.agents) agentNameById[a.id] = a.display_name || a.name;
 
-  const busyAgentIds = new Set(raw.runs.filter((r) => BUSY_RUN.has(r.status)).map((r) => r.agent_id));
+  const busyAgentIds = new Set(
+    raw.runs.filter((r) => derivePresence([r.status]).busy).map((r) => r.agent_id)
+  );
   const lastRunByAgent: Record<string, string> = {};
   for (const r of raw.runs) {
     if (!lastRunByAgent[r.agent_id]) lastRunByAgent[r.agent_id] = r.created_at;
