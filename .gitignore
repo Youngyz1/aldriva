@@ -55,3 +55,8 @@ next-env.d.ts
 # Claude / Agent local caches
 .claude/
 .agents/skills/
+
+# Playwright worker artifacts (Stage 7 — never commit run outputs)
+playwright-report/
+test-results/
+qa-results.json
