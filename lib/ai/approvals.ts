@@ -7,6 +7,7 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
+import { redactArgs } from './tools/tenant/tool-context';
 
 export interface ApprovalRow {
   id: string;
@@ -90,6 +91,29 @@ export async function checkApprovalRequired(
 }
 
 /**
+ * Write-time evidence hygiene (Stage 6 follow-up to the Stage 4/5 flag).
+ * The orchestrator passes evidence.args as a raw JSON-arg slice (up to 500
+ * chars, unredacted). Persist the redacted structure instead, using the same
+ * redactArgs() key allowlist as the tool-invocation audit log. Unparseable
+ * input degrades to a length descriptor, never raw text. Existing rows are
+ * untouched (no backfill — historical rows predate this guarantee).
+ */
+export function sanitizeEvidenceArgs(
+  evidence: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...(evidence ?? {}) };
+  if (typeof out.args === 'string') {
+    const raw: string = out.args;
+    try {
+      out.args = redactArgs(JSON.parse(raw));
+    } catch {
+      out.args = `[unparseable args, ${raw.length} chars]`;
+    }
+  }
+  return out;
+}
+
+/**
  * Create a pending approval request (fail-safe audit). Does not grant execution.
  * Called by orchestrator when a tool is blocked by approval gate.
  */
@@ -113,7 +137,7 @@ export async function createApprovalRequest(params: {
         tenant_id: params.tenantId,
         action: params.action.slice(0, 200),
         reason: params.reason.slice(0, 2000),
-        evidence: params.evidence ?? {},
+        evidence: sanitizeEvidenceArgs(params.evidence),
         risk: params.risk,
         proposed_outcome: params.proposedOutcome ?? null,
         status: 'pending',
