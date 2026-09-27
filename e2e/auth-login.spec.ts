@@ -8,7 +8,7 @@
  * (app/[locale]/login/page.tsx): "Continue with Email" reveals the
  * email/password form submitted via the "Log In" button.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 const email = process.env.QA_TEST_EMAIL;
 const password = process.env.QA_TEST_PASSWORD;

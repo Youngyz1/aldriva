@@ -13,7 +13,7 @@
  * Stripe PaymentElement internals are version-sensitive — if Stripe
  * changes field naming, this spec fails loudly in shadow mode first.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 const slug = process.env.QA_SEED_FUNDRAISER_SLUG;
 
