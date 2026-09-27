@@ -29,12 +29,23 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   // load. It does NOT gate Stripe.js — getCookieConsent() has zero
   // call-sites outside its own module, and StripeProvider mounts purely on
   // clientSecret state (see below). Dismiss with Accept anyway so the bar
-  // can never obscure the Donate CTA on small viewports. Non-fatal: if a
-  // prior visit already set localStorage, the banner never appears.
-  await page
-    .locator('#cookie-accept')
-    .click({ timeout: 5_000 })
-    .catch(() => {});
+  // can never obscure the Donate CTA on small viewports.
+  //
+  // No silent swallowing: if the banner is present, the Accept click runs
+  // with a real timeout (fails loudly on failure) and the follow-up
+  // toBeHidden assertion proves dismissal actually happened — a wrong
+  // selector here fails the test at this line instead of hiding until a
+  // later step. The only quiet path is the banner never appearing at all
+  // (consent already stored), in which case there is nothing to dismiss.
+  const cookieBanner = page.getByRole('dialog', { name: 'Cookie preferences' });
+  const bannerShown = await cookieBanner
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (bannerShown) {
+    await page.locator('#cookie-accept').click({ timeout: 5_000 });
+    await expect(cookieBanner).toBeHidden({ timeout: 5_000 });
+  }
 
   // Amount picker (placeholder "0", minimum $1) + optional donor fields.
   // Fill BEFORE proceeding so the PaymentIntent is minted for the right total.
@@ -65,7 +76,12 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   );
 
   // Step 1 → Step 2: mint the PaymentIntent and mount Stripe Elements.
-  await page.getByRole('button', { name: /donate.*→/ }).click();
+  // NOTE: the `i` flag is load-bearing. Playwright matches a RegExp `name`
+  // case-sensitively, and the real button renders "Donate $X →" (capital D,
+  // DonatePage.tsx). Without `i` this locator matches zero buttons and the
+  // click waits until the test timeout kills it ("Test ended") — exactly the
+  // previous run's failure, which also took waitForRequest down as collateral.
+  await page.getByRole('button', { name: /donate.*→/i }).click();
 
   const stripeReq = await stripeReqPromise;
   const fromQuery = new URL(stripeReq.url()).searchParams.get('key');
