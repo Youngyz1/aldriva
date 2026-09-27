@@ -118,6 +118,31 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   // (which unmounts once clientSecret is set anyway).
   await page.locator('form').getByRole('button', { name: /donate/i }).click();
 
+  // Stripe Link interstitial ("Secure, fast checkout with Link" — visible
+  // in the account's payment element, see screenshot from this debugging
+  // round): Link is enabled at the ACCOUNT level in Stripe settings, not
+  // tied to a specific test card, so this is deterministic across every
+  // run against this account, not intermittent. It inserts a second
+  // confirmation screen ("Save my information for faster checkout" +
+  // its own "Donate $X" button) between the first submit and the actual
+  // confirmPayment call. Missing this step is exactly why the previous
+  // round hung at the "Thank you!" assertion — the first click only
+  // opened this interstitial, it never confirmed the payment.
+  //
+  // Detected explicitly, not swallowed: a short waitFor().catch(() => false)
+  // is fine here because Link legitimately may not show for every session,
+  // but once detected the click itself is NOT wrapped in a catch — if the
+  // interstitial's own Donate button ever moves or renames, this must fail
+  // loudly here rather than surface as a confusing timeout two lines down.
+  const linkInterstitial = page.getByText('Save my information for faster checkout');
+  const linkShown = await linkInterstitial
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (linkShown) {
+    await page.getByRole('button', { name: /donate \$/i }).click();
+  }
+
   // Receipt screen: "Thank you!" + "has been received."
   await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/has been received/)).toBeVisible();
