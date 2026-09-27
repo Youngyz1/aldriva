@@ -24,22 +24,48 @@ test.beforeAll(() => {
 test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   await page.goto(`/fundraisers/${slug}/donate`);
 
+  // Cookie banner (components/CookieConsent.tsx, rendered globally from
+  // app/[locale]/layout.tsx): fixed bottom bar, z-50, appears ~800ms after
+  // load. It does NOT gate Stripe.js — getCookieConsent() has zero
+  // call-sites outside its own module, and StripeProvider mounts purely on
+  // clientSecret state (see below). Dismiss with Accept anyway so the bar
+  // can never obscure the Donate CTA on small viewports. Non-fatal: if a
+  // prior visit already set localStorage, the banner never appears.
+  await page
+    .locator('#cookie-accept')
+    .click({ timeout: 5_000 })
+    .catch(() => {});
+
+  // Amount picker (placeholder "0", minimum $1) + optional donor fields.
+  // Fill BEFORE proceeding so the PaymentIntent is minted for the right total.
+  await page.getByPlaceholder('0').fill('5');
+  await page.getByPlaceholder(/your name/i).fill('QA Smoke');
+  await page.getByPlaceholder(/email/i).fill('qa-smoke@example.com');
+
+  // Two-step flow (app/[locale]/fundraisers/[slug]/donate/DonatePage.tsx):
+  // StripeProvider/Elements only mounts AFTER clientSecret is set, which
+  // only happens when the "Donate $X →" proceed button POSTs to
+  // /api/donate/intent. Waiting for api.stripe.com before that click can
+  // never succeed — that was the 20s TimeoutError (page rendered, amount
+  // pre-filled, but no Stripe iframe anywhere because Elements wasn't mounted).
+  // So: arm the listener FIRST (avoids the race), THEN click proceed.
+  //
   // Pre-flight (runbook Part A): prove Stripe TEST mode before touching
   // payment. Stripe.js v9 (repo: @stripe/stripe-js ^9.8.0) talks to
   // https://api.stripe.com/v1/* (elements/sessions at setup,
   // payment_methods at confirm), always carrying the publishable key as the
   // form-encoded `key` field (query param on GETs). Capture the first such
-  // request — Elements setup fires it during page load, well before submit.
-  // Timeout rejects loudly (no silent pass); a non-pk_test key fails the
-  // assertion before the Donate button is ever clicked, so confirmPayment
-  // (the only charge path) can never execute against live keys.
+  // request — Elements setup fires it when the provider mounts, right after
+  // proceed. Timeout rejects loudly (no silent pass); a non-pk_test key fails
+  // the assertion before the final submit, so confirmPayment (the only charge
+  // path) can never execute against live keys.
   const stripeReqPromise = page.waitForRequest(
     (req) => req.url().startsWith('https://api.stripe.com/v1/'),
     { timeout: 20_000 } // generous: covers slow staging cold starts; setup fires in seconds
   );
 
-  // Amount picker (placeholder "0", minimum $1).
-  await page.getByPlaceholder('0').fill('5');
+  // Step 1 → Step 2: mint the PaymentIntent and mount Stripe Elements.
+  await page.getByRole('button', { name: /donate.*→/ }).click();
 
   const stripeReq = await stripeReqPromise;
   const fromQuery = new URL(stripeReq.url()).searchParams.get('key');
@@ -50,18 +76,17 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     'Stripe publishable key must be test mode (pk_test) — refusing to run against live keys'
   ).toMatch(/^pk_test/);
 
-  // Optional donor fields — fill to exercise the full form path.
-  await page.getByPlaceholder(/your name/i).fill('QA Smoke');
-  await page.getByPlaceholder(/email/i).fill('qa-smoke@example.com');
-
   // Stripe PaymentElement lives in a same-origin-controlled iframe.
+  // It only exists after proceed (see above) — filling here proves Elements mounted.
   const cardFrame = page.frameLocator('iframe[name*="__privateStripeFrame"]').first();
   await cardFrame.getByPlaceholder(/card number/i).fill('4242424242424242');
   await cardFrame.getByPlaceholder(/MM \/ YY|expiration|expiry/i).fill('12/30');
   await cardFrame.getByPlaceholder(/CVC|security code/i).fill('123');
 
-  // Submit the donation (button label contains the total).
-  await page.getByRole('button', { name: /donate/i }).click();
+  // Submit the donation via the PaymentForm submit (submitLabel `Donate $X`).
+  // Scoped to the <form> so it can never hit the Step-1 proceed button
+  // (which unmounts once clientSecret is set anyway).
+  await page.locator('form').getByRole('button', { name: /donate/i }).click();
 
   // Receipt screen: "Thank you!" + "has been received."
   await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 30_000 });
