@@ -60,9 +60,16 @@ const failed = results.filter((r) => r.status === 'failed').length;
 const status = results.length === 0 || crashed > 0 ? 'failed' : failed > 0 ? 'failed' : 'passed';
 const error = status === 'failed' ? `Playwright reported ${failed} failed / ${results.length} total` : null;
 
+const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const headers = {
+  'content-type': 'application/json',
+  authorization: `Bearer ${token}`,
+  ...(bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {}),
+};
+
 const res = await fetch(`${base}/api/qa/ingest`, {
   method: 'POST',
-  headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+  headers,
   body: JSON.stringify({ runId, status, results, error }),
 });
 const text = await res.text();

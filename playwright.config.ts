@@ -14,6 +14,8 @@ if (!baseURL) {
   throw new Error('QA_STAGING_URL is required — refusing to run without an explicit target (never production).');
 }
 
+const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -24,6 +26,7 @@ export default defineConfig({
   reporter: [['list'], ['json', { outputFile: 'qa-results.json' }], ['html', { open: 'never' }]],
   use: {
     baseURL,
+    ...(bypassSecret ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': bypassSecret } } : {}),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off', // enable per-spec only if a failure needs motion evidence

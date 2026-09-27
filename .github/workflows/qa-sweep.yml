@@ -13,6 +13,7 @@
 #   QA_TEST_EMAIL        Staging harness user login
 #   QA_TEST_PASSWORD     Staging harness user password
 #   QA_SEED_FUNDRAISER_SLUG  Seeded staging fundraiser for the donate spec
+#   VERCEL_AUTOMATION_BYPASS_SECRET  Optional Vercel Deployment Protection bypass secret
 #
 # STAGING PREREQUISITES (out-of-repo checklist, see design §6):
 #   separate Supabase project, pinned preview deploy, harness tenant +
@@ -63,9 +64,15 @@ jobs:
         env:
           ALDRIVA_BASE_URL: ${{ secrets.ALDRIVA_BASE_URL }}
           QA_INGEST_TOKEN: ${{ secrets.QA_INGEST_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
+          BYPASS_HEADER=()
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            BYPASS_HEADER=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
           RESP=$(curl -sS -w '\n%{http_code}' --get "$ALDRIVA_BASE_URL/api/qa/poll" \
             -H "Authorization: Bearer $QA_INGEST_TOKEN" \
+            "${BYPASS_HEADER[@]}" \
             --data-urlencode "worker_run_id=${{ github.run_id }}")
           CODE=$(echo "$RESP" | tail -n1)
           BODY=$(echo "$RESP" | head -n -1)
@@ -89,6 +96,7 @@ jobs:
           QA_TEST_EMAIL: ${{ secrets.QA_TEST_EMAIL }}
           QA_TEST_PASSWORD: ${{ secrets.QA_TEST_PASSWORD }}
           QA_SEED_FUNDRAISER_SLUG: ${{ secrets.QA_SEED_FUNDRAISER_SLUG }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           if [ -z "$QA_STAGING_URL" ]; then echo "QA_STAGING_URL is required — refusing to run without an explicit target"; exit 1; fi
           npx playwright test --project=chromium 2>&1 | tee /tmp/qa_playwright.log; echo "pw_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
@@ -97,6 +105,7 @@ jobs:
         if: always() && steps.claim.outputs.claimed == 'yes' && env.QA_RUN_ID != ''
         env:
           ALDRIVA_BASE_URL: ${{ secrets.ALDRIVA_BASE_URL }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           node scripts/qa-ingest.mjs
 
