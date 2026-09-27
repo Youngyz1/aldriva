@@ -128,25 +128,6 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   // (which unmounts once clientSecret is set anyway).
   await page.locator('form').getByRole('button', { name: /donate/i }).click();
 
-  // TEMPORARY DIAGNOSTIC PROBE — revert after root cause found.
-  // The submit click succeeds at the Playwright level but no Stripe network
-  // traffic follows and no error surfaces. Reading the button label 2s after
-  // the click splits the remaining hypothesis space with one bit:
-  //   "Processing…"  => handleSubmit's guard passed; work started/hung downstream.
-  //   "Donate $X"    => guard tripped (or handler never engaged); probe the
-  //                     specific guard clause next (temporary log in handleSubmit).
-  // The /donate|processing/i name keeps matching in both states; the
-  // form-scoped textContent fallback covers a disabled/renamed button.
-  await page.waitForTimeout(2_000);
-  const postClickLabel = await page
-    .locator('form')
-    .getByRole('button', { name: /donate|processing/i })
-    .textContent()
-    .catch(() => null);
-  const postClickFallback =
-    postClickLabel ?? (await page.locator('form').innerText().catch(() => '(unreadable)'));
-  console.log('POST-CLICK BUTTON LABEL:', JSON.stringify(postClickFallback));
-
   // NOTE on Stripe Link: Link IS enabled at the account level (console:
   // "payment method types are not activated: link, ... displayed in test
   // mode"), but trace evidence shows its UI is INLINE in the Payment Element
