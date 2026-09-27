@@ -91,6 +91,7 @@ jobs:
 
       - name: Run smoke suite (staging only)
         if: steps.claim.outputs.claimed == 'yes'
+        id: smoke
         env:
           QA_STAGING_URL: ${{ secrets.QA_STAGING_URL }}
           QA_TEST_EMAIL: ${{ secrets.QA_TEST_EMAIL }}
@@ -99,7 +100,8 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           if [ -z "$QA_STAGING_URL" ]; then echo "QA_STAGING_URL is required — refusing to run without an explicit target"; exit 1; fi
-          npx playwright test --project=chromium 2>&1 | tee /tmp/qa_playwright.log; echo "pw_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          npx playwright test --project=chromium 2>&1 | tee /tmp/qa_playwright.log
+          exit ${PIPESTATUS[0]}
 
       - name: Ingest results
         if: always() && steps.claim.outputs.claimed == 'yes' && env.QA_RUN_ID != ''
