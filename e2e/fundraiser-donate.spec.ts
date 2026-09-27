@@ -101,18 +101,17 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   const stripeIframe = page.locator('iframe[name*="__privateStripeFrame"]').first();
   await stripeIframe.waitFor({ state: 'visible', timeout: 20_000 });
 
-  // NOTE: no "Credit or debit card" click belongs here. That selector
-  // defaults to card (DonatePage useState("card")) and unmounts once
-  // clientSecret is set — it does not gate the PaymentElement, which mounts
-  // unconditionally in Step 2. The previous hang was the placeholder below:
-  // Stripe's Payment Element labels the field "Card number" but its
-  // placeholder is "1234 1234 1234 1234", so /card number/i matched nothing
-  // and the fill hung until the test timeout. The /1234/ alternative covers
-  // Stripe's actual placeholder while staying loud if neither exists.
+  // Card fields by accessible label (role=textbox), NOT placeholder
+  // substring: the /1234/ placeholder alternative matched both the card
+  // number field ("1234 1234 1234 1234") and the ZIP field ("12345"),
+  // tripping strict mode. Per the failure's element dump the card input has
+  // aria-label="Card number" (id="payment-numberInput") — unique and stable.
+  // Expiry/CVC use their accessible names ("Expiration date",
+  // "Security code") for the same reason rather than placeholder text.
   const cardFrame = page.frameLocator('iframe[name*="__privateStripeFrame"]').first();
-  await cardFrame.getByPlaceholder(/card number|1234/i).fill('4242424242424242');
-  await cardFrame.getByPlaceholder(/MM \/ YY|expiration|expiry/i).fill('12/30');
-  await cardFrame.getByPlaceholder(/CVC|security code/i).fill('123');
+  await cardFrame.getByRole('textbox', { name: /card number/i }).fill('4242424242424242');
+  await cardFrame.getByRole('textbox', { name: /expiration/i }).fill('12/30');
+  await cardFrame.getByRole('textbox', { name: /security code/i }).fill('123');
 
   // Submit the donation via the PaymentForm submit (submitLabel `Donate $X`).
   // Scoped to the <form> so it can never hit the Step-1 proceed button
