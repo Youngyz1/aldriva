@@ -129,6 +129,14 @@ export async function GET(req: NextRequest) {
       currency: row.currency,
     });
   } catch (err: unknown) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "digest" in err &&
+      (err as { digest?: string }).digest === "NEXT_PRERENDER_INTERRUPTED"
+    ) {
+      throw err;
+    }
     console.error("products/order-lookup route error:", err);
     return NextResponse.json(
       { error: "Could not look up the order. Please try again." },
