@@ -113,35 +113,34 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   await cardFrame.getByRole('textbox', { name: /expiration/i }).fill('12/30');
   await cardFrame.getByRole('textbox', { name: /security code/i }).fill('123');
 
+  // Billing ZIP — REQUIRED, not optional. The Payment Element defaults the
+  // country to US (server-resolved defaultCountry), under which Stripe marks
+  // the ZIP field aria-required="true". Leaving it empty makes
+  // elements.submit() fail validation, so stripe.confirmPayment never fires
+  // (proven by trace evidence: zero payment_intents/* requests in the run's
+  // network log despite a successful submit click) and the test hangs at the
+  // receipt assertion. This was the true blocker behind the previous round's
+  // "Thank you!" timeout — not the Link content described below.
+  await cardFrame.getByRole('textbox', { name: /^zip/i }).fill('10001');
+
   // Submit the donation via the PaymentForm submit (submitLabel `Donate $X`).
   // Scoped to the <form> so it can never hit the Step-1 proceed button
   // (which unmounts once clientSecret is set anyway).
   await page.locator('form').getByRole('button', { name: /donate/i }).click();
 
-  // Stripe Link interstitial ("Secure, fast checkout with Link" — visible
-  // in the account's payment element, see screenshot from this debugging
-  // round): Link is enabled at the ACCOUNT level in Stripe settings, not
-  // tied to a specific test card, so this is deterministic across every
-  // run against this account, not intermittent. It inserts a second
-  // confirmation screen ("Save my information for faster checkout" +
-  // its own "Donate $X" button) between the first submit and the actual
-  // confirmPayment call. Missing this step is exactly why the previous
-  // round hung at the "Thank you!" assertion — the first click only
-  // opened this interstitial, it never confirmed the payment.
-  //
-  // Detected explicitly, not swallowed: a short waitFor().catch(() => false)
-  // is fine here because Link legitimately may not show for every session,
-  // but once detected the click itself is NOT wrapped in a catch — if the
-  // interstitial's own Donate button ever moves or renames, this must fail
-  // loudly here rather than surface as a confusing timeout two lines down.
-  const linkInterstitial = page.getByText('Save my information for faster checkout');
-  const linkShown = await linkInterstitial
-    .waitFor({ state: 'visible', timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (linkShown) {
-    await page.getByRole('button', { name: /donate \$/i }).click();
-  }
+  // NOTE on Stripe Link: Link IS enabled at the account level (console:
+  // "payment method types are not activated: link, ... displayed in test
+  // mode"), but trace evidence shows its UI is INLINE in the Payment Element
+  // iframe, not a post-submit interstitial: "Save my information for faster
+  // checkout" is a span in .p-LinkOptInWrapper (email + mobile fields carry
+  // an "Optional" badge), and "Secure, fast checkout with Link" is a
+  // .p-LinkAutofillPromptButton collapsible prompt — neither has its own
+  // Donate button, and neither blocks confirmPayment when left empty. The
+  // earlier page-level getByText wait for the marker text could never
+  // succeed (page locators don't pierce iframes) and the "second Donate
+  // button" was a misread of this form's own submit next to Link content.
+  // So: no Link interaction needed. If Link ever genuinely blocks payment,
+  // the receipt assertion below fails loudly with a fresh trace to read.
 
   // Receipt screen: "Thank you!" + "has been received."
   await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 30_000 });
