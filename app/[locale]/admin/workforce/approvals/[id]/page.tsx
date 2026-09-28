@@ -22,6 +22,7 @@ import {
   evidenceKeys,
 } from "@/lib/workforce/approvals";
 import { decideWorkforceApproval } from "@/lib/actions/workforce-approvals";
+import { fetchQaRunsByApproval } from "@/lib/workforce/qa";
 
 export default async function WorkforceApprovalDetailPage({
   params,
@@ -44,6 +45,11 @@ export default async function WorkforceApprovalDetailPage({
   if (!raw) notFound();
   const agentNameById = new Map(agents.map((a) => [a.id, a.display_name]));
   const links = await fetchApprovalLinks(supabase, id);
+  // Reverse linkage (Stage 8): QA runs created from this approval via
+  // qa_runs.approval_id. Task/Report detail pages need no such section —
+  // verified: neither agent_tasks/agent_runs nor agent_reports reference
+  // qa_runs (linkage flows approval→QA only).
+  const qaRuns = await fetchQaRunsByApproval(supabase, id);
 
   const nowIso = new Date().toISOString();
   const actionable = raw.status === "pending" && raw.expires_at > nowIso;
@@ -112,6 +118,25 @@ export default async function WorkforceApprovalDetailPage({
                 ) : (
                   <span className="text-zinc-500">run {shortId(l.id)} (full run view arrives with later stages)</span>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Linked QA runs (reverse linkage: qa_runs.approval_id → this approval) */}
+      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
+        <h2 className="text-base text-white">QA runs from this approval</h2>
+        {qaRuns.length === 0 ? (
+          <p className="text-sm text-zinc-500">No QA run references this approval.</p>
+        ) : (
+          <ul className="space-y-1">
+            {qaRuns.map((q) => (
+              <li key={q.id} className="text-sm text-zinc-400">
+                {q.suite} · {q.status} · {new Date(q.created_at).toLocaleString()} ·{" "}
+                <Link href={`/admin/workforce/qa/${q.id}`} className="hover:text-white">
+                  open QA run
+                </Link>
               </li>
             ))}
           </ul>
