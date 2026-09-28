@@ -232,19 +232,48 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     );
   });
 
-  // Arm BEFORE the click. Stripe.js confirm hits:
-  // /v1/payment_intents/<id>/confirm
-  const confirmPromise = page
+  // Arm BEFORE the click.
+  //
+  // Two valid Stripe success signals — arm both and race them:
+  //
+  // PATH A — on-page confirm (card without 3DS, wallet):
+  //   Stripe.js calls /v1/payment_intents/<id>/confirm and returns
+  //   a response to our page's fetch. stripe.confirmPayment resolves
+  //   with { error: null } and onSuccess() fires immediately.
+  //
+  // PATH B — redirect confirm (Stripe Link and other redirect methods):
+  //   Stripe Link handles the confirm internally inside its iframe,
+  //   then redirects the top-level page to return_url, appending
+  //   redirect_status=succeeded. page.waitForResponse is discarded by
+  //   the navigation, so we race a waitForURL instead.
+  //
+  // Either signal is sufficient proof that Stripe confirmed the payment.
+  // Both require an actual Stripe round-trip — neither can be spoofed
+  // by a failed payment (redirect_status would be "failed", not "succeeded").
+  const confirmResponsePromise = page
     .waitForResponse(
       (r) =>
         /\/v1\/payment_intents\/[^/]+\/confirm/.test(
           r.url()
         ),
-      {
-        timeout: 30_000,
-      }
+      { timeout: 30_000 }
     )
+    .then((r) => ({ via: 'response' as const, response: r }))
     .catch(() => null);
+
+  const confirmRedirectPromise = page
+    .waitForURL(
+      (url) => url.searchParams.get('redirect_status') === 'succeeded',
+      { timeout: 30_000 }
+    )
+    .then(() => ({ via: 'redirect' as const, response: null }))
+    .catch(() => null);
+
+  // Race: whichever fires first is the confirmation signal.
+  const confirmSignalPromise = Promise.race([
+    confirmResponsePromise,
+    confirmRedirectPromise,
+  ]);
 
   // Scoped to the <form> so it can never hit the Step-1 proceed button.
   const submitButton = page
@@ -533,10 +562,21 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     stripeLinkClicked
   );
 
-  // Now wait for Stripe's PaymentIntent confirmation request.
-  const confirmResp = await confirmPromise;
+  // Now wait for whichever confirmation signal fires first.
+  const confirmSignal = await confirmSignalPromise;
+  const confirmResp = confirmSignal?.via === 'response'
+    ? confirmSignal.response
+    : null;
 
-  if (!confirmResp) {
+  console.log(
+    'QA_DIAG confirm signal via=',
+    confirmSignal?.via ?? 'none',
+    'url=',
+    page.url()
+  );
+
+  if (!confirmSignal) {
+    // Neither an API response nor a redirect_status=succeeded URL appeared.
     // Submit never reached Stripe. Log only the lines that can explain why.
     const frameText = await cardFrame
       .locator('body')
@@ -581,7 +621,7 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
       .catch(() => '<unreadable>');
 
     console.log(
-      'QA_DIAG no confirm request. url=',
+      'QA_DIAG no confirm signal. url=',
       page.url()
     );
 
@@ -672,7 +712,7 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
       'QA_DIAG parent DOM events:',
       JSON.stringify(domEvents)
     );
-  } else {
+  } else if (confirmResp) {
     const body = await confirmResp
       .json()
       .catch(() => ({}));
@@ -688,8 +728,9 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   }
 
   expect(
-    confirmResp,
-    'Stripe confirm request never fired: submit was blocked before reaching Stripe'
+    confirmSignal,
+    'Stripe payment never confirmed: neither an API confirm response nor ' +
+    'a redirect_status=succeeded URL was observed — submit was blocked before reaching Stripe'
   ).not.toBeNull();
 
   // Receipt screen: "Thank you!" + "has been received."
