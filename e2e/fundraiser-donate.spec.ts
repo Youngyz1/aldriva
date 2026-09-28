@@ -7,6 +7,13 @@
  *
  * Safety: test card numbers are declined-by-construction on live Stripe
  * keys, and the pk_test assertion below refuses to continue on live keys.
+ *
+ * Stripe Link note:
+ * The Stripe PaymentElement may display a Link interstitial after the
+ * parent Aldriva Donate button is submitted. That UI lives inside a
+ * Stripe iframe. The parent-page Donate button must NOT be clicked again
+ * when that interstitial appears; the Stripe-frame Donate button must be
+ * clicked instead.
  */
 
 import { test, expect } from './fixtures';
@@ -248,13 +255,7 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   // CI BUTTON DIAGNOSTICS
   // ------------------------------------------------------------
   // These diagnostics are intentionally collected immediately before
-  // the final click. The local test passes, while CI previously showed:
-  //
-  //   disabled=false
-  //   parent DOM events=[]
-  //
-  // This lets us see exactly what Playwright finds in CI without
-  // changing the application behavior.
+  // the final click.
   // ------------------------------------------------------------
 
   console.log(
@@ -319,38 +320,105 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     })
   );
 
-  // Final Donate click.
-  const submitBox = await submitButton.boundingBox();
+  // ------------------------------------------------------------
+  // STRIPE IFRAME DIAGNOSTICS
+  // ------------------------------------------------------------
+  // Stripe may have more than one private iframe. Log which frames
+  // contain the Link interstitial and/or a Donate button.
+  // ------------------------------------------------------------
 
-if (submitBox) {
-  const hitTarget = await page.evaluate(
-    ({ x, y }) => {
-      const el = document.elementFromPoint(x, y);
-
-      return {
-        tag: el?.tagName ?? null,
-        id: el?.id ?? null,
-        className:
-          typeof el?.className === 'string'
-            ? el.className
-            : null,
-        text:
-          el?.textContent?.trim().slice(0, 100) ?? null,
-        outerHTML:
-          el?.outerHTML.slice(0, 1000) ?? null,
-      };
-    },
-    {
-      x: submitBox.x + submitBox.width / 2,
-      y: submitBox.y + submitBox.height / 2,
-    }
+  const stripeFrames = page.locator(
+    'iframe[name*="__privateStripeFrame"]'
   );
+
+  const stripeFrameCount = await stripeFrames.count();
 
   console.log(
-    'QA_DIAG hit target=',
-    JSON.stringify(hitTarget)
+    'QA_DIAG stripe iframe count=',
+    stripeFrameCount
   );
-}
+
+  for (let i = 0; i < stripeFrameCount; i++) {
+    const frame = stripeFrames.nth(i).contentFrame();
+
+    if (!frame) {
+      console.log(
+        `QA_DIAG stripe frame ${i} contentFrame unavailable`
+      );
+      continue;
+    }
+
+    const linkText = frame.getByText(
+      /Save my information for faster checkout/i
+    );
+
+    const donateButton = frame.getByRole('button', {
+      name: /donate\s*\$/i,
+    });
+
+    const linkVisible = await linkText
+      .first()
+      .isVisible()
+      .catch(() => false);
+
+    const donateVisible = await donateButton
+      .first()
+      .isVisible()
+      .catch(() => false);
+
+    console.log(
+      `QA_DIAG stripe frame ${i} link visible=`,
+      linkVisible
+    );
+
+    console.log(
+      `QA_DIAG stripe frame ${i} donate visible=`,
+      donateVisible
+    );
+  }
+
+  // ------------------------------------------------------------
+  // FINAL PARENT-PAGE DONATE CLICK
+  // ------------------------------------------------------------
+  // This is the Aldriva form submit button.
+  //
+  // IMPORTANT:
+  // If Stripe Link subsequently shows its own Donate button inside
+  // a Stripe iframe, that button is handled separately below.
+  // ------------------------------------------------------------
+
+  const submitBox = await submitButton.boundingBox();
+
+  if (submitBox) {
+    const hitTarget = await page.evaluate(
+      ({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+
+        return {
+          tag: el?.tagName ?? null,
+          id: el?.id ?? null,
+          className:
+            typeof el?.className === 'string'
+              ? el.className
+              : null,
+          text:
+            el?.textContent?.trim().slice(0, 100) ?? null,
+          outerHTML:
+            el?.outerHTML.slice(0, 1000) ?? null,
+        };
+      },
+      {
+        x: submitBox.x + submitBox.width / 2,
+        y: submitBox.y + submitBox.height / 2,
+      }
+    );
+
+    console.log(
+      'QA_DIAG hit target=',
+      JSON.stringify(hitTarget)
+    );
+  }
+
   await submitButton.click();
 
   console.log(
@@ -368,6 +436,104 @@ if (submitBox) {
     })
   );
 
+  // ------------------------------------------------------------
+  // STRIPE LINK INTERSTITIAL HANDLING
+  // ------------------------------------------------------------
+  // Stripe Link can display a second Donate button inside a private
+  // Stripe iframe after the parent Aldriva form is submitted.
+  //
+  // DO NOT call:
+  //
+  //   page.getByRole('button', { name: /donate/i }).click()
+  //
+  // here, because that would target the Aldriva parent-page button
+  // again rather than Stripe's iframe button.
+  //
+  // Poll briefly because Stripe may take a moment to mount the
+  // Link interstitial after the parent submit.
+  // ------------------------------------------------------------
+
+  let stripeLinkClicked = false;
+
+  const linkDeadline = Date.now() + 8_000;
+
+  while (Date.now() < linkDeadline && !stripeLinkClicked) {
+    const frames = page.locator(
+      'iframe[name*="__privateStripeFrame"]'
+    );
+
+    const count = await frames.count();
+
+    for (let i = 0; i < count; i++) {
+      const iframe = frames.nth(i);
+      const frame = iframe.contentFrame();
+
+      if (!frame) {
+        continue;
+      }
+
+      const linkText = frame.getByText(
+        /Save my information for faster checkout/i
+      );
+
+      const linkVisible = await linkText
+        .first()
+        .isVisible()
+        .catch(() => false);
+
+      if (!linkVisible) {
+        continue;
+      }
+
+      console.log(
+        `QA_DIAG Stripe Link interstitial detected in iframe ${i}`
+      );
+
+      const stripeDonate = frame
+        .getByRole('button', {
+          name: /donate\s*\$/i,
+        })
+        .first();
+
+      const stripeDonateVisible = await stripeDonate
+        .isVisible()
+        .catch(() => false);
+
+      console.log(
+        `QA_DIAG Stripe Link Donate visible in iframe ${i}=`,
+        stripeDonateVisible
+      );
+
+      if (!stripeDonateVisible) {
+        continue;
+      }
+
+      console.log(
+        `QA_DIAG clicking Stripe Link Donate inside iframe ${i}`
+      );
+
+      await stripeDonate.click();
+
+      stripeLinkClicked = true;
+
+      console.log(
+        'QA_DIAG Stripe Link Donate click completed'
+      );
+
+      break;
+    }
+
+    if (!stripeLinkClicked) {
+      await page.waitForTimeout(250);
+    }
+  }
+
+  console.log(
+    'QA_DIAG stripe link clicked=',
+    stripeLinkClicked
+  );
+
+  // Now wait for Stripe's PaymentIntent confirmation request.
   const confirmResp = await confirmPromise;
 
   if (!confirmResp) {
@@ -442,6 +608,56 @@ if (submitBox) {
       'parent focus=',
       focused
     );
+
+    // Re-check Stripe frames after the attempted submission so CI
+    // tells us whether a Link interstitial remained mounted.
+    const finalStripeFrames = page.locator(
+      'iframe[name*="__privateStripeFrame"]'
+    );
+
+    const finalFrameCount = await finalStripeFrames.count();
+
+    console.log(
+      'QA_DIAG final stripe iframe count=',
+      finalFrameCount
+    );
+
+    for (let i = 0; i < finalFrameCount; i++) {
+      const frame = finalStripeFrames.nth(i).contentFrame();
+
+      if (!frame) {
+        continue;
+      }
+
+      const linkText = frame.getByText(
+        /Save my information for faster checkout/i
+      );
+
+      const stripeDonate = frame
+        .getByRole('button', {
+          name: /donate\s*\$/i,
+        })
+        .first();
+
+      const linkVisible = await linkText
+        .first()
+        .isVisible()
+        .catch(() => false);
+
+      const donateVisible = await stripeDonate
+        .isVisible()
+        .catch(() => false);
+
+      console.log(
+        `QA_DIAG final stripe frame ${i} link visible=`,
+        linkVisible
+      );
+
+      console.log(
+        `QA_DIAG final stripe frame ${i} donate visible=`,
+        donateVisible
+      );
+    }
 
     const domEvents = await page
       .evaluate(
