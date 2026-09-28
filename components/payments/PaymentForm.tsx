@@ -76,19 +76,6 @@ export default function PaymentForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TEMPORARY QA DIAGNOSTIC — revert after donate-submit no-op root cause
-    // is found. Gated behind NEXT_PUBLIC_QA_DEBUG (unset by default, so this
-    // can never fire in production): set it to 'true' in the staging
-    // project's env vars + redeploy to capture one run's guard state in the
-    // Playwright trace Console tab.
-    if (process.env.NEXT_PUBLIC_QA_DEBUG === "true") {
-      console.log("[QA_DEBUG] handleSubmit guard state:", {
-        hasStripe: !!stripe,
-        hasElements: !!elements,
-        loading,
-        disabled,
-      });
-    }
     if (!stripe || !elements || loading || disabled) return;
 
     setLoading(true);
