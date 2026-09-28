@@ -58,11 +58,7 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   const stripeIframe = page.locator('iframe[name*="__privateStripeFrame"]').first();
   await stripeIframe.waitFor({ state: 'visible', timeout: 20_000 });
 
-  // Card fields by accessible name. Typed with real key events
-  // (pressSequentially) instead of fill(), so Stripe's fields register each
-  // value the way they do for a person. (Hypothesis: fill() showed the text
-  // but left Stripe's internal state empty. Verified by a manual run
-  // succeeding where the automated fill() run never fired a confirm request.)
+  // Card fields by accessible name, typed with real key events.
   const cardFrame = page.frameLocator('iframe[name*="__privateStripeFrame"]').first();
 
   const card = cardFrame.getByRole('textbox', { name: /card number/i });
@@ -77,16 +73,59 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   await cvc.click();
   await cvc.pressSequentially('123', { delay: 50 });
 
-  // Billing ZIP is required under the US default country.
   // Force US so the ZIP field exists regardless of the runner's geolocation.
-  await cardFrame.getByRole('combobox', { name: /country/i }).first().selectOption('US');
+  await cardFrame.getByLabel('Country', { exact: true }).selectOption('US');
   const zip = cardFrame.getByRole('textbox', { name: /^zip/i });
   await zip.click();
   await zip.pressSequentially('10001', { delay: 50 });
   await zip.blur();
 
+  // CI snapshot showed an unchecked "I am an AI agent acting on behalf of
+  // someone else" checkbox inside the Stripe iframe. If it is present, tick it:
+  // this run IS an automated agent, so the statement is accurate. Logged so we
+  // can see in CI whether it appears at all.
+  const agentBox = cardFrame.getByRole('checkbox', { name: /ai agent/i });
+  const agentBoxShown = await agentBox.isVisible().catch(() => false);
+  console.log('QA_DIAG ai-agent checkbox visible =', agentBoxShown);
+  if (agentBoxShown) {
+    await agentBox.check();
+  }
+
   // Let Stripe register the last field before submitting.
   await page.waitForTimeout(1_000);
+
+  // Record DOM events on the parent page so we can tell whether the Donate click
+  // produced a form submit at all, and whether native validation blocked it.
+  await page.evaluate(() => {
+    const w = window as unknown as { __qaEvents: string[] };
+    w.__qaEvents = [];
+    const log = (msg: string) => w.__qaEvents.push(Date.now() + ' ' + msg);
+    document.addEventListener(
+      'click',
+      (e) => {
+        const t = e.target as HTMLElement | null;
+        log('click on <' + t?.tagName + '> "' + (t?.textContent ?? '').trim().slice(0, 40) + '"');
+      },
+      true
+    );
+    document.addEventListener(
+      'submit',
+      (e) => log('submit event, defaultPrevented=' + e.defaultPrevented),
+      true
+    );
+    document.addEventListener(
+      'invalid',
+      (e) => {
+        const t = e.target as HTMLInputElement | null;
+        log('INVALID control ' + t?.tagName + ' name=' + t?.getAttribute('name') + ' msg=' + t?.validationMessage);
+      },
+      true
+    );
+  });
+  page.on('console', (m) => {
+    if (m.type() === 'error') console.log('QA_CONSOLE error:', m.text().slice(0, 300));
+  });
+  page.on('pageerror', (e) => console.log('QA_PAGEERROR:', String(e).slice(0, 300)));
 
   // Arm BEFORE the click. Stripe.js confirm hits /v1/payment_intents/<id>/confirm.
   const confirmPromise = page
@@ -96,16 +135,33 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     .catch(() => null);
 
   // Scoped to the <form> so it can never hit the Step-1 proceed button.
-  await page.locator('form').getByRole('button', { name: /donate/i }).click();
+  const submitButton = page.locator('form').getByRole('button', { name: /donate/i });
+  await submitButton.click();
 
   const confirmResp = await confirmPromise;
   if (!confirmResp) {
-    // Submit never reached Stripe. Log what the card form and page say.
-    const frameText = await cardFrame.locator('body').innerText().catch(() => '<unreadable>');
-    const pageText = await page.locator('body').innerText().catch(() => '<unreadable>');
+    // Submit never reached Stripe. Log only the lines that can explain why.
+    const frameText = await cardFrame.locator('body').innerText().catch(() => '');
+    const frameHits = frameText
+      .split('\n')
+      .filter((l) => /incomplete|invalid|required|error|declin|check your|not valid/i.test(l));
+    const alerts = await page.locator('[role="alert"]').allInnerTexts().catch(() => []);
+    const buttonText = await submitButton.innerText().catch(() => '<unreadable>');
+    const buttonDisabled = await submitButton.isDisabled().catch(() => null);
+    const zipValue = await zip.inputValue().catch(() => '<unreadable>');
+    const focused = await page
+      .evaluate(() => document.activeElement?.tagName + ' ' + (document.activeElement?.getAttribute('name') ?? ''))
+      .catch(() => '<unreadable>');
+
     console.log('QA_DIAG no confirm request. url=', page.url());
-    console.log('QA_DIAG iframe text:', frameText.slice(0, 1500));
-    console.log('QA_DIAG page text:', pageText.slice(0, 1500));
+    console.log('QA_DIAG iframe validation lines:', JSON.stringify(frameHits));
+    console.log('QA_DIAG page alerts:', JSON.stringify(alerts));
+    console.log('QA_DIAG submit button text=', buttonText, 'disabled=', buttonDisabled);
+    console.log('QA_DIAG zip value=', zipValue, 'parent focus=', focused);
+    const domEvents = await page
+      .evaluate(() => (window as unknown as { __qaEvents?: string[] }).__qaEvents ?? [])
+      .catch(() => ['<unreadable>']);
+    console.log('QA_DIAG parent DOM events:', JSON.stringify(domEvents));
   } else {
     const body = await confirmResp.json().catch(() => ({}));
     console.log(
@@ -121,9 +177,6 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
     confirmResp,
     'Stripe confirm request never fired: submit was blocked before reaching Stripe'
   ).not.toBeNull();
-
-  // Stripe Link UI is inline in the Payment Element and does not block
-  // confirmPayment; no Link interaction needed.
 
   // Receipt screen: "Thank you!" + "has been received."
   await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 30_000 });
