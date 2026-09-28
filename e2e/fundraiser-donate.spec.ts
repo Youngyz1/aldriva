@@ -320,6 +320,37 @@ test('donate $5 via test card reaches the receipt screen', async ({ page }) => {
   );
 
   // Final Donate click.
+  const submitBox = await submitButton.boundingBox();
+
+if (submitBox) {
+  const hitTarget = await page.evaluate(
+    ({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+
+      return {
+        tag: el?.tagName ?? null,
+        id: el?.id ?? null,
+        className:
+          typeof el?.className === 'string'
+            ? el.className
+            : null,
+        text:
+          el?.textContent?.trim().slice(0, 100) ?? null,
+        outerHTML:
+          el?.outerHTML.slice(0, 1000) ?? null,
+      };
+    },
+    {
+      x: submitBox.x + submitBox.width / 2,
+      y: submitBox.y + submitBox.height / 2,
+    }
+  );
+
+  console.log(
+    'QA_DIAG hit target=',
+    JSON.stringify(hitTarget)
+  );
+}
   await submitButton.click();
 
   console.log(
