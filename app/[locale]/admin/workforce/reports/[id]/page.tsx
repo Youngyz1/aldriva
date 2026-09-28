@@ -88,7 +88,7 @@ export default async function WorkforceReportDetailPage({ params }: { params: Pr
         <p className="text-sm text-zinc-400">
           incident:{" "}
           {vm.incident ? (
-            <Link href="/admin/workforce/sentinel" className="hover:text-white">
+            <Link href={`/admin/workforce/sentinel/incidents/${vm.incident.id}`} className="hover:text-white">
               {vm.incident.severity} — {vm.incident.title.slice(0, 100)} ({vm.incident.status})
             </Link>
           ) : (

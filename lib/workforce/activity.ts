@@ -196,7 +196,7 @@ export function buildActivityFeed(raw: RawActivity): ActivityEntry[] {
       kind: 'incident',
       title: closed ? `incident ${i.status}` : 'incident opened',
       detail: `${i.severity} — ${i.title.slice(0, 120)} · ${i.event_count} event(s)`,
-      href: '/admin/workforce/sentinel',
+      href: `/admin/workforce/sentinel/incidents/${i.id}`,
     });
   }
 
@@ -207,6 +207,8 @@ export function buildActivityFeed(raw: RawActivity): ActivityEntry[] {
       kind: 'event',
       title: e.kind,
       detail: e.route ?? 'no route',
+      // No per-event detail route in Stage 9 (deliberate scope limit) —
+      // events land on the Sentinel overview, which is a real page.
       href: '/admin/workforce/sentinel',
     });
   }
