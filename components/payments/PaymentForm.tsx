@@ -227,6 +227,9 @@ export default function PaymentForm({
               wallets: {
                 googlePay: "auto",
                 applePay: "auto",
+                // QA/staging only: hide Link's inline signup so automation never touches it.
+                // Unset in production, so real donors still see Link.
+                link: process.env.NEXT_PUBLIC_DISABLE_LINK === "true" ? "never" : "auto",
               },
               // Tell Stripe which fields WE are collecting so it doesn't
               // duplicate them inside its own UI.
