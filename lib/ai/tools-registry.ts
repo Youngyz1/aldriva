@@ -86,6 +86,8 @@ import {
   notifyOwnerDefinition,
   createTenantNotification,
   notifyOwner,
+  execSmokeNotifyDefinition,
+  execSmokeNotify,
 } from './tools/tenant/tenant-notifications';
 import {
   getRecentEventsDefinition,
@@ -147,6 +149,7 @@ export const TENANT_AI_TOOL_DEFINITIONS = [
   getPaymentStatusDefinition,
   createTenantNotificationDefinition,
   notifyOwnerDefinition,
+  execSmokeNotifyDefinition,
   getRecentEventsDefinition,
   getActiveIncidentsDefinition,
   getGuardRejectionsDefinition,
@@ -277,6 +280,8 @@ export async function executeTenantTool(
       return await createTenantNotification(ctx, parsedArgs as unknown as Parameters<typeof createTenantNotification>[1]);
     case 'notifyOwner':
       return await notifyOwner(ctx, parsedArgs as unknown as Parameters<typeof notifyOwner>[1]);
+    case 'execSmokeNotify':
+      return await execSmokeNotify(ctx, parsedArgs as unknown as Parameters<typeof execSmokeNotify>[1]);
     case 'get_recent_events':
       return await getRecentEvents(ctx, parsedArgs as Parameters<typeof getRecentEvents>[1]);
     case 'get_active_incidents':

@@ -198,3 +198,23 @@ workers cannot invent jobs (enqueue requires a valid envelope; materialize
 requires an approved approval); no auto-approve, no self-approval, no loops
 (single dispatch per attempt, bounded attempts); no new tools; no scheduler;
 Sentinel unchanged (observes via existing pipeline only).
+
+## 10. Stage 10.9 — live-exercisable approval-gated action (smoke-test enabler)
+
+Test-only addition giving the generic path one legitimate live input (decision:
+new tool over flipping, since no agent holds the existing transactional tools
+and approval is global-per-tool — `risk_override` is unread anywhere).
+
+- Tool `execSmokeNotify` (`transactional/medium/approval_required=true`,
+  granted to `dylan` ONLY): fixed type `'like'`, fixed `'[Stage 10.9 smoke
+  test] '` title prefix, single row to the first tenant owner, fail-closed
+  without owners. No email ever (shared service sends only with an `email`
+  param — never passed). Undo: `DELETE FROM notifications WHERE title LIKE
+  '[Stage 10.9 smoke test]%'`, then the 147 rollback twin.
+- Files: `db/migration_147_exec_smoke_notify.sql` (+ rollback, supabase mirror,
+  order entry); executor + definition + registry list + dispatch case in
+  `lib/ai/tools/tenant/tenant-notifications.ts` + `lib/ai/tools-registry.ts`;
+  `lib/exec/__tests__/smoke-tool.test.cjs` (10 tests: gating, no-regression,
+  materialize, full path with real executor, tamper ×3, rollback).
+- Blast radius: zero behavior change for existing agents/tools (verified by
+  test); removal = rollback migration (+ row delete above).
