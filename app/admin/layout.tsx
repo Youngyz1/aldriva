@@ -28,6 +28,15 @@ import {
   Star,
   Sparkles,
   ShieldAlert,
+  Bot,
+  ClipboardList,
+  CheckSquare,
+  FileText,
+  Activity,
+  BookOpen,
+  Radar,
+  FlaskConical,
+  CircleDot,
 } from "lucide-react";
 
 type NavItem = {
@@ -80,6 +89,20 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Growth Studio",     href: "/admin/ai",           icon: Sparkles },
       { label: "Guard Rejections",  href: "/admin/ai/rejections", icon: ShieldAlert },
+    ],
+  },
+  {
+    label: "Workforce",
+    items: [
+      { label: "Command Center", href: "/admin/workforce",            icon: CircleDot },
+      { label: "Agents",         href: "/admin/workforce/agents",     icon: Bot },
+      { label: "Tasks",          href: "/admin/workforce/tasks",      icon: ClipboardList },
+      { label: "Approvals",      href: "/admin/workforce/approvals",  icon: CheckSquare },
+      { label: "Reports",        href: "/admin/workforce/reports",    icon: FileText },
+      { label: "Activity",       href: "/admin/workforce/activity",   icon: Activity },
+      { label: "Knowledge",      href: "/admin/workforce/knowledge",  icon: BookOpen },
+      { label: "Sentinel",       href: "/admin/workforce/sentinel",   icon: Radar },
+      { label: "QA",             href: "/admin/workforce/qa",         icon: FlaskConical },
     ],
   },
   {
