@@ -69,6 +69,13 @@ export const RATE_LIMITS = {
   qaIngest: { limit: 60, windowSeconds: 60 },
 
   /**
+   * Stage 10 background-execution plane (claim + heartbeat + ingest + run).
+   * External worker only, same posture as qaIngest: 60/min bounds credential
+   * probing while leaving headroom for worker cadence + heartbeats.
+   */
+  execClaim: { limit: 60, windowSeconds: 60 },
+
+  /**
    * AI seating assistant: interprets natural language → SeatingPlanConfig.
    * Tighter than article AI because each call may involve richer model context.
    * A legitimate organizer iterates a handful of times; 15/min leaves ample room.

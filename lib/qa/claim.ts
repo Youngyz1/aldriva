@@ -9,10 +9,11 @@
  * token. The worker never writes approvals and never invents runs.
  *
  * Claim protocol per candidate (oldest first, up to 3 per poll):
- *  1. Parse approval.evidence.args (JSON string slice from the blocked tool
- *     call) → { suite, environment, tenantId, idempotencyKey, commitSha? }.
- *     Unparseable/invalid → stamp audit_ref='qa-invalid:*' (terminal,
- *     visible in Stage 4 UI) and move to the next candidate.
+ *  1. Parse the canonical execution envelope from proposed_outcome when
+ *     present (Stage 10.0, minted pre-sanitization), else the legacy
+ *     approval.evidence.args JSON string slice → { suite, environment,
+ *     tenantId, idempotencyKey, commitSha? }. Unparseable/invalid → stamp
+ *     audit_ref='qa-invalid:*' (terminal, visible in Stage 4 UI) and move on.
  *  2. Idempotency: qa_runs row with the same idempotency_key already
  *     exists → stamp audit_ref with the existing run id, no duplicate.
  *  3. Insert qa_runs (status approved). FK/type violations → stamp
@@ -25,6 +26,7 @@
 
 import { mintClaimToken } from './tokens';
 import { isQASuite, isQAEnvironment } from './execution-provider';
+import { parseExecutionEnvelope } from '../exec/envelope';
 import { randomUUID } from 'node:crypto';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,6 +54,7 @@ interface ApprovalRow {
   expires_at: string;
   audit_ref: string | null;
   evidence: Record<string, unknown> | null;
+  proposed_outcome: unknown;
 }
 
 interface RequestArgs {
@@ -79,6 +82,10 @@ export function parseRequestArgs(evidence: Record<string, unknown> | null | unde
   } catch {
     return null;
   }
+  return validateRequestFields(parsed);
+}
+
+function validateRequestFields(parsed: Record<string, unknown>): RequestArgs | null {
   if (!isQASuite(parsed['suite']) || !isQAEnvironment(parsed['environment'])) return null;
   if (typeof parsed['idempotencyKey'] !== 'string' || !UUID_RE.test(parsed['idempotencyKey'] as string)) return null;
   const tenantId = parsed['tenantId'] ?? null;
@@ -94,6 +101,29 @@ export function parseRequestArgs(evidence: Record<string, unknown> | null | unde
   };
 }
 
+/**
+ * Stage 10.0 interop: prefer the canonical execution envelope
+ * (`approvals.proposed_outcome`, minted pre-sanitization) over the legacy
+ * `evidence.args` string (post-sanitization object/descriptor — see discovery
+ * §4). Tenant comes from the envelope's SERVER-RESOLVED tenantId, never from
+ * model-supplied args. Legacy rows (no envelope) fall back to parseRequestArgs
+ * unchanged.
+ */
+export function parseRowArgs(
+  evidence: Record<string, unknown> | null | undefined,
+  proposedOutcome: unknown
+): RequestArgs | null {
+  if (proposedOutcome !== null && proposedOutcome !== undefined && typeof proposedOutcome === 'object') {
+    const pe = parseExecutionEnvelope(proposedOutcome);
+    if (pe.ok) {
+      const env = pe.envelope;
+      if (env.action !== 'request_qa_run') return null;
+      return validateRequestFields({ ...env.args, tenantId: env.tenantId, idempotencyKey: env.idempotencyKey });
+    }
+  }
+  return parseRequestArgs(evidence);
+}
+
 export async function pollAndClaim(
   client: { from(table: string): any },
   workerRunId: string,
@@ -102,7 +132,7 @@ export async function pollAndClaim(
   const candidates = await selectAll<ApprovalRow>(
     client
       .from('approvals')
-      .select('id,tenant_id,action,status,expires_at,audit_ref,evidence')
+      .select('id,tenant_id,action,status,expires_at,audit_ref,evidence,proposed_outcome')
       .eq('action', 'request_qa_run')
       .eq('status', 'approved')
       .is('audit_ref', null)
@@ -117,7 +147,7 @@ export async function pollAndClaim(
       await client.from('approvals').update({ audit_ref: ref }).eq('id', approval.id).is('audit_ref', null);
     };
 
-    const args = parseRequestArgs(approval.evidence);
+    const args = parseRowArgs(approval.evidence, approval.proposed_outcome);
     if (!args) {
       await stamp('qa-invalid-evidence');
       continue;

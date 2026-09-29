@@ -120,3 +120,4 @@ migration_142_agent_runtime.sql
 migration_143_sentinel_events.sql
 migration_144_sentinel_events_fixes.sql
 migration_145_qa_execution.sql
+migration_146_background_execution.sql

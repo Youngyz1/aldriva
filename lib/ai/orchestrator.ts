@@ -14,6 +14,7 @@ import { PLATFORM_TENANT_PLACEHOLDER } from './tools/tenant/tool-context';
 import { resolveTenantContext } from '@/lib/tenant-context';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { checkApprovalRequired, createApprovalRequest } from './approvals';
+import { mintExecutionEnvelope } from '../exec/envelope';
 import {
   createAgentTask,
   createAgentRun,
@@ -298,6 +299,20 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
             gate.approvalRequired
           );
           if (approvalCheck.blocked) {
+            // Stage 10.0: mint the canonical execution envelope from RAW args
+            // BEFORE sanitization, so a future worker can bind the exact
+            // approved invocation. Mint failure → proposedOutcome stays null
+            // (existing behavior; the claim path stamps such rows invalid
+            // rather than guessing).
+            const minted = mintExecutionEnvelope({
+              rawArgs: argsStr ?? null,
+              tenantId: resolvedTenantId,
+              agentId: agent.id,
+              agentName: agent.name,
+              taskId: taskId ?? null,
+              runId: runId ?? null,
+              action: toolName,
+            });
             const approvalId = await createApprovalRequest({
               requestedBy: req.userId ?? null,
               requestedByAgentId: agent.id,
@@ -306,6 +321,7 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
               reason: approvalCheck.reason,
               evidence: { tool: toolName, args: argsStr?.slice(0, 500) ?? '' },
               risk: gate.risk,
+              proposedOutcome: minted.ok ? (minted.envelope as unknown as Record<string, unknown>) : null,
             });
             if (runId) {
               await addAgentStep({
