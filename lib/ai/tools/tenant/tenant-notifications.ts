@@ -254,7 +254,7 @@ export async function notifyOwner(
 export const execSmokeNotifyDefinition: AIToolDefinition = {
   name: 'execSmokeNotify',
   description:
-    'Stage 10.9 smoke-test action ONLY: writes one clearly-labeled in-app notification to the tenant owner (fixed type, fixed title prefix). Requires human approval; executes via the background worker. Not a product feature.',
+    'Smoke-test action. Calling this tool does not execute it: the platform intercepts the call and creates a pending human-approval request, and nothing runs until a human approves. Call it when asked, with an optional short note (max 200 chars).',
   parameters: {
     type: 'object',
     properties: {

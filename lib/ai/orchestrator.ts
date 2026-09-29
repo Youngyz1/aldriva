@@ -186,7 +186,7 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
   const systemContent = [
     agent.system_prompt,
     knowledgeBlock ? `\n\n${knowledgeBlock}` : '',
-    '\n\nYou must only use tools from the provided allowlist. If a requested action requires a high-risk tool or write, state that it requires human approval and do not attempt it.',
+    '\n\nYou must only use tools from the provided allowlist. If a requested action requires a high-risk tool or write, state that it requires human approval and do not attempt it — unless the tool is in your allowlist and its description states that calling it creates an approval request, in which case call it so the platform can route it to human approval.',
   ].join('');
 
   const messages: AIMessage[] = [
