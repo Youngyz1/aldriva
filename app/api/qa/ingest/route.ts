@@ -16,7 +16,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { verifyClaimToken } from '@/lib/qa/tokens';
 import { ingestRunResults, evaluateIncidentDecision, isShadowMode } from '@/lib/qa/ingest';
-import { insertSystemEvent } from '@/lib/observability/system-events';
+import { insertSystemEvent, logThrottledAuthDenial } from '@/lib/observability/system-events';
 
 /** Consecutive calendar days (ending yesterday) with ≥1 qa_failure event for the suite. */
 function countConsecutiveFailDays(rows: { error_code: string | null; created_at: string }[], suite: string, today: string): number {
@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
       }> | null; error: { message: string } | null };
     const run = rows.data?.[0] ?? null;
     if (!run || !verifyClaimToken(presented, run.claim_token_hash, run.claim_expires_at, nowIso)) {
+      // Stage 15 (S-10): audited denial — throttled, fail-open, response unchanged.
+      void logThrottledAuthDenial(req, 'POST /api/qa/ingest', 'claim_token_rejected');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

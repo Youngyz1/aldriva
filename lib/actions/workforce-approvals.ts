@@ -16,6 +16,7 @@ import { requireAdmin, getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { decideApproval } from "@/lib/workforce/approvals";
 import { applyApprovedMemory } from "@/lib/workforce/memory-apply";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function decideWorkforceApproval(formData: FormData): Promise<never> {
   await requireAdmin();
@@ -27,29 +28,35 @@ export async function decideWorkforceApproval(formData: FormData): Promise<never
   if (!user) {
     notice = "not-authenticated";
   } else {
-    const admin = createSupabaseAdmin();
-    const nowIso = new Date().toISOString();
-    const result = await decideApproval(admin, {
-      approvalId,
-      decision,
-      approverId: user.id,
-      tenantScope: null, // platform admin view; row-level scope enforced inside
-      nowIso,
-    });
-    notice = result.ok && result.decision ? result.decision : "rejected";
-    // Stage 12: approved memory proposals apply (+ due expiries sweep) in
-    // the same admin request — no polling loop, no scheduler. Failures are
-    // logged; the approval record stands and the applier poll remains
-    // available to operators. Never throws the decide UX.
-    if (result.ok && result.decision === "approved") {
-      try {
-        const acted = await selectApprovalAction(admin, approvalId);
-        if (acted === "memory_propose") {
-          await applyApprovedMemory(admin, { approvalId, nowIso });
-          revalidatePath("/admin/workforce/memory");
+    // Stage 15 (S-6): per-admin throttle on the privileged decide write.
+    const limited = await checkRateLimit("decideWorkforceApproval", `user:${user.id}`);
+    if (!limited.allowed) {
+      notice = "rate-limited";
+    } else {
+      const admin = createSupabaseAdmin();
+      const nowIso = new Date().toISOString();
+      const result = await decideApproval(admin, {
+        approvalId,
+        decision,
+        approverId: user.id,
+        tenantScope: null, // platform admin view; row-level scope enforced inside
+        nowIso,
+      });
+      notice = result.ok && result.decision ? result.decision : "rejected";
+      // Stage 12: approved memory proposals apply (+ due expiries sweep) in
+      // the same admin request — no polling loop, no scheduler. Failures are
+      // logged; the approval record stands and the applier poll remains
+      // available to operators. Never throws the decide UX.
+      if (result.ok && result.decision === "approved") {
+        try {
+          const acted = await selectApprovalAction(admin, approvalId);
+          if (acted === "memory_propose") {
+            await applyApprovedMemory(admin, { approvalId, nowIso });
+            revalidatePath("/admin/workforce/memory");
+          }
+        } catch (err) {
+          console.error("[workforce-approvals] memory apply failed:", err instanceof Error ? err.message : String(err));
         }
-      } catch (err) {
-        console.error("[workforce-approvals] memory apply failed:", err instanceof Error ? err.message : String(err));
       }
     }
   }

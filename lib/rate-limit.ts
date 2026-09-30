@@ -90,6 +90,23 @@ export const RATE_LIMITS = {
    * 20/min bounds manual probing; SELECTs only, nothing persisted.
    */
   workforceKnowledgeRetrievalTest: { limit: 20, windowSeconds: 60 },
+
+  /**
+   * Stage 15 (pass one) S-6: privileged admin writes get per-user buckets.
+   * Same action-level convention as Stage 11 (checkRateLimit with
+   * `user:<adminId>`). Generous 30/min: legitimate admin use is bursty but
+   * low-volume; the buckets bound session-abuse/CSRF-amplified writes.
+   * Fail-open behavior unchanged (see checkRateLimit).
+   */
+  decideWorkforceApproval: { limit: 30, windowSeconds: 60 },
+  createMemoryDirect: { limit: 30, windowSeconds: 60 },
+
+  /**
+   * Stage 15 (pass one) S-10: throttle for worker auth-denial audit rows.
+   * 1/min per IP bounds incident noise: every insertSystemEvent opens or
+   * bumps an incident, so unauthenticated 401s must not log unthrottled.
+   */
+  authDenialLog: { limit: 1, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

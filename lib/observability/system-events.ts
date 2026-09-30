@@ -4,6 +4,7 @@
  * Best-effort, service_role, never throws into caller.
  */
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
+import { checkRateLimit, clientIp } from '@/lib/rate-limit';
 
 export type SystemEventKind =
   | 'api_error'
@@ -206,3 +207,30 @@ export async function closeStaleIncidentsolderThanHours(hours = 24): Promise<num
 // Re-export for hermetic tests
 export const _deriveSeverity = deriveSeverity;
 export const _dedupeKey = dedupeKey;
+
+/**
+ * Stage 15 (S-10) — throttled worker/runner auth-denial audit.
+ *
+ * Emits ONE auth_failure row per IP per minute at most (authDenialLog bucket):
+ * every insertSystemEvent opens or bumps an incident, so 401s must never log
+ * unthrottled. Fixed message, route label and error code only — no tokens,
+ * no headers, no user material. Fail-open: never throws; the 401 response
+ * is unchanged whether logging succeeds or not.
+ */
+export async function logThrottledAuthDenial(req: Request, route: string, errorCode: string): Promise<void> {
+  try {
+    const gate = await checkRateLimit('authDenialLog', `auth-denial:${clientIp(req)}`);
+    if (!gate.allowed) return;
+    await insertSystemEvent({
+      kind: 'auth_failure',
+      severity_hint: 'warn',
+      route,
+      status_code: 401,
+      error_code: errorCode,
+      message: 'Worker authentication failed',
+      source: 'aldriva',
+    });
+  } catch {
+    // Fail-open by design.
+  }
+}

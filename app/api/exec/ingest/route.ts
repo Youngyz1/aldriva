@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { ingestAttemptResult, type IngestOutcomeName } from '@/lib/exec/ingest';
+import { logThrottledAuthDenial } from '@/lib/observability/system-events';
 import { emitExecTerminal } from '@/lib/exec/emit';
 
 const OUTCOMES: readonly string[] = ['succeeded', 'tool-failed', 'timeout', 'error', 'binding-failed'];
@@ -54,6 +55,11 @@ export async function POST(req: NextRequest) {
       nowIso: new Date().toISOString(),
     });
     if (!out.ok) {
+      // Stage 15 (S-10): token/owner failures are worker auth failures —
+      // audited (throttled, fail-open); unknown job/attempt states are not.
+      if (out.reason === 'bad token' || out.reason === 'wrong worker') {
+        void logThrottledAuthDenial(req, 'POST /api/exec/ingest', 'claim_token_rejected');
+      }
       return NextResponse.json({ error: out.reason }, { status: 422 });
     }
     if (out.transition === 'running→failed') {

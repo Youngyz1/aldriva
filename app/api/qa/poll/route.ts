@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { isAuthorizedPollRequest } from '@/lib/qa/tokens';
+import { logThrottledAuthDenial } from '@/lib/observability/system-events';
 import { pollAndClaim } from '@/lib/qa/claim';
 
 export async function GET(req: NextRequest) {
@@ -19,7 +20,9 @@ export async function GET(req: NextRequest) {
   const header = req.headers.get('authorization');
   const secret = process.env.QA_INGEST_TOKEN;
   const prev = process.env.QA_INGEST_TOKEN_PREV;
-  if (!isAuthorizedPollRequest(header, secret) && !isAuthorizedPollRequest(header, prev)) {
+  if (!isAuthorizedPollRequest(header, secret, prev)) {
+    // Stage 15 (S-10): audited denial — throttled, fail-open, response unchanged.
+    void logThrottledAuthDenial(req, 'GET /api/qa/poll', 'worker_unauthorized');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

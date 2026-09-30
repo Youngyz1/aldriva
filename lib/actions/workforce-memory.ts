@@ -17,6 +17,7 @@ import { requireAdmin, getCurrentUser, isAdmin } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { containsSecretPattern } from "@/lib/ai/tools/workforce/memory-propose";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function isUuid(v: unknown): v is string {
   return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -29,16 +30,20 @@ export async function createMemoryDirect(formData: FormData): Promise<never> {
   if (!user) {
     notice = "not-authenticated";
   } else {
-    notice = await createMemoryDirectFrom(
-      {
-        fact_key: formData.get("fact_key"),
-        fact_value: formData.get("fact_value"),
-        scope: formData.get("scope"),
-        agent: formData.get("agent"),
-        expires_at: formData.get("expires_at"),
-      },
-      user.id
-    );
+    // Stage 15 (S-6): per-admin throttle on the privileged memory CREATE.
+    const limited = await checkRateLimit("createMemoryDirect", `user:${user.id}`);
+    notice = !limited.allowed
+      ? "rate-limited"
+      : await createMemoryDirectFrom(
+        {
+          fact_key: formData.get("fact_key"),
+          fact_value: formData.get("fact_value"),
+          scope: formData.get("scope"),
+          agent: formData.get("agent"),
+          expires_at: formData.get("expires_at"),
+        },
+        user.id
+      );
   }
   revalidatePath("/admin/workforce/memory");
   redirect(`/admin/workforce/memory?created=${notice}`);

@@ -41,11 +41,21 @@ export function verifyClaimToken(
   return timingSafeEqual(a, b);
 }
 
-/** Layer-1 poll token check: fail-closed when the secret is unset. */
-export function isAuthorizedPollRequest(authHeader: string | null, secret: string | undefined | null): boolean {
-  if (!secret) return false;
+/** Layer-1 poll token check: fail-closed when the secret is unset.
+ * Stage 15 (S-12): accepts the rotation overlap (PREV) like
+ * lib/exec/tokens.ts isAuthorizedWorkerRequest — same constant-time,
+ * fail-closed behavior, so rotation never breaks in-flight pollers. */
+export function isAuthorizedPollRequest(
+  authHeader: string | null,
+  secret: string | undefined | null,
+  prevSecret: string | undefined | null = null
+): boolean {
   if (!authHeader) return false;
   const provided = createHash('sha256').update(authHeader).digest();
-  const expected = createHash('sha256').update(`Bearer ${secret}`).digest();
-  return timingSafeEqual(provided, expected);
+  for (const s of [secret, prevSecret]) {
+    if (!s) continue;
+    const expected = createHash('sha256').update(`Bearer ${s}`).digest();
+    if (provided.length === expected.length && timingSafeEqual(provided, expected)) return true;
+  }
+  return false;
 }

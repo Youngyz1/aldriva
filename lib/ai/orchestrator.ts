@@ -67,7 +67,10 @@ async function getToolGate(
       return { risk: row.risk, approvalRequired: Boolean(row.approval_required), scope: row.scope };
     }
   } catch {
-    // fallback
+    // Stage 15 (S-11): fail CLOSED. If the gate row cannot be read, the tool
+    // is treated as approval-required: the normal approval path records the
+    // request and blocks execution instead of silently succeeding.
+    return { risk: 'high', approvalRequired: true, scope: 'unknown' };
   }
   // Fallback: transactional => medium approval_required false; public/tenant => low
   return { risk: 'low', approvalRequired: false, scope: 'public_read' };

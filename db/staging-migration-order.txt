@@ -125,3 +125,4 @@ migration_147_exec_smoke_notify.sql
 migration_148_approval_gated_call_text.sql
 migration_149_agent_memory.sql
 migration_150_memory_hardening.sql
+migration_151_workforce_rls_narrowing.sql

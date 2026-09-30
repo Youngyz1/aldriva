@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { isAuthorizedWorkerRequest } from '@/lib/exec/tokens';
+import { logThrottledAuthDenial } from '@/lib/observability/system-events';
 import { reclaimStaleLeases } from '@/lib/exec/recovery';
 import { materializeApproved } from '@/lib/exec/materialize';
 import { claimExecution } from '@/lib/exec/claim';
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
   if (
     !isAuthorizedWorkerRequest(header, process.env.EXEC_WORKER_TOKEN, process.env.EXEC_WORKER_TOKEN_PREV)
   ) {
+    // Stage 15 (S-10): audited denial — throttled, fail-open, response unchanged.
+    void logThrottledAuthDenial(req, 'POST /api/exec/claim', 'worker_unauthorized');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
