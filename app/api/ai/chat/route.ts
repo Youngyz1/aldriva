@@ -19,6 +19,39 @@ import { PUBLIC_AI_TOOL_DEFINITIONS, ADMIN_AI_TOOL_DEFINITIONS } from '@/lib/ai/
 import { AIMessage } from '@/lib/ai/types';
 import { insertSystemEvent } from '@/lib/observability/system-events';
 
+/**
+ * Stage 14 — Studio/Workforce boundary: explicit allowlist for directTool mode.
+ *
+ * AI Studio is the creation workspace; the AI Workforce (agents, approvals,
+ * memory) is the operations surface. Direct single-tool invocation exists so
+ * admins can test read-only Studio tools from the UI. It must never become an
+ * ungated execution path: only these 9 read-only tools (the exact set
+ * reachable through executeAITool — 8 public catalog/fetch tools + the admin
+ * content-history read) may run here. Anything else — unknown names and, in
+ * particular, every tenant-scoped / transactional tool (notifications, memory
+ * propose, QA, sentinel writers) — is rejected WITHOUT execution and logged
+ * as an approval_block system event (tool name only, no prompts or args).
+ *
+ * Model-initiated tool use in the chat path below is unchanged: it offers
+ * PUBLIC + ADMIN definitions and never establishes a tenant context, so
+ * tenant tools stay unreachable there by the registry's fail-closed guard.
+ */
+const STUDIO_DIRECT_TOOL_ALLOWLIST: ReadonlySet<string> = new Set([
+  'get_upcoming_events',
+  'get_active_fundraisers',
+  'get_featured_businesses',
+  'get_recent_articles',
+  'get_available_products',
+  'get_content_history',
+  'fetch_url_summary',
+  'fetch_rss_feed',
+  'search_trends',
+]);
+
+/** Fixed audit message for direct-tool rejections — never interpolates user text. */
+const DIRECT_TOOL_REJECTION_MESSAGE =
+  'Studio direct tool rejected: not on read-only allowlist';
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Mandatory Admin Gate
@@ -39,8 +72,31 @@ export async function POST(req: NextRequest) {
       toolArgs,
     } = body;
 
-    // Direct single-tool invocation mode (for direct UI tool testing buttons)
+    // Direct single-tool invocation mode (for direct UI tool testing buttons).
+    // Stage 14 boundary: allowlist-gated. Rejections execute nothing and are
+    // audit-logged (approval_block, tool name only — no prompts, no args).
+    // Logging is fail-open: it must never break the rejection response.
     if (directTool) {
+      if (!STUDIO_DIRECT_TOOL_ALLOWLIST.has(directTool)) {
+        void insertSystemEvent({
+          kind: 'approval_block',
+          severity_hint: 'warn',
+          route: 'POST /api/ai/chat',
+          tool_name: String(directTool).slice(0, 200),
+          status_code: 403,
+          error_code: 'studio_direct_tool_denied',
+          message: DIRECT_TOOL_REJECTION_MESSAGE,
+          metadata: { mode: 'direct', allowed: false },
+          source: 'aldriva',
+        }).catch(() => {});
+        return NextResponse.json(
+          {
+            error: 'Tool not allowed in Studio direct mode',
+            tool: directTool,
+          },
+          { status: 403 }
+        );
+      }
       const rawResult = await executeAITool(directTool, JSON.stringify(toolArgs || {}));
       return NextResponse.json({
         success: true,

@@ -2,6 +2,9 @@
  * lib/ai/provider-factory.ts
  * Factory function to retrieve the configured AIProvider instance.
  * Supports switching between 'gemini' (default) and 'openrouter'.
+ *
+ * Stage 14 boundary — SHARED by AI Studio and AI Workforce (provider is one
+ * of the five shareable layers: provider, tools, knowledge, runtime, guards).
  */
 
 import { AIProvider } from './types';

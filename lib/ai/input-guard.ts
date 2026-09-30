@@ -9,6 +9,9 @@
  *
  * All external text (from web scrapes, RSS, URLs) MUST pass through screenUntrustedInput()
  * and wrapInUntrustedContainer() before being placed into a model prompt or returned as a tool result.
+ *
+ * Stage 14 boundary — SHARED by AI Studio and AI Workforce (guards are one of
+ * the five shareable layers: provider, tools, knowledge, runtime, guards).
  */
 
 import { createClient } from '@supabase/supabase-js';

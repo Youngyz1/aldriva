@@ -7,6 +7,13 @@
  * screen their copy via screenModelOutput() instead (they return delivery
  * receipts, not DB rows). Tenant tools additionally require a
  * server-derived TenantContext — see executeTenantTool().
+ *
+ * Stage 14 boundary — SHARED by AI Studio and AI Workforce. Boundary rule:
+ * the two surfaces may share ONLY provider, tools, knowledge, runtime and
+ * guards; they are separate product surfaces. Studio (app/api/ai/chat) offers
+ * PUBLIC + ADMIN definitions and allowlists directTool mode; it must never
+ * establish a tenant context or reach TENANT definitions. Workforce reaches
+ * tenant tools only via executeTenantTool() with a server-derived context.
  */
 
 import { AIToolDefinition } from './types';
