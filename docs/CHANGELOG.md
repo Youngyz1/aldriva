@@ -5,6 +5,42 @@
 
 ---
 
+## [2026-09] — Responsive Data Display Standard — Phase 3: Remaining User-Facing Migration (2026-09-29)
+### Phase 3 — Remaining User-Facing Responsive Data Migration Across 9 Operational Surfaces (2026-09-29)
+- Completed full migration of all 9 remaining user-facing operational/data-heavy screens using the canonical `ResponsiveDataTable` and `ResponsiveDataRow` primitives:
+  1. `/dashboard/organizers` (`OrganizersClient.tsx`): Organization directory with followers/campaigns reduction at `@md` and mobile Two-Line Structured Row featuring revenue metrics, event counters, and detail drawer trigger.
+  2. `/dashboard/donations` (`DonationsClient.tsx`): User donation ledger with date reduction at `@md` and mobile Two-Line Structured Row featuring green emerald donation amounts, campaign links, and detail drawer trigger.
+  3. `/dashboard/events/[id]/checkins` (`CheckinsClient.tsx`): Real-time event check-in list with scanner breakdown reduction at `@md` and mobile Two-Line Structured Row featuring guest name, seat/qty indicator, offline sync badge, and timestamp.
+  4. `/dashboard/events/[id]/guests` (`GuestsClient.tsx`): Comprehensive event guest manifest with contact/admission reduction at `@md` and mobile Two-Line Structured Row featuring VIP badge, seat indicator/Assign button, status pill, and detail drawer trigger.
+  5. `/dashboard/products` (`products/page.tsx`): Product inventory view with stock/price type reduction at `@md` and mobile Two-Line Structured Row featuring thumbnail, price/sales metrics, product type pill, and `ProductRowActions`.
+  6. `/dashboard/businesses` (`businesses/page.tsx`): Business directory with subscription ID/period reduction at `@md` and mobile Two-Line Structured Row featuring business logo, tier badge, status pill, and `BusinessRowActions`.
+  7. `/dashboard/articles` (`articles/page.tsx`): Editorial articles manager with tags/visibility reduction at `@md` and mobile Two-Line Structured Row featuring cover image, visibility badge, status pill, and `ArticleRowActions`.
+  8. `/dashboard/fundraisers/[id]/donations` (`DonationsClient.tsx`): Replaced legacy `hidden sm:block` table vs `sm:hidden` cards split with canonical container-query table + two-line structured row, preserving metrics strip, sticky search toolbar, and `DonationDetailSheet`.
+  9. `/dashboard/fundraisers/[id]/donors` (`DonorsClient.tsx`): Replaced legacy dual table/cards split with canonical container-query table + two-line structured row, preserving donor avatar, repeat badge, metrics strip, and `DonorDetailSheet`.
+- Synced changes symmetrically across both localized (`app/[locale]/dashboard/...`) and root (`app/dashboard/...`) route trees.
+- Admin screens (`/admin/*`) strictly preserved without migration (reserved for Phase 4 / Batch 4).
+- Updated regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` with 9 new test suites covering structural invariants of all Phase 3 screens.
+- Verification: Full platform test suite **893/893 passing (38 suites, 0 failures)**, TypeScript compiler clean (`0 errors`), ESLint clean (`0 errors`).
+
+## [2026-09] — Responsive Data Display Standard — Phase 2 / Batch 2: Pilot Migration (2026-09-29)
+### Phase 2 / Batch 2 — Validated Pilot Migration Across 5 Representative Surfaces (2026-09-29)
+- Successfully deployed `ResponsiveDataTable` and `ResponsiveDataRow` primitives (built with Tailwind v4 container queries `@container`) across 5 distinct data-heavy surfaces:
+  1. `/dashboard/events` (`EventsClient.tsx`): Canonical event lifecycle table with date/visibility reduction at `@md` and two-line structured row with money formatting on mobile.
+  2. `/dashboard/fundraisers` (`FundraisersClient.tsx`): Unified campaign progress table; eliminated legacy table/cards toggle switch in favor of container-responsive two-line rows.
+  3. `/dashboard/attendees` (`AttendeesClient.tsx`): High-volume attendee list with batch selection checkboxes, quantity/paid indicators, and mobile drawer details.
+  4. `/dashboard/settings/payments` (`PaymentsClient.tsx`): Financial ledger / payout history with multi-destination support, currency formatting, and safe cancellation actions.
+  5. `/admin/users` (`UsersClient.tsx`): 10-column administrative management view reduced gracefully to 5 columns at `@md` and two-line identity rows with role/status badges and moderation drawer on mobile.
+- Enforced all non-negotiable rules: Zero schema changes, zero auth changes, preserved drawer triggers (`DashboardDrawer`/`AdminDrawer`), preserved bulk selection states, and 100% test coverage.
+- Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
+- Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
+
+## [2026-09] — AI Workforce Stage 11.1: Knowledge read-only list + detail (2026-09-29)
+### Stage 11.1 — Knowledge list/detail UI, zero writes (2026-09-29)
+- Replaced the `knowledge` stage-stub with a read-only list (`app/admin/workforce/knowledge/page.tsx`: scope chips Platform/Tenant/All defaulting to Platform, 17-category chips, allowlisted filters with safe fallbacks, tenant labels, `agent_memory` Stage-12 notice) and document detail (`knowledge/[id]/page.tsx`: metadata, 1500-char content preview as escaped pre-wrap text, version metadata, chunk count, back link). No sidebar change (entry existed).
+- New `lib/workforce/knowledge.ts` (Reports-pattern helpers): list select NEVER includes `content`; versions metadata-only after parent read; chunk COUNT only; uuid guards → notFound. No `insert/update/delete/upsert`, no service-role client, no `dangerouslySetInnerHTML` — statically asserted in `lib/workforce/__tests__/knowledge.test.cjs` (registered in `package.json` test list); `knowledge/[id]` added to p2 `WORKFORCE_PAGES`.
+- Reported-only (NOT fixed — no migration/RLS changes): `knowledge_document_versions` allows any-authenticated SELECT (no scope/status gate; UI reads metadata only after parent read); `knowledge_chunks` has no status check (UI never selects chunk text); legacy `ai_knowledge_docs` is dead (no readers); retrieved-text screening absent (matters when authoring arrives); no per-agent knowledge model exists.
+- Untouched: `lib/ai/knowledge.ts`, orchestrator, registry, proxy, `lib/exec/*`, approvals, other sections. `_components/stage-stub.tsx` kept (zero consumers now, deletion out of scope).
+
 ## [2026-09] — AI Workforce Stage 10.11: Workforce admin UI reachable (route move only, 2026-09-29)
 ### Stage 10.11 — Moved app/[locale]/admin/workforce/** to app/admin/workforce/** (2026-09-29)
 - Cause: `proxy.ts` strips the locale prefix and rewrites to the root tree, so the `app/[locale]` tree is never route-matched; the 16 Workforce pages were the only pages without a root twin → `/admin/workforce/*` and `/en/admin/workforce/*` both 404'd live on staging (`d656a9f`).
