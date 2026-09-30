@@ -1,19 +1,20 @@
 /**
- * lib/workforce/memory-apply.ts — Stage 12 memory applier (sole memory writer).
+ * lib/workforce/memory-apply.ts — Stage 12 applier, Stage 13 atomic path.
  *
- * Applies EXACT approved memory_propose states: poll approved + unclaimed
- * approvals, re-validate the canonical proposal, optimistic version check,
- * write fact + history, conditional audit stamp (exactly-once). Any
- * mismatch aborts auditable without mutation. Also sweeps due expirations
- * (explicit transitions, history-preserving) when invoked.
- *
- * Invoked synchronously from decideWorkforceApproval after a successful
- * decide (no polling loop, no scheduler, no new worker). Hermetic via the
- * injected client.
+ * The SOLE memory writer (with the human direct-create action). All fact +
+ * history + stamp writes go through the transactional RPC
+ * apply_agent_memory() (migration_150): approval verification, fact write,
+ * history insert, and approval stamp commit or roll back together, so a
+ * fact can never land without its history. Application logic here stays
+ * dumb by design: extract the canonical proposal, resolve scopes from
+ * server-trusted row data, translate to RPC params, map the result.
+ * Hermetic via the injected client (tests emulate rpc faithfully,
+ * including partial-unique enforcement and the append-only trigger).
  */
 
 export interface ApplyClient {
   from(table: string): any;
+  rpc?(fn: string, params: Record<string, unknown>): PromiseLike<unknown>;
 }
 
 export interface MemoryProposalState {
@@ -61,6 +62,10 @@ async function selectAll<T>(qPromise: PromiseLike<unknown>, what: string): Promi
   return (data ?? []) as T[];
 }
 
+function isUuid(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
 function isProposalState(v: unknown): v is MemoryProposalState {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
   const p = v as Record<string, unknown>;
@@ -73,23 +78,9 @@ function isProposalState(v: unknown): v is MemoryProposalState {
   return true;
 }
 
-function isUuid(v: unknown): v is string {
-  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-}
-
-/** Run/task linkage from evidence.proposal (orchestrator-attached, server-known). */
-export function extractProposalContext(row: ApprovalRow): { runId: string | null; taskId: string | null } {
-  const ev = row.evidence as Record<string, unknown> | null;
-  const p = ev !== null && typeof ev === 'object' ? (ev as Record<string, unknown>)['proposal'] : null;
-  const o = p !== null && typeof p === 'object' ? (p as Record<string, unknown>) : null;
-  return {
-    runId: isUuid(o?.['run_id']) ? (o?.['run_id'] as string) : null,
-    taskId: isUuid(o?.['task_id']) ? (o?.['task_id'] as string) : null,
-  };
-}
-
 /** Canonical proposal: proposedOutcome.memory_proposal first, evidence.proposal fallback. */
-export function extractProposal(row: ApprovalRow): MemoryProposalState | null {  const po = row.proposed_outcome as Record<string, unknown> | null;
+export function extractProposal(row: ApprovalRow): MemoryProposalState | null {
+  const po = row.proposed_outcome as Record<string, unknown> | null;
   if (po && typeof po === 'object' && isProposalState((po as Record<string, unknown>)['memory_proposal'])) {
     return (po as Record<string, unknown>)['memory_proposal'] as MemoryProposalState;
   }
@@ -112,52 +103,44 @@ export function resolveProposalScope(
   return { tenantId, agentId };
 }
 
-async function stampApproval(
-  client: ApplyClient,
-  approvalId: string,
-  ref: string
-): Promise<boolean> {
-  const { data, error } = (await client
-    .from('approvals')
-    .update({ audit_ref: ref })
-    .eq('id', approvalId)
-    .or('audit_ref.is.null,audit_ref.eq.exec-invalid-envelope')
-    .select('id')) as unknown as { data: Array<{ id: string }> | null; error: { message: string } | null };
-  if (error) throw new Error(`Memory applier stamp failed: ${error.message}`);
-  return (data ?? []).length > 0;
+/** Run/task linkage from evidence.proposal (orchestrator-attached, server-known). */
+export function extractProposalContext(row: ApprovalRow): { runId: string | null; taskId: string | null } {
+  const ev = row.evidence as Record<string, unknown> | null;
+  const p = ev !== null && typeof ev === 'object' ? (ev as Record<string, unknown>)['proposal'] : null;
+  const o = p !== null && typeof p === 'object' ? (p as Record<string, unknown>) : null;
+  return {
+    runId: isUuid(o?.['run_id']) ? (o?.['run_id'] as string) : null,
+    taskId: isUuid(o?.['task_id']) ? (o?.['task_id'] as string) : null,
+  };
 }
 
-async function insertHistory(
+interface RpcRow {
+  applied: boolean;
+  fact_id: string | null;
+  version: number | null;
+  reason: string;
+}
+
+async function callApplyRpc(
   client: ApplyClient,
-  fact: { id: string; version: number; fact_value: string; status: string; expires_at: string | null },
-  approval: ApprovalRow,
-  approverId: string | null,
-  nowIso: string,
-  ctx: { runId: string | null; taskId: string | null }
-): Promise<void> {
-  const rows = await selectAll<{ id: string }>(
-    client.from('agent_memory_versions').insert({
-      fact_id: fact.id,
-      version: fact.version,
-      fact_value: fact.fact_value,
-      status: fact.status,
-      expires_at: fact.expires_at,
-      approval_id: approval.id,
-      proposed_by_agent_id: approval.requested_by_agent_id,
-      proposed_run_id: ctx.runId,
-      proposed_task_id: ctx.taskId,
-      approved_by: approverId,
-      approved_at: nowIso,
-    }).select('id'),
-    'memory history insert'
-  );
-  if (!rows[0]) throw new Error('Memory history insert returned no row.');
+  params: Record<string, unknown>,
+  what: string
+): Promise<RpcRow> {
+  if (typeof client.rpc !== 'function') throw new Error(`Memory applier requires rpc support (${what}).`);
+  const { data, error } = (await client.rpc('apply_agent_memory', params)) as unknown as {
+    data: RpcRow[] | null;
+    error: { message: string } | null;
+  };
+  if (error) throw new Error(`Memory applier RPC failed (${what}): ${error.message}`);
+  const row = (data ?? [])[0] ?? null;
+  if (!row) throw new Error(`Memory applier RPC returned no row (${what}).`);
+  return row;
 }
 
 /**
  * Apply one approved memory_propose approval exactly once. Returns the
- * outcome; never throws for business rejections (conflicts stamp and
- * report as skipped). Throw only on infrastructure failure.
+ * outcome; never throws for business rejections. Throw only on
+ * infrastructure failure.
  */
 export async function applyOneApproval(
   client: ApplyClient,
@@ -169,101 +152,44 @@ export async function applyOneApproval(
   }
   const proposal = extractProposal(approval);
   if (!proposal) {
-    await stampApproval(client, approval.id, 'memory-invalid-proposal');
     return { skipped: 'unparseable proposal' };
   }
   const scope = resolveProposalScope(proposal, approval);
   if (!scope) {
-    await stampApproval(client, approval.id, 'memory-invalid-scope');
     return { skipped: 'unresolvable scope' };
   }
   const pctx = extractProposalContext(approval);
-  const existing = await selectAll<FactRow>(
-    client.from('agent_memory').select('id,tenant_id,agent_id,fact_key,fact_value,status,version,expires_at,approval_id')
-      .eq('fact_key', proposal.fact_key)
-      .limit(10),
-    'memory current lookup'
+  const nextStatus = proposal.op === 'UPDATE' || proposal.op === 'CREATE' ? 'active' : proposal.op === 'REVOKE' ? 'revoked' : 'expired';
+  const res = await callApplyRpc(
+    client,
+    {
+      p_approval_id: approval.id,
+      p_require_approval: true,
+      p_op: proposal.op,
+      p_tenant_id: scope.tenantId,
+      p_agent_id: scope.agentId,
+      p_fact_key: proposal.fact_key,
+      p_fact_value: proposal.op === 'CREATE' || proposal.op === 'UPDATE' ? proposal.fact_value : null,
+      p_next_status: nextStatus,
+      p_expires_at: proposal.expires_at,
+      p_source: 'agent-proposed',
+      p_proposer_agent: approval.requested_by_agent_id,
+      p_run_id: pctx.runId,
+      p_task_id: pctx.taskId,
+      p_approver: null,
+      p_now: nowIso,
+      p_expected_version: proposal.base_version,
+    },
+    'memory approval apply'
   );
-  const current = existing.find(
-    (f) => (f.tenant_id ?? null) === scope.tenantId && (f.agent_id ?? null) === scope.agentId
-  ) ?? null;
-
-  // Idempotent re-entry: this approval already produced this exact version.
-  if (
-    current !== null &&
-    current.approval_id === approval.id &&
-    current.version === proposal.base_version + 1
-  ) {
-    await stampApproval(client, approval.id, `memory:applied:${current.id}:v${current.version}`);
-    return { applied: { factId: current.id, version: current.version, duplicate: true } };
+  if (!res.applied || !res.fact_id || res.version === null) {
+    return { skipped: res.reason };
   }
-
-  if (proposal.op === 'CREATE') {
-    if (current !== null) {
-      await stampApproval(client, approval.id, 'memory-version-conflict');
-      return { skipped: 'fact already exists' };
-    }
-    if (proposal.base_version !== 0) {
-      await stampApproval(client, approval.id, 'memory-version-conflict');
-      return { skipped: 'CREATE requires base_version 0' };
-    }
-    const inserted = await selectAll<{ id: string }>(
-      client.from('agent_memory').insert({
-        tenant_id: scope.tenantId,
-        agent_id: scope.agentId,
-        fact_key: proposal.fact_key,
-        fact_value: proposal.fact_value as string,
-        status: 'active',
-        version: 1,
-        source: 'agent-proposed',
-        proposed_by_agent_id: approval.requested_by_agent_id,
-        proposed_run_id: pctx.runId,
-        proposed_task_id: pctx.taskId,
-        approved_by: null,
-        approval_id: approval.id,
-        effective_at: nowIso,
-        expires_at: proposal.expires_at,
-      }).select('id'),
-      'memory fact insert'
-    );
-    const factId = inserted[0]?.id;
-    if (!factId) throw new Error('Memory fact insert returned no row.');
-    await insertHistory(client, { id: factId, version: 1, fact_value: proposal.fact_value as string, status: 'active', expires_at: proposal.expires_at }, approval, null, nowIso, pctx);
-    await stampApproval(client, approval.id, `memory:applied:${factId}:v1`);
-    return { applied: { factId, version: 1 } };
-  }
-
-  // UPDATE / REVOKE / EXPIRE require the exact base version (optimistic check).
-  if (current === null) {
-    await stampApproval(client, approval.id, 'memory-version-conflict');
-    return { skipped: 'no current fact for non-CREATE op' };
-  }
-  if (current.version !== proposal.base_version) {
-    await stampApproval(client, approval.id, 'memory-version-conflict');
-    return { skipped: `stale base_version (proposal ${proposal.base_version}, current ${current.version})` };
-  }
-  const nextVersion = current.version + 1;
-  const nextStatus = proposal.op === 'UPDATE' ? current.status : proposal.op === 'REVOKE' ? 'revoked' : 'expired';
-  const nextValue = proposal.op === 'UPDATE' ? (proposal.fact_value as string) : current.fact_value;
-  const nextExpires = proposal.op === 'UPDATE' ? (proposal.expires_at ?? current.expires_at) : current.expires_at;
-  const updated = await selectAll<{ id: string }>(
-    client.from('agent_memory').update({
-      fact_value: nextValue,
-      status: nextStatus,
-      version: nextVersion,
-      expires_at: nextExpires,
-      approval_id: approval.id,
-      effective_at: nowIso,
-    }).eq('id', current.id).eq('version', current.version).select('id'),
-    'memory fact update'
-  );
-  if (updated.length === 0) {
-    await stampApproval(client, approval.id, 'memory-version-conflict');
-    return { skipped: 'lost version race' };
-  }
-  await insertHistory(client, { id: current.id, version: nextVersion, fact_value: nextValue, status: nextStatus, expires_at: nextExpires }, approval, null, nowIso, pctx);
-  await stampApproval(client, approval.id, `memory:applied:${current.id}:v${nextVersion}`);
-  return { applied: { factId: current.id, version: nextVersion } };
+  // Idempotent re-entry surfaces as applied + version match: distinguish a
+  // true duplicate (already stamped) from a fresh apply via the stamp the
+  // RPC would have reused.
+  const duplicate = res.reason === 'already applied';
+  return { applied: { factId: res.fact_id, version: res.version, ...(duplicate ? { duplicate: true as const } : {}) } };
 }
 
 export async function applyApprovedMemory(
@@ -303,9 +229,9 @@ export async function applyApprovedMemory(
 }
 
 /**
- * Explicit expiration transitions (audit-preserving). Active facts with
- * expires_at elapsed become a new 'expired' version + history row.
- * Conditional on the seen version: concurrent appliers cannot double-expire.
+ * Explicit expiration transitions (audit-preserving) via the same atomic
+ * RPC. Conditional on the seen version: concurrent appliers cannot
+ * double-expire. Idempotent.
  */
 export async function expireDueMemories(client: ApplyClient, nowIso: string): Promise<string[]> {
   const done: string[] = [];
@@ -318,23 +244,29 @@ export async function expireDueMemories(client: ApplyClient, nowIso: string): Pr
   );
   for (const fact of due) {
     if (fact.expires_at === null || fact.expires_at > nowIso) continue;
-    const nextVersion = fact.version + 1;
-    const updated = await selectAll<{ id: string }>(
-      client.from('agent_memory').update({ status: 'expired', version: nextVersion, effective_at: nowIso })
-        .eq('id', fact.id).eq('version', fact.version).eq('status', 'active').select('id'),
-      'memory expiry update'
+    const res = await callApplyRpc(
+      client,
+      {
+        p_approval_id: null,
+        p_require_approval: false,
+        p_op: 'EXPIRE',
+        p_tenant_id: fact.tenant_id,
+        p_agent_id: fact.agent_id,
+        p_fact_key: fact.fact_key,
+        p_fact_value: null,
+        p_next_status: 'expired',
+        p_expires_at: fact.expires_at,
+        p_source: 'system',
+        p_proposer_agent: null,
+        p_run_id: null,
+        p_task_id: null,
+        p_approver: null,
+        p_now: nowIso,
+        p_expected_version: fact.version,
+      },
+      'memory expiry'
     );
-    if (updated.length === 0) continue;
-    await selectAll<{ id: string }>(
-      client.from('agent_memory_versions').insert({
-        fact_id: fact.id, version: nextVersion, fact_value: fact.fact_value,
-        status: 'expired', expires_at: fact.expires_at, approval_id: null,
-        proposed_by_agent_id: null, proposed_run_id: null, proposed_task_id: null,
-        approved_by: null, approved_at: null,
-      }).select('id'),
-      'memory expiry history'
-    );
-    done.push(fact.id);
+    if (res.applied) done.push(fact.id);
   }
   return done;
 }

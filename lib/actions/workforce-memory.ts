@@ -94,55 +94,40 @@ export async function createMemoryDirectFrom(
     };
     if (!data || data.length === 0) return "error-agent";
   }
-  // CREATE-only: refuse when the same identity already exists (DB UNIQUE is
-  // the final guard; this returns a clean notice first).
-  const { data: same } = (await admin
-    .from("agent_memory")
-    .select("id,tenant_id,agent_id")
-    .eq("fact_key", key)
-    .limit(20)) as unknown as {
-    data: Array<{ id: string; tenant_id: string | null; agent_id: string | null }> | null;
-  };
-  if ((same ?? []).some((r) => (r.tenant_id ?? null) === tenantId && (r.agent_id ?? null) === agentId)) {
-    return "error-exists";
-  }
-
+  // CREATE-only: the atomic RPC enforces identity uniqueness (F-1 partial
+  // indexes), writes fact + history in one transaction (F-2), and reports
+  // conflicts without partial state. No table-level writes here.
   const nowIso = new Date().toISOString();
-  const { data: inserted, error } = (await admin
-    .from("agent_memory")
-    .insert({
-      tenant_id: tenantId,
-      agent_id: agentId,
-      fact_key: key,
-      fact_value: value,
-      status: "active",
-      version: 1,
-      source: "human",
-      proposed_by_agent_id: null,
-      approved_by: userId,
-      approved_at: nowIso,
-      approval_id: null,
-      effective_at: nowIso,
-      expires_at: expiresAt,
-    })
-    .select("id")) as unknown as { data: Array<{ id: string }> | null; error: { message: string } | null };
-  if (error || !inserted || inserted.length === 0) return "error-exists";
-  const hist = (await admin.from("agent_memory_versions").insert({
-    fact_id: inserted[0].id,
-    version: 1,
-    fact_value: value,
-    status: "active",
-    expires_at: expiresAt,
-    approval_id: null,
-    proposed_by_agent_id: null,
-    proposed_run_id: null,
-    proposed_task_id: null,
-    approved_by: userId,
-    approved_at: nowIso,
-  }).select("id")) as unknown as { error: { message: string } | null };
-  if (hist.error) {
-    await admin.from("agent_memory").delete().eq("id", inserted[0].id);
+  const { data, error } = (await admin.rpc("apply_agent_memory", {
+    p_approval_id: null,
+    p_require_approval: false,
+    p_op: "CREATE",
+    p_tenant_id: tenantId,
+    p_agent_id: agentId,
+    p_fact_key: key,
+    p_fact_value: value,
+    p_next_status: "active",
+    p_expires_at: expiresAt,
+    p_source: "human",
+    p_proposer_agent: null,
+    p_run_id: null,
+    p_task_id: null,
+    p_approver: userId,
+    p_now: nowIso,
+    p_expected_version: 0,
+  })) as unknown as {
+    data: Array<{ applied: boolean; fact_id: string | null; version: number | null; reason: string }> | null;
+    error: { message: string } | null;
+  };
+  if (error) {
+    console.error("[workforce-memory] apply RPC failed:", error.message);
     return "error";
+  }
+  const row = (data ?? [])[0] ?? null;
+  if (!row || !row.applied) {
+    // Includes the pre-check duplicate path (CREATE requires base 0 and a
+    // free identity) — surfaced distinctly for the UI notice.
+    return row && /already exists|duplicate/i.test(row.reason) ? "error-exists" : "error";
   }
   return "ok";
 }

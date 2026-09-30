@@ -6,7 +6,7 @@
 
 import { getAgentByName, getAllowedToolDefinitions } from './agent-registry';
 import { retrieveKnowledge, formatKnowledgeForPrompt } from './knowledge';
-import { resolveMemory, formatMemoryForPrompt } from './memory';
+import { resolveMemory, formatMemoryForPrompt, buildMemoryAuditLine } from './memory';
 import { validateMemoryProposal } from './tools/workforce/memory-propose';
 import { getTenantAIProvider } from './tenant-provider';
 import { getAIProvider } from './provider-factory';
@@ -181,6 +181,14 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
       seq: seq++,
       kind: 'knowledge_retrieval',
       content: knowledgeBlock ? knowledgeBlock.slice(0, 4000) : 'no knowledge retrieved',
+    });
+    // Stage 13 (F-5): memory retrieval joins the same audit trail under its
+    // own additive kind — keys/versions/scopes only, never values.
+    await addAgentStep({
+      runId,
+      seq: seq++,
+      kind: 'memory_retrieval',
+      content: buildMemoryAuditLine(memory),
     });
   }
 

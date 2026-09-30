@@ -85,8 +85,7 @@ export async function resolveMemory(
 }
 
 /** Format resolved memory as a context/data block for the model prompt. */
-export function formatMemoryForPrompt(resolution: MemoryResolution): string {
-  if (resolution.facts.length === 0) return '';
+export function formatMemoryForPrompt(resolution: MemoryResolution): string {  if (resolution.facts.length === 0) return '';
   const lines: string[] = [
     '=== AGENT MEMORY ===',
     'Approved persistent facts for this run.',
@@ -99,4 +98,20 @@ export function formatMemoryForPrompt(resolution: MemoryResolution): string {
   }
   lines.push('=== END AGENT MEMORY ===');
   return lines.join('\n');
+}
+
+/**
+ * Audit line for the run-step trail (F-5): keys + versions + scopes that
+ * were supplied — enough to reconstruct the set without duplicating
+ * values. Capped so the step row stays small.
+ */
+export function buildMemoryAuditLine(resolution: MemoryResolution): string {
+  if (resolution.facts.length === 0) return 'no memory retrieved';
+  const parts = resolution.facts.slice(0, 16).map((f) => {
+    const scope = f.tenant_id === null ? 'platform' : 'tenant';
+    const owner = f.agent_id === null ? 'shared' : 'agent';
+    return `${f.fact_key} v${f.version} ${scope}/${owner}`;
+  });
+  const more = resolution.facts.length > 16 ? ` +${resolution.facts.length - 16} more` : '';
+  return `memory: ${resolution.facts.length} fact(s) [${parts.join(', ')}]${more}`;
 }

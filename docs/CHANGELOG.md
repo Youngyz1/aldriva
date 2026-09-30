@@ -57,6 +57,14 @@
 - Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
 - Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
 
+## [2026-09] — AI Workforce Stage 13 complete: Agent Memory Hardening (2026-09-30)
+### Stage 13 — F-1/F-2/F-4/F-5 hardening, F-3 deferred (2026-09-30)
+- `db/migration_150_memory_hardening.sql` (+ rollback twin, supabase mirror `20261004000000_…`, order entry): F-1 three partial unique indexes (platform / tenant-shared / agent-on-platform scopes; base UNIQUE keeps all-non-null rows) behind a fail-loud duplicate guard (raises with counts, never merges/deletes); F-2 transactional RPC `apply_agent_memory()` (approval lock+verify, version-guarded fact write, history insert, conditional stamp — all-or-nothing; unique_violation → clean conflict; service-role only, `REVOKE … FROM anon, authenticated`); F-4 `BEFORE UPDATE OR DELETE` reject trigger on `agent_memory_versions` (all roles, INSERT open); F-5 additive `memory_retrieval` kind in the `agent_steps` CHECK (145 precedent).
+- App: applier rewritten onto the RPC (same interface; conflict stamps so pollers never re-spin; idempotent re-entry reports applied+duplicate); human direct-create via the same RPC (no table writes left in either file); orchestrator logs a `memory_retrieval` step (keys/versions/scopes via `buildMemoryAuditLine`, never values) after the knowledge step.
+- Tests: `memory.test.cjs` 19→26 (F-1 race-ordered + scope-matrix, F-2 injected-failure atomicity + retry + duplicate, F-4 trigger/harness, F-5 audit-line/orchestrator/kind, migration-150 consistency). Harness emulates the RPC transactionally (snapshot/restore), enforces partial uniques, and blocks versions mutation.
+- Reported-only: true PG concurrency proven by constraints (hermetic tests are race-ordered sequences); trigger behavior needs live apply to observe; F-3 retention deferred per scope (no CASCADE changes).
+- Untouched: migration 149, `lib/exec/*`, proxy, approval engine semantics, other sections.
+
 ## [2026-09] — AI Workforce Stage 12 complete: approved persistent memory (2026-09-30)
 ### Stage 12 — Human-approved agent memory, proposal-gated writes (2026-09-30)
 - `db/migration_149_agent_memory.sql` (+ rollback twin, supabase mirror `20261003000000_…`, order entry): `agent_memory` (tenant/agent scope, key 1–120, value 1–4000, status active/revoked/expired, version, source human/system/agent-proposed, proposer/run/task provenance, approver/approval, effective/expiry timestamps, UNIQUE(agent_id,tenant_id,fact_key)) + append-only `agent_memory_versions` + scoped SELECT-only RLS (writes service-role only) + `memory_propose` tool seed (transactional/medium/approval-gated, dylan-only grant).
