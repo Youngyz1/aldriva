@@ -81,6 +81,15 @@ export const RATE_LIMITS = {
    * A legitimate organizer iterates a handful of times; 15/min leaves ample room.
    */
   seatingAi: { limit: 15, windowSeconds: 60 },
+
+  /**
+   * Stage 11 workforce knowledge retrieval test box (admin server action).
+   * NEW CONVENTION (Stage 11): first action-level bucket — no Request object
+   * exists in a server action, so the caller passes `user:<adminId>` as the
+   * identifier directly to checkRateLimit instead of enforceRateLimit.
+   * 20/min bounds manual probing; SELECTs only, nothing persisted.
+   */
+  workforceKnowledgeRetrievalTest: { limit: 20, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

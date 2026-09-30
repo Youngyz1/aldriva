@@ -14,9 +14,11 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import {
   fetchDocumentDetail,
+  fetchDocumentChunks,
   fetchTenantNames,
   isDocumentIdShape,
   buildContentPreview,
+  buildChunkPreview,
   scopeLabel,
   shortId,
   statusBadge,
@@ -31,6 +33,8 @@ export default async function WorkforceKnowledgeDetailPage({ params }: { params:
   const supabase = await createSupabaseServer();
   const raw = await fetchDocumentDetail(supabase, id);
   if (!raw) notFound();
+  // Chunks only after the parent document read succeeded above.
+  const chunks = await fetchDocumentChunks(supabase, raw.document.id);
   const d = raw.document;
   const badge = statusBadge(d.status);
   const preview = buildContentPreview(d.content);
@@ -97,10 +101,27 @@ export default async function WorkforceKnowledgeDetailPage({ params }: { params:
 
       {/* Chunks */}
       <div className="rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Retrieval chunks</h2>
-        <p className="text-sm text-zinc-400">
-          {raw.chunkCount} chunk(s) indexed for retrieval. Chunk text is not shown here.
-        </p>
+        <h2 className="text-base text-white">Retrieval chunks ({chunks.length} of {raw.chunkCount} indexed)</h2>
+        {chunks.length === 0 ? (
+          <p className="text-sm text-zinc-500">No chunks stored for this document.</p>
+        ) : (
+          <ul className="space-y-2">
+            {chunks.map((c) => {
+              const preview = buildChunkPreview(c.content);
+              return (
+                <li key={c.id} className="rounded-xl bg-zinc-800 p-3">
+                  <p className="text-xs text-zinc-500">
+                    chunk {c.chunk_index} · {scopeLabel(c.tenant_id, null)}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm text-zinc-400">{preview.text}</p>
+                  {preview.truncated && (
+                    <p className="mt-1 text-xs text-zinc-500">Chunk text truncated at the viewer cap.</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <Link href="/admin/workforce/knowledge" className="text-sm text-zinc-400 hover:text-white">

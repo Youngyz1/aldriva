@@ -13,6 +13,7 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import {
   fetchDocumentList,
+  fetchSourcesSummary,
   fetchTenantNames,
   isKnowledgeCategoryValue,
   isKnowledgeScopeValue,
@@ -36,6 +37,7 @@ export default async function WorkforceKnowledgePage({
 
   const supabase = await createSupabaseServer();
   const documents = await fetchDocumentList(supabase, activeScope, activeCategory);
+  const sources = await fetchSourcesSummary(supabase, activeScope, activeCategory);
   const tenantIds = documents.map((d) => d.tenant_id).filter((t): t is string => t !== null);
   const tenantNames = await fetchTenantNames(supabase, tenantIds);
   const nameById = new Map(tenantNames.map((t) => [t.id, t.name]));
@@ -132,9 +134,40 @@ export default async function WorkforceKnowledgePage({
         </ul>
       )}
 
-      <Link href="/admin/workforce" className="text-sm text-zinc-400 hover:text-white">
-        ← Back to Command Center
-      </Link>
+      {/* Sources summary */}
+      <div className="rounded-xl bg-zinc-900 p-4 shadow-xs">
+        <h2 className="text-base text-white">
+          Sources{activeScope !== "all" ? ` · scope ${activeScope}` : ""}
+          {activeCategory ? ` · ${activeCategory}` : ""} ({sources.scanned} scanned
+          {sources.capped ? ", capped" : ""})
+        </h2>
+        <p className="text-sm text-zinc-400">
+          by type: {sources.byType.length === 0 ? "—" : sources.byType.map((t) => `${t.key} (${t.count})`).join(", ")}
+        </p>
+        <p className="text-sm text-zinc-400">
+          by ref: {sources.byRef.length === 0 ? "—" : sources.byRef.map((r) => `${r.key} (${r.count})`).join(", ")}
+        </p>
+      </div>
+
+      {/* Agent knowledge */}
+      <div className="rounded-xl bg-zinc-900 p-4 shadow-xs">
+        <h2 className="text-base text-white">Agent knowledge</h2>
+        <p className="text-sm text-zinc-400">
+          All agents currently receive identical retrieval: platform documents plus the run tenant&apos;s
+          documents, injected into the system prompt by the orchestrator. There is no per-agent
+          assignment model in the schema — no agent allowlist, no per-agent filter. Per-agent
+          assignment is deferred to a later stage.
+        </p>
+      </div>
+
+      <div className="flex gap-4">
+        <Link href="/admin/workforce/knowledge/retrieval" className="text-sm text-zinc-400 hover:text-white">
+          Test retrieval →
+        </Link>
+        <Link href="/admin/workforce" className="text-sm text-zinc-400 hover:text-white">
+          ← Back to Command Center
+        </Link>
+      </div>
     </div>
   );
 }

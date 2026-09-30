@@ -202,6 +202,80 @@ export async function fetchTenantNames(
   );
 }
 
+/** Tenant dropdown options for the retrieval test box (admin session, capped). */
+export async function fetchTenantOptions(client: CommandCenterClient): Promise<TenantNameRef[]> {
+  return selectAll<TenantNameRef>(
+    client.from('organizers').select('id,name').order('name', { ascending: true }).limit(50),
+    'organizer_options'
+  );
+}
+
+export interface DocumentChunkView {
+  id: string;
+  chunk_index: number;
+  tenant_id: string | null;
+  content: string;
+}
+
+/**
+ * Chunk rows for the viewer. Called ONLY after the parent document was
+ * successfully read. Explicit columns — tsv is NEVER selected.
+ */
+export async function fetchDocumentChunks(
+  client: CommandCenterClient,
+  documentId: string
+): Promise<DocumentChunkView[]> {
+  if (!isDocumentIdShape(documentId)) return [];
+  return selectAll<DocumentChunkView>(
+    client
+      .from('knowledge_chunks')
+      .select('id,chunk_index,tenant_id,content')
+      .eq('document_id', documentId)
+      .order('chunk_index', { ascending: true })
+      .limit(50),
+    'knowledge_chunks'
+  );
+}
+
+export interface SourcesSummary {
+  byType: Array<{ key: string; count: number }>;
+  byRef: Array<{ key: string; count: number }>;
+  scanned: number;
+  capped: boolean;
+}
+
+const SOURCES_SCAN_CAP = 200;
+
+/** Sources summary aggregated in code from an explicit-column select. */
+export async function fetchSourcesSummary(
+  client: CommandCenterClient,
+  scopeFilter: string | null = null,
+  categoryFilter: string | null = null
+): Promise<SourcesSummary> {
+  const scope = scopeFilter !== null && isKnowledgeScopeValue(scopeFilter) ? scopeFilter : 'platform';
+  let q = client.from('knowledge_documents').select('source_type,source_ref,tenant_id');
+  if (scope === 'platform') q = q.is('tenant_id', null);
+  else if (scope === 'tenant') q = q.not('tenant_id', 'is', null);
+  if (categoryFilter !== null && isKnowledgeCategoryValue(categoryFilter)) {
+    q = q.eq('category', categoryFilter);
+  }
+  const rows = await selectAll<{ source_type: string; source_ref: string | null; tenant_id: string | null }>(
+    q.limit(SOURCES_SCAN_CAP + 1),
+    'knowledge_sources'
+  );
+  const capped = rows.length > SOURCES_SCAN_CAP;
+  const scanned = rows.slice(0, SOURCES_SCAN_CAP);
+  const byType = new Map<string, number>();
+  const byRef = new Map<string, number>();
+  for (const r of scanned) {
+    byType.set(r.source_type, (byType.get(r.source_type) ?? 0) + 1);
+    byRef.set(r.source_ref ?? '—', (byRef.get(r.source_ref ?? '—') ?? 0) + 1);
+  }
+  const sorted = (m: Map<string, number>) =>
+    [...m.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || (a.key < b.key ? -1 : 1));
+  return { byType: sorted(byType), byRef: sorted(byRef), scanned: scanned.length, capped };
+}
+
 /** Scope label: Platform for NULL tenant, otherwise Tenant <name or short id>. */
 export function scopeLabel(tenantId: string | null, tenantName?: string | null): string {
   if (tenantId === null) return 'Platform';
@@ -224,6 +298,41 @@ export function buildContentPreview(content: string): { text: string; truncated:
   const body = typeof content === 'string' ? content : '';
   if (body.length <= CONTENT_PREVIEW_CAP) return { text: body, truncated: false };
   return { text: body.slice(0, CONTENT_PREVIEW_CAP), truncated: true };
+}
+
+/** Chunk text cap (the column max). Longer input is flagged, never extended. */
+export const CHUNK_PREVIEW_CAP = 5000;
+
+export function buildChunkPreview(content: string): { text: string; truncated: boolean } {
+  const body = typeof content === 'string' ? content : '';
+  if (body.length <= CHUNK_PREVIEW_CAP) return { text: body, truncated: false };
+  return { text: body.slice(0, CHUNK_PREVIEW_CAP), truncated: true };
+}
+
+export const RETRIEVAL_QUERY_CAP = 300;
+
+/** Retrieval test-box query validation: trim, require non-empty, cap length. */
+export function validateRetrievalQuery(raw: unknown): { ok: true; query: string } | { ok: false; message: string } {
+  const query = typeof raw === 'string' ? raw.trim() : '';
+  if (!query) return { ok: false, message: 'Enter a query to test retrieval.' };
+  if (query.length > RETRIEVAL_QUERY_CAP) {
+    return { ok: false, message: `Query is capped at ${RETRIEVAL_QUERY_CAP} characters.` };
+  }
+  return { ok: true, query };
+}
+
+/**
+ * Tenant allowlist re-validation for the test box. Accepts the literal
+ * 'platform' or an id present in the server-fetched options — nothing else.
+ */
+export function isAllowedRetrievalTenant(submitted: unknown, allowedIds: string[]): boolean {
+  if (submitted === 'platform') return true;
+  return typeof submitted === 'string' && allowedIds.includes(submitted);
+}
+
+/** Fallback-path detector: live rows carry uuid ids; fallback ids are prefixed. */
+export function isFallbackChunkId(id: string): boolean {
+  return typeof id === 'string' && id.startsWith('fallback-');
 }
 
 export function shortId(id: string | null): string {
