@@ -5,6 +5,29 @@
 
 ---
 
+## [2026-09] — Responsive Data Display Standard — Phase 4: Whole-Dashboard Completion & Migration (2026-09-30)
+### Phase 4 — Whole-Dashboard Completion, Verification & Migration Across All Admin & Tenant Workspaces (2026-09-30)
+- Completed full migration of all administrative, operational, and tenant organization workspaces using the canonical `ResponsiveDataTable` and `ResponsiveDataRow` primitives:
+  1. `/admin/events` (`app/admin/events/page.tsx` & `app/[locale]/admin/events/page.tsx`): Category/date reduction at `@md`, mobile Two-Line Structured Row, status pill, and Admin Drawer triggers.
+  2. `/admin/fundraisers` (`app/admin/fundraisers/page.tsx` & `app/[locale]/admin/fundraisers/page.tsx`): Progress bar, backdating controls, mobile Two-Line Structured Row with goal/raised metrics.
+  3. `/admin/businesses` (`BusinessesClient.tsx`) & `/admin/businesses/review` (`page.tsx`): Listing tiers, review queue risk scores, approval modals, and moderation actions.
+  4. `/admin/products` (`ProductsClient.tsx`): Stock count, digital asset indicators, price formatting, and approval controls.
+  5. `/admin/articles` (`ArticlesClient.tsx`): Category tags, publication status, featured toggles, and moderation approval actions.
+  6. `/admin/finance/payouts` (`PayoutsAdminClient.tsx`): KYC verification checks, recipient badges, multi-destination payout modals, and cancellation triggers.
+  7. `/admin/payments` (`page.tsx`): Dual-table view (Ticket Orders + Donations) with status classes and money formatting.
+  8. `/admin/organizers` (`OrganizersClient.tsx`): Bulk selection checkboxes, capability toggles, and detail drawer.
+  9. `/admin/reviews` (`page.tsx`): StarRating component, target resolution, and moderation approvals.
+  10. `/admin/ai/rejections` (`page.tsx`): Security audit log with verdict badges and code excerpts.
+  11. Tenant Organization Events (`/dashboard/org/[id]/events`, `/dashboard/organizations/[slug]/events`): Tenant-isolated event management.
+  12. Tenant Organization Fundraisers (`/dashboard/org/[id]/fundraisers`, `/dashboard/organizations/[slug]/fundraisers`): Tenant-isolated campaign progress.
+  13. Tenant Organization Products (`/dashboard/org/[id]/products`, `/dashboard/organizations/[slug]/products`): Tenant-isolated product inventory.
+  14. Tenant Organization Blog (`/dashboard/org/[id]/blog`, `/dashboard/organizations/[slug]/blog`): Tenant-isolated articles and updates.
+- Synchronized pilot screens across root (`app/...`) and localized (`app/[locale]/...`) route trees (`EventsClient.tsx`, `FundraisersClient.tsx`, `AttendeesClient.tsx`, `PaymentsClient.tsx`, `UsersClient.tsx`).
+- Resolved container query breakpoint mappings in `app/globals.css` with `@theme` declarations (`--container-sm: 30rem; --container-md: 48rem; --container-lg: 64rem; --container-xl: 80rem;`).
+- Cleaned DOM nesting and eliminated double-mounting via `ResponsiveTableModeContext` (`"table"` vs `"list"`).
+- Extended test suite in `lib/dashboard/__tests__/responsive-data.test.cjs` with 4 new test suites verifying Admin and Tenant Organization surfaces.
+- Verification: Full platform test suite **908/908 passing (39 suites, 0 failures)**, TypeScript clean (`0 errors`), build clean.
+
 ## [2026-09] — Responsive Data Display Standard — Phase 3: Remaining User-Facing Migration (2026-09-29)
 ### Phase 3 — Remaining User-Facing Responsive Data Migration Across 9 Operational Surfaces (2026-09-29)
 - Completed full migration of all 9 remaining user-facing operational/data-heavy screens using the canonical `ResponsiveDataTable` and `ResponsiveDataRow` primitives:
@@ -33,6 +56,16 @@
 - Enforced all non-negotiable rules: Zero schema changes, zero auth changes, preserved drawer triggers (`DashboardDrawer`/`AdminDrawer`), preserved bulk selection states, and 100% test coverage.
 - Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
 - Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
+
+## [2026-09] — AI Workforce Stage 12 complete: approved persistent memory (2026-09-30)
+### Stage 12 — Human-approved agent memory, proposal-gated writes (2026-09-30)
+- `db/migration_149_agent_memory.sql` (+ rollback twin, supabase mirror `20261003000000_…`, order entry): `agent_memory` (tenant/agent scope, key 1–120, value 1–4000, status active/revoked/expired, version, source human/system/agent-proposed, proposer/run/task provenance, approver/approval, effective/expiry timestamps, UNIQUE(agent_id,tenant_id,fact_key)) + append-only `agent_memory_versions` + scoped SELECT-only RLS (writes service-role only) + `memory_propose` tool seed (transactional/medium/approval-gated, dylan-only grant).
+- Read: `lib/ai/memory.ts` (`resolveMemory` with in-query tenant/agent/status/expiry predicates + injectable client, `formatMemoryForPrompt` context-framed block after knowledge); orchestrator resolves memory after knowledge retrieval and appends the block (knowledge outranks memory).
+- Proposal: `memory_propose` tool (`lib/ai/tools/workforce/memory-propose.ts`: op/scope/agent/key/value/version/expiry validation, secret-pattern rejection, executor records approvals only) + registry wiring; orchestrator gate validates proposals pre-creation (malformed → tool error, no approval) and records `action='memory_propose'` with a canonical `{memory_proposal}` payload (never an execution envelope, so the generic materializer cannot enqueue it).
+- Apply: `lib/workforce/memory-apply.ts` (sole writer: poll/single-apply, exact-state revalidation, optimistic base-version check, fact+history writes, conditional `audit_ref` stamp, idempotent re-entry, conflict stamps) invoked synchronously from `decideWorkforceApproval` on approved memory proposals (+ due-expiry sweep, no new worker).
+- UI: `/admin/workforce/memory` (status chips, scope labels, version/status/expiry badges, human direct-create form with secret + identity + platform-admin checks) + `/admin/workforce/memory/[id]` (value, metadata, linkage, full history) + approvals detail memory-proposal section (current/proposed/apply state) + sidebar Memory entry. All escaped text, `requireAdmin`, `notFound()` on bad ids.
+- Tests: `lib/workforce/__tests__/memory.test.cjs` (19: the 15 mandated isolation/approval/versioning/expiry/secrets/404/gating cases + validator/proposal/view-model/migration units), registered in `package.json`; memory pages in p2 `WORKFORCE_PAGES`.
+- Reported-only: no retrieved-text screening for memory values yet (matters if memory ever feeds higher-trust contexts); expiry transitions ride admin decide-activity (no dedicated scheduler — read predicates exclude expired regardless); `lib/database.types.ts` left untouched (stale since before 146 — established fallback).
 
 ## [2026-09] — AI Workforce Stage 11 complete: Knowledge section (2026-09-29)
 ### Stage 11 — Chunk viewer, sources, agent panel, retrieval test (2026-09-29)

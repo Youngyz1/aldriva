@@ -123,3 +123,4 @@ migration_145_qa_execution.sql
 migration_146_background_execution.sql
 migration_147_exec_smoke_notify.sql
 migration_148_approval_gated_call_text.sql
+migration_149_agent_memory.sql

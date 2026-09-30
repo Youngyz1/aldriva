@@ -37,6 +37,7 @@ import {
   Radar,
   FlaskConical,
   CircleDot,
+  Brain,
 } from "lucide-react";
 
 type NavItem = {
@@ -103,6 +104,7 @@ const navGroups: NavGroup[] = [
       { label: "Knowledge",      href: "/admin/workforce/knowledge",  icon: BookOpen },
       { label: "Sentinel",       href: "/admin/workforce/sentinel",   icon: Radar },
       { label: "QA",             href: "/admin/workforce/qa",         icon: FlaskConical },
+      { label: "Memory",         href: "/admin/workforce/memory",     icon: Brain },
     ],
   },
   {

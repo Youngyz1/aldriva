@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { decideApproval } from "@/lib/workforce/approvals";
+import { applyApprovedMemory } from "@/lib/workforce/memory-apply";
 
 export async function decideWorkforceApproval(formData: FormData): Promise<never> {
   await requireAdmin();
@@ -27,16 +28,42 @@ export async function decideWorkforceApproval(formData: FormData): Promise<never
     notice = "not-authenticated";
   } else {
     const admin = createSupabaseAdmin();
+    const nowIso = new Date().toISOString();
     const result = await decideApproval(admin, {
       approvalId,
       decision,
       approverId: user.id,
       tenantScope: null, // platform admin view; row-level scope enforced inside
-      nowIso: new Date().toISOString(),
+      nowIso,
     });
     notice = result.ok && result.decision ? result.decision : "rejected";
+    // Stage 12: approved memory proposals apply (+ due expiries sweep) in
+    // the same admin request — no polling loop, no scheduler. Failures are
+    // logged; the approval record stands and the applier poll remains
+    // available to operators. Never throws the decide UX.
+    if (result.ok && result.decision === "approved") {
+      try {
+        const acted = await selectApprovalAction(admin, approvalId);
+        if (acted === "memory_propose") {
+          await applyApprovedMemory(admin, { approvalId, nowIso });
+          revalidatePath("/admin/workforce/memory");
+        }
+      } catch (err) {
+        console.error("[workforce-approvals] memory apply failed:", err instanceof Error ? err.message : String(err));
+      }
+    }
   }
 
   revalidatePath("/admin/workforce/approvals");
   redirect(`/admin/workforce/approvals/${encodeURIComponent(approvalId)}?decided=${notice}`);
+}
+
+async function selectApprovalAction(admin: { from(table: string): any }, approvalId: string): Promise<string | null> {
+  const { data, error } = (await admin
+    .from("approvals")
+    .select("action")
+    .eq("id", approvalId)
+    .limit(1)) as unknown as { data: Array<{ action: string }> | null; error: { message: string } | null };
+  if (error || !data || data.length === 0) return null;
+  return data[0].action;
 }

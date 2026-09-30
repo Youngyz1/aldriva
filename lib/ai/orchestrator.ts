@@ -6,6 +6,8 @@
 
 import { getAgentByName, getAllowedToolDefinitions } from './agent-registry';
 import { retrieveKnowledge, formatKnowledgeForPrompt } from './knowledge';
+import { resolveMemory, formatMemoryForPrompt } from './memory';
+import { validateMemoryProposal } from './tools/workforce/memory-propose';
 import { getTenantAIProvider } from './tenant-provider';
 import { getAIProvider } from './provider-factory';
 import { guardBeforeDisplay } from './output-guard';
@@ -169,6 +171,10 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
   // 4. Retrieve knowledge (scoped)
   const retrieval = await retrieveKnowledge(prompt, resolvedTenantId, 4);
   const knowledgeBlock = formatKnowledgeForPrompt(retrieval);
+  // 4b. Stage 12: resolve approved memory AFTER knowledge (knowledge
+  // outranks memory in the prompt). Empty when no facts apply — never 500.
+  const memory = await resolveMemory(agent.id, resolvedTenantId);
+  const memoryBlock = formatMemoryForPrompt(memory);
   if (runId) {
     await addAgentStep({
       runId,
@@ -182,10 +188,11 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
   const allowedDefs = await getAllowedToolDefinitions(agentName);
   const allowedNames = new Set(allowedDefs.map((d) => d.name));
 
-  // 6. Build messages (agent system prompt + knowledge + user prompt)
+  // 6. Build messages (agent system prompt + knowledge + memory + user prompt)
   const systemContent = [
     agent.system_prompt,
     knowledgeBlock ? `\n\n${knowledgeBlock}` : '',
+    memoryBlock ? `\n\n${memoryBlock}` : '',
     '\n\nYou must only use tools from the provided allowlist. If a requested action requires a high-risk tool or write, state that it requires human approval and do not attempt it — unless the tool is in your allowlist and its description states that calling it creates an approval request, in which case call it so the platform can route it to human approval.',
   ].join('');
 
@@ -299,6 +306,60 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
             gate.approvalRequired
           );
           if (approvalCheck.blocked) {
+            // Stage 12: memory proposals validate BEFORE any approval exists.
+            // Malformed proposals are rejected as tool errors (no approval
+            // row); valid ones are recorded with action='memory_propose' and
+            // a canonical {memory_proposal} payload — never an execution
+            // envelope, so the generic materializer can never enqueue them.
+            let approvalId: string | null;
+            let blockReason: string;
+            if (toolName === 'memory_propose') {
+              let proposalRaw: Record<string, unknown> | null = null;
+              try {
+                proposalRaw = argsStr ? (JSON.parse(argsStr) as Record<string, unknown>) : null;
+              } catch {
+                proposalRaw = null;
+              }
+              const checked = validateMemoryProposal(proposalRaw);
+              if (!checked.ok) {
+                const msg = checked.message;
+                executedToolCalls.push({ tool: toolName, args: argsStr, result: { error: msg } });
+                batchAssistantCalls.push(call);
+                batchToolMessages.push({
+                  role: 'tool',
+                  name: toolName,
+                  tool_call_id: call.id,
+                  content: JSON.stringify({ error: msg }),
+                });
+                continue;
+              }
+              const p = checked.proposal;
+              blockReason = `Memory proposal recorded for human approval (${p.op} ${p.fact_key}).`;
+              approvalId = await createApprovalRequest({
+                requestedBy: req.userId ?? null,
+                requestedByAgentId: agent.id,
+                tenantId: resolvedTenantId,
+                action: 'memory_propose',
+                reason: `Memory ${p.op}: ${p.fact_key}${p.reason ? ` — ${p.reason.slice(0, 500)}` : ''}`.slice(0, 2000),
+                evidence: {
+                  tool: toolName,
+                  proposal: {
+                    op: p.op, scope: p.scope, agent: p.agent, fact_key: p.fact_key,
+                    fact_value: p.fact_value, base_version: p.base_version,
+                    expires_at: p.expires_at, reason: p.reason,
+                    run_id: runId ?? null, task_id: taskId ?? null,
+                  },
+                },
+                risk: gate.risk === 'low' ? 'medium' : gate.risk,
+                proposedOutcome: {
+                  memory_proposal: {
+                    op: p.op, scope: p.scope, agent: p.agent, fact_key: p.fact_key,
+                    fact_value: p.fact_value, base_version: p.base_version,
+                    expires_at: p.expires_at,
+                  },
+                },
+              });
+            } else {
             // Stage 10.0: mint the canonical execution envelope from RAW args
             // BEFORE sanitization, so a future worker can bind the exact
             // approved invocation. Mint failure → proposedOutcome stays null
@@ -313,7 +374,8 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
               runId: runId ?? null,
               action: toolName,
             });
-            const approvalId = await createApprovalRequest({
+            blockReason = approvalCheck.reason;
+            approvalId = await createApprovalRequest({
               requestedBy: req.userId ?? null,
               requestedByAgentId: agent.id,
               tenantId: resolvedTenantId,
@@ -323,6 +385,7 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
               risk: gate.risk,
               proposedOutcome: minted.ok ? (minted.envelope as unknown as Record<string, unknown>) : null,
             });
+            }
             if (runId) {
               await addAgentStep({
                 runId,
@@ -330,21 +393,21 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
                 kind: 'approval_request',
                 toolName,
                 args: argsStr ? { raw: argsStr.slice(0, 200) } : {},
-                content: approvalCheck.reason,
+                content: blockReason,
                 guardVerdict: 'rejected',
               });
             }
             executedToolCalls.push({
               tool: toolName,
               args: argsStr,
-              result: { error: approvalCheck.reason, approvalRequired: true, approvalId },
+              result: { error: blockReason, approvalRequired: true, approvalId },
             });
             batchAssistantCalls.push(call);
             batchToolMessages.push({
               role: 'tool',
               name: toolName,
               tool_call_id: call.id,
-              content: JSON.stringify({ error: approvalCheck.reason, approvalRequired: true }),
+              content: JSON.stringify({ error: blockReason, approvalRequired: true }),
             });
             // Complete run as awaiting_approval (still audited) — flush history
             // first so the audit trail is grounded, then early-return.
@@ -367,8 +430,8 @@ export async function orchestrate(req: OrchestratorRequest): Promise<Orchestrato
             return {
               success: false,
               agent: agentName,
-              text: approvalCheck.reason,
-              guardedText: approvalCheck.reason,
+              text: blockReason,
+              guardedText: blockReason,
               guardVerdict: 'rejected',
               toolCalls: executedToolCalls,
               knowledgeUsed: retrieval.chunks.length,

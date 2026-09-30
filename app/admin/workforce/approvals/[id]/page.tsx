@@ -23,6 +23,7 @@ import {
 } from "@/lib/workforce/approvals";
 import { decideWorkforceApproval } from "@/lib/actions/workforce-approvals";
 import { fetchQaRunsByApproval } from "@/lib/workforce/qa";
+import { memoryApplyState } from "@/lib/workforce/memory";
 
 export default async function WorkforceApprovalDetailPage({
   params,
@@ -53,7 +54,6 @@ export default async function WorkforceApprovalDetailPage({
 
   const nowIso = new Date().toISOString();
   const actionable = raw.status === "pending" && raw.expires_at > nowIso;
-
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
       <div className="border-b border-zinc-800 pb-4">
@@ -124,8 +124,12 @@ export default async function WorkforceApprovalDetailPage({
         )}
       </div>
 
-      {/* Linked QA runs (reverse linkage: qa_runs.approval_id → this approval) */}
-      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
+      {/* Memory proposal (Stage 12): current vs proposed, apply state */}
+      {raw.action === "memory_propose" && (
+        <MemoryProposalSection evidence={raw.evidence} proposedOutcome={raw.proposed_outcome} auditRef={raw.audit_ref} />
+      )}
+
+      {/* Linked QA runs (reverse linkage: qa_runs.approval_id → this approval) */}      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
         <h2 className="text-base text-white">QA runs from this approval</h2>
         {qaRuns.length === 0 ? (
           <p className="text-sm text-zinc-500">No QA run references this approval.</p>
@@ -172,6 +176,53 @@ export default async function WorkforceApprovalDetailPage({
       <Link href="/admin/workforce/approvals" className="text-sm text-zinc-400 hover:text-white">
         ← Back to Approvals
       </Link>
+    </div>
+  );
+}
+
+function MemoryProposalSection({
+  evidence,
+  proposedOutcome,
+  auditRef,
+}: {
+  evidence: Record<string, unknown>;
+  proposedOutcome: Record<string, unknown> | null;
+  auditRef: string | null;
+}) {
+  const po = proposedOutcome !== null && typeof proposedOutcome === "object" ? proposedOutcome : null;
+  const ev = evidence !== null && typeof evidence === "object" ? evidence : null;
+  const rawProposal =
+    (po !== null ? (po["memory_proposal"] as Record<string, unknown> | undefined) : undefined) ??
+    (ev !== null ? (ev["proposal"] as Record<string, unknown> | undefined) : undefined);
+  const p = rawProposal !== null && typeof rawProposal === "object" ? rawProposal : null;
+  const str = (v: unknown) => (typeof v === "string" ? v : "—");
+  return (
+    <div className="space-y-1 rounded-xl bg-zinc-900 p-4 shadow-xs">
+      <h2 className="text-base text-white">Memory proposal</h2>
+      {p === null ? (
+        <p className="text-sm text-zinc-500">Proposal payload unreadable — decide with caution.</p>
+      ) : (
+        <>
+          <p className="text-sm text-zinc-400">
+            operation: {str(p["op"])} · scope: {str(p["scope"])} · agent: {str(p["agent"])}
+          </p>
+          <p className="text-sm text-zinc-400">key: {str(p["fact_key"])}</p>
+          <p className="text-sm text-zinc-400">base version: {typeof p["base_version"] === "number" ? p["base_version"] : "—"}</p>
+          {typeof p["fact_value"] === "string" && (
+            <p className="whitespace-pre-wrap text-sm text-zinc-400">proposed value: {p["fact_value"].slice(0, 1500)}</p>
+          )}
+          {typeof p["expires_at"] === "string" && <p className="text-sm text-zinc-400">expires: {p["expires_at"]}</p>}
+          {typeof p["reason"] === "string" && p["reason"].length > 0 && (
+            <p className="text-sm text-zinc-500">reason: {p["reason"].slice(0, 500)}</p>
+          )}
+        </>
+      )}
+      <p className="text-sm text-zinc-500">
+        apply state: {memoryApplyState(auditRef)} · proposer run/task linked via evidence where recorded ·{" "}
+        <Link href="/admin/workforce/memory" className="hover:text-white">
+          open Memory
+        </Link>
+      </p>
     </div>
   );
 }
