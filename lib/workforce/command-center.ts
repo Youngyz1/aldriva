@@ -20,7 +20,7 @@
 // Live-presence derivation lives in ./agents (single source of truth —
 // Stage 2 resolution: stored `status` is the admin lifecycle, `busy`
 // derives from live run state; both are displayed, distinctly labeled).
-import { derivePresence } from './agents';
+import { fetchDecidedApprovalIds, isLiveBusy } from './agents';
 
 /**
  * The caller supplies any PostgREST-style client (real Supabase server
@@ -48,11 +48,13 @@ export interface RunRow {
   id: string;
   agent_id: string;
   tenant_id: string | null;
+  task_id: string | null;
   status: string;
   triggered_by: string;
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  approval_id?: string | null;
 }
 
 export interface TaskRow {
@@ -112,6 +114,8 @@ export interface CommandCenterRaw {
   incidents: IncidentRow[];
   events: EventRow[];
   qaRunCount: number;
+  /** Approval ids in this window whose approvals row is non-pending (O-7 guard). */
+  decidedApprovalIds: string[];
 }
 
 async function selectAll<T>(qPromise: PromiseLike<unknown>): Promise<T[]> {
@@ -136,7 +140,7 @@ export async function fetchCommandCenterData(
   );
 
   const runs = await selectAll<RunRow>(
-    scoped(client, 'agent_runs', 'id,agent_id,tenant_id,status,triggered_by,error,created_at,completed_at', tenantId)
+    scoped(client, 'agent_runs', 'id,agent_id,tenant_id,task_id,status,triggered_by,error,created_at,completed_at,approval_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(20)
   );
@@ -173,19 +177,22 @@ export async function fetchCommandCenterData(
       .limit(8)
   );
 
-  // QA runs: total count for the QA agent identity (honest zero when none).
-  const qaAgent = agents.find((a) => a.name === 'qa');
-  let qaRunCount = 0;
-  if (qaAgent) {
-    const res = (await client
-      .from('agent_runs')
-      .select('id', { count: 'exact', head: true })
-      .eq('agent_id', qaAgent.id)) as unknown as { count?: number | null; error?: { message: string } | null };
-    if (res.error) throw new Error(`Workforce read failed: ${res.error.message}`);
-    qaRunCount = res.count ?? 0;
+  // Stage 17 (O-7): QA run count from the QA execution plane (qa_runs),
+  // not gateway agent_runs. Platform (NULL tenant) + tenant rows included,
+  // matching the QA page's own scoping.
+  let qaRunsQuery = client.from('qa_runs').select('id', { count: 'exact', head: true });
+  if (tenantId !== null) {
+    qaRunsQuery = qaRunsQuery.or(`target_tenant_id.eq.${tenantId},target_tenant_id.is.null`);
   }
+  const qaRes = (await qaRunsQuery) as unknown as { count?: number | null; error?: { message: string } | null };
+  if (qaRes.error) throw new Error(`Workforce read failed: ${qaRes.error.message}`);
+  const qaRunCount = qaRes.count ?? 0;
 
-  return { agents, runs, tasks, approvals, reports, incidents, events, qaRunCount };
+  // Stage 17 (O-7): staleness guard input — approval ids in this window
+  // whose approvals row is already decided (phantoms, see O-2).
+  const decidedApprovalIds = await fetchDecidedApprovalIds(client, runs);
+
+  return { agents, runs, tasks, approvals, reports, incidents, events, qaRunCount, decidedApprovalIds };
 }
 
 export interface AgentStatus {
@@ -238,12 +245,16 @@ export function buildCommandCenterViewModel(raw: CommandCenterRaw): CommandCente
   const agentNameById: Record<string, string> = {};
   for (const a of raw.agents) agentNameById[a.id] = a.display_name || a.name;
 
+  // Stage 17 (O-7): staleness guard — decided-approval phantoms are not busy.
+  const decided = raw.decidedApprovalIds ?? [];
+  const live = (r: RunRow) => isLiveBusy(r.status, r.approval_id, decided);
   const busyAgentIds = new Set(
-    raw.runs.filter((r) => derivePresence([r.status]).busy).map((r) => r.agent_id)
+    raw.runs.filter(live).map((r) => r.agent_id)
   );
   const lastRunByAgent: Record<string, string> = {};
   for (const r of raw.runs) {
-    if (!lastRunByAgent[r.agent_id]) lastRunByAgent[r.agent_id] = r.created_at;
+    // Stage 17 (O-7): completion time when present, creation otherwise.
+    if (!lastRunByAgent[r.agent_id]) lastRunByAgent[r.agent_id] = r.completed_at ?? r.created_at;
   }
 
   const agents: AgentStatus[] = raw.agents.map((agent) => ({
@@ -253,13 +264,16 @@ export function buildCommandCenterViewModel(raw: CommandCenterRaw): CommandCente
   }));
 
   const activeAgents = raw.agents.filter((a) => a.status === 'active');
+  // Stage 17 (O-7): a task born 'completed' whose run is still live counts as
+  // active (O-6 read-time derivation — stored task status untouched).
+  const liveTaskIds = new Set(raw.runs.filter(live).map((r) => r.task_id).filter((id): id is string => !!id));
   const counts = {
     totalAgents: raw.agents.length,
     activeAgents: activeAgents.length,
     idleAgents: activeAgents.filter((a) => !busyAgentIds.has(a.id)).length,
-    runningRuns: raw.runs.filter((r) => r.status === 'running').length,
-    awaitingApproval: raw.runs.filter((r) => r.status === 'awaiting_approval').length,
-    activeTasks: raw.tasks.filter((t) => ACTIVE_TASK.has(t.status)).length,
+    runningRuns: raw.runs.filter((r) => r.status === 'running' && live(r)).length,
+    awaitingApproval: raw.runs.filter((r) => r.status === 'awaiting_approval' && live(r)).length,
+    activeTasks: raw.tasks.filter((t) => ACTIVE_TASK.has(t.status) || liveTaskIds.has(t.id)).length,
     failedRunsRecent: raw.runs.filter((r) => r.status === 'failed').length,
     pendingApprovals: raw.approvals.length,
     openIncidents: raw.incidents.length,

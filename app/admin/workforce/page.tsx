@@ -85,7 +85,7 @@ export default async function WorkforceCommandCenterPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Agents" value={vm.counts.totalAgents} hint={`${vm.counts.activeAgents} active · ${vm.counts.idleAgents} idle`} />
-        <StatCard label="Running runs" value={vm.counts.runningRuns} hint={`${vm.counts.awaitingApproval} awaiting approval`} />
+        <StatCard label="Running runs" value={vm.counts.runningRuns} hint={`${vm.counts.awaitingApproval} awaiting approval · last 20 runs`} />
         <StatCard label="Active tasks" value={vm.counts.activeTasks} hint={`${vm.counts.failedRunsRecent} failed in recent runs`} />
         <StatCard label="Pending approvals" value={vm.counts.pendingApprovals} hint={`${vm.counts.openIncidents} open incidents`} />
       </div>
@@ -179,7 +179,7 @@ export default async function WorkforceCommandCenterPage() {
         <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
           <SectionHead icon={FlaskConical} title="QA runs" href="/admin/workforce/qa" />
           {vm.empty.qa ? (
-            <EmptyNote text="No QA runs recorded. QA execution arrives in Stage 7 — this zero is real, not a placeholder." />
+            <EmptyNote text="No QA runs recorded. This zero is real, not a placeholder." />
           ) : (
             <p className="text-sm text-white">
               {vm.counts.qaRuns} QA run(s) recorded. Latest detail lives under QA.

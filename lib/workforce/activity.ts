@@ -124,7 +124,9 @@ export function buildActivityFeed(raw: RawActivity): ActivityEntry[] {
 
   for (const r of raw.runs) {
     const who = agentName.get(r.agent_id) ?? 'unknown agent';
-    const finished = r.status !== 'running';
+    // Stage 17 (O-7): awaiting_approval is NOT finished — the decision path
+    // (O-2) now transitions these rows, but undecided rows must read as open.
+    const finished = r.status !== 'running' && r.status !== 'awaiting_approval';
     out.push({
       key: `run-${r.id}`,
       ts: (finished && r.completed_at) || r.created_at,

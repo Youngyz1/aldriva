@@ -150,6 +150,33 @@ export interface DecideResult {
 }
 
 /**
+ * Stage 17 (O-2): after a decision is recorded, move the originating gateway
+ * run out of 'awaiting_approval' so presence/counts stop reading stale busy.
+ * Mapping: approved -> completed (gate passed; execution continues in exec
+ * rows linked by approval_id), rejected/expired -> cancelled. Strictly
+ * post-decision and conditional on status='awaiting_approval': never touches
+ * the guard above, never alters the decision, never overwrites a terminal
+ * row. Throws on infrastructure failure — callers must catch, log, continue.
+ */
+export async function transitionDecidedRun(
+  client: CommandCenterClient,
+  approvalId: string,
+  decision: Decision,
+  nowIso: string
+): Promise<void> {
+  const terminal = decision === 'approved' ? 'completed' : 'cancelled';
+  await selectAll<{ id: string }>(
+    client
+      .from('agent_runs')
+      .update({ status: terminal, completed_at: nowIso })
+      .eq('approval_id', approvalId)
+      .eq('status', 'awaiting_approval')
+      .select('id'),
+    'decided run transition'
+  );
+}
+
+/**
  * Server-enforced decision. Re-reads the row and rejects unless it is still
  * pending, unexpired, and (when scoped) exactly in-scope. The client supplies
  * ONLY id + decision — action/risk come from the DB row, never the request,

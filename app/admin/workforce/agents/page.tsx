@@ -11,7 +11,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
 import { Bot } from "lucide-react";
 import { fetchAgentList, fetchRecentRunPresence } from "@/lib/workforce/agents";
-import { derivePresence } from "@/lib/workforce/agents";
+import { fetchDecidedApprovalIds, isLiveBusy } from "@/lib/workforce/agents";
 
 export default async function WorkforceAgentsPage() {
   await headers();
@@ -21,14 +21,18 @@ export default async function WorkforceAgentsPage() {
   const agents = await fetchAgentList(supabase);
   // Live presence per agent from recent runs (platform-wide admin view).
   const recentRuns = await fetchRecentRunPresence(supabase, null);
+  // Stage 17 (O-7): staleness guard — decided-approval phantoms are not busy.
+  const decidedApprovalIds = await fetchDecidedApprovalIds(supabase, recentRuns);
   const busyByAgent = new Map<string, boolean>();
   const lastRunByAgent = new Map<string, string>();
   for (const r of recentRuns) {
     if (!lastRunByAgent.has(r.agent_id)) lastRunByAgent.set(r.agent_id, r.created_at);
   }
   for (const a of agents) {
-    const statuses = recentRuns.filter((r) => r.agent_id === a.id).map((r) => r.status);
-    busyByAgent.set(a.id, derivePresence(statuses).busy);
+    const live = recentRuns
+      .filter((r) => r.agent_id === a.id)
+      .some((r) => isLiveBusy(r.status, r.approval_id, decidedApprovalIds));
+    busyByAgent.set(a.id, live);
   }
 
   return (
