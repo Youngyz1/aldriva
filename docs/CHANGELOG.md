@@ -57,6 +57,15 @@
 - Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
 - Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
 
+## [2026-09] — Workforce Testing Stage 16 complete (2026-09-30)
+### Stage 16 — hermetic gap tests + staging verification script (2026-09-30)
+- Behavioral (real logic, stubbed boundaries only): `lib/actions/__tests__/workforce-admin-actions.test.cjs` (12 tests: decide non-admin/invalid/rate-limited/decided/expired + exactly-one-write happy path; memory non-admin/secret/scope/agent/rate-limited + one-RPC happy path); `lib/qa/__tests__/qa-routes.test.cjs` (7 tests: poll 401s, PREV accepted, claimed:false pass-through, ingest 401s, ingest-once + idempotent replay); `lib/exec/__tests__/worker-auth.test.cjs` (6 tests: bearer/claim-token behavior incl. PREV rotation, timingSafeEqual static, 401 denial args carry fixed labels only).
+- Static: `agent-config-by-absence.test.cjs` (no runtime writes to agent-config tables; seeds only in 139-150; readers pinned), `workforce-page-order.test.cjs` (requireAdmin precedes data access on all pages).
+- `scripts/verify-staging-db.cjs` + `npm run verify:staging-db` (NOT in `npm test`; human-run only; refuses unset/prod-ref URL; BEGIN/ROLLBACK only; PASS/FAIL/SKIP; covers SELECT-only policies, anon zero-rows, column privileges, partial-unique duplicates, versions append-only, RPC lockdown, kind CHECK, member isolation with SKIP on missing fixtures) + hermetic guard tests (5).
+- `docs/TESTING-WORKFORCE.md`: roadmap map, run instructions, real-DB vs emulation vs not-at-all table.
+- No runtime code, migrations, or existing-test changes. No new test exposed a runtime bug (nothing excluded from package.json).
+- Deferred: true PG concurrency, RPC crash atomicity, live model→approval end-to-end.
+
 ## [2026-09] — Security Hardening Stage 15 pass one complete (2026-09-30)
 ### Stage 15 pass one — RLS narrowing (151, NOT applied) + abuse/detection gaps (2026-09-30)
 - Migration `db/migration_151_workforce_rls_narrowing.sql` (+ rollback twin, supabase mirror `20261005000000_…`, order entry; **NOT applied to any database — fold into the production promotion set**): SELECT-only narrowing. Admin-only: agents, agent_versions, agent_tools, tool_definitions (S-1), qa_runs (S-14). Admin-or-member (143 pattern): approvals, agent_tasks, agent_runs, agent_reports (S-4). Parent-scoped: agent_steps via agent_runs, qa_test_results via qa_runs, knowledge_document_versions via parent doc visibility (S-2/S-4). knowledge_chunks: non-admin reads require parent status='approved' (S-8). qa_runs secret columns (claim_token_hash, claim_expires_at, idempotency_key, metadata) hidden from anon/authenticated via column GRANT (migration-55 doctrine); admin UI uses explicit column lists, service-role bypasses grants. No INSERT/UPDATE/DELETE policies added; NULL-tenant platform rows stay admin-readable.
