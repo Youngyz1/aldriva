@@ -130,9 +130,8 @@ export async function POST(req: NextRequest) {
 
     // 4. Create the Checkout Session carrying the order id in metadata, so
     // the webhook finds exactly this row instead of guessing.
-    // TODO(products): /products/order-confirmation doesn't exist yet. See
-    // ADR 0001 §10 — must be built together with /products and /products/
-    // [slug] before this route is reachable from any real "Buy" button.
+    // Success URL routes to /products/order-confirmation (with session_id
+    // for guest order proof and verification).
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: resolvedBuyerEmail,

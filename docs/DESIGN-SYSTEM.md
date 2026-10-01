@@ -63,6 +63,7 @@
 - [Spacing & Layout](../.aldriva/design/spacing.md)
 - [Component Catalog](../.aldriva/design/components.md)
 - [Responsive Strategy](../.aldriva/design/responsive.md)
+- [Responsive Data Tables & Lists](../.aldriva/design/patterns/data-tables.md)
 - [Accessibility](../.aldriva/design/accessibility.md)
 - [Motion & Animation](../.aldriva/design/motion.md)
 - [Anti-Patterns](../.aldriva/design/anti-patterns.md)

@@ -7,6 +7,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { EVENT_CATEGORIES } from '@/lib/event-taxonomy';
+import { ResponsiveDataTable } from '@/components/dashboard/ResponsiveDataTable';
+import { ResponsiveDataRow } from '@/components/dashboard/ResponsiveDataRow';
 
 type EventRow = {
   id: string;
@@ -96,71 +98,103 @@ export default function AdminEventsPage() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pr-4">Title</th>
-                  <th className="py-3 pr-4">Organization</th>
-                  <th className="py-3 pr-4">Category</th>
-                  <th className="py-3 pr-4">Visibility</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Featured</th>
-                  <th className="py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {filteredEvents.map((ev) => (
-                  <tr key={ev.id}>
-                    <td className="py-3 pr-4 font-semibold max-w-[180px] truncate">{ev.title}</td>
-                    <td className="py-3 pr-4 text-zinc-500 max-w-[120px] truncate">{ev.organizer_name}</td>
-                    <td className="py-3 pr-4 text-xs font-semibold text-zinc-600 max-w-[140px] truncate">{ev.category || "—"}{ev.subcategory ? ` · ${ev.subcategory}` : ""}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[ev.visibility] ?? visibilityBadge.public}`}>
-                        {ev.visibility}
+          <ResponsiveDataTable
+            totalCount={filteredEvents.length}
+            emptyMessage="No events found."
+            columns={[
+              { id: 'title', header: 'Title' },
+              { id: 'organization', header: 'Organization', hideBelow: 'md' },
+              { id: 'category', header: 'Category', hideBelow: 'lg' },
+              { id: 'visibility', header: 'Visibility', hideBelow: 'md' },
+              { id: 'status', header: 'Status' },
+              { id: 'featured', header: 'Featured', hideBelow: 'lg' },
+              { id: 'actions', header: 'Actions', align: 'right' },
+            ]}
+          >
+            {filteredEvents.map((ev) => {
+              const actionButtons = (
+                <div className="flex flex-wrap gap-1.5">
+                  {ev.status !== 'approved' && (
+                    <button
+                      type="button"
+                      disabled={working === ev.id}
+                      onClick={() => updateEvent(ev.id, { status: 'approved' })}
+                      className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      {working === ev.id ? '…' : 'Approve'}
+                    </button>
+                  )}
+                  {ev.status !== 'rejected' && (
+                    <button
+                      type="button"
+                      disabled={working === ev.id}
+                      onClick={() => updateEvent(ev.id, { status: 'rejected' })}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {working === ev.id ? '…' : 'Reject'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === ev.id}
+                    onClick={() => updateEvent(ev.id, { is_featured: !ev.is_featured })}
+                    className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50 disabled:opacity-50"
+                  >
+                    {working === ev.id ? '…' : ev.is_featured ? 'Unfeature' : 'Feature'}
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={ev.id}
+                  id={ev.id}
+                  desktopCells={[
+                    <span key="title" className="font-semibold max-w-[180px] truncate block">{ev.title}</span>,
+                    <span key="org" className="text-zinc-500 max-w-[120px] truncate block">{ev.organizer_name}</span>,
+                    <span key="cat" className="text-xs font-semibold text-zinc-600 max-w-[140px] truncate block">
+                      {ev.category || "—"}{ev.subcategory ? ` · ${ev.subcategory}` : ""}
+                    </span>,
+                    <span key="vis" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[ev.visibility] ?? visibilityBadge.public}`}>
+                      {ev.visibility}
+                    </span>,
+                    <span key="status" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[ev.status] ?? statusBadge.pending}`}>
+                      {ev.status}
+                    </span>,
+                    <span key="feat" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${ev.is_featured ? 'bg-orange-100 text-orange-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                      {ev.is_featured ? 'Yes' : 'No'}
+                    </span>,
+                    <div key="act" className="flex flex-wrap justify-end gap-1.5">
+                      {actionButtons}
+                    </div>
+                  ]}
+                  identity={<span className="font-bold text-zinc-950 text-left line-clamp-1">{ev.title}</span>}
+                  primaryMeta={<span className="text-xs text-zinc-500">{ev.organizer_name} · {ev.category || "General"}</span>}
+                  statusBadge={
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[ev.status] ?? statusBadge.pending}`}>
+                      {ev.status}
+                    </span>
+                  }
+                  numericMetric={
+                    ev.is_featured ? (
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase bg-orange-100 text-orange-700">
+                        Featured
                       </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[ev.status] ?? statusBadge.pending}`}>
-                        {ev.status}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${ev.is_featured ? 'bg-orange-100 text-orange-700' : 'bg-zinc-100 text-zinc-500'}`}>
-                        {ev.is_featured ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {ev.status !== 'approved' && (
-                          <button disabled={working === ev.id} onClick={() => updateEvent(ev.id, { status: 'approved' })}
-                            className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
-                            {working === ev.id ? '…' : 'Approve'}
-                          </button>
-                        )}
-                        {ev.status !== 'rejected' && (
-                          <button disabled={working === ev.id} onClick={() => updateEvent(ev.id, { status: 'rejected' })}
-                            className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50">
-                            {working === ev.id ? '…' : 'Reject'}
-                          </button>
-                        )}
-                        <button
-                          disabled={working === ev.id}
-                          onClick={() => updateEvent(ev.id, { is_featured: !ev.is_featured })}
-                          className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50 disabled:opacity-50"
-                        >
-                          {working === ev.id ? '…' : ev.is_featured ? 'Unfeature' : 'Feature'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredEvents.length === 0 && (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-zinc-400">No events found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ) : undefined
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Organization:</span> {ev.organizer_name}</div>
+                      <div><span className="font-bold text-zinc-500">Category:</span> {ev.category || "—"}{ev.subcategory ? ` · ${ev.subcategory}` : ""}</div>
+                      <div><span className="font-bold text-zinc-500">Visibility:</span> {ev.visibility}</div>
+                      <div><span className="font-bold text-zinc-500">Featured:</span> {ev.is_featured ? "Yes" : "No"}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
       </div>
     </div>

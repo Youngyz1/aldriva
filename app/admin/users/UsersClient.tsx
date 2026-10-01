@@ -1,14 +1,15 @@
 "use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, History } from "lucide-react";
-import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow, RowActionsDropdown } from "@/components/dashboard/ResponsiveDataRow";
+import type { RowActionsConfig } from "@/components/dashboard/ResponsiveDataRow";
 import { RoleBadge, StatusBadge } from "@/components/admin/ModerationBadge";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import type {
@@ -17,6 +18,35 @@ import type {
   AdminUserStats,
 } from "@/types/admin-management";
 
+// ---------------------------------------------------------------------------
+// DesktopActionCell — renders primary inline + ⋯ overflow for table cells
+// ---------------------------------------------------------------------------
+
+function DesktopActionCell({ actions }: { actions: RowActionsConfig }) {
+  const { primary, menu } = actions;
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      {primary && (
+        <button
+          type="button"
+          disabled={primary.disabled}
+          title={primary.disabledReason}
+          onClick={primary.onSelect}
+          className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 whitespace-nowrap transition-colors"
+        >
+          {primary.label}
+        </button>
+      )}
+      {menu.length > 0 && <RowActionsDropdown items={menu} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions (selection bar)
+// ---------------------------------------------------------------------------
+
 const BULK_ACTIONS = [
   { id: "activate", label: "Activate" },
   { id: "suspend", label: "Suspend" },
@@ -24,28 +54,51 @@ const BULK_ACTIONS = [
   { id: "demote", label: "Demote" },
 ] as const;
 
-function getIdentityActions(identityStatus: string) {
-  switch (identityStatus) {
-    case "pending":
-      return ["identity_verify", "identity_reject"] as const;
-    case "verified":
-      return ["identity_reject"] as const;
-    case "rejected":
-      return ["identity_verify"] as const;
-    default:
-      return [] as const;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** EN/FR-aware pluralization for organizer count */
+function orgCountLabel(n: number, locale?: string): string {
+  // Detect locale from document lang or navigator language
+  const lang =
+    locale ??
+    (typeof document !== "undefined"
+      ? document.documentElement.lang || navigator?.language || "en"
+      : "en");
+  if (lang.startsWith("fr")) {
+    return n === 1 ? "1 org" : `${n} orgs`;
   }
+  return n === 1 ? "1 org" : `${n} orgs`;
 }
 
-const IDENTITY_ACTION_LABELS: Record<string, string> = {
-  identity_verify: "Verify Identity",
-  identity_reject: "Reject Identity",
-};
+// ---------------------------------------------------------------------------
+// Compact stat strip (replaces grid cards at mobile)
+// ---------------------------------------------------------------------------
 
-const IDENTITY_ACTION_STYLES: Record<string, string> = {
-  identity_verify: "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
-  identity_reject: "border-red-200 text-red-600 hover:bg-red-50",
-};
+function StatStrip({ stats }: { stats: AdminUserStats }) {
+  const items = [
+    { label: "Total", value: stats.total },
+    { label: "Active", value: stats.active },
+    { label: "Suspended", value: stats.suspended },
+    { label: "Admins", value: stats.admins },
+    { label: "Orgs", value: stats.organizers },
+  ];
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl border border-zinc-200/60 bg-white px-4 py-2.5 text-xs">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-baseline gap-1.5">
+          <span className="font-black text-zinc-950 tabular-nums">{item.value}</span>
+          <span className="text-zinc-400 font-semibold">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main client component
+// ---------------------------------------------------------------------------
 
 export default function UsersClient() {
   const router = useRouter();
@@ -199,7 +252,8 @@ export default function UsersClient() {
   }
 
   const selectableRows = rows.filter((r) => !r.is_current_user);
-  const allSelected = selectableRows.length > 0 && selectableRows.every((r) => selected.has(r.id));
+  const allSelected =
+    selectableRows.length > 0 && selectableRows.every((r) => selected.has(r.id));
 
   function toggleAll() {
     if (allSelected) setSelected(new Set());
@@ -216,15 +270,97 @@ export default function UsersClient() {
     });
   }
 
-  const statItems = stats
-    ? [
-        { label: "Total Users", value: stats.total },
-        { label: "Active Users", value: stats.active },
-        { label: "Suspended", value: stats.suspended },
-        { label: "Admins", value: stats.admins },
-        { label: "Organizations", value: stats.organizers },
-      ]
-    : [];
+  // ── Build contextual RowActionsConfig for each row ─────────────────────
+
+  function buildRowActions(row: AdminUserRow, isSelf: boolean): RowActionsConfig {
+    // Primary: "View" always
+    const primary: RowActionsConfig["primary"] = {
+      key: "view",
+      label: "View",
+      onSelect: () => openDrawer(row.id),
+    };
+
+    const menu: RowActionsConfig["menu"] = [];
+
+    if (!isSelf) {
+      // Suspend ↔ Reactivate  (contextual on current status)
+      if (row.status === "active") {
+        menu.push({
+          key: "suspend",
+          label: "Suspend",
+          onSelect: () => patchUser(row.id, { status: "suspended" }),
+          disabled: working === row.id,
+          destructive: true,
+        });
+      } else if (row.status === "suspended") {
+        menu.push({
+          key: "reactivate",
+          label: "Reactivate",
+          onSelect: () => patchUser(row.id, { status: "active" }),
+          disabled: working === row.id,
+        });
+      }
+
+      // Promote / Demote
+      if (row.role !== "admin") {
+        menu.push({
+          key: "promote",
+          label: "Promote to Admin",
+          onSelect: () => patchUser(row.id, { role: "admin" }),
+          disabled: working === row.id,
+        });
+      } else {
+        menu.push({
+          key: "demote",
+          label: "Remove Admin",
+          onSelect: () => patchUser(row.id, { role: "user" }),
+          disabled: working === row.id,
+          destructive: true,
+        });
+      }
+
+      // Identity — only shown when identity_status === 'pending'
+      if (row.identity_status === "pending") {
+        menu.push({
+          key: "identity_verify",
+          label: "Verify Identity",
+          onSelect: () => patchUser(row.id, { identity_status: "verified" }),
+          disabled: working === row.id,
+          separatorBefore: true,
+        });
+        menu.push({
+          key: "identity_reject",
+          label: "Reject Identity",
+          onSelect: () => patchUser(row.id, { identity_status: "rejected" }),
+          disabled: working === row.id,
+          destructive: true,
+        });
+      }
+    }
+
+    return { primary, menu };
+  }
+
+  // ── Column definitions ─────────────────────────────────────────────────
+
+  const columns = [
+    { id: "select", header: (
+        <input
+          type="checkbox"
+          checked={allSelected}
+          onChange={toggleAll}
+          className="rounded border-zinc-300"
+          aria-label="Select all users"
+        />
+      ), width: "44px" },
+    { id: "name",   header: "Name" },
+    { id: "email",  header: "Email",  hideBelow: "lg" as const },
+    { id: "role",   header: "Role",   width: "96px"  },
+    { id: "status", header: "Status", width: "104px" },
+    { id: "orgs",   header: "Orgs",   align: "right" as const, hideBelow: "lg" as const, width: "64px" },
+    { id: "joined", header: "Joined", align: "right" as const, hideBelow: "md" as const, width: "120px" },
+    { id: "actions",header: "Actions",align: "right" as const, width: "120px" },
+  ];
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -236,7 +372,8 @@ export default function UsersClient() {
         </p>
       </header>
 
-      {stats && <AdminStatsCards items={statItems} />}
+      {/* Compact stat strip — single row, no grid cards that push content off-screen */}
+      {stats && <StatStrip stats={stats} />}
 
       <AdminManagementToolbar
         search={search}
@@ -248,10 +385,10 @@ export default function UsersClient() {
             label: "Role",
             value: role,
             options: [
-              { value: "all", label: "All Roles" },
-              { value: "admin", label: "Admin" },
-              { value: "organizer", label: "Organizer" },
-              { value: "user", label: "User" },
+              { value: "all",       label: "All Roles"   },
+              { value: "admin",     label: "Admin"       },
+              { value: "organizer", label: "Organizer"   },
+              { value: "user",      label: "User"        },
             ],
             onChange: (v) => updateParams({ role: v === "all" ? null : v }),
           },
@@ -260,9 +397,9 @@ export default function UsersClient() {
             label: "Status",
             value: status,
             options: [
-              { value: "all", label: "All Statuses" },
-              { value: "active", label: "Active" },
-              { value: "suspended", label: "Suspended" },
+              { value: "all",       label: "All Statuses" },
+              { value: "active",    label: "Active"       },
+              { value: "suspended", label: "Suspended"    },
             ],
             onChange: (v) => updateParams({ status: v === "all" ? null : v }),
           },
@@ -271,10 +408,10 @@ export default function UsersClient() {
             label: "Activity",
             value: activity,
             options: [
-              { value: "all", label: "All Users" },
-              { value: "has_events", label: "Has Events" },
-              { value: "has_fundraisers", label: "Has Fundraisers" },
-              { value: "has_organizers", label: "Has Organizations" },
+              { value: "all",             label: "All Users"         },
+              { value: "has_events",      label: "Has Events"        },
+              { value: "has_fundraisers", label: "Has Fundraisers"   },
+              { value: "has_organizers",  label: "Has Organizations" },
             ],
             onChange: (v) => updateParams({ activity: v === "all" ? null : v }),
           },
@@ -284,12 +421,12 @@ export default function UsersClient() {
           label: "Sort",
           value: sort,
           options: [
-            { value: "newest", label: "Newest First" },
-            { value: "oldest", label: "Oldest First" },
-            { value: "most_events", label: "Most Events" },
-            { value: "most_organizers", label: "Most Organizations" },
-            { value: "most_fundraisers", label: "Most Fundraisers" },
-            { value: "alphabetical", label: "Alphabetical" },
+            { value: "newest",           label: "Newest First"      },
+            { value: "oldest",           label: "Oldest First"      },
+            { value: "most_events",      label: "Most Events"       },
+            { value: "most_organizers",  label: "Most Organizations" },
+            { value: "most_fundraisers", label: "Most Fundraisers"  },
+            { value: "alphabetical",     label: "Alphabetical"      },
           ],
           onChange: (v) => updateParams({ sort: v === "newest" ? null : v }),
         }}
@@ -325,143 +462,137 @@ export default function UsersClient() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           </div>
+        ) : rows.length === 0 ? (
+          <div className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
+            No users match your filters.
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1040px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3">
+          <ResponsiveDataTable columns={columns} isSelectable>
+            {rows.map((row) => {
+              const isSelf = row.is_current_user || row.id === currentUserId;
+              const rowActions = buildRowActions(row, isSelf);
+
+              const desktopCells = [
+                // select
+                <input
+                  key="select"
+                  type="checkbox"
+                  checked={selected.has(row.id)}
+                  disabled={isSelf}
+                  onChange={() => toggleOne(row.id, isSelf)}
+                  className="rounded border-zinc-300 disabled:opacity-40"
+                  aria-label={`Select ${row.full_name}`}
+                />,
+                // name
+                <div key="name" className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => openDrawer(row.id)}
+                    className="font-black text-zinc-900 hover:text-violet-700 hover:underline text-left truncate block max-w-full"
+                  >
+                    {row.full_name}
+                  </button>
+                  {row.username && (
+                    <p className="text-xs text-zinc-500 truncate">@{row.username}</p>
+                  )}
+                  {isSelf && (
+                    <span className="mt-0.5 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700">
+                      You
+                    </span>
+                  )}
+                </div>,
+                // email (hidden below lg, truncates)
+                <span key="email" className="font-semibold text-zinc-800 block truncate">
+                  {row.email}
+                </span>,
+                // role
+                <RoleBadge key="role" role={row.role} />,
+                // status
+                <StatusBadge key="status" status={row.status} />,
+                // orgs
+                <span key="orgs" className="font-black text-zinc-900 tabular-nums">
+                  {row.organizer_count}
+                </span>,
+                // joined
+                <span key="joined" className="text-zinc-500 whitespace-nowrap tabular-nums">
+                  {formatAdminDate(row.created_at)}
+                </span>,
+                // actions — primary inline + ⋯ dropdown
+                <DesktopActionCell key="actions" actions={rowActions} />,
+              ];
+
+              return (
+                <ResponsiveDataRow
+                  key={row.id}
+                  id={row.id}
+                  desktopCells={desktopCells}
+                  rowActions={rowActions}
+                  selectionControl={
                     <input
                       type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      className="rounded border-zinc-300"
+                      checked={selected.has(row.id)}
+                      disabled={isSelf}
+                      onChange={() => toggleOne(row.id, isSelf)}
+                      className="rounded border-zinc-300 disabled:opacity-40"
+                      aria-label={`Select ${row.full_name}`}
                     />
-                  </th>
-                  <th className="py-3 pr-4">Name</th>
-                  <th className="py-3 pr-4">Email</th>
-                  <th className="py-3 pr-4">Role</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Organizations</th>
-                  <th className="py-3 pr-4">Events</th>
-                  <th className="py-3 pr-4">Fundraisers</th>
-                  <th className="py-3 pr-4">Joined</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => {
-                  const isSelf = row.is_current_user || row.id === currentUserId;
-                  return (
-                    <tr key={row.id} className="hover:bg-zinc-50/70">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(row.id)}
-                          disabled={isSelf}
-                          onChange={() => toggleOne(row.id, isSelf)}
-                          className="rounded border-zinc-300 disabled:opacity-40"
-                        />
-                      </td>
-                      <td className="py-3 pr-4">
-                        <button
-                          type="button"
-                          onClick={() => openDrawer(row.id)}
-                          className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                        >
-                          {row.full_name}
-                        </button>
+                  }
+                  // Mobile line 1: name + role badge
+                  identity={
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => openDrawer(row.id)}
+                        className="font-bold text-zinc-950 hover:text-violet-700 text-left truncate"
+                      >
+                        {row.full_name}
+                      </button>
+                      {isSelf && (
+                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-violet-700">
+                          You
+                        </span>
+                      )}
+                    </div>
+                  }
+                  // Line 1 right: role
+                  primaryValue={<RoleBadge role={row.role} />}
+                  // Line 2 left: status
+                  state={<StatusBadge status={row.status} />}
+                  // Line 2 right: joined date only (email/orgs hidden until expand)
+                  secondary={[`Joined ${formatAdminDate(row.created_at)}`]}
+                  // Expanded drawer: email, handle, orgs, "Full record" link
+                  expandedDetails={
+                    <div className="space-y-2.5 text-xs text-zinc-600">
+                      <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1.5">
+                        <span className="font-bold text-zinc-400">Email</span>
+                        <span className="truncate font-semibold">{row.email}</span>
                         {row.username && (
-                          <p className="text-xs text-zinc-500">@{row.username}</p>
+                          <>
+                            <span className="font-bold text-zinc-400">Handle</span>
+                            <span className="font-semibold">@{row.username}</span>
+                          </>
                         )}
-                        {isSelf && (
-                          <span className="mt-1 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700">
-                            You
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 font-semibold text-zinc-800">{row.email}</td>
-                      <td className="py-3 pr-4"><RoleBadge role={row.role} /></td>
-                      <td className="py-3 pr-4"><StatusBadge status={row.status} /></td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.organizer_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.event_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.fundraiser_count}</td>
-                      <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                          >
-                            View
-                          </button>
-                          {!isSelf && row.status === "active" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { status: "suspended" })}
-                              className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            >
-                              {working === row.id ? "…" : "Suspend"}
-                            </button>
-                          )}
-                          {!isSelf && row.status === "suspended" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { status: "active" })}
-                              className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                            >
-                              {working === row.id ? "…" : "Activate"}
-                            </button>
-                          )}
-                          {!isSelf && row.role !== "admin" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { role: "admin" })}
-                              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-50 disabled:opacity-50"
-                            >
-                              Promote
-                            </button>
-                          )}
-                          {!isSelf && row.role === "admin" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { role: "user" })}
-                              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
-                            >
-                              Demote
-                            </button>
-                          )}
-                          {getIdentityActions(row.identity_status).map((action) => (
-                            <button
-                              key={action}
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
-                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
-                            >
-                              {working === row.id ? "…" : IDENTITY_ACTION_LABELS[action]}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
-                      No users match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <span className="font-bold text-zinc-400">Orgs</span>
+                        <span className="font-semibold">
+                          {orgCountLabel(row.organizer_count)}
+                        </span>
+                        <span className="font-bold text-zinc-400">Events</span>
+                        <span className="font-semibold">{row.event_count}</span>
+                        <span className="font-bold text-zinc-400">Fundraisers</span>
+                        <span className="font-semibold">{row.fundraiser_count}</span>
+                      </div>
+                      <Link
+                        href={`/admin/users/${row.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-black text-violet-700 hover:underline"
+                      >
+                        Full record →
+                      </Link>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         <AdminPagination
@@ -474,6 +605,7 @@ export default function UsersClient() {
         />
       </div>
 
+      {/* ── Detail Drawer ───────────────────────────────────────────────── */}
       <AdminDrawer
         open={drawerUser !== null || drawerLoading}
         onClose={() => { setDrawerUser(null); setDrawerLoading(false); }}
@@ -499,7 +631,7 @@ export default function UsersClient() {
                   onClick={() => patchUser(drawerUser.id, { status: "active" })}
                   className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                 >
-                  Activate
+                  Reactivate
                 </button>
               )}
               {drawerUser.role !== "admin" ? (
@@ -521,17 +653,27 @@ export default function UsersClient() {
                   Remove Admin
                 </button>
               )}
-              {getIdentityActions(drawerUser.identity_status).map((action) => (
-                <button
-                  key={action}
-                  type="button"
-                  disabled={working === drawerUser.id}
-                  onClick={() => patchUser(drawerUser.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
-                  className={`rounded-xl border bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
-                >
-                  {IDENTITY_ACTION_LABELS[action]}
-                </button>
-              ))}
+              {/* Identity — only when pending */}
+              {drawerUser.identity_status === "pending" && (
+                <>
+                  <button
+                    type="button"
+                    disabled={working === drawerUser.id}
+                    onClick={() => patchUser(drawerUser.id, { identity_status: "verified" })}
+                    className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    Verify Identity
+                  </button>
+                  <button
+                    type="button"
+                    disabled={working === drawerUser.id}
+                    onClick={() => patchUser(drawerUser.id, { identity_status: "rejected" })}
+                    className="rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Reject Identity
+                  </button>
+                </>
+              )}
             </div>
           )
         }
@@ -544,14 +686,14 @@ export default function UsersClient() {
           <div className="space-y-6">
             <section className="grid grid-cols-2 gap-3">
               {[
-                ["Role", drawerUser.role],
-                ["Status", drawerUser.status],
-                ["Identity", drawerUser.identity_status],
-                ["Joined", formatAdminDate(drawerUser.created_at)],
+                ["Role",       drawerUser.role],
+                ["Status",     drawerUser.status],
+                ["Identity",   drawerUser.identity_status],
+                ["Joined",     formatAdminDate(drawerUser.created_at)],
                 ["Last Login", formatAdminDate(drawerUser.last_login)],
-                ["Events", drawerUser.event_count],
-                ["Fundraisers", drawerUser.fundraiser_count],
-                ["Revenue", formatAdminMoney(drawerUser.revenue)],
+                ["Events",     drawerUser.event_count],
+                ["Fundraisers",drawerUser.fundraiser_count],
+                ["Revenue",    formatAdminMoney(drawerUser.revenue)],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
                   <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</p>
@@ -570,8 +712,6 @@ export default function UsersClient() {
               </dl>
             </section>
 
-            {/* Identity verification change history — read-only oversight,
-                same pattern as organizers' Change History section. */}
             {drawerUser.verification_history.length > 0 && (
               <section className="space-y-3">
                 <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-zinc-400">
@@ -598,29 +738,33 @@ export default function UsersClient() {
             )}
 
             <section>
-              <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Organization Profiles</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Organization Profiles
+              </h3>
               <div className="mt-3 space-y-2">
                 {drawerUser.organizers.length === 0 ? (
                   <p className="text-sm text-zinc-500">No organization profiles.</p>
-                ) : drawerUser.organizers.map((org) => (
-                  <div key={org.id} className="flex items-center justify-between rounded-lg border border-zinc-100 px-3 py-2">
-                    <div>
-                      <p className="font-bold text-zinc-900">{org.name}</p>
-                      <StatusBadge status={org.status} />
+                ) : (
+                  drawerUser.organizers.map((org) => (
+                    <div key={org.id} className="flex items-center justify-between rounded-lg border border-zinc-100 px-3 py-2">
+                      <div>
+                        <p className="font-bold text-zinc-900">{org.name}</p>
+                        <StatusBadge status={org.status} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Link href={`/organizers/${org.id}`} className="text-xs font-black text-violet-700 hover:underline">
+                          View Organization
+                        </Link>
+                        <Link href="/admin/events" className="text-xs font-black text-zinc-600 hover:underline">
+                          Events
+                        </Link>
+                        <Link href="/admin/fundraisers" className="text-xs font-black text-zinc-600 hover:underline">
+                          Fundraisers
+                        </Link>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Link href={`/organizers/${org.id}`} className="text-xs font-black text-violet-700 hover:underline">
-                        View Organization
-                      </Link>
-                      <Link href="/admin/events" className="text-xs font-black text-zinc-600 hover:underline">
-                        Events
-                      </Link>
-                      <Link href="/admin/fundraisers" className="text-xs font-black text-zinc-600 hover:underline">
-                        Fundraisers
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
 
@@ -629,25 +773,27 @@ export default function UsersClient() {
               <div className="mt-3 space-y-2">
                 {drawerUser.recent_activity.length === 0 ? (
                   <p className="text-sm text-zinc-500">No recent activity.</p>
-                ) : drawerUser.recent_activity.map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="rounded-lg border border-zinc-100 px-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-bold text-zinc-900">{item.title}</p>
-                        <p className="text-xs text-zinc-500">{item.detail}</p>
+                ) : (
+                  drawerUser.recent_activity.map((item) => (
+                    <div key={`${item.type}-${item.id}`} className="rounded-lg border border-zinc-100 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-zinc-900">{item.title}</p>
+                          <p className="text-xs text-zinc-500">{item.detail}</p>
+                        </div>
+                        <span className="shrink-0 text-[10px] font-black uppercase text-zinc-400">{item.type}</span>
                       </div>
-                      <span className="shrink-0 text-[10px] font-black uppercase text-zinc-400">{item.type}</span>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-xs text-zinc-400">{formatAdminDate(item.at)}</span>
+                        {item.href && (
+                          <Link href={item.href} className="text-xs font-black text-violet-700 hover:underline">
+                            View
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-xs text-zinc-400">{formatAdminDate(item.at)}</span>
-                      {item.href && (
-                        <Link href={item.href} className="text-xs font-black text-violet-700 hover:underline">
-                          View
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
           </div>

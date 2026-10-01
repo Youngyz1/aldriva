@@ -1,5 +1,4 @@
 "use client";
-
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -8,6 +7,8 @@ import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { DashboardBulkActionButton } from "@/components/dashboard/DashboardBulkActions";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
@@ -260,48 +261,126 @@ function AttendeesClientInner() {
           />
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="px-4 py-3">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-zinc-300" />
-                </th>
-                <th className="py-3 pr-4">Attendee</th>
-                <th className="py-3 pr-4">Email</th>
-                <th className="py-3 pr-4">Event</th>
-                <th className="py-3 pr-4">Qty</th>
-                <th className="py-3 pr-4">Paid</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="px-4 py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-zinc-50/70">
-                  <td className="px-4 py-3">
-                    <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} className="rounded border-zinc-300" />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <button type="button" onClick={() => openDrawer(row.id)} className="font-black text-zinc-900 hover:text-violet-700 hover:underline">
-                      {row.attendee_name}
-                    </button>
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-500">{row.email || "—"}</td>
-                  <td className="py-3 pr-4 max-w-[160px] truncate text-zinc-700">{row.event_title}</td>
-                  <td className="py-3 pr-4 font-black">{row.quantity}</td>
-                  <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.paid)}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.valid}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveDataTable
+          columns={[
+            {
+              id: "select",
+              header: (
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="rounded border-zinc-300"
+                  aria-label="Select all attendees"
+                />
+              ),
+              width: "48px",
+            },
+            { id: "attendee", header: "Attendee" },
+            { id: "email", header: "Email", hideBelow: "lg" },
+            { id: "event", header: "Event" },
+            { id: "qty", header: "Qty", align: "right", hideBelow: "lg" },
+            { id: "paid", header: "Paid", align: "right" },
+            { id: "status", header: "Status" },
+            { id: "date", header: "Date", align: "right", hideBelow: "lg" },
+          ]}
+          isSelectable
+        >
+          {rows.map((row) => {
+            const desktopCells = [
+              <input
+                key="select"
+                type="checkbox"
+                checked={selected.has(row.id)}
+                onChange={() => toggleOne(row.id)}
+                className="rounded border-zinc-300"
+                aria-label={`Select ${row.attendee_name}`}
+              />,
+              <button
+                key="name"
+                type="button"
+                onClick={() => openDrawer(row.id)}
+                className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
+              >
+                {row.attendee_name}
+              </button>,
+              <span key="email" className="text-zinc-500">{row.email || "—"}</span>,
+              <span key="event" className="max-w-[160px] truncate text-zinc-700 font-medium">{row.event_title}</span>,
+              <span key="qty" className="font-black tabular-nums">{row.quantity}</span>,
+              <span key="paid" className="font-black text-emerald-700 tabular-nums">{formatAdminMoney(row.paid)}</span>,
+              <span key="status" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.valid}`}>
+                {row.status}
+              </span>,
+              <span key="date" className="text-zinc-500">{formatAdminDate(row.created_at)}</span>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                selectionControl={
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.id)}
+                    onChange={() => toggleOne(row.id)}
+                    className="rounded border-zinc-300"
+                    aria-label={`Select ${row.attendee_name}`}
+                  />
+                }
+                identity={
+                  <button
+                    type="button"
+                    onClick={() => openDrawer(row.id)}
+                    className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
+                  >
+                    {row.attendee_name}
+                  </button>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.paid)}
+                  </span>
+                }
+                state={
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${statusBadge[row.status] ?? statusBadge.valid}`}>
+                    {row.status}
+                  </span>
+                }
+                secondary={[
+                  row.event_title,
+                  `${row.quantity} ticket${row.quantity === 1 ? "" : "s"}`,
+                  formatAdminDate(row.created_at),
+                ]}
+                expandedDetails={
+                  <div className="space-y-1.5 py-1 text-xs text-zinc-600">
+                    <div>
+                      <span className="font-bold text-zinc-500">Email:</span> {row.email || "No email provided"}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Event:</span> {row.event_title}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Tickets Purchased:</span> {row.quantity}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Order Date:</span> {formatAdminDate(row.created_at)}
+                    </div>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => openDrawer(row.id)}
+                        className="rounded-lg bg-orange-50 text-orange-700 font-bold px-3 py-1.5 text-xs hover:bg-orange-100 transition"
+                      >
+                        View Attendee Details →
+                      </button>
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       <DashboardDrawer

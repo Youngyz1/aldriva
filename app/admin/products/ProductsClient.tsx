@@ -8,6 +8,8 @@ import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import ApprovalActionButtons from "@/components/admin/ApprovalActionButtons";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { useApprovalAction } from "@/hooks/use-approval-action";
 import { formatAdminDate } from "@/lib/admin-query";
 
@@ -99,10 +101,11 @@ export default function ProductsClient() {
     params.set("page", String(page));
     params.set("per_page", String(perPage));
     if (search) params.set("search", search);
-    if (tab !== "all") params.set("tab", tab);
-    if (status !== "all") params.set("status", status);
+    if (effectiveStatus !== "all") {
+      params.set("status", effectiveStatus);
+    }
     return params.toString();
-  }, [page, perPage, search, tab, status]);
+  }, [page, perPage, search, effectiveStatus]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -126,26 +129,8 @@ export default function ProductsClient() {
     fetchData();
   }, [fetchData]);
 
-  async function handleApprove(id: string) {
-    setWorking(id);
-    setError("");
-    const result = await updateStatus(id, { status: "active" });
-    if (!result.success) setError(result.error || "Failed to approve product.");
-    else await fetchData();
-    setWorking(null);
-  }
-
-  async function handleReject(id: string, reason: string) {
-    setWorking(id);
-    setError("");
-    const result = await updateStatus(id, { status: "rejected", rejection_reason: reason || null });
-    if (!result.success) setError(result.error || "Failed to reject product.");
-    else await fetchData();
-    setWorking(null);
-  }
-
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this product permanently?")) {
+    if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
       return;
     }
     setWorking(id);
@@ -164,12 +149,31 @@ export default function ProductsClient() {
     }
   }
 
+  async function handleApprove(id: string) {
+    setWorking(id);
+    setError("");
+    const result = await updateStatus(id, { status: "active" });
+    if (!result.success) setError(result.error || "Failed to approve product.");
+    else await fetchData();
+    setWorking(null);
+  }
+
+  async function handleReject(id: string, reason: string) {
+    setWorking(id);
+    setError("");
+    const result = await updateStatus(id, { status: "rejected", rejection_reason: reason || null });
+    if (!result.success) setError(result.error || "Failed to reject product.");
+    else await fetchData();
+    setWorking(null);
+  }
+
   const statItems = [
     { label: "Total Products", value: stats?.total ?? 0 },
     { label: "Pending Review", value: stats?.pending_review ?? 0, accent: "text-amber-600" },
     { label: "Active", value: stats?.active ?? 0, accent: "text-emerald-600" },
     { label: "Out of Stock", value: stats?.out_of_stock ?? 0, accent: "text-amber-600" },
     { label: "Rejected", value: stats?.rejected ?? 0, accent: "text-red-600" },
+    { label: "Archived", value: stats?.archived ?? 0, accent: "text-zinc-600" },
   ];
 
   return (
@@ -178,7 +182,7 @@ export default function ProductsClient() {
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Products</h1>
         <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate product listings across all users with search, filters, and moderation actions.
+          Moderate product listings, digital goods, and subscriptions across all sellers.
         </p>
       </header>
 
@@ -233,32 +237,64 @@ export default function ProductsClient() {
             <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-6 py-3">Product</th>
-                  <th className="py-3 pr-4">Owner</th>
-                  <th className="py-3 pr-4">Type</th>
-                  <th className="py-3 pr-4">Price Type</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Files</th>
-                  <th className="py-3 pr-4">Stock</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition">
-                    <td className="px-6 py-4 font-black text-zinc-900 max-w-[280px] truncate">
+          <ResponsiveDataTable
+            totalCount={rows.length}
+            emptyMessage="No products found."
+            columns={[
+              { id: "product", header: "Product" },
+              { id: "owner", header: "Owner", hideBelow: "md" },
+              { id: "type", header: "Type", hideBelow: "lg" },
+              { id: "price_type", header: "Price Type", hideBelow: "md" },
+              { id: "status", header: "Status" },
+              { id: "files", header: "Files", hideBelow: "lg" },
+              { id: "stock", header: "Stock", hideBelow: "lg" },
+              { id: "created", header: "Created", hideBelow: "lg" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {rows.map((row) => {
+              const actionButtons = (
+                <div className="flex items-center justify-end gap-2">
+                  <Link
+                    href={`/products/${row.slug}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </Link>
+                  {row.status === "pending_review" && (
+                    <ApprovalActionButtons
+                      disabled={working === row.id}
+                      onApprove={() => handleApprove(row.id)}
+                      onReject={(reason) => handleReject(row.id, reason)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => handleDelete(row.id)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={row.id}
+                  id={row.id}
+                  desktopCells={[
+                    <span key="product" className="font-black text-zinc-900 max-w-[280px] truncate block">
                       {row.name}
-                    </td>
-                    <td className="py-4 pr-4">
+                    </span>,
+                    <div key="owner">
                       <p className="font-semibold text-zinc-800">{row.owner_name}</p>
                       <p className="text-xs text-zinc-500">{row.owner_email || "—"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
+                    </div>,
+                    <div key="type">
                       <span
                         className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
                           row.product_type && row.product_type !== "other"
@@ -273,34 +309,32 @@ export default function ProductsClient() {
                       {row.category && (
                         <p className="mt-1 text-xs text-zinc-500">{row.category}</p>
                       )}
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          priceTypeBadgeStyles[row.price_type] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.price_type === "one_time" ? "One-time" : "Subscription"}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">
+                    </div>,
+                    <span
+                      key="price_type"
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        priceTypeBadgeStyles[row.price_type] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.price_type === "one_time" ? "One-time" : "Subscription"}
+                    </span>,
+                    <span
+                      key="status"
+                      title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>,
+                    <span key="files" className="text-zinc-500">
                       {row.product_type && row.product_type !== "other" ? (
                         <span className="font-bold text-zinc-700">{row.asset_count} file(s)</span>
                       ) : (
                         <span className="text-zinc-400">—</span>
                       )}
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">
+                    </span>,
+                    <span key="stock" className="text-zinc-500">
                       {row.product_type && row.product_type !== "other" ? (
                         <span className="text-zinc-400">Digital</span>
                       ) : row.stock_quantity === null ? (
@@ -308,48 +342,59 @@ export default function ProductsClient() {
                       ) : (
                         <span className="font-bold text-zinc-700">{row.stock_quantity}</span>
                       )}
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/products/${row.slug}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                        {row.status === "pending_review" && (
-                          <ApprovalActionButtons
-                            disabled={working === row.id}
-                            onApprove={() => handleApprove(row.id)}
-                            onReject={(reason) => handleReject(row.id, reason)}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleDelete(row.id)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </button>
+                    </span>,
+                    <span key="created" className="text-zinc-500">{formatAdminDate(row.created_at)}</span>,
+                    <div key="actions" className="flex items-center justify-end gap-2">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <span className="font-bold text-zinc-950 text-left line-clamp-1">
+                      {row.name}
+                    </span>
+                  }
+                  primaryMeta={
+                    <span className="text-xs text-zinc-500">
+                      {row.owner_name} · {row.product_type && row.product_type !== "other" ? row.product_type.replace(/_/g, " ") : "Physical"}
+                    </span>
+                  }
+                  statusBadge={
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>
+                  }
+                  numericMetric={
+                    <span className="text-xs font-bold text-zinc-700">
+                      {row.price_type === "one_time" ? "One-time" : "Subscription"}
+                    </span>
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Owner Email:</span> {row.owner_email || "—"}</div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Type / Category:</span> {row.product_type || "Physical"} {row.category ? `(${row.category})` : ""}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
-                      No products found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Price Type:</span> {row.price_type === "one_time" ? "One-time" : "Subscription"}
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Files / Stock:</span> {row.product_type && row.product_type !== "other" ? `${row.asset_count} file(s) (Digital)` : (row.stock_quantity === null ? "Unlimited" : `${row.stock_quantity} in stock`)}
+                      </div>
+                      <div><span className="font-bold text-zinc-500">Created:</span> {formatAdminDate(row.created_at)}</div>
+                      {row.rejection_reason && (
+                        <div><span className="font-bold text-red-600">Rejection Reason:</span> {row.rejection_reason}</div>
+                      )}
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         {totalPages > 1 && (

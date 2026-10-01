@@ -1,5 +1,4 @@
 "use client";
-
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from 'next-intl';
@@ -10,6 +9,8 @@ import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 import { DashboardBulkActionButton } from "@/components/dashboard/DashboardBulkActions";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
@@ -325,113 +326,200 @@ function EventsClientInner() {
           />
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    disabled={selectableRows.length === 0}
-                    className="rounded border-zinc-300 disabled:opacity-40"
-                  />
-                </th>
-                <th className="py-3 pr-4">Title</th>
-                <th className="py-3 pr-4">Date</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3 pr-4">Visibility</th>
-                <th className="py-3 pr-4">Tickets</th>
-                <th className="py-3 pr-4">Revenue</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {rows.map((row) => {
-                const actionIds = getDashboardEventActionIds(row.user_role);
-                const canSelect = canSelectDashboardEventForBulk(row);
+        <ResponsiveDataTable
+          columns={[
+            {
+              id: "select",
+              header: (
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  disabled={selectableRows.length === 0}
+                  className="rounded border-zinc-300 disabled:opacity-40"
+                  aria-label="Select all events"
+                />
+              ),
+              width: "48px",
+            },
+            { id: "title", header: "Title" },
+            { id: "date", header: "Date", hideBelow: "lg" },
+            { id: "status", header: "Status" },
+            { id: "visibility", header: "Visibility", hideBelow: "lg" },
+            { id: "tickets", header: "Tickets", align: "right" },
+            { id: "revenue", header: "Revenue", align: "right" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+          isSelectable
+        >
+          {rows.map((row) => {
+            const actionIds = getDashboardEventActionIds(row.user_role);
+            const canSelect = canSelectDashboardEventForBulk(row);
 
-                return (
-                  <tr key={row.id} className="hover:bg-zinc-50/70">
-                    <td className="px-4 py-3">
-                      {canSelect ? (
-                        <input
-                          type="checkbox"
-                          checked={selected.has(row.id)}
-                          onChange={() => toggleOne(row)}
-                          className="rounded border-zinc-300"
-                        />
-                      ) : (
-                        <span className="block h-4 w-4" aria-hidden="true" />
-                      )}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <button
-                        type="button"
-                        onClick={() => openDrawer(row.id)}
-                        className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                      >
-                        {row.title}
-                      </button>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.event_date)}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
-                        {statusLabel(row.status)}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[row.visibility] ?? visibilityBadge.public}`}>
-                        {row.visibility}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 font-black text-zinc-900">{row.ticket_count}</td>
-                    <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.revenue)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {actionIds.length === 1 && actionIds[0] === "scan" ? (
-                          <Link
-                            href={`/dashboard/events/${row.id}/scan`}
-                            className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-black text-white hover:bg-orange-700 shadow-sm"
-                          >
-                            Scan Tickets
-                          </Link>
-                        ) : (
-                          <RowActionsMenu
-                            ariaLabel={`Actions for ${row.title}`}
-                            items={[
-                              ...(actionIds.includes("checkins")
-                                ? [{ key: "checkins", label: "Check-Ins", href: `/dashboard/events/${row.id}/checkins` }]
-                                : []),
-                              ...(actionIds.includes("scan")
-                                ? [{ key: "scan", label: "Scan", href: `/dashboard/events/${row.id}/scan` }]
-                                : []),
-                              ...(actionIds.includes("team")
-                                ? [{ key: "team", label: "Team", href: `/dashboard/events/${row.id}/team` }]
-                                : []),
-                              ...(actionIds.includes("edit")
-                                ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
-                                : []),
-                              ...(actionIds.includes("delete")
-                                ? [{
-                                    key: "delete",
-                                    label: "Delete",
-                                    destructive: true,
-                                    onSelect: () => setDeleteTarget(row),
-                                  }]
-                                : []),
-                            ]}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+            const desktopCells = [
+              canSelect ? (
+                <input
+                  key="select"
+                  type="checkbox"
+                  checked={selected.has(row.id)}
+                  onChange={() => toggleOne(row)}
+                  className="rounded border-zinc-300"
+                  aria-label={`Select ${row.title}`}
+                />
+              ) : (
+                <span key="select" className="block h-4 w-4" aria-hidden="true" />
+              ),
+              <button
+                key="title"
+                type="button"
+                onClick={() => openDrawer(row.id)}
+                className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
+              >
+                {row.title}
+              </button>,
+              <span key="date" className="text-zinc-500">{formatAdminDate(row.event_date)}</span>,
+              <span key="status" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
+                {statusLabel(row.status)}
+              </span>,
+              <span key="visibility" className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[row.visibility] ?? visibilityBadge.public}`}>
+                {row.visibility}
+              </span>,
+              <span key="tickets" className="font-black text-zinc-900 tabular-nums">{row.ticket_count}</span>,
+              <span key="revenue" className="font-black text-emerald-700 tabular-nums">{formatAdminMoney(row.revenue)}</span>,
+              <div key="actions" className="flex items-center justify-end gap-1.5">
+                {actionIds.length === 1 && actionIds[0] === "scan" ? (
+                  <Link
+                    href={`/dashboard/events/${row.id}/scan`}
+                    className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-black text-white hover:bg-orange-700 shadow-sm"
+                  >
+                    Scan Tickets
+                  </Link>
+                ) : (
+                  <RowActionsMenu
+                    ariaLabel={`Actions for ${row.title}`}
+                    items={[
+                      ...(actionIds.includes("checkins")
+                        ? [{ key: "checkins", label: "Check-Ins", href: `/dashboard/events/${row.id}/checkins` }]
+                        : []),
+                      ...(actionIds.includes("scan")
+                        ? [{ key: "scan", label: "Scan", href: `/dashboard/events/${row.id}/scan` }]
+                        : []),
+                      ...(actionIds.includes("team")
+                        ? [{ key: "team", label: "Team", href: `/dashboard/events/${row.id}/team` }]
+                        : []),
+                      ...(actionIds.includes("edit")
+                        ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
+                        : []),
+                      ...(actionIds.includes("delete")
+                        ? [{
+                            key: "delete",
+                            label: "Delete",
+                            destructive: true,
+                            onSelect: () => setDeleteTarget(row),
+                          }]
+                        : []),
+                    ]}
+                  />
+                )}
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                selectionControl={
+                  canSelect ? (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleOne(row)}
+                      className="rounded border-zinc-300"
+                      aria-label={`Select ${row.title}`}
+                    />
+                  ) : null
+                }
+                identity={
+                  <button
+                    type="button"
+                    onClick={() => openDrawer(row.id)}
+                    className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
+                  >
+                    {row.title}
+                  </button>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.revenue)}
+                  </span>
+                }
+                state={
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
+                    {statusLabel(row.status)}
+                  </span>
+                }
+                secondary={[
+                  `Event ${formatAdminDate(row.event_date)}`,
+                  `${row.ticket_count} tickets`,
+                  row.visibility,
+                ]}
+                actions={
+                  actionIds.length === 1 && actionIds[0] === "scan" ? (
+                    <Link
+                      href={`/dashboard/events/${row.id}/scan`}
+                      className="rounded-lg bg-orange-600 px-2.5 py-1 text-xs font-black text-white hover:bg-orange-700"
+                    >
+                      Scan
+                    </Link>
+                  ) : (
+                    <RowActionsMenu
+                      ariaLabel={`Actions for ${row.title}`}
+                      items={[
+                        ...(actionIds.includes("checkins")
+                          ? [{ key: "checkins", label: "Check-Ins", href: `/dashboard/events/${row.id}/checkins` }]
+                          : []),
+                        ...(actionIds.includes("scan")
+                          ? [{ key: "scan", label: "Scan", href: `/dashboard/events/${row.id}/scan` }]
+                          : []),
+                        ...(actionIds.includes("team")
+                          ? [{ key: "team", label: "Team", href: `/dashboard/events/${row.id}/team` }]
+                          : []),
+                        ...(actionIds.includes("edit")
+                          ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
+                          : []),
+                        ...(actionIds.includes("delete")
+                          ? [{
+                              key: "delete",
+                              label: "Delete",
+                              destructive: true,
+                              onSelect: () => setDeleteTarget(row),
+                            }]
+                          : []),
+                      ]}
+                    />
+                  )
+                }
+                expandedDetails={
+                  <div className="grid grid-cols-2 gap-2 text-xs text-zinc-600 py-1">
+                    <div>
+                      <span className="font-bold text-zinc-500">Event Date:</span> {formatAdminDate(row.event_date)}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Tickets Sold:</span> {row.ticket_count}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Visibility:</span> {row.visibility}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Total Revenue:</span> {formatAdminMoney(row.revenue)}
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       <DashboardDrawer

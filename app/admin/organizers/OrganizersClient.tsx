@@ -10,6 +10,8 @@ import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { ModerationBadge, StatusBadge } from "@/components/admin/ModerationBadge";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import type {
   AdminOrganizerDetail,
@@ -463,117 +465,151 @@ export default function OrganizersClient() {
             <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3">
+          <ResponsiveDataTable
+            totalCount={total}
+            emptyMessage="No organizations match your filters."
+            isSelectable
+            selectAllControl={
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="rounded border-zinc-300"
+                aria-label="Select all organizations"
+              />
+            }
+            columns={[
+              { id: "name", header: "Name" },
+              { id: "owner", header: "Owner", hideBelow: "md" },
+              { id: "status", header: "Status" },
+              { id: "events", header: "Events", align: "right", hideBelow: "lg" },
+              { id: "fundraisers", header: "Fundraisers", align: "right", hideBelow: "lg" },
+              { id: "created", header: "Created", align: "right", hideBelow: "md" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {rows.map((row) => {
+              const actions = getOrganizerActions(row.status);
+              const actionButtons = (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => openDrawer(row.id)}
+                    className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                  >
+                    View
+                  </button>
+                  {actions.map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      disabled={working === row.id}
+                      onClick={() => updateStatus(row.id, action)}
+                      className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${ACTION_STYLES[action]}`}
+                    >
+                      {working === row.id ? "…" : ACTION_LABELS[action]}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => updateCapability(row.id, "payment_enabled", !row.payment_enabled)}
+                    className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    {row.payment_enabled ? "Disable Payment" : "Enable Payment"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => updateCapability(row.id, "fundraising_approved", !row.fundraising_approved)}
+                    className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                  >
+                    {row.fundraising_approved ? "Revoke Fundraising" : "Approve Fundraising"}
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={row.id}
+                  id={row.id}
+                  selectionControl={
                     <input
                       type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleOne(row.id)}
                       className="rounded border-zinc-300"
+                      aria-label={`Select ${row.name}`}
                     />
-                  </th>
-                  <th className="py-3 pr-4">Name</th>
-                  <th className="py-3 pr-4">Owner</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Events</th>
-                  <th className="py-3 pr-4">Fundraisers</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => {
-                  const actions = getOrganizerActions(row.status);
-                  return (
-                    <tr key={row.id} className="hover:bg-zinc-50/70">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(row.id)}
-                          onChange={() => toggleOne(row.id)}
-                          className="rounded border-zinc-300"
-                        />
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                          >
-                            {row.name}
-                          </button>
-                          <div className="flex flex-wrap gap-1">
-                            {row.badges.map((b) => (
-                              <ModerationBadge key={b} type={b} />
-                            ))}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <p className="font-semibold text-zinc-800">{row.owner_name}</p>
-                        <p className="text-xs text-zinc-500">{row.email || "—"}</p>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <StatusBadge status={row.status} />
-                      </td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.event_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.fundraiser_count}</td>
-                      <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                          >
-                            View
-                          </button>
-                          {actions.map((action) => (
-                            <button
-                              key={action}
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => updateStatus(row.id, action)}
-                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${ACTION_STYLES[action]}`}
-                            >
-                              {working === row.id ? "…" : ACTION_LABELS[action]}
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => updateCapability(row.id, "payment_enabled", !row.payment_enabled)}
-                            className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                          >
-                            {row.payment_enabled ? "Disable Payment" : "Enable Payment"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => updateCapability(row.id, "fundraising_approved", !row.fundraising_approved)}
-                            className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                          >
-                            {row.fundraising_approved ? "Revoke Fundraising" : "Approve Fundraising"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
-                      No organizations match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  }
+                  desktopCells={[
+                    <input
+                      key="select"
+                      type="checkbox"
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleOne(row.id)}
+                      className="rounded border-zinc-300"
+                      aria-label={`Select ${row.name}`}
+                    />,
+                    <div key="name" className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => openDrawer(row.id)}
+                        className="font-black text-zinc-900 hover:text-violet-700 hover:underline text-left block"
+                      >
+                        {row.name}
+                      </button>
+                      <div className="flex flex-wrap gap-1">
+                        {row.badges.map((b) => (
+                          <ModerationBadge key={b} type={b} />
+                        ))}
+                      </div>
+                    </div>,
+                    <div key="owner">
+                      <p className="font-semibold text-zinc-800">{row.owner_name}</p>
+                      <p className="text-xs text-zinc-500">{row.email || "—"}</p>
+                    </div>,
+                    <StatusBadge key="status" status={row.status} />,
+                    <span key="events" className="font-black text-zinc-900">{row.event_count}</span>,
+                    <span key="fundraisers" className="font-black text-zinc-900">{row.fundraiser_count}</span>,
+                    <span key="created" className="text-zinc-500">{formatAdminDate(row.created_at)}</span>,
+                    <div key="actions" className="flex flex-wrap justify-end gap-1.5">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="font-bold text-zinc-950 hover:text-violet-700 text-left line-clamp-1"
+                    >
+                      {row.name}
+                    </button>
+                  }
+                  primaryMeta={
+                    <span className="text-xs text-zinc-500">
+                      {row.owner_name} · {row.event_count} events · {row.fundraiser_count} fundraisers
+                    </span>
+                  }
+                  statusBadge={<StatusBadge status={row.status} />}
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Owner Email:</span> {row.email || "—"}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {row.badges.map((b) => (
+                          <ModerationBadge key={b} type={b} />
+                        ))}
+                      </div>
+                      <div><span className="font-bold text-zinc-500">Events:</span> {row.event_count}</div>
+                      <div><span className="font-bold text-zinc-500">Fundraisers:</span> {row.fundraiser_count}</div>
+                      <div><span className="font-bold text-zinc-500">Created:</span> {formatAdminDate(row.created_at)}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         <AdminPagination

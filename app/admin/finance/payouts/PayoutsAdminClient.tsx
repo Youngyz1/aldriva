@@ -16,6 +16,8 @@ import {
   User,
   ShoppingBag,
 } from "lucide-react";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import {
   getAdminPayoutQueue,
   transitionPayoutProcessing,
@@ -102,9 +104,8 @@ export default function PayoutsAdminClient({
     try {
       setIsSubmittingComplete(true);
       await completePayout(completingItem.id, externalPayoutIdInput.trim());
-      showToast(`Payout ${completingItem.id.slice(0, 8)} marked as Completed.`);
+      showToast(`Payout ${completingItem.id.slice(0, 8)} marked as completed.`);
       setCompletingItem(null);
-      setExternalPayoutIdInput("");
       await refetchQueue();
       router.refresh();
     } catch (err) {
@@ -120,16 +121,15 @@ export default function PayoutsAdminClient({
     setFailError(null);
 
     if (!failureReasonInput.trim()) {
-      setFailError("Please specify a failure reason.");
+      setFailError("Please provide a reason for the failure.");
       return;
     }
 
     try {
       setIsSubmittingFail(true);
       await failPayout(failingItem.id, failureReasonInput.trim());
-      showToast(`Payout ${failingItem.id.slice(0, 8)} marked as Failed. Ledger credit issued.`);
+      showToast(`Payout ${failingItem.id.slice(0, 8)} marked as failed and balance restored.`);
       setFailingItem(null);
-      setFailureReasonInput("");
       await refetchQueue();
       router.refresh();
     } catch (err) {
@@ -139,64 +139,65 @@ export default function PayoutsAdminClient({
     }
   }
 
-  function getStatusBadge(status: PayoutStatus) {
-    switch (status) {
-      case "requested":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-            <Clock size={12} />
-            Requested
-          </span>
-        );
-      case "processing":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-            <Loader2 size={12} className="animate-spin" />
-            Processing
-          </span>
-        );
-      case "completed":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-            <CheckCircle2 size={12} />
-            Completed
-          </span>
-        );
-      case "failed":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
-            <XCircle size={12} />
-            Failed
-          </span>
-        );
-      case "cancelled":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-600">
-            <AlertCircle size={12} />
-            Cancelled
-          </span>
-        );
-    }
-  }
-
   function getRecipientTypeBadge(type: string) {
     switch (type) {
       case "organizer":
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
-            <Building size={10} /> Organizer
+          <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-black text-purple-700">
+            <Building size={10} /> Org
           </span>
         );
       case "business":
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+          <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-700">
             <ShoppingBag size={10} /> Business
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700">
+          <span className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-700">
             <User size={10} /> User
+          </span>
+        );
+    }
+  }
+
+  function getStatusBadge(status: PayoutStatus) {
+    switch (status) {
+      case "requested":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700 border border-amber-200">
+            <Clock size={12} /> Requested
+          </span>
+        );
+      case "processing":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-700 border border-blue-200">
+            <Loader2 size={12} className="animate-spin" /> Processing
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700 border border-emerald-200">
+            <CheckCircle2 size={12} /> Completed
+          </span>
+        );
+      case "failed":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700 border border-rose-200">
+            <XCircle size={12} /> Failed
+          </span>
+        );
+      case "cancelled":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-600 border border-zinc-200">
+            <XCircle size={12} /> Cancelled
+          </span>
+        );
+      default:
+        return (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-600">
+            {status}
           </span>
         );
     }
@@ -258,7 +259,7 @@ export default function PayoutsAdminClient({
         </div>
       )}
 
-      {/* Filters & Search Toolbar — open bar, tabs + search keep their own chrome. */}
+      {/* Filters & Search Toolbar */}
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Status Tabs */}
         <div className="flex flex-wrap gap-1">
@@ -298,131 +299,164 @@ export default function PayoutsAdminClient({
 
       {/* Queue Table */}
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-xs overflow-hidden">
-        {filteredQueue.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500">
-            <Send size={24} className="mx-auto text-zinc-300 mb-2" />
-            <p className="text-sm font-bold text-zinc-700">No payout records found</p>
-            <p className="text-xs text-zinc-400">No payout requests matching the selected filters.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-zinc-600">
-              <thead className="bg-zinc-50 text-[10px] font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-200">
-                <tr>
-                  <th className="px-4 py-3">Payout ID / Date</th>
-                  <th className="px-4 py-3">Recipient</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Destination</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 font-medium">
-                {filteredQueue.map((item) => (
-                  <tr key={item.id} className="hover:bg-zinc-50/60 transition">
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="font-mono font-bold text-zinc-900 text-[11px]">
-                        {item.id.slice(0, 8)}...
+        <ResponsiveDataTable
+          totalCount={filteredQueue.length}
+          emptyMessage="No payout records found."
+          columns={[
+            { id: "payout", header: "Payout ID / Date" },
+            { id: "recipient", header: "Recipient" },
+            { id: "amount", header: "Amount" },
+            { id: "destination", header: "Destination", hideBelow: "md" },
+            { id: "status", header: "Status" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+        >
+          {filteredQueue.map((item) => {
+            const actionButtons = (
+              <div className="flex items-center justify-end gap-1.5">
+                {item.status === "requested" && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartProcessing(item.id)}
+                    disabled={processingId === item.id}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
+                  >
+                    {processingId === item.id ? "Updating..." : "Start Processing"}
+                  </button>
+                )}
+
+                {(item.status === "requested" || item.status === "processing") && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCompletingItem(item);
+                        setExternalPayoutIdInput(`tr_${crypto.randomUUID().slice(0, 8)}`);
+                      }}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                    >
+                      Complete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFailingItem(item);
+                        setFailureReasonInput("");
+                      }}
+                      className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
+                    >
+                      Fail
+                    </button>
+                  </>
+                )}
+
+                {(item.status === "completed" ||
+                  item.status === "failed" ||
+                  item.status === "cancelled") && (
+                  <span className="text-[11px] text-zinc-400 font-bold">Terminal</span>
+                )}
+              </div>
+            );
+
+            return (
+              <ResponsiveDataRow
+                key={item.id}
+                id={item.id}
+                desktopCells={[
+                  <div key="payout">
+                    <span className="font-mono font-bold text-zinc-900 text-[11px] block">
+                      {item.id.slice(0, 8)}...
+                    </span>
+                    <span className="block text-[10px] text-zinc-400">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>,
+                  <div key="recipient" className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      {getRecipientTypeBadge(item.recipientType)}
+                      <span className="font-bold text-zinc-900 text-xs">
+                        {item.recipientName}
                       </span>
+                    </div>
+                    {item.requestedByEmail && (
                       <span className="block text-[10px] text-zinc-400">
-                        {new Date(item.createdAt).toLocaleDateString()}
+                        Req: {item.requestedByEmail}
                       </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          {getRecipientTypeBadge(item.recipientType)}
-                          <span className="font-bold text-zinc-900 text-xs">
-                            {item.recipientName}
-                          </span>
-                        </div>
-                        {item.requestedByEmail && (
-                          <span className="block text-[10px] text-zinc-400">
-                            Req: {item.requestedByEmail}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="font-black text-zinc-950 text-sm">
-                        ${item.amount.toFixed(2)}
-                      </span>{" "}
-                      <span className="text-[10px] font-bold text-zinc-400">
-                        {item.currency.toUpperCase()}
+                    )}
+                  </div>,
+                  <div key="amount">
+                    <span className="font-black text-zinc-950 text-sm">
+                      ${item.amount.toFixed(2)}
+                    </span>{" "}
+                    <span className="text-[10px] font-bold text-zinc-400">
+                      {item.currency.toUpperCase()}
+                    </span>
+                  </div>,
+                  <div key="dest">
+                    <span className="capitalize font-bold text-zinc-800 block">
+                      {item.destinationType.replace("_", " ")}
+                    </span>
+                    {item.destinationReference && (
+                      <span className="block text-[10px] font-mono text-zinc-500">
+                        {item.destinationReference}
                       </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="capitalize font-bold text-zinc-800">
-                        {item.destinationType.replace("_", " ")}
+                    )}
+                  </div>,
+                  <div key="status">
+                    {getStatusBadge(item.status)}
+                    {item.externalPayoutId && (
+                      <span className="block text-[10px] font-mono text-emerald-700 font-bold mt-0.5">
+                        Ext: {item.externalPayoutId}
                       </span>
-                      {item.destinationReference && (
-                        <span className="block text-[10px] font-mono text-zinc-500">
-                          {item.destinationReference}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {getStatusBadge(item.status)}
-                      {item.externalPayoutId && (
-                        <span className="block text-[10px] font-mono text-emerald-700 font-bold mt-0.5">
-                          Ext: {item.externalPayoutId}
-                        </span>
-                      )}
-                      {item.failureReason && (
-                        <span className="block text-[10px] text-rose-600 font-normal mt-0.5 max-w-xs">
-                          {item.failureReason}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-1.5">
-                      {item.status === "requested" && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartProcessing(item.id)}
-                          disabled={processingId === item.id}
-                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
-                        >
-                          {processingId === item.id ? "Updating..." : "Start Processing"}
-                        </button>
-                      )}
-
-                      {(item.status === "requested" || item.status === "processing") && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCompletingItem(item);
-                              setExternalPayoutIdInput(`tr_${crypto.randomUUID().slice(0, 8)}`);
-                            }}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
-                          >
-                            Complete
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFailingItem(item);
-                              setFailureReasonInput("");
-                            }}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
-                          >
-                            Fail
-                          </button>
-                        </>
-                      )}
-
-                      {(item.status === "completed" ||
-                        item.status === "failed" ||
-                        item.status === "cancelled") && (
-                        <span className="text-[11px] text-zinc-400 font-bold">Terminal</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    )}
+                    {item.failureReason && (
+                      <span className="block text-[10px] text-rose-600 font-normal mt-0.5 max-w-xs">
+                        {item.failureReason}
+                      </span>
+                    )}
+                  </div>,
+                  <div key="actions">
+                    {actionButtons}
+                  </div>,
+                ]}
+                identity={
+                  <div className="flex items-center gap-1.5">
+                    {getRecipientTypeBadge(item.recipientType)}
+                    <span className="font-bold text-zinc-950 text-left line-clamp-1">
+                      {item.recipientName}
+                    </span>
+                  </div>
+                }
+                primaryMeta={
+                  <span className="text-xs text-zinc-500 font-mono">
+                    {item.id.slice(0, 8)}... · {new Date(item.createdAt).toLocaleDateString()}
+                  </span>
+                }
+                statusBadge={getStatusBadge(item.status)}
+                numericMetric={
+                  <span className="font-black text-zinc-950 text-sm">
+                    ${item.amount.toFixed(2)} <span className="text-[10px] text-zinc-400 font-bold">{item.currency.toUpperCase()}</span>
+                  </span>
+                }
+                actions={actionButtons}
+                mobileDetails={
+                  <div className="space-y-2 text-xs text-zinc-600">
+                    <div><span className="font-bold text-zinc-500">Requested By:</span> {item.requestedByEmail || "—"}</div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Destination:</span> {item.destinationType.replace("_", " ")} {item.destinationReference ? `(${item.destinationReference})` : ""}
+                    </div>
+                    {item.externalPayoutId && (
+                      <div><span className="font-bold text-emerald-700">Ext ID:</span> {item.externalPayoutId}</div>
+                    )}
+                    {item.failureReason && (
+                      <div><span className="font-bold text-rose-600">Failure Reason:</span> {item.failureReason}</div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </div>
 
       {/* Complete Payout Modal */}
@@ -543,7 +577,7 @@ export default function PayoutsAdminClient({
                   {failingItem.currency.toUpperCase()}
                 </p>
                 <p className="text-[11px] text-rose-700 font-normal mt-1">
-                  <strong>Compensating Reversal:</strong> Marking this payout as failed will automatically execute a single database credit adjustment restoring ${failingItem.amount.toFixed(2)} to the recipient's available balance.
+                  <strong>Compensating Reversal:</strong> Marking this payout as failed will automatically execute a single database credit adjustment restoring ${failingItem.amount.toFixed(2)} to the recipient&apos;s available balance.
                 </p>
               </div>
 

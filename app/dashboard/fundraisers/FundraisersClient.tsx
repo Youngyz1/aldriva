@@ -1,14 +1,15 @@
 "use client";
-
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, List, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
@@ -21,7 +22,6 @@ import type {
   DashboardFundraiserStats,
 } from "@/types/dashboard-management";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
-import ProgressBar from "@/components/ui/ProgressBar";
 
 /** Owner-facing moderation badge — only shown while a campaign isn't public. */
 function ReviewBadge({ status }: { status: string }) {
@@ -48,7 +48,6 @@ function FundraisersClientInner() {
   const status = getParam("status");
   const category = getParam("category");
   const sort = getParam("sort", "newest");
-  const view = getParam("view", "table");
 
   const [rows, setRows] = useState<DashboardFundraiserRow[]>([]);
   const [stats, setStats] = useState<DashboardFundraiserStats | null>(null);
@@ -151,28 +150,6 @@ function FundraisersClientInner() {
       ]
     : [];
 
-  const viewToggle = (
-    <div className="flex shrink-0 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1">
-      {[
-        { id: "table", icon: List, label: "Table" },
-        { id: "card", icon: LayoutGrid, label: "Cards" },
-      ].map(({ id, icon: Icon, label }) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => updateParams({ view: id === "table" ? null : id })}
-          className={cn(
-            "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition",
-            view === id ? "bg-white text-violet-700 shadow-sm" : "text-zinc-500 hover:text-zinc-800"
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-
   return (
     <div className="space-y-4 sm:space-y-6">
       <DashboardPageHeader
@@ -232,7 +209,6 @@ function FundraisersClientInner() {
         exporting={exporting}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((v) => !v)}
-        trailing={viewToggle}
       />
 
       {error && (
@@ -257,85 +233,125 @@ function FundraisersClientInner() {
           />
         }
       >
-        {view === "card" ? (
-          <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
-            {rows.map((row) => (
-              <article key={row.id} className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4">
-                <button type="button" onClick={() => openDrawer(row.id)} className="text-left w-full">
-                  <h3 className="font-black text-zinc-950 line-clamp-1">{row.title}</h3>
-                  <ReviewBadge status={row.review_status} />
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-xs font-bold text-zinc-500 uppercase">{row.category || "Other"}</span>
-                    <p className="text-sm font-medium text-emerald-700">{formatAdminMoney(row.raised)} raised</p>
-                  </div>
+        <ResponsiveDataTable
+          columns={[
+            { id: "campaign", header: "Campaign" },
+            { id: "category", header: "Category", hideBelow: "lg" },
+            { id: "raised", header: "Raised", align: "right" },
+            { id: "goal", header: "Goal", align: "right", hideBelow: "lg" },
+            { id: "progress", header: "Progress", align: "right" },
+            { id: "donors", header: "Donors", align: "right", hideBelow: "lg" },
+            { id: "status", header: "Status" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+        >
+          {rows.map((row) => {
+            const desktopCells = [
+              <div key="title">
+                <button
+                  type="button"
+                  onClick={() => openDrawer(row.id)}
+                  className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
+                >
+                  {row.title}
                 </button>
-                <div className="mt-3">
-                  <ProgressBar raised={row.raised} goal={row.goal} percentage={row.progress} height={8} showLabel={true} />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                <ReviewBadge status={row.review_status} />
+              </div>,
+              <span key="category" className="text-xs font-bold text-zinc-500 uppercase">{row.category || "Other"}</span>,
+              <span key="raised" className="font-black text-emerald-700 tabular-nums">{formatAdminMoney(row.raised)}</span>,
+              <span key="goal" className="font-black tabular-nums">{formatAdminMoney(row.goal)}</span>,
+              <span key="progress" className="font-black text-violet-700 tabular-nums">{row.progress}%</span>,
+              <span key="donors" className="font-black tabular-nums">{row.donor_count}</span>,
+              <span
+                key="status"
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-black uppercase",
+                  row.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
+                )}
+              >
+                {row.status}
+              </span>,
+              <div key="actions" className="flex items-center justify-end gap-1.5">
+                <RowActionsMenu
+                  ariaLabel={`Actions for ${row.title}`}
+                  items={[
+                    { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
+                    { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
+                    { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
+                  ]}
+                />
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                identity={
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
+                    >
+                      {row.title}
+                    </button>
+                    <ReviewBadge status={row.review_status} />
+                  </div>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.raised)}
+                  </span>
+                }
+                state={
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                      row.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
+                    )}
+                  >
+                    {row.status}
+                  </span>
+                }
+                secondary={[
+                  `${row.progress}% of ${formatAdminMoney(row.goal)}`,
+                  `${row.donor_count} donors`,
+                  row.category ? row.category.toUpperCase() : null,
+                ]}
+                actions={
                   <RowActionsMenu
                     ariaLabel={`Actions for ${row.title}`}
                     items={[
+                      { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
                       { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
                       { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
                     ]}
                   />
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pr-4 pl-4">Campaign</th>
-                  <th className="py-3 pr-4">Category</th>
-                  <th className="py-3 pr-4">Raised</th>
-                  <th className="py-3 pr-4">Goal</th>
-                  <th className="py-3 pr-4">Progress</th>
-                  <th className="py-3 pr-4">Donors</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/70">
-                    <td className="py-3 pr-4 pl-4">
-                      <button type="button" onClick={() => openDrawer(row.id)} className="font-black text-zinc-900 hover:text-violet-700 hover:underline">
-                        {row.title}
-                      </button>
-                      <ReviewBadge status={row.review_status} />
-                    </td>
-                    <td className="py-3 pr-4 text-xs font-bold text-zinc-500 uppercase">{row.category || "Other"}</td>
-                    <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.raised)}</td>
-                    <td className="py-3 pr-4 font-black">{formatAdminMoney(row.goal)}</td>
-                    <td className="py-3 pr-4 font-black text-violet-700">{row.progress}%</td>
-                    <td className="py-3 pr-4 font-black">{row.donor_count}</td>
-                    <td className="py-3 pr-4">
-                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-black uppercase", row.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700")}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        <RowActionsMenu
-                          ariaLabel={`Actions for ${row.title}`}
-                          items={[
-                            { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
-                            { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
-                            { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
-                          ]}
-                        />
+                }
+                expandedDetails={
+                  <div className="space-y-2 py-1 text-xs text-zinc-600">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-bold text-zinc-500">Goal:</span> {formatAdminMoney(row.goal)}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      <div>
+                        <span className="font-bold text-zinc-500">Progress:</span> {row.progress}%
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Total Donors:</span> {row.donor_count}
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Category:</span> {row.category || "General"}
+                      </div>
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       <DashboardDrawer

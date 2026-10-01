@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import StarRating from "@/components/StarRating";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 type ReviewRow = {
   id: string;
@@ -126,39 +128,72 @@ export default function AdminReviewsPage() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pr-4">Reviewer</th>
-                  <th className="py-3 pr-4">Target</th>
-                  <th className="py-3 pr-4">Rating</th>
-                  <th className="py-3 pr-4">Content</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {reviews.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-3 pr-4 font-semibold max-w-[150px] truncate">
-                      {r.profiles?.display_name || "Anonymous"}
+          <ResponsiveDataTable
+            totalCount={reviews.length}
+            emptyMessage="No reviews found."
+            columns={[
+              { id: "reviewer", header: "Reviewer" },
+              { id: "target", header: "Target", hideBelow: "md" },
+              { id: "rating", header: "Rating" },
+              { id: "content", header: "Content", hideBelow: "lg" },
+              { id: "status", header: "Status" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {reviews.map((r) => {
+              const actionButtons = (
+                <div className="flex flex-wrap gap-1.5">
+                  {r.is_approved ? (
+                    <button
+                      type="button"
+                      disabled={working === r.id}
+                      onClick={() => handleModerate(r.id, "hide")}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Hide
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={working === r.id}
+                      onClick={() => handleModerate(r.id, "approve")}
+                      className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === r.id}
+                    onClick={() => handleDelete(r.id)}
+                    className="rounded-lg border border-red-300 bg-red-600 px-2.5 py-1.5 text-xs font-black text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={r.id}
+                  id={r.id}
+                  desktopCells={[
+                    <div key="reviewer" className="max-w-[150px] truncate">
+                      <span className="font-semibold block truncate">{r.profiles?.display_name || "Anonymous"}</span>
                       <p className="text-[10px] font-normal text-zinc-400 truncate">{r.user_id}</p>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500 max-w-[200px] truncate">
+                    </div>,
+                    <span key="target" className="text-zinc-500 max-w-[200px] truncate block">
                       {getTargetName(r)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-1">
-                        <StarRating value={r.rating} size={14} />
-                        <span className="text-xs font-bold text-zinc-600">({r.rating})</span>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 max-w-[250px]">
+                    </span>,
+                    <div key="rating" className="flex items-center gap-1">
+                      <StarRating value={r.rating} size={14} />
+                      <span className="text-xs font-bold text-zinc-600">({r.rating})</span>
+                    </div>,
+                    <div key="content" className="max-w-[250px]">
                       {r.title && <p className="font-bold text-zinc-950 truncate">{r.title}</p>}
                       {r.review && <p className="text-zinc-600 line-clamp-2 text-xs">{r.review}</p>}
-                    </td>
-                    <td className="py-3 pr-4">
+                    </div>,
+                    <span key="status">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
                           r.is_approved ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
@@ -166,47 +201,45 @@ export default function AdminReviewsPage() {
                       >
                         {r.is_approved ? "Approved" : "Hidden"}
                       </span>
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {r.is_approved ? (
-                          <button
-                            disabled={working === r.id}
-                            onClick={() => handleModerate(r.id, "hide")}
-                            className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            Hide
-                          </button>
-                        ) : (
-                          <button
-                            disabled={working === r.id}
-                            onClick={() => handleModerate(r.id, "approve")}
-                            className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        <button
-                          disabled={working === r.id}
-                          onClick={() => handleDelete(r.id)}
-                          className="rounded-lg border border-red-300 bg-red-600 px-2.5 py-1.5 text-xs font-black text-white hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {reviews.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-sm text-zinc-400">
-                      No reviews found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </span>,
+                    <div key="actions" className="flex flex-wrap justify-end gap-1.5">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <span className="font-bold text-zinc-950 text-left line-clamp-1">
+                      {r.profiles?.display_name || "Anonymous"}
+                    </span>
+                  }
+                  primaryMeta={<span className="text-xs text-zinc-500">{getTargetName(r)}</span>}
+                  statusBadge={
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
+                        r.is_approved ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
+                      }`}
+                    >
+                      {r.is_approved ? "Approved" : "Hidden"}
+                    </span>
+                  }
+                  numericMetric={
+                    <div className="flex items-center gap-1">
+                      <StarRating value={r.rating} size={12} />
+                      <span className="text-xs font-bold text-zinc-600">({r.rating})</span>
+                    </div>
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      {r.title && <div><span className="font-bold text-zinc-900">{r.title}</span></div>}
+                      {r.review && <div><p className="text-zinc-700">{r.review}</p></div>}
+                      <div><span className="font-bold text-zinc-500">User ID:</span> {r.user_id}</div>
+                      <div><span className="font-bold text-zinc-500">Date:</span> {new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
       </div>
     </div>

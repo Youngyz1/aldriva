@@ -14,6 +14,8 @@ import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 
 type FundraiserStatus = "pending_review" | "published" | "rejected";
@@ -341,132 +343,156 @@ export default function AdminFundraisersPage() {
             <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pl-5 pr-4">Title</th>
-                  <th className="py-3 pr-4">Organizer</th>
-                  <th className="py-3 pr-4">Raised</th>
-                  <th className="py-3 pr-4">Goal</th>
-                  <th className="py-3 pr-4">Progress</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Featured</th>
-                  <th className="py-3 pr-5">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {paged.map((f) => (
-                  <tr key={f.id} className="hover:bg-zinc-50/70">
-                    <td className="py-3 pl-5 pr-4">
-                      <button
-                        type="button"
-                        onClick={() => openDrawer(f)}
-                        className="max-w-[200px] truncate text-left font-black text-zinc-900 hover:text-brand-800 hover:underline"
-                      >
-                        {f.title}
-                      </button>
-                    </td>
-                    <td className="max-w-[130px] truncate py-3 pr-4 text-zinc-500">
-                      {f.organizer || "—"}
-                    </td>
-                    <td className="py-3 pr-4 font-black text-brand-800">
-                      {money(f.raised)}
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500">{money(f.goal)}</td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-100">
-                          <div
-                            className="h-full rounded-full bg-brand-600"
-                            style={{
-                              width: `${calcProgress(f.raised, f.goal)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-zinc-500">
-                          {calcProgress(f.raised, f.goal)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500">
-                      {formatAdminDate(f.created_at)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <StatusBadge status={f.status} />
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
-                          f.is_featured
-                            ? "bg-brand-100 text-brand-800"
-                            : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {f.is_featured ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-5">
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openDrawer(f)}
-                          className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                        >
-                          View
-                        </button>
-                        <Link
-                          href={`/admin/fundraisers/${f.id}`}
-                          className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50"
-                        >
-                          Manage
-                        </Link>
-                        {f.status === "pending_review" && (
-                          <button
-                            type="button"
-                            disabled={working === f.id}
-                            onClick={() => approveFundraiser(f.id)}
-                            className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === f.id}
-                          onClick={() =>
-                            patchFundraiser(f.id, { is_featured: !f.is_featured })
-                          }
-                          className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${
-                            f.is_featured
-                              ? "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                              : "border-brand-200 text-brand-800 hover:bg-brand-50"
-                          }`}
-                        >
-                          {working === f.id
-                            ? "…"
-                            : f.is_featured
-                            ? "Unfeature"
-                            : "Feature"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {paged.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="py-12 text-center text-sm font-semibold text-zinc-400"
+          <ResponsiveDataTable
+            totalCount={filtered.length}
+            emptyMessage="No fundraisers match your filters."
+            columns={[
+              { id: "title", header: "Title" },
+              { id: "organizer", header: "Organizer", hideBelow: "md" },
+              { id: "raised", header: "Raised" },
+              { id: "goal", header: "Goal", hideBelow: "lg" },
+              { id: "progress", header: "Progress", hideBelow: "md" },
+              { id: "created", header: "Created", hideBelow: "lg" },
+              { id: "status", header: "Status" },
+              { id: "featured", header: "Featured", hideBelow: "lg" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {paged.map((f) => {
+              const actionButtons = (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => openDrawer(f)}
+                    className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                  >
+                    View
+                  </button>
+                  <Link
+                    href={`/admin/fundraisers/${f.id}`}
+                    className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50"
+                  >
+                    Manage
+                  </Link>
+                  {f.status === "pending_review" && (
+                    <button
+                      type="button"
+                      disabled={working === f.id}
+                      onClick={() => approveFundraiser(f.id)}
+                      className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50 disabled:opacity-50"
                     >
-                      No fundraisers match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      Approve
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === f.id}
+                    onClick={() =>
+                      patchFundraiser(f.id, { is_featured: !f.is_featured })
+                    }
+                    className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${
+                      f.is_featured
+                        ? "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                        : "border-brand-200 text-brand-800 hover:bg-brand-50"
+                    }`}
+                  >
+                    {working === f.id
+                      ? "…"
+                      : f.is_featured
+                      ? "Unfeature"
+                      : "Feature"}
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={f.id}
+                  id={f.id}
+                  desktopCells={[
+                    <button
+                      key="title"
+                      type="button"
+                      onClick={() => openDrawer(f)}
+                      className="max-w-[200px] truncate text-left font-black text-zinc-900 hover:text-brand-800 hover:underline block"
+                    >
+                      {f.title}
+                    </button>,
+                    <span key="org" className="max-w-[130px] truncate text-zinc-500 block">
+                      {f.organizer || "—"}
+                    </span>,
+                    <span key="raised" className="font-black text-brand-800">
+                      {money(f.raised)}
+                    </span>,
+                    <span key="goal" className="text-zinc-500">
+                      {money(f.goal)}
+                    </span>,
+                    <div key="progress" className="flex items-center gap-2">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-100">
+                        <div
+                          className="h-full rounded-full bg-brand-600"
+                          style={{
+                            width: `${calcProgress(f.raised, f.goal)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold text-zinc-500">
+                        {calcProgress(f.raised, f.goal)}%
+                      </span>
+                    </div>,
+                    <span key="created" className="text-zinc-500">
+                      {formatAdminDate(f.created_at)}
+                    </span>,
+                    <StatusBadge key="status" status={f.status} />,
+                    <span
+                      key="featured"
+                      className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
+                        f.is_featured
+                          ? "bg-brand-100 text-brand-800"
+                          : "bg-zinc-100 text-zinc-500"
+                      }`}
+                    >
+                      {f.is_featured ? "Yes" : "No"}
+                    </span>,
+                    <div key="actions" className="flex flex-wrap justify-end gap-1.5">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(f)}
+                      className="font-bold text-zinc-950 hover:text-brand-800 text-left line-clamp-1"
+                    >
+                      {f.title}
+                    </button>
+                  }
+                  primaryMeta={
+                    <span className="text-xs text-zinc-500">
+                      {f.organizer || "—"} · {formatAdminDate(f.created_at)}
+                    </span>
+                  }
+                  statusBadge={<StatusBadge status={f.status} />}
+                  numericMetric={
+                    <span className="font-bold text-brand-800">
+                      {money(f.raised)} <span className="text-xs font-normal text-zinc-400">/ {money(f.goal)}</span>
+                    </span>
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Organizer:</span> {f.organizer || "—"}</div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Progress:</span> {calcProgress(f.raised, f.goal)}% ({money(f.raised)} of {money(f.goal)})
+                      </div>
+                      <div><span className="font-bold text-zinc-500">Created:</span> {formatAdminDate(f.created_at)}</div>
+                      <div><span className="font-bold text-zinc-500">Featured:</span> {f.is_featured ? "Yes" : "No"}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         <AdminPagination

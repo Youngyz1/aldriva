@@ -1,0 +1,20 @@
+"use client";
+import MobilePillNav from "@/components/nav/MobilePillNav";
+import { dashboardNavGroups } from "./nav-items";
+import { MyOrganizersDropdown } from "@/components/dashboard/MyOrganizersDropdown";
+
+const navItems = dashboardNavGroups.flatMap((group) => group.items);
+
+/** Horizontally scrollable pill strip for the dashboard's mobile nav */
+export default function DashboardMobileNav() {
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 lg:hidden shadow-xs">
+      <div className="flex items-center gap-2">
+        <MyOrganizersDropdown variant="mobile" />
+        <div className="flex-1 overflow-x-auto scrollbar-none">
+          <MobilePillNav items={navItems} ariaLabel="Dashboard navigation" />
+        </div>
+      </div>
+    </div>
+  );
+}

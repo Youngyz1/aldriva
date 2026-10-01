@@ -17,9 +17,10 @@ import {
   FileText,
   Clock,
   Tag,
-  CheckCircle2,
   Lock,
 } from "lucide-react";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 export interface GuardRejectionRow {
   id: string;
@@ -145,79 +146,94 @@ export default async function AIRejectionsAuditPage() {
           <span className="text-xs text-zinc-400">Table: <code className="text-zinc-300">ai_guard_rejections</code></span>
         </div>
 
-        {rows.length === 0 ? (
-          <div className="py-16 text-center text-zinc-400 space-y-3">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto opacity-80" />
-            <p className="text-base font-medium text-zinc-200">No Guard Rejections Logged</p>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">
-              No prompt injection attempts, PII leaks, or system prompt echoes have been detected yet.
-              Any event flagged or rejected by <code className="text-zinc-300">output-guard.ts</code> will appear here automatically.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-950/60 text-zinc-400 font-semibold border-b border-zinc-800 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Timestamp</th>
-                  <th className="py-3 px-4">Verdict</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Context</th>
-                  <th className="py-3 px-4">Content / Source</th>
-                  <th className="py-3 px-4">Reason</th>
-                  <th className="py-3 px-4">Offending Excerpt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-800/40 transition-colors">
-                    <td className="py-3 px-4 whitespace-nowrap text-zinc-400 font-mono text-[11px]">
-                      {new Date(row.created_at).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {row.verdict === "rejected" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/80 border border-red-800 text-red-400 font-semibold text-[10px] uppercase">
-                          <Lock className="w-3 h-3" /> Rejected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-800 text-amber-400 font-semibold text-[10px] uppercase">
-                          <AlertTriangle className="w-3 h-3" /> Flagged
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[11px]">
-                        <Tag className="w-3 h-3 text-zinc-400" />
-                        {row.category}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-mono text-zinc-300">
-                      {row.context}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-zinc-400">
-                      {row.content_type || "n/a"}{" "}
-                      {row.source_id ? (
-                        <span className="text-zinc-500">({row.source_id.slice(0, 8)}…)</span>
-                      ) : null}
-                    </td>
-                    <td className="py-3 px-4 max-w-xs truncate text-zinc-200">
-                      {row.reason}
-                    </td>
-                    <td className="py-3 px-4 max-w-sm">
-                      {row.excerpt ? (
-                        <code className="block p-1.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-400 font-mono text-[11px] truncate max-w-xs">
+        <ResponsiveDataTable
+          totalCount={rows.length}
+          emptyMessage="No Guard Rejections Logged."
+          columns={[
+            { id: "timestamp", header: "Timestamp", hideBelow: "md" },
+            { id: "verdict", header: "Verdict" },
+            { id: "category", header: "Category", hideBelow: "lg" },
+            { id: "context", header: "Context", hideBelow: "md" },
+            { id: "source", header: "Content / Source", hideBelow: "lg" },
+            { id: "reason", header: "Reason" },
+            { id: "excerpt", header: "Offending Excerpt", hideBelow: "lg" },
+          ]}
+        >
+          {rows.map((row) => {
+            const verdictBadge = row.verdict === "rejected" ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/80 border border-red-800 text-red-400 font-semibold text-[10px] uppercase">
+                <Lock className="w-3 h-3" /> Rejected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-800 text-amber-400 font-semibold text-[10px] uppercase">
+                <AlertTriangle className="w-3 h-3" /> Flagged
+              </span>
+            );
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={[
+                  <span key="time" className="whitespace-nowrap text-zinc-400 font-mono text-[11px] block">
+                    {new Date(row.created_at).toLocaleString()}
+                  </span>,
+                  <div key="verdict" className="whitespace-nowrap">
+                    {verdictBadge}
+                  </div>,
+                  <div key="cat" className="whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[11px]">
+                      <Tag className="w-3 h-3 text-zinc-400" />
+                      {row.category}
+                    </span>
+                  </div>,
+                  <span key="ctx" className="whitespace-nowrap font-mono text-zinc-300 block">
+                    {row.context}
+                  </span>,
+                  <span key="source" className="whitespace-nowrap font-mono text-[11px] text-zinc-400 block">
+                    {row.content_type || "n/a"}{" "}
+                    {row.source_id ? (
+                      <span className="text-zinc-500">({row.source_id.slice(0, 8)}…)</span>
+                    ) : null}
+                  </span>,
+                  <span key="reason" className="max-w-xs truncate text-zinc-200 block">
+                    {row.reason}
+                  </span>,
+                  <div key="excerpt" className="max-w-sm">
+                    {row.excerpt ? (
+                      <code className="block p-1.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-400 font-mono text-[11px] truncate max-w-xs">
+                        {row.excerpt}
+                      </code>
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </div>,
+                ]}
+                identity={
+                  <span className="font-mono font-bold text-zinc-200 text-left line-clamp-1">
+                    {row.context} · {row.category}
+                  </span>
+                }
+                primaryMeta={<span className="text-xs text-zinc-400 font-mono">{new Date(row.created_at).toLocaleString()}</span>}
+                statusBadge={verdictBadge}
+                mobileDetails={
+                  <div className="space-y-2 text-xs text-zinc-300">
+                    <div><span className="font-bold text-zinc-400">Reason:</span> {row.reason}</div>
+                    <div><span className="font-bold text-zinc-400">Content / Source:</span> {row.content_type || "n/a"} {row.source_id ? `(${row.source_id.slice(0, 8)}…)` : ""}</div>
+                    {row.excerpt && (
+                      <div>
+                        <span className="font-bold text-zinc-400">Offending Excerpt:</span>
+                        <code className="block mt-1 p-2 rounded bg-zinc-950 border border-zinc-800 text-zinc-400 font-mono text-[11px] break-all">
                           {row.excerpt}
                         </code>
-                      ) : (
-                        <span className="text-zinc-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </div>
     </div>
   );

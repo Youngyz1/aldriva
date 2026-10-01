@@ -1,0 +1,424 @@
+"use client";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
+import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
+import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
+import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
+import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
+import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
+import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
+import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
+import { useDashboardParams } from "@/hooks/use-dashboard-params";
+import { useDashboardExport } from "@/hooks/use-dashboard-export";
+import { cn } from "@/lib/utils";
+import type {
+  DashboardFundraiserDetail,
+  DashboardFundraiserRow,
+  DashboardFundraiserStats,
+} from "@/types/dashboard-management";
+import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+
+/** Owner-facing moderation badge — only shown while a campaign isn't public. */
+function ReviewBadge({ status }: { status: string }) {
+  if (status === "published") return null;
+  const label = status === "rejected" ? "Rejected" : "Pending review";
+  const style =
+    status === "rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+  return (
+    <span
+      className={cn(
+        "mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+        style
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function FundraisersClientInner() {
+  const { page, perPage, search, updateParams, getParam, buildQueryString } = useDashboardParams();
+  const { exporting, exportCsv } = useDashboardExport();
+
+  const status = getParam("status");
+  const category = getParam("category");
+  const sort = getParam("sort", "newest");
+
+  const [rows, setRows] = useState<DashboardFundraiserRow[]>([]);
+  const [stats, setStats] = useState<DashboardFundraiserStats | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState<string | null>(null);
+  const [drawerItem, setDrawerItem] = useState<DashboardFundraiserDetail | null>(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DashboardFundraiserRow | DashboardFundraiserDetail | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const queryString = useMemo(
+    () =>
+      buildQueryString({
+        status: status !== "all" ? status : undefined,
+        category: category !== "all" ? category : undefined,
+        sort: sort !== "newest" ? sort : undefined,
+      }),
+    [buildQueryString, status, category, sort]
+  );
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/dashboard/fundraisers?${queryString}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load fundraisers.");
+      setRows(data.fundraisers ?? []);
+      setStats(data.stats ?? null);
+      setTotalCount(data.total ?? 0);
+      setTotalPages(data.total_pages ?? 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load fundraisers.");
+    } finally {
+      setLoading(false);
+    }
+  }, [queryString]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  async function openDrawer(id: string) {
+    setDrawerLoading(true);
+    setDrawerItem(null);
+    try {
+      const res = await fetch(`/api/dashboard/fundraisers/${id}`);
+      const data = await res.json();
+      if (res.ok) setDrawerItem(data.fundraiser ?? null);
+    } finally {
+      setDrawerLoading(false);
+    }
+  }
+
+  async function handleExport() {
+    const params = new URLSearchParams(queryString);
+    params.delete("page");
+    params.delete("per_page");
+    const ok = await exportCsv(`/api/dashboard/fundraisers/export?${params}`, "fundraisers-export.csv");
+    if (!ok) setError("Failed to export CSV.");
+  }
+
+  async function deleteFundraiser() {
+    if (!deleteTarget) return;
+
+    setWorking(`delete:${deleteTarget.id}`);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/dashboard/fundraisers/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data.error ?? "Delete failed.");
+        return;
+      }
+
+      setDeleteTarget(null);
+      if (drawerItem?.id === deleteTarget.id) {
+        setDrawerItem(null);
+      }
+      await fetchData();
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  const statItems = stats
+    ? [
+        { label: "Total Campaigns", value: stats.total },
+        { label: "Active", value: stats.active },
+        { label: "Completed", value: stats.completed },
+        { label: "Raised", value: formatAdminMoney(stats.raised) },
+        { label: "Donors", value: stats.donors },
+      ]
+    : [];
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <DashboardPageHeader
+        title="Fundraisers"
+        description="Campaign progress, donors, and fundraising performance."
+        action={
+          <Link href="/dashboard/fundraisers/new" className="shrink-0 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700">
+            + Start Fundraiser
+          </Link>
+        }
+      />
+
+      {stats && <DashboardStatsCards items={statItems} />}
+
+      <DashboardToolbar
+        search={search}
+        searchPlaceholder="Search campaigns..."
+        onSearchChange={(v) => updateParams({ search: v || null })}
+        filters={[
+          {
+            id: "status",
+            label: "Status",
+            value: status,
+            options: [
+              { value: "all", label: "All" },
+              { value: "active", label: "Active" },
+              { value: "completed", label: "Completed" },
+            ],
+            onChange: (v) => updateParams({ status: v === "all" ? null : v }),
+          },
+          {
+            id: "category",
+            label: "Category",
+            value: category,
+            options: [
+              { value: "all", label: "All Categories" },
+              ...CAMPAIGN_CATEGORIES.map((c) => ({ value: c, label: c })),
+            ],
+            onChange: (v) => updateParams({ category: v === "all" ? null : v }),
+          },
+        ]}
+        sort={{
+          id: "sort",
+          label: "Sort",
+          value: sort,
+          options: [
+            { value: "newest", label: "Newest First" },
+            { value: "oldest", label: "Oldest First" },
+            { value: "alphabetical", label: "Alphabetical" },
+            { value: "most_raised", label: "Most Raised" },
+            { value: "most_donors", label: "Most Donors" },
+            { value: "progress", label: "Progress" },
+          ],
+          onChange: (v) => updateParams({ sort: v === "newest" ? null : v }),
+        }}
+        onExport={handleExport}
+        exporting={exporting}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen((v) => !v)}
+      />
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">{error}</div>
+      )}
+
+      <DashboardTableCard
+        loading={loading}
+        page={page}
+        totalPages={totalPages}
+        perPage={perPage}
+        total={totalCount}
+        onPageChange={(p) => updateParams({ page: String(p) })}
+        onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
+        isEmpty={rows.length === 0}
+        empty={
+          <DashboardEmptyState
+            title="No fundraisers yet"
+            description="Start a campaign to begin collecting donations."
+            actionLabel="Start Fundraiser"
+            actionHref="/dashboard/fundraisers/new"
+          />
+        }
+      >
+        <ResponsiveDataTable
+          columns={[
+            { id: "campaign", header: "Campaign" },
+            { id: "category", header: "Category", hideBelow: "lg" },
+            { id: "raised", header: "Raised", align: "right" },
+            { id: "goal", header: "Goal", align: "right", hideBelow: "lg" },
+            { id: "progress", header: "Progress", align: "right" },
+            { id: "donors", header: "Donors", align: "right", hideBelow: "lg" },
+            { id: "status", header: "Status" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+        >
+          {rows.map((row) => {
+            const desktopCells = [
+              <div key="title">
+                <button
+                  type="button"
+                  onClick={() => openDrawer(row.id)}
+                  className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
+                >
+                  {row.title}
+                </button>
+                <ReviewBadge status={row.review_status} />
+              </div>,
+              <span key="category" className="text-xs font-bold text-zinc-500 uppercase">{row.category || "Other"}</span>,
+              <span key="raised" className="font-black text-emerald-700 tabular-nums">{formatAdminMoney(row.raised)}</span>,
+              <span key="goal" className="font-black tabular-nums">{formatAdminMoney(row.goal)}</span>,
+              <span key="progress" className="font-black text-violet-700 tabular-nums">{row.progress}%</span>,
+              <span key="donors" className="font-black tabular-nums">{row.donor_count}</span>,
+              <span
+                key="status"
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-black uppercase",
+                  row.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
+                )}
+              >
+                {row.status}
+              </span>,
+              <div key="actions" className="flex items-center justify-end gap-1.5">
+                <RowActionsMenu
+                  ariaLabel={`Actions for ${row.title}`}
+                  items={[
+                    { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
+                    { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
+                    { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
+                  ]}
+                />
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                identity={
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
+                    >
+                      {row.title}
+                    </button>
+                    <ReviewBadge status={row.review_status} />
+                  </div>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.raised)}
+                  </span>
+                }
+                state={
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                      row.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
+                    )}
+                  >
+                    {row.status}
+                  </span>
+                }
+                secondary={[
+                  `${row.progress}% of ${formatAdminMoney(row.goal)}`,
+                  `${row.donor_count} donors`,
+                  row.category ? row.category.toUpperCase() : null,
+                ]}
+                actions={
+                  <RowActionsMenu
+                    ariaLabel={`Actions for ${row.title}`}
+                    items={[
+                      { key: "view", label: "View", onSelect: () => openDrawer(row.id) },
+                      { key: "edit", label: "Edit", href: `/fundraisers/edit/${row.id}` },
+                      { key: "delete", label: "Delete", destructive: true, onSelect: () => setDeleteTarget(row) },
+                    ]}
+                  />
+                }
+                expandedDetails={
+                  <div className="space-y-2 py-1 text-xs text-zinc-600">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-bold text-zinc-500">Goal:</span> {formatAdminMoney(row.goal)}
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Progress:</span> {row.progress}%
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Total Donors:</span> {row.donor_count}
+                      </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Category:</span> {row.category || "General"}
+                      </div>
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
+      </DashboardTableCard>
+
+      <DashboardDrawer
+        open={drawerItem !== null || drawerLoading}
+        onClose={() => { setDrawerItem(null); setDrawerLoading(false); }}
+        title={drawerItem?.title ?? "Campaign"}
+        subtitle={drawerItem?.organizer_name}
+        footer={
+          drawerItem && (
+            <div className="flex flex-wrap gap-2">
+              {drawerItem.slug && (
+                <Link href={`/fundraisers/${drawerItem.slug}`} className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-black text-zinc-700 hover:bg-white">Public Page</Link>
+              )}
+              <Link href={`/fundraisers/edit/${drawerItem.id}`} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50">Edit</Link>
+              <Link href={`/dashboard/fundraisers/${drawerItem.id}/updates`} className="rounded-xl border border-violet-200 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-50">Updates ({drawerItem.update_count})</Link>
+              <button type="button" onClick={() => setDeleteTarget(drawerItem)} className="rounded-xl border border-red-200 px-4 py-2 text-sm font-black text-red-700 hover:bg-red-50">Delete</button>
+            </div>
+          )
+        }
+      >
+        {drawerLoading ? (
+          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-violet-500" /></div>
+        ) : drawerItem ? (
+          <div className="space-y-6">
+            <section className="grid grid-cols-2 gap-3">
+              {[
+                ["Raised", formatAdminMoney(drawerItem.raised)],
+                ["Goal", formatAdminMoney(drawerItem.goal)],
+                ["Donors", drawerItem.donor_count],
+                ["Progress", `${drawerItem.progress}%`],
+                ["Category", drawerItem.category ?? "—"],
+                ["Created", formatAdminDate(drawerItem.created_at)],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-200/70">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</p>
+                  <p className="mt-1 font-black text-zinc-950">{value}</p>
+                </div>
+              ))}
+            </section>
+            {drawerItem.short_description && (
+              <section>
+                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Summary</h3>
+                <p className="mt-2 text-sm font-semibold text-zinc-700">{drawerItem.short_description}</p>
+              </section>
+            )}
+          </div>
+        ) : null}
+      </DashboardDrawer>
+
+      <AdminConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete Fundraiser"
+        description={`Delete "${deleteTarget?.title ?? "this fundraiser"}"? Fundraisers with donation payment records are blocked to preserve payment history.`}
+        confirmLabel="Delete"
+        onConfirm={deleteFundraiser}
+        loading={deleteTarget ? working === `delete:${deleteTarget.id}` : false}
+        variant="danger"
+      />
+    </div>
+  );
+}
+
+export default function FundraisersClient() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-violet-500" /></div>}>
+      <FundraisersClientInner />
+    </Suspense>
+  );
+}

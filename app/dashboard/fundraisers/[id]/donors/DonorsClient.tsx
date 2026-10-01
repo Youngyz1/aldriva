@@ -12,6 +12,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import type { DonorRecord, DonorMetrics, DonorDonation } from "./page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -23,6 +25,15 @@ function formatCurrency(amount: number): string {
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+const DONOR_COLUMNS: ResponsiveColumn[] = [
+  { id: "donor", header: "Donor", align: "left" },
+  { id: "donations", header: "Donations", align: "right", hideBelow: "md" },
+  { id: "total", header: "Total Given", align: "right" },
+  { id: "avg", header: "Avg Gift", align: "right", hideBelow: "lg" },
+  { id: "last", header: "Last Donation", align: "left", hideBelow: "md" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 // ── Donor avatar ─────────────────────────────────────────────────────────────
 
@@ -352,101 +363,95 @@ export default function DonorsClient({
             )}
           </div>
         ) : (
-          <>
-            {/* Desktop table */}
-            <div className="hidden sm:block">
-              <table className="w-full border-collapse text-sm" role="table" aria-label="Donors">
-                <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50/60">
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Donor</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Donations</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Total Given</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Avg Gift</th>
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last Donation</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {donors.map((d) => (
-                    <tr key={d.key} className="bg-white transition hover:bg-zinc-50/60">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <DonorAvatar name={d.displayName} isAnonymous={d.isAnonymous} />
-                          <div className="min-w-0">
-                            <p className={
-                              `truncate text-sm font-semibold ${d.isAnonymous ? "italic text-zinc-400" : "text-zinc-900"}`
-                            }>
-                              {d.displayName}
-                            </p>
-                            {d.isRepeat && (
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                                Repeat donor
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold tabular-nums text-zinc-900">
-                        {d.donationCount}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold tabular-nums text-zinc-900">
-                        {formatCurrency(d.totalGiven)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-600">
-                        {formatCurrency(d.avgGift)}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-600">{formatDate(d.lastDonation)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDonor(d)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-bold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                        >
-                          View
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-zinc-100">
-              {donors.map((d) => (
-                <div key={d.key} className="bg-white px-4 py-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <DonorAvatar name={d.displayName} isAnonymous={d.isAnonymous} />
-                      <div className="min-w-0">
-                        <p className={`truncate text-sm font-bold ${d.isAnonymous ? "italic text-zinc-400" : "text-zinc-900"}`}>
-                          {d.displayName}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {d.donationCount} {d.donationCount === 1 ? "donation" : "donations"} ·{" "}
-                          <span className="font-semibold tabular-nums text-zinc-700">{formatCurrency(d.totalGiven)}</span>
-                          {" "} total ·{" "}
-                          <span className="tabular-nums">{formatCurrency(d.avgGift)}</span> avg
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-zinc-400">
-                          Last: {formatDate(d.lastDonation)}
-                          {d.isRepeat && <span className="ml-1.5 font-semibold text-orange-600">· Repeat</span>}
-                        </p>
-                      </div>
+          <ResponsiveDataTable columns={DONOR_COLUMNS}>
+            {donors.map((d) => (
+              <ResponsiveDataRow
+                key={d.key}
+                id={d.key}
+                onRowClick={() => setSelectedDonor(d)}
+                desktopCells={[
+                  <div key="donor" className="flex items-center gap-3">
+                    <DonorAvatar name={d.displayName} isAnonymous={d.isAnonymous} />
+                    <div className="min-w-0">
+                      <p className={
+                        `truncate text-sm font-semibold ${d.isAnonymous ? "italic text-zinc-400" : "text-zinc-900"}`
+                      }>
+                        {d.displayName}
+                      </p>
+                      {d.isRepeat && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                          Repeat donor
+                        </span>
+                      )}
                     </div>
+                  </div>,
+
+                  <div key="count" className="text-right font-bold tabular-nums text-zinc-900">
+                    {d.donationCount}
+                  </div>,
+
+                  <div key="total" className="text-right font-bold tabular-nums text-zinc-900">
+                    {formatCurrency(d.totalGiven)}
+                  </div>,
+
+                  <div key="avg" className="text-right tabular-nums text-zinc-600">
+                    {formatCurrency(d.avgGift)}
+                  </div>,
+
+                  <div key="last" className="text-zinc-600">
+                    {formatDate(d.lastDonation)}
+                  </div>,
+
+                  <div key="actions" className="text-right">
                     <button
                       type="button"
                       onClick={() => setSelectedDonor(d)}
-                      className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-bold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
                     >
-                      View →
+                      View
+                      <ArrowRight className="h-3 w-3" />
                     </button>
+                  </div>,
+                ]}
+                identity={
+                  <div className="flex items-center gap-2.5">
+                    <DonorAvatar name={d.displayName} isAnonymous={d.isAnonymous} />
+                    <span className={`truncate font-bold ${d.isAnonymous ? "italic text-zinc-400" : "text-zinc-900"}`}>
+                      {d.displayName}
+                    </span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </>
+                }
+                primaryValue={
+                  <span className="font-bold tabular-nums text-emerald-700 text-xs">
+                    {formatCurrency(d.totalGiven)}
+                  </span>
+                }
+                state={
+                  d.isRepeat ? (
+                    <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 border border-orange-200">
+                      Repeat
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-zinc-400">1 gift</span>
+                  )
+                }
+                secondary={[
+                  <span key="count">{d.donationCount} {d.donationCount === 1 ? "donation" : "donations"}</span>,
+                  <span key="date">Last: {formatDate(d.lastDonation)}</span>,
+                ]}
+                actions={
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDonor(d)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                  >
+                    View
+                    <ArrowRight className="h-3 w-3" />
+                  </button>
+                }
+              />
+            ))}
+          </ResponsiveDataTable>
         )}
       </div>
 

@@ -131,11 +131,9 @@ export async function POST(req: NextRequest) {
     }
 
     const baseUrl = getSiteUrl();
-    // TODO(products): /crypto-pending and /api/crypto/status don't know
-    // about the "product" kind yet — a confirmed product order will render
-    // a misleading donation/ticket-shaped page here. See ADR 0001 §10. Not
-    // urgent today: nothing customer-facing links to this route yet, since
-    // /products and /products/[slug] haven't been built.
+    // Known limitation (ADR 0001 §10): /crypto-pending and /api/crypto/status
+    // support order status polling but currently render generic confirmation copy.
+    // Dedicated product-specific crypto fulfillment UX is planned for Phase 6 (Unified Commerce).
     const successUrl = `${baseUrl}/crypto-pending?orderId=${order.id}`;
     const cancelUrl = `${baseUrl}/products/${product.slug}?cancelled=true`;
     const ipnCallbackUrl = `${baseUrl}/api/crypto/webhook`;

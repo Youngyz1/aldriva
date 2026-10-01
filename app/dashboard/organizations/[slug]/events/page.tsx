@@ -1,6 +1,8 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import { Calendar, Plus } from "lucide-react";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 export default async function OrgEventsPage({
   params,
@@ -46,40 +48,55 @@ export default async function OrgEventsPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-zinc-100 bg-zinc-50">
-              <tr>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Event</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Date</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Location</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Status</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {(events ?? []).map((evt) => (
-                <tr key={evt.id} className="hover:bg-zinc-50">
-                  <td className="px-5 py-4 font-bold text-zinc-900">{evt.title}</td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    {evt.event_date ? new Date(evt.event_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBA"}
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">{[evt.venue, evt.city].filter(Boolean).join(", ") || "—"}</td>
-                  <td className="px-5 py-4">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      evt.status === "approved" || evt.status === "published" ? "bg-emerald-100 text-emerald-700" :
-                      evt.status === "draft" ? "bg-zinc-100 text-zinc-600" : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {evt.status ?? "draft"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <Link href={`/events/${evt.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <ResponsiveDataTable
+            columns={[
+              { id: "event", header: "Event" },
+              { id: "date", header: "Date" },
+              { id: "location", header: "Location", hideBelow: "md" },
+              { id: "status", header: "Status" },
+              { id: "actions", header: "", align: "right" },
+            ]}
+          >
+            {(events ?? []).map((evt) => {
+              const dateStr = evt.event_date ? new Date(evt.event_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBA";
+              const locationStr = [evt.venue, evt.city].filter(Boolean).join(", ") || "—";
+              const statusBadge = (
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  evt.status === "approved" || evt.status === "published" ? "bg-emerald-100 text-emerald-700" :
+                  evt.status === "draft" ? "bg-zinc-100 text-zinc-600" : "bg-yellow-100 text-yellow-700"
+                }`}>
+                  {evt.status ?? "draft"}
+                </span>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={evt.id}
+                  id={evt.id}
+                  desktopCells={[
+                    <span key="title" className="font-bold text-zinc-900 block">{evt.title}</span>,
+                    <span key="date" className="text-zinc-600 block">{dateStr}</span>,
+                    <span key="loc" className="text-zinc-600 block">{locationStr}</span>,
+                    <div key="status">{statusBadge}</div>,
+                    <div key="actions" className="text-right">
+                      <Link href={`/events/${evt.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
+                    </div>,
+                  ]}
+                  identity={<span className="font-bold text-zinc-950 text-left line-clamp-1">{evt.title}</span>}
+                  state={statusBadge}
+                  secondary={[dateStr, locationStr !== "—" ? locationStr : null]}
+                  actions={<Link href={`/events/${evt.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>}
+                  expandedDetails={
+                    <div className="space-y-1 text-xs text-zinc-600 py-1">
+                      <div><span className="font-bold text-zinc-500">Date:</span> {dateStr}</div>
+                      <div><span className="font-bold text-zinc-500">Location:</span> {locationStr}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         </div>
       )}
     </div>

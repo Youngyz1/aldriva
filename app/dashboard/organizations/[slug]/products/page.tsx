@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package, Plus } from "lucide-react";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 export default async function OrgProductsPage({
   params,
@@ -57,37 +59,52 @@ export default async function OrgProductsPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-zinc-100 bg-zinc-50">
-              <tr>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Product</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Type</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Stock</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Status</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {(products ?? []).map((p) => (
-                <tr key={p.id} className="hover:bg-zinc-50">
-                  <td className="px-5 py-4 font-bold text-zinc-900">{p.name}</td>
-                  <td className="px-5 py-4 capitalize text-zinc-600">{p.price_type?.replace("_", " ")}</td>
-                  <td className="px-5 py-4 text-zinc-600">{p.stock_quantity === null ? "Unlimited" : p.stock_quantity}</td>
-                  <td className="px-5 py-4">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      p.status === "active" ? "bg-emerald-100 text-emerald-700" :
-                      p.status === "out_of_stock" ? "bg-yellow-100 text-yellow-700" :
-                      "bg-zinc-100 text-zinc-600"
-                    }`}>{p.status}</span>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <Link href={`/dashboard/products/${p.id}/edit`} className="text-xs font-bold text-orange-600 hover:underline">Edit</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <ResponsiveDataTable
+            columns={[
+              { id: "product", header: "Product" },
+              { id: "type", header: "Type" },
+              { id: "stock", header: "Stock", hideBelow: "md" },
+              { id: "status", header: "Status" },
+              { id: "actions", header: "", align: "right" },
+            ]}
+          >
+            {(products ?? []).map((p) => {
+              const statusBadge = (
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  p.status === "active" ? "bg-emerald-100 text-emerald-700" :
+                  p.status === "out_of_stock" ? "bg-yellow-100 text-yellow-700" :
+                  "bg-zinc-100 text-zinc-600"
+                }`}>{p.status}</span>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={p.id}
+                  id={p.id}
+                  desktopCells={[
+                    <span key="name" className="font-bold text-zinc-900 block">{p.name}</span>,
+                    <span key="type" className="capitalize text-zinc-600 block">{p.price_type?.replace("_", " ")}</span>,
+                    <span key="stock" className="text-zinc-600 block">{p.stock_quantity === null ? "Unlimited" : p.stock_quantity}</span>,
+                    <div key="status">{statusBadge}</div>,
+                    <div key="actions" className="text-right">
+                      <Link href={`/dashboard/products/${p.id}/edit`} className="text-xs font-bold text-orange-600 hover:underline">Edit</Link>
+                    </div>,
+                  ]}
+                  identity={<span className="font-bold text-zinc-950 text-left line-clamp-1">{p.name}</span>}
+                  state={statusBadge}
+                  secondary={[p.price_type?.replace("_", " "), p.stock_quantity === null ? "Unlimited stock" : `${p.stock_quantity} in stock`]}
+                  actions={<Link href={`/dashboard/products/${p.id}/edit`} className="text-xs font-bold text-orange-600 hover:underline">Edit</Link>}
+                  expandedDetails={
+                    <div className="space-y-1 text-xs text-zinc-600 py-1">
+                      <div><span className="font-bold text-zinc-500">Stock:</span> {p.stock_quantity === null ? "Unlimited" : p.stock_quantity}</div>
+                      <div><span className="font-bold text-zinc-500">Price Type:</span> {p.price_type?.replace("_", " ")}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         </div>
       )}
     </div>

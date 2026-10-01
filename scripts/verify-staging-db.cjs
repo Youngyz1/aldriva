@@ -40,15 +40,53 @@ async function inTxn(client, name, fn) {
   }
 }
 
-async function expectError(client, sql, params, match, name) {
+/**
+ * Probe expecting rejection, isolated in a SAVEPOINT so the expected error
+ * never aborts the surrounding transaction (a second probe in the same check
+ * would otherwise die with "current transaction is aborted", SQLSTATE 25P02).
+ *
+ * A probe PASSES only on the EXPECTED error:
+ *  - unique probes: SQLSTATE 23505 AND e.constraint naming the exact index.
+ *  - trigger probes: the append-only message.
+ * Anything else — including 25P02, wrong constraint, or success — FAILs.
+ * Every path ends on a healthy transaction (ROLLBACK TO + RELEASE).
+ */
+async function expectError(client, sp, sql, params, expect, name) {
+  await client.query(`SAVEPOINT ${sp}`);
+  let err = null;
   try {
     await client.query(sql, params);
-    fail(name, "statement succeeded, expected rejection");
   } catch (e) {
-    if (match && !match.test(e.message)) fail(name, `wrong error: ${e.message.slice(0, 160)}`);
-    else pass(name);
+    err = e;
   }
+  try {
+    await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+    await client.query(`RELEASE SAVEPOINT ${sp}`);
+  } catch (e) {
+    fail(name, `savepoint recovery failed: ${e.message.slice(0, 160)}`);
+    return;
+  }
+  if (!err) {
+    fail(name, "statement succeeded, expected rejection");
+    return;
+  }
+  if (expect.code && err.code !== expect.code) {
+    fail(name, `wrong SQLSTATE ${err.code ?? "?"} (want ${expect.code}): ${String(err.message).slice(0, 120)}`);
+    return;
+  }
+  if (expect.constraint && err.constraint !== expect.constraint) {
+    fail(name, `wrong constraint ${err.constraint ?? "?"} (want ${expect.constraint})`);
+    return;
+  }
+  if (expect.message && !expect.message.test(String(err.message))) {
+    fail(name, `wrong error text: ${String(err.message).slice(0, 160)}`);
+    return;
+  }
+  pass(name);
 }
+
+const UNIQUE = (index) => ({ code: "23505", constraint: index });
+const APPEND_ONLY = { message: /agent_memory_versions is append-only/ };
 
 async function main() {
   const url = process.env.STAGING_DATABASE_URL;
@@ -122,9 +160,9 @@ async function main() {
         "INSERT INTO agent_memory (agent_id, tenant_id, fact_key, fact_value) VALUES (NULL, NULL, 'stage16-probe-platform', 'v1')"
       );
       await expectError(
-        client,
+        client, "sp_platform",
         "INSERT INTO agent_memory (agent_id, tenant_id, fact_key, fact_value) VALUES (NULL, NULL, 'stage16-probe-platform', 'v1')",
-        [], /duplicate|unique/i, "partial-uniques:platform"
+        [], UNIQUE("uq_agent_memory_platform"), "partial-uniques:platform"
       );
       // Agent-on-platform scope.
       await client.query(
@@ -132,9 +170,9 @@ async function main() {
         [aid]
       );
       await expectError(
-        client,
+        client, "sp_agent_platform",
         "INSERT INTO agent_memory (agent_id, tenant_id, fact_key, fact_value) VALUES ($1, NULL, 'stage16-probe-agent', 'v1')",
-        [aid], /duplicate|unique/i, "partial-uniques:agent-platform"
+        [aid], UNIQUE("uq_agent_memory_agent_platform"), "partial-uniques:agent-platform"
       );
       // Tenant scope (shared per agent incl. NULL agent).
       if (!tid) {
@@ -146,9 +184,9 @@ async function main() {
         [tid]
       );
       await expectError(
-        client,
+        client, "sp_tenant",
         "INSERT INTO agent_memory (agent_id, tenant_id, fact_key, fact_value) VALUES (NULL, $1, 'stage16-probe-tenant', 'v1')",
-        [tid], /duplicate|unique/i, "partial-uniques:tenant"
+        [tid], UNIQUE("uq_agent_memory_tenant"), "partial-uniques:tenant"
       );
     });
 
@@ -163,12 +201,14 @@ async function main() {
         [fid]
       );
       await expectError(
-        client, "UPDATE agent_memory_versions SET fact_value='v2' WHERE fact_id=$1", [fid],
-        /append-only/i, "versions-append-only:update"
+        client, "sp_ver_update",
+        "UPDATE agent_memory_versions SET fact_value='v2' WHERE fact_id=$1", [fid],
+        APPEND_ONLY, "versions-append-only:update"
       );
       await expectError(
-        client, "DELETE FROM agent_memory_versions WHERE fact_id=$1", [fid],
-        /append-only/i, "versions-append-only:delete"
+        client, "sp_ver_delete",
+        "DELETE FROM agent_memory_versions WHERE fact_id=$1", [fid],
+        APPEND_ONLY, "versions-append-only:delete"
       );
     });
 
@@ -246,7 +286,7 @@ async function main() {
   process.exit(fails === 0 ? 0 : 1);
 }
 
-module.exports = { refusalReason, PROD_REF };
+module.exports = { refusalReason, PROD_REF, expectError, UNIQUE, APPEND_ONLY, _results: RESULTS };
 
 if (require.main === module) {
   main().catch((e) => {

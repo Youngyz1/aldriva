@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Scan, UserCheck, CloudUpload, ShieldAlert } from "lucide-react";
@@ -9,6 +8,8 @@ import DashboardToolbar from "@/components/dashboard/DashboardToolbar";
 import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import { formatAdminDate } from "@/lib/admin-query";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 type Stats = {
   total_sold: number;
@@ -253,56 +254,103 @@ export default function CheckinsClient({ eventId, eventTitle }: Props) {
           />
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="px-4 py-3">Guest Name</th>
-                <th className="py-3 pr-4">Email</th>
-                <th className="py-3 pr-4">Seat / Qty</th>
-                <th className="py-3 pr-4">Checked In At</th>
-                <th className="px-4 py-3">Scanned By / Method</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {historyRows.map((row) => (
-                <tr key={row.id} className="hover:bg-zinc-50/70">
-                  <td className="px-4 py-3 font-black text-zinc-950">
-                    {row.buyer_name || "Guest"}
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-600 font-medium">
-                    {row.buyer_email || "—"}
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-700 font-semibold">
+        <ResponsiveDataTable
+          columns={[
+            { id: "guest", header: "Guest Name" },
+            { id: "email", header: "Email", hideBelow: "lg" },
+            { id: "seat_qty", header: "Seat / Qty" },
+            { id: "time", header: "Checked In At", hideBelow: "md" },
+            { id: "scanned_by", header: "Scanned By / Method", align: "right" },
+          ]}
+        >
+          {historyRows.map((row) => {
+            const desktopCells = [
+              <span key="guest" className="font-black text-zinc-950">
+                {row.buyer_name || "Guest"}
+              </span>,
+              <span key="email" className="text-zinc-600 font-medium">
+                {row.buyer_email || "—"}
+              </span>,
+              <span key="seat_qty" className="text-zinc-700 font-semibold">
+                {row.seat_label ? `${row.seat_label} (${row.quantity}x)` : `${row.quantity} ticket(s)`}
+              </span>,
+              <span key="time" className="font-bold text-emerald-700">
+                {row.checked_in_at ? formatAdminDate(row.checked_in_at) : "—"}
+              </span>,
+              <div key="scanned_by" className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-700">
+                    {row.scanned_by_name}
+                  </span>
+                  {row.scan_source === "offline_sync" && (
+                    <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
+                      <CloudUpload size={10} /> Offline Sync
+                    </span>
+                  )}
+                </div>
+                {row.delegating_by_name && row.delegating_by_name !== row.scanned_by_name && (
+                  <span className="text-[10px] text-zinc-400">
+                    Authorized by: {row.delegating_by_name}
+                  </span>
+                )}
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                identity={
+                  <div>
+                    <span className="font-bold text-zinc-950 block line-clamp-1">
+                      {row.buyer_name || "Guest"}
+                    </span>
+                    {row.buyer_email && <span className="text-xs text-zinc-400 block truncate">{row.buyer_email}</span>}
+                  </div>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-zinc-900 tabular-nums">
                     {row.seat_label ? `${row.seat_label} (${row.quantity}x)` : `${row.quantity} ticket(s)`}
-                  </td>
-                  <td className="py-3 pr-4 font-bold text-emerald-700">
-                    {row.checked_in_at ? formatAdminDate(row.checked_in_at) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-700">
-                          {row.scanned_by_name}
-                        </span>
-                        {row.scan_source === "offline_sync" && (
-                          <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
-                            <CloudUpload size={10} /> Offline Sync
-                          </span>
-                        )}
-                      </div>
-                      {row.delegating_by_name && row.delegating_by_name !== row.scanned_by_name && (
-                        <span className="text-[10px] text-zinc-400">
-                          Authorized by: {row.delegating_by_name}
+                  </span>
+                }
+                state={
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-black uppercase">
+                    Checked In
+                  </span>
+                }
+                secondary={[
+                  row.checked_in_at ? formatAdminDate(row.checked_in_at) : null,
+                  `Scanned by ${row.scanned_by_name}`,
+                  row.scan_source === "offline_sync" ? "Offline Sync" : null,
+                ].filter(Boolean)}
+                expandedDetails={
+                  <div className="space-y-1.5 py-1 text-xs text-zinc-600">
+                    <div>
+                      <span className="font-bold text-zinc-500">Email:</span> {row.buyer_email || "No email"}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Check-In Time:</span> {row.checked_in_at ? formatAdminDate(row.checked_in_at) : "—"}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Scanner:</span> {row.scanned_by_name}
+                      {row.scan_source === "offline_sync" && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[9px] font-bold">
+                          <CloudUpload size={9} /> Offline Sync
                         </span>
                       )}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {row.delegating_by_name && row.delegating_by_name !== row.scanned_by_name && (
+                      <div>
+                        <span className="font-bold text-zinc-500">Authorized by:</span> {row.delegating_by_name}
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       {/* Conflicts Modal */}

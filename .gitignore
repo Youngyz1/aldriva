@@ -60,3 +60,6 @@ next-env.d.ts
 playwright-report/
 test-results/
 qa-results.json
+
+.vercel
+.env*

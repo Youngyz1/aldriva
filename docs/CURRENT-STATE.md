@@ -1,13 +1,13 @@
 # Aldriva — Current Implementation State & Living Status
 
 > **WHERE ARE WE RIGHT NOW?**  
-> **Current Phase**: **Phase 5 + Business Moderation — 137 guard + screening, 138 resubmit + organizer_id guard**  
-> **Prerequisites**: **migrations 130 (metadata), 131 (atomic), 132 (business_type), 133 (event subcategory), 134 (promotions), 135 (locale), 136 (services/menus), 137 (moderation guard + screening), 138 (rejected resubmit + organizer_id guard) — 136 applied live 2026-09-24 (23514 verified), 137 applied live 2026-09-24 (manual), 138 written 2026-09-24 not yet applied live (manual apply required).**  
-> **Next Step**: **Verify 138 live manually, then Phase 6 (now 139 after shift)**  
-> **Last Verified**: 2026-09-24 — 138 hermetic (organizer_id protected, rejected re-screen 3/24h cap, manual risk ??0), live 137 verified (valid insert + bad dietary/modifier 23514), live 138 NOT yet applied (no DB connection), RLS/trigger not non-admin tested  
-> **Test Suite**: 688/688 passing (36 suites, 0 failures) — screening rejected cap + admin risk + moderation guard + organizer_id  
-> **TypeScript Health**: 0 errors (`npx tsc --noEmit --skipLibCheck` verified)  
-> **Build Health**: Next.js 16.3.4 production build verified (compiled successfully, Turbopack)
+> **Current Phase**: **FACEFILE: Final Application Phase COMPLETE**  
+> **Prerequisites**: **migrations 130 (metadata), 131 (atomic), 132 (business_type), 133 (event subcategory), 134 (promotions), 135 (locale), 136 (services/menus), 137 (moderation guard + screening), 138 (rejected resubmit + organizer_id guard), 149 (agent memory) — all applied/mirrored.**  
+> **Next Step**: **Infrastructure + UI + Biometrics Verification**  
+> **Last Verified**: 2026-09-30 — FACEFILE Final Application Completion (F-01 things-to-do dynamic streaming fix, F-02 development debris cleanup, F-03 product route TODO sync, F-04 product crypto limitation documentation, F-05 documentation sync).
+> **Test Suite**: 908/908 passing (39 suites, 0 failures) — registered in package.json
+> **TypeScript Health**: 0 errors (`npx tsc --noEmit` verified clean)
+> **Build Health**: Next.js 16.3.4 production build verified (Turbopack)
 
 ---
 
@@ -123,13 +123,46 @@
       - **Mobile bottom nav**: 4-item bar (Home, Tickets, Dashboard, **Explore**) — no menu dumping.
       - **External viewers**: No Explore button; owner-only management navigation hidden server-side.
     - Comprehensive regression test suite `lib/__tests__/dashboard-profile-architecture.test.cjs` (20 tests) verifying ownership isolation, profile privacy, profile menu generation, Explore UX controls, dynamic tab logic, digital summary metrics, Impact/organizer collapsed defaults, mobile nav labels, and navbar minimal structure. Full platform test suite: **499/499 passing** across 27 suites.
+12. **Responsive Data Display & Table Standard (Phases 1–4 Complete & Verified)**:
+    - **Phase 1 (Design System & Standard Specification)**: Comprehensive UX/architecture audit of all operational data screens; canonical standard established in `.aldriva/design/patterns/data-tables.md` and `.aldriva/design/responsive.md`; defined the 5-level field priority hierarchy and mobile **Two-Line Structured Row** pattern with 4-state container queries (`@container`, `@lg`, `@md`, `< @md`).
+    - **Phase 2 / Batch 2 (Pilot Migration)**: Verified foundation primitives (`ResponsiveDataTable`, `ResponsiveDataRow`) across 5 pilot surfaces (`/dashboard/events`, `/dashboard/fundraisers`, `/dashboard/attendees`, `/dashboard/settings/payments`, `/admin/users`).
+    - **Phase 3 (User-Facing Rollout)**: Migrated all 9 remaining user-facing operational data-heavy screens across both localized and root route trees:
+      1. `/dashboard/organizers` (`OrganizersClient.tsx`)
+      2. `/dashboard/donations` (`DonationsClient.tsx`)
+      3. `/dashboard/events/[id]/checkins` (`CheckinsClient.tsx`)
+      4. `/dashboard/events/[id]/guests` (`GuestsClient.tsx`)
+      5. `/dashboard/products` (`products/page.tsx`)
+      6. `/dashboard/businesses` (`businesses/page.tsx`)
+      7. `/dashboard/articles` (`articles/page.tsx`)
+      8. `/dashboard/fundraisers/[id]/donations` (`DonationsClient.tsx`)
+      9. `/dashboard/fundraisers/[id]/donors` (`DonorsClient.tsx`)
+    - **Phase 4 (Whole-Dashboard Completion, Verification & Migration)**:
+      - Migrated and verified all remaining operational, administrative, and tenant organization workspaces:
+        1. Admin Events (`/admin/events`)
+        2. Admin Fundraisers (`/admin/fundraisers`)
+        3. Admin Businesses (`/admin/businesses`) & Review Queue (`/admin/businesses/review`)
+        4. Admin Products (`/admin/products`)
+        5. Admin Articles (`/admin/articles`)
+        6. Admin Financial Payouts (`/admin/finance/payouts`)
+        7. Admin Payments & Orders (`/admin/payments`)
+        8. Admin Organizers (`/admin/organizers`)
+        9. Admin Moderation Reviews (`/admin/reviews`)
+        10. Admin AI Rejections (`/admin/ai/rejections`)
+        11. Tenant Organization Events (`/dashboard/org/[id]/events`, `/dashboard/organizations/[slug]/events`)
+        12. Tenant Organization Fundraisers (`/dashboard/org/[id]/fundraisers`, `/dashboard/organizations/[slug]/fundraisers`)
+        13. Tenant Organization Products (`/dashboard/org/[id]/products`, `/dashboard/organizations/[slug]/products`)
+        14. Tenant Organization Blog (`/dashboard/org/[id]/blog`, `/dashboard/organizations/[slug]/blog`)
+      - Fixed container query breakpoint tokens in `app/globals.css` (`--container-sm: 30rem; --container-md: 48rem; --container-lg: 64rem; --container-xl: 80rem;`).
+      - Cleaned DOM nesting and eliminated double-mounting via `ResponsiveTableModeContext` (`"table"` vs `"list"`).
+      - Maintained 100% parity across root (`app/...`) and localized (`app/[locale]/...`) route trees.
+      - Regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` expanded to verify all Phase 1-4 surfaces (**39 suites, 908 tests passing, 0 failures**). Zero schema alterations, zero auth changes, zero logic regressions.
 
 ---
 
-### B. PARTIALLY COMPLETE (Foundations Laid / In Progress)
+#### B. PARTIALLY COMPLETE (Foundations Laid / In Progress)
 1. **Business Directory vs Full Business Management**:
-   - *Current State*: Basic business directory listings exist (`businesses` table, `app/businesses`, `app/dashboard/businesses`), along with entity linkage to `organizers`.
-   - *Missing*: Multi-page mini-website builder, custom domain routing, branch management, service bookings, and POS sync (planned for Phases 1–8, 11–12).
+   - *Current State*: Basic business directory listings exist (`businesses` table, `app/businesses`, `app/dashboard/businesses`), entity linkage to `organizers`, and tenant customizable websites (Phases 1–4 complete).
+   - *Missing*: Custom domain routing, branch management, service bookings, and POS sync (planned for Phases 7–8, 11–12).
 2. **Connected Accounts & Multi-Channel Messaging**:
    - *Current State*: Schema for `connected_accounts`, `channel_assets`, `customer_identities`, `conversations`, and `messages` deployed (`migration_108`–`115`).
    - *Missing*: OAuth redirect handlers and webhook receivers for live Instagram, WhatsApp, and TikTok channel assets.
@@ -152,10 +185,11 @@
 
 ## 2. Recent Repository Activity & Git Commits
 
+- `FACEFILE — Final Application Completion (2026-09-30)` — F-01: things-to-do dynamic streaming fix (`connection()` + `<Suspense>`), F-02: development debris cleanup (orphaned scripts, `.tmp/`, `trace-*/`), F-03: product route TODO synced, F-04: product crypto limitation documented, F-05: documentation synced. Verified: `npx tsc --noEmit` 0 errors, `npm test` 908/908 passing (39 suites, 0 failures), Next.js production build verified.
 - `Business + Event Taxonomy — Full Checklist (2026-09-23)` — feat: `lib/business-taxonomy.ts` (Industry→Category→Business Type 18/40+/80+ + CAPABILITIES 30+), `lib/event-taxonomy.ts` (20 categories→subcategories + legacy alias map), migrations 132/133 **manually applied** (no duplicate creation, verified via `db/migration_132_business_type_and_branches.sql` + `db/migration_133_add_event_subcategory.sql` + `supabase/migrations/20260915000000/1`), `lib/actions/businesses.ts` canonical validation, `NewBusinessFormClient`/`EditBusinessFormClient` controlled cascades with legacy `(legacy)` fallback + `MediaUploadField`, `NewWebsiteClient` business picker + `derivedWebsiteCategory` inheritance + `metadata.business_id` persistence (both blank + template paths) + `TemplateGallery initialCategory`, `app/create-event/page.tsx` + `app/events/edit/[id]/page.tsx` Category→Subcategory cascades via `lib/event-taxonomy.ts`, `lib/business-dashboard-modules.ts` capability registry + `app/dashboard/businesses/[id]/layout.tsx` capability-filtered nav + `app/dashboard/businesses/[id]/branches` CRUD (`lib/actions/business-branches.ts` generic error messages), `ImageUploadWithCrop` close modal error reset + `MediaUploadField` value sync, `lib/event-data.ts`/`lib/events-filters.ts`/`app/events/search/EventsSearchResultsSection.tsx`/`app/admin/events/page.tsx` canonical event taxonomy filtering. Verified: `npx tsc --noEmit` 0, `npx eslint` 0 errors (1 `no-img-element` warning in `NewWebsiteClient.tsx` preserved), `npm test` 612/612, `npm run build` compiled successfully.
 - `Business Taxonomy — Creation/Editing UI` — feat: controlled Industry → Category → Business Type dropdowns in `NewBusinessFormClient.tsx`/`EditBusinessFormClient.tsx` via canonical `lib/business-taxonomy.ts` (INDUSTRIES, getCategoriesForIndustry, getBusinessTypesForCategory), cascade invalidation resets, legacy record fallback `(legacy)` for Industry/Category/Business Type in EDIT only, `MediaUploadField` for business logos, wired `business_type` to `businesses.business_type` (migration_132), server validation `lib/actions/businesses.ts` remains canonical. `npx tsc --noEmit` 0 errors, `npx eslint` 0 errors for taxonomy files, no duplicate taxonomy arrays, `npm test` 612/612.
-  - `Phase 3 Stages A–C` — feat: code-owned immutable template registry (`lib/website-template-registry.ts` 6 templates @1.0.0, multi-page schema, legacy shim), section envelope & stable IDs (`lib/website-blocks.ts` normalize/clone, `defaultBlocks` + `builderReducer` + `website-builder` actions), business category vs template family (`lib/website-category.ts`, `migration_130 metadata JSONB`, `NewWebsiteClient` + `TemplateGallery` centralization). Backward compatible, no DB template mirror. 478/478 tests passing.
-  - `Business Mini Website Extended — Hardening & Landing (2026-09-24)` — landed atomic instantiation (migration 131 `create_website_from_template` ON CONFLICT + creationRequestId), whitelisted hydration, element editing with prototype-pollution guard, section/container controls with outer/inner rendering parity, stable MOVE_BLOCK reordering, template library read-only preview, My Media tenant-scoped picker (5 surfaces). Parallel platform updates: migrations 132–135 (business_type/branches, event subcategory, homepage promotions, profile locale/i18n), capability-driven dashboard + branches, profile navigation, donations/donors. Verified: `npx tsc --noEmit --skipLibCheck` 0, `npx eslint` 0, `npm test` 650/650 (36 suites), `npm run build` compiled successfully.
+- `Phase 3 Stages A–C` — feat: code-owned immutable template registry (`lib/website-template-registry.ts` 6 templates @1.0.0, multi-page schema, legacy shim), section envelope & stable IDs (`lib/website-blocks.ts` normalize/clone, `defaultBlocks` + `builderReducer` + `website-builder` actions), business category vs template family (`lib/website-category.ts`, `migration_130 metadata JSONB`, `NewWebsiteClient` + `TemplateGallery` centralization). Backward compatible, no DB template mirror. 478/478 tests passing.
+- `Business Mini Website Extended — Hardening & Landing (2026-09-24)` — landed atomic instantiation (migration 131 `create_website_from_template` ON CONFLICT + creationRequestId), whitelisted hydration, element editing with prototype-pollution guard, section/container controls with outer/inner rendering parity, stable MOVE_BLOCK reordering, template library read-only preview, My Media tenant-scoped picker (5 surfaces). Parallel platform updates: migrations 132–135 (business_type/branches, event subcategory, homepage promotions, profile locale/i18n), capability-driven dashboard + branches, profile navigation, donations/donors. Verified: `npx tsc --noEmit --skipLibCheck` 0, `npx eslint` 0, `npm test` 650/650 (36 suites), `npm run build` compiled successfully.
 - `Phase 4` — feat: visual website builder & editor — full 3-panel workspace, 12 property inspectors with client/server validation parity, state reducer with undo/redo/autosave, settings integration, consolidated `checkTenantAccess()` authorization, atomic RPC publish with TOCTOU version checks, and comprehensive regression test suites (411/411 tests passing → 478/478 after A–C).
 - `Phase 3` — feat: website design system & block catalog — 10-type block schema (lib/website-blocks.ts), live embed resolvers (lib/website-embeds.ts), full visual block component library (BlockRenderer.tsx), 6 theme palettes with CSS token generation, draft badge gating, tenant-isolated embed queries, 339/339 tests passing.
 - `Phase 2` — feat: public website rendering engine at `/site/[slug]/[[...page]]`, pre-stream proxy status gate, modular block renderer, JSON-LD structured data, nav staleness filter, and reserved slugs validation.
@@ -175,9 +209,14 @@
 
 ## 4. Next Actionable Milestone
 
-**Completed Checklist (2026-09-23):** `[✓]` business taxonomy, `[✓]` event taxonomy, `[✓]` migrations 132/133 applied, `[✓]` business create/edit cascades, `[✓]` website business inheritance, `[✓]` event create/edit cascades, `[✓]` capability-driven dashboard + branches, `[✓]` ImageUploadWithCrop sync, `[✓]` event search/filter/admin taxonomy, `[✓]` verification (tsc 0, eslint 0 errors, tests 612/612, build Pass).
+**FACEFILE Completed Checklist (2026-09-30):**
+- `[✓]` F-01: Resolved `things-to-do/[city]` Next.js 16 dynamic streaming via `await connection()` inside `<Suspense>` boundaries across root and `[locale]` routes.
+- `[✓]` F-02: Removed 8 confirmed orphaned development debris scripts, `.tmp/` build cache, and stale trace folders.
+- `[✓]` F-03: Cleaned stale TODO in `app/api/checkout/product/route.ts` reflecting that `/products/order-confirmation` is live.
+- `[✓]` F-04: Reclassified `app/api/checkout/product-crypto/route.ts` comment to accurately document the known limitation (generic confirmation copy, dedicated crypto fulfillment UX deferred to Phase 6).
+- `[✓]` F-05: Synchronized `docs/CURRENT-STATE.md` and repository records.
+- `[✓]` Verification: `npx tsc --noEmit` (0 errors), `npm test` (908/908 passing across 39 suites), Next.js production build verified.
 
-**Completed Checklist (2026-09-24 — Hardening & Landing):** `[✓]` atomic instantiation migration 131 + hydration + idempotency, `[✓]` element editing with prototype guard, `[✓]` section/container controls with sanitized backgrounds, `[✓]` stable MOVE_BLOCK reordering, `[✓]` template library read-only preview, `[✓]` My Media tenant-scoped picker (5 surfaces, no Connected Media), `[✓]` migrations 134/135 present (homepage promotions, profile locale/i18n), `[✓]` verification (tsc 0, eslint 0, tests 650/650, build Pass).
+**Next Workstream:** **Infrastructure + UI + Biometrics Verification** (Separate post-Facefile workstream).
 
-**Next:** **Phase 5 — Products, Services & Menus** — migration 136 `services`/`menu_sections`/`menu_items`. See `docs/phases/phase-05-products-services.md`. Do NOT start until this hardening is committed and documented (this file).
 

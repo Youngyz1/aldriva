@@ -1,0 +1,40 @@
+import { redirect, notFound } from "next/navigation";
+import { getDashboardContext } from "@/lib/dashboard-context";
+import { createSupabaseServer } from "@/lib/supabase-server";
+import EditBusinessFormClient from "./EditBusinessFormClient";
+
+export default async function EditBusinessPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const ctx = await getDashboardContext();
+  if (!ctx) {
+    redirect("/login");
+  }
+
+  const supabase = await createSupabaseServer();
+  const { data: business, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !business) {
+    notFound();
+  }
+
+  if (business.owner_id !== ctx.user.id) {
+    redirect("/dashboard/businesses");
+  }
+
+  const tenantId =
+    business.organizer_id || ctx.organizerId || ctx.organizer?.id || ctx.organizers[0]?.id || ctx.user.id;
+
+  return (
+    <div className="flex-1 p-6 max-w-4xl mx-auto">
+      <EditBusinessFormClient business={business} tenantId={tenantId} />
+    </div>
+  );
+}

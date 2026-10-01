@@ -1,5 +1,4 @@
 "use client";
-
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -10,6 +9,8 @@ import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import { formatAdminMoney } from "@/lib/admin-query";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { useDashboardParams } from "@/hooks/use-dashboard-params";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
 import type {
@@ -216,59 +217,135 @@ function DonationsClientInner() {
           />
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="py-3 pr-4 pl-4">Donor</th>
-                <th className="py-3 pr-4">Campaign</th>
-                <th className="py-3 pr-4">Amount</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="px-4 py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="cursor-pointer hover:bg-zinc-50/70 transition"
+        <ResponsiveDataTable
+          columns={[
+            { id: "donor", header: "Donor" },
+            { id: "campaign", header: "Campaign" },
+            { id: "amount", header: "Amount", align: "right" },
+            { id: "status", header: "Status" },
+            { id: "date", header: "Date", align: "right", hideBelow: "md" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+        >
+          {rows.map((row) => {
+            const desktopCells = [
+              <div key="donor">
+                <button
+                  type="button"
                   onClick={() => openDrawer(row.id)}
+                  className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
                 >
-                  <td className="py-3 pr-4 pl-4">
-                    <p className="font-black text-zinc-900">{row.donor_name}</p>
-                    {row.donor_email && <p className="text-xs text-zinc-500">{row.donor_email}</p>}
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-600">
-                    {row.campaign_slug ? (
-                      <Link
-                        href={`/fundraisers/${row.campaign_slug}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-bold text-orange-700 hover:underline"
-                      >
-                        {row.campaign_title}
-                      </Link>
-                    ) : (
-                      row.campaign_title
-                    )}
-                  </td>
-                  <td className="py-3 pr-4 font-black text-emerald-700 tabular-nums">
-                    {formatAdminMoney(row.amount)}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
-                        statusBadge[row.status] ?? statusBadge.pending
-                      }`}
+                  {row.donor_name || "Anonymous"}
+                </button>
+                {row.donor_email && <p className="text-xs text-zinc-500">{row.donor_email}</p>}
+              </div>,
+              <div key="campaign" className="text-zinc-600">
+                {row.campaign_slug ? (
+                  <Link
+                    href={`/fundraisers/${row.campaign_slug}`}
+                    className="font-bold text-orange-700 hover:underline"
+                  >
+                    {row.campaign_title}
+                  </Link>
+                ) : (
+                  row.campaign_title
+                )}
+              </div>,
+              <span key="amount" className="font-black text-emerald-700 tabular-nums">
+                {formatAdminMoney(row.amount)}
+              </span>,
+              <span
+                key="status"
+                className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
+                  statusBadge[row.status] ?? statusBadge.pending
+                }`}
+              >
+                {row.status}
+              </span>,
+              <span key="date" className="text-zinc-500">
+                {formatDonationDateTime(row.created_at)}
+              </span>,
+              <div key="actions" className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => openDrawer(row.id)}
+                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                >
+                  View
+                </button>
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                identity={
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
                     >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">{formatDonationDateTime(row.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      {row.donor_name || "Anonymous Donor"}
+                    </button>
+                    {row.donor_email && <span className="text-xs text-zinc-400 block truncate">{row.donor_email}</span>}
+                  </div>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.amount)}
+                  </span>
+                }
+                state={
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                      statusBadge[row.status] ?? statusBadge.pending
+                    }`}
+                  >
+                    {row.status}
+                  </span>
+                }
+                secondary={[
+                  row.campaign_title,
+                  formatDonationDateTime(row.created_at),
+                ].filter(Boolean)}
+                expandedDetails={
+                  <div className="space-y-2 py-1 text-xs text-zinc-600">
+                    <div>
+                      <span className="font-bold text-zinc-500">Campaign:</span>{" "}
+                      {row.campaign_slug ? (
+                        <Link href={`/fundraisers/${row.campaign_slug}`} className="font-bold text-orange-700 hover:underline">
+                          {row.campaign_title}
+                        </Link>
+                      ) : (
+                        row.campaign_title
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Donation Date:</span> {formatDonationDateTime(row.created_at)}
+                    </div>
+                    {row.donor_email && (
+                      <div>
+                        <span className="font-bold text-zinc-500">Email:</span> {row.donor_email}
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-zinc-100">
+                      <button
+                        type="button"
+                        onClick={() => openDrawer(row.id)}
+                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                      >
+                        View Full Details
+                      </button>
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       <DashboardDrawer

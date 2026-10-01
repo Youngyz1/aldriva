@@ -13,6 +13,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import type { DonationRow, DonationMetrics } from "./page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,6 +54,15 @@ function methodLabel(paymentIntentId: string | null): string {
   if (paymentIntentId.startsWith("NOWPay")) return "Crypto";
   return "Online";
 }
+
+const DONATION_COLUMNS: ResponsiveColumn[] = [
+  { id: "donor", header: "Donor", align: "left" },
+  { id: "amount", header: "Amount", align: "right" },
+  { id: "date", header: "Date", align: "left", hideBelow: "md" },
+  { id: "status", header: "Status", align: "left" },
+  { id: "method", header: "Method", align: "left", hideBelow: "lg" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 // ── Metrics strip ─────────────────────────────────────────────────────────────
 
@@ -409,87 +420,79 @@ export default function DonationsClient({
             )}
           </div>
         ) : (
-          <>
-            {/* Desktop table */}
-            <div className="hidden sm:block">
-              <table className="w-full border-collapse text-sm" role="table" aria-label="Donations">
-                <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50/60">
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Donor</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Amount</th>
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Date</th>
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Status</th>
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Method</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {donations.map((d) => (
-                    <tr
-                      key={d.id}
-                      className="bg-white transition hover:bg-zinc-50/60"
-                    >
-                      <td className="px-4 py-3 font-semibold text-zinc-900">
-                        {d.donor_name === "Anonymous" || !d.donor_name ? (
-                          <span className="text-zinc-400 italic">Anonymous</span>
-                        ) : (
-                          d.donor_name
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold tabular-nums text-zinc-900">
-                        {formatCurrency(d.amount)}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-600">{formatDate(d.created_at)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                      <td className="px-4 py-3 text-zinc-600">{methodLabel(d.payment_intent_id)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDonation(d)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-bold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                        >
-                          View
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <ResponsiveDataTable columns={DONATION_COLUMNS}>
+            {donations.map((d) => (
+              <ResponsiveDataRow
+                key={d.id}
+                id={d.id}
+                onRowClick={() => setSelectedDonation(d)}
+                desktopCells={[
+                  <div key="donor" className="font-semibold text-zinc-900">
+                    {d.donor_name === "Anonymous" || !d.donor_name ? (
+                      <span className="text-zinc-400 italic">Anonymous</span>
+                    ) : (
+                      d.donor_name
+                    )}
+                  </div>,
 
-            {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-zinc-100">
-              {donations.map((d) => (
-                <div key={d.id} className="bg-white px-4 py-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-zinc-900">
-                        {d.donor_name === "Anonymous" || !d.donor_name ? (
-                          <span className="text-zinc-400 italic">Anonymous</span>
-                        ) : d.donor_name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        <span className="font-semibold tabular-nums text-zinc-700">{formatCurrency(d.amount)}</span>
-                        {" · "}
-                        <StatusBadge status={d.status} />
-                        {" · "}
-                        {methodLabel(d.payment_intent_id)}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-zinc-400">{formatDate(d.created_at)}</p>
-                    </div>
+                  <div key="amount" className="text-right font-bold tabular-nums text-zinc-900">
+                    {formatCurrency(d.amount)}
+                  </div>,
+
+                  <div key="date" className="text-zinc-600">
+                    {formatDate(d.created_at)}
+                  </div>,
+
+                  <div key="status">
+                    <StatusBadge status={d.status} />
+                  </div>,
+
+                  <div key="method" className="text-zinc-600">
+                    {methodLabel(d.payment_intent_id)}
+                  </div>,
+
+                  <div key="actions" className="text-right">
                     <button
                       type="button"
                       onClick={() => setSelectedDonation(d)}
-                      className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-bold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
                     >
                       View
+                      <ExternalLink className="h-3 w-3" />
                     </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                  </div>,
+                ]}
+                identity={
+                  <span className="font-bold text-zinc-900 truncate">
+                    {d.donor_name === "Anonymous" || !d.donor_name ? (
+                      <span className="text-zinc-400 italic">Anonymous</span>
+                    ) : (
+                      d.donor_name
+                    )}
+                  </span>
+                }
+                primaryValue={
+                  <span className="font-bold tabular-nums text-emerald-700 text-xs">
+                    {formatCurrency(d.amount)}
+                  </span>
+                }
+                state={<StatusBadge status={d.status} />}
+                secondary={[
+                  <span key="date">{formatDate(d.created_at)}</span>,
+                  <span key="method">{methodLabel(d.payment_intent_id)}</span>,
+                ]}
+                actions={
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDonation(d)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                  >
+                    View
+                  </button>
+                }
+              />
+            ))}
+          </ResponsiveDataTable>
         )}
       </div>
 

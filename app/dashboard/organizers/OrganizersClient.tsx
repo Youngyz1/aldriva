@@ -1,5 +1,4 @@
 "use client";
-
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -11,6 +10,8 @@ import DashboardTableCard from "@/components/dashboard/DashboardTableCard";
 import DashboardDrawer from "@/components/dashboard/DashboardDrawer";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import { useDashboardParams } from "@/hooks/use-dashboard-params";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
@@ -216,63 +217,167 @@ function OrganizersClientInner() {
           />
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="px-4 py-3">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-zinc-300" />
-                </th>
-                <th className="py-3 pr-4">Organization</th>
-                <th className="py-3 pr-4">Followers</th>
-                <th className="py-3 pr-4">Events</th>
-                <th className="py-3 pr-4">Fundraisers</th>
-                <th className="py-3 pr-4">Revenue</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-zinc-50/70">
-                  <td className="px-4 py-3">
-                    <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} className="rounded border-zinc-300" />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100">
-                        {row.photo ? (
-                          <img src={row.photo} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <LocalBrandedPlaceholder
-                            variant="avatar"
-                            title={row.name}
-                            initials={row.name.charAt(0)}
-                            className="from-transparent to-transparent text-xs text-zinc-500"
-                          />
-                        )}
-                      </div>
-                      <button type="button" onClick={() => openDrawer(row.id)} className="font-black text-zinc-900 hover:text-violet-700 hover:underline">
-                        {row.name}
+        <ResponsiveDataTable
+          columns={[
+            {
+              id: "select",
+              header: (
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="rounded border-zinc-300"
+                  aria-label="Select all organizations"
+                />
+              ),
+              width: "48px",
+            },
+            { id: "organization", header: "Organization" },
+            { id: "followers", header: "Followers", align: "right", hideBelow: "lg" },
+            { id: "events", header: "Events", align: "right" },
+            { id: "fundraisers", header: "Fundraisers", align: "right", hideBelow: "lg" },
+            { id: "revenue", header: "Revenue", align: "right" },
+            { id: "status", header: "Status" },
+            { id: "actions", header: "Actions", align: "right" },
+          ]}
+          isSelectable
+        >
+          {rows.map((row) => {
+            const desktopCells = [
+              <input
+                key="select"
+                type="checkbox"
+                checked={selected.has(row.id)}
+                onChange={() => toggleOne(row.id)}
+                className="rounded border-zinc-300"
+                aria-label={`Select ${row.name}`}
+              />,
+              <div key="organization" className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100">
+                  {row.photo ? (
+                    <img src={row.photo} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <LocalBrandedPlaceholder
+                      variant="avatar"
+                      title={row.name}
+                      initials={row.name.charAt(0)}
+                      className="from-transparent to-transparent text-xs text-zinc-500"
+                    />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openDrawer(row.id)}
+                  className="font-black text-zinc-900 hover:text-orange-600 hover:underline text-left"
+                >
+                  {row.name}
+                </button>
+              </div>,
+              <span key="followers" className="font-black text-zinc-900 tabular-nums">{row.follower_count}</span>,
+              <span key="events" className="font-black text-zinc-900 tabular-nums">{row.event_count}</span>,
+              <span key="fundraisers" className="font-black text-zinc-900 tabular-nums">{row.fundraiser_count}</span>,
+              <span key="revenue" className="font-black text-emerald-700 tabular-nums">{formatAdminMoney(row.revenue)}</span>,
+              <StatusBadge key="status" status={row.status} />,
+              <div key="actions" className="flex items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => openDrawer(row.id)}
+                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                >
+                  View
+                </button>
+                <Link
+                  href={`/organizers/${row.id}/edit`}
+                  className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50"
+                >
+                  Edit
+                </Link>
+              </div>,
+            ];
+
+            return (
+              <ResponsiveDataRow
+                key={row.id}
+                id={row.id}
+                desktopCells={desktopCells}
+                selectionControl={
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.id)}
+                    onChange={() => toggleOne(row.id)}
+                    className="rounded border-zinc-300"
+                    aria-label={`Select ${row.name}`}
+                  />
+                }
+                identity={
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100">
+                      {row.photo ? (
+                        <img src={row.photo} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <LocalBrandedPlaceholder
+                          variant="avatar"
+                          title={row.name}
+                          initials={row.name.charAt(0)}
+                          className="from-transparent to-transparent text-xs text-zinc-500"
+                        />
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="font-bold text-zinc-950 hover:text-orange-600 text-left line-clamp-1"
+                    >
+                      {row.name}
+                    </button>
+                  </div>
+                }
+                primaryValue={
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    {formatAdminMoney(row.revenue)}
+                  </span>
+                }
+                state={<StatusBadge status={row.status} />}
+                secondary={[
+                  `${row.event_count} event${row.event_count === 1 ? "" : "s"}`,
+                  `${row.follower_count} follower${row.follower_count === 1 ? "" : "s"}`,
+                  `${row.fundraiser_count} campaign${row.fundraiser_count === 1 ? "" : "s"}`,
+                ]}
+                expandedDetails={
+                  <div className="space-y-2 py-1 text-xs text-zinc-600">
+                    <div>
+                      <span className="font-bold text-zinc-500">Activity:</span> {row.event_count} events · {row.fundraiser_count} fundraisers · {row.follower_count} followers
+                    </div>
+                    <div>
+                      <span className="font-bold text-zinc-500">Total Revenue:</span> {formatAdminMoney(row.revenue)}
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-zinc-100">
+                      <button
+                        type="button"
+                        onClick={() => openDrawer(row.id)}
+                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                      >
+                        View Details
                       </button>
+                      <Link
+                        href={`/organizers/${row.id}/edit`}
+                        className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50"
+                      >
+                        Edit
+                      </Link>
+                      <Link
+                        href={`/organizers/${row.id}`}
+                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Public Profile
+                      </Link>
                     </div>
-                  </td>
-                  <td className="py-3 pr-4 font-black">{row.follower_count}</td>
-                  <td className="py-3 pr-4 font-black">{row.event_count}</td>
-                  <td className="py-3 pr-4 font-black">{row.fundraiser_count}</td>
-                  <td className="py-3 pr-4 font-black text-emerald-700">{formatAdminMoney(row.revenue)}</td>
-                  <td className="py-3 pr-4"><StatusBadge status={row.status} /></td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      <button type="button" onClick={() => openDrawer(row.id)} className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50">View</button>
-                      <Link href={`/organizers/${row.id}/edit`} className="rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-black text-orange-700 hover:bg-orange-50">Edit</Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       </DashboardTableCard>
 
       <DashboardDrawer

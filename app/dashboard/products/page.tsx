@@ -12,6 +12,8 @@ import {
   PRODUCT_TYPE_LABELS,
   isDigitalProductType,
 } from "@/lib/digital-products";
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 const priceTypeBadge: Record<string, string> = {
   one_time: "bg-blue-50 text-blue-700 border-blue-200",
@@ -25,6 +27,17 @@ const statusBadge: Record<string, string> = {
   rejected: "bg-red-50 text-red-700 border-red-200",
   archived: "bg-slate-100 text-slate-600 border-slate-200",
 };
+
+const PRODUCT_COLUMNS: ResponsiveColumn[] = [
+  { id: "product", header: "Product", align: "left" },
+  { id: "type", header: "Type", align: "left", hideBelow: "md" },
+  { id: "price_type", header: "Price Type", align: "left", hideBelow: "lg" },
+  { id: "status", header: "Status", align: "left" },
+  { id: "files", header: "Files", align: "left", hideBelow: "lg" },
+  { id: "sales", header: "Sales", align: "left" },
+  { id: "stock", header: "Stock", align: "left", hideBelow: "md" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 export default async function DashboardProductsPage({
   searchParams,
@@ -190,106 +203,175 @@ export default async function DashboardProductsPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm shadow-slate-100/5">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm text-slate-500">
-              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                <tr>
-                  <th scope="col" className="px-6 py-4">Product</th>
-                  <th scope="col" className="px-6 py-4">Type</th>
-                  <th scope="col" className="px-6 py-4">Price Type</th>
-                  <th scope="col" className="px-6 py-4">Status</th>
-                  <th scope="col" className="px-6 py-4">Files</th>
-                  <th scope="col" className="px-6 py-4">Sales</th>
-                  <th scope="col" className="px-6 py-4">Stock</th>
-                  <th scope="col" className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {(product.cover_image_url || product.images?.[0]) ? (
-                          <img
-                            src={product.cover_image_url || product.images[0]}
-                            alt={product.name}
-                            className="h-10 w-10 rounded-xl object-cover border border-slate-100"
-                          />
-                        ) : (
-                          <LocalBrandedPlaceholder
-                            variant="general"
-                            title={product.name}
-                            initials={product.name.slice(0, 2).toUpperCase()}
-                            className="h-10 w-10 rounded-xl from-slate-100 to-slate-100 text-base text-slate-500"
-                          />
-                        )}
-                        <div>
-                          <div className="font-bold text-slate-900">{product.name}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {isDigitalProductType(product.product_type) ? (
-                        <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-bold text-orange-700">
-                          {(PRODUCT_TYPE_LABELS as Record<string, string>)[product.product_type] || "Digital"}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500">
-                          Physical
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${priceTypeBadge[product.price_type] || "bg-slate-100"}`}>
-                        {product.price_type === "one_time" ? "One-time" : "Subscription"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusBadge[product.status] || "bg-slate-100"}`}>
-                        {product.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs">
-                      {isDigitalProductType(product.product_type) ? (
-                        <span className="font-bold text-slate-700">{assetCountByProduct.get(product.id) ?? 0} file(s)</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-xs">
-                      {(() => {
-                        const s = salesByProduct.get(product.id);
-                        if (!s) return <span className="text-slate-400">—</span>;
-                        return (
-                          <span className="font-bold text-slate-700">
-                            {s.orders} order{s.orders === 1 ? "" : "s"} ·{" "}
-                            {s.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      {isDigitalProductType(product.product_type) ? (
-                        <span className="text-slate-400">Digital</span>
-                      ) : product.stock_quantity === null ? (
-                        <span className="text-slate-400">Unlimited</span>
-                      ) : (
-                        <span className="font-bold text-slate-700">{product.stock_quantity}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <ProductRowActions
-                        product={product}
-                        onDelete={handleDelete}
+        <ResponsiveDataTable columns={PRODUCT_COLUMNS}>
+          {products.map((product) => {
+            const s = salesByProduct.get(product.id);
+            const isDigital = isDigitalProductType(product.product_type);
+            const assetCount = assetCountByProduct.get(product.id) ?? 0;
+
+            return (
+              <ResponsiveDataRow
+                key={product.id}
+                id={product.id}
+                desktopCells={[
+                  <div key="product" className="flex items-center gap-3">
+                    {(product.cover_image_url || product.images?.[0]) ? (
+                      <img
+                        src={product.cover_image_url || product.images[0]}
+                        alt={product.name}
+                        className="h-10 w-10 rounded-xl object-cover border border-slate-100"
                       />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    ) : (
+                      <LocalBrandedPlaceholder
+                        variant="general"
+                        title={product.name}
+                        initials={product.name.slice(0, 2).toUpperCase()}
+                        className="h-10 w-10 rounded-xl from-slate-100 to-slate-100 text-base text-slate-500"
+                      />
+                    )}
+                    <div>
+                      <div className="font-bold text-slate-900">{product.name}</div>
+                    </div>
+                  </div>,
+
+                  <div key="type">
+                    {isDigital ? (
+                      <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-bold text-orange-700">
+                        {(PRODUCT_TYPE_LABELS as Record<string, string>)[product.product_type] || "Digital"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500">
+                        Physical
+                      </span>
+                    )}
+                  </div>,
+
+                  <div key="price_type">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${priceTypeBadge[product.price_type] || "bg-slate-100"}`}>
+                      {product.price_type === "one_time" ? "One-time" : "Subscription"}
+                    </span>
+                  </div>,
+
+                  <div key="status">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusBadge[product.status] || "bg-slate-100"}`}>
+                      {product.status.replace("_", " ")}
+                    </span>
+                  </div>,
+
+                  <div key="files" className="text-xs">
+                    {isDigital ? (
+                      <span className="font-bold text-slate-700">{assetCount} file(s)</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>,
+
+                  <div key="sales" className="text-xs">
+                    {!s ? (
+                      <span className="text-slate-400">—</span>
+                    ) : (
+                      <span className="font-bold text-slate-700">
+                        {s.orders} order{s.orders === 1 ? "" : "s"} ·{" "}
+                        {s.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
+                      </span>
+                    )}
+                  </div>,
+
+                  <div key="stock" className="text-xs text-slate-500">
+                    {isDigital ? (
+                      <span className="text-slate-400">Digital</span>
+                    ) : product.stock_quantity === null ? (
+                      <span className="text-slate-400">Unlimited</span>
+                    ) : (
+                      <span className="font-bold text-slate-700">{product.stock_quantity}</span>
+                    )}
+                  </div>,
+
+                  <div key="actions" className="text-right">
+                    <ProductRowActions
+                      product={product}
+                      onDelete={handleDelete}
+                    />
+                  </div>,
+                ]}
+                identity={
+                  <div className="flex items-center gap-3">
+                    {(product.cover_image_url || product.images?.[0]) ? (
+                      <img
+                        src={product.cover_image_url || product.images[0]}
+                        alt={product.name}
+                        className="h-8 w-8 rounded-lg object-cover border border-slate-100 shrink-0"
+                      />
+                    ) : (
+                      <LocalBrandedPlaceholder
+                        variant="general"
+                        title={product.name}
+                        initials={product.name.slice(0, 2).toUpperCase()}
+                        className="h-8 w-8 rounded-lg from-slate-100 to-slate-100 text-xs text-slate-500 shrink-0"
+                      />
+                    )}
+                    <span className="font-bold text-slate-900 truncate">{product.name}</span>
+                  </div>
+                }
+                primaryValue={
+                  s && s.revenue > 0 ? (
+                    <span className="text-xs font-bold text-emerald-700 tabular-nums">
+                      {s.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-600">
+                      {product.price !== null && product.price !== undefined ? `$${product.price}` : "—"}
+                    </span>
+                  )
+                }
+                state={
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusBadge[product.status] || "bg-slate-100"}`}>
+                    {product.status.replace("_", " ")}
+                  </span>
+                }
+                secondary={[
+                  isDigital ? (
+                    <span key="type" className="text-orange-700 font-bold">
+                      {(PRODUCT_TYPE_LABELS as Record<string, string>)[product.product_type] || "Digital"}
+                    </span>
+                  ) : (
+                    <span key="type" className="text-slate-500">Physical</span>
+                  ),
+                  <span key="price_type" className="capitalize">{product.price_type === "one_time" ? "One-time" : "Subscription"}</span>,
+                  isDigital ? (
+                    <span key="files">{assetCount} file(s)</span>
+                  ) : (
+                    <span key="stock">{product.stock_quantity === null ? "Unlimited" : `${product.stock_quantity} in stock`}</span>
+                  ),
+                ]}
+                actions={
+                  <ProductRowActions
+                    product={product}
+                    onDelete={handleDelete}
+                  />
+                }
+                expandedDetails={
+                  <div className="space-y-2 text-xs pt-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-400 font-medium">Sales: </span>
+                        <span className="font-bold text-slate-700">
+                          {s ? `${s.orders} order${s.orders === 1 ? "" : "s"} (${s.units} units)` : "0 orders"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium">Files: </span>
+                        <span className="font-bold text-slate-700">
+                          {isDigital ? `${assetCount} file(s)` : "Physical product"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       )}
     </div>
   );

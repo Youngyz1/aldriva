@@ -1,6 +1,8 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 export default async function OrgBlogPage({
   params,
@@ -38,35 +40,52 @@ export default async function OrgBlogPage({
           <p className="mt-1 text-sm text-zinc-500">Share updates, stories, and news with your community.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-zinc-100 bg-zinc-50">
-              <tr>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Title</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Status</th>
-                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Published</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {(articles ?? []).map((a) => (
-                <tr key={a.id} className="hover:bg-zinc-50">
-                  <td className="px-5 py-4 font-bold text-zinc-900">{a.title}</td>
-                  <td className="px-5 py-4">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      a.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-600"
-                    }`}>{a.status}</span>
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    {a.published_at ? new Date(a.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <Link href={`/articles/${a.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <ResponsiveDataTable
+            columns={[
+              { id: "title", header: "Title" },
+              { id: "status", header: "Status" },
+              { id: "published", header: "Published", hideBelow: "md" },
+              { id: "actions", header: "", align: "right" },
+            ]}
+          >
+            {(articles ?? []).map((a) => {
+              const formattedDate = a.published_at
+                ? new Date(a.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                : "—";
+
+              const statusBadge = (
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  a.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-600"
+                }`}>{a.status}</span>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={a.id}
+                  id={a.id}
+                  desktopCells={[
+                    <span key="title" className="font-bold text-zinc-900 block">{a.title}</span>,
+                    <div key="status">{statusBadge}</div>,
+                    <span key="published" className="text-zinc-600 block">{formattedDate}</span>,
+                    <div key="actions" className="text-right">
+                      <Link href={`/articles/${a.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
+                    </div>,
+                  ]}
+                  identity={<span className="font-bold text-zinc-950 text-left line-clamp-1">{a.title}</span>}
+                  state={statusBadge}
+                  secondary={[`Published: ${formattedDate}`]}
+                  actions={<Link href={`/articles/${a.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>}
+                  expandedDetails={
+                    <div className="space-y-1 text-xs text-zinc-600 py-1">
+                      <div><span className="font-bold text-zinc-500">Published:</span> {formattedDate}</div>
+                      <div><span className="font-bold text-zinc-500">Slug:</span> {a.slug}</div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         </div>
       )}
     </div>

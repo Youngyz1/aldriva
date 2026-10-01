@@ -9,6 +9,9 @@ import BusinessRowActions from "./BusinessRowActions";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import StickyTableToolbar from "@/components/ui/sticky-table-toolbar";
 
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
+
 const tierBadge: Record<string, string> = {
   free: "bg-zinc-100 text-zinc-700 border-zinc-200",
   one_time: "bg-blue-50 text-blue-700 border-blue-200",
@@ -21,6 +24,14 @@ const statusBadge: Record<string, string> = {
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
   archived: "bg-slate-100 text-slate-600 border-slate-200",
 };
+
+const BUSINESS_COLUMNS: ResponsiveColumn[] = [
+  { id: "business", header: "Business", align: "left" },
+  { id: "tier", header: "Tier", align: "left" },
+  { id: "status", header: "Status", align: "left" },
+  { id: "subscription", header: "Subscription Details", align: "left", hideBelow: "md" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 export default async function DashboardBusinessesPage({
   searchParams,
@@ -134,79 +145,127 @@ export default async function DashboardBusinessesPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm shadow-slate-100/5">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm text-slate-500">
-              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                <tr>
-                  <th scope="col" className="px-6 py-4">Business</th>
-                  <th scope="col" className="px-6 py-4">Tier</th>
-                  <th scope="col" className="px-6 py-4">Status</th>
-                  <th scope="col" className="px-6 py-4">Subscription Details</th>
-                  <th scope="col" className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {businesses.map((biz) => (
-                  <tr key={biz.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {biz.logo ? (
-                          <img
-                            src={biz.logo}
-                            alt={biz.name}
-                            className="h-10 w-10 rounded-xl object-cover border border-slate-100"
-                          />
-                        ) : (
-                          <LocalBrandedPlaceholder
-                            variant="business"
-                            title={biz.name}
-                            initials={biz.name.slice(0, 2).toUpperCase()}
-                            className="h-10 w-10 rounded-xl from-slate-100 to-slate-100 text-base text-slate-500"
-                          />
-                        )}
-                        <div>
-                          <div className="font-bold text-slate-900">{biz.name}</div>
-                          <div className="text-xs text-slate-400">{biz.industry} • {biz.category}</div>
+        <ResponsiveDataTable columns={BUSINESS_COLUMNS}>
+          {businesses.map((biz) => (
+            <ResponsiveDataRow
+              key={biz.id}
+              id={biz.id}
+              desktopCells={[
+                <div key="biz" className="flex items-center gap-3">
+                  {biz.logo ? (
+                    <img
+                      src={biz.logo}
+                      alt={biz.name}
+                      className="h-10 w-10 rounded-xl object-cover border border-slate-100"
+                    />
+                  ) : (
+                    <LocalBrandedPlaceholder
+                      variant="business"
+                      title={biz.name}
+                      initials={biz.name.slice(0, 2).toUpperCase()}
+                      className="h-10 w-10 rounded-xl from-slate-100 to-slate-100 text-base text-slate-500"
+                    />
+                  )}
+                  <div>
+                    <div className="font-bold text-slate-900">{biz.name}</div>
+                    <div className="text-xs text-slate-400">{biz.industry} • {biz.category}</div>
+                  </div>
+                </div>,
+
+                <div key="tier">
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${tierBadge[biz.listing_tier] || "bg-slate-100"}`}>
+                    {biz.listing_tier === "one_time" ? "One-time" : biz.listing_tier.toUpperCase()}
+                  </span>
+                </div>,
+
+                <div key="status">
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusBadge[biz.status] || "bg-slate-100"}`}>
+                    {biz.status.replace("_", " ")}
+                  </span>
+                </div>,
+
+                <div key="sub" className="text-xs text-slate-500">
+                  {biz.listing_tier === "subscription" && biz.stripe_subscription_id ? (
+                    <div>
+                      <div className="font-semibold">Sub ID: {biz.stripe_subscription_id.slice(0, 12)}...</div>
+                      {biz.current_period_end && (
+                        <div className="text-slate-400">
+                          Ends: {new Date(biz.current_period_end).toLocaleDateString()}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${tierBadge[biz.listing_tier] || "bg-slate-100"}`}>
-                        {biz.listing_tier === "one_time" ? "One-time" : biz.listing_tier.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusBadge[biz.status] || "bg-slate-100"}`}>
-                        {biz.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      {biz.listing_tier === "subscription" && biz.stripe_subscription_id ? (
-                        <div>
-                          <div className="font-semibold">Sub ID: {biz.stripe_subscription_id.slice(0, 12)}...</div>
-                          {biz.current_period_end && (
-                            <div className="text-slate-400">
-                              Ends: {new Date(biz.current_period_end).toLocaleDateString()}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">—</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <BusinessRowActions
-                        business={biz}
-                        onDelete={handleDelete}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </div>,
+
+                <div key="actions" className="text-right">
+                  <BusinessRowActions
+                    business={biz}
+                    onDelete={handleDelete}
+                  />
+                </div>,
+              ]}
+              identity={
+                <div className="flex items-center gap-3">
+                  {biz.logo ? (
+                    <img
+                      src={biz.logo}
+                      alt={biz.name}
+                      className="h-8 w-8 rounded-lg object-cover border border-slate-100 shrink-0"
+                    />
+                  ) : (
+                    <LocalBrandedPlaceholder
+                      variant="business"
+                      title={biz.name}
+                      initials={biz.name.slice(0, 2).toUpperCase()}
+                      className="h-8 w-8 rounded-lg from-slate-100 to-slate-100 text-xs text-slate-500 shrink-0"
+                    />
+                  )}
+                  <span className="font-bold text-slate-900 truncate">{biz.name}</span>
+                </div>
+              }
+              primaryValue={
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${tierBadge[biz.listing_tier] || "bg-slate-100"}`}>
+                  {biz.listing_tier === "one_time" ? "One-time" : biz.listing_tier.toUpperCase()}
+                </span>
+              }
+              state={
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusBadge[biz.status] || "bg-slate-100"}`}>
+                  {biz.status.replace("_", " ")}
+                </span>
+              }
+              secondary={[
+                (biz.industry || biz.category) ? (
+                  <span key="industry" className="truncate">{[biz.industry, biz.category].filter(Boolean).join(" • ")}</span>
+                ) : null,
+                biz.listing_tier === "subscription" && biz.current_period_end ? (
+                  <span key="sub" className="text-slate-400">Ends {new Date(biz.current_period_end).toLocaleDateString()}</span>
+                ) : null,
+              ].filter(Boolean)}
+              actions={
+                <BusinessRowActions
+                  business={biz}
+                  onDelete={handleDelete}
+                />
+              }
+              expandedDetails={
+                <div className="space-y-1.5 text-xs pt-1">
+                  <div>
+                    <span className="text-slate-400 font-medium">Category: </span>
+                    <span className="font-bold text-slate-700">{biz.industry || "General"} {biz.category ? `• ${biz.category}` : ""}</span>
+                  </div>
+                  {biz.listing_tier === "subscription" && biz.stripe_subscription_id && (
+                    <div>
+                      <span className="text-slate-400 font-medium">Subscription ID: </span>
+                      <span className="font-mono text-slate-700">{biz.stripe_subscription_id}</span>
+                    </div>
+                  )}
+                </div>
+              }
+            />
+          ))}
+        </ResponsiveDataTable>
       )}
     </div>
   );

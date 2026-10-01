@@ -8,6 +8,9 @@ import { revalidatePath } from "next/cache";
 import ArticleRowActions from "./ArticleRowActions";
 import StickyTableToolbar from "@/components/ui/sticky-table-toolbar";
 
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
+
 const statusBadge: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 border-zinc-200",
   pending_review: "bg-purple-50 text-purple-700 border-purple-200",
@@ -17,6 +20,14 @@ const statusBadge: Record<string, string> = {
   expired: "bg-red-50 text-red-700 border-red-200",
   rejected: "bg-red-50 text-red-700 border-red-200",
 };
+
+const ARTICLE_COLUMNS: ResponsiveColumn[] = [
+  { id: "article", header: "Article", align: "left" },
+  { id: "status", header: "Status", align: "left" },
+  { id: "visibility", header: "Visibility", align: "left", hideBelow: "md" },
+  { id: "categories", header: "Categories & Tags", align: "left", hideBelow: "lg" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 export default async function DashboardArticlesPage({
   searchParams,
@@ -121,115 +132,184 @@ export default async function DashboardArticlesPage({
 
       {/* Articles Table / List */}
       {articles && articles.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-xs sm:rounded-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm text-slate-500">
-              <thead className="border-b border-slate-150 bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400">
-                <tr>
-                  <th scope="col" className="px-6 py-4">Article</th>
-                  <th scope="col" className="px-6 py-4">Status</th>
-                  <th scope="col" className="px-6 py-4">Visibility</th>
-                  <th scope="col" className="px-6 py-4">Categories &amp; Tags</th>
-                  <th scope="col" className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {articles.map((article) => {
-                  const hasImage = !!article.cover_image_url;
-                  const displayDate = new Date(article.created_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  });
+        <ResponsiveDataTable columns={ARTICLE_COLUMNS}>
+          {articles.map((article) => {
+            const displayDate = new Date(article.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
 
-                  return (
-                    <tr key={article.id} className="hover:bg-slate-50/50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                            <Image
-                              src={article.cover_image_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=120&auto=format&fit=crop"}
-                              alt={article.title}
-                              fill
-                              unoptimized
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <Link
-                              href={`/articles/${article.slug}`}
-                              className="font-black text-slate-900 hover:text-orange-600 block truncate max-w-[240px]"
-                              target="_blank"
+            return (
+              <ResponsiveDataRow
+                key={article.id}
+                id={article.id}
+                desktopCells={[
+                  <div key="article" className="flex items-center gap-3">
+                    <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                      <Image
+                        src={article.cover_image_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=120&auto=format&fit=crop"}
+                        alt={article.title}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <Link
+                        href={`/articles/${article.slug}`}
+                        className="font-black text-slate-900 hover:text-orange-600 block truncate max-w-[240px]"
+                        target="_blank"
+                      >
+                        {article.title}
+                      </Link>
+                      <span className="text-xs text-slate-400">Created on {displayDate}</span>
+                    </div>
+                  </div>,
+
+                  <div key="status">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                        statusBadge[article.status] || "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {article.status}
+                    </span>
+                    {article.status === "scheduled" && article.scheduled_for && (
+                      <div className="mt-1 text-[10px] text-slate-400 font-semibold">
+                        {new Date(article.scheduled_for).toLocaleString()}
+                      </div>
+                    )}
+                  </div>,
+
+                  <div key="visibility" className="capitalize font-bold text-slate-700">
+                    {article.visibility}
+                  </div>,
+
+                  <div key="categories">
+                    <div className="flex flex-col gap-1 max-w-[200px]">
+                      {article.categories && article.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {article.categories.map((c: string) => (
+                            <span
+                              key={c}
+                              className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-700"
                             >
-                              {article.title}
-                            </Link>
-                            <span className="text-xs text-slate-400">Created on {displayDate}</span>
-                          </div>
+                              {c}
+                            </span>
+                          ))}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${
-                            statusBadge[article.status] || "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {article.status}
-                        </span>
-                        {article.status === "scheduled" && article.scheduled_for && (
-                          <div className="mt-1 text-[10px] text-slate-400 font-semibold">
-                            {new Date(article.scheduled_for).toLocaleString()}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 capitalize font-bold text-slate-700">
-                        {article.visibility}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1 max-w-[200px]">
-                          {article.categories && article.categories.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {article.categories.map((c: string) => (
-                                <span
-                                  key={c}
-                                  className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-700"
-                                >
-                                  {c}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {article.tags && article.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {article.tags.slice(0, 3).map((t: string) => (
-                                <span
-                                  key={t}
-                                  className="text-[10px] text-slate-400 font-semibold"
-                                >
-                                  #{t}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                      )}
+                      {article.tags && article.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {article.tags.slice(0, 3).map((t: string) => (
+                            <span
+                              key={t}
+                              className="text-[10px] text-slate-400 font-semibold"
+                            >
+                              #{t}
+                            </span>
+                          ))}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={`/dashboard/articles/${article.id}/edit`}
-                            className="text-sm font-black text-orange-600 hover:text-orange-700"
-                          >
-                            Edit
-                          </Link>
-                          <ArticleRowActions articleId={article.id} onDelete={handleDelete} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      )}
+                    </div>
+                  </div>,
+
+                  <div key="actions" className="text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <Link
+                        href={`/dashboard/articles/${article.id}/edit`}
+                        className="text-sm font-black text-orange-600 hover:text-orange-700"
+                      >
+                        Edit
+                      </Link>
+                      <ArticleRowActions articleId={article.id} onDelete={handleDelete} />
+                    </div>
+                  </div>,
+                ]}
+                identity={
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-8 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                      <Image
+                        src={article.cover_image_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=120&auto=format&fit=crop"}
+                        alt={article.title}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </div>
+                    <Link
+                      href={`/articles/${article.slug}`}
+                      className="font-bold text-slate-900 hover:text-orange-600 truncate max-w-[180px]"
+                      target="_blank"
+                    >
+                      {article.title}
+                    </Link>
+                  </div>
+                }
+                primaryValue={
+                  <span className="text-[11px] font-bold capitalize text-slate-600">
+                    {article.visibility}
+                  </span>
+                }
+                state={
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                      statusBadge[article.status] || "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {article.status}
+                  </span>
+                }
+                secondary={[
+                  <span key="date">{displayDate}</span>,
+                  article.categories && article.categories.length > 0 ? (
+                    <span key="cat" className="text-orange-700 font-bold">{article.categories[0]}</span>
+                  ) : null,
+                ].filter(Boolean)}
+                actions={
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/dashboard/articles/${article.id}/edit`}
+                      className="text-xs font-bold text-orange-600 hover:text-orange-700"
+                    >
+                      Edit
+                    </Link>
+                    <ArticleRowActions articleId={article.id} onDelete={handleDelete} />
+                  </div>
+                }
+                expandedDetails={
+                  <div className="space-y-1.5 text-xs pt-1">
+                    {article.scheduled_for && (
+                      <div>
+                        <span className="text-slate-400 font-medium">Scheduled for: </span>
+                        <span className="font-semibold text-slate-700">{new Date(article.scheduled_for).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {article.categories && article.categories.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-slate-400 font-medium">Categories: </span>
+                        {article.categories.map((c: string) => (
+                          <span key={c} className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {article.tags && article.tags.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-slate-400 font-medium">Tags: </span>
+                        {article.tags.map((t: string) => (
+                          <span key={t} className="text-[10px] text-slate-500 font-medium">#{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-200 py-16 text-center bg-white shadow-sm">
           <p className="text-sm font-bold text-slate-500">No articles found.</p>

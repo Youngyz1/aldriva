@@ -8,6 +8,8 @@ import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import ApprovalActionButtons from "@/components/admin/ApprovalActionButtons";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { useApprovalAction } from "@/hooks/use-approval-action";
 import { formatAdminDate } from "@/lib/admin-query";
 
@@ -98,10 +100,15 @@ export default function BusinessesClient() {
     params.set("page", String(page));
     params.set("per_page", String(perPage));
     if (search) params.set("search", search);
-    if (tab !== "all") params.set("tab", tab);
-    if (status !== "all") params.set("status", status);
+    if (effectiveStatus !== "all") {
+      if (effectiveStatus === "flagged") {
+        params.set("flagged", "true");
+      } else {
+        params.set("status", effectiveStatus);
+      }
+    }
     return params.toString();
-  }, [page, perPage, search, tab, status]);
+  }, [page, perPage, search, effectiveStatus]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -135,7 +142,7 @@ export default function BusinessesClient() {
         body: JSON.stringify({ is_flagged: !currentFlagged }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to update business flag status.");
+      if (!res.ok) throw new Error(data.error ?? "Failed to update business.");
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred.");
@@ -145,7 +152,7 @@ export default function BusinessesClient() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this business listing permanently?")) {
+    if (!window.confirm("Are you sure you want to delete this business listing? This action cannot be undone.")) {
       return;
     }
     setWorking(id);
@@ -252,50 +259,93 @@ export default function BusinessesClient() {
             <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-6 py-3">Business</th>
-                  <th className="py-3 pr-4">Owner</th>
-                  <th className="py-3 pr-4">Listing Tier</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Featured</th>
-                  <th className="py-3 pr-4">Flagged</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition">
-                    <td className="px-6 py-4 font-black text-zinc-900 max-w-[280px] truncate">
+          <ResponsiveDataTable
+            totalCount={rows.length}
+            emptyMessage="No businesses found."
+            columns={[
+              { id: "business", header: "Business" },
+              { id: "owner", header: "Owner", hideBelow: "md" },
+              { id: "tier", header: "Listing Tier", hideBelow: "lg" },
+              { id: "status", header: "Status" },
+              { id: "featured", header: "Featured", hideBelow: "lg" },
+              { id: "flagged", header: "Flagged", hideBelow: "md" },
+              { id: "created", header: "Created", hideBelow: "lg" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {rows.map((row) => {
+              const actionButtons = (
+                <div className="flex items-center justify-end gap-2">
+                  <Link
+                    href={`/businesses/${row.slug}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </Link>
+                  {row.status === "pending_review" && (
+                    <ApprovalActionButtons
+                      disabled={working === row.id}
+                      onApprove={() => handleApprove(row.id)}
+                      onReject={(reason) => handleReject(row.id, reason)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => handleToggleFlag(row.id, row.is_flagged)}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-black transition disabled:opacity-50 ${
+                      row.is_flagged
+                        ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+                        : "border-red-200 bg-white text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    {row.is_flagged ? "Unflag" : "Flag"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => handleDelete(row.id)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={row.id}
+                  id={row.id}
+                  desktopCells={[
+                    <span key="business" className="font-black text-zinc-900 max-w-[280px] truncate block">
                       {row.name}
-                    </td>
-                    <td className="py-4 pr-4">
+                    </span>,
+                    <div key="owner">
                       <p className="font-semibold text-zinc-800">{row.owner_name}</p>
                       <p className="text-xs text-zinc-500">{row.owner_email || "—"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          tierBadgeStyles[row.listing_tier] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.listing_tier === "one_time" ? "One-time" : row.listing_tier}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
+                    </div>,
+                    <span
+                      key="tier"
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        tierBadgeStyles[row.listing_tier] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.listing_tier === "one_time" ? "One-time" : row.listing_tier}
+                    </span>,
+                    <span
+                      key="status"
+                      title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>,
+                    <span key="featured">
                       {row.is_featured ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-black uppercase text-orange-600">
                           <Star className="h-3 w-3 fill-orange-500 text-orange-500" />
@@ -306,8 +356,8 @@ export default function BusinessesClient() {
                           —
                         </span>
                       )}
-                    </td>
-                    <td className="py-4 pr-4">
+                    </span>,
+                    <span key="flagged">
                       {row.is_flagged ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-black uppercase text-red-600">
                           ⚠ Flagged
@@ -317,61 +367,59 @@ export default function BusinessesClient() {
                           Clear
                         </span>
                       )}
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/businesses/${row.slug}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                        {row.status === "pending_review" && (
-                          <ApprovalActionButtons
-                            disabled={working === row.id}
-                            onApprove={() => handleApprove(row.id)}
-                            onReject={(reason) => handleReject(row.id, reason)}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleToggleFlag(row.id, row.is_flagged)}
-                          className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-black transition disabled:opacity-50 ${
-                            row.is_flagged
-                              ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-                              : "border-red-200 bg-white text-red-600 hover:bg-red-50"
-                          }`}
-                        >
-                          <Flag className="h-3.5 w-3.5" />
-                          {row.is_flagged ? "Unflag" : "Flag"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleDelete(row.id)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </button>
+                    </span>,
+                    <span key="created" className="text-zinc-500">{formatAdminDate(row.created_at)}</span>,
+                    <div key="actions" className="flex items-center justify-end gap-2">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <span className="font-bold text-zinc-950 text-left line-clamp-1">
+                      {row.name}
+                    </span>
+                  }
+                  primaryMeta={
+                    <span className="text-xs text-zinc-500">
+                      {row.owner_name} · {row.listing_tier === "one_time" ? "One-time" : row.listing_tier}
+                    </span>
+                  }
+                  statusBadge={
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>
+                  }
+                  numericMetric={
+                    row.is_featured ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-black uppercase text-orange-600">
+                        <Star className="h-3 w-3 fill-orange-500 text-orange-500" />
+                        Featured
+                      </span>
+                    ) : undefined
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Owner Email:</span> {row.owner_email || "—"}</div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Listing Tier:</span> {row.listing_tier === "one_time" ? "One-time" : row.listing_tier}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
-                      No businesses found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Flagged:</span> {row.is_flagged ? "Flagged" : "Clear"}
+                      </div>
+                      <div><span className="font-bold text-zinc-500">Created:</span> {formatAdminDate(row.created_at)}</div>
+                      {row.rejection_reason && (
+                        <div><span className="font-bold text-red-600">Rejection Reason:</span> {row.rejection_reason}</div>
+                      )}
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         {totalPages > 1 && (

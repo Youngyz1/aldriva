@@ -9,9 +9,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") || "").trim();
-  const type = searchParams.get("type") || "all";
+  const sp = req.nextUrl.searchParams;
+  const q = (sp.get("q") || "").trim();
+  const type = sp.get("type") || "all";
 
   if (!q) {
     return NextResponse.json({ entities: [] });

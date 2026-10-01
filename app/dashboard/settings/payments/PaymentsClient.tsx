@@ -1,8 +1,9 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SettingsCard } from "@/components/ui/settings-card";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import {
   Sparkles,
   Building,
@@ -402,50 +403,87 @@ export default function PaymentsClient({
             </p>
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto">
-            <table className="w-full text-left text-xs text-zinc-600">
-              <thead className="bg-zinc-50 text-[11px] font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-200">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Destination</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 font-medium">
-                {payouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-zinc-50/60 transition">
-                    <td className="px-4 py-3.5 whitespace-nowrap text-zinc-900 font-bold">
-                      {new Date(p.created_at).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap font-black text-zinc-950">
-                      ${p.amount.toFixed(2)} {p.currency.toUpperCase()}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="capitalize font-bold text-zinc-800">
+          <div className="mt-6 rounded-2xl border border-zinc-200/80 bg-white shadow-xs overflow-hidden">
+            <ResponsiveDataTable
+              columns={[
+                { id: "date", header: "Date" },
+                { id: "amount", header: "Amount" },
+                { id: "destination", header: "Destination", hideBelow: "lg" },
+                { id: "status", header: "Status" },
+                { id: "action", header: "Action", align: "right" },
+              ]}
+            >
+              {payouts.map((p) => {
+                const desktopCells = [
+                  <span key="date" className="font-bold text-zinc-900">
+                    {new Date(p.created_at).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>,
+                  <span key="amount" className="font-black text-zinc-950 tabular-nums">
+                    ${p.amount.toFixed(2)} {p.currency.toUpperCase()}
+                  </span>,
+                  <div key="destination">
+                    <span className="capitalize font-bold text-zinc-800">
+                      {p.destination_type.replace("_", " ")}
+                    </span>
+                    {p.destination_reference && (
+                      <span className="block text-[11px] text-zinc-400 font-normal">
+                        Ref: {p.destination_reference}
+                      </span>
+                    )}
+                  </div>,
+                  <div key="status">
+                    {getStatusBadge(p.status)}
+                    {p.failure_reason && (
+                      <p className="mt-1 text-[11px] text-rose-600 font-normal max-w-xs">
+                        {p.failure_reason} (Funds returned)
+                      </p>
+                    )}
+                  </div>,
+                  <div key="actions" className="flex items-center justify-end">
+                    {p.status === "requested" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelPayout(p.id)}
+                        disabled={cancellingId === p.id}
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+                      >
+                        {cancellingId === p.id ? "Cancelling..." : "Cancel"}
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-zinc-400">—</span>
+                    )}
+                  </div>,
+                ];
+
+                return (
+                  <ResponsiveDataRow
+                    key={p.id}
+                    id={p.id}
+                    desktopCells={desktopCells}
+                    identity={
+                      <span className="capitalize font-bold text-zinc-900">
                         {p.destination_type.replace("_", " ")}
                       </span>
-                      {p.destination_reference && (
-                        <span className="block text-[11px] text-zinc-400 font-normal">
-                          Ref: {p.destination_reference}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {getStatusBadge(p.status)}
-                      {p.failure_reason && (
-                        <p className="mt-1 text-[11px] text-rose-600 font-normal max-w-xs">
-                          {p.failure_reason} (Funds returned)
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      {p.status === "requested" ? (
+                    }
+                    primaryValue={
+                      <span className="font-extrabold text-zinc-950 tabular-nums">
+                        ${p.amount.toFixed(2)} {p.currency.toUpperCase()}
+                      </span>
+                    }
+                    state={getStatusBadge(p.status)}
+                    secondary={[
+                      `Requested ${new Date(p.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}`,
+                      p.destination_reference ? `Ref: ${p.destination_reference}` : null,
+                    ]}
+                    actions={
+                      p.status === "requested" ? (
                         <button
                           type="button"
                           onClick={() => handleCancelPayout(p.id)}
@@ -454,14 +492,39 @@ export default function PaymentsClient({
                         >
                           {cancellingId === p.id ? "Cancelling..." : "Cancel"}
                         </button>
-                      ) : (
-                        <span className="text-[11px] text-zinc-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      ) : null
+                    }
+                    expandedDetails={
+                      <div className="space-y-1.5 py-1 text-xs text-zinc-600">
+                        <div>
+                          <span className="font-bold text-zinc-500">Requested Date:</span>{" "}
+                          {new Date(p.created_at).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div>
+                          <span className="font-bold text-zinc-500">Destination:</span>{" "}
+                          {p.destination_type.replace("_", " ")}{" "}
+                          {p.destination_reference && `(${p.destination_reference})`}
+                        </div>
+                        <div>
+                          <span className="font-bold text-zinc-500">Amount:</span> ${p.amount.toFixed(2)}{" "}
+                          {p.currency.toUpperCase()}
+                        </div>
+                        {p.failure_reason && (
+                          <div className="text-rose-700 font-semibold">
+                            <span className="font-bold">Failure Reason:</span> {p.failure_reason} (Funds
+                            returned)
+                          </div>
+                        )}
+                      </div>
+                    }
+                  />
+                );
+              })}
+            </ResponsiveDataTable>
           </div>
         )}
       </div>

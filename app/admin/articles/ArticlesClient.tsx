@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ScrollText, Eye, Ban, Trash2 } from "lucide-react";
+import { Loader2, Eye, Ban, Trash2 } from "lucide-react";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import ApprovalActionButtons from "@/components/admin/ApprovalActionButtons";
+import { ResponsiveDataTable } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 import { useApprovalAction } from "@/hooks/use-approval-action";
 import { formatAdminDate } from "@/lib/admin-query";
 
@@ -119,6 +121,26 @@ export default function ArticlesClient() {
     fetchData();
   }, [fetchData]);
 
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this article? This action cannot be undone.")) {
+      return;
+    }
+    setWorking(id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/articles/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete article.");
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred.");
+    } finally {
+      setWorking(null);
+    }
+  }
+
   async function handleUnpublish(id: string) {
     setWorking(id);
     setError("");
@@ -130,26 +152,6 @@ export default function ArticlesClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to unpublish article.");
-      await fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred.");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this article permanently?")) {
-      return;
-    }
-    setWorking(id);
-    setError("");
-    try {
-      const res = await fetch(`/api/admin/articles/${id}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to delete article.");
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred.");
@@ -180,7 +182,7 @@ export default function ArticlesClient() {
     { label: "Total Articles", value: stats?.total ?? 0 },
     { label: "Pending Review", value: stats?.pending_review ?? 0, accent: "text-amber-600" },
     { label: "Published", value: stats?.published ?? 0, accent: "text-emerald-600" },
-    { label: "Drafts", value: stats?.draft ?? 0, accent: "text-zinc-500" },
+    { label: "Drafts", value: stats?.draft ?? 0, accent: "text-zinc-600" },
     { label: "Scheduled", value: stats?.scheduled ?? 0, accent: "text-blue-600" },
     { label: "Rejected", value: stats?.rejected ?? 0, accent: "text-red-600" },
   ];
@@ -191,7 +193,7 @@ export default function ArticlesClient() {
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Articles</h1>
         <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate editorial articles across all users with search, filters, and moderation actions.
+          Moderate community and platform articles, review submissions, and manage editorial status.
         </p>
       </header>
 
@@ -246,106 +248,135 @@ export default function ArticlesClient() {
             <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-6 py-3">Article</th>
-                  <th className="py-3 pr-4">Author</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Categories</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition">
-                    <td className="px-6 py-4 font-black text-zinc-900 max-w-[280px] truncate">
+          <ResponsiveDataTable
+            totalCount={rows.length}
+            emptyMessage="No articles found."
+            columns={[
+              { id: "article", header: "Article" },
+              { id: "author", header: "Author", hideBelow: "md" },
+              { id: "status", header: "Status" },
+              { id: "categories", header: "Categories", hideBelow: "lg" },
+              { id: "created", header: "Created", hideBelow: "lg" },
+              { id: "actions", header: "Actions", align: "right" },
+            ]}
+          >
+            {rows.map((row) => {
+              const actionButtons = (
+                <div className="flex items-center justify-end gap-2">
+                  <Link
+                    href={`/articles/${row.slug}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </Link>
+                  {row.status === "pending_review" && (
+                    <ApprovalActionButtons
+                      disabled={working === row.id}
+                      onApprove={() => handleApprove(row.id)}
+                      onReject={(reason) => handleReject(row.id, reason)}
+                    />
+                  )}
+                  {row.status !== "draft" && row.status !== "pending_review" && (
+                    <button
+                      type="button"
+                      disabled={working === row.id}
+                      onClick={() => handleUnpublish(row.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs font-black text-yellow-700 hover:bg-yellow-50 transition disabled:opacity-50"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                      Unpublish
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={working === row.id}
+                    onClick={() => handleDelete(row.id)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
+              );
+
+              return (
+                <ResponsiveDataRow
+                  key={row.id}
+                  id={row.id}
+                  desktopCells={[
+                    <span key="title" className="font-black text-zinc-900 max-w-[280px] truncate block">
                       {row.title}
-                    </td>
-                    <td className="py-4 pr-4">
+                    </span>,
+                    <div key="author">
                       <p className="font-semibold text-zinc-800">{row.author_name}</p>
                       <p className="text-xs text-zinc-500">{row.author_email || "—"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <div className="flex flex-wrap gap-1 max-w-[180px]">
-                        {row.categories && row.categories.length > 0 ? (
-                          row.categories.map((c) => (
-                            <span
-                              key={c}
-                              className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-black text-violet-750 border border-violet-100"
-                            >
-                              {c}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-zinc-400">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/articles/${row.slug}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                        {row.status === "pending_review" && (
-                          <ApprovalActionButtons
-                            disabled={working === row.id}
-                            onApprove={() => handleApprove(row.id)}
-                            onReject={(reason) => handleReject(row.id, reason)}
-                          />
-                        )}
-                        {row.status !== "draft" && row.status !== "pending_review" && (
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => handleUnpublish(row.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs font-black text-yellow-700 hover:bg-yellow-50 transition disabled:opacity-50"
+                    </div>,
+                    <span
+                      key="status"
+                      title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>,
+                    <div key="categories" className="flex flex-wrap gap-1 max-w-[180px]">
+                      {row.categories && row.categories.length > 0 ? (
+                        row.categories.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-black text-violet-750 border border-violet-100"
                           >
-                            <Ban className="h-3.5 w-3.5" />
-                            Unpublish
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleDelete(row.id)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </button>
+                            {c}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </div>,
+                    <span key="created" className="text-zinc-500">{formatAdminDate(row.created_at)}</span>,
+                    <div key="actions" className="flex items-center justify-end gap-2">
+                      {actionButtons}
+                    </div>,
+                  ]}
+                  identity={
+                    <span className="font-bold text-zinc-950 text-left line-clamp-1">
+                      {row.title}
+                    </span>
+                  }
+                  primaryMeta={
+                    <span className="text-xs text-zinc-500">
+                      {row.author_name} · {formatAdminDate(row.created_at)}
+                    </span>
+                  }
+                  statusBadge={
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      {row.status.replace("_", " ")}
+                    </span>
+                  }
+                  actions={actionButtons}
+                  mobileDetails={
+                    <div className="space-y-2 text-xs text-zinc-600">
+                      <div><span className="font-bold text-zinc-500">Author:</span> {row.author_name} ({row.author_email || "—"})</div>
+                      <div>
+                        <span className="font-bold text-zinc-500">Categories:</span> {row.categories && row.categories.length > 0 ? row.categories.join(", ") : "—"}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
-                      No articles found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      <div><span className="font-bold text-zinc-500">Created:</span> {formatAdminDate(row.created_at)}</div>
+                      {row.rejection_reason && (
+                        <div><span className="font-bold text-red-600">Rejection Reason:</span> {row.rejection_reason}</div>
+                      )}
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ResponsiveDataTable>
         )}
 
         {totalPages > 1 && (

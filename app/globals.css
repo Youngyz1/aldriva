@@ -115,10 +115,15 @@
   --card-foreground: #09090b;
   --muted: #fafafa;
   --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
   --input: #e4e4e7;
   --ring: var(--brand-500);
+}
+
+@theme {
+  --container-sm: 30rem;   /* 480px — mobile expanded row */
+  --container-md: 48rem;   /* 768px — tablet reduced table */
+  --container-lg: 64rem;   /* 1024px — desktop full table */
+  --container-xl: 80rem;   /* 1280px — wide canvas */
 }
 
 @theme inline {

@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { ResponsiveDataTable, ResponsiveColumn } from "@/components/dashboard/ResponsiveDataTable";
+import { ResponsiveDataRow } from "@/components/dashboard/ResponsiveDataRow";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -94,6 +96,15 @@ function formatSeatBadge(seat: GuestItem["seat"], fallbackLabel?: string | null)
   if (fallbackLabel) return fallbackLabel;
   return null;
 }
+
+const GUEST_COLUMNS: ResponsiveColumn[] = [
+  { id: "guest", header: "Guest", align: "left" },
+  { id: "contact", header: "Contact", align: "left", hideBelow: "lg" },
+  { id: "status", header: "Invitation Status", align: "left" },
+  { id: "admission", header: "Admission / Check-In", align: "left", hideBelow: "md" },
+  { id: "seat", header: "Seat", align: "left" },
+  { id: "actions", header: "Actions", align: "right" },
+];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -406,197 +417,304 @@ export default function GuestsClient({
           </div>
         )
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-100 bg-zinc-50 text-[11px] font-black uppercase tracking-wider text-zinc-500">
-                <tr>
-                  <th className="px-4 py-3.5">Guest</th>
-                  <th className="px-4 py-3.5">Contact</th>
-                  <th className="px-4 py-3.5">Invitation Status</th>
-                  <th className="px-4 py-3.5">Admission / Check-In</th>
-                  <th className="px-4 py-3.5">Seat</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {filteredGuests.map((guest) => {
-                  const isCheckedIn = guest.ticketInstance?.status === "used";
-                  const isCancelled = guest.invitation_status === "cancelled";
-                  const seatBadge = formatSeatBadge(guest.seat, guest.ticketInstance?.seat_label);
-                  const isActing = actionLoadingId === guest.id;
+        <ResponsiveDataTable columns={GUEST_COLUMNS}>
+          {filteredGuests.map((guest) => {
+            const isCheckedIn = guest.ticketInstance?.status === "used";
+            const isCancelled = guest.invitation_status === "cancelled";
+            const seatBadge = formatSeatBadge(guest.seat, guest.ticketInstance?.seat_label);
+            const isActing = actionLoadingId === guest.id;
 
-                  return (
-                    <tr key={guest.id} className="transition-colors hover:bg-zinc-50/70">
-                      {/* Guest Identity */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-start gap-2.5">
-                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-xs font-black text-violet-700 border border-violet-100">
-                            {guest.guest_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-black text-zinc-900 leading-tight">
-                              {guest.guest_name}
-                            </p>
-                            {(guest.guest_title || guest.organization) && (
-                              <p className="text-xs font-semibold text-zinc-500">
-                                {[guest.guest_title, guest.organization].filter(Boolean).join(" · ")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+            return (
+              <ResponsiveDataRow
+                key={guest.id}
+                id={guest.id}
+                desktopCells={[
+                  /* Guest Identity */
+                  <div key="identity" className="flex items-start gap-2.5">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-xs font-black text-violet-700 border border-violet-100">
+                      {guest.guest_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-black text-zinc-900 leading-tight">
+                        {guest.guest_name}
+                      </p>
+                      {(guest.guest_title || guest.organization) && (
+                        <p className="text-xs font-semibold text-zinc-500">
+                          {[guest.guest_title, guest.organization].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>,
 
-                      {/* Contact */}
-                      <td className="px-4 py-3.5">
-                        {guest.email ? (
-                          <p className="text-xs font-semibold text-zinc-700">{guest.email}</p>
-                        ) : (
-                          <span className="text-xs text-zinc-300">No email</span>
-                        )}
-                        {guest.phone && (
-                          <p className="text-[11px] font-medium text-zinc-400">{guest.phone}</p>
-                        )}
-                      </td>
+                  /* Contact */
+                  <div key="contact">
+                    {guest.email ? (
+                      <p className="text-xs font-semibold text-zinc-700">{guest.email}</p>
+                    ) : (
+                      <span className="text-xs text-zinc-300">No email</span>
+                    )}
+                    {guest.phone && (
+                      <p className="text-[11px] font-medium text-zinc-400">{guest.phone}</p>
+                    )}
+                  </div>,
 
-                      {/* Invitation Status */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex flex-col gap-1 items-start">
-                          {guest.invitation_status === "sent" ? (
-                            <span className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-black text-violet-700">
-                              <Send size={10} />
-                              Sent
-                            </span>
-                          ) : guest.invitation_status === "draft" ? (
-                            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700">
-                              <Clock size={10} />
-                              Draft
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-500">
-                              <Ban size={10} />
-                              {guest.invitation_status}
-                            </span>
-                          )}
+                  /* Invitation Status */
+                  <div key="status" className="flex flex-col gap-1 items-start">
+                    {guest.invitation_status === "sent" ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-black text-violet-700">
+                        <Send size={10} />
+                        Sent
+                      </span>
+                    ) : guest.invitation_status === "draft" ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700">
+                        <Clock size={10} />
+                        Draft
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-black text-zinc-500">
+                        <Ban size={10} />
+                        {guest.invitation_status}
+                      </span>
+                    )}
 
-                          {guest.invitation_status !== "draft" && guest.invitation_status !== "cancelled" && (
-                            guest.rsvp_status === "accepted" ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 border border-emerald-200">
-                                <Check size={9} /> RSVP Accepted
-                              </span>
-                            ) : guest.rsvp_status === "declined" ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-600 border border-zinc-200">
-                                <X size={9} /> RSVP Declined
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
-                                RSVP Pending
-                              </span>
-                            )
-                          )}
-                        </div>
-                      </td>
+                    {guest.invitation_status !== "draft" && guest.invitation_status !== "cancelled" && (
+                      guest.rsvp_status === "accepted" ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 border border-emerald-200">
+                          <Check size={9} /> RSVP Accepted
+                        </span>
+                      ) : guest.rsvp_status === "declined" ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-black text-zinc-600 border border-zinc-200">
+                          <X size={9} /> RSVP Declined
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                          RSVP Pending
+                        </span>
+                      )
+                    )}
+                  </div>,
 
-                      {/* Check-In Status */}
-                      <td className="px-4 py-3.5">
-                        {isCheckedIn ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">
-                            <CheckCircle2 size={11} />
-                            Checked In
+                  /* Check-In Status */
+                  <div key="admission">
+                    {isCheckedIn ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">
+                        <CheckCircle2 size={11} />
+                        Checked In
+                      </span>
+                    ) : isCancelled ? (
+                      <span className="text-xs text-zinc-400">Cancelled</span>
+                    ) : (
+                      <span className="text-xs font-semibold text-zinc-500">Valid · Not Arrived</span>
+                    )}
+                  </div>,
+
+                  /* Seat Assignment */
+                  <div key="seat">
+                    {seatBadge ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-black text-blue-800">
+                          <Armchair size={11} />
+                          {seatBadge}
+                        </span>
+                        {guest.seat?.is_vip && (
+                          <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-600">
+                            <Star size={9} /> VIP
                           </span>
-                        ) : isCancelled ? (
-                          <span className="text-xs text-zinc-400">Cancelled</span>
-                        ) : (
-                          <span className="text-xs font-semibold text-zinc-500">Valid · Not Arrived</span>
                         )}
-                      </td>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAssigningSeatGuest(guest)}
+                        disabled={isCancelled || isCheckedIn}
+                        className="text-xs font-black text-violet-600 hover:underline disabled:opacity-40 disabled:hover:no-underline"
+                      >
+                        + Assign Seat
+                      </button>
+                    )}
+                  </div>,
 
-                      {/* Seat Assignment */}
-                      <td className="px-4 py-3.5">
-                        {seatBadge ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-black text-blue-800">
-                              <Armchair size={11} />
-                              {seatBadge}
-                            </span>
-                            {guest.seat?.is_vip && (
-                              <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-600">
-                                <Star size={9} /> VIP
-                              </span>
-                            )}
-                          </div>
+                  /* Actions */
+                  <div key="actions" className="flex items-center justify-end gap-1.5">
+                    {/* Send / Resend Email Button */}
+                    {guest.email && !isCancelled && (
+                      <button
+                        onClick={() => handleSendEmail(guest)}
+                        disabled={isActing}
+                        title={guest.invitation_status === "sent" ? "Resend Invitation Email" : "Send Invitation Email"}
+                        className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 shadow-sm transition-all hover:bg-violet-50 hover:text-violet-700 disabled:opacity-50"
+                      >
+                        {isActing ? (
+                          <Loader2 size={12} className="animate-spin text-violet-600" />
                         ) : (
-                          <button
-                            onClick={() => setAssigningSeatGuest(guest)}
-                            disabled={isCancelled || isCheckedIn}
-                            className="text-xs font-black text-violet-600 hover:underline disabled:opacity-40 disabled:hover:no-underline"
-                          >
-                            + Assign Seat
-                          </button>
+                          <Mail size={12} />
                         )}
-                      </td>
+                        {guest.invitation_status === "sent" ? "Resend" : "Send"}
+                      </button>
+                    )}
 
-                      {/* Actions */}
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Send / Resend Email Button */}
-                          {guest.email && !isCancelled && (
-                            <button
-                              onClick={() => handleSendEmail(guest)}
-                              disabled={isActing}
-                              title={guest.invitation_status === "sent" ? "Resend Invitation Email" : "Send Invitation Email"}
-                              className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 shadow-sm transition-all hover:bg-violet-50 hover:text-violet-700 disabled:opacity-50"
-                            >
-                              {isActing ? (
-                                <Loader2 size={12} className="animate-spin text-violet-600" />
-                              ) : (
-                                <Mail size={12} />
-                              )}
-                              {guest.invitation_status === "sent" ? "Resend" : "Send"}
-                            </button>
-                          )}
+                    {/* Seat Assign/Change Button */}
+                    {!isCancelled && !isCheckedIn && seatBadge && (
+                      <button
+                        onClick={() => setAssigningSeatGuest(guest)}
+                        title="Change or Remove Seat"
+                        className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
+                      >
+                        <Armchair size={13} />
+                      </button>
+                    )}
 
-                          {/* Seat Assign/Change Button */}
-                          {!isCancelled && !isCheckedIn && seatBadge && (
-                            <button
-                              onClick={() => setAssigningSeatGuest(guest)}
-                              title="Change or Remove Seat"
-                              className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
-                            >
-                              <Armchair size={13} />
-                            </button>
-                          )}
+                    {/* Edit Guest Button */}
+                    {!isCancelled && (
+                      <button
+                        onClick={() => setEditingGuest(guest)}
+                        title="Edit Guest Details"
+                        className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
 
-                          {/* Edit Guest Button */}
-                          {!isCancelled && (
-                            <button
-                              onClick={() => setEditingGuest(guest)}
-                              title="Edit Guest Details"
-                              className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
-                            >
-                              <Edit2 size={13} />
-                            </button>
-                          )}
-
-                          {/* Cancel Invitation Button */}
-                          {!isCancelled && !isCheckedIn && (
-                            <button
-                              onClick={() => setCancellingGuest(guest)}
-                              title="Cancel Invitation"
-                              className="rounded-xl border border-red-200 bg-white p-1.5 text-red-500 shadow-sm hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Ban size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    {/* Cancel Invitation Button */}
+                    {!isCancelled && !isCheckedIn && (
+                      <button
+                        onClick={() => setCancellingGuest(guest)}
+                        title="Cancel Invitation"
+                        className="rounded-xl border border-red-200 bg-white p-1.5 text-red-500 shadow-sm hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Ban size={13} />
+                      </button>
+                    )}
+                  </div>,
+                ]}
+                identity={
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-xs font-black text-violet-700 border border-violet-100">
+                      {guest.guest_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-bold text-zinc-900 truncate">{guest.guest_name}</span>
+                    {guest.seat?.is_vip && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-black text-orange-600">
+                        <Star size={9} /> VIP
+                      </span>
+                    )}
+                  </div>
+                }
+                primaryValue={
+                  seatBadge ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                      <Armchair size={10} />
+                      {seatBadge}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setAssigningSeatGuest(guest)}
+                      disabled={isCancelled || isCheckedIn}
+                      className="text-[11px] font-bold text-violet-600 hover:underline disabled:opacity-40"
+                    >
+                      + Assign Seat
+                    </button>
+                  )
+                }
+                state={
+                  guest.invitation_status === "sent" ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
+                      <Send size={9} /> Sent
+                    </span>
+                  ) : guest.invitation_status === "draft" ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                      <Clock size={9} /> Draft
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-500">
+                      <Ban size={9} /> {guest.invitation_status}
+                    </span>
+                  )
+                }
+                secondary={[
+                  isCheckedIn ? (
+                    <span key="checked_in" className="text-emerald-700 font-bold">Checked In</span>
+                  ) : isCancelled ? (
+                    <span key="cancelled" className="text-zinc-400">Cancelled</span>
+                  ) : (
+                    <span key="valid" className="text-zinc-500">Valid · Not Arrived</span>
+                  ),
+                  (guest.guest_title || guest.organization) ? (
+                    <span key="org" className="truncate">{[guest.guest_title, guest.organization].filter(Boolean).join(" · ")}</span>
+                  ) : null,
+                  guest.email ? <span key="email" className="truncate">{guest.email}</span> : null,
+                ].filter(Boolean)}
+                actions={
+                  <div className="flex items-center gap-1">
+                    {guest.email && !isCancelled && (
+                      <button
+                        onClick={() => handleSendEmail(guest)}
+                        disabled={isActing}
+                        title={guest.invitation_status === "sent" ? "Resend Invitation Email" : "Send Invitation Email"}
+                        className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-bold text-zinc-700 shadow-xs hover:bg-violet-50 hover:text-violet-700 disabled:opacity-50"
+                      >
+                        {isActing ? <Loader2 size={11} className="animate-spin text-violet-600" /> : <Mail size={11} />}
+                        {guest.invitation_status === "sent" ? "Resend" : "Send"}
+                      </button>
+                    )}
+                  </div>
+                }
+                expandedDetails={
+                  <div className="space-y-2 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-zinc-400 font-medium">Email: </span>
+                        <span className="text-zinc-700 font-semibold">{guest.email || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-400 font-medium">Phone: </span>
+                        <span className="text-zinc-700 font-semibold">{guest.phone || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-400 font-medium">RSVP: </span>
+                        <span className="text-zinc-700 font-semibold capitalize">{guest.rsvp_status || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-400 font-medium">Seat: </span>
+                        <span className="text-zinc-700 font-semibold">{seatBadge || "None"}</span>
+                      </div>
+                    </div>
+                    {guest.notes && (
+                      <div className="text-xs text-zinc-500 bg-zinc-50 rounded-lg p-2 border border-zinc-100">
+                        <span className="font-semibold text-zinc-700">Notes: </span>{guest.notes}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-100">
+                      {!isCancelled && !isCheckedIn && seatBadge && (
+                        <button
+                          onClick={() => setAssigningSeatGuest(guest)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                        >
+                          <Armchair size={12} /> Change Seat
+                        </button>
+                      )}
+                      {!isCancelled && (
+                        <button
+                          onClick={() => setEditingGuest(guest)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+                        >
+                          <Edit2 size={12} /> Edit Details
+                        </button>
+                      )}
+                      {!isCancelled && !isCheckedIn && (
+                        <button
+                          onClick={() => setCancellingGuest(guest)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                        >
+                          <Ban size={12} /> Cancel Invitation
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                }
+              />
+            );
+          })}
+        </ResponsiveDataTable>
       )}
 
       {/* ── Add Guest Modal ── */}
