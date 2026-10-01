@@ -4,7 +4,7 @@
  * checks header/cell x-alignment, and saves viewport screenshots OUTSIDE
  * the repo. Shot directory suffix via SHOTS_SUBDIR (phase1-before/after).
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import fs from "fs";
 import path from "path";
 import {
@@ -28,7 +28,7 @@ type PageResult = {
   alignMismatches: string[];
 };
 
-async function measure(page: Parameters<Parameters<typeof test>[1]>[0]) {
+async function measure(page: Page) {
   return page.evaluate(() => {
     const de = document.documentElement;
     const tables = {
@@ -58,9 +58,7 @@ async function measure(page: Parameters<Parameters<typeof test>[1]>[0]) {
   });
 }
 
-async function alignment(
-  page: Parameters<Parameters<typeof test>[1]>[0]
-): Promise<string[]> {
+async function alignment(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const out: string[] = [];
     const table = document.querySelector("table");
