@@ -449,6 +449,7 @@ export default function OrganizersClient() {
         exporting={exporting}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((v) => !v)}
+        sticky={false}
       />
 
       {error && (

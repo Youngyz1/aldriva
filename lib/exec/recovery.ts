@@ -147,6 +147,12 @@ export async function reclaimStaleLeases(client: ExecClient, input: ReclaimInput
         'reclaim exhaust'
       );
       if (done.length > 0) out.exhausted.push(row.id);
+      // Stage 17 (O-1): close the orphaned attempt run. The attempt can never
+      // complete now (task terminal; late ingest is rejected as job-not-running),
+      // so without this the agent_runs row stays 'running' forever and reads as
+      // busy. Conditional on running: never touches a terminal row. Task state,
+      // attempt count and backoff above are untouched.
+      await closeOrphanedAttempt(client, row.id, row.attempt_count, nowIso);
       continue;
     }
     const runAfter = new Date(Date.parse(nowIso) + computeBackoffMs(row.attempt_count, input.backoffBaseMs)).toISOString();
@@ -168,6 +174,10 @@ export async function reclaimStaleLeases(client: ExecClient, input: ReclaimInput
       'reclaim requeue'
     );
     if (moved.length > 0) out.requeued.push(row.id);
+    // Stage 17 (O-1): same orphan close on the requeue path. The requeued
+    // task will run under a NEW attempt_no on next claim; this attempt row
+    // can never transition (ingest rejects it as job-not-running).
+    await closeOrphanedAttempt(client, row.id, row.attempt_count, nowIso);
   }
   return out;
 }

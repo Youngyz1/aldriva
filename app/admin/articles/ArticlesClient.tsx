@@ -200,6 +200,7 @@ export default function ArticlesClient() {
       <AdminManagementToolbar
         search={search}
         searchPlaceholder="Search articles by title or author..."
+        sticky={false}
         onSearchChange={(v) => updateParams({ search: v || null })}
         tabs={STATUS_TABS.map((t) => ({
           ...t,

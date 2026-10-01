@@ -30,6 +30,14 @@ type Props = {
   exporting?: boolean;
   filtersOpen?: boolean;
   onToggleFilters?: () => void;
+  /**
+   * Phase 1 stabilization: the toolbar used `sticky top-0`, which slid under
+   * the sticky global navbar (h-16) and covered table headers while stuck.
+   * Pass `sticky={false}` to render it as a static block until the table
+   * system (Phase 4) reintroduces a properly offset sticky toolbar + header.
+   * Defaults to true so unmigrated screens render as before.
+   */
+  sticky?: boolean;
 };
 
 function SelectField({ filter }: { filter: FilterSelect }) {
@@ -69,11 +77,17 @@ export default function AdminManagementToolbar({
   exporting = false,
   filtersOpen = true,
   onToggleFilters,
+  sticky = true,
 }: Props) {
   return (
     // Open filter bar: blends with the page canvas (bg-zinc-100) instead of
     // rendering as a white bordered card — same convention as DashboardToolbar.
-    <div className="sticky top-0 z-20 space-y-3 bg-zinc-100/95 backdrop-blur-md py-3">
+    <div
+      className={cn(
+        "space-y-3 bg-zinc-100/95 backdrop-blur-md py-3",
+        sticky && "sticky top-0 z-20"
+      )}
+    >
       {tabs && onTabChange && (
         <div className="flex gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => (
