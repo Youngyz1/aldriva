@@ -50,6 +50,7 @@ export interface AgentRunView {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  approval_id?: string | null;
 }
 
 export interface AgentReportView {
@@ -71,6 +72,8 @@ export interface AgentDetailRaw {
   runs: AgentRunView[];
   reports: AgentReportView[];
   knowledge: KnowledgeDigest;
+  /** Approval ids in this window whose approvals row is non-pending (O-7 staleness guard). */
+  decidedApprovalIds?: string[];
 }
 
 /** Live presence: an agent is busy iff it has a running/awaiting run. */
@@ -83,6 +86,30 @@ export function isBusyStatus(status: string): boolean {
 /** Shared lifecycle-vs-presence derivation (also used by command-center). */
 export function derivePresence(runStatuses: string[]): { busy: boolean } {
   return { busy: runStatuses.some((s) => BUSY_RUN.has(s)) };
+}
+
+/**
+ * Stage 17 (O-7): staleness guard. An awaiting_approval run whose approval is
+ * already decided is a phantom (see O-2): the decision path now transitions
+ * these rows, but rows decided before that fix — or missed by a failed
+ * transition — must not read as busy. decidedApprovalIds carries approval
+ * ids whose approvals row is non-pending.
+ */
+export function isStaleAwaiting(
+  status: string,
+  approvalId: string | null | undefined,
+  decidedApprovalIds: readonly string[]
+): boolean {
+  return status === 'awaiting_approval' && !!approvalId && decidedApprovalIds.includes(approvalId);
+}
+
+/** Live presence: busy and not a decided-approval phantom. */
+export function isLiveBusy(
+  status: string,
+  approvalId: string | null | undefined,
+  decidedApprovalIds: readonly string[]
+): boolean {
+  return BUSY_RUN.has(status) && !isStaleAwaiting(status, approvalId, decidedApprovalIds);
 }
 
 async function selectAll<T>(qPromise: PromiseLike<unknown>, what: string): Promise<T[]> {
@@ -107,6 +134,7 @@ export interface PresenceRun {
   agent_id: string;
   status: string;
   created_at: string;
+  approval_id?: string | null;
 }
 
 /** Recent runs for live-presence derivation (bounded window, newest first). */
@@ -114,7 +142,7 @@ export async function fetchRecentRunPresence(
   client: CommandCenterClient,
   tenantId: string | null = null
 ): Promise<PresenceRun[]> {
-  let q = client.from('agent_runs').select('agent_id,status,created_at');
+  let q = client.from('agent_runs').select('agent_id,status,created_at,approval_id');
   if (tenantId !== null) q = q.eq('tenant_id', tenantId);
   return selectAll<PresenceRun>(q.order('created_at', { ascending: false }).limit(50), 'agent_runs');
 }
@@ -154,7 +182,7 @@ export async function fetchAgentDetail(
     'agent_tasks'
   );
   const runs = await selectAll<AgentRunView>(
-    scopedTenant(client.from('agent_runs').select('id,status,triggered_by,error,created_at,completed_at').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(5), tenantId),
+    scopedTenant(client.from('agent_runs').select('id,status,triggered_by,error,created_at,completed_at,approval_id').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(5), tenantId),
     'agent_runs'
   );
   const reports = await selectAll<AgentReportView>(
@@ -179,7 +207,25 @@ export async function fetchAgentDetail(
       platformApproved: docs.length,
       agentRoleDocs: docs.filter((d) => d.category === 'agent_role').map((d) => ({ id: d.id, title: d.title })),
     },
+    decidedApprovalIds: await fetchDecidedApprovalIds(client, runs),
   };
+}
+
+/**
+ * Stage 17 (O-7): approval ids (from the given runs) whose approvals row is
+ * already decided. Read-only; empty in/out on no linked approvals.
+ */
+export async function fetchDecidedApprovalIds(
+  client: CommandCenterClient,
+  runs: Array<{ approval_id?: string | null }>
+): Promise<string[]> {
+  const ids = [...new Set(runs.map((r) => r.approval_id).filter((id): id is string => !!id))];
+  if (ids.length === 0) return [];
+  const rows = await selectAll<{ id: string; status: string }>(
+    client.from('approvals').select('id,status').in('id', ids),
+    'approval decisions'
+  );
+  return rows.filter((r) => r.status !== 'pending').map((r) => r.id);
 }
 
 export interface AgentDetailViewModel {
@@ -202,7 +248,9 @@ export interface AgentDetailViewModel {
  * never credentials. Empty sections flagged for honest empty states.
  */
 export function buildAgentDetailViewModel(raw: AgentDetailRaw): AgentDetailViewModel {
-  const { busy } = derivePresence(raw.runs.map((r) => r.status));
+  const decided = raw.decidedApprovalIds ?? [];
+  const live = (r: AgentRunView) => isLiveBusy(r.status, r.approval_id, decided);
+  const { busy } = { busy: raw.runs.some(live) };
   const toolScopeCounts: Record<string, number> = {};
   for (const t of raw.tools) toolScopeCounts[t.scope] = (toolScopeCounts[t.scope] ?? 0) + 1;
 
@@ -215,8 +263,11 @@ export function buildAgentDetailViewModel(raw: AgentDetailRaw): AgentDetailViewM
   return {
     agent: raw.agent,
     busy,
-    currentTask: raw.tasks[0] ?? null,
-    lastActivityAt: raw.runs[0]?.created_at ?? null,
+    // Stage 17 (O-7): current work is the newest NON-terminal task; a
+    // completed task is history, never "current".
+    currentTask: raw.tasks.find((t) => t.status === 'queued' || t.status === 'running' || t.status === 'awaiting_approval') ?? null,
+    // Stage 17 (O-7): completion time when present, creation otherwise.
+    lastActivityAt: raw.runs[0]?.completed_at ?? raw.runs[0]?.created_at ?? null,
     tools: raw.tools,
     toolScopeCounts,
     permissions,

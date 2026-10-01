@@ -57,6 +57,17 @@
 - Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
 - Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
 
+## [2026-09] — Observability Stage 17 pass one complete (2026-09-30)
+### Stage 17 pass one — stored-state truth, no migration (2026-09-30)
+- O-1: `reclaimStaleLeases` closes the orphaned attempt (`agent_runs` → `failed`, `error='exec-lease-expired:superseded'`, `completed_at`, conditional on `status='running'` + `task_id`/`attempt_no`) on both exhaust and requeue paths. Task requeue, attempt count, backoff, eligibility untouched; late-ingest rejection unchanged.
+- O-2: new `transitionDecidedRun` helper (guard untouched) called from `decideWorkforceApproval` post-decision, try/catch log-and-continue: approved → `completed`, rejected/expired → `cancelled`, conditional on `awaiting_approval`. `approved → completed` means the gate passed and execution continues in exec rows — not that the work finished (Activity renders run entries by status text; Agent detail shows run status verbatim).
+- O-5: memory applier selects `approver_id` and passes it as `p_approver` for agent-proposed applies (poll + action paths); idempotency/conflict behavior unchanged (keyed on fact identity).
+- O-3: sentinel sweep stamps `incidents.agent_run_id` with the investigation run id (`WHERE agent_run_id IS NULL`), non-fatal.
+- O-6: exec attempt rows now `triggered_by='manual'`; QA standing smoke keeps `'schedule'`. Gateway task born-`completed` corrected at read time (completed tasks with a linked live run count as active in Command Center).
+- O-7 read-side: `qaRunCount` from `qa_runs` (platform + tenant rows); window counts labelled recent; busy/awaiting derive with decided-approval staleness guard (Command Center, Agents list/detail); `currentTask` newest non-terminal; `lastActivityAt` prefers `completed_at`; Activity no longer renders `awaiting_approval` as finished; stale Stage-7 QA empty note fixed. Historical `via schedule` rows stay verbatim.
+- Tests: `stage17-pass-one.test.cjs` (14 behavioral/static); spec-mandated assertion updates in `command-center`, `agents`, `workforce-admin-actions` tests (same strength, new behavior pinned). No migration added; nothing applied to any database.
+- Deferred: O-4 (worker identity), O-8 (QA reclaim), O-9 (role audit, 429 visibility, dead kinds), O-10 (correlation id), O-11 (retention, sweep scheduling), O-12 (exec SHA/env), Studio turn trail.
+
 ## [2026-09] — Workforce Testing Stage 16 complete (2026-09-30)
 ### Stage 16 — hermetic gap tests + staging verification script (2026-09-30)
 - Behavioral (real logic, stubbed boundaries only): `lib/actions/__tests__/workforce-admin-actions.test.cjs` (12 tests: decide non-admin/invalid/rate-limited/decided/expired + exactly-one-write happy path; memory non-admin/secret/scope/agent/rate-limited + one-RPC happy path); `lib/qa/__tests__/qa-routes.test.cjs` (7 tests: poll 401s, PREV accepted, claimed:false pass-through, ingest 401s, ingest-once + idempotent replay); `lib/exec/__tests__/worker-auth.test.cjs` (6 tests: bearer/claim-token behavior incl. PREV rotation, timingSafeEqual static, 401 denial args carry fixed labels only).

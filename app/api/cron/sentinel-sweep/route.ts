@@ -57,6 +57,25 @@ export async function POST(req: NextRequest) {
       error: result.error,
     });
 
+    // Stage 17 (O-3): link the swept incidents to the investigation run so
+    // "which run investigated incident X" is answerable by FK. Conditional
+    // (never overwrites) and non-fatal: a stamp failure must not fail the
+    // sweep response.
+    if (result.runId) {
+      try {
+        const ids = (incidents ?? []).map((i) => (i as { id: string }).id);
+        if (ids.length > 0) {
+          await admin
+            .from('incidents')
+            .update({ agent_run_id: result.runId })
+            .in('id', ids)
+            .is('agent_run_id', null);
+        }
+      } catch (err) {
+        console.error('[sentinel-sweep] run stamp failed:', err instanceof Error ? err.message : String(err));
+      }
+    }
+
     return NextResponse.json({
       success: true,
       openCount,

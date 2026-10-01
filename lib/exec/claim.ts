@@ -234,7 +234,7 @@ export async function claimExecution(client: ExecClient, input: ClaimInput): Pro
           task_id: task.id,
           agent_id: task.agent_id,
           tenant_id: task.tenant_id,
-          triggered_by: 'schedule',
+          triggered_by: 'manual',
           status: 'running',
           approval_id: task.approval_id,
           attempt_no: attemptNo,

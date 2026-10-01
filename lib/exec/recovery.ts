@@ -181,3 +181,31 @@ export async function reclaimStaleLeases(client: ExecClient, input: ReclaimInput
   }
   return out;
 }
+
+/**
+ * Stage 17 (O-1): close the agent_runs attempt row orphaned by a lease
+ * expiry. Conditional on status='running' so replays are idempotent and a
+ * terminal row is never overwritten. Fixed explanatory error string so the
+ * closure reason is auditable on the row itself.
+ */
+async function closeOrphanedAttempt(
+  client: ExecClient,
+  taskId: string,
+  attemptNo: number,
+  nowIso: string
+): Promise<void> {
+  await selectAll<{ id: string }>(
+    client
+      .from('agent_runs')
+      .update({
+        status: 'failed',
+        error: 'exec-lease-expired:superseded',
+        completed_at: nowIso,
+      })
+      .eq('task_id', taskId)
+      .eq('attempt_no', attemptNo)
+      .eq('status', 'running')
+      .select('id'),
+    'reclaim orphan close'
+  );
+}

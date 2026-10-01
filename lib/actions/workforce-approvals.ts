@@ -14,7 +14,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { decideApproval } from "@/lib/workforce/approvals";
+import { decideApproval, transitionDecidedRun } from "@/lib/workforce/approvals";
 import { applyApprovedMemory } from "@/lib/workforce/memory-apply";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -43,6 +43,16 @@ export async function decideWorkforceApproval(formData: FormData): Promise<never
         nowIso,
       });
       notice = result.ok && result.decision ? result.decision : "rejected";
+    // Stage 17 (O-2): move the originating run out of awaiting_approval now
+    // that the decision is recorded. Never fails or alters the decision:
+    // log and continue; the applier poll / next decide remain available.
+    if (result.ok && result.decision) {
+      try {
+        await transitionDecidedRun(admin, approvalId, result.decision, nowIso);
+      } catch (err) {
+        console.error("[workforce-approvals] run transition failed:", err instanceof Error ? err.message : String(err));
+      }
+    }
       // Stage 12: approved memory proposals apply (+ due expiries sweep) in
       // the same admin request — no polling loop, no scheduler. Failures are
       // logged; the approval record stands and the applier poll remains

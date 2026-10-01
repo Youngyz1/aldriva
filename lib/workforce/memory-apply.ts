@@ -39,6 +39,7 @@ interface ApprovalRow {
   status: string;
   tenant_id: string | null;
   requested_by_agent_id: string | null;
+  approver_id: string | null;
   audit_ref: string | null;
   proposed_outcome: Record<string, unknown> | null;
   evidence: Record<string, unknown> | null;
@@ -176,7 +177,7 @@ export async function applyOneApproval(
       p_proposer_agent: approval.requested_by_agent_id,
       p_run_id: pctx.runId,
       p_task_id: pctx.taskId,
-      p_approver: null,
+      p_approver: approval.approver_id ?? null,
       p_now: nowIso,
       p_expected_version: proposal.base_version,
     },
@@ -203,14 +204,14 @@ export async function applyApprovedMemory(
   if (input.approvalId) {
     candidates = await selectAll<ApprovalRow>(
       client.from('approvals')
-        .select('id,action,status,tenant_id,requested_by_agent_id,audit_ref,proposed_outcome,evidence')
+        .select('id,action,status,tenant_id,requested_by_agent_id,approver_id,audit_ref,proposed_outcome,evidence')
         .eq('id', input.approvalId).limit(1),
       'memory approval'
     );
   } else {
     candidates = await selectAll<ApprovalRow>(
       client.from('approvals')
-        .select('id,action,status,tenant_id,requested_by_agent_id,audit_ref,proposed_outcome,evidence')
+        .select('id,action,status,tenant_id,requested_by_agent_id,approver_id,audit_ref,proposed_outcome,evidence')
         .eq('action', 'memory_propose')
         .eq('status', 'approved')
         .or('audit_ref.is.null,audit_ref.eq.exec-invalid-envelope')
