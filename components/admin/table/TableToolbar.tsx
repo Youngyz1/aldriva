@@ -194,6 +194,8 @@ export default function TableToolbar({
         )}
 
         <div className="flex items-center gap-2">
+          {/* No Filters button renders on pages without filter groups. */}
+          {filters.length > 0 && (
           <div className="relative">
             <button
               type="button"
@@ -229,6 +231,7 @@ export default function TableToolbar({
               </>
             )}
           </div>
+          )}
 
           {sort && (
             <div className="relative">

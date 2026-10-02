@@ -5,9 +5,11 @@
  * JSX-free so the pure helpers stay unit-testable under node --test.
  */
 
+import type { ReactNode } from "react";
+
 export type StatDef = { key: string; label: string; accent?: string };
 
-export type StatItem = { label: string; value: number; accent?: string };
+export type StatItem = { label: string; value: ReactNode; accent?: string };
 
 export type TabDef = { value: string; label: string };
 

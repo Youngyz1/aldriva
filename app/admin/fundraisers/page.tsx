@@ -12,8 +12,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CalendarDays, Star, StarOff } from "lucide-react";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminPagination from "@/components/admin/AdminPagination";
-import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
-import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { pageRange } from "@/components/admin/table/logic";
+import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 
 type FundraiserStatus = "pending_review" | "published" | "rejected";
@@ -172,6 +178,79 @@ export default function AdminFundraisersPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
+  const statValues = useMemo(
+    () => ({
+      total: allItems.length,
+      pending_review: statusCounts.pending_review,
+      featured: allItems.filter((f) => f.is_featured).length,
+      results: filtered.length,
+    }),
+    [allItems, filtered.length, statusCounts.pending_review]
+  );
+
+  const { start: rangeStart, end: rangeEnd } = pageRange(
+    page,
+    perPage,
+    filtered.length,
+    paged.length
+  );
+
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // goal + created below 1024px container, % funded + featured below 800px,
+  // progress bar desktop-only per spec.
+  const columns: AdminColumn[] = [
+    { id: "title", header: "Title", role: "title" },
+    { id: "raised", header: "Raised", role: "value", align: "right" },
+    { id: "organizer", header: "Organizer", role: "meta" },
+    { id: "status", header: "Status", role: "meta" },
+    { id: "pct", header: "% Funded", role: "meta", hideBelow: "md" },
+    { id: "goal", header: "Goal", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "featured", header: "Featured", role: "detail", hideBelow: "md" },
+    { id: "created", header: "Created", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "progress", header: "Progress", role: "detail", desktopOnly: true },
+  ];
+
+  /**
+   * Primary View opens the detail drawer (same as before). Manage links to
+   * /admin/fundraisers/[id]; Approve/Feature hit PATCH
+   * /api/admin/fundraisers/[id] with { status: "published" } / { is_featured }
+   * (same calls as before). Backdate and Reject live in the drawer (Date
+   * Settings + Review Status sections), so those menu items open it; Reject
+   * stays destructive and last via sortMenuActions.
+   */
+  function buildRowActions(f: FundraiserRow): RowActionsConfig {
+    const menu: RowActionsConfig["menu"] = [
+      { key: "manage", label: "Manage", href: `/admin/fundraisers/${f.id}` },
+    ];
+    if (f.status === "pending_review") {
+      menu.push({
+        key: "approve",
+        label: "Approve",
+        onSelect: () => approveFundraiser(f.id),
+        disabled: working === f.id,
+      });
+    }
+    menu.push({
+      key: "feature",
+      label: f.is_featured ? "Unfeature" : "Feature",
+      onSelect: () => patchFundraiser(f.id, { is_featured: !f.is_featured }),
+      disabled: working === f.id,
+    });
+    menu.push({ key: "backdate", label: "Backdate…", onSelect: () => openDrawer(f) });
+    if (f.status !== "rejected") {
+      menu.push({
+        key: "reject",
+        label: "Reject…",
+        onSelect: () => openDrawer(f),
+        destructive: true,
+      });
+    }
+    return {
+      primary: { key: "view", label: tableStrings.view, onSelect: () => openDrawer(f) },
+      menu,
+    };
+  }
+
   // Open drawer (no separate API call needed — we have the data already)
   function openDrawer(item: FundraiserRow) {
     setDrawer(item);
@@ -259,74 +338,47 @@ export default function AdminFundraisersPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* ── Header ── */}
-      <DashboardPageHeader
-        eyebrow="Admin"
-        title="Fundraisers"
-        description="Feature campaigns and manage fundraiser settings including backdating."
+      <PageHeader
+        eyebrow={adminPageCopy.fundraisers.eyebrow}
+        title={adminPageCopy.fundraisers.title}
+        description={adminPageCopy.fundraisers.description}
       />
 
-      {/* ── Stats bar ── */}
       {!loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {[
-            { label: "Total", value: allItems.length },
-            { label: "Pending", value: statusCounts.pending_review },
-            {
-              label: "Featured",
-              value: allItems.filter((f) => f.is_featured).length,
-            },
+        <StatStrip
+          items={[
+            ...buildStats(adminPageCopy.fundraisers.stats, statValues),
             {
               label: "Total Raised",
               value: money(allItems.reduce((s, f) => s + (f.raised ?? 0), 0)),
             },
-            { label: "Results", value: filtered.length },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-3"
-            >
-              <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                {s.label}
-              </p>
-              <p className="mt-1 text-xl font-black text-zinc-950">{s.value}</p>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
       )}
 
-      {/* ── Toolbar ── */}
-      <AdminManagementToolbar
-        search={search}
-        searchPlaceholder="Search fundraisers..."
-        onSearchChange={(v) => updateParams({ search: v || null })}
-        tabs={[
-          { value: "all", label: "All", count: statusCounts.all },
-          { value: "pending_review", label: "Pending", count: statusCounts.pending_review },
-          { value: "published", label: "Published", count: statusCounts.published },
-          { value: "rejected", label: "Rejected", count: statusCounts.rejected },
-        ]}
-        activeTab={statusTab}
-        onTabChange={(v) => updateParams({ status: v === "all" ? null : v })}
+      <TableToolbar
+        search={{
+          value: search,
+          placeholder:
+            adminPageCopy.fundraisers.searchPlaceholder ?? "Search fundraisers...",
+          onChange: (v) => updateParams({ search: v || null }),
+        }}
+        tabs={(adminPageCopy.fundraisers.tabs ?? []).map((t) => ({
+          ...t,
+          count:
+            t.value === "all"
+              ? statusCounts.all
+              : statusCounts[t.value as keyof typeof statusCounts],
+          active: statusTab === t.value,
+          onSelect: () =>
+            updateParams({ status: t.value === "all" ? null : t.value }),
+        }))}
         filters={[]}
         sort={{
-          id: "sort",
-          label: "Sort",
           value: sort,
-          options: [
-            { value: "newest", label: "Newest First" },
-            { value: "oldest", label: "Oldest First" },
-            { value: "alphabetical", label: "Alphabetical" },
-            { value: "most_raised", label: "Most Raised" },
-            { value: "featured", label: "Featured First" },
-          ],
+          options: adminPageCopy.fundraisers.sortOptions ?? [],
           onChange: (v) => updateParams({ sort: v === "newest" ? null : v }),
         }}
-        selectedCount={0}
-        bulkActions={<></>}
-        filtersOpen={false}
-        onToggleFilters={() => {}}
-        sticky={false}
       />
 
       {error && (
@@ -335,151 +387,92 @@ export default function AdminFundraisersPage() {
         </div>
       )}
 
-      {/* ── Table ── */}
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pl-5 pr-4">Title</th>
-                  <th className="py-3 pr-4">Organizer</th>
-                  <th className="py-3 pr-4">Raised</th>
-                  <th className="py-3 pr-4">Goal</th>
-                  <th className="py-3 pr-4">Progress</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Featured</th>
-                  <th className="py-3 pr-5">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {paged.map((f) => (
-                  <tr key={f.id} className="hover:bg-zinc-50/70">
-                    <td className="py-3 pl-5 pr-4">
-                      <button
-                        type="button"
-                        onClick={() => openDrawer(f)}
-                        className="max-w-[200px] truncate text-left font-black text-zinc-900 hover:text-brand-800 hover:underline"
-                      >
-                        {f.title}
-                      </button>
-                    </td>
-                    <td className="max-w-[130px] truncate py-3 pr-4 text-zinc-500">
-                      {f.organizer || "—"}
-                    </td>
-                    <td className="py-3 pr-4 font-black text-brand-800">
-                      {money(f.raised)}
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500">{money(f.goal)}</td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-100">
-                          <div
-                            className="h-full rounded-full bg-brand-600"
-                            style={{
-                              width: `${calcProgress(f.raised, f.goal)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-zinc-500">
-                          {calcProgress(f.raised, f.goal)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500">
-                      {formatAdminDate(f.created_at)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <StatusBadge status={f.status} />
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
-                          f.is_featured
-                            ? "bg-brand-100 text-brand-800"
-                            : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {f.is_featured ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-5">
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openDrawer(f)}
-                          className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                        >
-                          View
-                        </button>
-                        <Link
-                          href={`/admin/fundraisers/${f.id}`}
-                          className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50"
-                        >
-                          Manage
-                        </Link>
-                        {f.status === "pending_review" && (
-                          <button
-                            type="button"
-                            disabled={working === f.id}
-                            onClick={() => approveFundraiser(f.id)}
-                            className="rounded-lg border border-brand-200 bg-white px-2.5 py-1.5 text-xs font-black text-brand-800 hover:bg-brand-50 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === f.id}
-                          onClick={() =>
-                            patchFundraiser(f.id, { is_featured: !f.is_featured })
-                          }
-                          className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${
-                            f.is_featured
-                              ? "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                              : "border-brand-200 text-brand-800 hover:bg-brand-50"
-                          }`}
-                        >
-                          {working === f.id
-                            ? "…"
-                            : f.is_featured
-                            ? "Unfeature"
-                            : "Feature"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {paged.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="py-12 text-center text-sm font-semibold text-zinc-400"
-                    >
-                      No fundraisers match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <AdminPagination
-          page={page}
-          totalPages={totalPages}
-          perPage={perPage}
-          total={filtered.length}
-          onPageChange={(p) => updateParams({ page: String(p) })}
-          onPerPageChange={(n) =>
-            updateParams({ per_page: String(n), page: "1" })
-          }
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={paged.map((f) => {
+            const pct = calcProgress(f.raised, f.goal);
+            return {
+              id: f.id,
+              cells: [
+                <span key="title" className="block max-w-[220px] truncate">
+                  {f.title}
+                </span>,
+                <span key="raised" className="font-black tabular-nums text-brand-800">
+                  {money(f.raised)}
+                </span>,
+                <span key="organizer" className="block max-w-[130px] truncate text-zinc-500">
+                  {f.organizer || "—"}
+                </span>,
+                <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      f.status === "published"
+                        ? "bg-emerald-500"
+                        : f.status === "rejected"
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                    }`}
+                  />
+                  <span>{STATUS_LABELS[f.status] ?? f.status}</span>
+                </span>,
+                <span key="pct" className="tabular-nums text-zinc-600">
+                  {pct}%
+                </span>,
+                <span key="goal" className="tabular-nums text-zinc-500">
+                  {money(f.goal)}
+                </span>,
+                <span key="featured">{f.is_featured ? "Yes" : "No"}</span>,
+                <span key="created" className="whitespace-nowrap text-zinc-500">
+                  {formatAdminDate(f.created_at)}
+                </span>,
+                <span key="progress" className="flex items-center gap-2">
+                  <span className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-100">
+                    <span
+                      className="block h-full rounded-full bg-brand-600"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="text-xs font-bold tabular-nums text-zinc-500">
+                    {pct}%
+                  </span>
+                </span>,
+              ],
+              detailExtra:
+                f.status === "rejected" && f.rejection_reason
+                  ? [{ label: "Rejection reason", value: f.rejection_reason }]
+                  : [],
+              actions: buildRowActions(f),
+              onOpen: () => openDrawer(f),
+              detailHref: `/admin/fundraisers/${f.id}`,
+            };
+          })}
+          emptyMessage={adminPageCopy.fundraisers.empty}
         />
+      )}
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {loading || filtered.length === 0
+              ? tableStrings.showingNone(filtered.length)
+              : tableStrings.showingResults(rangeStart, rangeEnd, filtered.length)}
+          </p>
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            perPage={perPage}
+            total={filtered.length}
+            onPageChange={(p) => updateParams({ page: String(p) })}
+            onPerPageChange={(n) =>
+              updateParams({ per_page: String(n), page: "1" })
+            }
+          />
+        </div>
       </div>
 
       {/* ── Detail Drawer ── */}
