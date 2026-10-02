@@ -3,17 +3,23 @@
  * Server-side data access for the admin Overview page.
  *
  * Assumes requireAdmin() already ran in app/admin/page.tsx (same request).
- * Counting rule: totals use SQL aggregates (count with head:true); chart and
- * sparkline series need per-day shapes, so they use range-capped column
- * projections (created_at, amount) bucketed in JS — windows are capped at
- * 90 days and every fetch carries gte/lt bounds, so whole tables are never
- * pulled. Callers issue these helpers inside Promise.all groups.
+ *
+ * Counting rule: totals and window counts are SQL aggregates
+ * (count with head:true, date-bounded). Sums and day buckets need row data,
+ * so they page through range-capped projections to exhaustion with a hard
+ * ceiling (PAGE_SIZE × MAX_PAGES); hitting the ceiling marks the result
+ * approximate instead of silently truncating. Whole tables are never pulled.
+ * Money is grouped per currency and never summed across currencies.
  */
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import type { OverviewRange } from "./strings";
+import { overviewStrings, type OverviewRange } from "./strings";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Rows per projection page; hard ceiling = PAGE_SIZE × MAX_PAGES rows. */
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 10;
 
 export type RangeBounds = {
   start: Date;
@@ -73,29 +79,109 @@ export function bucketLabel(b: RangeBounds, i: number): string {
   });
 }
 
-type DonationRow = { created_at: string; amount: number | string | null };
+type Row = Record<string, unknown>;
 
-/** Bounded column projection for one window (never a whole-table fetch). */
-async function fetchWindow(
+function toDate(value: unknown): Date | null {
+  if (typeof value !== "string" || value === "") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Exact SQL count, optionally date-bounded. Never approximated. */
+export async function sqlCount(
+  table: string,
+  column: string,
+  value: string | boolean,
+  start?: Date,
+  end?: Date
+): Promise<number> {
+  const supabaseAdmin = createSupabaseAdmin();
+  let query = supabaseAdmin
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq(column, value);
+  if (start) query = query.gte("created_at", start.toISOString());
+  if (end) query = query.lt("created_at", end.toISOString());
+  const { count, error } = await query;
+  if (error) throw new Error(`Overview ${table} count failed.`);
+  return count ?? 0;
+}
+
+/** Exact SQL count inside a date window (no status filter). */
+export async function sqlCountWindow(
+  table: string,
+  start: Date,
+  end: Date,
+  column?: string,
+  value?: string | boolean
+): Promise<number> {
+  const supabaseAdmin = createSupabaseAdmin();
+  let query = supabaseAdmin
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", start.toISOString())
+    .lt("created_at", end.toISOString());
+  if (column) query = query.eq(column, value);
+  const { count, error } = await query;
+  if (error) throw new Error(`Overview ${table} window count failed.`);
+  return count ?? 0;
+}
+
+/** Exact SQL total (no bounds). */
+export async function sqlTotal(table: string): Promise<number> {
+  const supabaseAdmin = createSupabaseAdmin();
+  const { count, error } = await supabaseAdmin
+    .from(table)
+    .select("id", { count: "exact", head: true });
+  if (error) throw new Error(`Overview ${table} total failed.`);
+  return count ?? 0;
+}
+
+export type PagedResult = {
+  rows: Row[];
+  /** True when the safety ceiling stopped pagination — sums/buckets are approximate. */
+  approximate: boolean;
+};
+
+/**
+ * Range-capped column projection paged to exhaustion (offset pages,
+ * created_at ascending). Stops after MAX_PAGES and reports approximate
+ * instead of silently truncating at Supabase's default row cap.
+ */
+export async function fetchPaged(
   table: string,
   columns: string,
   start: Date,
   end: Date,
   inStatus?: { column: string; values: string[] }
-) {
+): Promise<PagedResult> {
   const supabaseAdmin = createSupabaseAdmin();
-  const query = supabaseAdmin
-    .from(table)
-    .select(columns)
-    .gte("created_at", start.toISOString())
-    .lt("created_at", end.toISOString())
-    .order("created_at", { ascending: true });
-  const { data, error } = inStatus
-    ? await query.in(inStatus.column, inStatus.values)
-    : await query;
-  if (error) throw new Error(`Overview ${table} fetch failed.`);
-  return ((data ?? []) as unknown) as Array<Record<string, unknown>>;
+  const rows: Row[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const query = supabaseAdmin
+      .from(table)
+      .select(columns)
+      .gte("created_at", start.toISOString())
+      .lt("created_at", end.toISOString())
+      .order("created_at", { ascending: true })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const { data, error } = inStatus
+      ? await query.in(inStatus.column, inStatus.values)
+      : await query;
+    if (error) throw new Error(`Overview ${table} fetch failed.`);
+    const batch = ((data ?? []) as unknown) as Row[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) return { rows, approximate: false };
+  }
+  return { rows, approximate: true };
 }
+
+const SETTLED = { column: "status", values: ["succeeded", "completed"] };
+
+export type MoneyTotal = {
+  currency: string;
+  total: number;
+};
 
 export type FigureDatum = {
   id: "users" | "volume" | "fundraisers" | "events";
@@ -108,81 +194,125 @@ export type FigureDatum = {
 export type FiguresData = {
   bounds: RangeBounds;
   figures: FigureDatum[];
+  /** Primary-currency series for the chart (USD when present, else largest). */
   volumeLabels: string[];
   volumeCurrent: number[];
   volumePrevious: number[];
+  volumeCurrency: string;
+  /** Non-primary currency totals in the current window (never added in). */
+  volumeOthers: MoneyTotal[];
+  /** True when any paged fetch hit the safety ceiling. */
+  approximate: boolean;
 };
 
 /**
- * Key figures + main volume series. 8 bounded queries in one parallel group:
- * created_at projections for users/fundraisers/events (range + previous) and
- * created_at+amount projections for donations (range + previous).
+ * Key figures. Window counts are exact SQL aggregates; sparklines, the
+ * volume chart and sums come from paged range-capped projections (8 fetch
+ * sequences + 10 count queries in one parallel group).
  */
 export async function getFiguresData(range: OverviewRange): Promise<FiguresData> {
   const b = getRangeBounds(range);
-  const settled = { column: "status", values: ["succeeded", "completed"] };
 
   const [
-    usersCur,
-    usersPrev,
-    fundCur,
-    fundPrev,
-    evCur,
-    evPrev,
-    donCur,
-    donPrev,
+    usersN,
+    usersP,
+    fundsN,
+    fundsP,
+    evsN,
+    evsP,
+    usersRows,
+    usersPrevRows,
+    fundRows,
+    fundPrevRows,
+    evRows,
+    evPrevRows,
+    donRows,
+    donPrevRows,
   ] = await Promise.all([
-    fetchWindow("profiles", "created_at", b.start, b.end),
-    fetchWindow("profiles", "created_at", b.prevStart, b.prevEnd),
-    fetchWindow("fundraisers", "created_at", b.start, b.end),
-    fetchWindow("fundraisers", "created_at", b.prevStart, b.prevEnd),
-    fetchWindow("events", "created_at", b.start, b.end),
-    fetchWindow("events", "created_at", b.prevStart, b.prevEnd),
-    fetchWindow("donations", "created_at, amount", b.start, b.end, settled),
-    fetchWindow("donations", "created_at, amount", b.prevStart, b.prevEnd, settled),
+    sqlCountWindow("profiles", b.start, b.end),
+    sqlCountWindow("profiles", b.prevStart, b.prevEnd),
+    sqlCountWindow("fundraisers", b.start, b.end),
+    sqlCountWindow("fundraisers", b.prevStart, b.prevEnd),
+    sqlCountWindow("events", b.start, b.end),
+    sqlCountWindow("events", b.prevStart, b.prevEnd),
+    fetchPaged("profiles", "created_at", b.start, b.end),
+    fetchPaged("profiles", "created_at", b.prevStart, b.prevEnd),
+    fetchPaged("fundraisers", "created_at", b.start, b.end),
+    fetchPaged("fundraisers", "created_at", b.prevStart, b.prevEnd),
+    fetchPaged("events", "created_at", b.start, b.end),
+    fetchPaged("events", "created_at", b.prevStart, b.prevEnd),
+    fetchPaged("donations", "created_at, amount, currency", b.start, b.end, SETTLED),
+    fetchPaged("donations", "created_at, amount, currency", b.prevStart, b.prevEnd, SETTLED),
   ]);
 
-  /** Bucket rows of one window; valueOf extracts the per-row contribution. */
   const bucketize = (
-    rows: Array<Record<string, unknown>>,
-    valueOf: (r: Record<string, unknown>) => number,
+    rows: Row[],
+    valueOf: (r: Row) => number,
     indexOf: (at: Date) => number
   ) => {
     const buckets = new Array<number>(b.bucketCount).fill(0);
-    let total = 0;
     for (const r of rows) {
-      const v = valueOf(r);
-      total += v;
-      buckets[indexOf(new Date(String(r.created_at)))] += v;
+      const at = toDate(r.created_at);
+      if (!at) continue;
+      buckets[indexOf(at)] += valueOf(r);
     }
-    return { total, buckets };
+    return buckets;
   };
 
   const one = () => 1;
-  const amountOf = (r: Record<string, unknown>) => Number((r as DonationRow).amount ?? 0);
   const curIdx = (at: Date) => bucketIndex(at, b);
   const prevIdx = (at: Date) => prevBucketIndex(at, b);
 
-  const users = bucketize(usersCur, one, curIdx);
-  const usersP = bucketize(usersPrev, one, prevIdx);
-  const funds = bucketize(fundCur, one, curIdx);
-  const fundsP = bucketize(fundPrev, one, prevIdx);
-  const evs = bucketize(evCur, one, curIdx);
-  const evsP = bucketize(evPrev, one, prevIdx);
-  const vol = bucketize(donCur, amountOf, curIdx);
-  const volP = bucketize(donPrev, amountOf, prevIdx);
+  // Money grouped per currency — never summed across currencies.
+  const sumByCurrency = (rows: Row[]): MoneyTotal[] => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const cur = typeof r.currency === "string" && r.currency !== ""
+        ? r.currency.toUpperCase()
+        : "USD";
+      map.set(cur, (map.get(cur) ?? 0) + Number(r.amount ?? 0));
+    }
+    return [...map.entries()]
+      .map(([currency, total]) => ({ currency, total }))
+      .sort((a, z) => z.total - a.total);
+  };
+
+  const donCurByCcy = sumByCurrency(donRows.rows);
+  const primary =
+    donCurByCcy.find((m) => m.currency === "USD") ?? donCurByCcy[0] ?? { currency: "USD", total: 0 };
+  const inPrimary = (r: Row) => {
+    const cur = typeof r.currency === "string" && r.currency !== ""
+      ? r.currency.toUpperCase()
+      : "USD";
+    return cur === primary.currency;
+  };
+  const amtPrimary = (r: Row) => (inPrimary(r) ? Number(r.amount ?? 0) : 0);
+
+  const volCur = bucketize(donRows.rows, amtPrimary, curIdx);
+  const volPrev = bucketize(donPrevRows.rows, amtPrimary, prevIdx);
+  const volTotal = volCur.reduce((s, v) => s + v, 0);
+  const volPrevTotal = volPrev.reduce((s, v) => s + v, 0);
+
+  const approximate =
+    usersRows.approximate || usersPrevRows.approximate ||
+    fundRows.approximate || fundPrevRows.approximate ||
+    evRows.approximate || evPrevRows.approximate ||
+    donRows.approximate || donPrevRows.approximate;
 
   return {
     bounds: b,
     figures: [
-      { id: "users", value: users.total, prevValue: usersP.total, sparkCurrent: users.buckets, sparkPrevious: usersP.buckets },
-      { id: "volume", value: vol.total, prevValue: volP.total, sparkCurrent: vol.buckets, sparkPrevious: volP.buckets },
-      { id: "fundraisers", value: funds.total, prevValue: fundsP.total, sparkCurrent: funds.buckets, sparkPrevious: fundsP.buckets },
-      { id: "events", value: evs.total, prevValue: evsP.total, sparkCurrent: evs.buckets, sparkPrevious: evsP.buckets },
+      { id: "users", value: usersN, prevValue: usersP, sparkCurrent: bucketize(usersRows.rows, one, curIdx), sparkPrevious: bucketize(usersPrevRows.rows, one, prevIdx) },
+      { id: "volume", value: volTotal, prevValue: volPrevTotal, sparkCurrent: volCur, sparkPrevious: volPrev },
+      { id: "fundraisers", value: fundsN, prevValue: fundsP, sparkCurrent: bucketize(fundRows.rows, one, curIdx), sparkPrevious: bucketize(fundPrevRows.rows, one, prevIdx) },
+      { id: "events", value: evsN, prevValue: evsP, sparkCurrent: bucketize(evRows.rows, one, curIdx), sparkPrevious: bucketize(evPrevRows.rows, one, prevIdx) },
     ],
     volumeLabels: Array.from({ length: b.bucketCount }, (_, i) => bucketLabel(b, i)),
-    volumeCurrent: vol.buckets,
-    volumePrevious: volP.buckets,
+    volumeCurrent: volCur,
+    volumePrevious: volPrev,
+    volumeCurrency: primary.currency,
+    volumeOthers: donCurByCcy.filter((m) => m.currency !== primary.currency),
+    approximate,
   };
 }
 
@@ -192,7 +322,7 @@ export type AttentionQueue = {
   href: string;
 };
 
-/** 5 SQL-aggregate counts in one parallel group. Zero-count rows are hidden by the renderer. */
+/** SQL-aggregate counts, one parallel group. Zero-count rows hidden by renderer. */
 export async function getAttentionQueue(): Promise<AttentionQueue[]> {
   const supabaseAdmin = createSupabaseAdmin();
   const count = async (
@@ -225,22 +355,53 @@ export async function getAttentionQueue(): Promise<AttentionQueue[]> {
   ];
 }
 
+export type RecentKind =
+  | "user"
+  | "organizer"
+  | "event"
+  | "fundraiser"
+  | "article";
+
 export type RecentItem = {
-  kind: "user" | "organizer" | "event" | "fundraiser" | "article";
+  kind: RecentKind;
   id: string;
   label: string;
-  detail: string | null;
   createdAt: string;
   href: string;
 };
 
-/** Newest rows per entity (limit 8 each), merged to the 8 latest. Real submissions only. */
+type ProfileRow = {
+  id: string;
+  account_info: { firstName?: string; lastName?: string; username?: string } | null;
+  display_name: string | null;
+  created_at: string;
+};
+
+/** Real display identifier: full name, else username, else email. Never generic. */
+function userLabel(
+  profile: ProfileRow,
+  authUser: { email?: string | null; user_metadata?: Record<string, unknown> } | null
+): string {
+  const info = profile.account_info ?? {};
+  const metadata = authUser?.user_metadata ?? {};
+  const fullName = [info.firstName, info.lastName].filter(Boolean).join(" ").trim();
+  if (fullName !== "") return fullName;
+  if (profile.display_name?.trim()) return profile.display_name.trim();
+  const username =
+    info.username?.trim() ||
+    String(metadata.username ?? metadata.user_name ?? "").trim();
+  if (username !== "") return username;
+  if (authUser?.email) return authUser.email;
+  return authUser?.email?.split("@")[0] ?? profile.id.slice(0, 8);
+}
+
+/** Newest rows per entity, merged to the newest overall. Real submissions only. */
 export async function getRecentSubmissions(limit = 8): Promise<RecentItem[]> {
   const supabaseAdmin = createSupabaseAdmin();
   const [users, organizers, events, fundraisers, articles] = await Promise.all([
     supabaseAdmin
       .from("profiles")
-      .select("id, created_at")
+      .select("id, account_info, display_name, created_at")
       .order("created_at", { ascending: false })
       .limit(limit),
     supabaseAdmin
@@ -265,58 +426,60 @@ export async function getRecentSubmissions(limit = 8): Promise<RecentItem[]> {
       .limit(limit),
   ]);
 
+  const profileRows = ((users.data ?? []) as unknown) as ProfileRow[];
+  // Emails live in auth, not profiles — one lookup per recent user row only.
+  const authById = new Map<string, { email?: string | null; user_metadata?: Record<string, unknown> }>();
+  await Promise.all(
+    profileRows.map(async (p) => {
+      try {
+        const { data } = await supabaseAdmin.auth.admin.getUserById(p.id);
+        if (data?.user) {
+          authById.set(p.id, {
+            email: data.user.email ?? null,
+            user_metadata: (data.user.user_metadata ?? {}) as Record<string, unknown>,
+          });
+        }
+      } catch {
+        /* offline row keeps profile-only identifier */
+      }
+    })
+  );
+
   const all: RecentItem[] = [];
-  for (const row of (users.data ?? []) as Array<{ id: string; created_at: string }>) {
+  for (const row of profileRows) {
     all.push({
       kind: "user",
       id: row.id,
-      label: "New user",
-      detail: null,
+      label: userLabel(row, authById.get(row.id) ?? null),
       createdAt: row.created_at,
       href: `/admin/users/${row.id}`,
     });
   }
-  for (const row of (organizers.data ?? []) as Array<{ id: string; name: string; created_at: string }>) {
-    all.push({
-      kind: "organizer",
-      id: row.id,
-      label: row.name,
-      detail: null,
-      createdAt: row.created_at,
-      href: "/admin/organizers",
-    });
-  }
-  for (const row of (events.data ?? []) as Array<{ id: string; title: string; created_at: string }>) {
-    all.push({
-      kind: "event",
-      id: row.id,
-      label: row.title,
-      detail: null,
-      createdAt: row.created_at,
-      href: "/admin/events",
-    });
-  }
-  for (const row of (fundraisers.data ?? []) as Array<{ id: string; title: string; created_at: string }>) {
+  const named = (
+    rows: unknown,
+    kind: RecentItem["kind"],
+    href: string,
+    pickName: (r: { id: string; created_at: string; [k: string]: unknown }) => string
+  ) => {
+    for (const row of (rows ?? []) as Array<{ id: string; created_at: string; [k: string]: unknown }>) {
+      all.push({ kind, id: row.id, label: pickName(row), createdAt: row.created_at, href });
+    }
+  };
+  named(organizers.data, "organizer", "/admin/organizers", (r) => String(r.name ?? ""));
+  named(events.data, "event", "/admin/events", (r) => String(r.title ?? ""));
+  for (const row of ((fundraisers.data ?? []) as unknown) as Array<{ id: string; title: string; created_at: string }>) {
     all.push({
       kind: "fundraiser",
       id: row.id,
-      label: row.title,
-      detail: null,
+      label: String(row.title ?? ""),
       createdAt: row.created_at,
       href: `/admin/fundraisers/${row.id}`,
     });
   }
-  for (const row of (articles.data ?? []) as Array<{ id: string; title: string; created_at: string }>) {
-    all.push({
-      kind: "article",
-      id: row.id,
-      label: row.title,
-      detail: null,
-      createdAt: row.created_at,
-      href: "/admin/articles",
-    });
-  }
+  named(articles.data, "article", "/admin/articles", (r) => String(r.title ?? ""));
+
   return all
+    .filter((item) => toDate(item.createdAt) !== null)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 }
@@ -374,8 +537,16 @@ export async function getTopLists(): Promise<{
   };
 }
 
-export function formatMoney(value: number): string {
-  return `$${Number(value || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+export function formatMoney(value: number, currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: value !== 0 && Math.abs(value) < 100 ? 2 : 0,
+    }).format(value);
+  } catch {
+    return `$${Number(value || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  }
 }
 
 export function formatCompact(value: number): string {
@@ -386,22 +557,36 @@ export function formatCompact(value: number): string {
   return String(value);
 }
 
-/** "+12 · +8%" / "−3 · −5%" / "new" / "—" */
+/** Compact delta: arrow + percent ("↑ 30%"). Absolute + previous go in title. */
 export function formatDelta(current: number, previous: number): {
   text: string;
+  title: string;
   tone: "up" | "down" | "flat";
 } {
+  const fmt = (n: number) => n.toLocaleString("en-US");
   const diff = current - previous;
-  if (diff === 0) return { text: "—", tone: "flat" };
-  const sign = diff > 0 ? "+" : "−";
+  if (diff === 0) {
+    return {
+      text: "—",
+      title: overviewStrings.deltaTitle("±0", fmt(previous)),
+      tone: "flat",
+    };
+  }
+  const arrow = diff > 0 ? "↑" : "↓";
   const abs = Math.abs(diff);
-  if (previous === 0) return { text: `${sign}${abs} · new`, tone: diff > 0 ? "up" : "down" };
+  const signedAbs = `${diff > 0 ? "+" : "−"}${fmt(abs)}`;
+  const title = overviewStrings.deltaTitle(signedAbs, fmt(previous));
+  if (previous === 0) {
+    return { text: `${arrow} new`, title, tone: diff > 0 ? "up" : "down" };
+  }
   const pct = Math.round((abs / previous) * 100);
-  return { text: `${sign}${abs} · ${sign}${pct}%`, tone: diff > 0 ? "up" : "down" };
+  return { text: `${arrow} ${pct}%`, title, tone: diff > 0 ? "up" : "down" };
 }
 
 export function timeAgo(iso: string, now = new Date()): string {
-  const diffMs = now.getTime() - new Date(iso).getTime();
+  const d = toDate(iso);
+  if (!d) return "";
+  const diffMs = now.getTime() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
@@ -409,7 +594,7 @@ export function timeAgo(iso: string, now = new Date()): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-US", {
+  return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

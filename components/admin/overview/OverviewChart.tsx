@@ -27,10 +27,12 @@ function ChartTooltip({
   active,
   payload,
   label,
+  currency,
 }: {
   active?: boolean;
   payload?: Array<{ value: number | string; dataKey: string }>;
   label?: string;
+  currency: string;
 }) {
   if (!active || !payload?.length) return null;
   const cur = payload.find((p) => p.dataKey === "current")?.value;
@@ -39,11 +41,11 @@ function ChartTooltip({
     <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg">
       <p className="text-xs font-medium text-zinc-500">{label}</p>
       {typeof cur === "number" && (
-        <p className="text-sm font-bold text-zinc-900">{formatMoney(cur)}</p>
+        <p className="text-sm font-bold text-zinc-900">{formatMoney(cur, currency)}</p>
       )}
       {typeof prev === "number" && (
         <p className="text-xs font-semibold text-zinc-400">
-          {formatMoney(prev)} previous
+          {formatMoney(prev, currency)} previous
         </p>
       )}
     </div>
@@ -54,10 +56,12 @@ export default function OverviewChart({
   data,
   summary,
   compare,
+  currency,
 }: {
   data: ChartRow[];
   summary: string;
   compare: boolean;
+  currency: string;
 }) {
   return (
     <div className="h-[320px] min-h-[320px] w-full">
@@ -81,12 +85,10 @@ export default function OverviewChart({
             tick={{ fontSize: 11, fill: "#a1a1aa" }}
             axisLine={false}
             tickLine={false}
-            width={56}
-            tickFormatter={(v: number) =>
-              v >= 1000 ? `$${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `$${v}`
-            }
+            width={64}
+            tickFormatter={(v: number) => formatMoney(v, currency)}
           />
-          <Tooltip content={<ChartTooltip />} />
+          <Tooltip content={<ChartTooltip currency={currency} />} />
           <Line
             type="monotone"
             dataKey="current"

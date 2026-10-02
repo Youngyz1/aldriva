@@ -23,8 +23,13 @@ export const overviewStrings = {
   volume: "Fundraising volume",
   newFundraisers: "New fundraisers",
   newEvents: "New events",
-  vsPrevious: (delta: string) => `vs previous period: ${delta}`,
-  newNeverBefore: "no prior period activity",
+  /** Compact delta tooltip: absolute change and previous value. */
+  deltaTitle: (signedAbs: string, previous: string) =>
+    `That is ${signedAbs} vs ${previous} previous`,
+  /** Shown when a paged fetch hit the safety ceiling. */
+  approxNote: "Approximate — display limit reached",
+  /** Shown when the window contains non-primary currencies (never summed in). */
+  otherCurrenciesNote: (others: string) => `Excludes ${others}`,
 
   chartTitle: "Donation volume",
   chartEmpty: "No donations in this range yet.",

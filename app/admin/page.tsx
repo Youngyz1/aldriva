@@ -39,7 +39,7 @@ export default async function AdminOverviewPage({
   const compare = parseCompare(params.compare);
 
   return (
-    <div className="space-y-10">
+    <div className="mx-auto w-full max-w-[1200px] space-y-10">
       {/* Open header — plain text with right-aligned range controls. */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>

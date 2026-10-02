@@ -35,8 +35,8 @@ const FIGURE_LABELS: Record<FigureDatum["id"], string> = {
   events: overviewStrings.newEvents,
 };
 
-function figureDisplay(id: FigureDatum["id"], value: number): string {
-  if (id === "volume") return formatMoney(value);
+function figureDisplay(id: FigureDatum["id"], value: number, currency: string): string {
+  if (id === "volume") return formatMoney(value, currency);
   return formatCompact(value);
 }
 
@@ -44,6 +44,7 @@ function DeltaLine({ current, previous }: { current: number; previous: number })
   const delta = formatDelta(current, previous);
   return (
     <p
+      title={delta.title}
       className={cn(
         "text-xs font-semibold tabular-nums",
         delta.tone === "up" && "text-emerald-700",
@@ -51,9 +52,7 @@ function DeltaLine({ current, previous }: { current: number; previous: number })
         delta.tone === "flat" && "text-zinc-400"
       )}
     >
-      {delta.tone === "flat"
-        ? delta.text
-        : overviewStrings.vsPrevious(delta.text)}
+      {delta.text}
     </p>
   );
 }
@@ -78,10 +77,19 @@ export async function FiguresAndChartSection({
     previous: compare ? (data.volumePrevious[i] ?? 0) : null,
   }));
   const volumeFigure = data.figures.find((f) => f.id === "volume");
+  const currency = data.volumeCurrency;
   const chartSummary = overviewStrings.chartSummary(
-    formatMoney(volumeFigure?.value ?? 0),
-    formatMoney(volumeFigure?.prevValue ?? 0)
+    formatMoney(volumeFigure?.value ?? 0, currency),
+    formatMoney(volumeFigure?.prevValue ?? 0, currency)
   );
+  const othersNote =
+    data.volumeOthers.length > 0
+      ? overviewStrings.otherCurrenciesNote(
+          data.volumeOthers
+            .map((m) => formatMoney(m.total, m.currency))
+            .join(" · ")
+        )
+      : null;
 
   return (
     <>
@@ -94,7 +102,7 @@ export async function FiguresAndChartSection({
                 {FIGURE_LABELS[fig.id]}
               </p>
               <p className="mt-1 text-[clamp(1.75rem,1.5rem+1vw,2.25rem)] font-bold tabular-nums tracking-tight text-zinc-950">
-                {figureDisplay(fig.id, fig.value)}
+                {figureDisplay(fig.id, fig.value, currency)}
               </p>
               {compare && (
                 <div className="mt-1">
@@ -114,6 +122,14 @@ export async function FiguresAndChartSection({
         </div>
       </section>
 
+      {(data.approximate || othersNote) && (
+        <p className="mt-3 text-xs font-medium text-zinc-400">
+          {data.approximate ? overviewStrings.approxNote : null}
+          {data.approximate && othersNote ? " · " : null}
+          {othersNote}
+        </p>
+      )}
+
       <section aria-label={overviewStrings.chartTitle} className="mt-10">
         <SectionTitle>{overviewStrings.chartTitle}</SectionTitle>
         <div className="mt-4">
@@ -122,7 +138,12 @@ export async function FiguresAndChartSection({
               {overviewStrings.chartEmpty}
             </p>
           ) : (
-            <OverviewChart data={chartRows} summary={chartSummary} compare={compare} />
+            <OverviewChart
+              data={chartRows}
+              summary={chartSummary}
+              compare={compare}
+              currency={currency}
+            />
           )}
         </div>
       </section>
