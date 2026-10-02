@@ -249,9 +249,11 @@ function DesktopTable({
 function DetailList({
   columns,
   cells,
+  extra,
 }: {
   columns: AdminColumn[];
   cells: ReactNode[];
+  extra?: Array<{ label: ReactNode; value: ReactNode }>;
 }) {
   return (
     <dl className="space-y-2">
@@ -268,6 +270,16 @@ function DetailList({
           </div>
         );
       })}
+      {(extra ?? []).map((item, i) => (
+        <div key={i} className="flex items-baseline justify-between gap-4">
+          <dt className="shrink-0 text-xs font-semibold text-zinc-400">
+            {item.label}
+          </dt>
+          <dd className="min-w-0 text-right text-sm font-medium text-zinc-800">
+            {item.value}
+          </dd>
+        </div>
+      ))}
     </dl>
   );
 }
@@ -390,7 +402,7 @@ function MobileRow({
         >
           <div className="overflow-hidden">
             <div className="space-y-3 px-1 pt-1 pb-3">
-              <DetailList columns={columns} cells={row.cells} />
+              <DetailList columns={columns} cells={row.cells} extra={row.detailExtra} />
               {primary && (
                 <button
                   type="button"
@@ -482,7 +494,7 @@ export default function AdminTable({
                   {s.fullRecord}
                 </SheetTitle>
               </SheetHeader>
-              <DetailList columns={columns} cells={sheetRow.cells} />
+              <DetailList columns={columns} cells={sheetRow.cells} extra={sheetRow.detailExtra} />
               {sheetRow.actions?.primary && (
                 <button
                   type="button"

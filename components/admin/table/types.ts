@@ -63,6 +63,12 @@ export type AdminTableRow = {
   id: string;
   /** Cells aligned by index with `columns`. */
   cells: React.ReactNode[];
+  /**
+   * Extra label/value pairs appended to the mobile expansion (and sheet)
+   * after the `detail`-role columns — for record fields that have no
+   * desktop column of their own.
+   */
+  detailExtra?: Array<{ label: React.ReactNode; value: React.ReactNode }>;
   actions?: RowActionsConfig;
   selection?: SelectionControl | null;
   /** Opens the record detail (drawer/page). Row click also triggers it. */
