@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Loader2, Eye, Trash2 } from "lucide-react";
-import AdminStatsCards from "@/components/admin/AdminStatsCards";
+import { Loader2 } from "lucide-react";
 import AdminPagination from "@/components/admin/AdminPagination";
-import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
-import ApprovalActionButtons from "@/components/admin/ApprovalActionButtons";
+import RejectionReasonModal from "@/components/admin/RejectionReasonModal";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { pageRange } from "@/components/admin/table/logic";
+import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 import { useApprovalAction } from "@/hooks/use-approval-action";
 import { formatAdminDate } from "@/lib/admin-query";
 
@@ -36,27 +41,24 @@ type ProductStats = {
   archived: number;
 };
 
-const STATUS_TABS = [
-  { value: "all", label: "All" },
-  { value: "pending_review", label: "Pending Review" },
-  { value: "active", label: "Active" },
-  { value: "out_of_stock", label: "Out of Stock" },
-  { value: "rejected", label: "Rejected" },
-  { value: "archived", label: "Archived" },
-];
-
-const priceTypeBadgeStyles: Record<string, string> = {
-  one_time: "bg-blue-50 text-blue-700 border-blue-200",
-  subscription: "bg-purple-50 text-purple-700 border-purple-200",
+const STATUS_DOT: Record<string, string> = {
+  pending_review: "bg-amber-500",
+  active: "bg-emerald-500",
+  out_of_stock: "bg-amber-500",
+  rejected: "bg-red-500",
+  archived: "bg-zinc-400",
 };
 
-const statusBadgeStyles: Record<string, string> = {
-  pending_review: "bg-amber-50 text-amber-700 border-amber-200",
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  out_of_stock: "bg-amber-50 text-amber-700 border-amber-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  archived: "bg-zinc-100 text-zinc-600 border-zinc-200",
-};
+/** Digital product types carry files; "other" rows are physical goods. */
+function isDigital(productType: string) {
+  return !!productType && productType !== "other";
+}
+
+function typeLabel(row: { product_type: string }) {
+  return isDigital(row.product_type)
+    ? row.product_type.replace(/_/g, " ")
+    : "Physical";
+}
 
 export default function ProductsClient() {
   const router = useRouter();
@@ -69,6 +71,7 @@ export default function ProductsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [working, setWorking] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const { updateStatus } = useApprovalAction("/api/admin/products");
 
   const page = Number(searchParams.get("page") ?? "1");
@@ -164,41 +167,84 @@ export default function ProductsClient() {
     }
   }
 
-  const statItems = [
-    { label: "Total Products", value: stats?.total ?? 0 },
-    { label: "Pending Review", value: stats?.pending_review ?? 0, accent: "text-amber-600" },
-    { label: "Active", value: stats?.active ?? 0, accent: "text-emerald-600" },
-    { label: "Out of Stock", value: stats?.out_of_stock ?? 0, accent: "text-amber-600" },
-    { label: "Rejected", value: stats?.rejected ?? 0, accent: "text-red-600" },
+  const { start: rangeStart, end: rangeEnd } = pageRange(page, perPage, total, rows.length);
+
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // files below 800px container, stock + created below 1024px.
+  const columns: AdminColumn[] = [
+    { id: "name", header: "Product", role: "title" },
+    { id: "status", header: "Status", role: "value", width: "110px" },
+    { id: "owner", header: "Owner", role: "meta" },
+    { id: "type", header: "Type", role: "meta", hideBelow: "md" },
+    { id: "price", header: "Price Type", role: "meta", hideBelow: "md" },
+    { id: "files", header: "Files", role: "detail", hideBelow: "md" },
+    { id: "stock", header: "Stock", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "created", header: "Created", role: "detail", align: "right", hideBelow: "lg" },
   ];
+
+  /**
+   * Primary View opens the public product page (same destination as before).
+   * Approve (pending → active) and Reject use the same useApprovalAction
+   * PATCH /api/admin/products calls as before, with the same
+   * RejectionReasonModal; Delete keeps its confirm() dialog and DELETE
+   * /api/admin/products/[id], destructive last.
+   */
+  function buildRowActions(row: ProductRow): RowActionsConfig {
+    const menu: RowActionsConfig["menu"] = [];
+    if (row.status === "pending_review") {
+      menu.push({
+        key: "approve",
+        label: "Approve",
+        onSelect: () => handleApprove(row.id),
+        disabled: working === row.id,
+      });
+      menu.push({
+        key: "reject",
+        label: "Reject…",
+        onSelect: () => setRejectTarget(row.id),
+        disabled: working === row.id,
+      });
+    }
+    menu.push({
+      key: "delete",
+      label: "Delete",
+      onSelect: () => handleDelete(row.id),
+      disabled: working === row.id,
+      destructive: true,
+    });
+    return {
+      primary: { key: "view", label: "View", href: `/products/${row.slug}` },
+      menu,
+    };
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Products</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate product listings across all users with search, filters, and moderation actions.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.products.eyebrow}
+        title={adminPageCopy.products.title}
+        description={adminPageCopy.products.description}
+      />
 
-      {stats && <AdminStatsCards items={statItems} />}
+      <StatStrip items={buildStats(adminPageCopy.products.stats, stats)} />
 
-      <AdminManagementToolbar
-        search={search}
-        searchPlaceholder="Search products by name or owner..."
-        onSearchChange={(v) => updateParams({ search: v || null })}
-        tabs={STATUS_TABS.map((t) => ({
+      <TableToolbar
+        search={{
+          value: search,
+          placeholder:
+            adminPageCopy.products.searchPlaceholder ?? "Search products...",
+          onChange: (v) => updateParams({ search: v || null }),
+        }}
+        tabs={(adminPageCopy.products.tabs ?? []).map((t) => ({
           ...t,
           count: t.value === "all" ? stats?.total : stats?.[t.value as keyof ProductStats],
+          active: effectiveStatus === t.value,
+          onSelect: () =>
+            updateParams({
+              tab: t.value === "all" ? null : t.value,
+              status: t.value === "all" ? null : t.value,
+            }),
         }))}
-        activeTab={effectiveStatus}
-        onTabChange={(v) =>
-          updateParams({
-            tab: v === "all" ? null : v,
-            status: v === "all" ? null : v,
-          })
-        }
         filters={[
           {
             id: "status",
@@ -206,11 +252,7 @@ export default function ProductsClient() {
             value: effectiveStatus,
             options: [
               { value: "all", label: "All Statuses" },
-              { value: "pending_review", label: "Pending Review" },
-              { value: "active", label: "Active" },
-              { value: "out_of_stock", label: "Out of Stock" },
-              { value: "rejected", label: "Rejected" },
-              { value: "archived", label: "Archived" },
+              ...((adminPageCopy.products.tabs ?? []).filter((t) => t.value !== "all")),
             ],
             onChange: (v) =>
               updateParams({
@@ -227,132 +269,86 @@ export default function ProductsClient() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm sm:rounded-2xl">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-6 py-3">Product</th>
-                  <th className="py-3 pr-4">Owner</th>
-                  <th className="py-3 pr-4">Type</th>
-                  <th className="py-3 pr-4">Price Type</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Files</th>
-                  <th className="py-3 pr-4">Stock</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition">
-                    <td className="px-6 py-4 font-black text-zinc-900 max-w-[280px] truncate">
-                      {row.name}
-                    </td>
-                    <td className="py-4 pr-4">
-                      <p className="font-semibold text-zinc-800">{row.owner_name}</p>
-                      <p className="text-xs text-zinc-500">{row.owner_email || "—"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          row.product_type && row.product_type !== "other"
-                            ? "bg-orange-50 text-orange-700 border-orange-200"
-                            : "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.product_type && row.product_type !== "other"
-                          ? row.product_type.replace(/_/g, " ")
-                          : "Physical"}
-                      </span>
-                      {row.category && (
-                        <p className="mt-1 text-xs text-zinc-500">{row.category}</p>
-                      )}
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          priceTypeBadgeStyles[row.price_type] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.price_type === "one_time" ? "One-time" : "Subscription"}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">
-                      {row.product_type && row.product_type !== "other" ? (
-                        <span className="font-bold text-zinc-700">{row.asset_count} file(s)</span>
-                      ) : (
-                        <span className="text-zinc-400">—</span>
-                      )}
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">
-                      {row.product_type && row.product_type !== "other" ? (
-                        <span className="text-zinc-400">Digital</span>
-                      ) : row.stock_quantity === null ? (
-                        <span className="text-zinc-400">Unlimited</span>
-                      ) : (
-                        <span className="font-bold text-zinc-700">{row.stock_quantity}</span>
-                      )}
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/products/${row.slug}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                        {row.status === "pending_review" && (
-                          <ApprovalActionButtons
-                            disabled={working === row.id}
-                            onApprove={() => handleApprove(row.id)}
-                            onReject={(reason) => handleReject(row.id, reason)}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleDelete(row.id)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
-                      No products found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {totalPages > 1 && (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={rows.map((row) => {
+            const digital = isDigital(row.product_type);
+            return {
+              id: row.id,
+              cells: [
+                <span key="name" className="block max-w-[280px] truncate">
+                  {row.name}
+                </span>,
+                <span
+                  key="status"
+                  title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[row.status] ?? "bg-zinc-400"}`}
+                  />
+                  <span className="capitalize">{row.status.replace("_", " ")}</span>
+                </span>,
+                <span key="owner" className="block">
+                  <span className="block font-medium text-zinc-800">{row.owner_name}</span>
+                  <span className="block text-xs font-normal text-zinc-500">
+                    {row.owner_email || "—"}
+                  </span>
+                </span>,
+                <span key="type" className="block">
+                  <span className="block capitalize">{typeLabel(row)}</span>
+                  {row.category && (
+                    <span className="block text-xs font-normal text-zinc-500">
+                      {row.category}
+                    </span>
+                  )}
+                </span>,
+                <span key="price">
+                  {row.price_type === "one_time" ? "One-time" : "Subscription"}
+                </span>,
+                <span key="files" className="text-zinc-500">
+                  {digital ? (
+                    <span className="font-bold text-zinc-700">{row.asset_count} file(s)</span>
+                  ) : (
+                    "—"
+                  )}
+                </span>,
+                <span key="stock" className="text-zinc-500">
+                  {digital ? (
+                    "Digital"
+                  ) : row.stock_quantity === null ? (
+                    "Unlimited"
+                  ) : (
+                    <span className="font-bold text-zinc-700">{row.stock_quantity}</span>
+                  )}
+                </span>,
+                <span key="created" className="whitespace-nowrap text-zinc-500">
+                  {formatAdminDate(row.created_at)}
+                </span>,
+              ],
+              detailExtra:
+                row.status === "rejected" && row.rejection_reason
+                  ? [{ label: "Rejection reason", value: row.rejection_reason }]
+                  : [],
+              actions: buildRowActions(row),
+            };
+          })}
+          emptyMessage={adminPageCopy.products.empty}
+        />
+      )}
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {loading || total === 0
+              ? tableStrings.showingNone(total)
+              : tableStrings.showingResults(rangeStart, rangeEnd, total)}
+          </p>
           <AdminPagination
             page={page}
             totalPages={totalPages}
@@ -361,8 +357,19 @@ export default function ProductsClient() {
             onPageChange={(p) => updateParams({ page: String(p) })}
             onPerPageChange={(pp) => updateParams({ per_page: String(pp) })}
           />
-        )}
+        </div>
       </div>
+
+      {rejectTarget && (
+        <RejectionReasonModal
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={(reason) => {
+            const id = rejectTarget;
+            setRejectTarget(null);
+            handleReject(id, reason);
+          }}
+        />
+      )}
     </div>
   );
 }
