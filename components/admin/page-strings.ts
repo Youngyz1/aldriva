@@ -54,7 +54,10 @@ export const adminPageCopy: Record<
   | "fundraisers"
   | "businesses"
   | "articles"
-  | "products",
+  | "products"
+  | "reviews"
+  | "business-review"
+  | "ai-rejections",
   AdminPageCopy
 > = {
   users: {
@@ -195,6 +198,42 @@ export const adminPageCopy: Record<
       { value: "out_of_stock", label: "Out of Stock" },
       { value: "rejected", label: "Rejected" },
       { value: "archived", label: "Archived" },
+    ],
+  },
+  reviews: {
+    eyebrow: "Admin",
+    title: "Reviews",
+    description: "Moderate and manage platform reviews.",
+    empty: "No reviews found.",
+    stats: [
+      { key: "total", label: "Total" },
+      { key: "approved", label: "Approved" },
+      { key: "hidden", label: "Hidden" },
+    ],
+    tabs: [
+      { value: "all", label: "All" },
+      { value: "approved", label: "Approved" },
+      { value: "hidden", label: "Hidden" },
+    ],
+  },
+  "business-review": {
+    eyebrow: "Admin",
+    title: "Business Review Queue",
+    description:
+      "Pending review businesses ordered by screening risk, oldest first on ties.",
+    empty: "No pending businesses.",
+    stats: [{ key: "total", label: "Total pending" }],
+  },
+  "ai-rejections": {
+    eyebrow: "Admin",
+    title: "AI Output Guard Rejections",
+    description:
+      "Permanent audit record of prompt injections, system prompt echoes, and PII leakage blocked by output-guard.",
+    empty: "No guard rejections logged.",
+    stats: [
+      { key: "total", label: "Total logged" },
+      { key: "rejected", label: "Hard rejections" },
+      { key: "flagged", label: "Sanitised flags" },
     ],
   },
 };
