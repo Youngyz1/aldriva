@@ -344,6 +344,7 @@ export default function ArticlesClient() {
               : tableStrings.showingResults(rangeStart, rangeEnd, total)}
           </p>
           <AdminPagination
+            showCount={false}
             page={page}
             totalPages={totalPages}
             perPage={perPage}

@@ -68,7 +68,7 @@ export function RowMenu({ items }: { items: RowAction[] }) {
       <DropdownMenuTrigger
         aria-label={s.moreActions}
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 @[700px]:opacity-0 @[700px]:group-hover:opacity-100 @[700px]:group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
       >
         <MoreHorizontal size={15} aria-hidden="true" />
       </DropdownMenuTrigger>
@@ -174,7 +174,7 @@ function DesktopTable({
             ))}
             {showActions && (
               <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-zinc-500">
-                {s.moreActions}
+                {s.actionsHeader}
               </th>
             )}
           </tr>
@@ -403,31 +403,42 @@ function MobileRow({
           <div className="overflow-hidden">
             <div className="space-y-3 px-1 pt-1 pb-3">
               <DetailList columns={columns} cells={row.cells} extra={row.detailExtra} />
-              {primary && (
-                <button
-                  type="button"
-                  disabled={primary.disabled}
-                  onClick={primary.onSelect}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 disabled:opacity-40"
-                >
-                  {primary.label}
-                </button>
-              )}
-              <div className="flex items-center justify-between gap-2">
-                {menu.length > 0 ? (
-                  <RowMenu items={menu} />
-                ) : (
-                  <span />
-                )}
-                {row.detailHref && (
+              {primary &&
+                (primary.href ? (
                   <Link
-                    href={row.detailHref}
-                    className="text-xs font-bold text-violet-700 hover:underline"
+                    href={primary.href}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-center text-sm font-bold text-zinc-800"
                   >
-                    {s.fullRecord} →
+                    {primary.label}
                   </Link>
-                )}
-              </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={primary.disabled}
+                    onClick={primary.onSelect}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 disabled:opacity-40"
+                  >
+                    {primary.label}
+                  </button>
+                ))}
+              {(menu.length > 0 || row.detailHref) && (
+                <div className="flex items-center justify-between gap-2">
+                  {menu.length > 0 ? (
+                    <RowMenu items={menu} />
+                  ) : (
+                    <span />
+                  )}
+                  {row.detailHref && (
+                    <Link
+                      href={row.detailHref}
+                      className="text-xs font-bold text-violet-700 hover:underline"
+                    >
+                      {s.fullRecord} →
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -495,19 +506,28 @@ export default function AdminTable({
                 </SheetTitle>
               </SheetHeader>
               <DetailList columns={columns} cells={sheetRow.cells} extra={sheetRow.detailExtra} />
-              {sheetRow.actions?.primary && (
-                <button
-                  type="button"
-                  disabled={sheetRow.actions.primary.disabled}
-                  onClick={() => {
-                    sheetRow.actions?.primary?.onSelect?.();
-                    setSheetId(null);
-                  }}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 disabled:opacity-40"
-                >
-                  {sheetRow.actions.primary.label}
-                </button>
-              )}
+              {sheetRow.actions?.primary &&
+                (sheetRow.actions.primary.href ? (
+                  <Link
+                    href={sheetRow.actions.primary.href}
+                    onClick={() => setSheetId(null)}
+                    className="block w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-center text-sm font-bold text-zinc-800"
+                  >
+                    {sheetRow.actions.primary.label}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={sheetRow.actions.primary.disabled}
+                    onClick={() => {
+                      sheetRow.actions?.primary?.onSelect?.();
+                      setSheetId(null);
+                    }}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 disabled:opacity-40"
+                  >
+                    {sheetRow.actions.primary.label}
+                  </button>
+                ))}
               {sheetRow.actions && sheetRow.actions.menu.length > 0 && (
                 <RowMenu items={sheetRow.actions.menu} />
               )}

@@ -111,7 +111,6 @@ export const adminPageCopy: Record<
       { key: "total", label: "Total" },
       { key: "pending_review", label: "Pending" },
       { key: "featured", label: "Featured" },
-      { key: "results", label: "Results" },
     ],
     tabs: [
       { value: "all", label: "All" },

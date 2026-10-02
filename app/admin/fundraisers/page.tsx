@@ -183,9 +183,8 @@ export default function AdminFundraisersPage() {
       total: allItems.length,
       pending_review: statusCounts.pending_review,
       featured: allItems.filter((f) => f.is_featured).length,
-      results: filtered.length,
     }),
-    [allItems, filtered.length, statusCounts.pending_review]
+    [allItems, statusCounts.pending_review]
   );
 
   const { start: rangeStart, end: rangeEnd } = pageRange(
@@ -463,6 +462,7 @@ export default function AdminFundraisersPage() {
               : tableStrings.showingResults(rangeStart, rangeEnd, filtered.length)}
           </p>
           <AdminPagination
+            showCount={false}
             page={page}
             totalPages={totalPages}
             perPage={perPage}

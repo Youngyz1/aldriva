@@ -465,6 +465,7 @@ export default function UsersClient() {
               : tableStrings.showingResults(rangeStart, rangeEnd, total)}
           </p>
           <AdminPagination
+            showCount={false}
             page={page}
             totalPages={totalPages}
             perPage={perPage}

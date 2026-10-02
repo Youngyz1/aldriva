@@ -8,6 +8,7 @@ export const tableStrings = {
   selectRow: (name: string) => `Select ${name}`,
   view: "View",
   moreActions: "More actions",
+  actionsHeader: "Actions",
   fullRecord: "Full record",
   expandRow: "Expand row details",
   collapseRow: "Collapse row details",

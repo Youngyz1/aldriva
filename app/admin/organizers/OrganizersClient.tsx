@@ -588,6 +588,7 @@ export default function OrganizersClient() {
               : tableStrings.showingResults(rangeStart, rangeEnd, total)}
           </p>
           <AdminPagination
+            showCount={false}
             page={page}
             totalPages={totalPages}
             perPage={perPage}
