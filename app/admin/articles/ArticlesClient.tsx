@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Loader2, ScrollText, Eye, Ban, Trash2 } from "lucide-react";
-import AdminStatsCards from "@/components/admin/AdminStatsCards";
+import { Loader2 } from "lucide-react";
 import AdminPagination from "@/components/admin/AdminPagination";
-import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
-import ApprovalActionButtons from "@/components/admin/ApprovalActionButtons";
+import RejectionReasonModal from "@/components/admin/RejectionReasonModal";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { pageRange } from "@/components/admin/table/logic";
+import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 import { useApprovalAction } from "@/hooks/use-approval-action";
 import { formatAdminDate } from "@/lib/admin-query";
 
@@ -32,23 +37,14 @@ type ArticleStats = {
   rejected: number;
 };
 
-const STATUS_TABS = [
-  { value: "all", label: "All" },
-  { value: "pending_review", label: "Pending Review" },
-  { value: "published", label: "Published" },
-  { value: "draft", label: "Draft" },
-  { value: "scheduled", label: "Scheduled" },
-  { value: "rejected", label: "Rejected" },
-];
-
-const statusBadgeStyles: Record<string, string> = {
-  pending_review: "bg-amber-50 text-amber-700 border-amber-200",
-  draft: "bg-zinc-100 text-zinc-700 border-zinc-200",
-  published: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  scheduled: "bg-blue-50 text-blue-700 border-blue-200",
-  archived: "bg-amber-50 text-amber-700 border-amber-200",
-  expired: "bg-red-50 text-red-700 border-red-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
+const STATUS_DOT: Record<string, string> = {
+  pending_review: "bg-amber-500",
+  draft: "bg-zinc-400",
+  published: "bg-emerald-500",
+  scheduled: "bg-blue-500",
+  archived: "bg-amber-500",
+  expired: "bg-red-500",
+  rejected: "bg-red-500",
 };
 
 export default function ArticlesClient() {
@@ -62,6 +58,7 @@ export default function ArticlesClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [working, setWorking] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const { updateStatus } = useApprovalAction("/api/admin/articles");
 
   const page = Number(searchParams.get("page") ?? "1");
@@ -176,43 +173,99 @@ export default function ArticlesClient() {
     setWorking(null);
   }
 
-  const statItems = [
-    { label: "Total Articles", value: stats?.total ?? 0 },
-    { label: "Pending Review", value: stats?.pending_review ?? 0, accent: "text-amber-600" },
-    { label: "Published", value: stats?.published ?? 0, accent: "text-emerald-600" },
-    { label: "Drafts", value: stats?.draft ?? 0, accent: "text-zinc-500" },
-    { label: "Scheduled", value: stats?.scheduled ?? 0, accent: "text-blue-600" },
-    { label: "Rejected", value: stats?.rejected ?? 0, accent: "text-red-600" },
+  const { start: rangeStart, end: rangeEnd } = pageRange(page, perPage, total, rows.length);
+
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // email below 1024px container, categories + created below 800px.
+  const columns: AdminColumn[] = [
+    { id: "title", header: "Article", role: "title" },
+    { id: "status", header: "Status", role: "value", width: "110px" },
+    { id: "author", header: "Author", role: "meta" },
+    { id: "created", header: "Created", role: "meta", align: "right", hideBelow: "md" },
+    { id: "email", header: "Author Email", role: "detail", hideBelow: "lg" },
+    { id: "categories", header: "Categories", role: "detail", hideBelow: "md" },
   ];
+
+  /**
+   * Primary is Approve while pending_review, View otherwise. The menu holds
+   * the remaining status-appropriate actions: View, Reject (same
+   * RejectionReasonModal as before), Unpublish (same PATCH
+   * /api/admin/articles/[id] { status: "draft" } as before, shown exactly
+   * when it was shown before), Delete with its existing confirm() dialog
+   * (same DELETE /api/admin/articles/[id]), destructive last.
+   */
+  function buildRowActions(row: ArticleRow): RowActionsConfig {
+    const pending = row.status === "pending_review";
+    const menu: RowActionsConfig["menu"] = [];
+    if (pending) {
+      menu.push({
+        key: "view",
+        label: "View",
+        href: `/articles/${row.slug}`,
+      });
+      menu.push({
+        key: "reject",
+        label: "Reject…",
+        onSelect: () => setRejectTarget(row.id),
+        disabled: working === row.id,
+      });
+    } else {
+      if (row.status !== "draft") {
+        menu.push({
+          key: "unpublish",
+          label: "Unpublish",
+          onSelect: () => handleUnpublish(row.id),
+          disabled: working === row.id,
+        });
+      }
+    }
+    menu.push({
+      key: "delete",
+      label: "Delete",
+      onSelect: () => handleDelete(row.id),
+      disabled: working === row.id,
+      destructive: true,
+    });
+    return {
+      primary: pending
+        ? {
+            key: "approve",
+            label: "Approve",
+            onSelect: () => handleApprove(row.id),
+            disabled: working === row.id,
+          }
+        : { key: "view", label: "View", href: `/articles/${row.slug}` },
+      menu,
+    };
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Articles</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate editorial articles across all users with search, filters, and moderation actions.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.articles.eyebrow}
+        title={adminPageCopy.articles.title}
+        description={adminPageCopy.articles.description}
+      />
 
-      {stats && <AdminStatsCards items={statItems} />}
+      <StatStrip items={buildStats(adminPageCopy.articles.stats, stats)} />
 
-      <AdminManagementToolbar
-        search={search}
-        searchPlaceholder="Search articles by title or author..."
-        sticky={false}
-        onSearchChange={(v) => updateParams({ search: v || null })}
-        tabs={STATUS_TABS.map((t) => ({
+      <TableToolbar
+        search={{
+          value: search,
+          placeholder:
+            adminPageCopy.articles.searchPlaceholder ?? "Search articles...",
+          onChange: (v) => updateParams({ search: v || null }),
+        }}
+        tabs={(adminPageCopy.articles.tabs ?? []).map((t) => ({
           ...t,
           count: t.value === "all" ? stats?.total : stats?.[t.value as keyof ArticleStats],
+          active: effectiveStatus === t.value,
+          onSelect: () =>
+            updateParams({
+              tab: t.value === "all" ? null : t.value,
+              status: t.value === "all" ? null : t.value,
+            }),
         }))}
-        activeTab={effectiveStatus}
-        onTabChange={(v) =>
-          updateParams({
-            tab: v === "all" ? null : v,
-            status: v === "all" ? null : v,
-          })
-        }
         filters={[
           {
             id: "status",
@@ -220,11 +273,7 @@ export default function ArticlesClient() {
             value: effectiveStatus,
             options: [
               { value: "all", label: "All Statuses" },
-              { value: "pending_review", label: "Pending Review" },
-              { value: "published", label: "Published" },
-              { value: "draft", label: "Draft" },
-              { value: "scheduled", label: "Scheduled" },
-              { value: "rejected", label: "Rejected" },
+              ...((adminPageCopy.articles.tabs ?? []).filter((t) => t.value !== "all")),
             ],
             onChange: (v) =>
               updateParams({
@@ -241,115 +290,59 @@ export default function ArticlesClient() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm sm:rounded-2xl">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-6 py-3">Article</th>
-                  <th className="py-3 pr-4">Author</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Categories</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-zinc-50/50 transition">
-                    <td className="px-6 py-4 font-black text-zinc-900 max-w-[280px] truncate">
-                      {row.title}
-                    </td>
-                    <td className="py-4 pr-4">
-                      <p className="font-semibold text-zinc-800">{row.author_name}</p>
-                      <p className="text-xs text-zinc-500">{row.author_email || "—"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
-                          statusBadgeStyles[row.status] || "bg-zinc-100 text-zinc-700 border-zinc-200"
-                        }`}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <div className="flex flex-wrap gap-1 max-w-[180px]">
-                        {row.categories && row.categories.length > 0 ? (
-                          row.categories.map((c) => (
-                            <span
-                              key={c}
-                              className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-black text-violet-750 border border-violet-100"
-                            >
-                              {c}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-zinc-400">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/articles/${row.slug}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-250 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50 transition"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                        {row.status === "pending_review" && (
-                          <ApprovalActionButtons
-                            disabled={working === row.id}
-                            onApprove={() => handleApprove(row.id)}
-                            onReject={(reason) => handleReject(row.id, reason)}
-                          />
-                        )}
-                        {row.status !== "draft" && row.status !== "pending_review" && (
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => handleUnpublish(row.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs font-black text-yellow-700 hover:bg-yellow-50 transition disabled:opacity-50"
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            Unpublish
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={working === row.id}
-                          onClick={() => handleDelete(row.id)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
-                      No articles found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {totalPages > 1 && (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={rows.map((row) => ({
+            id: row.id,
+            cells: [
+              <span key="title" className="block max-w-[280px] truncate">
+                {row.title}
+              </span>,
+              <span
+                key="status"
+                title={row.status === "rejected" ? row.rejection_reason || undefined : undefined}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[row.status] ?? "bg-zinc-400"}`}
+                />
+                <span className="capitalize">{row.status.replace("_", " ")}</span>
+              </span>,
+              <span key="author" className="font-medium text-zinc-800">
+                {row.author_name}
+              </span>,
+              <span key="created" className="whitespace-nowrap text-zinc-500">
+                {formatAdminDate(row.created_at)}
+              </span>,
+              <span key="email" className="block max-w-[220px] truncate text-zinc-600">
+                {row.author_email || "—"}
+              </span>,
+              <span key="categories" className="block max-w-[180px] truncate text-zinc-600">
+                {row.categories && row.categories.length > 0 ? row.categories.join(", ") : "—"}
+              </span>,
+            ],
+            detailExtra:
+              row.status === "rejected" && row.rejection_reason
+                ? [{ label: "Rejection reason", value: row.rejection_reason }]
+                : [],
+            actions: buildRowActions(row),
+          }))}
+          emptyMessage={adminPageCopy.articles.empty}
+        />
+      )}
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {loading || total === 0
+              ? tableStrings.showingNone(total)
+              : tableStrings.showingResults(rangeStart, rangeEnd, total)}
+          </p>
           <AdminPagination
             page={page}
             totalPages={totalPages}
@@ -358,8 +351,19 @@ export default function ArticlesClient() {
             onPageChange={(p) => updateParams({ page: String(p) })}
             onPerPageChange={(pp) => updateParams({ per_page: String(pp) })}
           />
-        )}
+        </div>
       </div>
+
+      {rejectTarget && (
+        <RejectionReasonModal
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={(reason) => {
+            const id = rejectTarget;
+            setRejectTarget(null);
+            handleReject(id, reason);
+          }}
+        />
+      )}
     </div>
   );
 }
