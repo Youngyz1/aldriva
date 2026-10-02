@@ -23,6 +23,7 @@ import {
 } from "./data";
 import Sparkline from "./Sparkline";
 import OverviewChart from "./OverviewChart";
+import StatStrip, { type StatItem } from "../StatStrip";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -275,28 +276,23 @@ export async function GlanceSection({
   return (
     <section aria-label={overviewStrings.glanceTitle}>
       <SectionTitle>{overviewStrings.glanceTitle}</SectionTitle>
-      <ul className="mt-2">
+      <div className="mt-2">
         {rows.map((row) => {
           const delta = formatDelta(row.rangeNew, row.rangePrev);
-          return (
-            <li key={row.id} className="border-b border-zinc-200 last:border-b-0">
-              <Link
-                href={row.href}
-                className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[160px_96px_1fr_1fr]"
-              >
-                <span className="truncate text-sm font-medium text-zinc-700">
-                  {GLANCE_LABELS[row.id as keyof typeof GLANCE_LABELS] ?? row.id}
-                </span>
-                <span className="text-right text-sm font-bold tabular-nums text-zinc-950">
-                  {row.total.toLocaleString("en-US")}
-                </span>
-                <span className="text-xs font-semibold tabular-nums text-zinc-500">
-                  {row.rangeNew.toLocaleString("en-US")} new
+          const items: StatItem[] = [
+            {
+              label: overviewStrings.glanceTotal,
+              value: row.total.toLocaleString("en-US"),
+            },
+            {
+              label: overviewStrings.glanceNewInRange,
+              value: (
+                <span className="inline-flex items-baseline gap-1">
+                  {row.rangeNew.toLocaleString("en-US")}
                   {compare && (
                     <span
                       title={delta.title}
                       className={cn(
-                        "ml-1",
                         delta.tone === "up" && "text-emerald-700",
                         delta.tone === "down" && "text-rose-700",
                         delta.tone === "flat" && "text-zinc-400"
@@ -306,16 +302,30 @@ export async function GlanceSection({
                     </span>
                   )}
                 </span>
-                {row.breakdown !== "" && (
-                  <span className="truncate text-xs text-zinc-400 sm:text-right">
-                    {row.breakdown}
-                  </span>
-                )}
+              ),
+            },
+            ...row.states.map((chip) => ({
+              label: chip.label,
+              value: chip.value.toLocaleString("en-US"),
+              ...(chip.value === 0 ? { accent: "text-zinc-400" } : {}),
+            })),
+          ];
+          return (
+            <div key={row.id} className="border-b border-zinc-200 py-3 last:border-b-0">
+              <Link
+                href={row.href}
+                className="text-sm font-bold text-zinc-800 hover:underline"
+              >
+                {GLANCE_LABELS[row.id as keyof typeof GLANCE_LABELS] ?? row.id}
+                <span aria-hidden="true"> →</span>
               </Link>
-            </li>
+              <div className="mt-2">
+                <StatStrip items={items} />
+              </div>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </section>
   );
 }

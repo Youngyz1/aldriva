@@ -53,6 +53,23 @@ export const overviewStrings = {
   pendingPayoutsHint: "opens the payout queue",
 
   glanceTitle: "Platform at a glance",
+  glanceTotal: "Total",
+  glanceNewInRange: "New in range",
+  glanceStates: {
+    active: "Active",
+    admins: "Admins",
+    approved: "Approved",
+    flagged: "Flagged",
+    hidden: "Hidden",
+    pending: "Pending",
+    pendingReview: "Pending review",
+    processing: "Processing",
+    published: "Published",
+    requested: "Requested",
+    succeeded: "Succeeded",
+    suspended: "Suspended",
+    verified: "Verified",
+  } as const,
   glanceAreas: {
     users: "Users",
     organizations: "Organizations",

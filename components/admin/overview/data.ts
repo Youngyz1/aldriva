@@ -625,18 +625,23 @@ export async function getTopLists(): Promise<{
   };
 }
 
+export type GlanceState = {
+  label: string;
+  value: number;
+};
+
 export type GlanceRow = {
   id: string;
   total: number;
   rangeNew: number;
   rangePrev: number;
-  breakdown: string;
+  states: GlanceState[];
   href: string;
 };
 
 /**
  * Platform-at-a-glance rows. All counts are exact SQL aggregates issued in
- * one parallel group; breakdowns are additional head:true counts.
+ * one parallel group; state chips are additional head:true counts.
  */
 export async function getGlanceData(b: RangeBounds): Promise<GlanceRow[]> {
   const win = (table: string, start: Date, end: Date) =>
@@ -717,18 +722,19 @@ export async function getGlanceData(b: RangeBounds): Promise<GlanceRow[]> {
     winEq("ticket_orders", "status", "valid", b.prevStart, b.prevEnd),
   ]);
 
+  const st = overviewStrings.glanceStates;
   return [
-    { id: "users", total: userTotal, rangeNew: userNew, rangePrev: userPrev, breakdown: `${userActive} active · ${userSuspended} suspended · ${userAdmins} admins`, href: "/admin/users" },
-    { id: "organizations", total: orgTotal, rangeNew: orgNew, rangePrev: orgPrev, breakdown: `${orgPending} pending · ${orgVerified} verified`, href: "/admin/organizers" },
-    { id: "events", total: evTotal, rangeNew: evNew, rangePrev: evPrev, breakdown: `${evApproved} approved · ${evPending} pending`, href: "/admin/events" },
-    { id: "fundraisers", total: fundTotal, rangeNew: fundNew, rangePrev: fundPrev, breakdown: `${fundPublished} published · ${fundPending} pending review`, href: "/admin/fundraisers" },
-    { id: "businesses", total: bizTotal, rangeNew: bizNew, rangePrev: bizPrev, breakdown: `${bizActive} active · ${bizFlagged} flagged`, href: "/admin/businesses" },
-    { id: "products", total: prodTotal, rangeNew: prodNew, rangePrev: prodPrev, breakdown: `${prodActive} active · ${prodPending} pending review`, href: "/admin/products" },
-    { id: "articles", total: artTotal, rangeNew: artNew, rangePrev: artPrev, breakdown: `${artPublished} published · ${artPending} pending review`, href: "/admin/articles" },
-    { id: "reviews", total: revTotal, rangeNew: revNew, rangePrev: revPrev, breakdown: `${revApproved} approved · ${revHidden} hidden`, href: "/admin/reviews" },
-    { id: "payments", total: donTotal, rangeNew: donNew, rangePrev: donPrev, breakdown: `${donSucceeded} succeeded`, href: "/admin/payments" },
-    { id: "payouts", total: payTotal, rangeNew: payNew, rangePrev: payPrev, breakdown: `${payRequested} requested · ${payProcessing} processing`, href: "/admin/finance/payouts" },
-    { id: "tickets", total: tickTotal, rangeNew: tickNew, rangePrev: tickPrev, breakdown: "", href: "/admin/payments" },
+    { id: "users", total: userTotal, rangeNew: userNew, rangePrev: userPrev, states: [{ label: st.active, value: userActive }, { label: st.suspended, value: userSuspended }, { label: st.admins, value: userAdmins }], href: "/admin/users" },
+    { id: "organizations", total: orgTotal, rangeNew: orgNew, rangePrev: orgPrev, states: [{ label: st.pending, value: orgPending }, { label: st.verified, value: orgVerified }], href: "/admin/organizers" },
+    { id: "events", total: evTotal, rangeNew: evNew, rangePrev: evPrev, states: [{ label: st.approved, value: evApproved }, { label: st.pending, value: evPending }], href: "/admin/events" },
+    { id: "fundraisers", total: fundTotal, rangeNew: fundNew, rangePrev: fundPrev, states: [{ label: st.published, value: fundPublished }, { label: st.pendingReview, value: fundPending }], href: "/admin/fundraisers" },
+    { id: "businesses", total: bizTotal, rangeNew: bizNew, rangePrev: bizPrev, states: [{ label: st.active, value: bizActive }, { label: st.flagged, value: bizFlagged }], href: "/admin/businesses" },
+    { id: "products", total: prodTotal, rangeNew: prodNew, rangePrev: prodPrev, states: [{ label: st.active, value: prodActive }, { label: st.pendingReview, value: prodPending }], href: "/admin/products" },
+    { id: "articles", total: artTotal, rangeNew: artNew, rangePrev: artPrev, states: [{ label: st.published, value: artPublished }, { label: st.pendingReview, value: artPending }], href: "/admin/articles" },
+    { id: "reviews", total: revTotal, rangeNew: revNew, rangePrev: revPrev, states: [{ label: st.approved, value: revApproved }, { label: st.hidden, value: revHidden }], href: "/admin/reviews" },
+    { id: "payments", total: donTotal, rangeNew: donNew, rangePrev: donPrev, states: [{ label: st.succeeded, value: donSucceeded }], href: "/admin/payments" },
+    { id: "payouts", total: payTotal, rangeNew: payNew, rangePrev: payPrev, states: [{ label: st.requested, value: payRequested }, { label: st.processing, value: payProcessing }], href: "/admin/finance/payouts" },
+    { id: "tickets", total: tickTotal, rangeNew: tickNew, rangePrev: tickPrev, states: [], href: "/admin/payments" },
   ];
 }
 
