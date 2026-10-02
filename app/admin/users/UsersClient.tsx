@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, History } from "lucide-react";
-import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
-import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
-import { RoleBadge, StatusBadge } from "@/components/admin/ModerationBadge";
+import { StatusBadge } from "@/components/admin/ModerationBadge";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { pluralize, selectIdentityActions } from "@/components/admin/table/logic";
+import { tableStrings } from "@/components/admin/table/strings";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import type {
   AdminUserDetail,
@@ -23,19 +26,6 @@ const BULK_ACTIONS = [
   { id: "promote", label: "Promote" },
   { id: "demote", label: "Demote" },
 ] as const;
-
-function getIdentityActions(identityStatus: string) {
-  switch (identityStatus) {
-    case "pending":
-      return ["identity_verify", "identity_reject"] as const;
-    case "verified":
-      return ["identity_reject"] as const;
-    case "rejected":
-      return ["identity_verify"] as const;
-    default:
-      return [] as const;
-  }
-}
 
 const IDENTITY_ACTION_LABELS: Record<string, string> = {
   identity_verify: "Verify Identity",
@@ -64,7 +54,7 @@ export default function UsersClient() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
 
   const page = Number(searchParams.get("page") ?? "1");
   const perPage = Number(searchParams.get("per_page") ?? "25");
@@ -226,6 +216,74 @@ export default function UsersClient() {
       ]
     : [];
 
+  const columns: AdminColumn[] = [
+    { id: "name", header: "Name", role: "title" },
+    { id: "email", header: "Email", role: "detail" },
+    { id: "role", header: "Role", role: "meta" },
+    { id: "status", header: "Status", role: "value", width: "110px" },
+    { id: "orgs", header: "Orgs", role: "detail", align: "right" },
+    { id: "events", header: "Events", role: "detail", align: "right" },
+    { id: "fundraisers", header: "Fundraisers", role: "detail", align: "right" },
+    { id: "joined", header: "Joined", role: "meta", align: "right" },
+  ];
+
+  /** Contextual row actions from real fields; never on the self row. */
+  function buildRowActions(row: AdminUserRow, isSelf: boolean): RowActionsConfig | undefined {
+    if (isSelf) return undefined;
+    const menu: RowActionsConfig["menu"] = [];
+    if (row.status === "active") {
+      menu.push({
+        key: "suspend",
+        label: "Suspend",
+        onSelect: () => patchUser(row.id, { status: "suspended" }),
+        disabled: working === row.id,
+        destructive: true,
+      });
+    }
+    if (row.status === "suspended") {
+      menu.push({
+        key: "activate",
+        label: "Activate",
+        onSelect: () => patchUser(row.id, { status: "active" }),
+        disabled: working === row.id,
+      });
+    }
+    if (row.role === "admin") {
+      menu.push({
+        key: "demote",
+        label: "Demote",
+        onSelect: () => patchUser(row.id, { role: "user" }),
+        disabled: working === row.id,
+      });
+    } else {
+      menu.push({
+        key: "promote",
+        label: "Promote",
+        onSelect: () => patchUser(row.id, { role: "admin" }),
+        disabled: working === row.id,
+      });
+    }
+    for (const action of selectIdentityActions(row.identity_status)) {
+      menu.push({
+        key: action,
+        label: IDENTITY_ACTION_LABELS[action],
+        onSelect: () =>
+          patchUser(row.id, {
+            identity_status: action === "identity_verify" ? "verified" : "rejected",
+          }),
+        disabled: working === row.id,
+        destructive: action === "identity_reject",
+      });
+    }
+    return {
+      primary: { key: "view", label: tableStrings.view, onSelect: () => openDrawer(row.id) },
+      menu,
+    };
+  }
+
+  const rangeStart = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const rangeEnd = total === 0 ? 0 : Math.min(rangeStart + rows.length - 1, total);
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <header className="pb-1">
@@ -236,12 +294,12 @@ export default function UsersClient() {
         </p>
       </header>
 
-      {stats && <AdminStatsCards items={statItems} />}
-
-      <AdminManagementToolbar
-        search={search}
-        searchPlaceholder="Search by name, username, or email..."
-        onSearchChange={(v) => updateParams({ search: v || null })}
+      <TableToolbar
+        search={{
+          value: search,
+          placeholder: "Search by name, username, or email...",
+          onChange: (v) => updateParams({ search: v || null }),
+        }}
         filters={[
           {
             id: "role",
@@ -280,8 +338,6 @@ export default function UsersClient() {
           },
         ]}
         sort={{
-          id: "sort",
-          label: "Sort",
           value: sort,
           options: [
             { value: "newest", label: "Newest First" },
@@ -293,26 +349,32 @@ export default function UsersClient() {
           ],
           onChange: (v) => updateParams({ sort: v === "newest" ? null : v }),
         }}
-        selectedCount={selected.size}
-        bulkActions={
-          <>
-            {BULK_ACTIONS.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => setConfirmAction(action.id)}
-                className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
-              >
-                {action.label}
-              </button>
-            ))}
-          </>
+        selection={
+          selected.size > 0
+            ? {
+                count: selected.size,
+                actions: (
+                  <>
+                    {BULK_ACTIONS.map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => setConfirmAction(action.id)}
+                        className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </>
+                ),
+              }
+            : null
         }
         onExport={handleExport}
         exporting={exporting}
-        filtersOpen={filtersOpen}
-        onToggleFilters={() => setFiltersOpen((v) => !v)}
-        sticky={false}
+        stats={statItems}
+        selectMode={selectMode}
+        onToggleSelectMode={() => setSelectMode((v) => !v)}
       />
 
       {error && (
@@ -321,166 +383,104 @@ export default function UsersClient() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm sm:rounded-2xl">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1040px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      className="rounded border-zinc-300"
-                    />
-                  </th>
-                  <th className="py-3 pr-4">Name</th>
-                  <th className="py-3 pr-4">Email</th>
-                  <th className="py-3 pr-4">Role</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Organizations</th>
-                  <th className="py-3 pr-4">Events</th>
-                  <th className="py-3 pr-4">Fundraisers</th>
-                  <th className="py-3 pr-4">Joined</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => {
-                  const isSelf = row.is_current_user || row.id === currentUserId;
-                  return (
-                    <tr key={row.id} className="hover:bg-zinc-50/70">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(row.id)}
-                          disabled={isSelf}
-                          onChange={() => toggleOne(row.id, isSelf)}
-                          className="rounded border-zinc-300 disabled:opacity-40"
-                        />
-                      </td>
-                      <td className="py-3 pr-4">
-                        <button
-                          type="button"
-                          onClick={() => openDrawer(row.id)}
-                          className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                        >
-                          {row.full_name}
-                        </button>
-                        {row.username && (
-                          <p className="text-xs text-zinc-500">@{row.username}</p>
-                        )}
-                        {isSelf && (
-                          <span className="mt-1 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700">
-                            You
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <span
-                          className="block max-w-[220px] truncate font-semibold text-zinc-800"
-                          title={row.email}
-                        >
-                          {row.email}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4"><RoleBadge role={row.role} /></td>
-                      <td className="py-3 pr-4"><StatusBadge status={row.status} /></td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.organizer_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.event_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.fundraiser_count}</td>
-                      <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                          >
-                            View
-                          </button>
-                          {!isSelf && row.status === "active" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { status: "suspended" })}
-                              className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            >
-                              {working === row.id ? "…" : "Suspend"}
-                            </button>
-                          )}
-                          {!isSelf && row.status === "suspended" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { status: "active" })}
-                              className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                            >
-                              {working === row.id ? "…" : "Activate"}
-                            </button>
-                          )}
-                          {!isSelf && row.role !== "admin" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { role: "admin" })}
-                              className="rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-50 disabled:opacity-50"
-                            >
-                              Promote
-                            </button>
-                          )}
-                          {!isSelf && row.role === "admin" && (
-                            <button
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { role: "user" })}
-                              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
-                            >
-                              Demote
-                            </button>
-                          )}
-                          {getIdentityActions(row.identity_status).map((action) => (
-                            <button
-                              key={action}
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => patchUser(row.id, { identity_status: action === "identity_verify" ? "verified" : "rejected" })}
-                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${IDENTITY_ACTION_STYLES[action]}`}
-                            >
-                              {working === row.id ? "…" : IDENTITY_ACTION_LABELS[action]}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
-                      No users match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <AdminPagination
-          page={page}
-          totalPages={totalPages}
-          perPage={perPage}
-          total={total}
-          onPageChange={(p) => updateParams({ page: String(p) })}
-          onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={rows.map((row) => {
+            const isSelf = row.is_current_user || row.id === currentUserId;
+            return {
+              id: row.id,
+              cells: [
+                <span key="name" className="block">
+                  <span className="block">{row.full_name}</span>
+                  {row.username && (
+                    <span className="block text-xs font-normal text-zinc-500">
+                      @{row.username}
+                    </span>
+                  )}
+                  {isSelf && (
+                    <span className="mt-0.5 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase text-violet-700">
+                      You
+                    </span>
+                  )}
+                </span>,
+                <span
+                  key="email"
+                  className="block max-w-[220px] truncate font-medium text-zinc-700"
+                  title={row.email}
+                >
+                  {row.email}
+                </span>,
+                <span key="role" className="capitalize">
+                  {row.role}
+                </span>,
+                <span
+                  key="status"
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      row.status === "active" ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                  <span className="capitalize">{row.status}</span>
+                </span>,
+                <span key="orgs" className="tabular-nums">
+                  {pluralize(row.organizer_count, "org", "orgs")}
+                </span>,
+                <span key="events" className="tabular-nums">
+                  {row.event_count}
+                </span>,
+                <span key="fundraisers" className="tabular-nums">
+                  {row.fundraiser_count}
+                </span>,
+                <span key="joined" className="whitespace-nowrap text-zinc-500">
+                  {formatAdminDate(row.created_at)}
+                </span>,
+              ],
+              actions: buildRowActions(row, isSelf),
+              selection: {
+                checked: selected.has(row.id),
+                disabled: isSelf,
+                onChange: () => toggleOne(row.id, isSelf),
+                label: tableStrings.selectRow(row.full_name),
+              },
+              onOpen: () => openDrawer(row.id),
+              detailHref: `/admin/users/${row.id}`,
+            };
+          })}
+          selectAll={{
+            checked: allSelected,
+            onChange: toggleAll,
+            label: tableStrings.selectAll,
+          }}
+          selectMode={selectMode}
+          emptyMessage="No users match your filters."
         />
-      </div>
+      )}
+
+      {!loading && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {total === 0
+              ? tableStrings.showingNone(total)
+              : tableStrings.showingResults(rangeStart, rangeEnd, total)}
+          </p>
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            perPage={perPage}
+            total={total}
+            onPageChange={(p) => updateParams({ page: String(p) })}
+            onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
+          />
+        </div>
+      )}
 
       <AdminDrawer
         open={drawerUser !== null || drawerLoading}
@@ -529,7 +529,7 @@ export default function UsersClient() {
                   Remove Admin
                 </button>
               )}
-              {getIdentityActions(drawerUser.identity_status).map((action) => (
+              {selectIdentityActions(drawerUser.identity_status).map((action) => (
                 <button
                   key={action}
                   type="button"
