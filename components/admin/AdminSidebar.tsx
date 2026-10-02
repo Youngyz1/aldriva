@@ -310,12 +310,21 @@ export function AdminSidebar({
           rail gets Radix hover + focus tooltips with no global wiring. */}
       <TooltipProvider delayDuration={300}>
         <AdminBrand collapsed={collapsed} />
-        {/* Independent scroll: only this inner column scrolls, so the edge
-            handle (positioned on the aside) is never clipped. */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-          <AdminNavList collapsed={collapsed} />
-          <BackToDashboard collapsed={collapsed} />
-        </div>
+      {/* Independent scroll: only this inner column scrolls, so the edge
+          handle (positioned on the aside) is never clipped. Collapsed rail
+          hides the native scrollbar (stays scrollable); expanded rail gets
+          a thin dark one. */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain",
+          collapsed
+            ? "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "[scrollbar-width:thin] [scrollbar-color:#52525b_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-600"
+        )}
+      >
+        <AdminNavList collapsed={collapsed} />
+        <BackToDashboard collapsed={collapsed} />
+      </div>
       </TooltipProvider>
     </aside>
   );
@@ -391,6 +400,7 @@ export function AdminMobileNav() {
           aria-label="Admin navigation"
           className={cn(
             "absolute left-0 top-0 flex h-full w-72 flex-col overflow-y-auto overscroll-contain bg-slate-950 p-3 text-white shadow-2xl transition-transform duration-200 motion-reduce:transition-none",
+            "[scrollbar-width:thin] [scrollbar-color:#52525b_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-600",
             open ? "translate-x-0" : "-translate-x-full"
           )}
         >
