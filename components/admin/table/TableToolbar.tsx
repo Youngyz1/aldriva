@@ -106,17 +106,23 @@ export default function TableToolbar({
 
   if (selection && selection.count > 0) {
     return (
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
-        <span className="text-xs font-bold text-violet-800">
-          {s.selectedCount(selection.count)}
-        </span>
-        {selection.actions}
+      <div className="sticky top-[120px] z-20 flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-zinc-100 py-3 lg:top-16">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
+          <span className="text-xs font-bold text-violet-800">
+            {s.selectedCount(selection.count)}
+          </span>
+          {selection.actions}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    // Sticky toolbar. Offset clears the sticky global navbar (h-16 = 64px,
+    // components/Navbar.tsx) plus, below lg, the sticky admin mobile bar
+    // (h-14 = 56px, AdminSidebar AdminMobileNav) so nothing hides behind
+    // either. Solid page background + hairline, present whether stuck or not.
+    <div className="sticky top-[120px] z-20 space-y-3 border-b border-zinc-200 bg-zinc-100 py-3 lg:top-16">
       {/* Stat strip: plain text on desktop, scrollable chips on mobile. */}
       {stats && stats.length > 0 && (
         <div className="hidden items-baseline gap-x-4 gap-y-1 text-xs sm:flex sm:flex-wrap">

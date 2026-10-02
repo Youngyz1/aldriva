@@ -29,6 +29,7 @@ import {
   lineForRole,
   rowToggleAria,
   sortMenuActions,
+  visibilityClass,
 } from "./logic";
 import { tableStrings as s } from "./strings";
 import type {
@@ -138,11 +139,11 @@ function DesktopTable({
     (r) => r.actions && (r.actions.primary || r.actions.menu.length > 0)
   );
   return (
-    <div className="hidden overflow-x-auto @[700px]:block">
+    <div className="hidden overflow-x-clip @[700px]:block">
       <table className="w-full text-left text-sm">
-        {/* NOTE: sticky keeps the header docked below the navbar when the
-            table fits; inside this horizontal scroll wrapper it cannot
-            stick vertically (CSS scroll containment). Kept per spec. */}
+        {/* overflow-x: clip (not auto) creates no scroll container, so the
+            sticky header keeps working vertically. Horizontal overflow is
+            prevented instead by priority-based column hiding. */}
         <thead className="sticky top-16 z-10 border-b border-zinc-200 bg-zinc-100">
           <tr>
             {selectAll && (
@@ -164,7 +165,8 @@ function DesktopTable({
                 style={col.width ? { width: col.width } : undefined}
                 className={cn(
                   "px-4 py-3 text-xs font-semibold text-zinc-500 first:pl-0 last:pr-0",
-                  alignClass(col.align)
+                  alignClass(col.align),
+                  visibilityClass(col.hideBelow)
                 )}
               >
                 {col.header}
@@ -210,7 +212,8 @@ function DesktopTable({
                       col.role === "title"
                         ? "font-semibold text-zinc-950"
                         : "text-zinc-600",
-                      alignClass(col.align)
+                      alignClass(col.align),
+                      visibilityClass(col.hideBelow)
                     )}
                   >
                     {row.cells[i]}

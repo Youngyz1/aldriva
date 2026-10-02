@@ -7,10 +7,12 @@ import assert from "node:assert/strict";
 import {
   expandedReducer,
   lineForRole,
+  pageRange,
   pluralize,
   rowToggleAria,
   selectIdentityActions,
   sortMenuActions,
+  visibilityClass,
 } from "./logic.ts";
 import type { RowAction } from "./types.ts";
 
@@ -80,4 +82,19 @@ test("pluralization uses the singular form only for exactly one", () => {
   assert.equal(pluralize(1, "org", "orgs"), "1 org");
   assert.equal(pluralize(2, "org", "orgs"), "2 orgs");
   assert.equal(pluralize(0, "org", "orgs"), "0 orgs");
+});
+
+test("column priority maps to container-query visibility classes", () => {
+  assert.equal(visibilityClass(), "");
+  assert.equal(visibilityClass(undefined), "");
+  assert.equal(visibilityClass("md"), "hidden @[800px]:table-cell");
+  assert.equal(visibilityClass("lg"), "hidden @[1024px]:table-cell");
+});
+
+test("footer range math is 1-based over the rows actually shown", () => {
+  assert.deepEqual(pageRange(1, 25, 23, 23), { start: 1, end: 23 });
+  assert.deepEqual(pageRange(2, 25, 60, 25), { start: 26, end: 50 });
+  assert.deepEqual(pageRange(3, 25, 60, 10), { start: 51, end: 60 });
+  assert.deepEqual(pageRange(1, 25, 0, 0), { start: 0, end: 0 });
+  assert.deepEqual(pageRange(1, 25, 7, 0), { start: 0, end: 0 });
 });

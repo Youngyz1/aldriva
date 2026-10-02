@@ -14,12 +14,22 @@ import type React from "react";
 
 export type ColumnRole = "title" | "value" | "meta" | "detail";
 
+/** Desktop container widths below which a column hides (title/value never hide). */
+export type HideBelow = "md" | "lg";
+
 export type AdminColumn = {
   id: string;
   header: React.ReactNode;
   role: ColumnRole;
   /** Visible on desktop only; excluded from mobile rows entirely. */
   desktopOnly?: boolean;
+  /**
+   * Priority-based desktop hiding: the column (header AND cells) hides
+   * below this container width. md = below 800px, lg = below 1024px.
+   * Detail columns hide first, then meta. Hidden columns stay visible in
+   * the mobile/expanded view, which ignores this flag.
+   */
+  hideBelow?: HideBelow;
   /** CSS width applied to the desktop <th> (opt-in per column). */
   width?: string;
   align?: "left" | "center" | "right";

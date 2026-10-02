@@ -3,7 +3,18 @@
  * Pure, dependency-free table logic (unit-tested in logic.test.ts).
  */
 
-import type { ColumnRole, RowAction } from "./types";
+import type { ColumnRole, HideBelow, RowAction } from "./types";
+
+/**
+ * Desktop visibility classes for a column. Applied to BOTH the <th> and
+ * its <td>s so headers can never misalign with cells. Literal class
+ * strings (Tailwind generates them from source).
+ */
+export function visibilityClass(hideBelow?: HideBelow): string {
+  if (hideBelow === "lg") return "hidden @[1024px]:table-cell";
+  if (hideBelow === "md") return "hidden @[800px]:table-cell";
+  return "";
+}
 
 /** Mobile placement for each column role. */
 export function lineForRole(
@@ -73,4 +84,16 @@ export function selectIdentityActions(
 /** English pluralization for counts ("1 org" / "2 orgs"). */
 export function pluralize(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
+}
+
+/** Footer range math: 1-based "start–end" of the rows actually shown. */
+export function pageRange(
+  page: number,
+  perPage: number,
+  total: number,
+  shown: number
+): { start: number; end: number } {
+  if (total === 0 || shown === 0) return { start: 0, end: 0 };
+  const start = (page - 1) * perPage + 1;
+  return { start, end: Math.min(start + shown - 1, total) };
 }

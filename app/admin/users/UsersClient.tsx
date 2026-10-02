@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/admin/ModerationBadge";
 import AdminTable from "@/components/admin/table/AdminTable";
 import TableToolbar from "@/components/admin/table/TableToolbar";
 import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
-import { pluralize, selectIdentityActions } from "@/components/admin/table/logic";
+import { pageRange, pluralize, selectIdentityActions } from "@/components/admin/table/logic";
 import { tableStrings } from "@/components/admin/table/strings";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import type {
@@ -216,14 +216,16 @@ export default function UsersClient() {
       ]
     : [];
 
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // fundraisers + events below 1024px container, orgs + email + role below 800px.
   const columns: AdminColumn[] = [
     { id: "name", header: "Name", role: "title" },
-    { id: "email", header: "Email", role: "detail" },
-    { id: "role", header: "Role", role: "meta" },
+    { id: "email", header: "Email", role: "detail", hideBelow: "md" },
+    { id: "role", header: "Role", role: "meta", hideBelow: "md" },
     { id: "status", header: "Status", role: "value", width: "110px" },
-    { id: "orgs", header: "Orgs", role: "detail", align: "right" },
-    { id: "events", header: "Events", role: "detail", align: "right" },
-    { id: "fundraisers", header: "Fundraisers", role: "detail", align: "right" },
+    { id: "orgs", header: "Orgs", role: "detail", align: "right", hideBelow: "md" },
+    { id: "events", header: "Events", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "fundraisers", header: "Fundraisers", role: "detail", align: "right", hideBelow: "lg" },
     { id: "joined", header: "Joined", role: "meta", align: "right" },
   ];
 
@@ -281,8 +283,7 @@ export default function UsersClient() {
     };
   }
 
-  const rangeStart = total === 0 ? 0 : (page - 1) * perPage + 1;
-  const rangeEnd = total === 0 ? 0 : Math.min(rangeStart + rows.length - 1, total);
+  const { start: rangeStart, end: rangeEnd } = pageRange(page, perPage, total, rows.length);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -464,10 +465,10 @@ export default function UsersClient() {
         />
       )}
 
-      {!loading && (
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs font-semibold text-zinc-400">
-            {total === 0
+            {loading || total === 0
               ? tableStrings.showingNone(total)
               : tableStrings.showingResults(rangeStart, rangeEnd, total)}
           </p>
@@ -480,7 +481,7 @@ export default function UsersClient() {
             onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
           />
         </div>
-      )}
+      </div>
 
       <AdminDrawer
         open={drawerUser !== null || drawerLoading}
