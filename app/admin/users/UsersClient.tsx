@@ -10,6 +10,9 @@ import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
 import AdminTable from "@/components/admin/table/AdminTable";
 import TableToolbar from "@/components/admin/table/TableToolbar";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
 import { pageRange, pluralize, selectIdentityActions } from "@/components/admin/table/logic";
 import { tableStrings } from "@/components/admin/table/strings";
@@ -206,16 +209,6 @@ export default function UsersClient() {
     });
   }
 
-  const statItems = stats
-    ? [
-        { label: "Total Users", value: stats.total },
-        { label: "Active Users", value: stats.active },
-        { label: "Suspended", value: stats.suspended },
-        { label: "Admins", value: stats.admins },
-        { label: "Organizations", value: stats.organizers },
-      ]
-    : [];
-
   // Priority hiding (detail first, then meta; title/value never hide):
   // fundraisers + events below 1024px container, orgs + email + role below 800px.
   const columns: AdminColumn[] = [
@@ -287,13 +280,13 @@ export default function UsersClient() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Users</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">
-          Full user management with roles, activity filters, and bulk moderation.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.users.eyebrow}
+        title={adminPageCopy.users.title}
+        description={adminPageCopy.users.description}
+      />
+
+      <StatStrip items={buildStats(adminPageCopy.users.stats, stats)} />
 
       <TableToolbar
         search={{
@@ -373,7 +366,6 @@ export default function UsersClient() {
         }
         onExport={handleExport}
         exporting={exporting}
-        stats={statItems}
         selectMode={selectMode}
         onToggleSelectMode={() => setSelectMode((v) => !v)}
       />

@@ -12,6 +12,9 @@ import AdminTable from "@/components/admin/table/AdminTable";
 import TableToolbar from "@/components/admin/table/TableToolbar";
 import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
 import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 
 type EventRow = {
   id: string;
@@ -106,13 +109,25 @@ export default function AdminEventsPage() {
     return { menu };
   }
 
+  const eventStats = useMemo(() => {
+    const approved = events.filter((e) => e.status === "approved").length;
+    const rejected = events.filter((e) => e.status === "rejected").length;
+    return {
+      total: events.length,
+      approved,
+      pending: events.length - approved - rejected,
+      featured: events.filter((e) => e.is_featured).length,
+    };
+  }, [events]);
+
   return (
     <div className="space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight">Events</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">Moderate and feature events. Category filter uses canonical event taxonomy.</p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.events.eyebrow}
+        title={adminPageCopy.events.title}
+        description={adminPageCopy.events.description}
+      />
+      <StatStrip items={buildStats(adminPageCopy.events.stats, eventStats)} />
       <TableToolbar
         filters={[
           {
@@ -168,7 +183,7 @@ export default function AdminEventsPage() {
             ],
             actions: buildRowActions(ev),
           }))}
-          emptyMessage="No events found."
+          emptyMessage={adminPageCopy.events.empty}
         />
       )}
 

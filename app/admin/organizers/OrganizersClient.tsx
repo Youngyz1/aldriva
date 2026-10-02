@@ -10,6 +10,9 @@ import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
 import AdminTable from "@/components/admin/table/AdminTable";
 import TableToolbar from "@/components/admin/table/TableToolbar";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
 import { pageRange } from "@/components/admin/table/logic";
 import { tableStrings } from "@/components/admin/table/strings";
@@ -351,16 +354,6 @@ export default function OrganizersClient() {
     });
   }
 
-  const statItems = stats
-    ? [
-        { label: "Pending", value: stats.pending },
-        { label: "Verified", value: stats.verified },
-        { label: "Suspended", value: stats.suspended },
-        { label: "Rejected", value: stats.rejected },
-        { label: "Total", value: stats.total },
-      ]
-    : [];
-
   // Priority hiding (detail first, then meta; title/value never hide):
   // events + fundraisers below 1024px container, owner below 800px.
   const columns: AdminColumn[] = [
@@ -407,13 +400,13 @@ export default function OrganizersClient() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Organizations</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate organization profiles with search, filters, and bulk actions.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.organizers.eyebrow}
+        title={adminPageCopy.organizers.title}
+        description={adminPageCopy.organizers.description}
+      />
+
+      <StatStrip items={buildStats(adminPageCopy.organizers.stats, stats)} />
 
       <TableToolbar
         search={{
@@ -497,7 +490,6 @@ export default function OrganizersClient() {
         }
         onExport={handleExport}
         exporting={exporting}
-        stats={statItems}
         selectMode={selectMode}
         onToggleSelectMode={() => setSelectMode((v) => !v)}
       />
