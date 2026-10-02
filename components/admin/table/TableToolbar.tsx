@@ -38,7 +38,8 @@ export type ToolbarTab = {
 };
 
 export type TableToolbarProps = {
-  search: { value: string; placeholder: string; onChange: (v: string) => void };
+  /** Omitted on pages without search (e.g. events) — nothing renders. */
+  search?: { value: string; placeholder: string; onChange: (v: string) => void };
   filters: ToolbarFilter[];
   sort?: { value: string; options: ToolbarFilterOption[]; onChange: (v: string) => void };
   onExport?: () => void;
@@ -175,20 +176,22 @@ export default function TableToolbar({
 
       {/* Main row: search + Filters + Sort + Export (mobile: search above). */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-          />
-          <input
-            type="search"
-            value={search.value}
-            onChange={(e) => search.onChange(e.target.value)}
-            placeholder={search.placeholder}
-            aria-label={search.placeholder}
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm font-semibold text-zinc-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-200"
-          />
-        </div>
+        {search && (
+          <div className="relative min-w-0 flex-1">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+            />
+            <input
+              type="search"
+              value={search.value}
+              onChange={(e) => search.onChange(e.target.value)}
+              placeholder={search.placeholder}
+              aria-label={search.placeholder}
+              className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm font-semibold text-zinc-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-200"
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="relative">
