@@ -14,6 +14,8 @@ import {
   formatMoney,
   getAttentionQueue,
   getFiguresData,
+  getGlanceData,
+  getRangeBounds,
   getRecentSubmissions,
   getTopLists,
   timeAgo,
@@ -33,6 +35,7 @@ const FIGURE_LABELS: Record<FigureDatum["id"], string> = {
   volume: overviewStrings.volume,
   fundraisers: overviewStrings.newFundraisers,
   events: overviewStrings.newEvents,
+  organizations: overviewStrings.newOrganizations,
 };
 
 function figureDisplay(id: FigureDatum["id"], value: number, currency: string): string {
@@ -153,11 +156,19 @@ export async function FiguresAndChartSection({
 
 const ATTENTION_LABELS = {
   organizers: overviewStrings.pendingOrganizers,
-  articles: overviewStrings.pendingArticles,
-  identity: overviewStrings.pendingIdentity,
+  events: overviewStrings.pendingEvents,
+  fundraisers: overviewStrings.pendingFundraisers,
+  "businesses-review": overviewStrings.pendingBusinesses,
   businesses: overviewStrings.flaggedBusinesses,
+  products: overviewStrings.pendingProducts,
+  articles: overviewStrings.pendingArticles,
+  reviews: overviewStrings.pendingReviews,
+  identity: overviewStrings.pendingIdentity,
   payouts: overviewStrings.pendingPayouts,
 } as const;
+
+/** Queues whose list page has no URL filter — the link opens the full list. */
+const UNFILTERED_QUEUES = new Set(["events", "reviews"]);
 
 export async function AttentionSection() {
   await connection();
@@ -187,6 +198,12 @@ export async function AttentionSection() {
                 />
                 <span className="text-sm font-medium text-zinc-700">
                   {ATTENTION_LABELS[row.id]}
+                  {UNFILTERED_QUEUES.has(row.id) && (
+                    <span className="text-zinc-400">
+                      {" "}
+                      · {overviewStrings.unfilteredHint}
+                    </span>
+                  )}
                   {row.id === "payouts" && (
                     <span className="text-zinc-400">
                       {" "}
@@ -238,6 +255,67 @@ export async function RecentSection() {
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+const GLANCE_LABELS = overviewStrings.glanceAreas;
+
+export async function GlanceSection({
+  range,
+  compare,
+}: {
+  range: OverviewRange;
+  compare: boolean;
+}) {
+  await connection();
+  const bounds = getRangeBounds(range);
+  const rows = await getGlanceData(bounds);
+
+  return (
+    <section aria-label={overviewStrings.glanceTitle}>
+      <SectionTitle>{overviewStrings.glanceTitle}</SectionTitle>
+      <ul className="mt-2">
+        {rows.map((row) => {
+          const delta = formatDelta(row.rangeNew, row.rangePrev);
+          return (
+            <li key={row.id} className="border-b border-zinc-200 last:border-b-0">
+              <Link
+                href={row.href}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[160px_96px_1fr_1fr]"
+              >
+                <span className="truncate text-sm font-medium text-zinc-700">
+                  {GLANCE_LABELS[row.id as keyof typeof GLANCE_LABELS] ?? row.id}
+                </span>
+                <span className="text-right text-sm font-bold tabular-nums text-zinc-950">
+                  {row.total.toLocaleString("en-US")}
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-zinc-500">
+                  {row.rangeNew.toLocaleString("en-US")} new
+                  {compare && (
+                    <span
+                      title={delta.title}
+                      className={cn(
+                        "ml-1",
+                        delta.tone === "up" && "text-emerald-700",
+                        delta.tone === "down" && "text-rose-700",
+                        delta.tone === "flat" && "text-zinc-400"
+                      )}
+                    >
+                      {delta.text}
+                    </span>
+                  )}
+                </span>
+                {row.breakdown !== "" && (
+                  <span className="truncate text-xs text-zinc-400 sm:text-right">
+                    {row.breakdown}
+                  </span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

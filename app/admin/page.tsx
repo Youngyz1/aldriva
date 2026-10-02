@@ -16,12 +16,14 @@ import {
 import {
   AttentionSection,
   FiguresAndChartSection,
+  GlanceSection,
   RecentSection,
   TopListsSection,
 } from "@/components/admin/overview/sections";
 import {
   AttentionSkeleton,
   FiguresSkeleton,
+  GlanceSkeleton,
   RecentSkeleton,
   TopListsSkeleton,
 } from "@/components/admin/overview/skeletons";
@@ -61,6 +63,12 @@ export default async function AdminOverviewPage({
       <Suspense fallback={<FiguresSkeleton />}>
         <FiguresAndChartSection range={range} compare={compare} />
       </Suspense>
+
+      <div className="border-t border-zinc-200 pt-10">
+        <Suspense fallback={<GlanceSkeleton />}>
+          <GlanceSection range={range} compare={compare} />
+        </Suspense>
+      </div>
 
       <div className="border-t border-zinc-200 pt-10">
         <Suspense fallback={<AttentionSkeleton />}>

@@ -42,6 +42,21 @@ export function FiguresSkeleton() {
   );
 }
 
+export function GlanceSkeleton() {
+  return (
+    <section aria-label="Loading platform at a glance">
+      <SectionTitleSkeleton />
+      <div className="mt-2 space-y-0">
+        {Array.from({ length: 11 }, (_, i) => (
+          <div key={i} className="border-b border-zinc-200 py-3 last:border-b-0">
+            <Pulse className="h-5 w-64 max-w-full" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function AttentionSkeleton() {
   return (
     <section aria-label="Loading needs attention">

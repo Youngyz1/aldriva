@@ -184,7 +184,7 @@ export type MoneyTotal = {
 };
 
 export type FigureDatum = {
-  id: "users" | "volume" | "fundraisers" | "events";
+  id: "users" | "volume" | "fundraisers" | "events" | "organizations";
   value: number;
   prevValue: number;
   sparkCurrent: number[];
@@ -220,12 +220,16 @@ export async function getFiguresData(range: OverviewRange): Promise<FiguresData>
     fundsP,
     evsN,
     evsP,
+    orgsN,
+    orgsP,
     usersRows,
     usersPrevRows,
     fundRows,
     fundPrevRows,
     evRows,
     evPrevRows,
+    orgRows,
+    orgPrevRows,
     donRows,
     donPrevRows,
   ] = await Promise.all([
@@ -235,12 +239,16 @@ export async function getFiguresData(range: OverviewRange): Promise<FiguresData>
     sqlCountWindow("fundraisers", b.prevStart, b.prevEnd),
     sqlCountWindow("events", b.start, b.end),
     sqlCountWindow("events", b.prevStart, b.prevEnd),
+    sqlCountWindow("organizers", b.start, b.end),
+    sqlCountWindow("organizers", b.prevStart, b.prevEnd),
     fetchPaged("profiles", "created_at", b.start, b.end),
     fetchPaged("profiles", "created_at", b.prevStart, b.prevEnd),
     fetchPaged("fundraisers", "created_at", b.start, b.end),
     fetchPaged("fundraisers", "created_at", b.prevStart, b.prevEnd),
     fetchPaged("events", "created_at", b.start, b.end),
     fetchPaged("events", "created_at", b.prevStart, b.prevEnd),
+    fetchPaged("organizers", "created_at", b.start, b.end),
+    fetchPaged("organizers", "created_at", b.prevStart, b.prevEnd),
     fetchPaged("donations", "created_at, amount, currency", b.start, b.end, SETTLED),
     fetchPaged("donations", "created_at, amount, currency", b.prevStart, b.prevEnd, SETTLED),
   ]);
@@ -297,6 +305,7 @@ export async function getFiguresData(range: OverviewRange): Promise<FiguresData>
     usersRows.approximate || usersPrevRows.approximate ||
     fundRows.approximate || fundPrevRows.approximate ||
     evRows.approximate || evPrevRows.approximate ||
+    orgRows.approximate || orgPrevRows.approximate ||
     donRows.approximate || donPrevRows.approximate;
 
   return {
@@ -306,6 +315,7 @@ export async function getFiguresData(range: OverviewRange): Promise<FiguresData>
       { id: "volume", value: volTotal, prevValue: volPrevTotal, sparkCurrent: volCur, sparkPrevious: volPrev },
       { id: "fundraisers", value: fundsN, prevValue: fundsP, sparkCurrent: bucketize(fundRows.rows, one, curIdx), sparkPrevious: bucketize(fundPrevRows.rows, one, prevIdx) },
       { id: "events", value: evsN, prevValue: evsP, sparkCurrent: bucketize(evRows.rows, one, curIdx), sparkPrevious: bucketize(evPrevRows.rows, one, prevIdx) },
+      { id: "organizations", value: orgsN, prevValue: orgsP, sparkCurrent: bucketize(orgRows.rows, one, curIdx), sparkPrevious: bucketize(orgPrevRows.rows, one, prevIdx) },
     ],
     volumeLabels: Array.from({ length: b.bucketCount }, (_, i) => bucketLabel(b, i)),
     volumeCurrent: volCur,
@@ -317,7 +327,17 @@ export async function getFiguresData(range: OverviewRange): Promise<FiguresData>
 }
 
 export type AttentionQueue = {
-  id: "organizers" | "articles" | "identity" | "businesses" | "payouts";
+  id:
+    | "organizers"
+    | "articles"
+    | "identity"
+    | "businesses"
+    | "businesses-review"
+    | "products"
+    | "events"
+    | "fundraisers"
+    | "reviews"
+    | "payouts";
   count: number;
   href: string;
 };
@@ -338,19 +358,40 @@ export async function getAttentionQueue(): Promise<AttentionQueue[]> {
     return c ?? 0;
   };
 
-  const [organizers, articles, identity, businesses, payouts] = await Promise.all([
+  const [
+    organizers,
+    articles,
+    identity,
+    flagged,
+    businessesReview,
+    products,
+    events,
+    fundraisers,
+    reviews,
+    payouts,
+  ] = await Promise.all([
     count("organizers", "status", "pending"),
     count("articles", "status", "pending_review"),
     count("user_identity_verifications", "status", "submitted"),
     count("businesses", "is_flagged", true),
+    count("businesses", "status", "pending_review"),
+    count("products", "status", "pending_review"),
+    count("events", "status", "pending"),
+    count("fundraisers", "status", "pending_review"),
+    count("reviews", "is_approved", false),
     count("payouts", "status", "requested"),
   ]);
 
   return [
     { id: "organizers", count: organizers, href: "/admin/organizers?status=pending" },
+    { id: "events", count: events, href: "/admin/events" },
+    { id: "fundraisers", count: fundraisers, href: "/admin/fundraisers?status=pending_review" },
+    { id: "businesses-review", count: businessesReview, href: "/admin/businesses?tab=pending_review" },
+    { id: "businesses", count: flagged, href: "/admin/businesses?tab=flagged" },
+    { id: "products", count: products, href: "/admin/products?status=pending_review" },
     { id: "articles", count: articles, href: "/admin/articles?status=pending_review" },
+    { id: "reviews", count: reviews, href: "/admin/reviews" },
     { id: "identity", count: identity, href: "/admin/users/identity-verifications" },
-    { id: "businesses", count: businesses, href: "/admin/businesses?tab=flagged" },
     { id: "payouts", count: payouts, href: "/admin/finance/payouts" },
   ];
 }
@@ -360,7 +401,10 @@ export type RecentKind =
   | "organizer"
   | "event"
   | "fundraiser"
-  | "article";
+  | "article"
+  | "business"
+  | "product"
+  | "review";
 
 export type RecentItem = {
   kind: RecentKind;
@@ -398,7 +442,16 @@ function userLabel(
 /** Newest rows per entity, merged to the newest overall. Real submissions only. */
 export async function getRecentSubmissions(limit = 8): Promise<RecentItem[]> {
   const supabaseAdmin = createSupabaseAdmin();
-  const [users, organizers, events, fundraisers, articles] = await Promise.all([
+  const [
+    users,
+    organizers,
+    events,
+    fundraisers,
+    articles,
+    businesses,
+    products,
+    reviews,
+  ] = await Promise.all([
     supabaseAdmin
       .from("profiles")
       .select("id, account_info, display_name, created_at")
@@ -422,6 +475,21 @@ export async function getRecentSubmissions(limit = 8): Promise<RecentItem[]> {
     supabaseAdmin
       .from("articles")
       .select("id, title, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabaseAdmin
+      .from("businesses")
+      .select("id, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabaseAdmin
+      .from("products")
+      .select("id, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabaseAdmin
+      .from("reviews")
+      .select("id, title, review, created_at, event_id, fundraiser_id, organizer_id, events(title), fundraisers(title), organizers(name)")
       .order("created_at", { ascending: false })
       .limit(limit),
   ]);
@@ -477,6 +545,26 @@ export async function getRecentSubmissions(limit = 8): Promise<RecentItem[]> {
     });
   }
   named(articles.data, "article", "/admin/articles", (r) => String(r.title ?? ""));
+  named(businesses.data, "business", "/admin/businesses", (r) => String(r.name ?? ""));
+  named(products.data, "product", "/admin/products", (r) => String(r.name ?? ""));
+  for (const row of ((reviews.data ?? []) as unknown) as Array<{
+    id: string;
+    title: string | null;
+    created_at: string;
+    events: { title: string } | null;
+    fundraisers: { title: string } | null;
+    organizers: { name: string } | null;
+  }>) {
+    const target =
+      row.events?.title ?? row.fundraisers?.title ?? row.organizers?.name ?? null;
+    all.push({
+      kind: "review",
+      id: row.id,
+      label: row.title?.trim() || (target ? `Review of ${target}` : "Review"),
+      createdAt: row.created_at,
+      href: "/admin/reviews",
+    });
+  }
 
   return all
     .filter((item) => toDate(item.createdAt) !== null)
@@ -535,6 +623,113 @@ export async function getTopLists(): Promise<{
       created_at: string;
     }>).map((o) => ({ id: o.id, name: o.name, createdAt: o.created_at })),
   };
+}
+
+export type GlanceRow = {
+  id: string;
+  total: number;
+  rangeNew: number;
+  rangePrev: number;
+  breakdown: string;
+  href: string;
+};
+
+/**
+ * Platform-at-a-glance rows. All counts are exact SQL aggregates issued in
+ * one parallel group; breakdowns are additional head:true counts.
+ */
+export async function getGlanceData(b: RangeBounds): Promise<GlanceRow[]> {
+  const win = (table: string, start: Date, end: Date) =>
+    sqlCountWindow(table, start, end);
+  const winEq = (
+    table: string,
+    column: string,
+    value: string | boolean,
+    start: Date,
+    end: Date
+  ) => sqlCount(table, column, value, start, end);
+
+  const [
+    userTotal, userNew, userPrev, userActive, userSuspended, userAdmins,
+    orgTotal, orgNew, orgPrev, orgPending, orgVerified,
+    evTotal, evNew, evPrev, evApproved, evPending,
+    fundTotal, fundNew, fundPrev, fundPublished, fundPending,
+    bizTotal, bizNew, bizPrev, bizActive, bizFlagged,
+    prodTotal, prodNew, prodPrev, prodActive, prodPending,
+    artTotal, artNew, artPrev, artPublished, artPending,
+    revTotal, revNew, revPrev, revApproved, revHidden,
+    donTotal, donNew, donPrev, donSucceeded,
+    payTotal, payNew, payPrev, payRequested, payProcessing,
+    tickTotal, tickNew, tickPrev,
+  ] = await Promise.all([
+    sqlTotal("profiles"),
+    win("profiles", b.start, b.end),
+    win("profiles", b.prevStart, b.prevEnd),
+    sqlCount("profiles", "status", "active"),
+    sqlCount("profiles", "status", "suspended"),
+    sqlCount("profiles", "role", "admin"),
+    sqlTotal("organizers"),
+    win("organizers", b.start, b.end),
+    win("organizers", b.prevStart, b.prevEnd),
+    sqlCount("organizers", "status", "pending"),
+    sqlCount("organizers", "status", "verified"),
+    sqlTotal("events"),
+    win("events", b.start, b.end),
+    win("events", b.prevStart, b.prevEnd),
+    sqlCount("events", "status", "approved"),
+    sqlCount("events", "status", "pending"),
+    sqlTotal("fundraisers"),
+    win("fundraisers", b.start, b.end),
+    win("fundraisers", b.prevStart, b.prevEnd),
+    sqlCount("fundraisers", "status", "published"),
+    sqlCount("fundraisers", "status", "pending_review"),
+    sqlTotal("businesses"),
+    win("businesses", b.start, b.end),
+    win("businesses", b.prevStart, b.prevEnd),
+    sqlCount("businesses", "status", "active"),
+    sqlCount("businesses", "is_flagged", true),
+    sqlTotal("products"),
+    win("products", b.start, b.end),
+    win("products", b.prevStart, b.prevEnd),
+    sqlCount("products", "status", "active"),
+    sqlCount("products", "status", "pending_review"),
+    sqlTotal("articles"),
+    win("articles", b.start, b.end),
+    win("articles", b.prevStart, b.prevEnd),
+    sqlCount("articles", "status", "published"),
+    sqlCount("articles", "status", "pending_review"),
+    sqlTotal("reviews"),
+    win("reviews", b.start, b.end),
+    win("reviews", b.prevStart, b.prevEnd),
+    sqlCount("reviews", "is_approved", true),
+    sqlCount("reviews", "is_approved", false),
+    sqlTotal("donations"),
+    winEq("donations", "status", "succeeded", b.start, b.end),
+    winEq("donations", "status", "succeeded", b.prevStart, b.prevEnd),
+    sqlCount("donations", "status", "succeeded"),
+    sqlTotal("payouts"),
+    win("payouts", b.start, b.end),
+    win("payouts", b.prevStart, b.prevEnd),
+    sqlCount("payouts", "status", "requested"),
+    sqlCount("payouts", "status", "processing"),
+    sqlCount("ticket_orders", "status", "valid"),
+    winEq("ticket_orders", "status", "valid", b.start, b.end),
+    winEq("ticket_orders", "status", "valid", b.prevStart, b.prevEnd),
+  ]);
+
+  return [
+    { id: "users", total: userTotal, rangeNew: userNew, rangePrev: userPrev, breakdown: `${userActive} active · ${userSuspended} suspended · ${userAdmins} admins`, href: "/admin/users" },
+    { id: "organizations", total: orgTotal, rangeNew: orgNew, rangePrev: orgPrev, breakdown: `${orgPending} pending · ${orgVerified} verified`, href: "/admin/organizers" },
+    { id: "events", total: evTotal, rangeNew: evNew, rangePrev: evPrev, breakdown: `${evApproved} approved · ${evPending} pending`, href: "/admin/events" },
+    { id: "fundraisers", total: fundTotal, rangeNew: fundNew, rangePrev: fundPrev, breakdown: `${fundPublished} published · ${fundPending} pending review`, href: "/admin/fundraisers" },
+    { id: "businesses", total: bizTotal, rangeNew: bizNew, rangePrev: bizPrev, breakdown: `${bizActive} active · ${bizFlagged} flagged`, href: "/admin/businesses" },
+    { id: "products", total: prodTotal, rangeNew: prodNew, rangePrev: prodPrev, breakdown: `${prodActive} active · ${prodPending} pending review`, href: "/admin/products" },
+    { id: "articles", total: artTotal, rangeNew: artNew, rangePrev: artPrev, breakdown: `${artPublished} published · ${artPending} pending review`, href: "/admin/articles" },
+    { id: "reviews", total: revTotal, rangeNew: revNew, rangePrev: revPrev, breakdown: `${revApproved} approved · ${revHidden} hidden`, href: "/admin/reviews" },
+    { id: "payments", total: donTotal, rangeNew: donNew, rangePrev: donPrev, breakdown: `${donSucceeded} succeeded`, href: "/admin/payments" },
+    { id: "payouts", total: payTotal, rangeNew: payNew, rangePrev: payPrev, breakdown: `${payRequested} requested · ${payProcessing} processing`, href: "/admin/finance/payouts" },
+    { id: "tickets", total: tickTotal, rangeNew: tickNew, rangePrev: tickPrev, breakdown: "", href: "/admin/payments" },
+  ];
 }
 
 export function formatMoney(value: number, currency = "USD"): string {
