@@ -48,8 +48,29 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { ADMIN_SIDEBAR_COOKIE } from "./admin-sidebar-cookie";
+
+/**
+ * Tooltip for collapsed-rail icon links. Radix shows it on hover AND
+ * keyboard focus. Rendered only when the rail is collapsed.
+ */
+function RailTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" className="text-xs font-bold">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 type NavItem = {
   label: string;
@@ -166,13 +187,12 @@ function AdminNavList({
             {group.items.map((item) => {
               const Icon = item.icon;
               const active = isActiveLink(pathname, item.href);
-              return (
+              const link = (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
-                  title={collapsed ? item.label : undefined}
                   aria-label={collapsed ? item.label : undefined}
                   className={cn(
                     "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold transition",
@@ -186,6 +206,14 @@ function AdminNavList({
                   {!collapsed && item.label}
                 </Link>
               );
+              if (collapsed) {
+                return (
+                  <RailTip key={item.href} label={item.label}>
+                    {link}
+                  </RailTip>
+                );
+              }
+              return link;
             })}
           </div>
         </div>
@@ -195,10 +223,9 @@ function AdminNavList({
 }
 
 function AdminBrand({ collapsed = false }: { collapsed?: boolean }) {
-  return (
+  const brand = (
     <Link
       href="/admin"
-      title={collapsed ? "Admin Panel" : undefined}
       aria-label="Admin Panel"
       className={cn(
         "mb-5 flex items-center gap-3 rounded-xl px-2.5 py-2",
@@ -213,13 +240,14 @@ function AdminBrand({ collapsed = false }: { collapsed?: boolean }) {
       )}
     </Link>
   );
+  if (collapsed) return <RailTip label="Admin Panel">{brand}</RailTip>;
+  return brand;
 }
 
 function BackToDashboard({ collapsed = false }: { collapsed?: boolean }) {
-  return (
+  const link = (
     <Link
       href="/dashboard"
-      title={collapsed ? "Dashboard" : undefined}
       aria-label="Back to Dashboard"
       className={cn(
         "mt-4 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-400 transition hover:bg-white/10 hover:text-white",
@@ -230,6 +258,8 @@ function BackToDashboard({ collapsed = false }: { collapsed?: boolean }) {
       {!collapsed && "Dashboard"}
     </Link>
   );
+  if (collapsed) return <RailTip label="Dashboard">{link}</RailTip>;
+  return link;
 }
 
 /**
@@ -276,13 +306,17 @@ export function AdminSidebar({
         )}
       </button>
 
-      <AdminBrand collapsed={collapsed} />
-      {/* Independent scroll: only this inner column scrolls, so the edge
-          handle (positioned on the aside) is never clipped. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        <AdminNavList collapsed={collapsed} />
-        <BackToDashboard collapsed={collapsed} />
-      </div>
+      {/* Tooltip state lives here (not in the layout) so the collapsed
+          rail gets Radix hover + focus tooltips with no global wiring. */}
+      <TooltipProvider delayDuration={300}>
+        <AdminBrand collapsed={collapsed} />
+        {/* Independent scroll: only this inner column scrolls, so the edge
+            handle (positioned on the aside) is never clipped. */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <AdminNavList collapsed={collapsed} />
+          <BackToDashboard collapsed={collapsed} />
+        </div>
+      </TooltipProvider>
     </aside>
   );
 }
