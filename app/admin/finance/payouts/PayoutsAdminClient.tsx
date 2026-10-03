@@ -25,7 +25,7 @@ import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/typ
 import { tableStrings } from "@/components/admin/table/strings";
 import PageHeader from "@/components/admin/PageHeader";
 import StatStrip from "@/components/admin/StatStrip";
-import { payoutsStrings as s } from "./payouts-strings";
+import { formatCurrencyTotal, groupVolumeByCurrency, payoutsStrings as s } from "./payouts-strings";
 
 export default function PayoutsAdminClient({
   initialQueue,
@@ -237,7 +237,7 @@ export default function PayoutsAdminClient({
 
   const requestedCount = queue.filter((i) => i.status === "requested").length;
   const processingCount = queue.filter((i) => i.status === "processing").length;
-  const totalAmount = queue.reduce((acc, i) => acc + i.amount, 0);
+  const volumeByCurrency = groupVolumeByCurrency(queue);
 
   return (
     <div className="space-y-6">
@@ -254,7 +254,10 @@ export default function PayoutsAdminClient({
             value: requestedCount + processingCount,
             accent: "text-amber-600",
           },
-          { label: s.totalVolume, value: `$${totalAmount.toFixed(2)}` },
+          ...volumeByCurrency.map(({ currency, total }) => ({
+            label: `${s.totalVolume} · ${currency || s.unknownCurrency} · ${s.loadedTab}`,
+            value: formatCurrencyTotal(total, currency),
+          })),
         ]}
       />
 

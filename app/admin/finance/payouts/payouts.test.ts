@@ -10,7 +10,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { payoutsStrings } from "./payouts-strings.ts";
+import {
+  formatCurrencyTotal,
+  groupVolumeByCurrency,
+  payoutsStrings,
+} from "./payouts-strings.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const wrapper = fs.readFileSync(path.join(here, "page.tsx"), "utf8");
@@ -96,4 +100,26 @@ test("Terminal marker moved into status cell and expansion", () => {
 
 test("working label keeps three ASCII dots", () => {
   assert.equal(payoutsStrings.updating, "Updating...");
+});
+
+test("volume groups per currency, never summed together", () => {
+  assert.deepEqual(
+    groupVolumeByCurrency([
+      { amount: 100, currency: "usd" },
+      { amount: 50, currency: "USD" },
+      { amount: 20, currency: "eur" },
+    ]),
+    [
+      { currency: "USD", total: 150 },
+      { currency: "EUR", total: 20 },
+    ]
+  );
+  assert.deepEqual(groupVolumeByCurrency([]), []);
+});
+
+test("currency totals format with their own code", () => {
+  assert.equal(formatCurrencyTotal(1234.5, "USD"), "$1,234.50");
+  assert.equal(formatCurrencyTotal(1234.5, "EUR"), "€1,234.50");
+  assert.equal(formatCurrencyTotal(10, ""), "$10.00");
+  assert.equal(formatCurrencyTotal(10, "Q12"), "Q12 10.00");
 });
