@@ -41,11 +41,11 @@ export function classifyRoute(check: RouteCheck): Verdict {
     return { result: "FAIL", detail: "app error screen: 500 marker in body" };
   }
   if (check.pageError) {
-    return { result: "FAIL", detail: check.pageError.slice(0, 300) };
+    return { result: "FAIL", detail: check.pageError.slice(0, 2000) };
   }
   const hit = check.consoleErrors.find((m) => CONSOLE_RE.test(m));
   if (hit !== undefined) {
-    return { result: "FAIL", detail: hit.slice(0, 300) };
+    return { result: "FAIL", detail: hit.slice(0, 2000) };
   }
   return { result: "PASS", detail: null };
 }

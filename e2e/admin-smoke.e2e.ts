@@ -39,10 +39,10 @@ test("admin smoke", async ({ page }) => {
   let pageError: string | null = null;
   let consoleErrors: string[] = [];
   page.on("pageerror", (err) => {
-    pageError = String(err?.message ?? err).slice(0, 500);
+    pageError = String(err?.message ?? err).slice(0, 2000);
   });
   page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 500));
+    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 2000));
   });
 
   async function settle() {

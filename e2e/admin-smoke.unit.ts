@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   discoverAdminRoutes,
   discoverPageFiles,
@@ -16,6 +17,8 @@ import {
   resolveDynamicId,
 } from "./admin-smoke.routes.ts";
 import { classifyRoute } from "./admin-smoke.classify.ts";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 test("pageFileToUrl converts filesystem paths to admin URLs", () => {
   assert.equal(pageFileToUrl("page.tsx"), "/admin");
@@ -137,4 +140,16 @@ test("classifyRoute passes when the status is unknown but nothing else fires", (
     classifyRoute({ ...clean, status: null }),
     { result: "PASS", detail: null }
   );
+});
+
+test("smoke context pins the server-default timezone and locale", () => {
+  const src = fs.readFileSync(
+    path.join(here, "admin-smoke.config.ts"),
+    "utf8"
+  );
+  assert.ok(
+    src.includes('timezoneId: "Africa/Lagos"'),
+    "browser timezone matches the dev server"
+  );
+  assert.ok(src.includes('locale: "en-GB"'), "browser locale is pinned");
 });
