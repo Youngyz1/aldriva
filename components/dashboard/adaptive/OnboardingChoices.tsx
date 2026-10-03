@@ -1,55 +1,75 @@
 import Link from "next/link";
-import { VERTICAL_CONFIG } from "@/lib/dashboard-activity";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { VERTICAL_CONFIG, type VerticalKey } from "@/lib/dashboard-activity";
+import { Button } from "@/components/ui/button";
 
-const DESCRIPTIONS: Record<keyof typeof VERTICAL_CONFIG, string> = {
-  fundraisers: "Raise money for a cause",
-  events: "Sell tickets, organize an event",
-  articles: "Share a story with the community",
-  businesses: "Get discovered by local customers",
-  products: "Sell physical or digital goods",
+const DESCRIPTIONS: Record<VerticalKey, { tagline: string; description: string }> = {
+  fundraisers: {
+    tagline: "Community & Nonprofit Campaigns",
+    description: "Launch a crowdfunding campaign with direct donation receipts and transparent ledgers.",
+  },
+  events: {
+    tagline: "Events & Seating Operations",
+    description: "Host gatherings with interactive SVG venue seat maps, offline door QR scanning, and custom tickets.",
+  },
+  products: {
+    tagline: "Digital Products & Shop",
+    description: "Sell downloadable digital assets, files, or physical goods with dual card and crypto rails.",
+  },
+  articles: {
+    tagline: "Editorial Publishing & Audio",
+    description: "Publish stories and guides using the TipTap editor with automated AI narration synthesis.",
+  },
+  businesses: {
+    tagline: "Local Business Directory",
+    description: "Create a verified business listing, connect customer channels, and launch your tenant website.",
+  },
 };
 
-/**
- * Replaces the KPI grid + two-column body entirely for a brand-new user —
- * a focused onboarding choice, not a dashboard full of empty-state cards.
- * Each tile uses the SAME color its vertical will get once it becomes a
- * real StatCard, so there's visual continuity between onboarding and the
- * active dashboard.
- */
 export default function OnboardingChoices({ displayName }: { displayName: string }) {
   return (
-    // Open onboarding: heading + choice tiles sit on the page canvas.
-    // Tiles are interactive links and keep their boundaries.
-    <div className="border-t border-zinc-200 pt-6">
-      <h1 className="text-2xl font-black tracking-tight text-zinc-950 sm:text-3xl">
-        Welcome to Aldriva, {displayName}
-      </h1>
-      <p className="mt-2 text-sm font-medium text-zinc-500">
-        Pick where you&apos;d like to start — you can always add more later.
-      </p>
+    <div className="space-y-8">
+      <div className="max-w-2xl border-b border-zinc-200/80 pb-6">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700">
+          <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          Getting Started
+        </span>
+        <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+          Welcome to Aldriva, {displayName}
+        </h2>
+        <p className="mt-2 text-sm text-zinc-600 leading-relaxed">
+          Aldriva gives you the complete toolkit to build, sell, publish, and fundraise in one place. Choose an area below to launch your first initiative.
+        </p>
+      </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {Object.values(VERTICAL_CONFIG).map((vertical) => {
           const Icon = vertical.icon;
+          const info = DESCRIPTIONS[vertical.key];
+
           return (
-            <Link
+            <div
               key={vertical.key}
-              href={vertical.createHref}
-              className="group flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-6 transition hover:border-brand-300 hover:shadow-md"
+              className="group flex flex-col justify-between rounded-xl border border-zinc-200/80 bg-white p-6 transition-all hover:border-zinc-300 hover:shadow-xs"
             >
-              <div
-                className={`flex h-12 w-12 items-center justify-center rounded-xl ${vertical.iconBg} ${vertical.iconColor}`}
-              >
-                <Icon className="h-6 w-6" aria-hidden />
-              </div>
               <div>
-                <p className="text-base font-black text-zinc-950">{vertical.label}</p>
-                <p className="mt-0.5 text-sm text-zinc-500">{DESCRIPTIONS[vertical.key]}</p>
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200/80 bg-zinc-50 text-zinc-800 group-hover:bg-brand-50 group-hover:border-brand-200 group-hover:text-brand-700 transition">
+                  <Icon className="h-5 w-5" aria-hidden />
+                </div>
+                <h3 className="mt-4 text-base font-bold text-zinc-950">{vertical.label}</h3>
+                <p className="text-xs font-semibold text-zinc-500 mt-0.5">{info.tagline}</p>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-600">{info.description}</p>
               </div>
-              <p className="mt-auto text-sm font-semibold text-brand-700 group-hover:text-brand-800">
-                {vertical.createCta} →
-              </p>
-            </Link>
+
+              <div className="mt-6 pt-4 border-t border-zinc-100">
+                <Button asChild size="sm" variant="outline" className="w-full justify-between h-9 text-xs font-bold">
+                  <Link href={vertical.createHref}>
+                    <span>{vertical.createCta}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
           );
         })}
       </div>

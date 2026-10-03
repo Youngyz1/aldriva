@@ -206,6 +206,7 @@ export default function BusinessesClient() {
       <AdminManagementToolbar
         search={search}
         searchPlaceholder="Search businesses by name or owner..."
+        sticky={false}
         onSearchChange={(v) => updateParams({ search: v || null })}
         tabs={STATUS_TABS.map((t) => ({
           ...t,

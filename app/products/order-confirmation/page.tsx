@@ -8,6 +8,9 @@ import { useEffect, useState, Suspense } from "react";
 function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
+  // session_id comes from the Stripe success URL and lets guest buyers prove
+  // payment (verified live via the Stripe API) without an account or email.
+  const sessionId = searchParams.get("session_id");
 
   const [status, setStatus] = useState<"loading" | "pending" | "paid" | "failed">("loading");
   const [order, setOrder] = useState<{
@@ -16,7 +19,9 @@ function OrderConfirmationContent() {
     quantity: number | null;
     totalAmount: number | null;
     currency: string | null;
-  }>({ productName: null, productSlug: null, quantity: null, totalAmount: null, currency: null });
+    isDigital: boolean;
+    hasAssets: boolean;
+  }>({ productName: null, productSlug: null, quantity: null, totalAmount: null, currency: null, isDigital: false, hasAssets: false });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -35,7 +40,9 @@ function OrderConfirmationContent() {
     async function pollLookup() {
       attempts++;
       try {
-        const res = await fetch(`/api/products/order-lookup?orderId=${orderId}`);
+        const params = new URLSearchParams({ orderId: orderId as string });
+        if (sessionId) params.set("session_id", sessionId);
+        const res = await fetch(`/api/products/order-lookup?${params.toString()}`);
         if (!res.ok) {
           if (attempts > 15 && isMounted) {
             setStatus("failed");
@@ -52,6 +59,8 @@ function OrderConfirmationContent() {
           quantity: data.quantity,
           totalAmount: data.totalAmount,
           currency: data.currency,
+          isDigital: Boolean(data.isDigital),
+          hasAssets: Boolean(data.hasAssets),
         });
 
         if (data.status === "paid") {
@@ -75,7 +84,7 @@ function OrderConfirmationContent() {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [orderId]);
+  }, [orderId, sessionId]);
 
   const formattedAmount = order.totalAmount !== null
     ? Number(order.totalAmount).toLocaleString("en-US", {
@@ -127,6 +136,11 @@ function OrderConfirmationContent() {
           ? `Thanks for your order of "${order.productName}". A confirmation email has been sent.`
           : "Thanks for your order. A confirmation email has been sent."}
       </p>
+      {order.hasAssets && (
+        <p className="mt-3 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm font-bold text-emerald-800">
+          Your download{order.productName ? "s are" : " is"} ready — open your library to access your files anytime.
+        </p>
+      )}
 
       {(order.quantity || formattedAmount) && (
         <div className="mt-6 rounded-2xl bg-zinc-50 border border-zinc-200/50 p-4 text-left space-y-2">
@@ -148,10 +162,22 @@ function OrderConfirmationContent() {
       <hr className="my-8 border-zinc-100" />
 
       <div className="space-y-4">
+        {order.hasAssets && (
+          <Link
+            href="/products/library"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl bg-orange-500 hover:bg-orange-600 py-4 text-sm font-black text-white transition shadow-md"
+          >
+            Open My Library →
+          </Link>
+        )}
         {order.productSlug && (
           <Link
             href={`/products/${order.productSlug}`}
-            className="flex items-center justify-center gap-2 w-full rounded-2xl bg-orange-500 hover:bg-orange-600 py-4 text-sm font-black text-white transition shadow-md"
+            className={
+              order.hasAssets
+                ? "block text-sm font-bold text-zinc-500 hover:text-zinc-800 transition py-2"
+                : "flex items-center justify-center gap-2 w-full rounded-2xl bg-orange-500 hover:bg-orange-600 py-4 text-sm font-black text-white transition shadow-md"
+            }
           >
             View Product →
           </Link>

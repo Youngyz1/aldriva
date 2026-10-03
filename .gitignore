@@ -24,13 +24,15 @@
 .DS_Store
 *.pem
 
-# debug
+# debug & temporary agent logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 *.log
 dev-verify.log
+CUsers*
+*opencode*log
 
 # env files (can opt-in for committing if needed)
 .env
@@ -50,6 +52,11 @@ supabase/.temp/
 *.tsbuildinfo
 next-env.d.ts
 
-# Claude / MCP local configuration
-.mcp.json
-.agents/
+# Claude / Agent local caches
+.claude/
+.agents/skills/
+
+# Playwright worker artifacts (Stage 7 — never commit run outputs)
+playwright-report/
+test-results/
+qa-results.json

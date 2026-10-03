@@ -9,11 +9,13 @@ export default function BuyProductButton({
   priceLabel,
   priceType,
   stockQuantity,
+  isDigital = false,
 }: {
   productId: string;
   priceLabel: string;
   priceType: "one_time" | "subscription";
   stockQuantity: number | null;
+  isDigital?: boolean;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
@@ -33,7 +35,9 @@ export default function BuyProductButton({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity, buyerEmail, buyerName }),
+        // Digital listings are single-license — the server clamps to 1 as
+        // well, so a tampered quantity can never overcharge or oversell.
+        body: JSON.stringify({ productId, quantity: isDigital ? 1 : quantity, buyerEmail, buyerName }),
       });
       const data = await res.json();
 
@@ -91,23 +95,30 @@ export default function BuyProductButton({
             </div>
 
             <div className="px-6 py-5 space-y-5">
-              {/* Quantity */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxQuantity}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Math.min(maxQuantity, Number(e.target.value) || 1)))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
-                />
-                {stockQuantity !== null && (
-                  <p className="mt-1 text-xs text-slate-400">{stockQuantity} in stock</p>
-                )}
-              </div>
+              {/* Quantity — digital listings are single-license, no selector. */}
+              {!isDigital && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxQuantity}
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, Math.min(maxQuantity, Number(e.target.value) || 1)))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+                  />
+                  {stockQuantity !== null && (
+                    <p className="mt-1 text-xs text-slate-400">{stockQuantity} in stock</p>
+                  )}
+                </div>
+              )}
+              {isDigital && (
+                <p className="rounded-xl bg-zinc-50 border border-zinc-200/70 px-4 py-3 text-xs font-semibold text-zinc-500">
+                  Single license — you get instant download access after payment, anytime from your library.
+                </p>
+              )}
 
               {/* Buyer info */}
               <div className="grid grid-cols-2 gap-3">

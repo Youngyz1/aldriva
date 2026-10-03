@@ -1,86 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aldriva — Multi-Module Business & Community Platform
 
-## Getting Started
+> **Everything Your Business Needs. One Platform.**  
+> Official Website: [https://aldriva.com](https://aldriva.com)
 
-First, run the development server:
+Aldriva is an all-in-one business, creator, and community platform that enables users to create customizable business websites, publish articles and editorial content, host events with interactive visual seating and offline QR check-in, launch community fundraisers with transparent beneficiary ledgers, and sell digital and physical products with dual credit card and crypto payment rails.
 
+---
+
+## 🛠 Technology Stack
+
+- **Framework**: Next.js 16.3.4 (App Router, Turbopack, React 19.2.4)
+- **Database & Auth**: Supabase (PostgreSQL 15+, Auth, Storage, Realtime)
+- **Styling**: Tailwind CSS v4, Zinc neutral palette, Orange brand accent (`--brand-700` / `#c2410c`)
+- **UI & Components**: Radix UI Primitives, Lucide React icons, Framer Motion v12
+- **Editor**: TipTap Rich Text Suite (`@tiptap/react`, `@tiptap/starter-kit`)
+- **Payments**: Stripe (Credit/Debit cards) & NOWPayments (Cryptocurrency)
+- **Communication**: Resend (Transactional emails)
+- **Maps & Location**: Leaflet 1.9 & OpenStreetMap
+
+---
+
+## 🚀 Quick Start & Local Development
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment Configuration
+Copy `.env.example` to `.env.local` and configure the necessary Supabase and payment credentials:
+```bash
+cp .env.example .env.local
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Start Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🧪 Testing & Verification
 
-To learn more about Next.js, take a look at the following resources:
+Aldriva maintains a strict 100% test pass rate running via the native Node.js test runner:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Run full unit and integration test suite
+npm test
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Run TypeScript type checks
+npx tsc --noEmit
 
-## Documentation
+# Run linting
+npm run lint
+```
 
-- **[Aldriva Events Master Index](docs/events/index.md)** — Complete event management, ticketing, visual seating, digital invitations, and door operations guides.
-  - [Creating & Configuring an Event](docs/events/creating-an-event.md)
-  - [Visual Seating & Venue Builder](docs/events/seating.md)
-  - [Guest Management & CSV Import](docs/events/guests.md)
-  - [Digital Invitations & RSVP](docs/events/invitations.md)
-  - [Purchasing Tickets & Selecting Seats](docs/events/buying-tickets.md)
-  - [Door Scanner App](docs/events/ticket-scanning.md)
-  - [Live Attendance & Roster](docs/events/attendance.md)
-  - [Operations Command Center](docs/events/operations.md)
-  - [Team & Staff Permissions](docs/events/event-team.md)
-  - [Frequently Asked Questions (FAQ)](docs/events/faq.md)
-  - [Troubleshooting & Diagnostics](docs/events/troubleshooting.md)
+> **Note**: Test files are explicitly registered in `package.json`. When creating new `*.test.cjs` or `*.test.ts` files, remember to append them to the `test` script in `package.json`.
 
-- **[Aldriva Fundraising Master Index](docs/fundraising/index.md)** — Complete personal, nonprofit, and community campaign management, donation flows, and receipts.
-  - [Creating a Fundraiser](docs/fundraising/creating-a-fundraiser.md)
-  - [Beneficiary Setup & Claims](docs/fundraising/beneficiaries.md)
-  - [Verification & Trust](docs/fundraising/verification-and-trust.md)
-  - [Donating to a Campaign](docs/fundraising/donating.md)
-  - [Donation Receipts & Tax Information](docs/fundraising/receipts-and-tax.md)
-  - [Managing Your Fundraisers](docs/fundraising/managing-fundraisers.md)
-  - [Donations Dashboard & Tracking](docs/fundraising/donations-dashboard.md)
-  - [Payouts & Withdrawals](docs/fundraising/payouts-and-withdrawals.md)
-  - [Sharing & Discovery](docs/fundraising/sharing-and-discovery.md)
-  - [Frequently Asked Questions (FAQ)](docs/fundraising/faq.md)
-  - [Troubleshooting & Diagnostics](docs/fundraising/troubleshooting.md)
+---
 
-- **[Aldriva Profiles, Organizations, & Identity/Trust Master Index](docs/organizations/index.md)** — Complete user profiles, organization hubs, identity verification, social following, and review guides.
-  - [User Profiles & Public Activity](docs/organizations/user-profiles.md)
-  - [Profile Privacy & Account Settings](docs/organizations/profile-privacy-and-settings.md)
-  - [Creating an Organization](docs/organizations/creating-an-organization.md)
-  - [Organization Profiles & Public Hubs](docs/organizations/organization-profiles-and-hubs.md)
-  - [Organization Management Dashboard](docs/organizations/organization-dashboard.md)
-  - [Personal Identity Verification](docs/organizations/identity-verification.md)
-  - [Organization Verification & Trust Badges](docs/organizations/organization-verification.md)
-  - [Following & Social Interactions](docs/organizations/following-and-social.md)
-  - [Reviews & Community Ratings](docs/organizations/reviews-and-ratings.md)
-  - [Frequently Asked Questions (FAQ)](docs/organizations/faq.md)
-  - [Troubleshooting & Diagnostics](docs/organizations/troubleshooting.md)
+## 🤖 AI Agent & Developer Architecture
 
-- **[Aldriva Articles & Publishing Master Index](docs/articles/index.md)** — Complete editorial publishing, AI writing assistance, templates, entity cards, and content moderation guides.
-  - [Creating an Article](docs/articles/creating-an-article.md)
-  - [Using the AI Assistant](docs/articles/using-ai.md)
-  - [Publishing & Editorial Workflow](docs/articles/publishing.md)
-  - [Managing Articles](docs/articles/managing-articles.md)
-  - [Sharing & Discovery](docs/articles/sharing-and-discovery.md)
-  - [Frequently Asked Questions (FAQ)](docs/articles/faq.md)
-  - [Troubleshooting & Diagnostics](docs/articles/troubleshooting.md)
+This repository is designed to be the authoritative source of truth for both human engineers and autonomous AI coding agents (Claude Code, OpenAI Codex, Google Antigravity, OpenCode).
 
-## Deploy on Vercel
+- **Universal Agent Instructions**: [`AGENTS.md`](./AGENTS.md)
+- **Current Development Position**: [`docs/CURRENT-STATE.md`](./docs/CURRENT-STATE.md)
+- **Platform Master Roadmap**: [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+- **System Architecture**: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- **Architectural Decisions**: [`docs/DECISIONS.md`](./docs/DECISIONS.md)
+- **Design System Reference**: [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) and [`.aldriva/design/`](./.aldriva/design/)
+- **AI Agent Engineering Guide**: [`docs/AI-AGENT-GUIDE.md`](./docs/AI-AGENT-GUIDE.md)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📚 Core Domain Documentation
+
+- [Aldriva Events & Seating Master Index](docs/events/index.md)
+- [Aldriva Fundraising & Beneficiaries Master Index](docs/fundraising/index.md)
+- [Aldriva Organizations & Profiles Master Index](docs/organizations/index.md)
+- [Aldriva Articles & Content Publishing Master Index](docs/articles/index.md)

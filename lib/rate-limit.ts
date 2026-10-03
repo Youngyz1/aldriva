@@ -49,9 +49,31 @@ export const RATE_LIMITS = {
   guestLookup: { limit: 10, windowSeconds: 600 },
 
   /**
+   * Shop digital-asset endpoints (upload-url, asset confirm/manage,
+   * downloads). Abuse means billable storage egress. Generous: a creator
+   * uploading a multi-file kit plus a buyer fetching each file stays well
+   * under budget; enumeration/brute-force does not.
+   */
+  productAsset: { limit: 30, windowSeconds: 3600 },
+
+  /**
    * AI writing assistant rate limit for authors drafting and polishing articles.
    */
   articleAi: { limit: 30, windowSeconds: 60 },
+
+  /**
+   * QA execution-plane poll + ingest. External worker only: 60/min leaves
+   * ample headroom for nightly + dispatch runs while bounding credential
+   * probing on the ingest endpoint.
+   */
+  qaIngest: { limit: 60, windowSeconds: 60 },
+
+  /**
+   * Stage 10 background-execution plane (claim + heartbeat + ingest + run).
+   * External worker only, same posture as qaIngest: 60/min bounds credential
+   * probing while leaving headroom for worker cadence + heartbeats.
+   */
+  execClaim: { limit: 60, windowSeconds: 60 },
 
   /**
    * AI seating assistant: interprets natural language → SeatingPlanConfig.
@@ -59,6 +81,32 @@ export const RATE_LIMITS = {
    * A legitimate organizer iterates a handful of times; 15/min leaves ample room.
    */
   seatingAi: { limit: 15, windowSeconds: 60 },
+
+  /**
+   * Stage 11 workforce knowledge retrieval test box (admin server action).
+   * NEW CONVENTION (Stage 11): first action-level bucket — no Request object
+   * exists in a server action, so the caller passes `user:<adminId>` as the
+   * identifier directly to checkRateLimit instead of enforceRateLimit.
+   * 20/min bounds manual probing; SELECTs only, nothing persisted.
+   */
+  workforceKnowledgeRetrievalTest: { limit: 20, windowSeconds: 60 },
+
+  /**
+   * Stage 15 (pass one) S-6: privileged admin writes get per-user buckets.
+   * Same action-level convention as Stage 11 (checkRateLimit with
+   * `user:<adminId>`). Generous 30/min: legitimate admin use is bursty but
+   * low-volume; the buckets bound session-abuse/CSRF-amplified writes.
+   * Fail-open behavior unchanged (see checkRateLimit).
+   */
+  decideWorkforceApproval: { limit: 30, windowSeconds: 60 },
+  createMemoryDirect: { limit: 30, windowSeconds: 60 },
+
+  /**
+   * Stage 15 (pass one) S-10: throttle for worker auth-denial audit rows.
+   * 1/min per IP bounds incident noise: every insertSystemEvent opens or
+   * bumps an incident, so unauthenticated 401s must not log unthrottled.
+   */
+  authDenialLog: { limit: 1, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Heart, Plus } from "lucide-react";
 
@@ -20,6 +21,13 @@ export default async function OrgFundraisersPage({
     .eq("organizer_id", id)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
+
+  // Direct to fundraiser management: Fundraisers → Fundraiser Dashboard (no intermediate Manage click)
+  // Deterministic: most recent active fundraiser (created_at desc)
+  if (fundraisers && fundraisers.length > 0) {
+    const first = fundraisers[0];
+    if (first?.id) redirect(`/dashboard/fundraisers/${first.id}/overview`);
+  }
 
   return (
     <div className="space-y-6">
@@ -79,7 +87,7 @@ export default async function OrgFundraisersPage({
                       }`}>{f.status ?? "draft"}</span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link href={`/fundraisers/${f.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
+                      <Link href={`/dashboard/fundraisers/${f.id}/overview`} className="text-xs font-bold text-orange-600 hover:underline">Manage</Link>
                     </td>
                   </tr>
                 );

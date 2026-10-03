@@ -19,6 +19,7 @@ interface GeminiPart {
   text?: string;
   /** Present on thinking-model responses; marks internal reasoning — must be excluded from output. */
   thought?: boolean;
+  thoughtSignature?: string;
   functionCall?: {
     name: string;
     args: Record<string, unknown>;
@@ -73,9 +74,23 @@ export class GeminiProvider implements AIProvider {
         : prompt;
 
     const contents: GeminiContent[] = [];
+    // Pending tool responses are coalesced into a single user content so that
+    // parallel functionCalls (1 model content with N functionCalls) are followed
+    // by 1 user content with N functionResponses — exactly the shape Gemini 3
+    // validates. Without coalescing, we would emit N model+user pairs and the
+    // validator would demand a thought_signature on the 2nd parallel call's
+    // now-first-in-step functionCall (which legitimately has none).
+    let pendingToolParts: GeminiPart[] = [];
+    const flushPendingTools = () => {
+      if (pendingToolParts.length > 0) {
+        contents.push({ role: 'user', parts: pendingToolParts });
+        pendingToolParts = [];
+      }
+    };
 
     for (const msg of rawMessages) {
       if (msg.role === 'system') {
+        flushPendingTools();
         systemText = systemText
           ? `${systemText}\n\n${msg.content}`
           : msg.content;
@@ -83,17 +98,20 @@ export class GeminiProvider implements AIProvider {
       }
 
       if (msg.role === 'user') {
+        flushPendingTools();
         contents.push({
           role: 'user',
           parts: [{ text: msg.content || '' }],
         });
       } else if (msg.role === 'assistant') {
+        flushPendingTools();
         const parts: GeminiPart[] = [];
         if (msg.content) {
           parts.push({ text: msg.content });
         }
         if (msg.tool_calls && msg.tool_calls.length > 0) {
-          for (const call of msg.tool_calls) {
+          for (let idx = 0; idx < msg.tool_calls.length; idx++) {
+            const call = msg.tool_calls[idx];
             let parsedArgs: Record<string, unknown> = {};
             try {
               parsedArgs =
@@ -103,19 +121,29 @@ export class GeminiProvider implements AIProvider {
             } catch {
               parsedArgs = {};
             }
-            parts.push({
+            const part: GeminiPart = {
               functionCall: {
                 name: call.function.name,
                 args: parsedArgs,
               },
-            });
+            };
+            if (call.thoughtSignature) {
+              part.thoughtSignature = call.thoughtSignature;
+            } else if (idx === 0) {
+              // Per Gemini 3 spec: only the FIRST functionCall in a parallel batch
+              // carries a signature; subsequent parallel calls legitimately have
+              // none. So we only warn on missing signature for the first call in
+              // the batch — missing on idx>0 is expected for parallel calls.
+              console.warn(`[gemini] Missing thought_signature for functionCall "${call.function.name}" (first in batch) in history replay — Gemini 3 will reject this turn (position ${contents.length + 1})`);
+            }
+            parts.push(part);
           }
         }
         if (parts.length > 0) {
           contents.push({ role: 'model', parts });
         }
       } else if (msg.role === 'tool') {
-        let parsedResult: Record<string, unknown> = {};
+        let parsedResult: unknown = {};
         try {
           parsedResult =
             typeof msg.content === 'string'
@@ -125,19 +153,34 @@ export class GeminiProvider implements AIProvider {
           parsedResult = { content: msg.content };
         }
 
-        contents.push({
-          role: 'user',
-          parts: [
-            {
-              functionResponse: {
-                name: msg.name || 'tool_response',
-                response: parsedResult,
-              },
-            },
-          ],
+        // Gemini functionResponse.response must be an OBJECT, not an array/primitive.
+        // Our tools return arrays (row sets) — wrap those so the proto field is not repeating.
+        let responseObj: Record<string, unknown>;
+        if (Array.isArray(parsedResult)) {
+          responseObj = { result: parsedResult };
+        } else if (parsedResult !== null && typeof parsedResult === 'object') {
+          responseObj = parsedResult as Record<string, unknown>;
+          // Defensive: if somehow still an array-like after JSON parse, wrap
+          if (Array.isArray(responseObj)) responseObj = { result: responseObj };
+        } else {
+          responseObj = { result: parsedResult };
+        }
+
+        // Hard fail loudly on malformed shape rather than silently sending bad proto
+        if (!responseObj || typeof responseObj !== 'object' || Array.isArray(responseObj)) {
+          console.error('[gemini] Refusing to send malformed functionResponse.response', { name: msg.name, type: typeof responseObj });
+          responseObj = { error: 'malformed tool result shape', rawType: typeof parsedResult };
+        }
+
+        pendingToolParts.push({
+          functionResponse: {
+            name: msg.name || 'tool_response',
+            response: responseObj,
+          },
         });
       }
     }
+    flushPendingTools();
 
     return {
       systemInstruction: systemText
@@ -218,6 +261,17 @@ export class GeminiProvider implements AIProvider {
     if (systemInstruction) {
       payload.systemInstruction = systemInstruction;
     }
+    // When orchestrator's final synthesis explicitly passes toolConfig:NONE,
+    // attach it verbatim so Gemini is forced into text-only mode. Without this,
+    // a payload with NO `tools` key but WITH prior functionCall history may still
+    // return functionCalls (observed: sentinel sweep final turn returned
+    // get_health_status + get_ai_guard_rejections with thoughtSignature despite
+    // no tools in payload). This is not (a) instance state nor (b) formatMessages
+    // nor (c) singleton cache — provider-factory returns new instances and
+    // GeminiProvider has no tools field; formatMessages only builds contents.
+    if (options?.toolConfig) {
+      payload.toolConfig = options.toolConfig;
+    }
 
     const res = await this.fetchWithTimeout(
       `/models/${model}:generateContent`,
@@ -235,18 +289,36 @@ export class GeminiProvider implements AIProvider {
     const data = (await res.json()) as {
       candidates?: Array<{
         content?: {
-          parts?: Array<{ text?: string; thought?: boolean }>;
+          parts?: Array<{ text?: string; thought?: boolean; functionCall?: { name: string } }>;
         };
         finishReason?: string;
       }>;
+      usageMetadata?: {
+        thoughtsTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
     };
 
     const candidate = data.candidates?.[0];
+    // Detect unexpected functionCalls on a supposedly text-only turn (e.g. final
+    // synthesis with toolConfig:NONE that still returned get_health_status).
+    // We deliberately surface this — previous code silently mapped it to "" and
+    // the orchestrator fallback masked it as success:true with deterministic text.
+    const leakedFunctionCalls = candidate?.content?.parts?.filter((p) => !!p.functionCall).map((p) => p.functionCall?.name) ?? [];
+    if (leakedFunctionCalls.length > 0) {
+      console.warn(`[gemini] generateText received ${leakedFunctionCalls.length} functionCall(s) despite ${options?.toolConfig ? 'toolConfig:' + JSON.stringify(options.toolConfig) : 'no tools'} — treating as empty text (model tried to call ${leakedFunctionCalls.join(', ')})`, {
+        leakedFunctionCalls,
+        finishReason: candidate?.finishReason,
+        usageMetadata: (data as { usageMetadata?: unknown }).usageMetadata,
+        rawSnippet: JSON.stringify(data).slice(0, 1200),
+      });
+    }
     // Filter out thought parts (thinking-model internal reasoning) before
     // joining — only non-thought parts contain the intended response text.
     const text =
       candidate?.content?.parts
-        ?.filter((p) => !p.thought)
+        ?.filter((p) => !p.thought && !p.functionCall)
         ?.map((p) => p.text || '')
         .join('')
         .trim() || '';
@@ -254,6 +326,8 @@ export class GeminiProvider implements AIProvider {
     let finishReason: AIGenerateResult['finishReason'] = 'stop';
     if (candidate?.finishReason === 'MAX_TOKENS') finishReason = 'length';
     if (candidate?.finishReason === 'SAFETY') finishReason = 'error';
+    // Preserve tool-call signal for callers that want to decide (orchestrator logs it)
+    if (leakedFunctionCalls.length > 0) finishReason = 'tool_calls';
 
     return {
       text,
@@ -407,6 +481,7 @@ export class GeminiProvider implements AIProvider {
         content?: {
           parts?: Array<{
             text?: string;
+            thoughtSignature?: string;
             functionCall?: {
               name: string;
               args: Record<string, unknown>;
@@ -425,6 +500,10 @@ export class GeminiProvider implements AIProvider {
         text = (text ? `${text}\n` : '') + part.text;
       }
       if (part.functionCall) {
+        const sig = (part as { thoughtSignature?: string }).thoughtSignature;
+        if (!sig) {
+          console.warn(`[gemini] Received functionCall "${part.functionCall.name}" without thoughtSignature — will fail on replay for Gemini 3`);
+        }
         toolCalls.push({
           id: `call_gemini_${Date.now()}_${index}`,
           type: 'function',
@@ -432,6 +511,7 @@ export class GeminiProvider implements AIProvider {
             name: part.functionCall.name,
             arguments: JSON.stringify(part.functionCall.args || {}),
           },
+          thoughtSignature: sig,
         });
       }
     });

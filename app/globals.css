@@ -71,9 +71,32 @@
   --brand-900: #7c2d12;
   --brand-950: #431407;
 
+  /* Layout foundation — container widths + gutters + radius + shadows
+      Composable primitives (Container, PageHeader, Section) read these so
+      pages share rhythm without hard-coding max-w-*, p-*, rounded-*, etc. */
+  --container-sm: 42rem;   /* 672 — prose / faq / narrow */
+  --container-md: 64rem;   /* 1024 — product grids / lists */
+  --container-lg: 72rem;   /* 1152 — site sections (BlockRenderer 6xl) */
+  --container-xl: 80rem;   /* 1280 — dashboard shell (7xl) */
+  --gutter: 1rem;          /* px-4 mobile */
+  --gutter-md: 1.5rem;     /* px-6 tablet+ */
+  --gutter-lg: 2rem;       /* px-8 desktop */
+  --radius-sm: 0.5rem;     /* 8  — inputs, tabs */
+  --radius-md: 0.75rem;    /* 12 — badges, compact cards */
+  --radius-lg: 1rem;       /* 16 — buttons, cards — canonical */
+  --radius-xl: 1.25rem;    /* 20 — large marketing cards */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.10);
+  /* Typography — type scale for PageHeader / SectionHeading */
+  --text-display: clamp(1.875rem, 4vw, 2.5rem);
+  --text-h1: 1.5rem;
+  --text-h2: 1.125rem;
+  --text-eyebrow: 0.6875rem;
+
   /* Semantic design tokens so components/ui/button.tsx and card.tsx (and any
-     other shadcn-style primitive keyed on these) render as intended instead
-     of falling back to no-ops. */
+      other shadcn-style primitive keyed on these) render as intended instead
+      of falling back to no-ops. */
   --primary: var(--brand-700);
   --primary-foreground: #ffffff;
   --secondary: #09090b;
@@ -82,11 +105,18 @@
   --accent-foreground: #18181b;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --surface: #ffffff;
+  --surface-subtle: #fafafa;
   --card: #ffffff;
   --card-foreground: #09090b;
   --muted: #fafafa;
   --muted-foreground: #71717a;
   --border: #e4e4e7;
+  --border-strong: #d4d4d8;
   --input: #e4e4e7;
   --ring: var(--brand-500);
 }
@@ -285,4 +315,15 @@ svg {
   margin: 1rem 0;
   width: 100%;
   aspect-ratio: 16/9;
+}
+
+/* ── FeaturedSlider auto-scroll animation ────────────────────────────────────
+   Declared here (not inside the component's JSX <style> tag) so it is written
+   to the stylesheet once, not on every render. The animated element carries
+   `will-change: transform` to promote it to its own GPU layer before the
+   animation starts, preventing the one-frame jank that occurs when the browser
+   promotes lazily mid-scroll. */
+@keyframes featured-slider-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }

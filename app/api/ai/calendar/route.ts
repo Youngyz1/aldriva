@@ -7,6 +7,7 @@ import {
   updateCalendarItemStatus,
   ContentCalendarStatus,
 } from '@/lib/ai/trend-synthesis';
+import { insertSystemEvent } from '@/lib/observability/system-events';
 
 export async function GET(req: NextRequest) {
   // Internal Growth Studio capability: admin-only (same gate as /api/ai/chat).
@@ -25,12 +26,32 @@ export async function GET(req: NextRequest) {
 
     if (!result.success) {
       console.error("[api/ai/calendar]", result.error);
+      void insertSystemEvent({
+        kind: 'api_error',
+        severity_hint: 'error',
+        route: 'GET /api/ai/calendar',
+        status_code: 500,
+        error_code: 'calendar_get_failed',
+        message: String(result.error ?? 'Calendar operation failed.').slice(0, 2000),
+        metadata: {},
+        source: 'aldriva',
+      });
       return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ items: result.items });
   } catch (err: unknown) {
     console.error("[api/ai/calendar]", err);
+    void insertSystemEvent({
+      kind: 'api_error',
+      severity_hint: 'error',
+      route: 'GET /api/ai/calendar',
+      status_code: 500,
+      error_code: 'unhandled',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: {},
+      source: 'aldriva',
+    });
     return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }
@@ -54,12 +75,32 @@ export async function POST(req: NextRequest) {
 
     if (!result.success) {
       console.error("[api/ai/calendar]", result.error);
+      void insertSystemEvent({
+        kind: 'api_error',
+        severity_hint: 'error',
+        route: 'POST /api/ai/calendar',
+        status_code: 500,
+        error_code: 'calendar_save_failed',
+        message: String(result.error ?? 'Calendar operation failed.').slice(0, 2000),
+        metadata: {},
+        source: 'aldriva',
+      });
       return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, item: result.item });
   } catch (err: unknown) {
     console.error("[api/ai/calendar]", err);
+    void insertSystemEvent({
+      kind: 'api_error',
+      severity_hint: 'error',
+      route: 'POST /api/ai/calendar',
+      status_code: 500,
+      error_code: 'unhandled',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: {},
+      source: 'aldriva',
+    });
     return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }
@@ -83,12 +124,32 @@ export async function PATCH(req: NextRequest) {
 
     if (!result.success) {
       console.error("[api/ai/calendar]", result.error);
+      void insertSystemEvent({
+        kind: 'api_error',
+        severity_hint: 'error',
+        route: 'PATCH /api/ai/calendar',
+        status_code: 500,
+        error_code: 'calendar_update_failed',
+        message: String(result.error ?? 'Calendar operation failed.').slice(0, 2000),
+        metadata: {},
+        source: 'aldriva',
+      });
       return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     console.error("[api/ai/calendar]", err);
+    void insertSystemEvent({
+      kind: 'api_error',
+      severity_hint: 'error',
+      route: 'PATCH /api/ai/calendar',
+      status_code: 500,
+      error_code: 'unhandled',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: {},
+      source: 'aldriva',
+    });
     return NextResponse.json({ error: "Calendar operation failed. Please try again." }, { status: 500 });
   }
 }

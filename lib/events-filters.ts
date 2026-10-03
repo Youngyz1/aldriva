@@ -1,9 +1,11 @@
 import type { WhenValue } from "@/components/events/EventsLocationDateBar";
+import { normalizeEventCategory, isValidEventCategory, isValidEventSubcategory } from "@/lib/event-taxonomy";
 
 export type EventsPageFilters = {
   q?: string;
   location?: string;
   category?: string;
+  subcategory?: string;
   when?: string;
   from?: string;
   to?: string;
@@ -16,6 +18,7 @@ export type ResolvedEventFilters = {
   query?: string;
   location?: string;
   category?: string;
+  subcategory?: string;
   customFrom?: string;
   customTo?: string;
   sort: string;
@@ -109,7 +112,11 @@ export function resolveEventFilters(
 ): ResolvedEventFilters {
   const query = filters.q?.trim();
   const location = forcedLocation ?? filters.location?.trim();
-  const category = filters.category?.trim();
+  const rawCategory = filters.category?.trim();
+  const category = rawCategory ? (normalizeEventCategory(rawCategory) ?? rawCategory) : undefined;
+  const rawSub = filters.subcategory?.trim();
+  // only keep subcategory if category is valid and subcategory belongs to it — prevents cross-category bleed
+  const subcategory = rawSub && category && isValidEventCategory(category) && isValidEventSubcategory(category, rawSub) ? rawSub : undefined;
   const customFrom = filters.from?.trim();
   const customTo = filters.to?.trim();
   const sort = filters.sort || "date_asc";
@@ -140,7 +147,7 @@ export function resolveEventFilters(
       ? getNextWeekendRange()
       : null;
 
-  const hasFilters = Boolean(query || location || category || dateRange);
+  const hasFilters = Boolean(query || location || category || subcategory || dateRange);
 
-  return { query, location, category, customFrom, customTo, sort, activeWhen, dateRange, hasFilters };
+  return { query, location, category, subcategory, customFrom, customTo, sort, activeWhen, dateRange, hasFilters };
 }

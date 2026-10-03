@@ -7,6 +7,7 @@ import { deleteBusiness } from "@/lib/actions/businesses";
 import { revalidatePath } from "next/cache";
 import BusinessRowActions from "./BusinessRowActions";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import StickyTableToolbar from "@/components/ui/sticky-table-toolbar";
 
 const tierBadge: Record<string, string> = {
   free: "bg-zinc-100 text-zinc-700 border-zinc-200",
@@ -82,8 +83,8 @@ export default async function DashboardBusinessesPage({
         </Link>
       </div>
 
-      {/* Toolbar / Filters — open bar, inputs carry their own boundaries. Table below keeps containment. */}
-      <div>
+      {/* Sticky toolbar — search/filter stays visible while table scrolls */}
+      <StickyTableToolbar>
         <form method="GET" action="/dashboard/businesses" className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1">
             <input
@@ -113,7 +114,7 @@ export default async function DashboardBusinessesPage({
             Filter
           </button>
         </form>
-      </div>
+      </StickyTableToolbar>
 
       {/* Main List */}
       {!businesses || businesses.length === 0 ? (

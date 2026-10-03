@@ -236,6 +236,14 @@ export async function GET(req: NextRequest) {
       productName: (record as any)?.productName || null,
     });
   } catch (err: unknown) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "digest" in err &&
+      (err as { digest?: string }).digest === "NEXT_PRERENDER_INTERRUPTED"
+    ) {
+      throw err;
+    }
     console.error("crypto/status route error:", err);
     return NextResponse.json(
       { error: "Could not check payment status. Please try again." },

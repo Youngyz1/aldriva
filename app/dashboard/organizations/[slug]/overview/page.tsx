@@ -53,17 +53,29 @@ export default async function OrgOverviewPage({
     { count: eventCount },
     { count: fundraiserCount },
     { count: followerCount },
-    { count: ticketCount },
     { data: fundraisers },
-    { data: recentEvents },
+    { data: orgEvents },
   ] = await Promise.all([
     supabase.from("events").select("*", { count: "exact", head: true }).eq("organizer_id", org.id),
     supabase.from("fundraisers").select("*", { count: "exact", head: true }).eq("organizer_id", org.id).is("deleted_at", null),
     supabase.from("organizer_follows").select("*", { count: "exact", head: true }).eq("organizer_id", org.id),
-    supabase.from("ticket_orders").select("quantity", { count: "exact", head: true }),
     supabase.from("fundraisers").select("raised").eq("organizer_id", org.id).is("deleted_at", null),
-    supabase.from("events").select("id, title, slug, event_date, city").eq("organizer_id", org.id).order("event_date", { ascending: false }).limit(5),
+    supabase.from("events").select("id, title, slug, event_date, city").eq("organizer_id", org.id).order("event_date", { ascending: false }),
   ]);
+
+  const eventIds = (orgEvents ?? []).map((e) => e.id);
+  const recentEvents = (orgEvents ?? []).slice(0, 5);
+
+  let ticketCount = 0;
+  if (eventIds.length > 0) {
+    const { data: ticketOrders } = await supabase
+      .from("ticket_orders")
+      .select("quantity")
+      .in("event_id", eventIds)
+      .in("status", ["valid", "used"]);
+
+    ticketCount = (ticketOrders ?? []).reduce((sum, order) => sum + Number(order.quantity ?? 1), 0);
+  }
 
   const totalRaised = (fundraisers ?? []).reduce((s, f) => s + Number(f.raised ?? 0), 0);
   const followers = (followerCount ?? 0) + (org.follower_offset ?? 0);

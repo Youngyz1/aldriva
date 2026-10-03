@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { getSiteUrl } from "@/lib/site-url";
+import { isDigitalProductType } from "@/lib/digital-products";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,15 +28,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing product ID." }, { status: 400 });
     }
 
-    const quantity = Math.max(1, parseInt(rawQuantity) || 1);
+    const requestedQuantity = Math.max(1, parseInt(rawQuantity) || 1);
 
-    if (quantity > MAX_QUANTITY) {
+    if (requestedQuantity > MAX_QUANTITY) {
       return NextResponse.json(
         { error: `Quantity exceeds the maximum allowed per order (${MAX_QUANTITY}).` },
         { status: 400 }
       );
     }
-
     // Products need a delivery/fulfillment contact, unlike donations — so
     // unlike the donations/tickets guest-checkout pattern, a fully anonymous
     // order isn't allowed here.
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch product and validate it's purchasable
     const { data: product, error: dbError } = await supabaseAdmin
       .from("products")
-      .select("id, name, status, price_type, stripe_price_id, stock_quantity")
+      .select("id, name, status, price_type, product_type, stripe_price_id, stock_quantity")
       .eq("id", productId)
       .single();
 
@@ -65,6 +65,14 @@ export async function POST(req: NextRequest) {
     if (product.status !== "active" && product.status !== "out_of_stock") {
       return NextResponse.json({ error: "This product is not available for purchase." }, { status: 400 });
     }
+
+    // Digital listings are single-license: quantity is always 1 regardless
+    // of what the client sent (physical/subscription behavior unchanged).
+    const quantity = isDigitalProductType(
+      (product as { product_type?: string | null }).product_type ?? "other"
+    )
+      ? 1
+      : requestedQuantity;
 
     if (product.stock_quantity !== null && product.stock_quantity < quantity) {
       return NextResponse.json({ error: "Not enough stock available." }, { status: 400 });

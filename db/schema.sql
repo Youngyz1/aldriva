@@ -530,6 +530,7 @@ CREATE TABLE IF NOT EXISTS "public"."homepage_testimonials" (
 ALTER TABLE "public"."homepage_testimonials" OWNER TO "postgres";
 
 
+
 CREATE TABLE IF NOT EXISTS "public"."organizer_follows" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "organizer_id" "uuid" NOT NULL,

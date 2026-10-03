@@ -78,6 +78,37 @@ export default function DonatePage({
   const [isNonprofit, setIsNonprofit] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
 
+  // ─── Stripe redirect-return handler ─────────────────────────────────────────
+  // Stripe Link (and other redirect-capable payment methods) redirect the
+  // browser to return_url after confirming the payment — even with
+  // redirect: "if_required" — when their internal flow requires it.  On
+  // reload, React state is fresh (success = false, clientSecret = null) so
+  // the Thank You screen would never render without this handler.
+  //
+  // Stripe appends these query params on a successful redirect:
+  //   payment_intent                pi_...
+  //   payment_intent_client_secret  pi_..._secret_...
+  //   redirect_status               succeeded | processing | failed
+  //
+  // On succeeded: restore clientSecret so the receipt poll can start, then
+  // set success=true to render the Thank You screen.
+  // Strip the params from the URL bar so a hard-refresh doesn't re-trigger.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const piClientSecret = sp.get("payment_intent_client_secret");
+    const redirectStatus  = sp.get("redirect_status");
+    if (piClientSecret && redirectStatus === "succeeded") {
+      // Clean the URL bar before touching state so a subsequent refresh
+      // lands on the plain donate page rather than re-triggering the effect.
+      const cleanUrl =
+        window.location.pathname + window.location.hash;
+      window.history.replaceState({}, "", cleanUrl);
+      setClientSecret(piClientSecret);
+      setSuccess(true);
+    }
+  }, []); // mount-only: URL params don't change after initial render
+
   useEffect(() => {
     if (success) {
       window.scrollTo({ top: 0, behavior: "instant" });

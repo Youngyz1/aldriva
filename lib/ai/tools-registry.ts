@@ -7,6 +7,13 @@
  * screen their copy via screenModelOutput() instead (they return delivery
  * receipts, not DB rows). Tenant tools additionally require a
  * server-derived TenantContext — see executeTenantTool().
+ *
+ * Stage 14 boundary — SHARED by AI Studio and AI Workforce. Boundary rule:
+ * the two surfaces may share ONLY provider, tools, knowledge, runtime and
+ * guards; they are separate product surfaces. Studio (app/api/ai/chat) offers
+ * PUBLIC + ADMIN definitions and allowlists directTool mode; it must never
+ * establish a tenant context or reach TENANT definitions. Workforce reaches
+ * tenant tools only via executeTenantTool() with a server-derived context.
  */
 
 import { AIToolDefinition } from './types';
@@ -86,7 +93,33 @@ import {
   notifyOwnerDefinition,
   createTenantNotification,
   notifyOwner,
+  execSmokeNotifyDefinition,
+  execSmokeNotify,
 } from './tools/tenant/tenant-notifications';
+import {
+  getRecentEventsDefinition,
+  getRecentEvents,
+} from './tools/sentinel/sentinel-events';
+import {
+  memoryProposeDefinition,
+  memoryPropose,
+} from './tools/workforce/memory-propose';
+import {
+  getActiveIncidentsDefinition,
+  getActiveIncidents,
+} from './tools/sentinel/sentinel-incidents';
+import {
+  getGuardRejectionsDefinition,
+  getGuardRejections,
+} from './tools/sentinel/sentinel-guards';
+import {
+  getRecentWebhookFailuresDefinition,
+  getRecentWebhookFailures,
+} from './tools/sentinel/sentinel-webhooks';
+import {
+  requestQaRunDefinition,
+  requestQaRun,
+} from './tools/qa/request-qa-run';
 
 /**
  * Tool scope tiers:
@@ -127,6 +160,13 @@ export const TENANT_AI_TOOL_DEFINITIONS = [
   getPaymentStatusDefinition,
   createTenantNotificationDefinition,
   notifyOwnerDefinition,
+  execSmokeNotifyDefinition,
+  getRecentEventsDefinition,
+  getActiveIncidentsDefinition,
+  getGuardRejectionsDefinition,
+  getRecentWebhookFailuresDefinition,
+  requestQaRunDefinition,
+  memoryProposeDefinition,
 ];
 
 const TENANT_TOOL_NAMES = new Set(TENANT_AI_TOOL_DEFINITIONS.map((d) => d.name));
@@ -252,6 +292,20 @@ export async function executeTenantTool(
       return await createTenantNotification(ctx, parsedArgs as unknown as Parameters<typeof createTenantNotification>[1]);
     case 'notifyOwner':
       return await notifyOwner(ctx, parsedArgs as unknown as Parameters<typeof notifyOwner>[1]);
+    case 'execSmokeNotify':
+      return await execSmokeNotify(ctx, parsedArgs as unknown as Parameters<typeof execSmokeNotify>[1]);
+    case 'memory_propose':
+      return await memoryPropose(ctx, parsedArgs as unknown as Parameters<typeof memoryPropose>[1]);
+    case 'get_recent_events':
+      return await getRecentEvents(ctx, parsedArgs as Parameters<typeof getRecentEvents>[1]);
+    case 'get_active_incidents':
+      return await getActiveIncidents(ctx, parsedArgs as Parameters<typeof getActiveIncidents>[1]);
+    case 'get_guard_rejections':
+      return await getGuardRejections(ctx, parsedArgs as Parameters<typeof getGuardRejections>[1]);
+    case 'get_recent_webhook_failures':
+      return await getRecentWebhookFailures(ctx, parsedArgs as Parameters<typeof getRecentWebhookFailures>[1]);
+    case 'request_qa_run':
+      return await requestQaRun(ctx, parsedArgs as Parameters<typeof requestQaRun>[1]);
     default:
       throw new Error(`Unknown tenant AI tool requested: "${name}"`);
   }

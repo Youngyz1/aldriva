@@ -44,11 +44,14 @@ const ARROW_CLASS =
  * page-index state.
  */
 export default function DiscoverMoreCarousel({ items }: { items: DiscoverMoreItem[] }) {
+  // Cap rendered cards at 30 — server may over-fetch up to 60 for pagination
+  // headroom, but mounting all 60 in the DOM bloats Embla's layout pass.
   // Arrows only matter once there's more than a desktop view's worth (4 per view).
-  const showArrows = items.length > 4;
+  const visibleItems = items.slice(0, 30);
+  const showArrows = visibleItems.length > 4;
 
   return (
-    <Carousel opts={{ align: "start" }}>
+    <Carousel opts={{ align: "start", duration: 15 }}>
       <div className="mb-6 flex items-center justify-between gap-4">
         <h3 className="text-2xl font-black text-zinc-950 sm:text-3xl">Discover More</h3>
 
@@ -61,7 +64,7 @@ export default function DiscoverMoreCarousel({ items }: { items: DiscoverMoreIte
       </div>
 
       <CarouselContent className="-ml-5">
-        {items.map((event) => (
+        {visibleItems.map((event) => (
           <CarouselItem
             key={event.id}
             className="basis-[82%] pl-5 sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
@@ -74,6 +77,7 @@ export default function DiscoverMoreCarousel({ items }: { items: DiscoverMoreIte
               location={event.city || "Location TBA"}
               image={event.banner || ""}
               category={event.category}
+              sizes="(max-width: 640px) 82vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
             />
           </CarouselItem>
         ))}

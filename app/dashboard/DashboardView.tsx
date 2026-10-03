@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { getTranslations, getLocale } from 'next-intl/server';
 import DashboardStatsCards from '@/components/dashboard/DashboardStatsCards';
 import DashboardEmptyState from '@/components/dashboard/DashboardEmptyState';
 import { TicketsChart, RevenueChart, DonationsChart, type DailyPoint } from '@/app/dashboard/reports/DashboardCharts';
@@ -39,15 +40,6 @@ type TicketOrder = {
   events?: { title?: string | null } | { title?: string | null }[] | null;
 };
 
-function money(value: number) {
-  return `$${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
-function dateLabel(date?: string | null) {
-  if (!date) return 'Date TBA';
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function firstRelation<T>(value?: T | T[] | null) {
   if (Array.isArray(value)) return value[0];
   return value ?? undefined;
@@ -66,15 +58,7 @@ function SectionHeader({ title, action }: { title: string; action?: ReactNode })
   );
 }
 
-function ViewAllLink({ href }: { href: string }) {
-  return (
-    <Link href={href} className="text-xs font-black text-violet-700 hover:underline sm:text-sm">
-      View All →
-    </Link>
-  );
-}
-
-export default function DashboardView({
+export default async function DashboardView({
   displayName,
   analytics,
   events,
@@ -93,36 +77,61 @@ export default function DashboardView({
   chartRevenue: DailyPoint[];
   chartDonations: DailyPoint[];
 }) {
+  const t = await getTranslations('Dashboard');
+  const tCommon = await getTranslations('Common');
+  const locale = await getLocale();
+
+  function money(value: number) {
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value || 0));
+  }
+
+  function dateLabel(date?: string | null) {
+    if (!date) return t('noEventsYet'); // fallback, will be overridden per context
+    try {
+      return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(date));
+    } catch {
+      return new Date(date).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }
+
   const accountLabel = displayName?.trim() || 'Account';
   const hasOrganizers = analytics.organizerProfiles > 0;
 
   const statItems = [
-    { label: 'Events', value: analytics.events },
-    { label: 'Fundraisers', value: analytics.fundraisers },
-    { label: 'Tickets Sold', value: analytics.ticketsSold },
-    { label: 'Revenue', value: money(analytics.revenue) },
-    { label: 'Donations', value: money(analytics.totalRaised) },
-    { label: 'Organization Profiles', value: analytics.organizerProfiles },
+    { label: t('events'), value: analytics.events },
+    { label: t('fundraisers'), value: analytics.fundraisers },
+    { label: t('ticketsSold'), value: analytics.ticketsSold },
+    { label: t('revenue'), value: money(analytics.revenue) },
+    { label: t('donationsLabel'), value: money(analytics.totalRaised) },
+    { label: t('organizationProfiles'), value: analytics.organizerProfiles },
   ];
 
   const quickActions = [
-    { href: '/dashboard/events/new', label: 'Create Event', className: 'bg-orange-600 text-white hover:bg-orange-700' },
-    { href: '/dashboard/fundraisers/new', label: 'Start Fundraiser', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
-    { href: '/create-organizer', label: 'Create Organization', className: 'border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50' },
+    { href: '/dashboard/events/new', label: t('createEvent'), className: 'bg-orange-600 text-white hover:bg-orange-700' },
+    { href: '/dashboard/fundraisers/new', label: t('startFundraiser'), className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
+    { href: '/create-organizer', label: t('createOrganization'), className: 'border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50' },
   ];
+
+  function ViewAllLink({ href }: { href: string }) {
+    return (
+      <Link href={href} className="text-xs font-black text-violet-700 hover:underline sm:text-sm">
+        {t('viewAll')}
+      </Link>
+    );
+  }
 
   if (!hasOrganizers) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <header className="pb-1">
-          <p className="text-xs font-black uppercase tracking-wide text-orange-600">Dashboard</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Welcome, {accountLabel}</h1>
-          <p className="mt-1 text-sm font-medium text-zinc-500">Get started by creating your first organization profile.</p>
+          <p className="text-xs font-black uppercase tracking-wide text-orange-600">{t('title')}</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{t('welcome')}, {accountLabel}</h1>
+          <p className="mt-1 text-sm font-medium text-zinc-500">{t('getStarted')}</p>
         </header>
         <DashboardEmptyState
-          title="No organization profile yet"
-          description="Create an organization before launching events or fundraisers."
-          actionLabel="Create Organization"
+          title={t('noOrganizationTitle')}
+          description={t('noOrganizationDescription')}
+          actionLabel={t('createOrganization')}
           actionHref="/create-organizer"
         />
       </div>
@@ -132,9 +141,9 @@ export default function DashboardView({
   return (
     <div className="space-y-4 sm:space-y-6">
       <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-orange-600">Dashboard</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Welcome back, {accountLabel}</h1>
-        <p className="mt-1 text-sm font-medium text-zinc-500">Your overview — events, fundraisers, tickets, and donations at a glance.</p>
+        <p className="text-xs font-black uppercase tracking-wide text-orange-600">{t('title')}</p>
+        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{t('welcomeBack')}, {accountLabel}</h1>
+        <p className="mt-1 text-sm font-medium text-zinc-500">{t('overview')}</p>
       </header>
 
       <section className="flex flex-wrap items-center gap-2">
@@ -153,9 +162,9 @@ export default function DashboardView({
 
       <section className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className={panelClass}>
-          <SectionHeader title="Recent Events" action={<ViewAllLink href="/dashboard/events" />} />
+          <SectionHeader title={t('recentEvents')} action={<ViewAllLink href="/dashboard/events" />} />
           {events.length === 0 ? (
-            <p className="text-sm font-medium text-zinc-500">No events yet.</p>
+            <p className="text-sm font-medium text-zinc-500">{t('noEventsYet')}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
               {events.slice(0, 5).map((event) => (
@@ -163,7 +172,7 @@ export default function DashboardView({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-black text-zinc-900">{event.title}</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-500">{dateLabel(event.event_date)} · {event.city || 'Location TBA'}</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-500">{dateLabel(event.event_date)} · {event.city || tCommon('noResults')}</p>
                     </div>
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-200/60">
@@ -171,19 +180,19 @@ export default function DashboardView({
                       href={`/dashboard/events/${event.id}/checkins`}
                       className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-black text-zinc-700 hover:bg-zinc-100"
                     >
-                      Check-Ins
+                      {t('checkIns')}
                     </Link>
                     <Link
                       href={`/dashboard/events/${event.id}/scan`}
                       className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] font-black text-orange-700 hover:bg-orange-100"
                     >
-                      Scan
+                      {t('scan')}
                     </Link>
                     <Link
                       href={`/dashboard/events/${event.id}/team`}
                       className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-black text-zinc-700 hover:bg-zinc-100"
                     >
-                      Team
+                      {t('team')}
                     </Link>
                   </div>
                 </li>
@@ -193,9 +202,9 @@ export default function DashboardView({
         </div>
 
         <div className={panelClass}>
-          <SectionHeader title="Recent Donations" action={<ViewAllLink href="/dashboard/donations" />} />
+          <SectionHeader title={t('recentDonations')} action={<ViewAllLink href="/dashboard/donations" />} />
           {donations.length === 0 ? (
-            <p className="text-sm font-medium text-zinc-500">No donations yet.</p>
+            <p className="text-sm font-medium text-zinc-500">{t('noDonationsYet')}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
               {donations.slice(0, 5).map((donation) => (
@@ -212,9 +221,9 @@ export default function DashboardView({
         </div>
 
         <div className={panelClass}>
-          <SectionHeader title="Recent Ticket Sales" action={<ViewAllLink href="/dashboard/attendees" />} />
+          <SectionHeader title={t('recentTicketSales')} action={<ViewAllLink href="/dashboard/attendees" />} />
           {ticketOrders.length === 0 ? (
-            <p className="text-sm font-medium text-zinc-500">No ticket sales yet.</p>
+            <p className="text-sm font-medium text-zinc-500">{t('noTicketSalesYet')}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
               {ticketOrders.slice(0, 5).map((order) => {
@@ -236,15 +245,15 @@ export default function DashboardView({
 
       <section className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className={panelClass}>
-          <SectionHeader title="Ticket Trend" action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('ticketTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
           <TicketsChart data={chartTickets} />
         </div>
         <div className={panelClass}>
-          <SectionHeader title="Revenue Trend" action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('revenueTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
           <RevenueChart data={chartRevenue} />
         </div>
         <div className={panelClass}>
-          <SectionHeader title="Donation Trend" action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('donationTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
           <DonationsChart data={chartDonations} />
         </div>
       </section>

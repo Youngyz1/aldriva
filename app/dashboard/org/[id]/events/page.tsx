@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Plus } from "lucide-react";
 
@@ -15,6 +16,12 @@ export default async function OrgEventsPage({
     .select("id, title, slug, event_date, city, venue, status")
     .eq("organizer_id", id)
     .order("event_date", { ascending: false });
+
+  // Direct to event management: Events → Event Dashboard (no intermediate Manage)
+  if (events && events.length > 0) {
+    const first = events[0];
+    if (first?.id) redirect(`/dashboard/events/${first.id}/overview`);
+  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +76,7 @@ export default async function OrgEventsPage({
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <Link href={`/events/${evt.slug}`} className="text-xs font-bold text-orange-600 hover:underline">View</Link>
+                    <Link href={`/dashboard/events/${evt.id}/overview`} className="text-xs font-bold text-orange-600 hover:underline">Manage</Link>
                   </td>
                 </tr>
               ))}

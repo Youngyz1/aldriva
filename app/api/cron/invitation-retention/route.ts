@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
 /**
  * Idempotent cron/scheduled retention job for completed events.
@@ -7,10 +8,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
  * immutable audit history (event_id, ticket_instance_id, checked_in_at, seat_id, status).
  */
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized cron trigger." }, { status: 401 });
   }
 

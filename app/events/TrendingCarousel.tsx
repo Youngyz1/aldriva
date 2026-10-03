@@ -57,7 +57,7 @@ export default function TrendingCarousel({
 
   return (
     <section>
-      <Carousel opts={{ align: "start" }}>
+      <Carousel opts={{ align: "start", duration: 15 }}>
         <div className="mb-6 flex items-center justify-between gap-4">
           <h3
             className={cn(
@@ -97,6 +97,7 @@ export default function TrendingCarousel({
                 image={event.banner || ""}
                 category={event.category}
                 onDark={onDark}
+                sizes="(max-width: 640px) 82vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
               />
             </CarouselItem>
           ))}

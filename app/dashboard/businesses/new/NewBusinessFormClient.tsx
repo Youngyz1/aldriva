@@ -1,0 +1,467 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createBusiness } from "@/lib/actions/businesses";
+import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
+import { INDUSTRIES, getCategoriesForIndustry, getBusinessTypesForCategory } from "@/lib/business-taxonomy";
+
+interface NewBusinessFormClientProps {
+  tenantId: string;
+}
+
+export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClientProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    industry: "",
+    category: "",
+    business_type: "",
+    logo: "",
+    website: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    listing_tier: "free" as "free" | "one_time" | "subscription",
+    seo_title: "",
+    seo_description: "",
+  });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const res = await createBusiness({
+      name: form.name,
+      description: form.description,
+      industry: form.industry,
+      category: form.category,
+      business_type: form.business_type || null,
+      logo: form.logo || null,
+      website: form.website || null,
+      email: form.email || null,
+      phone: form.phone || null,
+      address: form.address || null,
+      city: form.city || null,
+      state: form.state || null,
+      country: form.country || null,
+      listing_tier: form.listing_tier,
+      seo_title: form.seo_title || null,
+      seo_description: form.seo_description || null,
+    });
+
+    if (res.success && res.data) {
+      const { id } = res.data;
+      const decision = (res as any).decision as string | undefined;
+      const message = (res as any).message as string | undefined;
+      const rejection_reason = (res as any).rejection_reason as string | undefined;
+      if (decision === "reject") {
+        setError(rejection_reason || message || "Your listing was not approved. You can edit and resubmit.");
+        setLoading(false);
+        return;
+      }
+      if (decision === "approve") {
+        setSuccess(message || "Your business is now live.");
+      } else if (decision === "queue") {
+        setSuccess(message || "Your listing is under review — usually within minutes.");
+      }
+      if (form.listing_tier === "free") {
+        // Show status-aware message, then redirect to overview (not yet publicly visible unless approved)
+        setTimeout(() => {
+          router.push(`/dashboard/businesses/${id}/overview`);
+          router.refresh();
+        }, 800);
+      } else {
+        // Paid tiers go to checkout (still respect screening: if queued/rejected, checkout still required but listing not live)
+        try {
+          const checkoutRes = await fetch("/api/checkout/business", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ businessId: id }),
+          });
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData.url) {
+            window.location.href = checkoutData.url;
+          } else {
+            setError(checkoutData.error || "Failed to create checkout session.");
+            setLoading(false);
+          }
+        } catch {
+          setError("Failed to redirect to Stripe checkout. Please try again from the dashboard.");
+          setLoading(false);
+        }
+      }
+    } else {
+      setError(res.error || "Failed to create business listing");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 p-6 max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-zinc-150 pb-5">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-bold text-zinc-400 mb-1">
+            <Link href="/dashboard/businesses" className="hover:text-orange-600">
+              Businesses
+            </Link>
+            <span>/</span>
+            <span className="text-zinc-600">New Business</span>
+          </div>
+          <h1 className="text-2xl font-black text-zinc-900">Create Business Listing</h1>
+        </div>
+        <Link
+          href="/dashboard/businesses"
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
+        >
+          Cancel
+        </Link>
+      </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm font-semibold text-red-800">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm font-semibold text-emerald-800">
+          {success}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Column 1: Basic Details */}
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Basic Information</h2>
+            
+            <div>
+              <label className="block text-sm font-black text-zinc-600 mb-1">Business Name *</label>
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Acme Corporation"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-black text-zinc-600 mb-1">Description *</label>
+              <textarea
+                required
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Describe your business and services (minimum 20 characters)..."
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Industry *</label>
+                <select
+                  required
+                  value={form.industry}
+                  onChange={(e) => {
+                    const ind = e.target.value;
+                    const cats = ind ? getCategoriesForIndustry(ind) : [];
+                    const newCat = cats.includes(form.category) ? form.category : cats[0] || "";
+                    const types = newCat ? getBusinessTypesForCategory(newCat) : [];
+                    const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
+                    setForm({ ...form, industry: ind, category: newCat, business_type: newType });
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+                >
+                  <option value="">Select Industry</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Category *</label>
+                <select
+                  required
+                  value={form.category}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    const types = cat ? getBusinessTypesForCategory(cat) : [];
+                    const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
+                    setForm({ ...form, category: cat, business_type: newType });
+                  }}
+                  disabled={!form.industry}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
+                >
+                  <option value="">Select Category</option>
+                  {form.industry && getCategoriesForIndustry(form.industry).map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Business Type *</label>
+                <select
+                  required
+                  value={form.business_type}
+                  onChange={(e) => setForm({ ...form, business_type: e.target.value })}
+                  disabled={!form.category}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
+                >
+                  <option value="">Select Business Type</option>
+                  {form.category && getBusinessTypesForCategory(form.category).map((bt) => (
+                    <option key={bt} value={bt}>{bt}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <MediaUploadField
+                label="Logo"
+                description="Upload or select from My Media"
+                value={form.logo}
+                tenantId={tenantId}
+                folderSubpath="business-logos"
+                aspectRatio={1}
+                cropShape="round"
+                onChange={(url) => setForm((prev) => ({ ...prev, logo: url }))}
+              />
+            </div>
+          </div>
+
+          {/* Column 2: Contact & Location */}
+          <div className="space-y-4 border-t border-zinc-200 pt-6">
+            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Contact & Location</h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="info@acme.com"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+1 (555) 123-4567"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-black text-zinc-600 mb-1">Website URL</label>
+              <input
+                type="url"
+                value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="https://acme.com"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-black text-zinc-600 mb-1">Street Address</label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="123 Main St"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">City</label>
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="New York"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">State</label>
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  placeholder="NY"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-zinc-600 mb-1">Country</label>
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  placeholder="USA"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing Tiers Selection */}
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
+          <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Select Listing Tier</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Free Tier */}
+            <label
+              className={`relative flex flex-col justify-between rounded-xl border-2 p-5 cursor-pointer transition ${
+                form.listing_tier === "free" ? "border-orange-500 bg-orange-50/20" : "border-slate-100 bg-white hover:border-slate-200"
+              }`}
+            >
+              <input
+                type="radio"
+                name="listing_tier"
+                value="free"
+                checked={form.listing_tier === "free"}
+                onChange={() => setForm({ ...form, listing_tier: "free" })}
+                className="sr-only"
+              />
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-base font-black text-slate-900">Free Tier</span>
+                  {form.listing_tier === "free" && <span className="text-orange-500">✓</span>}
+                </div>
+                <p className="text-xs text-slate-500 font-semibold mb-4">
+                  Standard directory listing. Basic promotion.
+                </p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">$0</div>
+            </label>
+
+            {/* One-time Payment Tier */}
+            <label
+              className={`relative flex flex-col justify-between rounded-xl border-2 p-5 cursor-pointer transition ${
+                form.listing_tier === "one_time" ? "border-orange-500 bg-orange-50/20" : "border-slate-100 bg-white hover:border-slate-200"
+              }`}
+            >
+              <input
+                type="radio"
+                name="listing_tier"
+                value="one_time"
+                checked={form.listing_tier === "one_time"}
+                onChange={() => setForm({ ...form, listing_tier: "one_time" })}
+                className="sr-only"
+              />
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-base font-black text-slate-900">Featured (Lifetime)</span>
+                  {form.listing_tier === "one_time" && <span className="text-orange-500">✓</span>}
+                </div>
+                <p className="text-xs text-slate-500 font-semibold mb-4">
+                  One-time payment for permanent active status. Priority directory visibility.
+                </p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">$49</div>
+            </label>
+
+            {/* Subscription Tier */}
+            <label
+              className={`relative flex flex-col justify-between rounded-xl border-2 p-5 cursor-pointer transition ${
+                form.listing_tier === "subscription" ? "border-orange-500 bg-orange-50/20" : "border-slate-100 bg-white hover:border-slate-200"
+              }`}
+            >
+              <input
+                type="radio"
+                name="listing_tier"
+                value="subscription"
+                checked={form.listing_tier === "subscription"}
+                onChange={() => setForm({ ...form, listing_tier: "subscription" })}
+                className="sr-only"
+              />
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-base font-black text-slate-900">Premium Partner</span>
+                  {form.listing_tier === "subscription" && <span className="text-orange-500">✓</span>}
+                </div>
+                <p className="text-xs text-slate-500 font-semibold mb-4">
+                  Monthly premium subscription. Top badge, advanced promotion, and analytics.
+                </p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">
+                $19<span className="text-xs text-slate-400 font-bold">/month</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* SEO (Optional) */}
+        <div className="space-y-4 border-t border-zinc-200 pt-6">
+          <h2 className="text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">SEO Configurations (Optional)</h2>
+          
+          <div>
+            <label className="block text-sm font-black text-zinc-600 mb-1">SEO Title</label>
+            <input
+              type="text"
+              value={form.seo_title}
+              onChange={(e) => setForm({ ...form, seo_title: e.target.value })}
+              placeholder="e.g. Acme Corp | Premium Tech Solutions"
+              maxLength={70}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+            />
+            <p className="text-xs text-slate-400 mt-1">Recommended maximum 70 characters.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-zinc-600 mb-1">SEO Meta Description</label>
+            <textarea
+              value={form.seo_description}
+              onChange={(e) => setForm({ ...form, seo_description: e.target.value })}
+              placeholder="Provide a search snippet summarizing your business..."
+              rows={2}
+              maxLength={180}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white"
+            />
+            <p className="text-xs text-slate-400 mt-1">Recommended maximum 180 characters.</p>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end gap-3 pb-8">
+          <Link
+            href="/dashboard/businesses"
+            className="rounded-xl border border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-xl bg-orange-600 px-6 py-2.5 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-50 transition"
+          >
+            {loading ? "Saving..." : form.listing_tier === "free" ? "Create Listing" : "Proceed to Checkout"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

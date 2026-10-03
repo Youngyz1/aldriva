@@ -16,8 +16,11 @@ type ProductRow = {
   name: string;
   slug: string;
   price_type: string;
+  product_type: string;
+  category: string | null;
   status: string;
   stock_quantity: number | null;
+  asset_count: number;
   rejection_reason: string | null;
   created_at: string;
   owner_name: string;
@@ -231,13 +234,15 @@ export default function ProductsClient() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
+            <table className="w-full min-w-[1120px] text-left text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
                 <tr>
                   <th className="px-6 py-3">Product</th>
                   <th className="py-3 pr-4">Owner</th>
+                  <th className="py-3 pr-4">Type</th>
                   <th className="py-3 pr-4">Price Type</th>
                   <th className="py-3 pr-4">Status</th>
+                  <th className="py-3 pr-4">Files</th>
                   <th className="py-3 pr-4">Stock</th>
                   <th className="py-3 pr-4">Created</th>
                   <th className="px-6 py-3 text-right">Actions</th>
@@ -252,6 +257,22 @@ export default function ProductsClient() {
                     <td className="py-4 pr-4">
                       <p className="font-semibold text-zinc-800">{row.owner_name}</p>
                       <p className="text-xs text-zinc-500">{row.owner_email || "—"}</p>
+                    </td>
+                    <td className="py-4 pr-4">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase ${
+                          row.product_type && row.product_type !== "other"
+                            ? "bg-orange-50 text-orange-700 border-orange-200"
+                            : "bg-zinc-100 text-zinc-700 border-zinc-200"
+                        }`}
+                      >
+                        {row.product_type && row.product_type !== "other"
+                          ? row.product_type.replace(/_/g, " ")
+                          : "Physical"}
+                      </span>
+                      {row.category && (
+                        <p className="mt-1 text-xs text-zinc-500">{row.category}</p>
+                      )}
                     </td>
                     <td className="py-4 pr-4">
                       <span
@@ -273,7 +294,16 @@ export default function ProductsClient() {
                       </span>
                     </td>
                     <td className="py-4 pr-4 text-zinc-500">
-                      {row.stock_quantity === null ? (
+                      {row.product_type && row.product_type !== "other" ? (
+                        <span className="font-bold text-zinc-700">{row.asset_count} file(s)</span>
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-4 pr-4 text-zinc-500">
+                      {row.product_type && row.product_type !== "other" ? (
+                        <span className="text-zinc-400">Digital</span>
+                      ) : row.stock_quantity === null ? (
                         <span className="text-zinc-400">Unlimited</span>
                       ) : (
                         <span className="font-bold text-zinc-700">{row.stock_quantity}</span>
@@ -312,7 +342,7 @@ export default function ProductsClient() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
+                    <td colSpan={9} className="py-12 text-center text-sm font-semibold text-zinc-400 bg-white">
                       No products found.
                     </td>
                   </tr>

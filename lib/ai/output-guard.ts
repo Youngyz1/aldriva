@@ -10,6 +10,9 @@
  * post-processing filter that runs in application code, regardless of
  * what the model produces.
  *
+ * Stage 14 boundary — SHARED by AI Studio and AI Workforce (guards are one of
+ * the five shareable layers: provider, tools, knowledge, runtime, guards).
+ *
  * V1 scope (Phase 2):
  *   - Strip echoed system prompts / internal instruction text
  *   - Reject output containing patterns resembling other users' PII
@@ -95,6 +98,7 @@ export function logRejection(
     contentType?: string;
     sourceId?: string;
     verdict?: 'flagged' | 'rejected';
+    tenantId?: string | null;
   }
 ): void {
   const timestamp = new Date().toISOString();
@@ -120,6 +124,7 @@ export function logRejection(
         content_type: options?.contentType ?? null,
         source_id: options?.sourceId ?? null,
         verdict,
+        tenant_id: options?.tenantId ?? null,
       })
       .then(({ error }) => {
         if (error) {

@@ -31,6 +31,32 @@ export type InvocationResult =
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Synthetic platform tenant marker used by the Sentinel platform sweep
+ * (see orchestrate() in lib/ai/orchestrator.ts). It is a well-formed UUID
+ * so it passes the fail-closed context gates, letting platform-level tools
+ * query the tenant_id IS NULL merge path — but it is NOT a real organizers
+ * row. The audit logger must coerce it to genuine NULL before insert, or
+ * the ai_tool_invocations_tenant_id_fkey FK rejects the row and the
+ * platform-level call loses its audit trail.
+ */
+export const PLATFORM_TENANT_PLACEHOLDER =
+  '00000000-0000-0000-0000-000000000000';
+
+/**
+ * Resolve the tenant_id value for the ai_tool_invocations audit row.
+ * Real tenant UUIDs pass through untouched; null/undefined contexts and
+ * the synthetic platform placeholder both resolve to genuine NULL (the
+ * column is nullable per migration_113, and FK checks ignore NULL).
+ */
+export function resolveLogTenantId(
+  ctx: TenantToolContext | null | undefined
+): string | null {
+  const raw = ctx?.tenantId ?? null;
+  if (!raw || raw === PLATFORM_TENANT_PLACEHOLDER) return null;
+  return raw;
+}
+
 /** True only for a well-formed, server-derived tenant context. */
 export function isValidToolContext(
   ctx: TenantToolContext | null | undefined
@@ -96,7 +122,7 @@ export function logToolInvocation(
     void supabaseAdmin
       .from('ai_tool_invocations')
       .insert({
-        tenant_id: ctx?.tenantId ?? null,
+        tenant_id: resolveLogTenantId(ctx),
         conversation_id: ctx?.conversationId ?? null,
         actor_type: 'ai',
         provider,

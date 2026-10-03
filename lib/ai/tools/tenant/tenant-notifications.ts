@@ -239,3 +239,60 @@ export async function notifyOwner(
     throw err;
   }
 }
+
+/**
+ * Stage 10.9 smoke-test action ONLY — not a product feature.
+ *
+ * Narrowest possible approval-gated write: exactly ONE in-app notification
+ * row (fixed type 'like', fixed '[Stage 10.9 smoke test] ' title prefix) to
+ * the FIRST tenant owner. Fail-closed when the tenant has no owner.
+ * Never passes an `email` param to the shared service, so Resend is never
+ * touched (see lib/notifications.ts:67-79). Undo: DELETE FROM notifications
+ * WHERE title LIKE '[Stage 10.9 smoke test]%'. Remove entirely via the
+ * migration_147 rollback twin.
+ */
+export const execSmokeNotifyDefinition: AIToolDefinition = {
+  name: 'execSmokeNotify',
+  description:
+    'Smoke-test action. Calling this tool does not execute it: the platform intercepts the call and creates a pending human-approval request, and nothing runs until a human approves. Call it when asked, with an optional short note (max 200 chars).',
+  parameters: {
+    type: 'object',
+    properties: {
+      note: { type: 'string', description: 'Short note appended after the fixed smoke-test title prefix (max 200 chars).' },
+    },
+    required: [],
+  },
+  scope: 'transactional',
+};
+
+export const SMOKE_NOTIFY_TITLE_PREFIX = '[Stage 10.9 smoke test] ';
+
+export async function execSmokeNotify(
+  ctx: TenantToolContext,
+  args: { note?: string }
+): Promise<{ delivered: number; recipient: string; title: string }> {
+  const tenantId = requireToolContext(ctx, 'execSmokeNotify', args);
+  try {
+    const note = typeof args?.note === 'string' ? args.note.slice(0, 200) : '';
+    const ownerIds = await tenantOwnerUserIds(tenantId);
+    if (ownerIds.length === 0) {
+      logToolInvocation(ctx, null, 'execSmokeNotify', args, 'denied', 'error', 0, 'no tenant owner');
+      throw new Error('[execSmokeNotify] No tenant owner (fail closed)');
+    }
+    const recipient = ownerIds[0];
+    const safe = screenNotificationCopy('execSmokeNotify', `${SMOKE_NOTIFY_TITLE_PREFIX}${note || 'ping'}`.slice(0, 200));
+    await createNotification({
+      userId: recipient,
+      type: 'like',
+      title: safe.title,
+      body: null,
+      link: null,
+    });
+    logToolInvocation(ctx, null, 'execSmokeNotify', args, 'allowed', safe.flagged ? 'guard_flagged' : 'success', 1);
+    return { delivered: 1, recipient, title: safe.title };
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('No tenant owner')) throw err;
+    logToolInvocation(ctx, null, 'execSmokeNotify', args, 'allowed', 'error', null, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}

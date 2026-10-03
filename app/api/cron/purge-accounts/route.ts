@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/dashboard-context";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
+import { insertSystemEvent } from "@/lib/observability/system-events";
 
 /**
  * Ends the 14-day account-deletion grace period.
@@ -69,6 +70,16 @@ export async function POST(request: NextRequest) {
     // than throwing, so an unchecked write here would report a clean run while
     // leaving every account stuck in pending_deletion forever.
     if (updateError) {
+      void insertSystemEvent({
+        kind: 'job_error',
+        severity_hint: 'error',
+        route: 'POST /api/cron/purge-accounts',
+        status_code: 500,
+        error_code: 'purge_update_failed',
+        message: updateError.message.slice(0, 2000),
+        metadata: {},
+        source: 'aldriva',
+      });
       throw new Error(`Failed to mark accounts purged: ${updateError.message}`);
     }
 
@@ -82,6 +93,16 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     console.error("[PurgeAccounts Cron] Fatal error:", err);
+    void insertSystemEvent({
+      kind: 'job_error',
+      severity_hint: 'error',
+      route: 'POST /api/cron/purge-accounts',
+      status_code: 500,
+      error_code: 'purge_fatal',
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
+      metadata: {},
+      source: 'aldriva',
+    });
     return NextResponse.json({ error: "Account purge failed." }, { status: 500 });
   }
 }

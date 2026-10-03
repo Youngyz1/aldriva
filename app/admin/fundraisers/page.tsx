@@ -326,6 +326,7 @@ export default function AdminFundraisersPage() {
         bulkActions={<></>}
         filtersOpen={false}
         onToggleFilters={() => {}}
+        sticky={false}
       />
 
       {error && (

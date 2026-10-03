@@ -3,8 +3,21 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
+import {
+  LayoutDashboard, Building2, BarChart2, Mail, Settings,
+  Calendar, Heart, Users, Newspaper, Store, ShoppingBag,
+  Globe, Package, Briefcase, BookOpen, Star, ImageIcon,
+  QrCode, CheckCircle2, Edit3, ExternalLink, Activity, Palette, Sparkles, BarChart3, Megaphone, HeartHandshake,
+} from "lucide-react";
 import { computeSharedBases, isNavItemActive, type NavItem } from "./nav-active";
 import { cn } from "@/lib/utils";
+
+const MOBILE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard, Building2, BarChart2, Mail, Settings,
+  Calendar, Heart, Users, Newspaper, Store, ShoppingBag,
+  Globe, Package, Briefcase, BookOpen, Star, ImageIcon,
+  QrCode, CheckCircle2, Edit3, ExternalLink, Activity, Palette, Sparkles, BarChart3, Megaphone, HeartHandshake,
+};
 
 /**
  * Refined horizontal scrollable pill strip for mobile nav — used wherever a
@@ -34,7 +47,7 @@ export default function MobilePillNav({
       className="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 scrollbar-none touch-pan-x scroll-smooth"
     >
       {items.map((item) => {
-        const Icon = item.icon;
+        const Icon = MOBILE_ICON_MAP[item.icon] ?? LayoutDashboard;
         const active = isNavItemActive(pathname, currentTab, item, sharedBases);
         return (
           <Link

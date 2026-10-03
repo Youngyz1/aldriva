@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from 'next-intl';
 import {
   Send,
   Sun,
@@ -24,17 +25,6 @@ import {
 } from "@/components/ui/tooltip";
 import { PwaInstallButton } from "@/components/PwaRegister";
 import { cn } from "@/lib/utils";
-
-const quickLinks = [
-  ["Home", "/"],
-  ["About Us", "/about"],
-  ["Events", "/events"],
-  ["Fundraisers", "/fundraisers"],
-  ["Find Tickets", "/find-tickets"],
-  ["Terms of Service", "/terms"],
-  ["Privacy Policy", "/privacy"],
-  ["Cookie Policy", "/cookies"],
-] as const;
 
 const socialLinks = [
   ["Facebook", FaFacebookF, "https://www.facebook.com/profile.php?id=61592673256673"],
@@ -87,9 +77,21 @@ export function MarketingFooter({
   showNewsletter?: boolean;
 }) {
   const pathname = usePathname();
-  const shouldShowNewsletter = showNewsletter ?? pathname === "/";
+  const t = useTranslations('Footer');
+  const shouldShowNewsletter = showNewsletter ?? (pathname === "/" || pathname === "/en" || pathname === "/fr" || pathname.endsWith("/"));
   const [openSection, setOpenSection] = React.useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = React.useState(false);
+
+  const quickLinks: [string, string][] = [
+    [t('home'), "/"],
+    [t('aboutUs'), "/about"],
+    [t('events'), "/events"],
+    [t('fundraisers'), "/fundraisers"],
+    [t('findTickets'), "/find-tickets"],
+    [t('terms'), "/terms"],
+    [t('privacy'), "/privacy"],
+    [t('cookies'), "/cookies"],
+  ];
 
   React.useEffect(() => {
     if (typeof document !== "undefined") {
@@ -115,16 +117,16 @@ export function MarketingFooter({
             {shouldShowNewsletter ? (
               <>
                 <h2 className="mt-4 text-lg font-bold tracking-tight sm:text-xl lg:text-lg">
-                  Stay connected
+                  {t('stayConnected')}
                 </h2>
                 <p className="mb-4 mt-2 max-w-xs text-xs leading-5 text-zinc-600 sm:text-sm dark:text-zinc-400">
-                  Get event launches, fundraiser updates, and platform news.
+                  {t('newsletterDescription')}
                 </p>
                 <form onSubmit={handleSubscribe} className="relative w-full max-w-xs">
                   <Input
                     type="email"
-                    placeholder="Enter your email"
-                    aria-label="Email address for platform updates"
+                    placeholder={t('emailPlaceholder')}
+                    aria-label={t('emailPlaceholder')}
                     className="h-10 w-full rounded-full border-zinc-200 bg-white px-4 pr-12 text-sm font-medium text-zinc-950 placeholder:text-zinc-500 focus-visible:ring-orange-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
                   />
                   <Button
@@ -133,29 +135,29 @@ export function MarketingFooter({
                     className="absolute right-1 top-1 h-8 w-8 rounded-full bg-orange-600 text-white transition-transform hover:scale-105 hover:bg-orange-700"
                   >
                     <Send className="h-4 w-4" />
-                    <span className="sr-only">Subscribe</span>
+                    <span className="sr-only">{t('subscribe')}</span>
                   </Button>
                 </form>
               </>
             ) : (
               <p className="mt-3 max-w-xs text-xs leading-5 text-zinc-600 sm:text-sm dark:text-zinc-400">
-                Events, fundraising &amp; community commerce.
+                {t('tagline')}
               </p>
             )}
           </div>
 
           {/* Quick links — collapsible on mobile, static grid column on desktop. */}
           <div className="border-t border-zinc-100 lg:border-0 dark:border-zinc-800">
-            <DesktopSectionHeading>Quick links</DesktopSectionHeading>
+            <DesktopSectionHeading>{t('quickLinks')}</DesktopSectionHeading>
             <MobileSectionToggle
               sectionId="marketing-footer-quicklinks"
-              label="Quick links"
+              label={t('quickLinks')}
               open={openSection === "quicklinks"}
               onToggle={() => toggle("quicklinks")}
             />
             <nav
               id="marketing-footer-quicklinks"
-              aria-label="Quick links"
+              aria-label={t('quickLinks')}
               className={cn(
                 "space-y-2 pb-4 text-sm text-zinc-600 lg:pb-0 dark:text-zinc-400",
                 openSection !== "quicklinks" && "hidden lg:block"
@@ -175,10 +177,10 @@ export function MarketingFooter({
 
           {/* Contact — collapsible on mobile, static grid column on desktop. */}
           <div className="border-t border-zinc-100 lg:border-0 dark:border-zinc-800">
-            <DesktopSectionHeading>Contact us</DesktopSectionHeading>
+            <DesktopSectionHeading>{t('contactUs')}</DesktopSectionHeading>
             <MobileSectionToggle
               sectionId="marketing-footer-contact"
-              label="Contact us"
+              label={t('contactUs')}
               open={openSection === "contact"}
               onToggle={() => toggle("contact")}
             />
@@ -189,10 +191,10 @@ export function MarketingFooter({
                 openSection !== "contact" && "hidden lg:block"
               )}
             >
-              <p>{BRAND.name} Support</p>
-              <p>Events, fundraising &amp; community commerce.</p>
+              <p>{t('support')}</p>
+              <p>{t('tagline')}</p>
               <p>
-                Email:{" "}
+                {t('emailLabel')}{" "}
                 <a
                   href={`mailto:${BRAND.supportEmail}`}
                   className="font-semibold text-orange-600"
@@ -206,7 +208,7 @@ export function MarketingFooter({
           {/* Social + appearance — always visible (single short row). */}
           <div className="border-t border-zinc-100 pt-4 lg:border-0 lg:pt-0 dark:border-zinc-800">
             <h3 className="mb-3 text-base font-bold tracking-tight lg:text-sm">
-              Follow us
+              {t('followUs')}
             </h3>
             <div className="mb-4 flex flex-wrap gap-2">
               <TooltipProvider>
@@ -223,7 +225,7 @@ export function MarketingFooter({
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label={`Visit Aldriva on ${label}`}
+                          aria-label={t('visitAldrivaOn', {platform: label})}
                         >
                           <Icon className="h-4 w-4" />
                           <span className="sr-only">{label}</span>
@@ -247,7 +249,7 @@ export function MarketingFooter({
               />
               <Moon className="h-5 w-5 text-zinc-700 dark:text-white" />
               <Label htmlFor="dark-mode" className="sr-only">
-                Toggle dark mode
+                {t('toggleDarkMode')}
               </Label>
             </div>
           </div>
@@ -255,7 +257,7 @@ export function MarketingFooter({
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 border-t border-zinc-200 pt-6 text-center sm:flex-row lg:mt-10 dark:border-zinc-800">
           <p className="text-sm text-zinc-500">
-            © 2026 {BRAND.name}. All rights reserved.
+            © 2026 {BRAND.name}. {t('allRightsReserved')}
           </p>
           <PwaInstallButton />
         </div>

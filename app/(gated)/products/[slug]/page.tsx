@@ -9,6 +9,13 @@ import { compactJsonLd, jsonLdScriptValue } from "@/lib/structured-data";
 import BuyProductButton from "./BuyProductButton";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { getSiteUrl } from "@/lib/site-url";
+import {
+  DIGITAL_LICENSE_LABELS,
+  PRODUCT_TYPE_LABELS,
+  assetExtensionOf,
+  formatFileSize,
+  isDigitalProductType,
+} from "@/lib/digital-products";
 
 // The real HTTP 404 is enforced by proxy.ts (checkProductAccess) before
 // streaming begins — connection() here is a secondary defense matching
@@ -35,6 +42,15 @@ async function fetchAndGateProduct(slug: string) {
     .select("display_name, avatar_url")
     .eq("id", product.owner_id)
     .maybeSingle();
+
+  // Digital assets: metadata only (never file_path — delivery is exclusively
+  // via the signed-URL download route after a paid-order check).
+  const { data: assets } = await adminClient
+    .from("product_assets")
+    .select("id, file_name, mime_type, file_size_bytes, is_preview, version")
+    .eq("product_id", product.id)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
 
   const {
     data: { user },
@@ -73,7 +89,7 @@ async function fetchAndGateProduct(slug: string) {
     }
   }
 
-  return { product, ownerProfile, isAuthorized, isRestricted, unitPrice, currency };
+  return { product, ownerProfile, assets: assets ?? [], isAuthorized, isRestricted, unitPrice, currency };
 }
 
 export async function generateMetadata({
@@ -85,7 +101,7 @@ export async function generateMetadata({
   const adminClient = createSupabaseAdmin();
   const { data: product } = await adminClient
     .from("products")
-    .select("name, slug, description, seo_title, seo_description, images")
+    .select("name, slug, description, subtitle, seo_title, seo_description, images, cover_image_url")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -94,6 +110,9 @@ export async function generateMetadata({
   }
 
   const siteUrl = getSiteUrl();
+  const coverForMeta =
+    (product as { cover_image_url?: string | null }).cover_image_url ||
+    (product.images?.length ? product.images[0] : null);
   return {
     title: `${product.name} — Aldriva Shop`,
     description: product.seo_description || product.description.slice(0, 160),
@@ -104,7 +123,7 @@ export async function generateMetadata({
       title: product.seo_title || `${product.name} — Aldriva Shop`,
       description: product.seo_description || product.description.slice(0, 160),
       url: `${siteUrl}/products/${product.slug}`,
-      images: product.images?.length ? [{ url: product.images[0] }] : [],
+      images: coverForMeta ? [{ url: coverForMeta }] : [],
     },
   };
 }
@@ -124,10 +143,29 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const { product, ownerProfile, isAuthorized, isRestricted, unitPrice, currency } = result;
+  const { product, ownerProfile, assets, isAuthorized, isRestricted, unitPrice, currency } = result;
   const business = (product as any).businesses as { id: string; name: string; slug: string } | null;
   const authorName = ownerProfile?.display_name || "Aldriva Seller";
   const outOfStock = product.status === "out_of_stock";
+  const digital = isDigitalProductType((product as { product_type?: string | null }).product_type);
+  const coverImage =
+    (product as { cover_image_url?: string | null }).cover_image_url || product.images?.[0] || null;
+  const previewImages = ((product as { preview_images?: string[] | null }).preview_images || []).slice(0, 8);
+  const licenseLabel =
+    (DIGITAL_LICENSE_LABELS as Record<string, string>)[
+      (product as { license?: string | null }).license || "personal"
+    ] || "Personal use";
+  const fileTypes = Array.from(
+    new Set(
+      (assets as { file_name: string }[])
+        .map((a) => assetExtensionOf(a.file_name).replace(".", "").toUpperCase())
+        .filter(Boolean)
+    )
+  );
+  const totalBytes = (assets as { file_size_bytes: number }[]).reduce(
+    (sum, a) => sum + (a.file_size_bytes || 0),
+    0
+  );
   const priceLabel = unitPrice !== null
     ? unitPrice.toLocaleString(undefined, { style: "currency", currency: currency.toUpperCase() })
     : "—";
@@ -181,9 +219,9 @@ export default async function ProductDetailPage({
         <div className="grid gap-8 md:grid-cols-2">
           {/* Image */}
           <div className="aspect-square w-full overflow-hidden rounded-2xl border border-zinc-150 bg-slate-100 shadow-sm">
-            {product.images?.[0] ? (
+            {coverImage ? (
               <img
-                src={product.images[0]}
+                src={coverImage}
                 alt={product.name}
                 className="h-full w-full object-cover"
               />
@@ -200,10 +238,21 @@ export default async function ProductDetailPage({
           {/* Details */}
           <div className="space-y-5">
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="inline-flex rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-black text-orange-700">
-                  {product.price_type === "subscription" ? "Subscription" : "One-time"}
+                  {digital
+                    ? (PRODUCT_TYPE_LABELS as Record<string, string>)[
+                        (product as { product_type?: string }).product_type || "other"
+                      ] || "Digital product"
+                    : product.price_type === "subscription"
+                      ? "Subscription"
+                      : "One-time"}
                 </span>
+                {digital && (
+                  <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-black text-zinc-600">
+                    Digital download
+                  </span>
+                )}
                 {outOfStock && (
                   <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-black text-amber-700">
                     Out of Stock
@@ -211,6 +260,11 @@ export default async function ProductDetailPage({
                 )}
               </div>
               <h1 className="text-3xl font-black text-zinc-950">{product.name}</h1>
+              {(product as { subtitle?: string | null }).subtitle && (
+                <p className="mt-1 text-base font-semibold text-zinc-500">
+                  {(product as { subtitle?: string }).subtitle}
+                </p>
+              )}
               {business && (
                 <p className="text-sm font-bold text-zinc-400 mt-0.5">
                   Sold by{" "}
@@ -232,10 +286,18 @@ export default async function ProductDetailPage({
               {product.description}
             </p>
 
-            {product.stock_quantity !== null && (
-              <p className="text-sm font-bold text-zinc-500">
-                {product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : "Currently out of stock"}
-              </p>
+            {digital ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold text-zinc-500">
+                <span>Version {(product as { version?: string }).version || "1.0"}</span>
+                <span>{licenseLabel}</span>
+                {fileTypes.length > 0 && <span>{fileTypes.join(" · ")}</span>}
+              </div>
+            ) : (
+              product.stock_quantity !== null && (
+                <p className="text-sm font-bold text-zinc-500">
+                  {product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : "Currently out of stock"}
+                </p>
+              )
             )}
 
             <div className="flex flex-wrap gap-2 pt-2">
@@ -244,7 +306,8 @@ export default async function ProductDetailPage({
                   productId={product.id}
                   priceLabel={priceLabel}
                   priceType={product.price_type}
-                  stockQuantity={product.stock_quantity}
+                  stockQuantity={digital ? null : product.stock_quantity}
+                  isDigital={digital}
                 />
               )}
               {isAuthorized && (
@@ -263,6 +326,54 @@ export default async function ProductDetailPage({
             </div>
           </div>
         </div>
+
+        {digital && previewImages.length > 0 && (
+          <section>
+            <h2 className="text-xl font-black text-zinc-950 mb-4">Preview</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {previewImages.map((src, i) => (
+                <div key={src + i} className="overflow-hidden rounded-2xl border border-zinc-150 bg-slate-100">
+                  <img src={src} alt={`${product.name} preview ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {digital && assets.length > 0 && (
+          <section className="rounded-2xl border border-zinc-150 bg-white p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-xl font-black text-zinc-950">What&apos;s included</h2>
+              <span className="text-xs font-bold text-zinc-400">
+                {assets.length} file{assets.length === 1 ? "" : "s"}
+                {totalBytes > 0 ? ` · ${formatFileSize(totalBytes)}` : ""}
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-zinc-500 mb-4">
+              Instant download after payment. Files are always available in your library.
+            </p>
+            <ul className="divide-y divide-zinc-100">
+              {(assets as { id: string; file_name: string; mime_type: string; file_size_bytes: number; version: string }[]).map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-zinc-900">{a.file_name}</p>
+                    <p className="text-xs font-semibold text-zinc-400">
+                      {assetExtensionOf(a.file_name).replace(".", "").toUpperCase() || a.mime_type} · {formatFileSize(a.file_size_bytes)} · v{a.version}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                    Included
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {(product as { update_policy?: string | null }).update_policy && (
+              <p className="mt-4 border-t border-zinc-100 pt-4 text-sm font-semibold text-zinc-500">
+                Updates: {(product as { update_policy?: string }).update_policy}
+              </p>
+            )}
+          </section>
+        )}
       </main>
     </>
   );

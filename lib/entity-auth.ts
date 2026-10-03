@@ -83,3 +83,55 @@ export async function hasEntityAccess(
   const role = await getEntityRole(userId, organizerId);
   return role !== null && minRoles.includes(role);
 }
+
+export interface TenantAccessResult {
+  hasAccess: boolean;
+  role: EntityRole | null;
+  isDirectOwner: boolean;
+}
+
+/**
+ * Checks whether a user has one of the allowed roles for a given tenant (organizer),
+ * taking into account both entity_members membership and direct organizer ownership
+ * (organizers.user_id fallback when owner role is in allowedRoles).
+ *
+ * Safe for server components and server actions.
+ */
+export async function checkTenantAccess(
+  userId: string,
+  organizerId: string,
+  allowedRoles: EntityRole[]
+): Promise<TenantAccessResult> {
+  if (!userId || !organizerId) {
+    return { hasAccess: false, role: null, isDirectOwner: false };
+  }
+
+  // 1. Check entity_members table
+  const memberRole = await getEntityRole(userId, organizerId);
+  if (memberRole) {
+    return {
+      hasAccess: allowedRoles.includes(memberRole),
+      role: memberRole,
+      isDirectOwner: false,
+    };
+  }
+
+  // 2. Direct organizer ownership fallback
+  const { data: org } = await supabaseAdmin
+    .from('organizers')
+    .select('user_id')
+    .eq('id', organizerId)
+    .maybeSingle();
+
+  const isDirectOwner = Boolean(org?.user_id && org.user_id === userId);
+  if (isDirectOwner) {
+    return {
+      hasAccess: allowedRoles.includes('owner'),
+      role: 'owner',
+      isDirectOwner: true,
+    };
+  }
+
+  return { hasAccess: false, role: null, isDirectOwner: false };
+}
+

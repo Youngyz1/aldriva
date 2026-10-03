@@ -41,6 +41,8 @@ const font = Plus_Jakarta_Sans({
 
 export const metadata = rootMetadata;
 
+import LocaleProvider from '@/components/LocaleProvider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -57,6 +59,8 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <Suspense fallback={null}>
+          <LocaleProvider>
         <PwaRegister />
         <Suspense fallback={<NavbarFallback />}>
           <Navbar />
@@ -71,6 +75,8 @@ export default function RootLayout({
           {children}
         </div>
         <CookieConsent />
+          </LocaleProvider>
+        </Suspense>
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!} />
     </html>

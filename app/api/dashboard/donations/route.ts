@@ -11,9 +11,13 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const { page, perPage } = parsePageParams(sp);
 
+  const mode = (sp.get('mode') ?? (auth.ctx.organizerIds.length > 0 ? 'organizer' : 'personal')) as 'personal' | 'organizer';
+
   try {
     const result = await queryDashboardDonations({
       organizerIds: auth.ctx.organizerIds,
+      userId: auth.ctx.userId,
+      mode,
       search: sp.get('search') ?? '',
       campaign: sp.get('campaign') ?? 'all',
       status: sp.get('status') ?? 'all',
@@ -23,10 +27,20 @@ export async function GET(req: NextRequest) {
       perPage,
     });
 
-    const { data: campaigns } = await supabaseAdmin
-      .from('fundraisers')
-      .select('id, title')
-      .in('organizer_id', auth.ctx.organizerIds);
+    let campaigns: { id: string; title: string }[] = [];
+    if (mode === 'organizer' && auth.ctx.organizerIds.length > 0) {
+      const { data } = await supabaseAdmin
+        .from('fundraisers')
+        .select('id, title')
+        .in('organizer_id', auth.ctx.organizerIds);
+      campaigns = data ?? [];
+    } else {
+      const { data } = await supabaseAdmin
+        .from('fundraisers')
+        .select('id, title')
+        .eq('user_id', auth.ctx.userId);
+      campaigns = data ?? [];
+    }
 
     return NextResponse.json({
       donations: result.items,

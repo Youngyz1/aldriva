@@ -312,6 +312,7 @@ export default function UsersClient() {
         exporting={exporting}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((v) => !v)}
+        sticky={false}
       />
 
       {error && (
@@ -380,7 +381,14 @@ export default function UsersClient() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 font-semibold text-zinc-800">{row.email}</td>
+                      <td className="py-3 pr-4">
+                        <span
+                          className="block max-w-[220px] truncate font-semibold text-zinc-800"
+                          title={row.email}
+                        >
+                          {row.email}
+                        </span>
+                      </td>
                       <td className="py-3 pr-4"><RoleBadge role={row.role} /></td>
                       <td className="py-3 pr-4"><StatusBadge status={row.status} /></td>
                       <td className="py-3 pr-4 font-black text-zinc-900">{row.organizer_count}</td>

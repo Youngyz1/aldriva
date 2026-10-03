@@ -5,7 +5,8 @@
  * Event moderation — approve, reject, feature/unfeature events.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { EVENT_CATEGORIES } from '@/lib/event-taxonomy';
 
 type EventRow = {
   id: string;
@@ -15,6 +16,8 @@ type EventRow = {
   status: string;
   is_featured: boolean;
   created_at: string;
+  category?: string | null;
+  subcategory?: string | null;
 };
 
 const statusBadge: Record<string, string> = {
@@ -33,6 +36,7 @@ export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError]     = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   useEffect(() => {
     fetch('/api/admin/events')
@@ -63,13 +67,24 @@ export default function AdminEventsPage() {
     setWorking(null);
   }
 
+  const filteredEvents = useMemo(() => {
+    if (categoryFilter === "all") return events;
+    return events.filter((e) => e.category === categoryFilter);
+  }, [events, categoryFilter]);
+
   return (
     <div className="space-y-6">
       <header className="pb-1">
         <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Events</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">Moderate and feature events.</p>
+        <p className="mt-2 text-sm font-medium text-zinc-500">Moderate and feature events. Category filter uses canonical event taxonomy.</p>
       </header>
+      <div className="flex flex-wrap gap-2">
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold">
+          <option value="all">All categories</option>
+          {EVENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">{error}</div>
@@ -82,11 +97,12 @@ export default function AdminEventsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
                 <tr>
                   <th className="py-3 pr-4">Title</th>
                   <th className="py-3 pr-4">Organization</th>
+                  <th className="py-3 pr-4">Category</th>
                   <th className="py-3 pr-4">Visibility</th>
                   <th className="py-3 pr-4">Status</th>
                   <th className="py-3 pr-4">Featured</th>
@@ -94,10 +110,11 @@ export default function AdminEventsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {events.map((ev) => (
+                {filteredEvents.map((ev) => (
                   <tr key={ev.id}>
                     <td className="py-3 pr-4 font-semibold max-w-[180px] truncate">{ev.title}</td>
                     <td className="py-3 pr-4 text-zinc-500 max-w-[120px] truncate">{ev.organizer_name}</td>
+                    <td className="py-3 pr-4 text-xs font-semibold text-zinc-600 max-w-[140px] truncate">{ev.category || "—"}{ev.subcategory ? ` · ${ev.subcategory}` : ""}</td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${visibilityBadge[ev.visibility] ?? visibilityBadge.public}`}>
                         {ev.visibility}
@@ -138,8 +155,8 @@ export default function AdminEventsPage() {
                     </td>
                   </tr>
                 ))}
-                {events.length === 0 && (
-                  <tr><td colSpan={6} className="py-10 text-center text-sm text-zinc-400">No events found.</td></tr>
+                {filteredEvents.length === 0 && (
+                  <tr><td colSpan={7} className="py-10 text-center text-sm text-zinc-400">No events found.</td></tr>
                 )}
               </tbody>
             </table>

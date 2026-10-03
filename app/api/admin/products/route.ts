@@ -42,6 +42,19 @@ export async function GET(req: NextRequest) {
     const emailMap = new Map(authResult.users.map((u) => [u.id, u.email ?? ""]));
     const authUserMap = new Map(authResult.users.map((u) => [u.id, u]));
 
+    // 2b. Asset counts for digital listings (single query, mapped below).
+    const productIds = (products ?? []).map((p) => p.id);
+    const assetCountByProduct = new Map<string, number>();
+    if (productIds.length > 0) {
+      const { data: assetRows } = await supabaseAdmin
+        .from("product_assets")
+        .select("product_id")
+        .in("product_id", productIds);
+      for (const row of (assetRows ?? []) as { product_id: string }[]) {
+        assetCountByProduct.set(row.product_id, (assetCountByProduct.get(row.product_id) ?? 0) + 1);
+      }
+    }
+
     // 3. Map and enrich
     const mapped = (products ?? []).map((p) => {
       const authUser = authUserMap.get(p.owner_id);
@@ -56,8 +69,11 @@ export async function GET(req: NextRequest) {
         name: p.name,
         slug: p.slug,
         price_type: p.price_type,
+        product_type: p.product_type ?? "other",
+        category: p.category ?? null,
         status: p.status,
         stock_quantity: p.stock_quantity,
+        asset_count: assetCountByProduct.get(p.id) ?? 0,
         rejection_reason: p.rejection_reason ?? null,
         created_at: p.created_at,
         owner_name: ownerName,

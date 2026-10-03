@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
+import { getTranslations, getLocale } from 'next-intl/server';
 import EventCard from "@/components/EventCard";
 import { supabase } from "@/lib/supabase";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -180,6 +181,10 @@ function fundraiserImage(src: string | null | undefined) {
 }
 
 export default async function HomePage() {
+  const locale = await getLocale();
+  const tHomepage = await getTranslations('Homepage');
+  const tCommon = await getTranslations('Common');
+  const tEvents = await getTranslations('Events');
   // 1. Hero settings (5-min cache, shared with generateMetadata)
   const hero = await getCachedHeroSettings();
 
@@ -313,10 +318,10 @@ export default async function HomePage() {
   ];
 
   const trustStats = [
-    { label: "Live events", value: `${totalEvents}+` },
-    { label: "Active campaigns", value: `${totalFundraisers}+` },
-    { label: "Organizations", value: `${totalOrganizers}+` },
-    { label: "Secure checkout", value: "Stripe" },
+    { label: tHomepage('liveEvents'), value: `${totalEvents}+` },
+    { label: tHomepage('activeCampaigns'), value: `${totalFundraisers}+` },
+    { label: tHomepage('organizations'), value: `${totalOrganizers}+` },
+    { label: tHomepage('secureCheckout'), value: "Stripe" },
   ];
 
   // Deduplicate events grid
@@ -325,13 +330,16 @@ export default async function HomePage() {
     .filter((ev) => { if (seen.has(ev.id)) return false; seen.add(ev.id); return true; })
     .slice(0, 6);
 
+  function moneyLocalized(value: number | null | undefined) {
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value ?? 0));
+  }
   const fundraiserGalleryItems: Gallery4Item[] = fundraisersResult.map((fundraiser) => ({
     id: fundraiser.id,
     title: fundraiser.title,
-    description: `${money(fundraiser.raised)} raised of ${money(fundraiser.goal)} goal`,
+    description: `${moneyLocalized(fundraiser.raised)} raised of ${moneyLocalized(fundraiser.goal)} goal`,
     href: `/fundraisers/${fundraiser.slug}`,
     image: fundraiserImage(fundraiser.banner),
-    cta: "Donate Now",
+    cta: tCommon('viewAll'),
   }));
 
 
@@ -388,7 +396,7 @@ export default async function HomePage() {
       <section className="bg-white py-7 sm:py-10">
         <div className="mx-auto mb-3 flex max-w-7xl items-center justify-between px-3 sm:mb-5 sm:px-6 lg:px-8">
           <p className="text-xs font-black uppercase tracking-widest text-orange-600 sm:text-xs">
-            Featured This Week
+            {tHomepage('featuredThisWeek')}
           </p>
         </div>
         <FeaturedSlider items={combinedFeaturedItems} />
@@ -400,11 +408,11 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl bg-white px-3 py-8 sm:px-6 sm:py-16 lg:px-8">
         <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-8 sm:flex-row sm:items-end sm:gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-orange-600 sm:text-sm">Events</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950 sm:mt-2 sm:text-4xl">Discover events</h2>
+            <p className="text-xs font-black uppercase tracking-wide text-orange-600 sm:text-sm">{tEvents('title')}</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950 sm:mt-2 sm:text-4xl">{tHomepage('discoverEvents')}</h2>
           </div>
           <Link href="/events" className="text-xs font-black text-orange-600 hover:text-orange-700 sm:text-sm">
-            View all events →
+            {tHomepage('viewAllEvents')}
           </Link>
         </div>
 
@@ -417,13 +425,13 @@ export default async function HomePage() {
                 title={event.title}
                 date={
                   event.event_date
-                    ? new Date(event.event_date).toLocaleDateString("en-US", {
+                    ? new Date(event.event_date).toLocaleDateString(locale as any, {
                         weekday: "short", month: "short", day: "numeric",
-                      })
-                    : "Date TBA"
+                      } as any)
+                    : tHomepage('dateTBA')
                 }
                 eventDate={event.event_date}
-                location={event.city || event.venue || "Location TBA"}
+                location={event.city || event.venue || tHomepage('locationTBA')}
                 image={
                   event.banner ||
                   "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1200&auto=format&fit=crop"
@@ -434,18 +442,18 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center">
-            <h3 className="text-2xl font-black">No events yet.</h3>
+            <h3 className="text-2xl font-black">{tHomepage('noEventsYet')}</h3>
             <Link href="/create-event" className="mt-4 inline-block rounded-xl bg-orange-600 px-5 py-3 font-black text-white">
-              Create the first event
+              {tHomepage('createFirstEvent')}
             </Link>
           </div>
         )}
       </section>
 
       <Gallery4
-        eyebrow="Fundraising"
-        title="Crowdfunding for causes, communities, and events."
-        description="Campaigns can tell a story, show progress, collect donations, and keep supporters engaged."
+        eyebrow={tHomepage('fundraising')}
+        title={tHomepage('crowdfundingTitle')}
+        description={tHomepage('crowdfundingDescription')}
         items={fundraiserGalleryItems}
       />
 

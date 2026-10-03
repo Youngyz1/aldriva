@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import DashboardPagination from "./DashboardPagination";
+import { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
 
 type Props = {
   loading: boolean;
@@ -29,26 +30,30 @@ export default function DashboardTableCard({
   isEmpty = false,
 }: Props) {
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-xs sm:rounded-2xl">
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-        </div>
-      ) : isEmpty && empty ? (
-        <div className="p-4 sm:p-6">{empty}</div>
-      ) : (
-        children
-      )}
+    <div className="space-y-0">
+      <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-xs sm:rounded-2xl">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+          </div>
+        ) : isEmpty && empty ? (
+          <div className="p-4 sm:p-6">{empty}</div>
+        ) : (
+          children
+        )}
+      </div>
 
       {!loading && !isEmpty && (
-        <DashboardPagination
-          page={page}
-          totalPages={totalPages}
-          perPage={perPage}
-          total={total}
-          onPageChange={onPageChange}
-          onPerPageChange={onPerPageChange}
-        />
+        <StickyTablePagination>
+          <DashboardPagination
+            page={page}
+            totalPages={totalPages}
+            perPage={perPage}
+            total={total}
+            onPageChange={onPageChange}
+            onPerPageChange={onPerPageChange}
+          />
+        </StickyTablePagination>
       )}
     </div>
   );

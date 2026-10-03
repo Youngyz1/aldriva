@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createProduct } from "@/lib/actions/products";
 import { MAX_IMAGES } from "@/lib/products-constants";
+import { isDigitalProductType } from "@/lib/digital-products";
+import DigitalProductFields, {
+  EMPTY_DIGITAL_STATE,
+  type DigitalFormState,
+} from "@/components/products/DigitalProductFields";
 import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
 
 export default function NewProductFormClient({
@@ -27,6 +32,9 @@ export default function NewProductFormClient({
     seo_title: "",
     seo_description: "",
   });
+  const [digital, setDigital] = useState<DigitalFormState>(EMPTY_DIGITAL_STATE);
+
+  const isDigital = isDigitalProductType(digital.product_type);
 
   function addImage(url: string) {
     setForm((prev) => ({ ...prev, images: [...prev.images, url] }));
@@ -49,14 +57,26 @@ export default function NewProductFormClient({
       images: form.images,
       price_type: form.price_type,
       stripe_price_id: form.stripe_price_id || null,
-      stock_quantity: form.stock_quantity === "" ? null : Number(form.stock_quantity),
+      stock_quantity: isDigital ? null : form.stock_quantity === "" ? null : Number(form.stock_quantity),
       business_id: form.business_id || null,
       seo_title: form.seo_title || null,
       seo_description: form.seo_description || null,
+      subtitle: digital.subtitle || null,
+      product_type: digital.product_type,
+      category: digital.category || null,
+      tags: digital.tags,
+      cover_image_url: digital.cover_image_url || null,
+      license: digital.license,
+      version: digital.version || "1.0",
+      update_policy: digital.update_policy || null,
+      preview_images: digital.preview_images,
     });
 
     if (res.success && res.data) {
-      router.push("/dashboard/products");
+      // Digital listings need files attached before review: continue straight
+      // to the edit page (asset manager). Physical listings keep the legacy
+      // flow back to the product list.
+      router.push(isDigital ? `/dashboard/products/${res.data.id}/edit` : "/dashboard/products");
       router.refresh();
     } else {
       setError(res.error || "Failed to create product");
@@ -215,14 +235,20 @@ export default function NewProductFormClient({
 
             <div>
               <label className="block text-sm font-black text-zinc-600 mb-1">Stock Quantity</label>
-              <input
-                type="number"
-                min={0}
-                value={form.stock_quantity}
-                onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
-                placeholder="Leave blank for unlimited / digital good"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
-              />
+              {isDigital ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500">
+                  Digital products don&apos;t use inventory — buyers get file access on payment.
+                </p>
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  value={form.stock_quantity}
+                  onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+                  placeholder="Leave blank for unlimited / digital good"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
+                />
+              )}
             </div>
 
             {ownedBusinesses.length > 0 && (
@@ -243,6 +269,8 @@ export default function NewProductFormClient({
             )}
           </div>
         </div>
+
+        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} />
 
         {/* SEO (Optional) */}
         <div className="space-y-4 border-t border-zinc-200 pt-6">
