@@ -11,8 +11,8 @@
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -158,22 +158,34 @@ export const adminNavGroups: NavGroup[] = [
   },
 ];
 
-/** Path-only active match: Overview matches exactly, everything else matches its subtree. */
-function isActiveLink(pathname: string, href: string): boolean {
-  const [path] = href.split("?");
+/**
+ * Homepage is the only nav area with per-tab links; its default tab is hero
+ * (HomepageCmsTabs initial state). Tabbed homepage items match only when the
+ * tabs agree (missing tab counts as the default); every other section keeps
+ * its path-only match so list ?tab=/?status= filters never deactivate it.
+ */
+const HOMEPAGE_DEFAULT_TAB = "hero";
+
+function isActiveLink(pathname: string, href: string, tab: string | null): boolean {
+  const [path, query] = href.split("?");
   if (path === "/admin") return pathname === "/admin";
-  return pathname === path || pathname.startsWith(`${path}/`);
+  if (!(pathname === path || pathname.startsWith(`${path}/`))) return false;
+  if (path !== "/admin/homepage") return true;
+  const itemTab = query ? new URLSearchParams(query).get("tab") : null;
+  return (itemTab ?? HOMEPAGE_DEFAULT_TAB) === (tab ?? HOMEPAGE_DEFAULT_TAB);
 }
 
-function AdminNavList({
+function AdminNavStaticList({
   collapsed = false,
   onNavigate,
+  pathname,
+  tab,
 }: {
   collapsed?: boolean;
   onNavigate?: () => void;
+  pathname: string;
+  tab: string | null;
 }) {
-  const pathname = usePathname() ?? "/admin";
-
   return (
     <nav className="flex-1 space-y-5" aria-label="Admin">
       {adminNavGroups.map((group) => (
@@ -186,7 +198,7 @@ function AdminNavList({
           <div className="space-y-0.5">
             {group.items.map((item) => {
               const Icon = item.icon;
-              const active = isActiveLink(pathname, item.href);
+              const active = isActiveLink(pathname, item.href, tab);
               const link = (
                 <Link
                   key={item.href}
@@ -219,6 +231,59 @@ function AdminNavList({
         </div>
       ))}
     </nav>
+  );
+}
+
+/**
+ * useSearchParams suspends under cacheComponents, so it lives behind a
+ * Suspense boundary; the fallback renders pathname-only (tab unknown, which
+ * matches exactly the default-tab homepage item and nothing else tabbed).
+ */
+function AdminNavWithTab({
+  collapsed = false,
+  onNavigate,
+  pathname,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+  pathname: string;
+}) {
+  const tab = useSearchParams()?.get("tab") ?? null;
+  return (
+    <AdminNavStaticList
+      collapsed={collapsed}
+      onNavigate={onNavigate}
+      pathname={pathname}
+      tab={tab}
+    />
+  );
+}
+
+function AdminNavList({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname() ?? "/admin";
+  return (
+    <Suspense
+      fallback={
+        <AdminNavStaticList
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+          pathname={pathname}
+          tab={null}
+        />
+      }
+    >
+      <AdminNavWithTab
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+        pathname={pathname}
+      />
+    </Suspense>
   );
 }
 
