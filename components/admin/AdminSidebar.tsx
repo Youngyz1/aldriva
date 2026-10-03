@@ -141,6 +141,7 @@ export const adminNavGroups: NavGroup[] = [
       { label: "Sentinel", href: "/admin/workforce/sentinel", icon: Radar },
       { label: "QA", href: "/admin/workforce/qa", icon: FlaskConical },
       { label: "Memory", href: "/admin/workforce/memory", icon: Brain },
+      { label: "Office", href: "/admin/workforce/office", icon: Building2 },
     ],
   },
   {
