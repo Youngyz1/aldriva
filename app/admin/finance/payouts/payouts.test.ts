@@ -24,8 +24,12 @@ test("payouts wrapper stays server-rendered with requireAdmin", () => {
   assert.ok(!/^"use client"/m.test(wrapper), "must be a server component");
   assert.ok(wrapper.includes("await requireAdmin()"), "must call requireAdmin()");
   assert.ok(
-    wrapper.includes('getAdminPayoutQueue("all")'),
-    "initial queue load unchanged"
+    wrapper.includes("getAdminPayoutQueue(initialFilter)"),
+    "initial load uses the validated filter via the same fetcher"
+  );
+  assert.ok(
+    wrapper.includes('? raw : "all"'),
+    "invalid ?status= falls back to all"
   );
 });
 
@@ -100,6 +104,23 @@ test("Terminal marker moved into status cell and expansion", () => {
 
 test("working label keeps three ASCII dots", () => {
   assert.equal(payoutsStrings.updating, "Updating...");
+});
+
+test("overview deep-links the requested queue and invalid tabs fall back", () => {
+  const overview = fs.readFileSync(
+    path.join(here, "..", "..", "..", "..", "components", "admin", "overview", "data.ts"),
+    "utf8"
+  );
+  assert.ok(
+    overview.includes('href: "/admin/finance/payouts?status=requested"'),
+    "attention row links the requested queue"
+  );
+  assert.ok(wrapper.includes("searchParams"), "wrapper reads search params");
+  assert.ok(
+    wrapper.includes("initialFilter"),
+    "wrapper passes the initial filter through"
+  );
+  assert.ok(src.includes("initialFilter"), "client accepts the initial filter");
 });
 
 test("volume groups per currency, never summed together", () => {

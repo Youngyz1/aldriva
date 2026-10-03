@@ -30,14 +30,16 @@ import { formatCurrencyTotal, groupVolumeByCurrency, payoutsStrings as s } from 
 export default function PayoutsAdminClient({
   initialQueue,
   initialError,
+  initialFilter = "all",
 }: {
   initialQueue: AdminPayoutQueueItem[];
   initialError: string | null;
+  initialFilter?: string;
 }) {
   const router = useRouter();
   const [queue, setQueue] = useState<AdminPayoutQueueItem[]>(initialQueue);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<string>(initialFilter);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [toast, setToast] = useState<string | null>(null);
 

@@ -392,7 +392,7 @@ export async function getAttentionQueue(): Promise<AttentionQueue[]> {
     { id: "articles", count: articles, href: "/admin/articles?status=pending_review" },
     { id: "reviews", count: reviews, href: "/admin/reviews" },
     { id: "identity", count: identity, href: "/admin/users/identity-verifications" },
-    { id: "payouts", count: payouts, href: "/admin/finance/payouts" },
+    { id: "payouts", count: payouts, href: "/admin/finance/payouts?status=requested" },
   ];
 }
 
