@@ -57,6 +57,14 @@
 - Created regression test suite `lib/dashboard/__tests__/responsive-data.test.cjs` registered in `package.json` (6 tests covering primitives and all 5 pilot screens).
 - Verification: Full test suite **884/884 passing (37 suites, 0 failures)**, TypeScript clean (`0 errors`), ESLint clean (`0 errors`).
 
+## [2026-09] — Guardrails Stage 18 complete: no autonomous production actions (2026-09-30)
+### Stage 18 — L0 enforcement pinned by tests, one violation reported (2026-09-30)
+- New `lib/security/__tests__/no-autonomous-production-actions.test.cjs` (10 tests, registered): forbidden-API scan over lib/ai, lib/exec, lib/qa, lib/workforce, app/api/ai|exec|qa|cron (shell, fs-write, eval, Vercel/GitHub/payment/DDL APIs, infra tokens, `.github/` writes); 16-var env allowlist; financial tables never written from agent paths; agent writes limited to reviewed tables; exec dispatch registry-only; 30-tool snapshot; all agents L0; write-capable tools ungranted except dylan/qa-scoped pins; fallback has no writers; autonomy never raised.
+- **Finding S18-1 (NOT fixed, assertion excluded from package.json)**: `createNotification` + `notifyOwner` are medium-risk, write-capable, `approval_required=false` (`migration_139:87-88`), and medium is outside the L0-blocking set (`approvals.ts:29`). Currently ungranted to all agents (ACL-only defense). Pinned by `approval-flag-gap.test.cjs` (fails by design). Fix needs a product decision (flag migration vs gate change).
+- `docs/GUARDRAILS-NO-AUTONOMOUS-PRODUCTION-ACTIONS.md`: prohibition→mechanism→test matrix, S18-1, relaxation preconditions.
+- QA worker verdict: schedule/manual triggers only; no deploy step; staging-only target with fail-closed empty check; agents cannot dispatch workflows (no GitHub API, receipt-only tool, human approval, worker poll).
+- No runtime changes, no migrations. Deferred: S18-1 decision.
+
 ## [2026-09] — Observability Stage 17 pass one complete (2026-09-30)
 ### Stage 17 pass one — stored-state truth, no migration (2026-09-30)
 - O-1: `reclaimStaleLeases` closes the orphaned attempt (`agent_runs` → `failed`, `error='exec-lease-expired:superseded'`, `completed_at`, conditional on `status='running'` + `task_id`/`attempt_no`) on both exhaust and requeue paths. Task requeue, attempt count, backoff, eligibility untouched; late-ingest rejection unchanged.
