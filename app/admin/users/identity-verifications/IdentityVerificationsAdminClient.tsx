@@ -140,7 +140,7 @@ export default function IdentityVerificationsAdminClient({
                   </div>
                   <p className="text-xs text-zinc-500 font-medium mt-0.5">
                     ID Type: <span className="font-bold text-zinc-800 uppercase">{sub.id_type ?? "Not specified"}</span> · Submitted:{" "}
-                    {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : new Date(sub.created_at).toLocaleString()}
+                    {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString("en-US", { timeZone: "UTC" }) : new Date(sub.created_at).toLocaleString("en-US", { timeZone: "UTC" })}
                   </p>
                 </div>
 

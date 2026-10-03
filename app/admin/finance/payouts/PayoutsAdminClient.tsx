@@ -360,7 +360,7 @@ export default function PayoutsAdminClient({
                   {item.id.slice(0, 8)}...
                 </span>
                 <span className="block text-[10px] font-normal text-zinc-400">
-                  {new Date(item.createdAt).toLocaleDateString()}
+                  {new Date(item.createdAt).toLocaleDateString("en-US", { timeZone: "UTC" })}
                 </span>
               </span>,
             ],
