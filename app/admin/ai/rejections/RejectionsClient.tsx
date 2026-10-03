@@ -17,6 +17,22 @@ import PageHeader from "@/components/admin/PageHeader";
 import StatStrip from "@/components/admin/StatStrip";
 import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
 
+/**
+ * Audit timestamps render identically on server and client in every
+ * timezone: explicit locale + IANA zone (UTC, matching the overview range
+ * math in components/admin/overview/data.ts which buckets in UTC). The
+ * same stored instant shows the same string for every viewer, so SSR and
+ * hydration can never disagree on it.
+ */
+const AUDIT_LOCALE = "en-US";
+const AUDIT_TIME_ZONE = "UTC";
+
+function formatAuditDateTime(iso: string) {
+  return new Date(iso).toLocaleString(AUDIT_LOCALE, {
+    timeZone: AUDIT_TIME_ZONE,
+  });
+}
+
 export interface GuardRejectionRow {
   id: string;
   context: string;
@@ -112,7 +128,7 @@ export default function RejectionsClient({ rows, error }: Props) {
               {row.category}
             </span>,
             <span key="created" className="whitespace-nowrap font-mono text-xs text-zinc-500">
-              {new Date(row.created_at).toLocaleString()}
+              {formatAuditDateTime(row.created_at)}
             </span>,
             <span key="content" className="block font-mono text-xs text-zinc-600">
               {row.content_type || "n/a"}{" "}
