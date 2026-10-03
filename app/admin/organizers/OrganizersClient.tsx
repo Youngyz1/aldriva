@@ -4,12 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, TrendingUp, History, RefreshCw, Users } from "lucide-react";
-import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminPagination from "@/components/admin/AdminPagination";
-import AdminManagementToolbar from "@/components/admin/AdminManagementToolbar";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
-import { ModerationBadge, StatusBadge } from "@/components/admin/ModerationBadge";
+import { StatusBadge } from "@/components/admin/ModerationBadge";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { pageRange } from "@/components/admin/table/logic";
+import { tableStrings } from "@/components/admin/table/strings";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
 import type {
   AdminOrganizerDetail,
@@ -86,7 +92,7 @@ export default function OrganizersClient() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
 
   // Visibility boost state
   const [followerOffsetInput, setFollowerOffsetInput] = useState("");
@@ -348,43 +354,76 @@ export default function OrganizersClient() {
     });
   }
 
-  const statItems = stats
-    ? [
-        { label: "Pending", value: stats.pending },
-        { label: "Verified", value: stats.verified },
-        { label: "Suspended", value: stats.suspended },
-        { label: "Rejected", value: stats.rejected },
-        { label: "Total", value: stats.total },
-      ]
-    : [];
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // events + fundraisers below 1024px container, owner below 800px.
+  const columns: AdminColumn[] = [
+    { id: "name", header: "Name", role: "title" },
+    { id: "owner", header: "Owner", role: "meta", hideBelow: "md" },
+    { id: "status", header: "Status", role: "value", width: "110px" },
+    { id: "events", header: "Events", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "fundraisers", header: "Fundraisers", role: "detail", align: "right", hideBelow: "lg" },
+    { id: "created", header: "Created", role: "meta", align: "right" },
+  ];
+
+  /** Contextual row actions from real fields (status + capability flags). */
+  function buildRowActions(row: AdminOrganizerRow): RowActionsConfig {
+    const menu: RowActionsConfig["menu"] = [];
+    for (const action of getOrganizerActions(row.status)) {
+      menu.push({
+        key: action,
+        label: ACTION_LABELS[action],
+        onSelect: () => updateStatus(row.id, action),
+        disabled: working === row.id,
+        destructive: action === "reject",
+      });
+    }
+    menu.push({
+      key: "payment",
+      label: row.payment_enabled ? "Disable Payment" : "Enable Payment",
+      onSelect: () => updateCapability(row.id, "payment_enabled", !row.payment_enabled),
+      disabled: working === row.id,
+    });
+    menu.push({
+      key: "fundraising",
+      label: row.fundraising_approved ? "Revoke Fundraising" : "Approve Fundraising",
+      onSelect: () =>
+        updateCapability(row.id, "fundraising_approved", !row.fundraising_approved),
+      disabled: working === row.id,
+    });
+    return {
+      primary: { key: "view", label: tableStrings.view, onSelect: () => openDrawer(row.id) },
+      menu,
+    };
+  }
+
+  const { start: rangeStart, end: rangeEnd } = pageRange(page, perPage, total, rows.length);
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Organizations</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">
-          Moderate organization profiles with search, filters, and bulk actions.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.organizers.eyebrow}
+        title={adminPageCopy.organizers.title}
+        description={adminPageCopy.organizers.description}
+      />
 
-      {stats && <AdminStatsCards items={statItems} />}
+      <StatStrip items={buildStats(adminPageCopy.organizers.stats, stats)} />
 
-      <AdminManagementToolbar
-        search={search}
-        searchPlaceholder="Search organizations..."
-        onSearchChange={(v) => updateParams({ search: v || null })}
+      <TableToolbar
+        search={{
+          value: search,
+          placeholder: "Search organizations...",
+          onChange: (v) => updateParams({ search: v || null }),
+        }}
         tabs={STATUS_TABS.map((t) => ({
           ...t,
           count: t.value === "all" ? stats?.total : stats?.[t.value as keyof AdminOrganizerStats],
+          active: effectiveStatus === t.value,
+          onSelect: () =>
+            updateParams({
+              tab: t.value === "all" ? null : t.value,
+              status: t.value === "all" ? null : t.value,
+            }),
         }))}
-        activeTab={effectiveStatus}
-        onTabChange={(v) =>
-          updateParams({
-            tab: v === "all" ? null : v,
-            status: v === "all" ? null : v,
-          })
-        }
         filters={[
           {
             id: "status",
@@ -418,8 +457,6 @@ export default function OrganizersClient() {
           },
         ]}
         sort={{
-          id: "sort",
-          label: "Sort",
           value: sort,
           options: [
             { value: "newest", label: "Newest First" },
@@ -430,26 +467,31 @@ export default function OrganizersClient() {
           ],
           onChange: (v) => updateParams({ sort: v === "newest" ? null : v }),
         }}
-        selectedCount={selected.size}
-        bulkActions={
-          <>
-            {(["verify", "reject", "suspend", "restore"] as const).map((action) => (
-              <button
-                key={action}
-                type="button"
-                onClick={() => setConfirmAction(action)}
-                className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
-              >
-                {ACTION_LABELS[action]}
-              </button>
-            ))}
-          </>
+        selection={
+          selected.size > 0
+            ? {
+                count: selected.size,
+                actions: (
+                  <>
+                    {(["verify", "reject", "suspend", "restore"] as const).map((action) => (
+                      <button
+                        key={action}
+                        type="button"
+                        onClick={() => setConfirmAction(action)}
+                        className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-black text-violet-700 hover:bg-violet-100"
+                      >
+                        {ACTION_LABELS[action]}
+                      </button>
+                    ))}
+                  </>
+                ),
+              }
+            : null
         }
         onExport={handleExport}
         exporting={exporting}
-        filtersOpen={filtersOpen}
-        onToggleFilters={() => setFiltersOpen((v) => !v)}
-        sticky={false}
+        selectMode={selectMode}
+        onToggleSelectMode={() => setSelectMode((v) => !v)}
       />
 
       {error && (
@@ -458,133 +500,103 @@ export default function OrganizersClient() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm sm:rounded-2xl">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      className="rounded border-zinc-300"
-                    />
-                  </th>
-                  <th className="py-3 pr-4">Name</th>
-                  <th className="py-3 pr-4">Owner</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Events</th>
-                  <th className="py-3 pr-4">Fundraisers</th>
-                  <th className="py-3 pr-4">Created</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {rows.map((row) => {
-                  const actions = getOrganizerActions(row.status);
-                  return (
-                    <tr key={row.id} className="hover:bg-zinc-50/70">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(row.id)}
-                          onChange={() => toggleOne(row.id)}
-                          className="rounded border-zinc-300"
-                        />
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
-                          >
-                            {row.name}
-                          </button>
-                          <div className="flex flex-wrap gap-1">
-                            {row.badges.map((b) => (
-                              <ModerationBadge key={b} type={b} />
-                            ))}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <p className="font-semibold text-zinc-800">{row.owner_name}</p>
-                        <p className="text-xs text-zinc-500">{row.email || "—"}</p>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <StatusBadge status={row.status} />
-                      </td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.event_count}</td>
-                      <td className="py-3 pr-4 font-black text-zinc-900">{row.fundraiser_count}</td>
-                      <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(row.id)}
-                            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-                          >
-                            View
-                          </button>
-                          {actions.map((action) => (
-                            <button
-                              key={action}
-                              type="button"
-                              disabled={working === row.id}
-                              onClick={() => updateStatus(row.id, action)}
-                              className={`rounded-lg border bg-white px-2.5 py-1.5 text-xs font-black disabled:opacity-50 ${ACTION_STYLES[action]}`}
-                            >
-                              {working === row.id ? "…" : ACTION_LABELS[action]}
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => updateCapability(row.id, "payment_enabled", !row.payment_enabled)}
-                            className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                          >
-                            {row.payment_enabled ? "Disable Payment" : "Enable Payment"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={working === row.id}
-                            onClick={() => updateCapability(row.id, "fundraising_approved", !row.fundraising_approved)}
-                            className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                          >
-                            {row.fundraising_approved ? "Revoke Fundraising" : "Approve Fundraising"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
-                      No organizations match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <AdminPagination
-          page={page}
-          totalPages={totalPages}
-          perPage={perPage}
-          total={total}
-          onPageChange={(p) => updateParams({ page: String(p) })}
-          onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={rows.map((row) => ({
+            id: row.id,
+            cells: [
+              <span key="name" className="block">
+                <span className="block">{row.name}</span>
+              </span>,
+              <span key="owner" className="block">
+                <span className="block font-medium text-zinc-800">{row.owner_name}</span>
+                <span className="block text-xs font-normal text-zinc-500">
+                  {row.email || "—"}
+                </span>
+              </span>,
+              <span
+                key="status"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    row.status === "verified"
+                      ? "bg-emerald-500"
+                      : row.status === "suspended"
+                        ? "bg-amber-500"
+                        : row.status === "rejected"
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                  }`}
+                />
+                <span className="capitalize">{row.status}</span>
+              </span>,
+              <span key="events" className="tabular-nums">
+                {row.event_count}
+              </span>,
+              <span key="fundraisers" className="tabular-nums">
+                {row.fundraiser_count}
+              </span>,
+              <span key="created" className="whitespace-nowrap text-zinc-500">
+                {formatAdminDate(row.created_at)}
+              </span>,
+            ],
+            detailExtra: [
+              { label: "Owner email", value: row.email || "—" },
+              {
+                label: "Payment",
+                value: row.payment_enabled ? "Enabled" : "Not enabled",
+              },
+              {
+                label: "Fundraising",
+                value: row.fundraising_approved ? "Approved" : "Not approved",
+              },
+              {
+                label: "Verified organization",
+                value: row.badges.includes("verified") ? "Yes" : "No",
+              },
+            ],
+            actions: buildRowActions(row),
+            selection: {
+              checked: selected.has(row.id),
+              onChange: () => toggleOne(row.id),
+              label: tableStrings.selectRow(row.name),
+            },
+            onOpen: () => openDrawer(row.id),
+          }))}
+          selectAll={{
+            checked: allSelected,
+            onChange: toggleAll,
+            label: tableStrings.selectAll,
+          }}
+          selectMode={selectMode}
+          emptyMessage="No organizations match your filters."
         />
+      )}
+
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {loading || total === 0
+              ? tableStrings.showingNone(total)
+              : tableStrings.showingResults(rangeStart, rangeEnd, total)}
+          </p>
+          <AdminPagination
+            showCount={false}
+            page={page}
+            totalPages={totalPages}
+            perPage={perPage}
+            total={total}
+            onPageChange={(p) => updateParams({ page: String(p) })}
+            onPerPageChange={(n) => updateParams({ per_page: String(n), page: "1" })}
+          />
+        </div>
       </div>
 
       <AdminDrawer

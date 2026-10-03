@@ -14,8 +14,6 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Check,
-  X,
   ArrowUp,
   ArrowDown,
   Eye,
@@ -30,7 +28,15 @@ import {
 } from "lucide-react";
 import { HomepageSettings } from "@/lib/homepage-hero";
 import { useImageUpload, ALLOWED_IMAGE_TYPES } from "@/hooks/use-image-upload";
+import PageHeader from "@/components/admin/PageHeader";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import HeroFanManager from "./HeroFanManager";
+import { homepageStrings as s } from "./strings";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -79,19 +85,27 @@ function DynIcon({ name, className = "w-5 h-5 text-violet-600" }: { name: string
   return <Ico className={className} />;
 }
 
+/**
+ * Sentence-case labels (never uppercase); required markers are part of the
+ * label text at each call site.
+ */
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-zinc-400">
+    <label className="mb-1 block text-[13px] font-semibold text-zinc-600">
       {children}
     </label>
   );
 }
 
+/** Standard 40px CMS input with a visible focus ring. */
+const inputClass =
+  "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/40 disabled:opacity-50";
+
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-zinc-900 outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-200 ${props.className ?? ""}`}
+      className={`${inputClass} ${props.className ?? ""}`}
     />
   );
 }
@@ -100,7 +114,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-zinc-900 outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-200 ${props.className ?? ""}`}
+      className={`w-full rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-900 outline-none transition focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/40 ${props.className ?? ""}`}
     />
   );
 }
@@ -323,6 +337,17 @@ export default function HomepageCmsTabs({
     window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
   };
 
+  // Keep the active tab scrolled into view on the one-line tab bar.
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+      behavior: "smooth",
+    });
+  }, [activeTab]);
+
   // ── Debounced event search ──
   useEffect(() => {
     if (!eventSearch.trim()) { setEventResults([]); return; }
@@ -454,16 +479,16 @@ export default function HomepageCmsTabs({
 
   // ── Tabs config ──
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{className?:string}> }[] = [
-    { id: "hero",          label: "Homepage Hero", icon: LayoutTemplate },
-    { id: "events_landing", label: "Events Landing", icon: Calendar },
-    { id: "fundraisers_landing", label: "Fundraisers Landing", icon: HandHeart },
-    { id: "organizers_landing", label: "Organizations Landing", icon: UserCircle2 },
-    { id: "events",        label: "Featured Events", icon: Calendar },
-    { id: "fundraisers",   label: "Featured Fundraisers", icon: HandHeart },
-    { id: "categories",    label: "Categories",    icon: Grid3x3 },
-    { id: "testimonials",  label: "Testimonials",  icon: MessageSquareQuote },
-    { id: "sponsors",      label: "Sponsors",      icon: Handshake },
-    { id: "seo",           label: "SEO",           icon: SearchIcon },
+    { id: "hero",          label: s.tabs.hero, icon: LayoutTemplate },
+    { id: "events_landing", label: s.tabs.events_landing, icon: Calendar },
+    { id: "fundraisers_landing", label: s.tabs.fundraisers_landing, icon: HandHeart },
+    { id: "organizers_landing", label: s.tabs.organizers_landing, icon: UserCircle2 },
+    { id: "events",        label: s.tabs.events, icon: Calendar },
+    { id: "fundraisers",   label: s.tabs.fundraisers, icon: HandHeart },
+    { id: "categories",    label: s.tabs.categories, icon: Grid3x3 },
+    { id: "testimonials",  label: s.tabs.testimonials, icon: MessageSquareQuote },
+    { id: "sponsors",      label: s.tabs.sponsors, icon: Handshake },
+    { id: "seo",           label: s.tabs.seo, icon: SearchIcon },
   ];
 
   return (
@@ -483,14 +508,11 @@ export default function HomepageCmsTabs({
         </div>
       )}
 
-      {/* Page header — open, matches the admin overview convention. */}
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">CMS</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-zinc-950">Homepage CMS</h1>
-        <p className="mt-1 text-sm font-medium text-zinc-500">
-          Hero content · Featured items · Categories · Testimonials · Sponsors · SEO
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={s.eyebrow}
+        title={s.title}
+        description={s.description}
+      />
 
       {/* Toasts */}
       {toast && (
@@ -504,22 +526,30 @@ export default function HomepageCmsTabs({
         </div>
       )}
 
-      {/* Tab bar — open row, tabs carry their own active states. */}
-      <div className="flex flex-wrap gap-1.5 overflow-x-auto border-b border-zinc-200 pb-3">
+      {/* Tab bar — one underline row, scrollable with snap, edge fade. */}
+      <div
+        ref={tabBarRef}
+        role="tablist"
+        aria-label={s.title}
+        className="flex gap-1 overflow-x-auto border-b border-zinc-200 snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]"
+      >
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={active}
+              ref={active ? activeTabRef : undefined}
               onClick={() => changeTab(tab.id)}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition whitespace-nowrap ${
+              className={`flex shrink-0 snap-start items-center gap-2 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-xs font-bold transition ${
                 active
-                  ? "bg-violet-600 text-white shadow-sm"
-                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800"
+                  ? "border-violet-600 text-zinc-950"
+                  : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-800"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
               {tab.label}
             </button>
           );
@@ -532,7 +562,7 @@ export default function HomepageCmsTabs({
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">Hero Block</h2>
             <CmsImageField
-              label="Background Image"
+              label="Background image"
               value={settings.imageUrl}
               onChange={val => setSettings({ ...settings, imageUrl: val })}
               folder="hero"
@@ -540,34 +570,34 @@ export default function HomepageCmsTabs({
               helpText="Background image for the main homepage hero banner."
             />
             <div>
-              <FieldLabel>Eyebrow / Subtitle</FieldLabel>
+              <FieldLabel>Eyebrow / subtitle</FieldLabel>
               <Input value={settings.subtitle} onChange={e => setSettings({...settings, subtitle: e.target.value, eyebrow: e.target.value})} placeholder="EVENTS • FUNDRAISING" />
             </div>
             <div>
-              <FieldLabel>Headline Line 1 (Title)</FieldLabel>
+              <FieldLabel>Headline line 1 (title)</FieldLabel>
               <Input value={settings.title} onChange={e => setSettings({...settings, title: e.target.value, headlineLine1: e.target.value})} placeholder="Sell Tickets. Raise Funds." />
             </div>
             <div>
-              <FieldLabel>Headline Line 2</FieldLabel>
+              <FieldLabel>Headline line 2</FieldLabel>
               <Input value={settings.headlineLine2} onChange={e => setSettings({...settings, headlineLine2: e.target.value})} placeholder="Find Sponsors." />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Primary CTA Text</FieldLabel>
+                <FieldLabel>Primary CTA text</FieldLabel>
                 <Input value={settings.buttonText} onChange={e => setSettings({...settings, buttonText: e.target.value})} />
               </div>
               <div>
-                <FieldLabel>Primary CTA Link</FieldLabel>
+                <FieldLabel>Primary CTA link</FieldLabel>
                 <Input value={settings.buttonHref} onChange={e => setSettings({...settings, buttonHref: e.target.value})} placeholder="/events" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Secondary CTA Text</FieldLabel>
+                <FieldLabel>Secondary CTA text</FieldLabel>
                 <Input value={settings.secondaryButtonText} onChange={e => setSettings({...settings, secondaryButtonText: e.target.value})} />
               </div>
               <div>
-                <FieldLabel>Secondary CTA Link</FieldLabel>
+                <FieldLabel>Secondary CTA link</FieldLabel>
                 <Input value={settings.secondaryButtonHref} onChange={e => setSettings({...settings, secondaryButtonHref: e.target.value})} placeholder="/create-event" />
               </div>
             </div>
@@ -606,7 +636,7 @@ export default function HomepageCmsTabs({
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Events Landing Hero</h2>
             <CmsImageField
-              label="Background Image"
+              label="Background image"
               value={settings.eventsHeroImageUrl}
               onChange={val => setSettings({ ...settings, eventsHeroImageUrl: val })}
               folder="events-landing"
@@ -614,15 +644,15 @@ export default function HomepageCmsTabs({
               helpText="Hero background for the /events landing page."
             />
             <div>
-              <FieldLabel>Eyebrow / Subtitle</FieldLabel>
+              <FieldLabel>Eyebrow / subtitle</FieldLabel>
               <Input value={settings.eventsHeroEyebrow} onChange={e => setSettings({...settings, eventsHeroEyebrow: e.target.value})} placeholder="LIVE EXPERIENCES" />
             </div>
             <div>
-              <FieldLabel>Headline Line 1</FieldLabel>
+              <FieldLabel>Headline line 1</FieldLabel>
               <Input value={settings.eventsHeroHeadlineLine1} onChange={e => setSettings({...settings, eventsHeroHeadlineLine1: e.target.value})} placeholder="Find Your Next Event" />
             </div>
             <div>
-              <FieldLabel>Headline Line 2</FieldLabel>
+              <FieldLabel>Headline line 2</FieldLabel>
               <Input value={settings.eventsHeroHeadlineLine2} onChange={e => setSettings({...settings, eventsHeroHeadlineLine2: e.target.value})} placeholder="Optional subtitle line" />
             </div>
             <div>
@@ -668,7 +698,7 @@ export default function HomepageCmsTabs({
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Fundraisers Landing Hero</h2>
             <CmsImageField
-              label="Background Image"
+              label="Background image"
               value={settings.fundraisersHeroImageUrl}
               onChange={val => setSettings({ ...settings, fundraisersHeroImageUrl: val })}
               folder="fundraisers-landing"
@@ -676,15 +706,15 @@ export default function HomepageCmsTabs({
               helpText="Hero background for the /fundraisers landing page."
             />
             <div>
-              <FieldLabel>Eyebrow / Subtitle</FieldLabel>
+              <FieldLabel>Eyebrow / subtitle</FieldLabel>
               <Input value={settings.fundraisersHeroEyebrow} onChange={e => setSettings({...settings, fundraisersHeroEyebrow: e.target.value})} placeholder="COMMUNITY FUNDRAISING" />
             </div>
             <div>
-              <FieldLabel>Headline Line 1</FieldLabel>
+              <FieldLabel>Headline line 1</FieldLabel>
               <Input value={settings.fundraisersHeroHeadlineLine1} onChange={e => setSettings({...settings, fundraisersHeroHeadlineLine1: e.target.value})} placeholder="Support Causes That Matter" />
             </div>
             <div>
-              <FieldLabel>Headline Line 2</FieldLabel>
+              <FieldLabel>Headline line 2</FieldLabel>
               <Input value={settings.fundraisersHeroHeadlineLine2} onChange={e => setSettings({...settings, fundraisersHeroHeadlineLine2: e.target.value})} placeholder="Optional subtitle line" />
             </div>
             <div>
@@ -731,7 +761,7 @@ export default function HomepageCmsTabs({
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950 font-bold">Organizations Landing Hero</h2>
             <CmsImageField
-              label="Background Image"
+              label="Background image"
               value={settings.organizersHeroImageUrl}
               onChange={val => setSettings({ ...settings, organizersHeroImageUrl: val })}
               folder="organizers-landing"
@@ -739,15 +769,15 @@ export default function HomepageCmsTabs({
               helpText="Hero background for the /organizers directory landing page."
             />
             <div>
-              <FieldLabel>Eyebrow / Subtitle</FieldLabel>
+              <FieldLabel>Eyebrow / subtitle</FieldLabel>
               <Input value={settings.organizersHeroEyebrow} onChange={e => setSettings({...settings, organizersHeroEyebrow: e.target.value})} placeholder="ORGANIZER DIRECTORY" />
             </div>
             <div>
-              <FieldLabel>Headline Line 1</FieldLabel>
+              <FieldLabel>Headline line 1</FieldLabel>
               <Input value={settings.organizersHeroHeadlineLine1} onChange={e => setSettings({...settings, organizersHeroHeadlineLine1: e.target.value})} placeholder="Meet Event Creators" />
             </div>
             <div>
-              <FieldLabel>Headline Line 2</FieldLabel>
+              <FieldLabel>Headline line 2</FieldLabel>
               <Input value={settings.organizersHeroHeadlineLine2} onChange={e => setSettings({...settings, organizersHeroHeadlineLine2: e.target.value})} placeholder="Optional subtitle line" />
             </div>
             <div>
@@ -940,17 +970,17 @@ export default function HomepageCmsTabs({
           <form onSubmit={saveSettings} className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-base font-black text-zinc-950">SEO &amp; Social</h2>
             <div>
-              <FieldLabel>Meta Title</FieldLabel>
+              <FieldLabel>Meta title</FieldLabel>
               <Input value={settings.seoTitle} onChange={e => setSettings({...settings, seoTitle: e.target.value})} placeholder="Aldriva — Buy Tickets…" />
               <p className="mt-1 text-xs text-zinc-400">{settings.seoTitle.length} / 60 chars</p>
             </div>
             <div>
-              <FieldLabel>Meta Description</FieldLabel>
+              <FieldLabel>Meta description</FieldLabel>
               <Textarea rows={3} value={settings.seoDescription} onChange={e => setSettings({...settings, seoDescription: e.target.value})} placeholder="Discover events, buy tickets, support causes." />
               <p className="mt-1 text-xs text-zinc-400">{settings.seoDescription.length} / 160 chars</p>
             </div>
             <CmsImageField
-              label="Open Graph / Twitter Image"
+              label="Open Graph / Twitter image"
               value={settings.seoOgImageUrl}
               onChange={val => setSettings({ ...settings, seoOgImageUrl: val })}
               folder="seo"
@@ -1005,7 +1035,7 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
   setErr: (m: string) => void;
 }) {
   const [saving, setSaving]   = useState(false);
-  const [editId, setEditId]   = useState<string|null>(null);
+  const [sheet, setSheet]     = useState<{ mode: "add" } | { mode: "edit"; id: string } | null>(null);
   const [editName, setEName]  = useState("");
   const [editIcon, setEIcon]  = useState("");
   const [editPos,  setEPos]   = useState(0);
@@ -1015,9 +1045,17 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
   const [nPos,  setNPos]      = useState(1);
   const [nVis,  setNVis]      = useState(true);
 
-  function startEdit(c: typeof categories[0]) {
-    setEditId(c.id); setEName(c.name); setEIcon(c.icon); setEPos(c.position); setEVis(c.is_visible);
+  function openAdd() {
+    setNName(""); setNIcon("Mic"); setNPos(categories.length + 2); setNVis(true);
+    setSheet({ mode: "add" });
   }
+
+  function openEdit(c: typeof categories[0]) {
+    setEName(c.name); setEIcon(c.icon); setEPos(c.position); setEVis(c.is_visible);
+    setSheet({ mode: "edit", id: c.id });
+  }
+
+  function closeSheet() { setSheet(null); }
 
   async function saveEdit(id: string) {
     const res = await fetch("/api/admin/homepage/categories", {
@@ -1027,15 +1065,15 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
     if (res.ok) {
       const d = await res.json();
       setCats(p => p.map(c => c.id===id ? d.category : c).sort((a,b)=>a.position-b.position));
-      setEditId(null); flash("Category updated.");
-    } else flash("Error updating category.");
+      closeSheet(); flash(s.categoryUpdated);
+    } else flash(s.errorUpdatingCategory);
   }
 
   async function del(id: string) {
-    if (!confirm("Delete this category?")) return;
+    if (!confirm(s.confirmDeleteCategory)) return;
     const res = await fetch(`/api/admin/homepage/categories?id=${id}`, { method:"DELETE" });
-    if (res.ok) { setCats(p => p.filter(c => c.id!==id)); flash("Category deleted."); }
-    else flash("Error deleting category.");
+    if (res.ok) { setCats(p => p.filter(c => c.id!==id)); flash(s.categoryDeleted); }
+    else flash(s.errorDeletingCategory);
   }
 
   async function addCat(e: React.FormEvent) {
@@ -1050,96 +1088,128 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
       const d = await res.json();
       setCats(p => [...p, d.category].sort((a,b)=>a.position-b.position));
       setNName(""); setNIcon("Mic"); setNPos(categories.length+2);
-      flash("Category added.");
+      closeSheet(); flash(s.categoryAdded);
     } else { const d = await res.json(); setErr(d.error || "Failed to add category."); }
   }
 
+  const renderAddForm = () => (
+    <form onSubmit={addCat} className="space-y-4">
+      <div><FieldLabel>{s.fieldName}</FieldLabel><Input value={nName} onChange={e=>setNName(e.target.value)} placeholder="e.g. Music" /></div>
+      <div>
+        <FieldLabel>{s.fieldIconName}</FieldLabel>
+        <div className="mb-2 flex items-center gap-2">
+          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={nIcon} className="h-5 w-5 text-violet-600" /></div>
+          <Input value={nIcon} onChange={e=>setNIcon(e.target.value)} className="flex-1" placeholder="Mic" />
+        </div>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {RECOMMENDED_ICONS.map(ico => (
+            <button key={ico} type="button" onClick={() => setNIcon(ico)}
+              className={`rounded border px-2 py-0.5 text-[10px] font-bold transition ${nIcon===ico ? "border-violet-500 bg-violet-600 text-white" : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-violet-300"}`}>
+              {ico}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><FieldLabel>{s.fieldPosition}</FieldLabel><Input type="number" value={nPos} onChange={e=>setNPos(+e.target.value)} /></div>
+        <div className="flex items-end pb-2.5"><label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-zinc-700"><input type="checkbox" checked={nVis} onChange={e=>setNVis(e.target.checked)} className="h-4 w-4 rounded text-violet-600" />{s.fieldVisible}</label></div>
+      </div>
+      <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60">
+        {saving ? s.adding : s.addCategory}
+      </button>
+    </form>
+  );
+
+  const renderEditForm = (id: string) => (
+    <div className="space-y-4">
+      <div><FieldLabel>{s.fieldName}</FieldLabel><Input value={editName} onChange={e=>setEName(e.target.value)} /></div>
+      <div>
+        <FieldLabel>{s.fieldIconName}</FieldLabel>
+        <div className="mb-2 flex items-center gap-2">
+          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={editIcon} className="h-5 w-5 text-violet-600" /></div>
+          <Input value={editIcon} onChange={e=>setEIcon(e.target.value)} className="flex-1" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><FieldLabel>{s.fieldPosition}</FieldLabel><Input type="number" value={editPos} onChange={e=>setEPos(+e.target.value)} /></div>
+        <div className="flex items-end pb-2.5"><label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-zinc-700"><input type="checkbox" checked={editVis} onChange={e=>setEVis(e.target.checked)} className="h-4 w-4 rounded text-violet-600" />{s.fieldVisible}</label></div>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => saveEdit(id)} className="flex-1 rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition hover:bg-violet-700">{s.save}</button>
+        <button type="button" onClick={closeSheet} className="flex-1 rounded-xl border border-zinc-200 bg-white py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-50">{s.cancel}</button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-      {/* Table */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Homepage Categories</h2>
-        {categories.length === 0
-          ? <p className="py-8 text-center text-sm text-zinc-400">No categories. Run migration and add some.</p>
-          : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead><tr className="border-b border-zinc-100 text-[11px] font-black uppercase tracking-wider text-zinc-400">
-                <th className="py-2">Icon</th><th className="py-2">Name</th><th className="py-2">Pos</th><th className="py-2 text-center">Visible</th><th className="py-2 text-right">Actions</th>
-              </tr></thead>
-              <tbody className="divide-y divide-zinc-50">
-                {categories.map(cat => {
-                  const editing = editId === cat.id;
-                  return (
-                    <tr key={cat.id} className="hover:bg-zinc-50/60 transition">
-                      <td className="py-2.5 pr-3">
-                        {editing
-                          ? <div className="flex items-center gap-1"><DynIcon name={editIcon} className="h-4 w-4 text-violet-600" /><input value={editIcon} onChange={e=>setEIcon(e.target.value)} className="w-20 rounded border border-zinc-200 px-2 py-1 text-xs" /></div>
-                          : <DynIcon name={cat.icon} />
-                        }
-                      </td>
-                      <td className="py-2.5 pr-3 font-semibold text-zinc-800">
-                        {editing ? <input value={editName} onChange={e=>setEName(e.target.value)} className="w-28 rounded border border-zinc-200 px-2 py-1 text-xs" /> : cat.name}
-                      </td>
-                      <td className="py-2.5 pr-3 text-zinc-500">
-                        {editing ? <input type="number" value={editPos} onChange={e=>setEPos(+e.target.value)} className="w-14 rounded border border-zinc-200 px-2 py-1 text-xs" /> : cat.position}
-                      </td>
+    <div className="@container">
+      <div className="grid gap-6 border-t border-zinc-200 pt-6 @[900px]:grid-cols-[1.4fr_1fr] @[900px]:divide-x @[900px]:divide-zinc-200">
+        {/* List */}
+        <div className="space-y-4 @[900px]:pr-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-black text-zinc-950">{s.categoriesTitle}</h2>
+            <button
+              type="button"
+              onClick={openAdd}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-black text-white transition hover:bg-violet-700 @[900px]:hidden"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />{s.addCategory}
+            </button>
+          </div>
+          {categories.length === 0
+            ? <p className="py-8 text-center text-sm text-zinc-400">{s.emptyCategories}</p>
+            : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead><tr className="border-b border-zinc-100 text-[11px] font-black uppercase tracking-wider text-zinc-400">
+                  <th className="py-2">Icon</th><th className="py-2">Name</th><th className="py-2">Pos</th><th className="py-2 text-center">Visible</th><th className="py-2 text-right">Actions</th>
+                </tr></thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {categories.map(cat => (
+                    <tr key={cat.id} className="transition hover:bg-zinc-50/60">
+                      <td className="py-2.5 pr-3"><DynIcon name={cat.icon} /></td>
+                      <td className="py-2.5 pr-3 font-semibold text-zinc-800">{cat.name}</td>
+                      <td className="py-2.5 pr-3 text-zinc-500">{cat.position}</td>
                       <td className="py-2.5 text-center">
-                        {editing
-                          ? <input type="checkbox" checked={editVis} onChange={e=>setEVis(e.target.checked)} className="rounded text-violet-600" />
-                          : cat.is_visible
-                            ? <span className="inline-flex rounded bg-emerald-100 p-1 text-emerald-700"><Eye className="h-3 w-3" /></span>
-                            : <span className="inline-flex rounded bg-zinc-100 p-1 text-zinc-400"><EyeOff className="h-3 w-3" /></span>
+                        {cat.is_visible
+                          ? <span className="inline-flex rounded bg-emerald-100 p-1 text-emerald-700"><Eye className="h-3 w-3" /></span>
+                          : <span className="inline-flex rounded bg-zinc-100 p-1 text-zinc-400"><EyeOff className="h-3 w-3" /></span>
                         }
                       </td>
                       <td className="py-2.5 text-right">
                         <div className="flex justify-end gap-1">
-                          {editing
-                            ? <><button onClick={() => saveEdit(cat.id)} className="rounded-lg bg-violet-100 p-1.5 text-violet-700 hover:bg-violet-200"><Check className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => setEditId(null)} className="rounded-lg bg-zinc-100 p-1.5 text-zinc-600 hover:bg-zinc-200"><X className="h-3.5 w-3.5" /></button></>
-                            : <><button onClick={() => startEdit(cat)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-violet-50 hover:text-violet-600 transition"><Edit2 className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => del(cat.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition"><Trash2 className="h-3.5 w-3.5" /></button></>
-                          }
+                          <button onClick={() => openEdit(cat)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-violet-50 hover:text-violet-600" aria-label={`${s.editCategory}: ${cat.name}`}><Edit2 className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => del(cat.id)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-500" aria-label={`${s.confirmDeleteCategory} ${cat.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Add form — wide containers only */}
+        <div className="hidden space-y-4 @[900px]:block">
+          <h2 className="text-base font-black text-zinc-950">{s.addCategory}</h2>
+          {renderAddForm()}
+        </div>
       </div>
 
-      {/* Add form */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Add Category</h2>
-        <form onSubmit={addCat} className="space-y-4">
-          <div><FieldLabel>Name</FieldLabel><input value={nName} onChange={e=>setNName(e.target.value)} placeholder="e.g. Music" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div>
-            <FieldLabel>Lucide Icon Name</FieldLabel>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="rounded-xl border border-zinc-200 p-2"><DynIcon name={nIcon} className="h-5 w-5 text-violet-600" /></div>
-              <input value={nIcon} onChange={e=>setNIcon(e.target.value)} className="flex-1 rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" placeholder="Mic" />
-            </div>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {RECOMMENDED_ICONS.map(ico => (
-                <button key={ico} type="button" onClick={() => setNIcon(ico)}
-                  className={`rounded border px-2 py-0.5 text-[10px] font-bold transition ${nIcon===ico ? "border-violet-500 bg-violet-600 text-white" : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-violet-300"}`}>
-                  {ico}
-                </button>
-              ))}
-            </div>
+      {/* Add / edit sheet — narrow containers and all edits */}
+      <Sheet open={sheet !== null} onOpenChange={(open) => { if (!open) closeSheet(); }}>
+        <SheetContent side="bottom" aria-label={sheet?.mode === "edit" ? s.editCategory : s.addCategory} className="max-h-[90dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left text-base font-black">
+              {sheet?.mode === "edit" ? s.editCategory : s.addCategory}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="pt-4">
+            {sheet?.mode === "edit" ? renderEditForm(sheet.id) : renderAddForm()}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><FieldLabel>Position</FieldLabel><input type="number" value={nPos} onChange={e=>setNPos(+e.target.value)} className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-            <div className="flex items-end pb-2.5"><label className="flex items-center gap-2 text-sm font-bold text-zinc-700 cursor-pointer"><input type="checkbox" checked={nVis} onChange={e=>setNVis(e.target.checked)} className="rounded text-violet-600 h-4 w-4" />Visible</label></div>
-          </div>
-          <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-60 transition">
-            {saving ? "Adding…" : "Add Category"}
-          </button>
-        </form>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -1153,9 +1223,21 @@ function TestimonialsPanel({ testimonials, setTestimonials, flash, setErr }: {
   setErr: (m: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<string|null>(null);
-  const [edit,   setEdit]   = useState<Partial<Testimonial>>({});
-  const [form,   setForm]   = useState({ name:"", role:"", photo_url:"", quote:"", position:1, is_visible:true });
+  const [sheet, setSheet]     = useState<{ mode: "add" } | { mode: "edit"; id: string } | null>(null);
+  const [edit,   setEdit]     = useState<Partial<Testimonial>>({});
+  const [form,   setForm]     = useState({ name:"", role:"", photo_url:"", quote:"", position:1, is_visible:true });
+
+  function openAdd() {
+    setForm({ name:"", role:"", photo_url:"", quote:"", position: testimonials.length+2, is_visible:true });
+    setSheet({ mode: "add" });
+  }
+
+  function openEdit(t: Testimonial) {
+    setEdit({});
+    setSheet({ mode: "edit", id: t.id });
+  }
+
+  function closeSheet() { setSheet(null); setEdit({}); }
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); if (!form.name.trim() || !form.quote.trim()) return;
@@ -1168,7 +1250,7 @@ function TestimonialsPanel({ testimonials, setTestimonials, flash, setErr }: {
       const d = await res.json();
       setTestimonials(p => [...p, d.testimonial].sort((a,b)=>a.position-b.position));
       setForm({ name:"", role:"", photo_url:"", quote:"", position: testimonials.length+2, is_visible:true });
-      flash("Testimonial added.");
+      closeSheet(); flash(s.testimonialAdded);
     } else { const d=await res.json(); setErr(d.error||"Failed."); }
   }
 
@@ -1179,89 +1261,117 @@ function TestimonialsPanel({ testimonials, setTestimonials, flash, setErr }: {
     if (res.ok) {
       const d = await res.json();
       setTestimonials(p => p.map(t => t.id===id ? d.testimonial : t).sort((a,b)=>a.position-b.position));
-      setEditId(null); flash("Updated.");
-    } else flash("Error updating.");
+      closeSheet(); flash(s.updated);
+    } else flash(s.errorUpdating);
   }
 
   async function del(id: string) {
-    if (!confirm("Delete testimonial?")) return;
+    if (!confirm(s.confirmDeleteTestimonial)) return;
     const res = await fetch(`/api/admin/homepage/testimonials?id=${id}`, {method:"DELETE"});
-    if (res.ok) { setTestimonials(p => p.filter(t => t.id!==id)); flash("Deleted."); }
+    if (res.ok) { setTestimonials(p => p.filter(t => t.id!==id)); flash(s.deleted); }
   }
 
+  const renderAddForm = () => (
+    <form onSubmit={save} className="space-y-3">
+      <div><FieldLabel>{s.fieldFullName}</FieldLabel><Input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Jane Smith" /></div>
+      <div><FieldLabel>{s.fieldRole}</FieldLabel><Input value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} placeholder="Founder, Acme Corp." /></div>
+      <div><FieldLabel>{s.fieldPhotoUrl}</FieldLabel><Input type="url" value={form.photo_url} onChange={e=>setForm(p=>({...p,photo_url:e.target.value}))} placeholder="https://…" /></div>
+      <div><FieldLabel>{s.fieldQuote}</FieldLabel><Textarea required rows={4} value={form.quote} onChange={e=>setForm(p=>({...p,quote:e.target.value}))} placeholder="This platform is incredible…" /></div>
+      <div className="flex items-center gap-4">
+        <div className="flex-1"><FieldLabel>{s.fieldSortPosition}</FieldLabel><Input type="number" value={form.position} onChange={e=>setForm(p=>({...p,position:+e.target.value}))} /></div>
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm font-bold text-zinc-700"><input type="checkbox" checked={form.is_visible} onChange={e=>setForm(p=>({...p,is_visible:e.target.checked}))} className="h-4 w-4 rounded text-violet-600" />{s.fieldVisible}</label>
+      </div>
+      <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60">
+        {saving ? s.adding : s.addTestimonial}
+      </button>
+    </form>
+  );
+
+  const renderEditForm = (t: Testimonial, id: string) => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><FieldLabel>{s.fieldFullName}</FieldLabel><Input defaultValue={t.name} onChange={e=>setEdit(p=>({...p,name:e.target.value}))} /></div>
+        <div><FieldLabel>{s.fieldRole}</FieldLabel><Input defaultValue={t.role} onChange={e=>setEdit(p=>({...p,role:e.target.value}))} /></div>
+      </div>
+      <div><FieldLabel>{s.fieldPhotoUrl}</FieldLabel><Input defaultValue={t.photo_url} onChange={e=>setEdit(p=>({...p,photo_url:e.target.value}))} /></div>
+      <div><FieldLabel>{s.fieldQuote}</FieldLabel><Textarea rows={3} defaultValue={t.quote} onChange={e=>setEdit(p=>({...p,quote:e.target.value}))} /></div>
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-xs font-bold text-zinc-600"><input type="checkbox" defaultChecked={t.is_visible} onChange={e=>setEdit(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600" />{s.fieldVisible}</label>
+        <div className="flex gap-2">
+          <button onClick={() => saveEdit(id)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-black text-white hover:bg-violet-700">{s.save}</button>
+          <button onClick={closeSheet} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50">{s.cancel}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const editingRow = sheet?.mode === "edit" ? testimonials.find(t => t.id === sheet.id) : undefined;
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-      {/* Table */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Testimonials</h2>
-        {testimonials.length === 0
-          ? <p className="py-8 text-center text-sm text-zinc-400">No testimonials yet. Add some using the form.</p>
-          : (
-          <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-            {testimonials.map(t => {
-              const editing = editId === t.id;
-              return (
-                <div key={t.id} className={`rounded-xl border p-4 transition ${editing ? "border-violet-200 bg-violet-50/30" : "border-zinc-100 bg-zinc-50/30 hover:bg-zinc-50"}`}>
-                  {editing ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><FieldLabel>Name</FieldLabel><input defaultValue={t.name} onChange={e=>setEdit(p=>({...p,name:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                        <div><FieldLabel>Role</FieldLabel><input defaultValue={t.role} onChange={e=>setEdit(p=>({...p,role:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                      </div>
-                      <div><FieldLabel>Photo URL</FieldLabel><input defaultValue={t.photo_url} onChange={e=>setEdit(p=>({...p,photo_url:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                      <div><FieldLabel>Quote</FieldLabel><textarea rows={3} defaultValue={t.quote} onChange={e=>setEdit(p=>({...p,quote:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 text-xs font-bold text-zinc-600"><input type="checkbox" defaultChecked={t.is_visible} onChange={e=>setEdit(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600" />Visible</label>
-                        <div className="flex gap-2">
-                          <button onClick={() => saveEdit(t.id)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-black text-white hover:bg-violet-700">Save</button>
-                          <button onClick={() => {setEditId(null);setEdit({});}} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50">Cancel</button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-3">
-                      {t.photo_url
-                        ? <img src={t.photo_url} alt={t.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-zinc-100" />
-                        : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200"><UserCircle2 className="h-5 w-5 text-zinc-400" /></div>
-                      }
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-black text-zinc-900">{t.name}</p>
-                          {t.role && <span className="text-xs text-zinc-400">· {t.role}</span>}
-                          <span className="ml-auto text-[10px] text-zinc-300">#{t.position}</span>
-                        </div>
-                        <p className="mt-1 text-xs text-zinc-500 leading-relaxed line-clamp-2">"{t.quote}"</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button onClick={() => {setEditId(t.id);setEdit({});}} className="rounded-lg p-1.5 text-zinc-400 hover:bg-violet-50 hover:text-violet-600 transition"><Edit2 className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => del(t.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+    <div className="@container">
+      <div className="grid gap-6 border-t border-zinc-200 pt-6 @[900px]:grid-cols-[1.4fr_1fr] @[900px]:divide-x @[900px]:divide-zinc-200">
+        {/* List */}
+        <div className="space-y-4 @[900px]:pr-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-black text-zinc-950">{s.testimonialsTitle}</h2>
+            <button
+              type="button"
+              onClick={openAdd}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-black text-white transition hover:bg-violet-700 @[900px]:hidden"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />{s.addTestimonial}
+            </button>
           </div>
-        )}
+          {testimonials.length === 0
+            ? <p className="py-8 text-center text-sm text-zinc-400">{s.emptyTestimonials}</p>
+            : (
+            <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+              {testimonials.map(t => (
+                <div key={t.id} className="rounded-xl border border-zinc-100 bg-zinc-50/30 p-4 transition hover:bg-zinc-50">
+                  <div className="flex items-start gap-3">
+                    {t.photo_url
+                      ? <img src={t.photo_url} alt={t.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-zinc-100" />
+                      : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200"><UserCircle2 className="h-5 w-5 text-zinc-400" /></div>
+                    }
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-black text-zinc-900">{t.name}</p>
+                        {t.role && <span className="text-xs text-zinc-400">· {t.role}</span>}
+                        <span className="ml-auto text-[10px] text-zinc-300">#{t.position}</span>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-500 line-clamp-2">"{t.quote}"</p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button onClick={() => openEdit(t)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-violet-50 hover:text-violet-600" aria-label={`${s.editTestimonial}: ${t.name}`}><Edit2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => del(t.id)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-500" aria-label={`${s.confirmDeleteTestimonial} ${t.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add form — wide containers only */}
+        <div className="hidden space-y-4 @[900px]:block">
+          <h2 className="text-base font-black text-zinc-950">{s.addTestimonial}</h2>
+          {renderAddForm()}
+        </div>
       </div>
 
-      {/* Add form */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Add Testimonial</h2>
-        <form onSubmit={save} className="space-y-3">
-          <div><FieldLabel>Full Name *</FieldLabel><input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Jane Smith" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div><FieldLabel>Role / Title</FieldLabel><input value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} placeholder="Founder, Acme Corp." className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div><FieldLabel>Photo URL</FieldLabel><input type="url" value={form.photo_url} onChange={e=>setForm(p=>({...p,photo_url:e.target.value}))} placeholder="https://…" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div><FieldLabel>Quote *</FieldLabel><textarea required rows={4} value={form.quote} onChange={e=>setForm(p=>({...p,quote:e.target.value}))} placeholder="This platform is incredible…" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1"><FieldLabel>Sort Position</FieldLabel><input type="number" value={form.position} onChange={e=>setForm(p=>({...p,position:+e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-            <label className="mt-4 flex items-center gap-2 text-sm font-bold text-zinc-700 cursor-pointer"><input type="checkbox" checked={form.is_visible} onChange={e=>setForm(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600 h-4 w-4" />Visible</label>
+      {/* Add / edit sheet — narrow containers and all edits */}
+      <Sheet open={sheet !== null} onOpenChange={(open) => { if (!open) closeSheet(); }}>
+        <SheetContent side="bottom" aria-label={sheet?.mode === "edit" ? s.editTestimonial : s.addTestimonial} className="max-h-[90dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left text-base font-black">
+              {sheet?.mode === "edit" ? s.editTestimonial : s.addTestimonial}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="pt-4">
+            {sheet?.mode === "edit" && editingRow ? renderEditForm(editingRow, sheet.id) : renderAddForm()}
           </div>
-          <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-60 transition">
-            {saving ? "Adding…" : "Add Testimonial"}
-          </button>
-        </form>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -1275,9 +1385,21 @@ function SponsorsPanel({ sponsors, setSponsors, flash, setErr }: {
   setErr: (m: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<string|null>(null);
-  const [edit,   setEdit]   = useState<Partial<Sponsor>>({});
-  const [form,   setForm]   = useState({ name:"", logo_url:"", website_url:"", position:1, is_visible:true });
+  const [sheet, setSheet]     = useState<{ mode: "add" } | { mode: "edit"; id: string } | null>(null);
+  const [edit,   setEdit]     = useState<Partial<Sponsor>>({});
+  const [form,   setForm]     = useState({ name:"", logo_url:"", website_url:"", position:1, is_visible:true });
+
+  function openAdd() {
+    setForm({ name:"", logo_url:"", website_url:"", position: sponsors.length+2, is_visible:true });
+    setSheet({ mode: "add" });
+  }
+
+  function openEdit(sp: Sponsor) {
+    setEdit({});
+    setSheet({ mode: "edit", id: sp.id });
+  }
+
+  function closeSheet() { setSheet(null); setEdit({}); }
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); if (!form.name.trim()) return;
@@ -1290,7 +1412,7 @@ function SponsorsPanel({ sponsors, setSponsors, flash, setErr }: {
       const d = await res.json();
       setSponsors(p => [...p, d.sponsor].sort((a,b)=>a.position-b.position));
       setForm({ name:"", logo_url:"", website_url:"", position: sponsors.length+2, is_visible:true });
-      flash("Sponsor added.");
+      closeSheet(); flash(s.sponsorAdded);
     } else { const d=await res.json(); setErr(d.error||"Failed."); }
   }
 
@@ -1300,87 +1422,119 @@ function SponsorsPanel({ sponsors, setSponsors, flash, setErr }: {
     });
     if (res.ok) {
       const d = await res.json();
-      setSponsors(p => p.map(s => s.id===id ? d.sponsor : s).sort((a,b)=>a.position-b.position));
-      setEditId(null); flash("Updated.");
-    } else flash("Error updating.");
+      setSponsors(p => p.map(sp => sp.id===id ? d.sponsor : sp).sort((a,b)=>a.position-b.position));
+      closeSheet(); flash(s.updated);
+    } else flash(s.errorUpdating);
   }
 
   async function del(id: string) {
-    if (!confirm("Delete sponsor?")) return;
+    if (!confirm(s.confirmDeleteSponsor)) return;
     const res = await fetch(`/api/admin/homepage/sponsors?id=${id}`, {method:"DELETE"});
-    if (res.ok) { setSponsors(p => p.filter(s => s.id!==id)); flash("Deleted."); }
+    if (res.ok) { setSponsors(p => p.filter(sp => sp.id!==id)); flash(s.deleted); }
   }
 
+  const renderLogoPreview = (url: string) => (
+    url ? <div className="flex items-center justify-center rounded-md border border-dashed border-zinc-200 bg-zinc-50 py-3"><img src={url} alt="Logo preview" className="max-h-12 max-w-full object-contain" /></div> : null
+  );
+
+  const renderAddForm = () => (
+    <form onSubmit={save} className="space-y-3">
+      <div><FieldLabel>{s.fieldSponsorName}</FieldLabel><Input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Acme Corp" /></div>
+      <div><FieldLabel>{s.fieldLogoUrl}</FieldLabel><Input type="url" value={form.logo_url} onChange={e=>setForm(p=>({...p,logo_url:e.target.value}))} placeholder="https://…/logo.png" /></div>
+      {renderLogoPreview(form.logo_url)}
+      <div><FieldLabel>{s.fieldWebsiteUrl}</FieldLabel><Input type="url" value={form.website_url} onChange={e=>setForm(p=>({...p,website_url:e.target.value}))} placeholder="https://acme.com" /></div>
+      <div className="flex items-center gap-4">
+        <div className="flex-1"><FieldLabel>{s.fieldSortPosition}</FieldLabel><Input type="number" value={form.position} onChange={e=>setForm(p=>({...p,position:+e.target.value}))} /></div>
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm font-bold text-zinc-700"><input type="checkbox" checked={form.is_visible} onChange={e=>setForm(p=>({...p,is_visible:e.target.checked}))} className="h-4 w-4 rounded text-violet-600" />{s.fieldVisible}</label>
+      </div>
+      <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60">
+        {saving ? s.adding : s.addSponsor}
+      </button>
+    </form>
+  );
+
+  const renderEditForm = (sp: Sponsor, id: string) => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><FieldLabel>{s.fieldName}</FieldLabel><Input defaultValue={sp.name} onChange={e=>setEdit(p=>({...p,name:e.target.value}))} /></div>
+        <div><FieldLabel>{s.fieldWebsiteUrl}</FieldLabel><Input defaultValue={sp.website_url} onChange={e=>setEdit(p=>({...p,website_url:e.target.value}))} /></div>
+      </div>
+      <div><FieldLabel>{s.fieldLogoUrl}</FieldLabel><Input defaultValue={sp.logo_url} onChange={e=>setEdit(p=>({...p,logo_url:e.target.value}))} /></div>
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-xs font-bold text-zinc-600"><input type="checkbox" defaultChecked={sp.is_visible} onChange={e=>setEdit(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600" />{s.fieldVisible}</label>
+        <div className="flex gap-2">
+          <button onClick={() => saveEdit(id)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-black text-white hover:bg-violet-700">{s.save}</button>
+          <button onClick={closeSheet} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50">{s.cancel}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const editingRow = sheet?.mode === "edit" ? sponsors.find(sp => sp.id === sheet.id) : undefined;
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-      {/* Table */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Sponsors</h2>
-        {sponsors.length === 0
-          ? <p className="py-8 text-center text-sm text-zinc-400">No sponsors yet.</p>
-          : (
-          <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-            {sponsors.map(s => {
-              const editing = editId === s.id;
-              return (
-                <div key={s.id} className={`rounded-xl border p-4 transition ${editing ? "border-violet-200 bg-violet-50/30" : "border-zinc-100 bg-zinc-50/30 hover:bg-zinc-50"}`}>
-                  {editing ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><FieldLabel>Name</FieldLabel><input defaultValue={s.name} onChange={e=>setEdit(p=>({...p,name:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                        <div><FieldLabel>Website URL</FieldLabel><input defaultValue={s.website_url} onChange={e=>setEdit(p=>({...p,website_url:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                      </div>
-                      <div><FieldLabel>Logo URL</FieldLabel><input defaultValue={s.logo_url} onChange={e=>setEdit(p=>({...p,logo_url:e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 text-xs font-bold text-zinc-600"><input type="checkbox" defaultChecked={s.is_visible} onChange={e=>setEdit(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600" />Visible</label>
-                        <div className="flex gap-2">
-                          <button onClick={() => saveEdit(s.id)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-black text-white hover:bg-violet-700">Save</button>
-                          <button onClick={() => {setEditId(null);setEdit({});}} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50">Cancel</button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-4">
-                      {s.logo_url
-                        ? <img src={s.logo_url} alt={s.name} className="h-10 w-24 shrink-0 rounded-lg object-contain border border-zinc-100 bg-white p-1" />
-                        : <div className="flex h-10 w-24 shrink-0 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 text-zinc-300"><ImageIcon className="h-5 w-5" /></div>
-                      }
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-zinc-900">{s.name}</p>
-                        {s.website_url && <a href={s.website_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-violet-600 hover:underline mt-0.5"><Globe className="h-3 w-3" />{s.website_url.replace(/^https?:\/\//, "")}</a>}
-                      </div>
-                      <span className="text-[10px] text-zinc-300">#{s.position}</span>
-                      {s.is_visible ? <Eye className="h-3.5 w-3.5 text-emerald-500" /> : <EyeOff className="h-3.5 w-3.5 text-zinc-300" />}
-                      <div className="flex gap-1">
-                        <button onClick={() => {setEditId(s.id);setEdit({});}} className="rounded-lg p-1.5 text-zinc-400 hover:bg-violet-50 hover:text-violet-600 transition"><Edit2 className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => del(s.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+    <div className="@container">
+      <div className="grid gap-6 border-t border-zinc-200 pt-6 @[900px]:grid-cols-[1.4fr_1fr] @[900px]:divide-x @[900px]:divide-zinc-200">
+        {/* List */}
+        <div className="space-y-4 @[900px]:pr-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-black text-zinc-950">{s.sponsorsTitle}</h2>
+            <button
+              type="button"
+              onClick={openAdd}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-black text-white transition hover:bg-violet-700 @[900px]:hidden"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />{s.addSponsor}
+            </button>
           </div>
-        )}
+          {sponsors.length === 0
+            ? <p className="py-8 text-center text-sm text-zinc-400">{s.emptySponsors}</p>
+            : (
+            <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+              {sponsors.map(sp => (
+                <div key={sp.id} className="rounded-xl border border-zinc-100 bg-zinc-50/30 p-4 transition hover:bg-zinc-50">
+                  <div className="flex items-center gap-4">
+                    {sp.logo_url
+                      ? <img src={sp.logo_url} alt={sp.name} className="h-10 w-24 shrink-0 rounded-lg border border-zinc-100 bg-white object-contain p-1" />
+                      : <div className="flex h-10 w-24 shrink-0 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50 text-zinc-300"><ImageIcon className="h-5 w-5" /></div>
+                    }
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-zinc-900">{sp.name}</p>
+                      {sp.website_url && <a href={sp.website_url} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex items-center gap-1 text-xs text-violet-600 hover:underline"><Globe className="h-3 w-3" />{sp.website_url.replace(/^https?:\/\//, "")}</a>}
+                    </div>
+                    <span className="text-[10px] text-zinc-300">#{sp.position}</span>
+                    {sp.is_visible ? <Eye className="h-3.5 w-3.5 text-emerald-500" /> : <EyeOff className="h-3.5 w-3.5 text-zinc-300" />}
+                    <div className="flex gap-1">
+                      <button onClick={() => openEdit(sp)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-violet-50 hover:text-violet-600" aria-label={`${s.editSponsor}: ${sp.name}`}><Edit2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => del(sp.id)} className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-red-50 hover:text-red-500" aria-label={`${s.confirmDeleteSponsor} ${sp.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add form — wide containers only */}
+        <div className="hidden space-y-4 @[900px]:block">
+          <h2 className="text-base font-black text-zinc-950">{s.addSponsor}</h2>
+          {renderAddForm()}
+        </div>
       </div>
 
-      {/* Add form */}
-      <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="text-base font-black text-zinc-950">Add Sponsor</h2>
-        <form onSubmit={save} className="space-y-3">
-          <div><FieldLabel>Sponsor Name *</FieldLabel><input required value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Acme Corp" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div><FieldLabel>Logo URL</FieldLabel><input type="url" value={form.logo_url} onChange={e=>setForm(p=>({...p,logo_url:e.target.value}))} placeholder="https://…/logo.png" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          {form.logo_url && <div className="flex items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 py-3"><img src={form.logo_url} alt="Logo preview" className="max-h-12 max-w-full object-contain" /></div>}
-          <div><FieldLabel>Website URL</FieldLabel><input type="url" value={form.website_url} onChange={e=>setForm(p=>({...p,website_url:e.target.value}))} placeholder="https://acme.com" className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1"><FieldLabel>Sort Position</FieldLabel><input type="number" value={form.position} onChange={e=>setForm(p=>({...p,position:+e.target.value}))} className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500" /></div>
-            <label className="mt-4 flex items-center gap-2 text-sm font-bold text-zinc-700 cursor-pointer"><input type="checkbox" checked={form.is_visible} onChange={e=>setForm(p=>({...p,is_visible:e.target.checked}))} className="rounded text-violet-600 h-4 w-4" />Visible</label>
+      {/* Add / edit sheet — narrow containers and all edits */}
+      <Sheet open={sheet !== null} onOpenChange={(open) => { if (!open) closeSheet(); }}>
+        <SheetContent side="bottom" aria-label={sheet?.mode === "edit" ? s.editSponsor : s.addSponsor} className="max-h-[90dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-left text-base font-black">
+              {sheet?.mode === "edit" ? s.editSponsor : s.addSponsor}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="pt-4">
+            {sheet?.mode === "edit" && editingRow ? renderEditForm(editingRow, sheet.id) : renderAddForm()}
           </div>
-          <button type="submit" disabled={saving} className="w-full rounded-xl bg-violet-600 py-3 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-60 transition">
-            {saving ? "Adding…" : "Add Sponsor"}
-          </button>
-        </form>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

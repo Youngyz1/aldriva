@@ -44,5 +44,30 @@ export default defineConfig({
         viewport: { width: 1100, height: 900 },
       },
     },
+    {
+      name: "admin2-1440",
+      testMatch: /admin-phase2\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      name: "admin2-1100",
+      testMatch: /admin-phase2\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1100, height: 900 },
+      },
+    },
+    {
+      name: "admin2-390",
+      testMatch: /admin-phase2\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+      },
+    },
   ],
 });

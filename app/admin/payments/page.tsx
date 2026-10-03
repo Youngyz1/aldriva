@@ -5,6 +5,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from "@/lib/auth";
+import AdminTable from "@/components/admin/table/AdminTable";
+import type { AdminColumn } from "@/components/admin/table/types";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import {
+  formatMoneyWithCurrency,
+  paymentsFooter,
+  paymentsStrings as s,
+  statusChips,
+} from "./payments-strings";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -12,8 +22,9 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function money(n: number | null) {
-  return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+/** Null/unknown currencies render exactly as money() did before. */
+function money(n: number | null, currency?: string | null) {
+  return formatMoneyWithCurrency(n, currency ?? null);
 }
 
 function dateLabel(d: string) {
@@ -26,15 +37,32 @@ function dateLabel(d: string) {
   });
 }
 
-const statusClasses: Record<string, string> = {
-  valid:     'bg-emerald-100 text-emerald-700',
-  used:      'bg-zinc-100 text-zinc-500',
-  cancelled: 'bg-red-100 text-red-600',
-  refunded:  'bg-orange-100 text-orange-600',
-  succeeded: 'bg-emerald-100 text-emerald-700',
-  pending:   'bg-amber-100 text-amber-700',
-  failed:    'bg-red-100 text-red-600',
+/** Dot colors carry the old pill semantics; unknown statuses read as pending. */
+const STATUS_DOT: Record<string, string> = {
+  valid: 'bg-emerald-500',
+  used: 'bg-zinc-400',
+  cancelled: 'bg-red-500',
+  refunded: 'bg-amber-500',
+  succeeded: 'bg-emerald-500',
+  pending: 'bg-amber-500',
+  failed: 'bg-red-500',
 };
+
+const orderColumns: AdminColumn[] = [
+  { id: "buyer", header: s.columns.buyer, role: "title" },
+  { id: "event", header: s.columns.event, role: "meta" },
+  { id: "amount", header: s.columns.amount, role: "value", align: "right" },
+  { id: "status", header: s.columns.status, role: "meta" },
+  { id: "date", header: s.columns.date, role: "detail", align: "right" },
+];
+
+const donationColumns: AdminColumn[] = [
+  { id: "donor", header: s.columns.donor, role: "title" },
+  { id: "fundraiser", header: s.columns.fundraiser, role: "meta" },
+  { id: "amount", header: s.columns.amount, role: "value", align: "right" },
+  { id: "status", header: s.columns.status, role: "meta" },
+  { id: "date", header: s.columns.date, role: "detail", align: "right" },
+];
 
 export default async function AdminPaymentsPage() {
   // Explicit gate (F-10): do not rely solely on the layout header shortcut.
@@ -42,103 +70,111 @@ export default async function AdminPaymentsPage() {
   const [{ data: orders }, { data: donations }] = await Promise.all([
     supabaseAdmin
       .from('ticket_orders')
-      .select('id, buyer_name, buyer_email, total_amount, status, created_at, events(title)')
+      .select('id, buyer_name, buyer_email, total_amount, currency, status, created_at, events(title)')
       .order('created_at', { ascending: false })
       .limit(50),
     supabaseAdmin
       .from('donations')
-      .select('id, donor_name, donor_email, amount, status, created_at, fundraisers(title)')
+      .select('id, donor_name, donor_email, amount, currency, status, created_at, fundraisers(title)')
       .order('created_at', { ascending: false })
       .limit(50),
   ]);
 
+  const orderRows = orders ?? [];
+  const donationRows = donations ?? [];
+
   return (
     <div className="space-y-8">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight">Payments</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">Most recent 50 ticket orders and donations. Read only.</p>
-      </header>
+      <PageHeader
+        eyebrow={s.eyebrow}
+        title={s.title}
+        description={s.description}
+      />
+
+      <StatStrip
+        items={[
+          ...statusChips(orderRows, s.ordersNoun, "pending"),
+          ...statusChips(donationRows, s.donationsNoun, "succeeded"),
+        ]}
+      />
 
       {/* Ticket Orders */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="mb-4 text-base font-black tracking-tight text-zinc-950">Ticket Orders</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="py-3 pr-4">Buyer</th>
-                <th className="py-3 pr-4">Event</th>
-                <th className="py-3 pr-4">Amount</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {(orders ?? []).map((o) => {
-                const ev = Array.isArray(o.events) ? o.events[0] : o.events;
-                return (
-                  <tr key={o.id}>
-                    <td className="py-3 pr-4 font-semibold">{o.buyer_name || o.buyer_email || 'Guest'}</td>
-                    <td className="py-3 pr-4 text-zinc-500 max-w-[160px] truncate">
-                      {(ev as { title?: string } | null)?.title ?? '—'}
-                    </td>
-                    <td className="py-3 pr-4 font-black">{money(o.total_amount)}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusClasses[o.status] ?? statusClasses.pending}`}>
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-zinc-500">{dateLabel(o.created_at)}</td>
-                  </tr>
-                );
-              })}
-              {(orders ?? []).length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-sm text-zinc-400">No orders yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <section aria-label={s.ticketOrdersTitle}>
+        <h2 className="mb-4 text-base font-black tracking-tight text-zinc-950">{s.ticketOrdersTitle}</h2>
+        <AdminTable
+          columns={orderColumns}
+          rows={orderRows.map((o) => {
+            const ev = Array.isArray(o.events) ? o.events[0] : o.events;
+            return {
+              id: o.id,
+              cells: [
+                <span key="buyer" className="block max-w-[200px] truncate">
+                  {o.buyer_name || o.buyer_email || 'Guest'}
+                </span>,
+                <span key="event" className="block max-w-[160px] truncate text-zinc-500">
+                  {(ev as { title?: string } | null)?.title ?? '—'}
+                </span>,
+                <span key="amount" className="font-black tabular-nums">
+                  {money(o.total_amount, o.currency)}
+                </span>,
+                <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[o.status] ?? STATUS_DOT.pending}`}
+                  />
+                  <span>{o.status}</span>
+                </span>,
+                <span key="date" className="whitespace-nowrap text-zinc-500">
+                  {dateLabel(o.created_at)}
+                </span>,
+              ],
+            };
+          })}
+          emptyMessage={s.emptyOrders}
+        />
+      </section>
 
       {/* Donations */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="mb-4 text-base font-black tracking-tight text-zinc-950">Donations</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
-              <tr>
-                <th className="py-3 pr-4">Donor</th>
-                <th className="py-3 pr-4">Fundraiser</th>
-                <th className="py-3 pr-4">Amount</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {(donations ?? []).map((d) => {
-                const fr = Array.isArray(d.fundraisers) ? d.fundraisers[0] : d.fundraisers;
-                return (
-                  <tr key={d.id}>
-                    <td className="py-3 pr-4 font-semibold">{d.donor_name || d.donor_email || 'Anonymous'}</td>
-                    <td className="py-3 pr-4 text-zinc-500 max-w-[160px] truncate">
-                      {(fr as { title?: string } | null)?.title ?? '—'}
-                    </td>
-                    <td className="py-3 pr-4 font-black text-emerald-700">{money(d.amount)}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusClasses[d.status ?? 'succeeded'] ?? statusClasses.succeeded}`}>
-                        {d.status ?? 'succeeded'}
-                      </span>
-                    </td>
-                    <td className="py-3 text-zinc-500">{dateLabel(d.created_at)}</td>
-                  </tr>
-                );
-              })}
-              {(donations ?? []).length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-sm text-zinc-400">No donations yet.</td></tr>
-              )}
-            </tbody>
-          </table>
+      <section aria-label={s.donationsTitle}>
+        <h2 className="mb-4 text-base font-black tracking-tight text-zinc-950">{s.donationsTitle}</h2>
+        <AdminTable
+          columns={donationColumns}
+          rows={donationRows.map((d) => {
+            const fr = Array.isArray(d.fundraisers) ? d.fundraisers[0] : d.fundraisers;
+            return {
+              id: d.id,
+              cells: [
+                <span key="donor" className="block max-w-[200px] truncate">
+                  {d.donor_name || d.donor_email || 'Anonymous'}
+                </span>,
+                <span key="fundraiser" className="block max-w-[160px] truncate text-zinc-500">
+                  {(fr as { title?: string } | null)?.title ?? '—'}
+                </span>,
+                <span key="amount" className="font-black tabular-nums text-emerald-700">
+                  {money(d.amount, d.currency)}
+                </span>,
+                <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[d.status ?? 'succeeded'] ?? STATUS_DOT.succeeded}`}
+                  />
+                  <span>{d.status ?? 'succeeded'}</span>
+                </span>,
+                <span key="date" className="whitespace-nowrap text-zinc-500">
+                  {dateLabel(d.created_at)}
+                </span>,
+              ],
+            };
+          })}
+          emptyMessage={s.emptyDonations}
+        />
+      </section>
+
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {paymentsFooter(orderRows.length, donationRows.length)}
+          </p>
         </div>
       </div>
     </div>

@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StarRating from "@/components/StarRating";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { adminPageCopy, buildStats } from "@/components/admin/page-strings";
+import { formatAdminDate } from "@/lib/admin-query";
 
 type ReviewRow = {
   id: string;
@@ -90,29 +98,84 @@ export default function AdminReviewsPage() {
     return "Platform Review";
   }
 
+  const statValues = useMemo(() => {
+    const approved = reviews.filter((r) => r.is_approved).length;
+    return {
+      total: reviews.length,
+      approved,
+      hidden: reviews.length - approved,
+    };
+  }, [reviews]);
+
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // review text below 1024px container, date below 800px.
+  const columns: AdminColumn[] = [
+    { id: "reviewer", header: "Reviewer", role: "title" },
+    { id: "rating", header: "Rating", role: "value" },
+    { id: "status", header: "Status", role: "meta" },
+    { id: "created", header: "Date", role: "meta", align: "right", hideBelow: "md" },
+    { id: "review", header: "Review", role: "detail", hideBelow: "lg" },
+  ];
+
+  /**
+   * No detail view exists for reviews, so the primary is the moderation
+   * toggle itself (Approve while hidden, Hide while approved — same PATCH
+   * /api/admin/reviews/[id] { action } as before). Delete keeps its
+   * confirm() dialog (same DELETE /api/admin/reviews/[id]), destructive
+   * last, so the ⋯ menu is always present.
+   */
+  function buildRowActions(r: ReviewRow): RowActionsConfig {
+    return {
+      primary: r.is_approved
+        ? {
+            key: "hide",
+            label: "Hide",
+            onSelect: () => handleModerate(r.id, "hide"),
+            disabled: working === r.id,
+          }
+        : {
+            key: "approve",
+            label: "Approve",
+            onSelect: () => handleModerate(r.id, "approve"),
+            disabled: working === r.id,
+          },
+      menu: [
+        {
+          key: "delete",
+          label: "Delete",
+          onSelect: () => handleDelete(r.id),
+          disabled: working === r.id,
+          destructive: true,
+        },
+      ],
+    };
+  }
+
   return (
     <div className="space-y-6">
-      <header className="pb-1">
-        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Admin</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight">Reviews</h1>
-        <p className="mt-2 text-sm font-medium text-zinc-500">Moderate and manage platform reviews.</p>
-      </header>
+      <PageHeader
+        eyebrow={adminPageCopy.reviews.eyebrow}
+        title={adminPageCopy.reviews.title}
+        description={adminPageCopy.reviews.description}
+      />
 
-      <div className="flex gap-2">
-        {(["all", "approved", "hidden"] as const).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setStatusFilter(filter)}
-            className={`rounded-xl px-4 py-2 text-xs font-black capitalize transition ${
-              statusFilter === filter
-                ? "bg-slate-900 text-white"
-                : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
+      {!loading && (
+        <StatStrip items={buildStats(adminPageCopy.reviews.stats, statValues)} />
+      )}
+
+      <TableToolbar
+        tabs={(adminPageCopy.reviews.tabs ?? []).map((t) => ({
+          ...t,
+          count:
+            t.value === "all"
+              ? statValues.total
+              : statValues[t.value as keyof typeof statValues],
+          active: statusFilter === t.value,
+          onSelect: () =>
+            setStatusFilter(t.value as "all" | "approved" | "hidden"),
+        }))}
+        filters={[]}
+      />
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">
@@ -120,94 +183,67 @@ export default function AdminReviewsPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-zinc-200 text-xs font-black uppercase tracking-wide text-zinc-400">
-                <tr>
-                  <th className="py-3 pr-4">Reviewer</th>
-                  <th className="py-3 pr-4">Target</th>
-                  <th className="py-3 pr-4">Rating</th>
-                  <th className="py-3 pr-4">Content</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {reviews.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-3 pr-4 font-semibold max-w-[150px] truncate">
-                      {r.profiles?.display_name || "Anonymous"}
-                      <p className="text-[10px] font-normal text-zinc-400 truncate">{r.user_id}</p>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-500 max-w-[200px] truncate">
-                      {getTargetName(r)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-1">
-                        <StarRating value={r.rating} size={14} />
-                        <span className="text-xs font-bold text-zinc-600">({r.rating})</span>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 max-w-[250px]">
-                      {r.title && <p className="font-bold text-zinc-950 truncate">{r.title}</p>}
-                      {r.review && <p className="text-zinc-600 line-clamp-2 text-xs">{r.review}</p>}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${
-                          r.is_approved ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {r.is_approved ? "Approved" : "Hidden"}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {r.is_approved ? (
-                          <button
-                            disabled={working === r.id}
-                            onClick={() => handleModerate(r.id, "hide")}
-                            className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-black text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            Hide
-                          </button>
-                        ) : (
-                          <button
-                            disabled={working === r.id}
-                            onClick={() => handleModerate(r.id, "approve")}
-                            className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        <button
-                          disabled={working === r.id}
-                          onClick={() => handleDelete(r.id)}
-                          className="rounded-lg border border-red-300 bg-red-600 px-2.5 py-1.5 text-xs font-black text-white hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {reviews.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-sm text-zinc-400">
-                      No reviews found.
-                    </td>
-                  </tr>
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+        </div>
+      ) : (
+        <AdminTable
+          columns={columns}
+          rows={reviews.map((r) => ({
+            id: r.id,
+            cells: [
+              <span key="reviewer" className="block">
+                <span className="block">{r.profiles?.display_name || "Anonymous"}</span>
+                <span className="block max-w-[200px] truncate text-xs font-normal text-zinc-500">
+                  {getTargetName(r)}
+                </span>
+              </span>,
+              <span key="rating" className="flex items-center gap-1">
+                <StarRating value={r.rating} size={14} />
+                <span className="text-xs font-bold tabular-nums text-zinc-600">
+                  ({r.rating})
+                </span>
+              </span>,
+              <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    r.is_approved ? "bg-emerald-500" : "bg-red-500"
+                  }`}
+                />
+                <span>{r.is_approved ? "Approved" : "Hidden"}</span>
+              </span>,
+              <span key="created" className="whitespace-nowrap text-zinc-500">
+                {formatAdminDate(r.created_at)}
+              </span>,
+              <span key="review" className="block max-w-[250px]">
+                {r.title && (
+                  <span className="block font-bold text-zinc-950">{r.title}</span>
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                {r.review && (
+                  <span className="block text-xs text-zinc-600">{r.review}</span>
+                )}
+              </span>,
+            ],
+            detailExtra: [
+              { label: "Reviewer ID", value: r.user_id },
+              { label: "Verified", value: r.is_verified ? "Yes" : "No" },
+            ],
+            actions: buildRowActions(r),
+          }))}
+          emptyMessage={adminPageCopy.reviews.empty}
+        />
+      )}
+
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {loading || reviews.length === 0
+              ? tableStrings.showingNone(reviews.length)
+              : tableStrings.showingResults(1, reviews.length, reviews.length)}
+          </p>
+        </div>
       </div>
     </div>
   );
