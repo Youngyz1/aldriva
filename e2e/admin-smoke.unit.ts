@@ -148,8 +148,13 @@ test("smoke context pins the server-default timezone and locale", () => {
     "utf8"
   );
   assert.ok(
-    src.includes('timezoneId: "Africa/Lagos"'),
-    "browser timezone matches the dev server"
+    src.includes("process.env.SMOKE_TZ"),
+    "browser timezone is overridable"
   );
-  assert.ok(src.includes('locale: "en-GB"'), "browser locale is pinned");
+  assert.ok(
+    src.includes('|| "Africa/Lagos"'),
+    "default timezone matches the dev server"
+  );
+  assert.ok(src.includes("process.env.SMOKE_LOCALE"), "locale is overridable");
+  assert.ok(src.includes('|| "en-GB"'), "default locale is pinned");
 });

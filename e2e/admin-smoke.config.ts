@@ -11,6 +11,15 @@ import { ADMIN_RIG_DIR, ADMIN_STORAGE_STATE } from "./admin-paths";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
 
+/**
+ * Second timezone mode: SMOKE_TZ / SMOKE_LOCALE override the browser
+ * context (e.g. SMOKE_TZ=America/New_York SMOKE_LOCALE=en-US npm run
+ * smoke:admin runs the same routes in a production-like timezone).
+ * Defaults match the dev-server machine, so default behavior is unchanged.
+ */
+const SMOKE_TZ = process.env.SMOKE_TZ || "Africa/Lagos";
+const SMOKE_LOCALE = process.env.SMOKE_LOCALE || "en-GB";
+
 export default defineConfig({
   testDir: "./",
   outputDir: path.join(ADMIN_RIG_DIR, "results"),
@@ -36,10 +45,10 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
         storageState: ADMIN_STORAGE_STATE,
-        // Pinned to the dev-server default (Africa/Lagos, en-GB) so
-        // locale-rendered output agrees with SSR by construction.
-        timezoneId: "Africa/Lagos",
-        locale: "en-GB",
+        // Pinned so locale-rendered output agrees with SSR by
+        // construction; override via SMOKE_TZ / SMOKE_LOCALE (see above).
+        timezoneId: SMOKE_TZ,
+        locale: SMOKE_LOCALE,
       },
     },
   ],
