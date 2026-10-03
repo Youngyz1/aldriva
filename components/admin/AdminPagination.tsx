@@ -9,6 +9,8 @@ type Props = {
   total: number;
   onPageChange: (page: number) => void;
   onPerPageChange: (perPage: number) => void;
+  /** Hide the built-in count; migrated table footers render their own. */
+  showCount?: boolean;
 };
 
 const PER_PAGE_OPTIONS = [25, 50, 100];
@@ -20,16 +22,19 @@ export default function AdminPagination({
   total,
   onPageChange,
   onPerPageChange,
+  showCount = true,
 }: Props) {
   const start = total === 0 ? 0 : (page - 1) * perPage + 1;
   const end = Math.min(page * perPage, total);
 
   return (
     <div className="flex flex-col gap-3 border-t border-zinc-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <p className="text-xs font-semibold text-zinc-500">
-        Showing <span className="font-black text-zinc-800">{start}–{end}</span> of{" "}
-        <span className="font-black text-zinc-800">{total}</span>
-      </p>
+      {showCount && (
+        <p className="text-xs font-semibold text-zinc-500">
+          Showing <span className="font-black text-zinc-800">{start}–{end}</span> of{" "}
+          <span className="font-black text-zinc-800">{total}</span>
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-xs font-semibold text-zinc-500">

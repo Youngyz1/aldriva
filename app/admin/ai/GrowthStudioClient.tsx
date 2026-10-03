@@ -232,7 +232,10 @@ export default function GrowthStudioClient() {
                 >
                   <div className="flex items-center justify-between text-[10px] opacity-70 gap-4">
                     <span className="font-semibold uppercase tracking-wider">{msg.role}</span>
-                    <span>{msg.timestamp}</span>
+                    {/* Welcome-message timestamp is wall-clock time rendered
+                        during SSR (see initial state); suppressing the
+                        hydration warning keeps the server HTML with no flash. */}
+                    <span suppressHydrationWarning>{msg.timestamp}</span>
                   </div>
 
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
