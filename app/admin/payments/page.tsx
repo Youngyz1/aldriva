@@ -9,7 +9,12 @@ import AdminTable from "@/components/admin/table/AdminTable";
 import type { AdminColumn } from "@/components/admin/table/types";
 import PageHeader from "@/components/admin/PageHeader";
 import StatStrip from "@/components/admin/StatStrip";
-import { paymentsFooter, paymentsStrings as s, statusChips } from "./payments-strings";
+import {
+  formatMoneyWithCurrency,
+  paymentsFooter,
+  paymentsStrings as s,
+  statusChips,
+} from "./payments-strings";
 
 // Service role: bypasses RLS — admin operations only
 const supabaseAdmin = createClient(
@@ -17,8 +22,9 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function money(n: number | null) {
-  return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+/** Null/unknown currencies render exactly as money() did before. */
+function money(n: number | null, currency?: string | null) {
+  return formatMoneyWithCurrency(n, currency ?? null);
 }
 
 function dateLabel(d: string) {
@@ -64,12 +70,12 @@ export default async function AdminPaymentsPage() {
   const [{ data: orders }, { data: donations }] = await Promise.all([
     supabaseAdmin
       .from('ticket_orders')
-      .select('id, buyer_name, buyer_email, total_amount, status, created_at, events(title)')
+      .select('id, buyer_name, buyer_email, total_amount, currency, status, created_at, events(title)')
       .order('created_at', { ascending: false })
       .limit(50),
     supabaseAdmin
       .from('donations')
-      .select('id, donor_name, donor_email, amount, status, created_at, fundraisers(title)')
+      .select('id, donor_name, donor_email, amount, currency, status, created_at, fundraisers(title)')
       .order('created_at', { ascending: false })
       .limit(50),
   ]);
@@ -109,7 +115,7 @@ export default async function AdminPaymentsPage() {
                   {(ev as { title?: string } | null)?.title ?? '—'}
                 </span>,
                 <span key="amount" className="font-black tabular-nums">
-                  {money(o.total_amount)}
+                  {money(o.total_amount, o.currency)}
                 </span>,
                 <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <span
@@ -145,7 +151,7 @@ export default async function AdminPaymentsPage() {
                   {(fr as { title?: string } | null)?.title ?? '—'}
                 </span>,
                 <span key="amount" className="font-black tabular-nums text-emerald-700">
-                  {money(d.amount)}
+                  {money(d.amount, d.currency)}
                 </span>,
                 <span key="status" className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <span

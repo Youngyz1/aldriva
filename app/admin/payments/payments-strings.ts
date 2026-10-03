@@ -42,6 +42,27 @@ export function paymentsFooter(ordersShown: number, donationsShown: number): str
 }
 
 /**
+ * Format an amount with its own stored currency code. Null or unknown
+ * codes fall back to the legacy $ rendering, byte-identical to before.
+ */
+export function formatMoneyWithCurrency(
+  n: number | null,
+  currency: string | null
+): string {
+  const legacy = () =>
+    `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+  if (!currency) return legacy();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(Number(n || 0));
+  } catch {
+    return legacy();
+  }
+}
+
+/**
  * Shown-slice per-status chips (latest 50 only; no new query). Null
  * statuses read as the fallback, mirroring the displayed status text.
  */

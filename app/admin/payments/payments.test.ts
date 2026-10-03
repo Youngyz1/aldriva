@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  formatMoneyWithCurrency,
   paymentsFooter,
   paymentsStrings,
   statusChips,
@@ -27,12 +28,18 @@ test("payments queries are unchanged (latest 50, same columns)", () => {
   assert.ok(src.includes("events(title)"), "ticket_orders join kept");
   assert.ok(src.includes("fundraisers(title)"), "donations join kept");
   assert.equal(src.split(".limit(50)").length - 1, 2, "both queries limit 50");
+  assert.ok(src.includes("total_amount, currency, status"), "orders select currency");
+  assert.ok(src.includes("amount, currency, status"), "donations select currency");
 });
 
 test("money and date formatting stay byte-identical", () => {
   assert.ok(
-    src.includes("toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })"),
-    "money() format kept"
+    src.includes("money(o.total_amount, o.currency)"),
+    "orders pass their stored currency"
+  );
+  assert.ok(
+    src.includes("money(d.amount, d.currency)"),
+    "donations pass their stored currency"
   );
   assert.ok(src.includes("month: 'short'"), "dateLabel format kept");
 });
@@ -58,6 +65,19 @@ test("paymentsFooter composes both slice counts", () => {
     paymentsFooter(0, 3),
     "1-0 of 0 ticket orders · 1-3 of 3 donations"
   );
+});
+
+test("amounts format with their own currency code", () => {
+  assert.equal(formatMoneyWithCurrency(1234.5, "USD"), "$1,234.50");
+  assert.equal(formatMoneyWithCurrency(1234.5, "usd"), "$1,234.50");
+  assert.equal(formatMoneyWithCurrency(1234.5, "EUR"), "€1,234.50");
+});
+
+test("null or unknown currency falls back to legacy $ rendering", () => {
+  const legacy = "$1,234.50";
+  assert.equal(formatMoneyWithCurrency(1234.5, null), legacy);
+  assert.equal(formatMoneyWithCurrency(1234.5, "Q12"), legacy);
+  assert.equal(formatMoneyWithCurrency(null, null), "$0.00");
 });
 
 test("statusChips counts by displayed status with null fallback", () => {
