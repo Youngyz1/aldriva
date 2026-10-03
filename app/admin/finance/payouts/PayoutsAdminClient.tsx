@@ -3,13 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Send,
-  Clock,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
   Loader2,
-  Search,
   X,
   FileCheck,
   Building,
@@ -24,6 +19,13 @@ import {
   type AdminPayoutQueueItem,
   type PayoutStatus,
 } from "@/lib/payouts";
+import AdminTable from "@/components/admin/table/AdminTable";
+import TableToolbar from "@/components/admin/table/TableToolbar";
+import type { AdminColumn, RowActionsConfig } from "@/components/admin/table/types";
+import { tableStrings } from "@/components/admin/table/strings";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { payoutsStrings as s } from "./payouts-strings";
 
 export default function PayoutsAdminClient({
   initialQueue,
@@ -139,44 +141,64 @@ export default function PayoutsAdminClient({
     }
   }
 
-  function getStatusBadge(status: PayoutStatus) {
-    switch (status) {
-      case "requested":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-            <Clock size={12} />
-            Requested
-          </span>
-        );
-      case "processing":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-            <Loader2 size={12} className="animate-spin" />
-            Processing
-          </span>
-        );
-      case "completed":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-            <CheckCircle2 size={12} />
-            Completed
-          </span>
-        );
-      case "failed":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
-            <XCircle size={12} />
-            Failed
-          </span>
-        );
-      case "cancelled":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-600">
-            <AlertCircle size={12} />
-            Cancelled
-          </span>
-        );
+  /** Dot colors carry the old badge semantics (amber/blue/emerald/rose/zinc). */
+  const STATUS_DOT: Record<PayoutStatus, string> = {
+    requested: "bg-amber-500",
+    processing: "bg-blue-500",
+    completed: "bg-emerald-500",
+    failed: "bg-rose-500",
+    cancelled: "bg-zinc-400",
+  };
+
+  function isTerminal(status: PayoutStatus) {
+    return status === "completed" || status === "failed" || status === "cancelled";
+  }
+
+  // Priority hiding (detail first, then meta; title/value never hide):
+  // payout id/date below 1024px container, destination below 800px.
+  const columns: AdminColumn[] = [
+    { id: "recipient", header: s.columns.recipient, role: "title" },
+    { id: "amount", header: s.columns.amount, role: "value", align: "right" },
+    { id: "status", header: s.columns.status, role: "meta" },
+    { id: "destination", header: s.columns.destination, role: "meta", hideBelow: "md" },
+    { id: "payout", header: s.columns.payout, role: "detail", hideBelow: "lg" },
+  ];
+
+  /**
+   * Requested rows: primary starts processing (same handler, same
+   * "Updating..." working label), menu opens the unchanged modals.
+   * Processing rows: primary opens the Complete modal, Fail stays menu-only
+   * and destructive-last. Terminal rows carry no actions; the Terminal
+   * marker moves into the status cell and the expansion.
+   */
+  function buildRowActions(item: AdminPayoutQueueItem): RowActionsConfig | undefined {
+    if (isTerminal(item.status)) return undefined;
+    const openComplete = () => {
+      setCompletingItem(item);
+      setExternalPayoutIdInput(`tr_${crypto.randomUUID().slice(0, 8)}`);
+    };
+    const openFail = () => {
+      setFailingItem(item);
+      setFailureReasonInput("");
+    };
+    if (item.status === "requested") {
+      return {
+        primary: {
+          key: "process",
+          label: processingId === item.id ? s.updating : s.startProcessing,
+          onSelect: () => handleStartProcessing(item.id),
+          disabled: processingId === item.id,
+        },
+        menu: [
+          { key: "complete", label: s.complete, onSelect: openComplete },
+          { key: "fail", label: s.fail, onSelect: openFail, destructive: true },
+        ],
+      };
     }
+    return {
+      primary: { key: "complete", label: s.complete, onSelect: openComplete },
+      menu: [{ key: "fail", label: s.fail, onSelect: openFail, destructive: true }],
+    };
   }
 
   function getRecipientTypeBadge(type: string) {
@@ -219,31 +241,22 @@ export default function PayoutsAdminClient({
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col gap-4 rounded-2xl bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600">
-              <Send size={18} className="text-white" />
-            </div>
-            <h1 className="text-xl font-black tracking-tight">Payout Management</h1>
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Disburse recipient funds, complete bank transfers, and manage payout state transitions.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow={s.eyebrow}
+        title={s.title}
+        description={s.description}
+      />
 
-        <div className="flex gap-4 border-t border-white/10 pt-3 sm:border-t-0 sm:pt-0">
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-400">Action Required</p>
-            <p className="text-lg font-black text-amber-400">{requestedCount + processingCount}</p>
-          </div>
-          <div className="border-l border-white/10 pl-4">
-            <p className="text-[10px] font-black uppercase text-slate-400">Total Volume</p>
-            <p className="text-lg font-black text-emerald-400">${totalAmount.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
+      <StatStrip
+        items={[
+          {
+            label: s.actionRequired,
+            value: requestedCount + processingCount,
+            accent: "text-amber-600",
+          },
+          { label: s.totalVolume, value: `$${totalAmount.toFixed(2)}` },
+        ]}
+      />
 
       {/* Notifications */}
       {toast && (
@@ -258,171 +271,116 @@ export default function PayoutsAdminClient({
         </div>
       )}
 
-      {/* Filters & Search Toolbar — open bar, tabs + search keep their own chrome. */}
-      <div className="flex flex-col gap-4 border-b border-zinc-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Status Tabs */}
-        <div className="flex flex-wrap gap-1">
-          {["all", "requested", "processing", "completed", "failed", "cancelled"].map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => handleFilterChange(st)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-black capitalize transition ${
-                activeFilter === st
-                  ? "bg-slate-950 text-white"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-              }`}
-            >
-              {st}
-              {st === "requested" && requestedCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] text-white">
-                  {requestedCount}
+      <TableToolbar
+        search={{
+          value: searchQuery,
+          placeholder: s.searchPlaceholder,
+          onChange: (v) => setSearchQuery(v),
+        }}
+        tabs={s.tabs.map((t) => ({
+          value: t.value,
+          label: t.label,
+          count:
+            t.value === "requested" && requestedCount > 0 ? requestedCount : undefined,
+          active: activeFilter === t.value,
+          onSelect: () => handleFilterChange(t.value),
+        }))}
+        filters={[]}
+      />
+
+      <AdminTable
+        columns={columns}
+        rows={filteredQueue.map((item) => {
+          const terminal = isTerminal(item.status);
+          return {
+            id: item.id,
+            cells: [
+              <span key="recipient" className="block">
+                <span className="flex items-center gap-1.5">
+                  {getRecipientTypeBadge(item.recipientType)}
+                  <span className="text-xs font-bold text-zinc-900">
+                    {item.recipientName}
+                  </span>
                 </span>
-              )}
-            </button>
-          ))}
+                {item.requestedByEmail && (
+                  <span className="block text-[10px] font-normal text-zinc-400">
+                    Req: {item.requestedByEmail}
+                  </span>
+                )}
+              </span>,
+              <span key="amount" className="whitespace-nowrap tabular-nums">
+                <span className="text-sm font-black text-zinc-950">
+                  ${item.amount.toFixed(2)}
+                </span>{" "}
+                <span className="text-[10px] font-bold text-zinc-400">
+                  {item.currency.toUpperCase()}
+                </span>
+              </span>,
+              <span key="status" className="block">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[item.status]}`}
+                  />
+                  <span>{s.statusLabels[item.status]}</span>
+                  {terminal && (
+                    <span className="text-[11px] font-bold text-zinc-400">
+                      · {s.terminal}
+                    </span>
+                  )}
+                </span>
+                {item.externalPayoutId && (
+                  <span className="mt-0.5 block font-mono text-[10px] font-bold text-emerald-700">
+                    Ext: {item.externalPayoutId}
+                  </span>
+                )}
+                {item.failureReason && (
+                  <span className="mt-0.5 block max-w-xs text-[10px] font-normal text-rose-600">
+                    {item.failureReason}
+                  </span>
+                )}
+              </span>,
+              <span key="destination" className="block">
+                <span className="font-bold capitalize text-zinc-800">
+                  {item.destinationType.replace("_", " ")}
+                </span>
+                {item.destinationReference && (
+                  <span className="block font-mono text-[10px] text-zinc-500">
+                    {item.destinationReference}
+                  </span>
+                )}
+              </span>,
+              <span key="payout" className="block">
+                <span className="font-mono text-[11px] font-bold text-zinc-900">
+                  {item.id.slice(0, 8)}...
+                </span>
+                <span className="block text-[10px] font-normal text-zinc-400">
+                  {new Date(item.createdAt).toLocaleDateString()}
+                </span>
+              </span>,
+            ],
+            detailExtra: terminal
+              ? [{ label: s.stateLabel, value: s.terminal }]
+              : [],
+            actions: buildRowActions(item),
+          };
+        })}
+        emptyMessage={
+          <span className="block">
+            <span className="block text-sm font-bold text-zinc-700">{s.emptyTitle}</span>
+            <span className="mt-1 block text-xs font-normal text-zinc-400">{s.emptySub}</span>
+          </span>
+        }
+      />
+
+      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-zinc-400">
+            {queue.length === 0
+              ? tableStrings.showingNone(queue.length)
+              : tableStrings.showingResults(1, filteredQueue.length, queue.length)}
+          </p>
         </div>
-
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search size={14} className="absolute left-3 top-2.5 text-zinc-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search recipient or ID..."
-            className="w-full rounded-xl border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs font-bold text-zinc-900 outline-hidden focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-          />
-        </div>
-      </div>
-
-      {/* Queue Table */}
-      <div className="rounded-2xl border border-zinc-200 bg-white shadow-xs overflow-hidden">
-        {filteredQueue.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500">
-            <Send size={24} className="mx-auto text-zinc-300 mb-2" />
-            <p className="text-sm font-bold text-zinc-700">No payout records found</p>
-            <p className="text-xs text-zinc-400">No payout requests matching the selected filters.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-zinc-600">
-              <thead className="bg-zinc-50 text-[10px] font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-200">
-                <tr>
-                  <th className="px-4 py-3">Payout ID / Date</th>
-                  <th className="px-4 py-3">Recipient</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Destination</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 font-medium">
-                {filteredQueue.map((item) => (
-                  <tr key={item.id} className="hover:bg-zinc-50/60 transition">
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="font-mono font-bold text-zinc-900 text-[11px]">
-                        {item.id.slice(0, 8)}...
-                      </span>
-                      <span className="block text-[10px] text-zinc-400">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          {getRecipientTypeBadge(item.recipientType)}
-                          <span className="font-bold text-zinc-900 text-xs">
-                            {item.recipientName}
-                          </span>
-                        </div>
-                        {item.requestedByEmail && (
-                          <span className="block text-[10px] text-zinc-400">
-                            Req: {item.requestedByEmail}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="font-black text-zinc-950 text-sm">
-                        ${item.amount.toFixed(2)}
-                      </span>{" "}
-                      <span className="text-[10px] font-bold text-zinc-400">
-                        {item.currency.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="capitalize font-bold text-zinc-800">
-                        {item.destinationType.replace("_", " ")}
-                      </span>
-                      {item.destinationReference && (
-                        <span className="block text-[10px] font-mono text-zinc-500">
-                          {item.destinationReference}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {getStatusBadge(item.status)}
-                      {item.externalPayoutId && (
-                        <span className="block text-[10px] font-mono text-emerald-700 font-bold mt-0.5">
-                          Ext: {item.externalPayoutId}
-                        </span>
-                      )}
-                      {item.failureReason && (
-                        <span className="block text-[10px] text-rose-600 font-normal mt-0.5 max-w-xs">
-                          {item.failureReason}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-1.5">
-                      {item.status === "requested" && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartProcessing(item.id)}
-                          disabled={processingId === item.id}
-                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
-                        >
-                          {processingId === item.id ? "Updating..." : "Start Processing"}
-                        </button>
-                      )}
-
-                      {(item.status === "requested" || item.status === "processing") && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCompletingItem(item);
-                              setExternalPayoutIdInput(`tr_${crypto.randomUUID().slice(0, 8)}`);
-                            }}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
-                          >
-                            Complete
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFailingItem(item);
-                              setFailureReasonInput("");
-                            }}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
-                          >
-                            Fail
-                          </button>
-                        </>
-                      )}
-
-                      {(item.status === "completed" ||
-                        item.status === "failed" ||
-                        item.status === "cancelled") && (
-                        <span className="text-[11px] text-zinc-400 font-bold">Terminal</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       {/* Complete Payout Modal */}
