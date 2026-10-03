@@ -57,7 +57,8 @@ export const adminPageCopy: Record<
   | "products"
   | "reviews"
   | "business-review"
-  | "ai-rejections",
+  | "ai-rejections"
+  | "identity-verifications",
   AdminPageCopy
 > = {
   users: {
@@ -234,6 +235,27 @@ export const adminPageCopy: Record<
       { key: "total", label: "Total logged" },
       { key: "rejected", label: "Hard rejections" },
       { key: "flagged", label: "Sanitised flags" },
+    ],
+  },
+  "identity-verifications": {
+    eyebrow: "Admin",
+    title: "Identity Verifications",
+    description:
+      "Review government ID document submissions and verify user identity profiles.",
+    empty: "No submissions found for this status.",
+    stats: [
+      { key: "submitted", label: "Submitted" },
+      { key: "needs_more_info", label: "Needs more info", accent: "text-amber-600" },
+      { key: "approved", label: "Approved", accent: "text-emerald-600" },
+      { key: "rejected", label: "Rejected", accent: "text-red-600" },
+      { key: "total", label: "Total" },
+    ],
+    tabs: [
+      { value: "submitted", label: "Submitted" },
+      { value: "needs_more_info", label: "Needs more info" },
+      { value: "approved", label: "Approved" },
+      { value: "rejected", label: "Rejected" },
+      { value: "all", label: "All" },
     ],
   },
 };
