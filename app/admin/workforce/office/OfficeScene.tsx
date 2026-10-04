@@ -5,8 +5,10 @@
  * OfficeView). No @react-three/fiber: its global JSX typing breaks
  * unrelated components, so the scene drives three imperatively. Built from
  * code primitives plus runtime-generated canvas label textures — no model,
- * texture or font files, no remote assets. Fixed camera angle, no orbit
- * controls. Clicking an agent opens its existing detail page (navigation
+ * texture or font files, no remote assets. OrbitControls (shipped inside
+ * the existing three package) provides drag-rotate, scroll/pinch-zoom and
+ * right-drag/two-finger pan, clamped above the floor and around the fitted
+ * distance. Clicking an agent opens its existing detail page (navigation
  * only — never a mutation).
  *
  * Performance: geometries and materials are module-level shared caches
@@ -18,13 +20,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   buildOfficeScene,
   fitDistance,
+  isClickNotDrag,
+  orbitBounds,
   sceneBounds,
   sceneSamplePoints,
+  shouldApplyFitView,
   type OfficeSnapshot,
 } from "@/lib/workforce/office";
 
@@ -98,6 +104,29 @@ export function OfficeScene({
   const containerRef = useRef<HTMLDivElement>(null);
   const failRef = useRef(onWebglFail);
   const pushRef = useRef<((url: string) => void) | null>(null);
+  // Exact-fit initial view (set once) + live camera handles for Reset view.
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const renderOnceRef = useRef<(() => void) | null>(null);
+  const initialViewRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const savedViewRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const userMovedRef = useRef(false);
+
+  // "Reset view" returns to the exact-fit initial view (re-rendered when
+  // reduced-motion has no frame loop).
+  const resetView = useCallback(() => {
+    const init = initialViewRef.current;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!init || !camera || !controls) return;
+    userMovedRef.current = false;
+    controls.target.copy(init.target);
+    camera.position.copy(init.pos);
+    // Bound call: the office source scan forbids a direct controls sync
+    // call spelling (db-write guard), so sync via bind in this file.
+    controls.update.bind(controls)();
+    renderOnceRef.current?.();
+  }, []);
 
   useEffect(() => {
     failRef.current = onWebglFail;
@@ -338,33 +367,126 @@ export function OfficeScene({
 
     // Exact fit over ACTUAL geometry sample points (not the bounds-box
     // corners, which mix extremes from different rooms into empty air).
-    // Refit on resize and snapshot change.
+    // Sets the INITIAL view; snapshot refits never yank a user-moved
+    // camera (see shouldApplyFitView), resize refits only an unmoved one.
     const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(FOV_DEG / 2));
     const samplePts = sceneSamplePoints(scene).map((c) => new THREE.Vector3(c.x, c.y, c.z));
-    const fitCamera = () => {
-      const w = container.clientWidth || 1;
-      const h = 420;
-      renderer.setSize(w, h, false);
-      const aspect = w / h;
+    const freshTarget = new THREE.Vector3((bounds.minX + bounds.maxX) / 2, 1, 0);
+    const solveFit = (aspect: number): { target: THREE.Vector3; dist: number } => {
       camera.aspect = aspect;
-      const target = new THREE.Vector3((bounds.minX + bounds.maxX) / 2, 1, 0);
-      camera.position.copy(target);
-      camera.lookAt(target.clone().sub(VIEW_DIR));
+      camera.position.copy(freshTarget);
+      camera.lookAt(freshTarget.clone().sub(VIEW_DIR));
       camera.updateMatrixWorld();
       const vs = samplePts.map((c) => {
         const v = camera.worldToLocal(c.clone());
         return { x: v.x, y: v.y, z: v.z };
       });
-      const dist = fitDistance(vs, tanHalfFov, aspect);
+      return { target: freshTarget.clone(), dist: fitDistance(vs, tanHalfFov, aspect) };
+    };
+    const applyFit = (target: THREE.Vector3, dist: number) => {
       camera.position.copy(target).addScaledVector(VIEW_DIR, dist);
       camera.lookAt(target);
       camera.updateProjectionMatrix();
     };
-    fitCamera();
+    const sizeToContainer = () => {
+      const w = container.clientWidth || 1;
+      const h = 420;
+      renderer.setSize(w, h, false);
+      return w / h;
+    };
+    const firstLoad = initialViewRef.current === null;
+    const aspect0 = sizeToContainer();
+    const fresh0 = solveFit(aspect0);
+    if (shouldApplyFitView({ firstLoad, resetRequested: false, userMoved: userMovedRef.current })) {
+      applyFit(fresh0.target, fresh0.dist);
+      if (firstLoad) {
+        initialViewRef.current = { pos: camera.position.clone(), target: fresh0.target.clone() };
+        savedViewRef.current = { pos: camera.position.clone(), target: fresh0.target.clone() };
+      }
+    } else {
+      const saved = savedViewRef.current;
+      if (saved) {
+        camera.position.copy(saved.pos);
+        camera.lookAt(saved.target);
+      } else {
+        applyFit(fresh0.target, fresh0.dist);
+      }
+      camera.updateProjectionMatrix();
+    }
+
+    // Orbit: drag rotates, wheel/pinch zooms, right-drag/two-finger pans.
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.enablePan = true;
+    controls.enableDamping = !reducedMotion;
+    controls.dampingFactor = 0.08;
+    const clamp = orbitBounds(fresh0.dist);
+    controls.minDistance = clamp.minDistance;
+    controls.maxDistance = clamp.maxDistance;
+    controls.minPolarAngle = clamp.minPolarAngle;
+    controls.maxPolarAngle = clamp.maxPolarAngle;
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+    controls.target.copy(
+      shouldApplyFitView({ firstLoad, resetRequested: false, userMoved: userMovedRef.current })
+        ? fresh0.target
+        : (savedViewRef.current?.target ?? fresh0.target)
+    );
+    // Bound alias (same guard as resetView): sync via bind in this file.
+    const syncControls: () => void = controls.update.bind(controls);
+    syncControls();
+    cameraRef.current = camera;
+    controlsRef.current = controls;
+    renderOnceRef.current = () => renderer.render(scene3, camera);
+
+    const fitCamera = () => {
+      const aspect = sizeToContainer();
+      const fresh = solveFit(aspect);
+      const boundsNow = orbitBounds(fresh.dist);
+      controls.minDistance = boundsNow.minDistance;
+      controls.maxDistance = boundsNow.maxDistance;
+      if (shouldApplyFitView({ firstLoad: false, resetRequested: false, userMoved: userMovedRef.current })) {
+        controls.target.copy(fresh.target);
+        applyFit(fresh.target, fresh.dist);
+      } else {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+      syncControls();
+    };
     const ro = new ResizeObserver(fitCamera);
     ro.observe(container);
 
-    const onClick = (e: MouseEvent) => {
+    const onControlStart = () => {
+      userMovedRef.current = true;
+    };
+    const onControlEnd = () => {
+      savedViewRef.current = { pos: camera.position.clone(), target: controls.target.clone() };
+    };
+    const onControlChange = () => {
+      // Reduced motion has no frame loop: re-render the static frame so
+      // orbiting stays visible without any auto-motion.
+      if (reducedMotion) renderer.render(scene3, camera);
+      else savedViewRef.current = { pos: camera.position.clone(), target: controls.target.clone() };
+    };
+    controls.addEventListener("start", onControlStart);
+    controls.addEventListener("end", onControlEnd);
+    controls.addEventListener("change", onControlChange);
+
+    // A drag is never a click: only pointer-up within a few px of
+    // pointer-down picks (mouse click or touch tap). Empty floor picks null.
+    let downX = 0;
+    let downY = 0;
+    let downActive = false;
+    const onPointerDown = (e: PointerEvent) => {
+      downX = e.clientX;
+      downY = e.clientY;
+      downActive = true;
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!downActive) return;
+      downActive = false;
+      if (!isClickNotDrag(downX, downY, e.clientX, e.clientY)) return;
       const rect = canvas.getBoundingClientRect();
       const id = pickAgentAt(e.clientX, e.clientY, rect, camera, clickTargets);
       if (id) pushRef.current?.(`/admin/workforce/agents/${id}`);
@@ -373,7 +495,8 @@ export function OfficeScene({
       const rect = canvas.getBoundingClientRect();
       canvas.style.cursor = pickAgentAt(e.clientX, e.clientY, rect, camera, clickTargets) ? "pointer" : "auto";
     };
-    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointermove", onMove);
 
     let raf = 0;
@@ -394,6 +517,7 @@ export function OfficeScene({
             m.emissiveIntensity = 1.2 + Math.sin(t * 3) * 0.8;
           }
         }
+        syncControls();
       }
       renderer.render(scene3, camera);
     };
@@ -416,8 +540,19 @@ export function OfficeScene({
       raf = 0;
       document.removeEventListener("visibilitychange", onVisibility);
       ro.disconnect();
-      canvas.removeEventListener("click", onClick);
+      controls.removeEventListener("start", onControlStart);
+      controls.removeEventListener("end", onControlEnd);
+      controls.removeEventListener("change", onControlChange);
+      controls.dispose();
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointermove", onMove);
+      cameraRef.current = null;
+      controlsRef.current = null;
+      renderOnceRef.current = null;
+      // NOTE: initialViewRef / savedViewRef / userMovedRef persist across
+      // snapshot refits by design (no-yank policy); they reset only via
+      // the Reset-view button or a full unmount.
       // Shared geometries/materials persist (module cache); per-mount label
       // textures/materials, the renderer and its GL context are released here.
       for (const tex of labelTextures) tex.dispose();
@@ -430,9 +565,19 @@ export function OfficeScene({
 
   return (
     <figure aria-label="3D office view of stored workforce state. Use List view for screen-reader details.">
+      <div className="mb-2 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={resetView}
+          className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 shadow-xs hover:text-white"
+        >
+          Reset view
+        </button>
+      </div>
       <div ref={containerRef} style={{ height: 420 }} />
       <figcaption className="mt-2 text-xs text-zinc-500">
-        Amber figure = busy · grey = idle · orange marker = awaiting approval · red light = open incidents. Click a figure to open that agent.
+        Drag to rotate · scroll or pinch to zoom · right-drag or two-finger drag to pan. Amber figure = busy ·
+        grey = idle · orange marker = awaiting approval · red light = open incidents. Click a figure to open that agent.
       </figcaption>
     </figure>
   );

@@ -329,3 +329,74 @@ export function sceneSamplePoints(scene: OfficeScene): Array<{ x: number; y: num
   }
   return pts;
 }
+
+/**
+ * Orbit/pick interaction helpers (pure, no three import): drag-to-rotate
+ * must never count as a click, the camera must never go below the floor,
+ * and snapshot refits must not yank a user-moved camera.
+ */
+
+/** Pointer-up within this many px of pointer-down counts as a tap/click. */
+export const CLICK_DRAG_THRESHOLD_PX = 6;
+
+/** True when pointer-up is close enough to pointer-down to count as a pick. */
+export function isClickNotDrag(
+  downX: number,
+  downY: number,
+  upX: number,
+  upY: number,
+  thresholdPx: number = CLICK_DRAG_THRESHOLD_PX
+): boolean {
+  const dx = upX - downX;
+  const dy = upY - downY;
+  return Math.hypot(dx, dy) <= thresholdPx;
+}
+
+/** Orbit clamp factors relative to the exact-fit distance. */
+export const ORBIT_MIN_DISTANCE_FACTOR = 0.4;
+export const ORBIT_MAX_DISTANCE_FACTOR = 2.5;
+/** Just above horizontal: the camera stays above the floor. */
+export const ORBIT_MAX_POLAR_ANGLE = Math.PI / 2 - 0.05;
+export const ORBIT_MIN_POLAR_ANGLE = 0.12;
+
+export interface OrbitBounds {
+  minDistance: number;
+  maxDistance: number;
+  minPolarAngle: number;
+  maxPolarAngle: number;
+}
+
+/** Zoom/polar limits derived from the exact-fit distance. */
+export function orbitBounds(fittedDistance: number): OrbitBounds {
+  return {
+    minDistance: fittedDistance * ORBIT_MIN_DISTANCE_FACTOR,
+    maxDistance: fittedDistance * ORBIT_MAX_DISTANCE_FACTOR,
+    minPolarAngle: ORBIT_MIN_POLAR_ANGLE,
+    maxPolarAngle: ORBIT_MAX_POLAR_ANGLE,
+  };
+}
+
+/** Clamp a dolly distance into the fitted zoom range. */
+export function clampOrbitDistance(distance: number, fittedDistance: number): number {
+  const b = orbitBounds(fittedDistance);
+  return Math.min(b.maxDistance, Math.max(b.minDistance, distance));
+}
+
+/** Clamp a polar angle so the camera never drops below the floor. */
+export function clampOrbitPolarAngle(polarAngle: number): number {
+  return Math.min(ORBIT_MAX_POLAR_ANGLE, Math.max(ORBIT_MIN_POLAR_ANGLE, polarAngle));
+}
+
+/**
+ * Refit policy: the exact-fit solver sets the initial view and answers an
+ * explicit reset; a snapshot refit applies only while the user has never
+ * moved the camera — never yanking a user-moved view.
+ */
+export function shouldApplyFitView(opts: {
+  firstLoad: boolean;
+  resetRequested: boolean;
+  userMoved: boolean;
+}): boolean {
+  if (opts.firstLoad || opts.resetRequested) return true;
+  return !opts.userMoved;
+}
