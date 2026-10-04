@@ -63,7 +63,7 @@
 - `lib/workforce/office.ts`: pure snapshot→scene view-model. Rooms from the registry `department` field (new agents get desks automatically); idle=seated, busy=working pose, awaiting=marker, open incidents=reliability annex alert light, stale/unknown=neutral. Stored state only.
 - Scene: code primitives only (no model/texture files), fixed camera, click→agent page, `prefers-reduced-motion` respected, disposal on unmount, 30s `router.refresh()` polling paused when hidden, no client fetch/websockets/Realtime. `three@0.186.1` used imperatively (no react-three-fiber — its global JSX typing breaks unrelated components) and typed via `@types/three@0.186.0` devDependency (audit unchanged at 1 low/1 high/1 critical).
 - Nav: one "Office" sidebar entry; p2 `WORKFORCE_PAGES` registration. Tests: `office.test.cjs` (9 tests: mapping, auto-desk, snapshot hygiene, gate order, static prohibitions, three confinement).
-- `docs/3D-OFFICE-READONLY.md`: the office must never gain write controls without a new stage.
+- Pass 2 rebuild: department grid cells with glass walls/door gaps/floor labels; desk+chair+monitor+figure per agent (all pick to the agent); idle breathe, running typing, awaiting stands at an in-room marker, incident pulse, unknown static; exact frustum fit for all geometry (verified hermetically at 1/3/8 rooms, wide+narrow); shared geometries/materials; unassigned cell for empty departments.
 - No migrations, no API routes, no service-role, no writes, existing modules untouched.
 
 ## [2026-09] — Guardrails Stage 18 complete: no autonomous production actions (2026-09-30)
