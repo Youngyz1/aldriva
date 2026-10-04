@@ -134,10 +134,12 @@ export const ROOM_DEPTH = 7;
 export const WALL_HEIGHT = 1.2;
 export const CELL_PAD = 4;
 /** Label sprite half-extents (for fit bounds). */
-export const LABEL_HALF_W = 1.4;
-export const LABEL_TOP = 4.6;
+export const LABEL_HALF_W = 1.7;
+export const LABEL_TOP = 4.0;
 export const LAMP_TOP = 3.0;
-export const MARKER_TOP = 4.0;
+export const MARKER_TOP = 2.6;
+export const FLOOR_LABEL_HALF_W = 2.1;
+export const FLOOR_LABEL_TOP = 1.4;
 
 /**
  * Pure animation mapping from stored presence. No random wandering, no
@@ -241,7 +243,7 @@ export function sceneBounds(scene: OfficeScene): SceneBounds {
   return { minX, maxX, minY: 0, maxY, minZ, maxZ };
 }
 
-/** Eight corners of the bounds box, for frustum projection. */
+/** Eight corners of the bounds box (legacy coarse fit; prefer sceneSamplePoints). */
 export function boundsCorners(b: SceneBounds): Array<{ x: number; y: number; z: number }> {
   const pts: Array<{ x: number; y: number; z: number }> = [];
   for (const x of [b.minX, b.maxX]) {
@@ -264,7 +266,7 @@ export function fitDistance(
   vs: Array<{ x: number; y: number; z: number }>,
   tanHalfFov: number,
   aspect: number,
-  margin = 1.12
+  margin = 1.1
 ): number {
   let d = 0.1;
   for (const v of vs) {
@@ -277,13 +279,53 @@ export function fitDistance(
 /** Mesh budget mirror of the scene component (one mesh ≈ one draw call). */
 export function describeRoomMeshes(room: OfficeRoom): { meshes: number; labels: number } {
   const n = room.desks.length;
-  // floor(1) + back/side/front walls with door gap(5) + plant pot+leaves(2)
-  // + sofa seat/back/2 arms when 2+ desks(4) + per desk (desk, chair seat,
-  // chair back, monitor, body, head, 2 arms, label = 9) + marker post+cone
-  // when flagged(2) + lamp when lit(1).
+  // floor(1) + floor department label(1) + back/side/front walls with door
+  // gap(5) + plant pot+leaves(2) + sofa seat/back/2 arms when 2+ desks(4)
+  // + per desk (desk, chair seat, chair back, monitor, body, head, 2 arms,
+  // label = 9) + marker post+cone when flagged(2) + lamp when lit(1).
   const markers = room.desks.filter((d) => d.marker !== 'none').length;
   return {
-    meshes: 8 + (n >= 2 ? 4 : 0) + n * 9 + markers * 2 + (room.alertLight ? 1 : 0),
-    labels: n,
+    meshes: 9 + (n >= 2 ? 4 : 0) + n * 9 + markers * 2 + (room.alertLight ? 1 : 0),
+    labels: n + 1,
   };
+}
+
+/**
+ * Actual geometry sample points for frustum fitting — floor corners and
+ * wall tops per room, desk-column tops, label boxes, lamp tops, approval
+ * spots. Unlike the bounds-box corners, every point sits on (or at the
+ * edge of) visible geometry, so fitting them fills the frame instead of
+ * fitting empty box corners.
+ */
+export function sceneSamplePoints(scene: OfficeScene): Array<{ x: number; y: number; z: number }> {
+  const pts: Array<{ x: number; y: number; z: number }> = [];
+  for (const room of scene.rooms) {
+    const f = roomFloor(room.department, room.originX, room.originZ, room.width);
+    for (const x of [f.minX, f.maxX]) {
+      for (const z of [f.minZ, f.maxZ]) {
+        pts.push({ x, y: 0, z });
+        pts.push({ x, y: WALL_HEIGHT, z });
+      }
+    }
+    // Floor department label box.
+    const fx = (f.minX + f.maxX) / 2;
+    const fz = f.maxZ - 0.7;
+    pts.push({ x: fx - FLOOR_LABEL_HALF_W, y: FLOOR_LABEL_TOP, z: fz });
+    pts.push({ x: fx + FLOOR_LABEL_HALF_W, y: FLOOR_LABEL_TOP, z: fz });
+    for (const d of room.desks) {
+      pts.push({ x: d.x - LABEL_HALF_W, y: d.topY, z: d.z });
+      pts.push({ x: d.x + LABEL_HALF_W, y: d.topY, z: d.z });
+    }
+    if (room.alertLight) {
+      pts.push({ x: (f.minX + f.maxX) / 2, y: LAMP_TOP, z: f.minZ + 1.1 });
+    }
+    if (room.approvalSpot) {
+      pts.push({ x: room.approvalSpot.x, y: 0, z: room.approvalSpot.z });
+      pts.push({ x: room.approvalSpot.x, y: 2.2, z: room.approvalSpot.z });
+    }
+  }
+  if (pts.length === 0) {
+    pts.push({ x: -4, y: 0, z: -4 }, { x: 4, y: 0, z: 4 });
+  }
+  return pts;
 }

@@ -22,9 +22,9 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import {
   buildOfficeScene,
-  boundsCorners,
   fitDistance,
   sceneBounds,
+  sceneSamplePoints,
   type OfficeSnapshot,
 } from "@/lib/workforce/office";
 
@@ -155,29 +155,29 @@ export function OfficeScene({
       return mesh;
     };
 
-    const makeLabel = (text: string): THREE.Sprite => {
+    const makeLabel = (text: string, scale = 1): THREE.Sprite => {
       const c = document.createElement("canvas");
-      c.width = 256;
-      c.height = 64;
+      c.width = 320;
+      c.height = 80;
       const g = c.getContext("2d");
       if (g) {
         g.fillStyle = "rgba(9,9,11,0.82)";
         g.beginPath();
-        g.roundRect(4, 8, 248, 48, 12);
+        g.roundRect(4, 10, 312, 60, 14);
         g.fill();
         g.fillStyle = "#fafafa";
-        g.font = "600 26px system-ui, sans-serif";
+        g.font = "600 32px system-ui, sans-serif";
         g.textAlign = "center";
         g.textBaseline = "middle";
         const label = text.length > 18 ? `${text.slice(0, 17)}…` : text;
-        g.fillText(label, 128, 33);
+        g.fillText(label, 160, 41);
       }
       const tex = new THREE.CanvasTexture(c);
       labelTextures.push(tex);
       const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
       labelMaterials.push(spriteMat);
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(2.6, 0.65, 1);
+      sprite.scale.set(3.4 * scale, 0.85 * scale, 1);
       sprite.renderOrder = 10;
       return sprite;
     };
@@ -204,6 +204,10 @@ export function OfficeScene({
       const floor = new THREE.Mesh(boxGeo(floorW, 0.1, 7), stdMat(0x27272a));
       floor.position.set((f.minX + f.maxX) / 2, -0.05, room.originZ);
       scene3.add(floor);
+      // Floor department label at the front edge.
+      const floorLabel = makeLabel(room.department, 1.25);
+      floorLabel.position.set((f.minX + f.maxX) / 2, 0.9, f.maxZ - 0.7);
+      scene3.add(floorLabel);
       // Glass walls: back full, sides full, front split for a door gap.
       const wallH = 1.2;
       const back = new THREE.Mesh(boxGeo(floorW, wallH, 0.15), glassMat);
@@ -332,12 +336,11 @@ export function OfficeScene({
       }
     });
 
-    // Exact fit: every geometry corner inside the frustum. Corners are
-    // expressed in camera space with the camera AT the target, then the
-    // minimum distance along the fixed view direction is solved in closed
-    // form (see fitDistance). Refit on resize and snapshot change.
+    // Exact fit over ACTUAL geometry sample points (not the bounds-box
+    // corners, which mix extremes from different rooms into empty air).
+    // Refit on resize and snapshot change.
     const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(FOV_DEG / 2));
-    const corners = boundsCorners(bounds).map((c) => new THREE.Vector3(c.x, c.y, c.z));
+    const samplePts = sceneSamplePoints(scene).map((c) => new THREE.Vector3(c.x, c.y, c.z));
     const fitCamera = () => {
       const w = container.clientWidth || 1;
       const h = 420;
@@ -348,7 +351,7 @@ export function OfficeScene({
       camera.position.copy(target);
       camera.lookAt(target.clone().sub(VIEW_DIR));
       camera.updateMatrixWorld();
-      const vs = corners.map((c) => {
+      const vs = samplePts.map((c) => {
         const v = camera.worldToLocal(c.clone());
         return { x: v.x, y: v.y, z: v.z };
       });
