@@ -10,7 +10,7 @@ import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { Brain } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 import {
   fetchMemoryList,
   fetchMemoryAgents,
@@ -48,16 +48,11 @@ export default async function WorkforceMemoryPage({
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-2xl text-white">
-          <Brain size={22} /> Memory
-        </h1>
-        <p className="text-sm text-zinc-400">
-          {facts.length} approved persistent fact(s)
-          {activeStatus ? ` · status ${activeStatus}` : ""} · human-approved only, never agent-written.
-          Memory is not a secret store.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="AI Workforce"
+        title="Memory"
+        description={`${facts.length} approved persistent fact(s)${activeStatus ? ` · status ${activeStatus}` : ""} · human-approved only, never agent-written. Memory is not a secret store.`}
+      />
 
       {created && (
         <p className="rounded-xl bg-zinc-900 p-3 text-sm text-white shadow-xs">

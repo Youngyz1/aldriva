@@ -11,6 +11,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { fetchCommandCenterData } from "@/lib/workforce/command-center";
 import { buildOfficeSnapshot } from "@/lib/workforce/office";
+import PageHeader from "@/components/admin/PageHeader";
 import { OfficeView } from "./OfficeView";
 
 export default async function WorkforceOfficePage() {
@@ -24,13 +25,11 @@ export default async function WorkforceOfficePage() {
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="text-2xl text-white">AI Workforce — Office</h1>
-        <p className="text-sm text-zinc-400">
-          A live view of stored workforce state. Read-only: nothing here can
-          start, approve or change any work.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="AI Workforce"
+        title="Office"
+        description="A live view of stored workforce state. Read-only: nothing here can start, approve or change any work."
+      />
       <OfficeView snapshot={snapshot} />
     </div>
   );
