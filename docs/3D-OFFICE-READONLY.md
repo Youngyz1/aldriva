@@ -14,5 +14,7 @@ HARD RULES (any violation needs a NEW STAGE — never extend in place):
   the server component via `router.refresh()`).
 - three.js stays route-scoped: imported ONLY in `OfficeScene.tsx`, loaded
   via `next/dynamic` with `ssr:false`. Never hoist it into shared modules.
+  three is used imperatively (no react-three-fiber — its global JSX typing
+  breaks unrelated components) and typed through `@types/three`.
 - Animation reflects STORED state only. Never invent activity, presence, or
   incidents. Unknown states render neutral.

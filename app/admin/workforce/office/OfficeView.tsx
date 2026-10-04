@@ -96,7 +96,7 @@ export function OfficeView({ snapshot }: { snapshot: OfficeSnapshot }) {
         </button>
       </div>
       {mode === "3d" ? (
-        <OfficeScene snapshot={snapshot} reducedMotion={reducedMotion} />
+        <OfficeScene snapshot={snapshot} reducedMotion={reducedMotion} onWebglFail={show2D} />
       ) : (
         <OfficeFallback snapshot={snapshot} />
       )}
