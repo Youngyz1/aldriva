@@ -1140,22 +1140,25 @@ function CountdownTicker({
     >
       {units.map((unit, idx) => (
         <div key={idx} className="flex flex-col items-center">
-          {/* Large numeral — display typeface, no background tile */}
+          {/* Large numeral — display typeface with lining numbers */}
           <span
             aria-label={`${unit.value} ${unit.label}`}
+            className="tabular-nums lining-nums"
             style={{
               fontFamily: FF_DISPLAY,
               fontSize: "clamp(2.5rem, 6vw, 4rem)",
               fontWeight: 600,
               lineHeight: 1,
               color: "var(--inv-ink)",
+              fontVariantNumeric: "lining-nums tabular-nums",
+              fontFeatureSettings: '"lnum" 1, "tnum" 1',
               letterSpacing: "-0.02em",
             }}
           >
             {String(unit.value).padStart(2, "0")}
           </span>
           <span
-            className="mt-1 text-[9px] tracking-[0.25em] uppercase"
+            className="mt-3 text-[9px] tracking-[0.25em] uppercase"
             style={{ color: "var(--inv-ink-subtle)", fontFamily: FF_TEXT }}
           >
             {unit.label}

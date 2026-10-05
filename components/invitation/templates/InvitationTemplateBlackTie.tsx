@@ -917,10 +917,16 @@ function CountdownTicker({ targetDate, timezone }: { targetDate: string; timezon
           key={idx}
           className="p-3 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-lg flex flex-col items-center justify-center"
         >
-          <span className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight font-mono">
+          <span
+            className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight font-mono tabular-nums lining-nums leading-none"
+            style={{
+              fontVariantNumeric: "lining-nums tabular-nums",
+              fontFeatureSettings: '"lnum" 1, "tnum" 1',
+            }}
+          >
             {String(unit.value).padStart(2, "0")}
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400/90 mt-1">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400/90 mt-2.5">
             {unit.realLabel || unit.label}
           </span>
         </div>

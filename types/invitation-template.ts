@@ -185,6 +185,36 @@ export interface InvitationPageData {
   /** Track title or descriptor, e.g. "Chamber Strings — Clair de Lune" */
   musicTitle?: string | null;
 
+  // ── [HIDE-IF-EMPTY] Wedding-Specific Fields ──────────────────────────────
+  /** First partner name for wedding invitations (e.g. "Elena") */
+  partner1Name?: string | null;
+  /** Second partner name for wedding invitations (e.g. "David") */
+  partner2Name?: string | null;
+  /** Family hosting line (e.g. "Together with their families") */
+  familyNote?: string | null;
+  /** Wedding ceremony subtype affecting default terminology & sections */
+  weddingSubtype?: "traditional" | "civil" | "church" | "engagement" | "vow_renewal" | null;
+  /** Wedding color palette swatches with optional names */
+  colorsOfTheDay?: { name?: string; hex: string }[] | null;
+  /** Gift registry link or note (e.g. "Your presence is our gift. For those who wish to contribute...") */
+  registryNote?: string | null;
+  /** Alternating story milestones (e.g. "How We Met", "The Proposal") */
+  weddingStory?: { title?: string; text: string; image?: string | null }[] | null;
+
+  // ── [HIDE-IF-EMPTY] Birthday-Specific Fields ─────────────────────────────
+  /** Celebrant name (e.g. "Maya Rodriguez") */
+  celebrantName?: string | null;
+  /** Milestone celebration number or text (e.g. "30th", "Turning 40", "Sweet 16") */
+  ageMilestone?: string | number | null;
+  /** Party theme or vibe (e.g. "Studio 54 Disco", "Neon Tropical", "Y2K Retro") */
+  theme?: string | null;
+  /** Wish list or gift guidance for guests */
+  giftNote?: string | null;
+
+  // ── [HIDE-IF-EMPTY] Social / Hashtag ──────────────────────────────────────
+  /** Event hashtag (e.g. "#ElenaAndDavid2026", "#MayaTurns30") */
+  hashtag?: string | null;
+
   // ── [REQUIRED] Guest & Credential Context ─────────────────────────────────
   /** Current viewer guest record */
   guest: InvitationGuestData;
