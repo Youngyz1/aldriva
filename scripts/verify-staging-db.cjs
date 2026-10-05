@@ -388,6 +388,24 @@ async function main() {
         "INSERT INTO studio_chat_messages (conversation_id, seq, role, content) VALUES ($1, 0, 'user', 'probe')",
         [convo.rows[0].id], { code: "42501" }, "studio-chat-isolation:cross-message-insert"
       );
+      // Table privileges (129 doctrine): anon holds nothing (Supabase
+      // default privileges grant ALL on new tables — migration 152 revokes
+      // first); authenticated holds exactly the four session-client DML ops.
+      for (const table of ["studio_chat_conversations", "studio_chat_messages"]) {
+        for (const priv of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+          const anon = await client.query(
+            "SELECT has_table_privilege('anon', $1, $2) AS ok", [table, priv]
+          );
+          if (anon.rows[0].ok === false) pass(`studio-chat:priv:anon:${table}.${priv}`, "revoked");
+          else fail(`studio-chat:priv:anon:${table}.${priv}`, `anon still holds ${priv}`);
+          const want = ["SELECT", "INSERT", "UPDATE", "DELETE"].includes(priv);
+          const auth = await client.query(
+            "SELECT has_table_privilege('authenticated', $1, $2) AS ok", [table, priv]
+          );
+          if (auth.rows[0].ok === want) pass(`studio-chat:priv:authenticated:${table}.${priv}=${want}`);
+          else fail(`studio-chat:priv:authenticated:${table}.${priv}`, `expected ${want}`);
+        }
+      }
     });
   } finally {
     await client.end();

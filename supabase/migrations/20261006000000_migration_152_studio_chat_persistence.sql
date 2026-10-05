@@ -15,8 +15,12 @@
 -- ADMIN profile AND user_id = auth.uid() (same admin sub-select as
 -- migration_151 S-1, plus ownership). Messages inherit scope through the
 -- parent conversation via EXISTS (the 149/151 precedent). Grants follow the
--- migration_129 doctrine (authenticated: table ops, service_role: ALL;
--- RLS still gates every row; anon gets nothing).
+-- migration_129 doctrine: REVOKE ALL from PUBLIC and anon first (Supabase
+-- default privileges grant ALL on every new table to anon — see
+-- docs/migration-audit/sql/008_grants.sql), then least-privilege to
+-- authenticated (the four session-client DML ops only: TRUNCATE, REFERENCES
+-- and TRIGGER stay revoked) and ALL to service_role. RLS still gates every
+-- row; anon gets nothing.
 --
 -- Deletes: hard delete cascades MESSAGES ONLY (ON DELETE CASCADE, the 88/111
 -- precedent). There is deliberately NO BEFORE DELETE trigger (unlike the
@@ -73,7 +77,18 @@ CREATE INDEX IF NOT EXISTS idx_studio_chat_messages_conversation
   ON studio_chat_messages (conversation_id, seq);
 
 -- ── Grants (migration_129 doctrine; RLS gates every row) ─────────────────
+--
+-- Supabase default privileges grant ALL on every new public table to anon
+-- (docs/migration-audit/sql/008_grants.sql), so the GRANTs below are not
+-- enough on their own: revoke first. Anon and PUBLIC get nothing. The
+-- session client (chat + conversation routes) needs the four DML ops, so
+-- authenticated keeps exactly SELECT/INSERT/UPDATE/DELETE — TRUNCATE,
+-- REFERENCES and TRIGGER stay revoked (no session path needs them).
 
+REVOKE ALL ON TABLE studio_chat_conversations FROM PUBLIC, anon;
+REVOKE ALL ON TABLE studio_chat_messages FROM PUBLIC, anon;
+REVOKE ALL ON TABLE studio_chat_conversations FROM authenticated;
+REVOKE ALL ON TABLE studio_chat_messages FROM authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE studio_chat_conversations TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE studio_chat_messages TO authenticated;
 GRANT ALL ON TABLE studio_chat_conversations TO service_role;
