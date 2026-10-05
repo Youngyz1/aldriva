@@ -5,6 +5,9 @@
 
 ---
 
+## [2026-10] — Stage 22B: AI gateway admin-only (2026-10-05)
+- `POST/GET /api/ai/gateway`: replaced the any-signed-in-user gate with the admin check (`401` unauthenticated, `403` non-admin per `app/api/admin/*` convention, first statement before parsing/rate-limit/data); allowlist, tenant fail-closed, approval/guard audit unchanged.
+
 ## [2026-09] — Responsive Data Display Standard — Phase 4: Whole-Dashboard Completion & Migration (2026-09-30)
 ### Phase 4 — Whole-Dashboard Completion, Verification & Migration Across All Admin & Tenant Workspaces (2026-09-30)
 - Completed full migration of all administrative, operational, and tenant organization workspaces using the canonical `ResponsiveDataTable` and `ResponsiveDataRow` primitives:

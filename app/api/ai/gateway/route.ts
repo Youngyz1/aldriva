@@ -1,50 +1,50 @@
 /**
  * app/api/ai/gateway/route.ts
- * Phase 142 — AI Gateway (authenticated, tenant-aware, agent-allowlisted).
+ * Phase 142 — AI Gateway (admin-only since Stage 22B, tenant-aware, agent-allowlisted).
  * Flow: authenticate -> resolve tenant -> resolve agent -> load tools -> provider -> guards -> audit.
  * Reuses: lib/auth, lib/rate-limit, lib/ai/orchestrator, lib/ai/provider factory.
  * Never bypasses guards or tenant isolation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { createSupabaseServer } from '@/lib/supabase-server';
+import { getCurrentUser, isAdmin } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { orchestrate } from '@/lib/ai/orchestrator';
 import { getAgentByName, listAgents } from '@/lib/ai/agent-registry';
 import { insertSystemEvent } from '@/lib/observability/system-events';
 
-async function requireAuthUser(): Promise<{ id: string; email?: string } | null> {
-  try {
-    const supabase = await createSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) return { id: user.id, email: user.email ?? undefined };
-  } catch {
-    // fall through to getCurrentUser
-  }
-  try {
-    const u = await getCurrentUser();
-    if (u) return { id: u.id, email: (u as { email?: string }).email };
-  } catch {
-    // no auth
-  }
-  return null;
+/**
+ * Stage 22B: admin-only gate. Runs FIRST in every handler, before body
+ * parsing, rate limiting, or any data access.
+ *
+ * NOTE: this deliberately does NOT call requireAdmin() from lib/auth —
+ * that helper throws a Next.js navigation redirect to '/' (a 307 with no
+ * JSON body), which is wrong for an API route. isAdmin() IS the same check
+ * (active admin profile); here it returns the API convention instead:
+ * 401 unauthenticated, 403 authenticated non-admin (matches app/api/admin/*
+ * identity-verifications 401/403 split).
+ */
+async function requireAdminUser(): Promise<{ id: string; email?: string } | NextResponse> {
+  const u = await getCurrentUser().catch(() => null);
+  if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return { id: u.id, email: (u as { email?: string }).email };
 }
 
 // GET — list agents (for Workforce UI wiring; no provider call)
 export async function GET() {
-  const user = await requireAuthUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const gate = await requireAdminUser();
+  if (gate instanceof NextResponse) return gate;
   const agents = await listAgents();
   return NextResponse.json({ success: true, agents });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuthUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Admin gate first: before parsing, rate limiting, or data access.
+    const gate = await requireAdminUser();
+    if (gate instanceof NextResponse) return gate;
+    const user = gate;
 
     // Rate limit: reuse articleAi tier (same AI budget as Growth Studio chat)
     const limited = await enforceRateLimit('articleAi', req, user.id);
