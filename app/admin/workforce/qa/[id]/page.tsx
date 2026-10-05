@@ -8,13 +8,17 @@
  * "not uploaded" states, never fabricated links. Error text arrives
  * truncated + redacted from lib/workforce/qa.ts (Playwright output can
  * echo page snapshots). Malformed or missing id → notFound(), never 500.
+ *
+ * Stage 21 P2 restyle: light admin system (PageHeader + light cards).
+ * Read-only: links only; no actions.
  */
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { FlaskConical } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 import {
   fetchQaRunDetail,
   buildQaRunDetailViewModel,
@@ -23,13 +27,13 @@ import {
 } from "@/lib/workforce/qa";
 
 const STATUS_TONE: Record<string, string> = {
-  failed: "text-red-400",
-  passed: "text-emerald-400",
-  flaky: "text-amber-400",
-  running: "text-amber-400",
+  failed: "text-red-600",
+  passed: "text-emerald-600",
+  flaky: "text-amber-600",
+  running: "text-amber-600",
   skipped: "text-zinc-500",
-  requested: "text-zinc-400",
-  approved: "text-zinc-300",
+  requested: "text-zinc-500",
+  approved: "text-zinc-600",
   cancelled: "text-zinc-500",
   expired: "text-zinc-500",
 };
@@ -53,21 +57,28 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
   const artifactBaseHttp = r.artifact_base_url && r.artifact_base_url.startsWith("https://");
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-2xl text-white">
-          <FlaskConical size={22} /> QA run — {r.suite}
-        </h1>
-        <p className="text-sm text-zinc-400">
-          <span className={STATUS_TONE[r.status] ?? "text-zinc-400"}>{r.status}</span> · {r.environment} · via{" "}
-          {r.triggered_by} · requested {fmt(r.created_at)}
-        </p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <Link
+        href="/admin/workforce/qa"
+        className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-800"
+      >
+        <ArrowLeft className="h-4 w-4" /> AI Workforce <span aria-hidden="true">/</span> QA runs{" "}
+        <span aria-hidden="true">/</span>
+        <span className="text-zinc-800">Detail</span>
+      </Link>
+
+      <PageHeader
+        eyebrow="AI Workforce"
+        title={`QA run — ${r.suite}`}
+        description={`${r.status} · ${r.environment} · via ${r.triggered_by} · requested ${fmt(r.created_at)}`}
+      />
 
       {/* Run record */}
-      <div className="space-y-1 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Run</h2>
-        <p className="text-sm text-zinc-400 tabular-nums">
+      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Run</h2>
+        <p className="text-sm text-zinc-950 tabular-nums">
+          <span className={STATUS_TONE[r.status] ?? "text-zinc-500"}>{r.status}</span>
+          {" · "}
           {r.passed} passed · {r.failed} failed · {r.skipped} skipped · {vm.counts.total} test(s) recorded
         </p>
         <p className="text-sm text-zinc-500">
@@ -85,7 +96,7 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
           artifacts:{" "}
           {r.artifact_base_url ? (
             artifactBaseHttp ? (
-              <a href={r.artifact_base_url} target="_blank" rel="noreferrer" className="text-white hover:underline">
+              <a href={r.artifact_base_url} target="_blank" rel="noreferrer" className="font-semibold text-zinc-950 hover:underline">
                 open artifact base
               </a>
             ) : (
@@ -95,20 +106,20 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
             "no artifact base recorded for this run"
           )}
         </p>
-      </div>
+      </section>
 
       {/* Run error */}
       {!vm.empty.error && (
-        <div className="rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <h2 className="text-base text-white">Run error</h2>
-          <p className="text-sm text-red-400">{r.error}</p>
-          <p className="text-sm text-zinc-500">Truncated to 300 characters with secret patterns redacted.</p>
-        </div>
+        <section className="rounded-xl border border-red-200 bg-red-50 p-4">
+          <h2 className="text-base font-bold text-red-700">Run error</h2>
+          <p className="text-sm text-red-600">{r.error}</p>
+          <p className="text-sm text-red-600/70">Truncated to 300 characters with secret patterns redacted.</p>
+        </section>
       )}
 
       {/* Per-test results */}
-      <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Tests ({vm.results.length})</h2>
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Tests ({vm.results.length})</h2>
         {vm.empty.results ? (
           <p className="text-sm text-zinc-500">
             No per-test results ingested for this run yet — counters above are the run-level record.
@@ -116,30 +127,30 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
         ) : (
           <ul className="space-y-2">
             {vm.results.map((t) => (
-              <li key={t.id} className="rounded-xl bg-zinc-800 p-3">
-                <div className="text-sm text-white">
-                  {t.name} <span className={`text-sm ${STATUS_TONE[t.status] ?? "text-zinc-400"}`}>· {t.status}</span>
+              <li key={t.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <div className="text-sm font-semibold text-zinc-950">
+                  {t.name} <span className={`text-sm ${STATUS_TONE[t.status] ?? "text-zinc-500"}`}>· {t.status}</span>
                 </div>
                 <div className="text-sm text-zinc-500">
                   <span className="font-mono">{t.file}</span>
                   {t.duration_ms !== null ? <span className="tabular-nums"> · {t.duration_ms}ms</span> : ""}
                 </div>
-                {t.error ? <div className="text-sm text-red-400">{t.error}</div> : null}
+                {t.error ? <div className="text-sm text-red-600">{t.error}</div> : null}
                 <div className="text-sm text-zinc-500">
                   {t.hasArtifacts ? (
                     <>
                       {t.screenshot_url ? (
-                        <a href={t.screenshot_url} target="_blank" rel="noreferrer" className="mr-3 hover:text-white">
+                        <a href={t.screenshot_url} target="_blank" rel="noreferrer" className="mr-3 hover:text-zinc-800 hover:underline">
                           screenshot
                         </a>
                       ) : null}
                       {t.trace_url ? (
-                        <a href={t.trace_url} target="_blank" rel="noreferrer" className="mr-3 hover:text-white">
+                        <a href={t.trace_url} target="_blank" rel="noreferrer" className="mr-3 hover:text-zinc-800 hover:underline">
                           trace
                         </a>
                       ) : null}
                       {t.logs_url ? (
-                        <a href={t.logs_url} target="_blank" rel="noreferrer" className="hover:text-white">
+                        <a href={t.logs_url} target="_blank" rel="noreferrer" className="hover:text-zinc-800 hover:underline">
                           logs
                         </a>
                       ) : null}
@@ -158,36 +169,32 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
             current pipeline state, not a data error.
           </p>
         )}
-      </div>
+      </section>
 
       {/* Linkage */}
-      <div className="space-y-1 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Linked records</h2>
-        <p className="text-sm text-zinc-400">
+      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Linked records</h2>
+        <p className="text-sm text-zinc-600">
           requested by:{" "}
           {vm.agent ? (
-            <Link href={`/admin/workforce/agents/${vm.agent.id}`} className="text-white hover:underline">
+            <Link href={`/admin/workforce/agents/${vm.agent.id}`} className="font-semibold text-zinc-950 hover:underline">
               {vm.agent.display_name}
             </Link>
           ) : (
             "no agent linked (manual or scheduled run)"
           )}
         </p>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-zinc-600">
           approval:{" "}
           {vm.approval ? (
-            <Link href={`/admin/workforce/approvals/${vm.approval.id}`} className="hover:text-white">
+            <Link href={`/admin/workforce/approvals/${vm.approval.id}`} className="hover:text-zinc-800 hover:underline">
               {vm.approval.action} ({vm.approval.status})
             </Link>
           ) : (
             "no approval linked"
           )}
         </p>
-      </div>
-
-      <Link href="/admin/workforce/qa" className="text-sm text-zinc-400 hover:text-white">
-        ← Back to QA runs
-      </Link>
+      </section>
     </div>
   );
 }
