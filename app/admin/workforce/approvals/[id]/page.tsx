@@ -6,13 +6,20 @@
  * requester, linked task/run, and Approve/Reject forms offered ONLY while
  * pending and unexpired. The forms flip the record via the server action;
  * every check re-runs server-side. Malformed/missing id → notFound().
+ *
+ * Stage 21 P2 restyle: light admin system (PageHeader + light cards).
+ * The decision forms below are byte-for-byte the same wiring
+ * (decideWorkforceApproval + approvalId/decision fields + rejection flow);
+ * only the surrounding layout was restyled.
  */
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { CheckSquare } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
+import { StatusBadge } from "@/components/admin/ModerationBadge";
 import {
   fetchApprovalDetail,
   fetchApprovalAgents,
@@ -55,29 +62,39 @@ export default async function WorkforceApprovalDetailPage({
   const nowIso = new Date().toISOString();
   const actionable = raw.status === "pending" && raw.expires_at > nowIso;
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-2xl text-white">
-          <CheckSquare size={22} /> {raw.action}
-        </h1>
-        <p className="text-sm text-zinc-400">
-          risk {raw.risk} · {raw.status} · requested {new Date(raw.created_at).toLocaleString()} · expires{" "}
-          {new Date(raw.expires_at).toLocaleString()}
-        </p>
+    <div className="space-y-4 sm:space-y-6">
+      <Link
+        href="/admin/workforce/approvals"
+        className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-800"
+      >
+        <ArrowLeft className="h-4 w-4" /> AI Workforce <span aria-hidden="true">/</span> Approvals{" "}
+        <span aria-hidden="true">/</span>
+        <span className="text-zinc-800">Detail</span>
+      </Link>
+
+      <PageHeader
+        eyebrow="AI Workforce"
+        title={raw.action}
+        description={`risk ${raw.risk} · ${raw.status} · requested ${new Date(raw.created_at).toLocaleString()} · expires ${new Date(raw.expires_at).toLocaleString()}`}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge status={raw.status} />
+        <StatusBadge status={raw.risk} />
       </div>
 
       {decided && (
-        <p className="rounded-xl bg-zinc-900 p-3 text-sm text-white shadow-xs">
+        <p className="rounded-xl border border-zinc-200 bg-white p-3 text-sm font-semibold text-zinc-950">
           {decided === "approved" || decided === "rejected"
             ? `Recorded: ${decided}. The runtime — not this page — decides what happens next.`
-              : "Decision was not applied (already decided, expired, or out of scope)."}
+            : "Decision was not applied (already decided, expired, or out of scope)."}
         </p>
       )}
 
       {/* Reason + evidence keys */}
-      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Request</h2>
-        <p className="text-sm text-zinc-400">{raw.reason}</p>
+      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Request</h2>
+        <p className="text-sm text-zinc-600">{raw.reason}</p>
         <p className="text-sm text-zinc-500">
           requested by {raw.requested_by_agent_id ? (agentNameById.get(raw.requested_by_agent_id) ?? "unknown agent") : "—"}
           {" · "}user {shortId(raw.requested_by)}
@@ -90,29 +107,29 @@ export default async function WorkforceApprovalDetailPage({
           <p className="text-sm text-zinc-500">proposed outcome fields: {evidenceKeys(raw.proposed_outcome).join(", ") || "none"}</p>
         )}
         {raw.audit_ref && <p className="text-sm text-zinc-500">audit ref: {raw.audit_ref}</p>}
-      </div>
+      </section>
 
       {/* Timeline */}
-      <div className="space-y-1 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Timeline</h2>
+      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Timeline</h2>
         <p className="text-sm text-zinc-500">
           decided: {raw.decided_at ? new Date(raw.decided_at).toLocaleString() : "—"} · approver:{" "}
           {shortId(raw.approver_id)}
         </p>
-      </div>
+      </section>
 
       {/* Linked task/run */}
-      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">Related run / task</h2>
+      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">Related run / task</h2>
         {links.length === 0 ? (
           <p className="text-sm text-zinc-500">No task or run references this approval.</p>
         ) : (
           <ul className="space-y-1">
             {links.map((l) => (
-              <li key={`${l.kind}-${l.id}`} className="text-sm text-zinc-400">
+              <li key={`${l.kind}-${l.id}`} className="text-sm text-zinc-600">
                 {l.kind} {l.status} ·{" "}
                 {l.kind === "task" ? (
-                  <Link href={`/admin/workforce/tasks/${l.id}`} className="hover:text-white">
+                  <Link href={`/admin/workforce/tasks/${l.id}`} className="hover:text-zinc-800 hover:underline">
                     open task
                   </Link>
                 ) : (
@@ -122,48 +139,53 @@ export default async function WorkforceApprovalDetailPage({
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
       {/* Memory proposal (Stage 12): current vs proposed, apply state */}
       {raw.action === "memory_propose" && (
         <MemoryProposalSection evidence={raw.evidence} proposedOutcome={raw.proposed_outcome} auditRef={raw.audit_ref} />
       )}
 
-      {/* Linked QA runs (reverse linkage: qa_runs.approval_id → this approval) */}      <div className="space-y-2 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <h2 className="text-base text-white">QA runs from this approval</h2>
+      {/* Linked QA runs (reverse linkage: qa_runs.approval_id → this approval) */}
+      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-base font-bold text-zinc-950">QA runs from this approval</h2>
         {qaRuns.length === 0 ? (
           <p className="text-sm text-zinc-500">No QA run references this approval.</p>
         ) : (
           <ul className="space-y-1">
             {qaRuns.map((q) => (
-              <li key={q.id} className="text-sm text-zinc-400">
+              <li key={q.id} className="text-sm text-zinc-600">
                 {q.suite} · {q.status} · {new Date(q.created_at).toLocaleString()} ·{" "}
-                <Link href={`/admin/workforce/qa/${q.id}`} className="hover:text-white">
+                <Link href={`/admin/workforce/qa/${q.id}`} className="hover:text-zinc-800 hover:underline">
                   open QA run
                 </Link>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
-      {/* Decision forms — pending + unexpired only */}
+      {/* Decision forms — pending + unexpired only.
+          Wiring is byte-for-byte the pre-restyle forms: same server action,
+          same hidden fields, same labels. Only the wrapper was restyled. */}
       {actionable ? (
-        <div className="flex gap-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <form action={decideWorkforceApproval}>
-            <input type="hidden" name="approvalId" value={raw.id} />
-            <input type="hidden" name="decision" value="approved" />
-            <button type="submit" className="rounded-xl bg-emerald-700 px-4 py-2 text-sm text-white">
-              Approve
-            </button>
-          </form>
-          <form action={decideWorkforceApproval}>
-            <input type="hidden" name="approvalId" value={raw.id} />
-            <input type="hidden" name="decision" value="rejected" />
-            <button type="submit" className="rounded-xl bg-red-800 px-4 py-2 text-sm text-white">
-              Reject
-            </button>
-          </form>
+        <div className="rounded-xl border border-zinc-200 bg-white p-4">
+          <div className="flex gap-3">
+            <form action={decideWorkforceApproval}>
+              <input type="hidden" name="approvalId" value={raw.id} />
+              <input type="hidden" name="decision" value="approved" />
+              <button type="submit" className="rounded-xl bg-emerald-700 px-4 py-2 text-sm text-white">
+                Approve
+              </button>
+            </form>
+            <form action={decideWorkforceApproval}>
+              <input type="hidden" name="approvalId" value={raw.id} />
+              <input type="hidden" name="decision" value="rejected" />
+              <button type="submit" className="rounded-xl bg-red-800 px-4 py-2 text-sm text-white">
+                Reject
+              </button>
+            </form>
+          </div>
         </div>
       ) : (
         <p className="text-sm text-zinc-500">
@@ -172,10 +194,6 @@ export default async function WorkforceApprovalDetailPage({
             : "Expired — no further action possible."}
         </p>
       )}
-
-      <Link href="/admin/workforce/approvals" className="text-sm text-zinc-400 hover:text-white">
-        ← Back to Approvals
-      </Link>
     </div>
   );
 }
@@ -197,21 +215,21 @@ function MemoryProposalSection({
   const p = rawProposal !== null && typeof rawProposal === "object" ? rawProposal : null;
   const str = (v: unknown) => (typeof v === "string" ? v : "—");
   return (
-    <div className="space-y-1 rounded-xl bg-zinc-900 p-4 shadow-xs">
-      <h2 className="text-base text-white">Memory proposal</h2>
+    <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <h2 className="text-base font-bold text-zinc-950">Memory proposal</h2>
       {p === null ? (
         <p className="text-sm text-zinc-500">Proposal payload unreadable — decide with caution.</p>
       ) : (
         <>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-600">
             operation: {str(p["op"])} · scope: {str(p["scope"])} · agent: {str(p["agent"])}
           </p>
-          <p className="text-sm text-zinc-400">key: {str(p["fact_key"])}</p>
-          <p className="text-sm text-zinc-400">base version: {typeof p["base_version"] === "number" ? p["base_version"] : "—"}</p>
+          <p className="text-sm text-zinc-600">key: {str(p["fact_key"])}</p>
+          <p className="text-sm text-zinc-600">base version: {typeof p["base_version"] === "number" ? p["base_version"] : "—"}</p>
           {typeof p["fact_value"] === "string" && (
-            <p className="whitespace-pre-wrap text-sm text-zinc-400">proposed value: {p["fact_value"].slice(0, 1500)}</p>
+            <p className="whitespace-pre-wrap text-sm text-zinc-600">proposed value: {p["fact_value"].slice(0, 1500)}</p>
           )}
-          {typeof p["expires_at"] === "string" && <p className="text-sm text-zinc-400">expires: {p["expires_at"]}</p>}
+          {typeof p["expires_at"] === "string" && <p className="text-sm text-zinc-600">expires: {p["expires_at"]}</p>}
           {typeof p["reason"] === "string" && p["reason"].length > 0 && (
             <p className="text-sm text-zinc-500">reason: {p["reason"].slice(0, 500)}</p>
           )}
@@ -219,10 +237,10 @@ function MemoryProposalSection({
       )}
       <p className="text-sm text-zinc-500">
         apply state: {memoryApplyState(auditRef)} · proposer run/task linked via evidence where recorded ·{" "}
-        <Link href="/admin/workforce/memory" className="hover:text-white">
+        <Link href="/admin/workforce/memory" className="hover:text-zinc-800 hover:underline">
           open Memory
         </Link>
       </p>
-    </div>
+    </section>
   );
 }
