@@ -276,6 +276,107 @@ async function main() {
         fail("member-isolation", `cross-tenant leak: B rows visible = ${seenB.rows[0].n}`);
       }
     });
+
+    // ── 9. Studio chat persistence (migration 152, Stage 22 P4a) ──────────
+    await inTxn(client, "studio-chat", async () => {
+      const present = await client.query(
+        "SELECT to_regclass('studio_chat_conversations') AS c, to_regclass('studio_chat_messages') AS m"
+      );
+      if (!present.rows[0].c || !present.rows[0].m) {
+        skip("studio-chat", "migration 152 not applied on staging");
+        return;
+      }
+      // Owner RLS on all four operations, both tables.
+      const { rows: pols } = await client.query(
+        "SELECT tablename, cmd FROM pg_policies WHERE tablename IN ('studio_chat_conversations','studio_chat_messages')"
+      );
+      for (const table of ["studio_chat_conversations", "studio_chat_messages"]) {
+        for (const cmd of ["SELECT", "INSERT", "UPDATE", "DELETE"]) {
+          if (pols.some((p) => p.tablename === table && p.cmd === cmd)) {
+            pass(`studio-chat:policy:${table}.${cmd}`, "policy present");
+          } else {
+            fail(`studio-chat:policy:${table}.${cmd}`, "policy missing");
+          }
+        }
+      }
+      // Every policy gates on active-admin AND owner (or parent owner).
+      const { rows: defs } = await client.query(
+        "SELECT policyname, (qual IS NOT NULL) AS has_using, (with_check IS NOT NULL) AS has_check, " +
+        "COALESCE(qual,'') || ' ' || COALESCE(with_check,'') AS body " +
+        "FROM pg_policies WHERE tablename IN ('studio_chat_conversations','studio_chat_messages')"
+      );
+      for (const d of defs.rows) {
+        const body = d.body;
+        if (body.includes("profiles") && body.includes("role = 'admin'") && body.includes("auth.uid()")) {
+          pass(`studio-chat:owner-gate:${d.policyname}`, "admin AND owner");
+        } else {
+          fail(`studio-chat:owner-gate:${d.policyname}`, "missing admin/owner clause");
+        }
+      }
+      // No triggers on either table (no delete guard, unlike F-4 memory).
+      const trg = await client.query(
+        "SELECT count(*)::int AS n FROM pg_trigger WHERE NOT tgisinternal AND tgrelid IN " +
+        "('studio_chat_conversations'::regclass,'studio_chat_messages'::regclass)"
+      );
+      if (trg.rows[0].n === 0) pass("studio-chat:no-triggers", "no triggers");
+      else fail("studio-chat:no-triggers", `${trg.rows[0].n} trigger(s) found`);
+      // Messages cascade from conversations; no audit table references chat.
+      const fk = await client.query(
+        "SELECT conrelid::regclass::text AS child, confdeltype FROM pg_constraint " +
+        "WHERE contype = 'f' AND confrelid = 'studio_chat_conversations'::regclass"
+      );
+      const cascade = fk.rows.find((r) => r.child === "studio_chat_messages" && r.confdeltype === "c");
+      if (cascade) pass("studio-chat:cascade", "messages ON DELETE CASCADE");
+      else fail("studio-chat:cascade", JSON.stringify(fk.rows).slice(0, 200));
+      const auditFk = await client.query(
+        "SELECT conrelid::regclass::text AS child FROM pg_constraint WHERE contype = 'f' " +
+        "AND confrelid IN ('studio_chat_conversations'::regclass,'studio_chat_messages'::regclass) " +
+        "AND conrelid::regclass::text IN ('system_events','agent_steps','ai_guard_rejections','incident_events')"
+      );
+      if (auditFk.rows.length === 0) pass("studio-chat:no-audit-fk", "audit never references chat");
+      else fail("studio-chat:no-audit-fk", JSON.stringify(auditFk.rows).slice(0, 200));
+      // Two-admin isolation probe via JWT claims (same technique as §8).
+      // Independent of member-isolation: owner-AND-admin gate here vs tenant
+      // membership there, so this probe cannot close that SKIP (see report).
+      const admins = await client.query(
+        "SELECT id FROM profiles WHERE role = 'admin' AND status = 'active' LIMIT 2"
+      );
+      if (admins.rows.length < 2) {
+        skip("studio-chat-isolation", "needs two admin profiles on staging");
+        return;
+      }
+      const userA = admins.rows[0].id;
+      const userB = admins.rows[1].id;
+      try {
+        await client.query("SET LOCAL ROLE authenticated");
+        await client.query("SET LOCAL \"request.jwt.claim.sub\" TO '" + userA + "'");
+      } catch (e) {
+        skip("studio-chat-isolation", `cannot assume admin role: ${e.message.slice(0, 120)}`);
+        return;
+      }
+      let convo = null;
+      try {
+        convo = await client.query(
+          "INSERT INTO studio_chat_conversations (user_id, title) VALUES ($1,'stage22-probe') RETURNING id",
+          [userA]
+        );
+        pass("studio-chat-isolation:owner-insert", "owner admin can insert own thread");
+      } catch (e) {
+        fail("studio-chat-isolation:owner-insert", `owner insert rejected: ${String(e.message).slice(0, 120)}`);
+        return;
+      }
+      await client.query("SET LOCAL \"request.jwt.claim.sub\" TO '" + userB + "'");
+      const seen = await client.query(
+        "SELECT count(*)::int AS n FROM studio_chat_conversations WHERE id = $1", [convo.rows[0].id]
+      );
+      if (seen.rows[0].n === 0) pass("studio-chat-isolation:hidden", "second admin sees 0 of A's thread");
+      else fail("studio-chat-isolation:hidden", `cross-owner leak: saw ${seen.rows[0].n}`);
+      await expectError(
+        client, "sp_studio_cross",
+        "INSERT INTO studio_chat_conversations (user_id, title) VALUES ($1,'stage22-probe-evil')",
+        [userA], { code: "42501" }, "studio-chat-isolation:cross-insert"
+      );
+    });
   } finally {
     await client.end();
   }

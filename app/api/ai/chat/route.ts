@@ -10,7 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, getCurrentUser } from '@/lib/auth';
+import { createSupabaseServer } from '@/lib/supabase-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getAIProvider } from '@/lib/ai/provider-factory';
 import { guardBeforeDisplay } from '@/lib/ai/output-guard';
@@ -18,6 +19,17 @@ import { executeAITool } from '@/lib/ai/tools-registry';
 import { PUBLIC_AI_TOOL_DEFINITIONS, ADMIN_AI_TOOL_DEFINITIONS } from '@/lib/ai/tools-registry';
 import { AIMessage } from '@/lib/ai/types';
 import { insertSystemEvent } from '@/lib/observability/system-events';
+import {
+  boundHistory,
+  deriveTitle,
+  loadConversationHistory,
+  nextMessageSeq,
+  shouldPersistPrompt,
+  toStoredAssistantMessage,
+  toStoredUserMessage,
+  wrapHistoryForPrompt,
+  type StudioChatClient,
+} from '@/lib/ai/studio-chat';
 
 /**
  * Stage 14 — Studio/Workforce boundary: explicit allowlist for directTool mode.
@@ -52,14 +64,102 @@ const STUDIO_DIRECT_TOOL_ALLOWLIST: ReadonlySet<string> = new Set([
 const DIRECT_TOOL_REJECTION_MESSAGE =
   'Studio direct tool rejected: not on read-only allowlist';
 
+/**
+ * Stage 22 (P4a): persist one chat turn. Guarded display text, first tool
+ * name, verdict and provider ONLY — never payloads, args or secrets.
+ * Secret-matching prompts are answered but never stored. Rejected turns
+ * store the user message only (no guarded text exists); routine I/O emits
+ * no system_events. Never throws: persistence must not break the reply.
+ */
+async function persistStudioTurn(
+  conversationId: string,
+  prompt: string,
+  result: {
+    text: string;
+    toolName: string | null;
+    guardVerdict: string;
+    guardReason?: string | null;
+    provider: string;
+    firstTurn: boolean;
+  }
+): Promise<boolean> {
+  try {
+    if (!shouldPersistPrompt(prompt)) return false;
+    const supabase = await createSupabaseServer();
+    const client = supabase as unknown as StudioChatClient;
+    let seq = await nextMessageSeq(client, conversationId);
+    const userRow = toStoredUserMessage(prompt);
+    const userInsert = await supabase.from('studio_chat_messages').insert({
+      conversation_id: conversationId,
+      seq: seq++,
+      role: userRow.role,
+      content: userRow.content,
+    });
+    if (userInsert.error) return false;
+    if (result.guardVerdict !== 'rejected') {
+      const asst = toStoredAssistantMessage({
+        text: result.text,
+        toolName: result.toolName,
+        guardVerdict: result.guardVerdict,
+        guardReason: result.guardReason ?? null,
+        provider: result.provider,
+      });
+      const asstInsert = await supabase.from('studio_chat_messages').insert({
+        conversation_id: conversationId,
+        seq: seq++,
+        role: asst.role,
+        content: asst.content,
+        tool_name: asst.tool_name,
+        guard_verdict: asst.guard_verdict,
+        guard_reason: asst.guard_reason,
+        provider: asst.provider,
+      });
+      if (asstInsert.error) return false;
+    }
+    if (result.firstTurn) {
+      await supabase
+        .from('studio_chat_conversations')
+        .update({ title: deriveTitle(prompt), updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cap client-supplied history with the same window as server-side history
+ * (newest 16 entries, 1000 chars each, 8000 total). Non-string contents
+ * are dropped; oldest entries fall off first.
+ */
+function capClientMessages(input: unknown): AIMessage[] {
+  if (!Array.isArray(input)) return [];
+  const rows = input.map((m, i) => {
+    const r = m as { role?: unknown; content?: unknown };
+    return {
+      seq: i,
+      role: typeof r.role === 'string' ? r.role : 'user',
+      content: typeof r.content === 'string' ? r.content : '',
+    };
+  });
+  const cappedByIndex = new Map(boundHistory(rows).map((b) => [b.seq, b.content]));
+  return input
+    .map((m, i) => ({ m, content: cappedByIndex.get(i) }))
+    .filter((e): e is { m: unknown; content: string } => e.content !== undefined)
+    .map((e) => ({ ...(e.m as object), content: e.content }) as AIMessage);
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Mandatory Admin Gate
     await requireAdmin();
+    // Per-user rate key (cached user; requireAdmin already passed above).
+    const adminUser = await getCurrentUser().catch(() => null);
 
     // LLM + tool calls per request: same per-caller AI budget as the
-    // article assistant (articleAi tier).
-    const limited = await enforceRateLimit("articleAi", req);
+    // article assistant (articleAi tier), keyed on the admin id (never IP).
+    const limited = await enforceRateLimit("articleAi", req, adminUser?.id ?? null);
     if (limited) return limited;
 
     const body = await req.json();
@@ -70,6 +170,7 @@ export async function POST(req: NextRequest) {
       enableTools = true,
       directTool,
       toolArgs,
+      conversationId,
     } = body;
 
     // Direct single-tool invocation mode (for direct UI tool testing buttons).
@@ -114,23 +215,44 @@ export async function POST(req: NextRequest) {
 
     const aiProvider = getAIProvider(provider);
 
+    // Stage 22 (P4a): server-side history. With conversationId the thread
+    // loads from storage (owner RLS) and any client messages[] is ignored;
+    // without it, client messages[] is capped with the same window.
+    // Re-injected stored text is screened + delimited (S-5), never raw.
+    let historyBlock = '';
+    let persistConversation: string | null = null;
+    let firstTurn = false;
+    if (conversationId) {
+      const supabase = await createSupabaseServer();
+      const loaded = await loadConversationHistory(
+        supabase as unknown as StudioChatClient,
+        String(conversationId)
+      );
+      if (!loaded) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+      }
+      firstTurn = loaded.items.length === 0;
+      historyBlock = wrapHistoryForPrompt(loaded.items, loaded.conversation.id);
+      persistConversation = loaded.conversation.id;
+    }
+
     // Build message history
+    const STUDIO_SYSTEM_PROMPT =
+      'You are Aldriva AI, an intelligent assistant for the Aldriva growth studio admin panel. ' +
+      'You help platform admins analyze, curate, and promote events, fundraisers, businesses, articles, and products. ' +
+      'Use available tools to fetch live platform data when requested.';
     let messages: AIMessage[] = [];
-    if (inputMessages && Array.isArray(inputMessages)) {
-      messages = [...inputMessages];
+    if (persistConversation) {
+      messages = [
+        { role: 'system', content: historyBlock ? `${STUDIO_SYSTEM_PROMPT}\n\n${historyBlock}` : STUDIO_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ];
+    } else if (inputMessages && Array.isArray(inputMessages)) {
+      messages = capClientMessages(inputMessages);
     } else {
       messages = [
-        {
-          role: 'system',
-          content:
-            'You are Aldriva AI, an intelligent assistant for the Aldriva growth studio admin panel. ' +
-            'You help platform admins analyze, curate, and promote events, fundraisers, businesses, articles, and products. ' +
-            'Use available tools to fetch live platform data when requested.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
+        { role: 'system', content: STUDIO_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
       ];
     }
 
@@ -246,6 +368,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Persist the turn (guarded text only, secret-gated, best-effort —
+    // a storage failure must not break the reply).
+    let persisted = false;
+    if (persistConversation && typeof prompt === 'string' && prompt.trim()) {
+      persisted = await persistStudioTurn(persistConversation, prompt, {
+        text: guardedText,
+        toolName: executedToolCalls[0]?.tool ?? null,
+        guardVerdict,
+        guardReason,
+        provider: aiProvider.id,
+        firstTurn,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       text: guardedText,
@@ -253,6 +389,8 @@ export async function POST(req: NextRequest) {
       guardReason,
       toolCalls: executedToolCalls,
       provider: aiProvider.id,
+      conversationId: persistConversation,
+      persisted,
     });
   } catch (err: unknown) {
     console.error("[api/ai/chat]", err);

@@ -102,6 +102,14 @@ export const RATE_LIMITS = {
   createMemoryDirect: { limit: 30, windowSeconds: 60 },
 
   /**
+   * Stage 22 (P4a): Studio chat conversation endpoints (list/create/rename/
+   * delete). Per-USER bucket (routes pass the admin id, never IP): 60/min
+   * leaves ample room for thread management; conversation I/O is cheap rows,
+   * never model calls.
+   */
+  studioChat: { limit: 60, windowSeconds: 60 },
+
+  /**
    * Stage 15 (pass one) S-10: throttle for worker auth-denial audit rows.
    * 1/min per IP bounds incident noise: every insertSystemEvent opens or
    * bumps an incident, so unauthenticated 401s must not log unthrottled.
