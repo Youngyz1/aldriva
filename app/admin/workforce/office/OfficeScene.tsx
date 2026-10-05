@@ -8,8 +8,9 @@
  * texture or font files, no remote assets. OrbitControls (shipped inside
  * the existing three package) provides drag-rotate, scroll/pinch-zoom and
  * right-drag/two-finger pan, clamped above the floor and around the fitted
- * distance. Clicking an agent opens its existing detail page (navigation
- * only — never a mutation).
+ * distance. Clicking an agent selects it (?agent= via router.replace, no
+ * scroll) and the server-rendered panel shows its stored state (navigation
+ * to agents/[id] lives in the panel — never a mutation).
  *
  * Performance: geometries and materials are module-level shared caches
  * (one floor/desk/chair/monitor/figure/head/arm/plant/sofa/wall shape each,
@@ -103,7 +104,7 @@ export function OfficeScene({
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const failRef = useRef(onWebglFail);
-  const pushRef = useRef<((url: string) => void) | null>(null);
+  const selectRef = useRef<((id: string) => void) | null>(null);
   // Exact-fit initial view (set once) + live camera handles for Reset view.
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -135,7 +136,7 @@ export function OfficeScene({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    pushRef.current = ((url: string) => router.push(url));
+    selectRef.current = ((id: string) => router.replace(`/admin/workforce/office?agent=${id}`, { scroll: false }));
     const canvas = document.createElement("canvas");
     canvas.style.display = "block";
     canvas.style.width = "100%";
@@ -493,7 +494,7 @@ export function OfficeScene({
       if (!isClickNotDrag(downX, downY, e.clientX, e.clientY)) return;
       const rect = canvas.getBoundingClientRect();
       const id = pickAgentAt(e.clientX, e.clientY, rect, camera, clickTargets);
-      if (id) pushRef.current?.(`/admin/workforce/agents/${id}`);
+      if (id) selectRef.current?.(id);
     };
     const onMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -582,7 +583,7 @@ export function OfficeScene({
       <figcaption className="mt-2 text-xs text-zinc-500">
         Drag to rotate · scroll or pinch to zoom · right-drag or two-finger drag to pan. Amber figure = busy ·
         grey = idle · orange marker = awaiting approval · red lamp = s1/s2 open incidents · amber lamp = lower severity.
-        Click a figure to open that agent.
+        Click a figure to select it — details appear in the panel above.
       </figcaption>
     </figure>
   );
