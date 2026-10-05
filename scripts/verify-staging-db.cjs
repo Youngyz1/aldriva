@@ -376,6 +376,18 @@ async function main() {
         "INSERT INTO studio_chat_conversations (user_id, title) VALUES ($1,'stage22-probe-evil')",
         [userA], { code: "42501" }, "studio-chat-isolation:cross-insert"
       );
+      // P4b read endpoint scope: messages inherit the parent owner gate, so
+      // the second admin sees none of A's rows and cannot append to them.
+      const seenMsg = await client.query(
+        "SELECT count(*)::int AS n FROM studio_chat_messages WHERE conversation_id = $1", [convo.rows[0].id]
+      );
+      if (seenMsg.rows[0].n === 0) pass("studio-chat-isolation:messages-hidden", "second admin sees 0 of A's messages");
+      else fail("studio-chat-isolation:messages-hidden", `cross-owner leak: saw ${seenMsg.rows[0].n}`);
+      await expectError(
+        client, "sp_studio_msg_cross",
+        "INSERT INTO studio_chat_messages (conversation_id, seq, role, content) VALUES ($1, 0, 'user', 'probe')",
+        [convo.rows[0].id], { code: "42501" }, "studio-chat-isolation:cross-message-insert"
+      );
     });
   } finally {
     await client.end();
