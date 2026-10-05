@@ -6,60 +6,83 @@
  * RLS reads via lib/workforce/command-center.ts. No fabricated data: every
  * number derives from a query, and empty sources render designed empty
  * states (see vm.empty).
+ *
+ * Stage 21 P2 restyle: light admin system (PageHeader + StatStrip +
+ * AdminTable). Read-only: rows link to detail pages; no actions.
  */
 import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import {
-  Bot,
-  ClipboardList,
-  CheckSquare,
-  FileText,
-  Activity,
-  AlertTriangle,
-  FlaskConical,
-  ShieldAlert,
-  CircleDot,
-} from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import { StatusBadge } from "@/components/admin/ModerationBadge";
+import AdminTable from "@/components/admin/table/AdminTable";
+import type { AdminColumn } from "@/components/admin/table/types";
 import {
   fetchCommandCenterData,
   buildCommandCenterViewModel,
 } from "@/lib/workforce/command-center";
 
-function StatCard({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return (
-    <div className="rounded-xl bg-zinc-900 p-4 shadow-xs">
-      <div className="text-sm text-zinc-400">{label}</div>
-      <div className="text-2xl text-white">{value}</div>
-      <div className="text-sm text-zinc-500">{hint}</div>
-    </div>
-  );
-}
+const SEVERITY_TONE: Record<string, string> = {
+  s1: "text-red-600",
+  s2: "text-amber-600",
+  s3: "text-amber-500",
+  s4: "text-zinc-500",
+};
 
-function EmptyNote({ text }: { text: string }) {
-  return <p className="text-sm text-zinc-500">{text}</p>;
-}
-
-function SectionHead({ icon: Icon, title, href }: { icon: typeof Bot; title: string; href: string }) {
+function SectionHead({ title, href }: { title: string; href: string }) {
   return (
     <div className="flex items-center justify-between">
-      <h2 className="flex items-center gap-2 text-base text-white">
-        <Icon size={18} /> {title}
-      </h2>
-      <Link href={href} className="text-sm text-zinc-400 hover:text-white">
+      <h2 className="text-base font-bold text-zinc-950">{title}</h2>
+      <Link href={href} className="text-sm font-medium text-zinc-500 hover:text-zinc-800">
         View all
       </Link>
     </div>
   );
 }
 
-const SEVERITY_TONE: Record<string, string> = {
-  s1: "text-red-400",
-  s2: "text-amber-400",
-  s3: "text-amber-500",
-  s4: "text-zinc-400",
-};
+const agentColumns: AdminColumn[] = [
+  { id: "agent", header: "Agent", role: "title" },
+  { id: "presence", header: "Presence", role: "value", width: "110px" },
+  { id: "department", header: "Department", role: "meta" },
+  { id: "lifecycle", header: "Lifecycle", role: "meta", hideBelow: "md" },
+  { id: "lastrun", header: "Last run", role: "meta", align: "right", hideBelow: "md" },
+];
+
+const approvalColumns: AdminColumn[] = [
+  { id: "action", header: "Action", role: "title" },
+  { id: "risk", header: "Risk", role: "value", width: "90px" },
+  { id: "requested", header: "Requested", role: "meta", hideBelow: "md" },
+  { id: "expires", header: "Expires", role: "meta", align: "right", hideBelow: "md" },
+];
+
+const incidentColumns: AdminColumn[] = [
+  { id: "incident", header: "Incident", role: "title" },
+  { id: "status", header: "Status", role: "value", width: "130px" },
+  { id: "events", header: "Events", role: "meta", hideBelow: "md" },
+  { id: "seen", header: "Last seen", role: "meta", align: "right", hideBelow: "md" },
+];
+
+const taskColumns: AdminColumn[] = [
+  { id: "task", header: "Task", role: "title" },
+  { id: "status", header: "Status", role: "value", width: "150px" },
+  { id: "agent", header: "Agent", role: "meta" },
+  { id: "created", header: "Created", role: "meta", align: "right", hideBelow: "md" },
+];
+
+const reportColumns: AdminColumn[] = [
+  { id: "summary", header: "Summary", role: "title" },
+  { id: "type", header: "Type", role: "value", width: "130px" },
+  { id: "agent", header: "Agent", role: "meta" },
+  { id: "created", header: "Created", role: "meta", align: "right", hideBelow: "md" },
+];
+
+const activityColumns: AdminColumn[] = [
+  { id: "item", header: "Activity", role: "title" },
+  { id: "detail", header: "Detail", role: "value" },
+  { id: "at", header: "At", role: "meta", align: "right", hideBelow: "md" },
+];
 
 export default async function WorkforceCommandCenterPage() {
   await headers(); // Forces dynamic server-rendering on every request in Next.js 16
@@ -72,175 +95,227 @@ export default async function WorkforceCommandCenterPage() {
   const vm = buildCommandCenterViewModel(raw);
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-2xl text-white">
-          <CircleDot size={22} /> AI Workforce — Command Center
-        </h1>
-        <p className="text-sm text-zinc-400">
-          Live Agent Runtime state. Every number below comes from the database — no projections.
-        </p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        eyebrow="AI Workforce"
+        title="Command Center"
+        description="Live Agent Runtime state. Every number below comes from the database — no projections."
+      />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Agents" value={vm.counts.totalAgents} hint={`${vm.counts.activeAgents} active · ${vm.counts.idleAgents} idle`} />
-        <StatCard label="Running runs" value={vm.counts.runningRuns} hint={`${vm.counts.awaitingApproval} awaiting approval · last 20 runs`} />
-        <StatCard label="Active tasks" value={vm.counts.activeTasks} hint={`${vm.counts.failedRunsRecent} failed in recent runs`} />
-        <StatCard label="Pending approvals" value={vm.counts.pendingApprovals} hint={`${vm.counts.openIncidents} open incidents`} />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Agents", value: vm.counts.totalAgents },
+          { label: "Active", value: vm.counts.activeAgents },
+          { label: "Running runs", value: vm.counts.runningRuns },
+          { label: "Active tasks", value: vm.counts.activeTasks },
+          { label: "Pending approvals", value: vm.counts.pendingApprovals },
+          { label: "Open incidents", value: vm.counts.openIncidents },
+        ]}
+      />
 
-      {/* Agents */}
-      <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <SectionHead icon={Bot} title="Agents" href="/admin/workforce/agents" />
-        {vm.empty.agents ? (
-          <EmptyNote text="No agents registered. The Agent Registry is empty — nothing is running, and that is expected, not an error." />
-        ) : (
-          <ul className="space-y-2">
-            {vm.agents.map(({ agent, busy, lastRunAt }) => (
-              <li key={agent.id} className="flex flex-col gap-1 rounded-xl bg-zinc-800 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <span className="text-sm text-white">{agent.display_name}</span>{" "}
-                  <span className="text-sm text-zinc-500">
-                    {agent.department} · {agent.autonomy_level} · {agent.status}
-                  </span>
-                </div>
-                <div className="text-sm text-zinc-400">
-                  <span className={busy ? "text-emerald-500" : "text-zinc-500"}>{busy ? "busy" : "idle"}</span>
-                  {lastRunAt ? ` · last run ${new Date(lastRunAt).toLocaleString()}` : " · no runs yet"}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <section className="space-y-3">
+        <SectionHead title="Agents" href="/admin/workforce/agents" />
+        <AdminTable
+          columns={agentColumns}
+          rows={vm.agents.map(({ agent, busy, lastRunAt }) => ({
+            id: agent.id,
+            detailHref: `/admin/workforce/agents/${agent.id}`,
+            cells: [
+              <Link
+                key="agent"
+                href={`/admin/workforce/agents/${agent.id}`}
+                className="font-semibold text-zinc-950 hover:underline"
+              >
+                {agent.display_name}
+              </Link>,
+              <span key="presence" className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${busy ? "bg-emerald-500" : "bg-zinc-300"}`}
+                />
+                <span className={busy ? "text-emerald-700" : "text-zinc-500"}>{busy ? "busy" : "idle"}</span>
+              </span>,
+              <span key="department" className="text-zinc-600">
+                {agent.department} · {agent.autonomy_level}
+              </span>,
+              <StatusBadge key="lifecycle" status={agent.status} />,
+              <span key="lastrun" className="whitespace-nowrap text-xs text-zinc-500">
+                {lastRunAt ? new Date(lastRunAt).toLocaleString() : "no runs yet"}
+              </span>,
+            ],
+          }))}
+          emptyMessage="No agents registered. The Agent Registry is empty — nothing is running, and that is expected, not an error."
+        />
+      </section>
 
-      {/* Approvals + Incidents */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={CheckSquare} title="Pending approvals" href="/admin/workforce/approvals" />
-          {vm.empty.approvals ? (
-            <EmptyNote text="No pending approvals. Nothing is waiting on a human." />
-          ) : (
-            <ul className="space-y-2">
-              {vm.approvals.map((a) => (
-                <li key={a.id} className="rounded-xl bg-zinc-800 p-3">
-                  <div className="text-sm text-white">{a.action}</div>
-                  <div className="text-sm text-zinc-500">
-                    risk {a.risk} · requested {new Date(a.created_at).toLocaleString()} · expires{" "}
-                    {new Date(a.expires_at).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={AlertTriangle} title="Open incidents" href="/admin/workforce/sentinel" />
-          {vm.empty.incidents ? (
-            <EmptyNote text="No open or investigating incidents. Sentinel has nothing to report." />
-          ) : (
-            <ul className="space-y-2">
-              {vm.incidents.map((inc) => (
-                <li key={inc.id} className="rounded-xl bg-zinc-800 p-3">
-                  <div className="text-sm text-white">
-                    <span className={SEVERITY_TONE[inc.severity] ?? "text-zinc-400"}>{inc.severity}</span> — {inc.title}
-                  </div>
-                  <div className="text-sm text-zinc-500">
-                    {inc.status} · {inc.event_count} event(s) · seen {new Date(inc.last_seen_at).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+      <section className="space-y-3">
+        <SectionHead title="Pending approvals" href="/admin/workforce/approvals" />
+        <AdminTable
+          columns={approvalColumns}
+          rows={vm.approvals.map((a) => ({
+            id: a.id,
+            detailHref: `/admin/workforce/approvals/${a.id}`,
+            cells: [
+              <Link
+                key="action"
+                href={`/admin/workforce/approvals/${a.id}`}
+                className="font-semibold text-zinc-950 hover:underline"
+              >
+                {a.action}
+              </Link>,
+              <StatusBadge key="risk" status={a.risk} />,
+              <span key="requested" className="whitespace-nowrap text-xs text-zinc-500">
+                {new Date(a.created_at).toLocaleString()}
+              </span>,
+              <span key="expires" className="whitespace-nowrap text-xs text-zinc-500">
+                {new Date(a.expires_at).toLocaleString()}
+              </span>,
+            ],
+          }))}
+          emptyMessage="No pending approvals. Nothing is waiting on a human."
+        />
+      </section>
 
-      {/* Tasks + QA */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={ClipboardList} title="Recent tasks" href="/admin/workforce/tasks" />
-          {vm.empty.tasks ? (
-            <EmptyNote text="No tasks recorded yet." />
-          ) : (
-            <ul className="space-y-2">
-              {vm.tasks.map((t) => (
-                <li key={t.id} className="rounded-xl bg-zinc-800 p-3">
-                  <div className="text-sm text-white">{t.title}</div>
-                  <div className="text-sm text-zinc-500">
-                    {vm.agentNameById[t.agent_id] ?? "unknown agent"} · {t.status} ·{" "}
-                    {new Date(t.created_at).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={FlaskConical} title="QA runs" href="/admin/workforce/qa" />
+      <section className="space-y-3">
+        <SectionHead title="Open incidents" href="/admin/workforce/sentinel" />
+        <AdminTable
+          columns={incidentColumns}
+          rows={vm.incidents.map((inc) => ({
+            id: inc.id,
+            detailHref: `/admin/workforce/sentinel/incidents/${inc.id}`,
+            cells: [
+              <span key="incident" className="font-semibold text-zinc-950">
+                <span className={SEVERITY_TONE[inc.severity] ?? "text-zinc-500"}>{inc.severity}</span>
+                {" — "}
+                <Link
+                  href={`/admin/workforce/sentinel/incidents/${inc.id}`}
+                  className="hover:underline"
+                >
+                  {inc.title}
+                </Link>
+              </span>,
+              <StatusBadge key="status" status={inc.status} />,
+              <span key="events" className="tabular-nums text-zinc-600">
+                {inc.event_count} event(s)
+              </span>,
+              <span key="seen" className="whitespace-nowrap text-xs text-zinc-500">
+                {new Date(inc.last_seen_at).toLocaleString()}
+              </span>,
+            ],
+          }))}
+          emptyMessage="No open or investigating incidents. Sentinel has nothing to report."
+        />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHead title="Recent tasks" href="/admin/workforce/tasks" />
+        <AdminTable
+          columns={taskColumns}
+          rows={vm.tasks.map((t) => ({
+            id: t.id,
+            detailHref: `/admin/workforce/tasks/${t.id}`,
+            cells: [
+              <Link
+                key="task"
+                href={`/admin/workforce/tasks/${t.id}`}
+                className="font-semibold text-zinc-950 hover:underline"
+              >
+                {t.title}
+              </Link>,
+              <StatusBadge key="status" status={t.status} />,
+              <span key="agent" className="text-zinc-600">
+                {vm.agentNameById[t.agent_id] ?? "unknown agent"}
+              </span>,
+              <span key="created" className="whitespace-nowrap text-xs text-zinc-500">
+                {new Date(t.created_at).toLocaleString()}
+              </span>,
+            ],
+          }))}
+          emptyMessage="No tasks recorded yet."
+        />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHead title="Recent reports" href="/admin/workforce/reports" />
+        <AdminTable
+          columns={reportColumns}
+          rows={vm.reports.map((r) => ({
+            id: r.id,
+            detailHref: `/admin/workforce/reports/${r.id}`,
+            cells: [
+              <Link
+                key="summary"
+                href={`/admin/workforce/reports/${r.id}`}
+                className="block max-w-[320px] font-semibold text-zinc-950 hover:underline"
+              >
+                {r.summary.slice(0, 160)}
+              </Link>,
+              <span key="type" className="whitespace-nowrap text-zinc-600">
+                {r.report_type}
+              </span>,
+              <span key="agent" className="text-zinc-600">
+                {vm.agentNameById[r.agent_id] ?? "unknown agent"}
+              </span>,
+              <span key="created" className="whitespace-nowrap text-xs text-zinc-500">
+                {new Date(r.created_at).toLocaleString()}
+              </span>,
+            ],
+          }))}
+          emptyMessage="No agent reports yet. Reports appear here after runs complete."
+        />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHead title="Recent activity" href="/admin/workforce/activity" />
+        <AdminTable
+          columns={activityColumns}
+          rows={[
+            ...vm.runs.slice(0, 5).map((r) => ({
+              id: `run-${r.id}`,
+              cells: [
+                <span key="item" className="text-zinc-950">
+                  run · {vm.agentNameById[r.agent_id] ?? "unknown agent"}
+                </span>,
+                <span key="detail" className="text-zinc-600">
+                  {r.status}
+                  {r.error ? ` · ${r.error.slice(0, 120)}` : ""}
+                </span>,
+                <span key="at" className="whitespace-nowrap text-xs text-zinc-500">
+                  {new Date(r.created_at).toLocaleString()}
+                </span>,
+              ],
+            })),
+            ...vm.events.slice(0, 5).map((e) => ({
+              id: `ev-${e.id}`,
+              cells: [
+                <span key="item" className="text-zinc-950">
+                  event · {e.kind}
+                </span>,
+                <span key="detail" className="text-zinc-600">
+                  {e.route ?? "no route"}
+                </span>,
+                <span key="at" className="whitespace-nowrap text-xs text-zinc-500">
+                  {new Date(e.created_at).toLocaleString()}
+                </span>,
+              ],
+            })),
+          ]}
+          emptyMessage="No runs or events yet. Activity will appear here as the workforce operates."
+        />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHead title="QA runs" href="/admin/workforce/qa" />
+        <div className="rounded-xl border border-zinc-200 bg-white p-4">
           {vm.empty.qa ? (
-            <EmptyNote text="No QA runs recorded. This zero is real, not a placeholder." />
+            <p className="text-sm text-zinc-500">No QA runs recorded. This zero is real, not a placeholder.</p>
           ) : (
-            <p className="text-sm text-white">
+            <p className="text-sm text-zinc-950">
               {vm.counts.qaRuns} QA run(s) recorded. Latest detail lives under QA.
             </p>
           )}
         </div>
-      </div>
-
-      {/* Reports + Activity */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={FileText} title="Recent reports" href="/admin/workforce/reports" />
-          {vm.empty.reports ? (
-            <EmptyNote text="No agent reports yet. Reports appear here after runs complete." />
-          ) : (
-            <ul className="space-y-2">
-              {vm.reports.map((r) => (
-                <li key={r.id} className="rounded-xl bg-zinc-800 p-3">
-                  <div className="text-sm text-white">{r.summary.slice(0, 160)}</div>
-                  <div className="text-sm text-zinc-500">
-                    {vm.agentNameById[r.agent_id] ?? "unknown agent"} · {r.report_type} ·{" "}
-                    {new Date(r.created_at).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="space-y-3 rounded-xl bg-zinc-900 p-4 shadow-xs">
-          <SectionHead icon={Activity} title="Recent activity" href="/admin/workforce/activity" />
-          {vm.empty.runs && vm.empty.events ? (
-            <EmptyNote text="No runs or events yet. Activity will appear here as the workforce operates." />
-          ) : (
-            <ul className="space-y-2">
-              {vm.runs.slice(0, 5).map((r) => (
-                <li key={`run-${r.id}`} className="text-sm text-zinc-400">
-                  run · {vm.agentNameById[r.agent_id] ?? "unknown agent"} · {r.status} ·{" "}
-                  {new Date(r.created_at).toLocaleString()}
-                  {r.error ? <span className="text-red-400"> · {r.error.slice(0, 120)}</span> : null}
-                </li>
-              ))}
-              {vm.events.slice(0, 5).map((e) => (
-                <li key={`ev-${e.id}`} className="text-sm text-zinc-400">
-                  event · {e.kind}
-                  {e.route ? ` · ${e.route}` : ""} · {new Date(e.created_at).toLocaleString()}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Sentinel link card */}
-      <div className="flex items-center justify-between rounded-xl bg-zinc-900 p-4 shadow-xs">
-        <p className="flex items-center gap-2 text-sm text-zinc-400">
-          <ShieldAlert size={18} /> Sentinel investigations and full incident history live under Sentinel (Stage 9).
-        </p>
-        <Link href="/admin/workforce/sentinel" className="text-sm text-zinc-400 hover:text-white">
-          Open Sentinel
-        </Link>
-      </div>
+      </section>
     </div>
   );
 }

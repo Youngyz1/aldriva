@@ -213,6 +213,7 @@ export function OfficeScene({
 
     const glassMat = stdMat(0x9db8d2, { transparent: true, opacity: 0.22, roughness: 0.15, metalness: 0 });
     const lampMat = stdMat(0xef4444, { emissive: 0xb91c1c, emissiveIntensity: 1.2 });
+    const lampAmberMat = stdMat(0xf59e0b, { emissive: 0xb45309, emissiveIntensity: 1.2 });
     const markerAwaiting = stdMat(0xf97316, { emissive: 0xc2410c, emissiveIntensity: 0.9 });
     const markerNeutral = stdMat(0xa1a1aa, { emissive: 0x000000, emissiveIntensity: 0 });
     const plantPotMat = stdMat(0x92400e);
@@ -358,7 +359,10 @@ export function OfficeScene({
         }
       }
       if (room.alertLight) {
-        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), lampMat);
+        const lamp = new THREE.Mesh(
+          new THREE.SphereGeometry(0.35, 12, 12),
+          room.alertTone === "amber" ? lampAmberMat : lampMat
+        );
         lamp.position.set((f.minX + f.maxX) / 2, 2.6, f.minZ + 1.1);
         scene3.add(lamp);
         animated.push({ obj: lamp, baseY: 2.6, baseRotX: 0, phase: 0, kind: "pulse" });
@@ -577,7 +581,8 @@ export function OfficeScene({
       <div ref={containerRef} style={{ height: 420 }} />
       <figcaption className="mt-2 text-xs text-zinc-500">
         Drag to rotate · scroll or pinch to zoom · right-drag or two-finger drag to pan. Amber figure = busy ·
-        grey = idle · orange marker = awaiting approval · red light = open incidents. Click a figure to open that agent.
+        grey = idle · orange marker = awaiting approval · red lamp = s1/s2 open incidents · amber lamp = lower severity.
+        Click a figure to open that agent.
       </figcaption>
     </figure>
   );

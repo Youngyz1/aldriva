@@ -50,11 +50,19 @@ async function selectAll<T>(qPromise: PromiseLike<unknown>, what: string): Promi
 /**
  * Pure tree builder: snapshot rows + per-agent approval/incident counts ->
  * departments sorted, agents sorted by name. No I/O — hermetically tested.
+ *
+ * Shared incident rule (with lib/workforce/office.ts): run-linked incidents
+ * count on their agent; platform incidents (no agent_run_id) attribute to
+ * the reliability department rollup — the reliability agent owns platform
+ * health. When no reliability department exists yet, an empty one carries
+ * the platform count (mirrors the office annex), so platform incidents are
+ * never silently dropped from the tree.
  */
 export function buildWorkforceTree(
   snapshot: ReturnType<typeof buildOfficeSnapshot>,
   approvalsByAgent: Record<string, number>,
-  incidentsByAgent: Record<string, number>
+  incidentsByAgent: Record<string, number>,
+  platformIncidents = 0
 ): TreeDepartment[] {
   const byDept = new Map<string, TreeAgentRow[]>();
   for (const a of snapshot.agents) {
@@ -73,17 +81,22 @@ export function buildWorkforceTree(
     list.push(row);
     byDept.set(a.department, list);
   }
+  if (platformIncidents > 0 && !byDept.has('reliability')) {
+    byDept.set('reliability', []);
+  }
   return [...byDept.entries()]
     .sort(([x], [y]) => x.localeCompare(y))
     .map(([department, agents]) => {
       agents.sort((x, y) => x.name.localeCompare(y.name));
+      const platform = department === 'reliability' ? platformIncidents : 0;
       return {
         department,
         agents,
         pendingApprovals: agents.reduce((s, a) => s + a.pendingApprovals, 0),
-        openIncidents: agents.reduce((s, a) => s + a.openIncidents, 0),
+        openIncidents: agents.reduce((s, a) => s + a.openIncidents, 0) + platform,
       };
-    });
+    })
+    .filter((d) => d.agents.length > 0 || d.openIncidents > 0);
 }
 
 /**
@@ -121,6 +134,8 @@ export async function fetchWorkforceTree(client?: CommandCenterClient): Promise<
   }
 
   // ONE aggregated incident hop: open incidents -> run ids -> agent ids.
+  // Incidents without a run are platform incidents (shared rule: they
+  // attribute to the reliability department, never to a guessed agent).
   const incidentRows = await selectAll<{ agent_run_id: string | null }>(
     (supabase as unknown as {
       from(table: string): any;
@@ -128,11 +143,11 @@ export async function fetchWorkforceTree(client?: CommandCenterClient): Promise<
       .from('incidents')
       .select('agent_run_id')
       .in('status', ['open', 'investigating'])
-      .not('agent_run_id', 'is', null)
       .limit(100),
     'open incidents'
   );
   const runIds = [...new Set(incidentRows.map((r) => r.agent_run_id).filter((id): id is string => !!id))];
+  const platformIncidents = incidentRows.filter((r) => !r.agent_run_id).length;
   const incidentsByAgent: Record<string, number> = {};
   if (runIds.length > 0) {
     const runRows = await selectAll<{ id: string; agent_id: string }>(
@@ -149,5 +164,5 @@ export async function fetchWorkforceTree(client?: CommandCenterClient): Promise<
     }
   }
 
-  return buildWorkforceTree(snapshot, approvalsByAgent, incidentsByAgent);
+  return buildWorkforceTree(snapshot, approvalsByAgent, incidentsByAgent, platformIncidents);
 }

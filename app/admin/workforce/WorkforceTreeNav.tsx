@@ -10,7 +10,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TreeAgentRow, TreeDepartment } from "@/lib/workforce/tree";
 
 const PRESENCE_DOT: Record<TreeAgentRow["presence"], string> = {
@@ -107,6 +107,16 @@ export function WorkforceTreeNav({ departments }: { departments: TreeDepartment[
   const agentCount = departments.reduce((s, d) => s + d.agents.length, 0);
   const pendingCount = departments.reduce((s, d) => s + d.pendingApprovals, 0);
   const close = () => setOpen(false);
+
+  // Dismiss the sheet on Esc as well as backdrop and navigation.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <>

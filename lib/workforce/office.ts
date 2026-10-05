@@ -28,6 +28,13 @@ export interface OfficeSnapshot {
   agents: OfficeAgentSnapshot[];
   openIncidents: number;
   pendingApprovals: number;
+  /**
+   * Worst open-incident severity (s1..s4) or null when none is known.
+   * Drives the annex lamp tone: s1/s2 red, anything lower (or unknown)
+   * amber. Shared rule with the shell tree (see lib/workforce/tree.ts):
+   * severity decides the tone, run linkage decides attribution.
+   */
+  worstIncidentSeverity: string | null;
 }
 
 export interface OfficeDesk {
@@ -51,6 +58,12 @@ export interface OfficeRoom {
   width: number;
   desks: OfficeDesk[];
   alertLight: boolean;
+  /**
+   * Annex lamp tone from the shared severity rule: 'red' while any open
+   * incident is s1/s2, 'amber' while open incidents are lower severity
+   * (or severity unknown), null when the lamp is off.
+   */
+  alertTone: 'red' | 'amber' | null;
   /** In-room approval spot for awaiting figures; null when unused. */
   approvalSpot: { x: number; z: number } | null;
 }
@@ -61,6 +74,15 @@ export interface OfficeScene {
 
 const NON_TERMINAL_TASK = new Set(['queued', 'running', 'awaiting_approval']);
 const TITLE_CAP = 80;
+const SEVERITY_RANK = ['s1', 's2', 's3', 's4'];
+
+/** Worst severity across incidents, or null when none is known. */
+function worstSeverity(incidents: Array<{ severity?: string }>): string | null {
+  for (const s of SEVERITY_RANK) {
+    if (incidents.some((i) => i.severity === s)) return s;
+  }
+  return null;
+}
 
 function presenceFor(
   statuses: string[],
@@ -126,6 +148,7 @@ export function buildOfficeSnapshot(raw: CommandCenterRaw): OfficeSnapshot {
     agents,
     openIncidents: raw.incidents.length,
     pendingApprovals: raw.approvals.length,
+    worstIncidentSeverity: worstSeverity(raw.incidents),
   };
 }
 
@@ -174,12 +197,17 @@ export function buildOfficeScene(snapshot: OfficeSnapshot): OfficeScene {
   const cellW = Math.max(...widths, 6) + CELL_PAD;
   const cellD = ROOM_DEPTH + CELL_PAD;
   const cols = Math.max(1, Math.ceil(Math.sqrt(departments.length)));
+  // Shared severity rule: the annex lamp burns red while any open incident
+  // is s1/s2, amber while open incidents are lower severity or unknown.
+  const lampTone: 'red' | 'amber' =
+    snapshot.worstIncidentSeverity === 's1' || snapshot.worstIncidentSeverity === 's2' ? 'red' : 'amber';
   const rooms: OfficeRoom[] = departments.map((department, ri) => {
     const members = byDept.get(department) ?? [];
     const width = widths[ri];
     const originX = (ri % cols) * cellW;
     const originZ = Math.floor(ri / cols) * cellD;
     const hasAwaiting = members.some((a) => a.presence === 'awaiting');
+    const lit = snapshot.openIncidents > 0 && department === 'reliability';
     return {
       department,
       originX,
@@ -197,7 +225,8 @@ export function buildOfficeScene(snapshot: OfficeSnapshot): OfficeScene {
           animation: animationFor(a.presence),
         };
       }),
-      alertLight: snapshot.openIncidents > 0 && department === 'reliability',
+      alertLight: lit,
+      alertTone: lit ? lampTone : null,
       approvalSpot: hasAwaiting ? { x: originX + width - 1, z: originZ - 2 } : null,
     };
   });
