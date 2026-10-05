@@ -15,12 +15,11 @@ export const EVENT_TEAM_ROLES_ALL: EventTeamRole[] = ['event_manager', 'ticket_s
 export const EVENT_TEAM_ROLES_MANAGE: EventTeamRole[] = ['event_manager'];
 export const EVENT_TEAM_ROLES_SCANNER: EventTeamRole[] = ['event_manager', 'ticket_scanner'];
 
-const supabaseAdmin = createSupabaseAdmin();
-
 /**
  * Returns the caller's active event_team_members role for one specific event, or null if none.
  */
 export async function getEventTeamRole(userId: string, eventId: string): Promise<EventTeamRole | null> {
+  const supabaseAdmin = createSupabaseAdmin();
   const { data } = await supabaseAdmin
     .from('event_team_members')
     .select('role')
@@ -57,6 +56,8 @@ export async function hasEventOrOrganizerAccess(
   minEventRoles: EventTeamRole[] = EVENT_TEAM_ROLES_SCANNER
 ): Promise<boolean> {
   if (!userId || !eventId) return false;
+
+  const supabaseAdmin = createSupabaseAdmin();
 
   // 1. Fetch event and linked organizer info
   const { data: event } = await supabaseAdmin
@@ -96,6 +97,7 @@ export async function hasEventOrOrganizerAccess(
 export async function bindPendingEventInvitations(userId: string, email: string): Promise<number> {
   if (!userId || !email) return 0;
   const normalizedEmail = email.trim().toLowerCase();
+  const supabaseAdmin = createSupabaseAdmin();
 
   // 1. Indexed lookup on (email, status)
   const { data: pendingInvites } = await supabaseAdmin

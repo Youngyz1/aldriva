@@ -29,8 +29,6 @@ export const ENTITY_ROLES_MANAGE: EntityRole[] = ['owner', 'admin', 'manager'];
  */
 export const ENTITY_ROLES_FINANCE_VIEW: EntityRole[] = ['owner', 'admin', 'manager', 'finance'];
 
-const supabaseAdmin = createSupabaseAdmin();
-
 /**
  * Returns the caller's entity_members role for one organizer, or null if
  * they have no membership row at all. Direct organizer ownership
@@ -40,6 +38,7 @@ const supabaseAdmin = createSupabaseAdmin();
  * purposes.
  */
 export async function getEntityRole(userId: string, organizerId: string): Promise<EntityRole | null> {
+  const supabaseAdmin = createSupabaseAdmin();
   const { data } = await supabaseAdmin
     .from('entity_members')
     .select('role')
@@ -59,6 +58,7 @@ export async function getUserEntityMemberships(
   userId: string,
   minRoles?: EntityRole[]
 ): Promise<Record<string, EntityRole>> {
+  const supabaseAdmin = createSupabaseAdmin();
   let query = supabaseAdmin.from('entity_members').select('organizer_id, role').eq('user_id', userId);
 
   if (minRoles) {
@@ -117,6 +117,7 @@ export async function checkTenantAccess(
   }
 
   // 2. Direct organizer ownership fallback
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: org } = await supabaseAdmin
     .from('organizers')
     .select('user_id')

@@ -9,9 +9,29 @@ const isDev =
   process.env.NODE_ENV !== "production" &&
   process.env.VERCEL_ENV !== "production";
 
+// Provide safe build-time fallbacks for static module evaluation when env is unset
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co";
+}
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder-service-role-key";
+}
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder-anon-key";
+}
+if (!process.env.STRIPE_SECRET_KEY) {
+  process.env.STRIPE_SECRET_KEY = "sk_test_placeholder_key_for_build_00000000000000000000";
+}
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_placeholder";
+}
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = "re_placeholder";
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : "";
-const supabaseWssOrigin = supabaseOrigin.replace(/^https:/, "wss:");
+const supabaseOrigin = supabaseUrl && supabaseUrl !== "https://placeholder.supabase.co" ? new URL(supabaseUrl).origin : "";
+const supabaseWssOrigin = supabaseOrigin ? supabaseOrigin.replace(/^https:/, "wss:") : "";
 
 const cspDirectives = [
   "default-src 'self'",
@@ -103,6 +123,14 @@ const cspDirectives = [
   .join("; ");
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-role-key",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key",
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_key_for_build_00000000000000000000",
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "whsec_placeholder",
+    RESEND_API_KEY: process.env.RESEND_API_KEY || "re_placeholder",
+  },
   // TEMPORARY — Cache Components Phase 0 validation only, on the
   // cache-components/phase-0-suspense-wrap branch. Do not merge to main with
   // this enabled until Phase 1 decomposition work is done.

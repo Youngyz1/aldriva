@@ -5,8 +5,6 @@
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-const supabaseAdmin = createSupabaseAdmin();
-
 export type UserIdentityDoc = {
   doc_type: string;
   storage_path: string;
@@ -30,6 +28,7 @@ export type UserIdentityVerificationRow = {
 };
 
 export async function getUserLatestIdentityVerification(userId: string): Promise<UserIdentityVerificationRow | null> {
+  const supabaseAdmin = createSupabaseAdmin();
   const { data, error } = await supabaseAdmin
     .from("user_identity_verifications")
     .select("*")
@@ -51,6 +50,7 @@ export async function saveUserIdentityDraft(
     create_new?: boolean;
   }
 ): Promise<UserIdentityVerificationRow> {
+  const supabaseAdmin = createSupabaseAdmin();
   const latest = await getUserLatestIdentityVerification(userId);
 
   if (!params.create_new && latest && (latest.status === "draft" || latest.status === "needs_more_info")) {
@@ -93,6 +93,7 @@ export async function submitUserIdentityVerification(
   userId: string,
   submissionId: string
 ): Promise<UserIdentityVerificationRow> {
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: sub, error: subErr } = await supabaseAdmin
     .from("user_identity_verifications")
     .select("*")
@@ -132,6 +133,7 @@ export async function reviewUserIdentitySubmission(params: {
   status: "approved" | "rejected" | "needs_more_info";
   reviewerNotes?: string;
 }): Promise<UserIdentityVerificationRow> {
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: sub, error: subErr } = await supabaseAdmin
     .from("user_identity_verifications")
     .select("*")

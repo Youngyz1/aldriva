@@ -6,8 +6,6 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkTenantAccess, getEntityRole, type EntityRole } from "@/lib/entity-auth";
 import { getCurrentUser } from "@/lib/auth";
 
-const supabaseAdmin = createSupabaseAdmin();
-
 export type AuthzResult = { ok: true; userId: string; role?: EntityRole | null } | { ok: false; error: string; status: 401 | 403 | 404 };
 
 async function requireUser(): Promise<{ userId: string } | { error: string; status: 401 }> {
@@ -27,6 +25,7 @@ export async function assertCanManageOrganizer(organizerId: string, allowed: Ent
 export async function assertCanManageEvent(eventId: string, opts: { requireManager?: boolean } = {}): Promise<AuthzResult & { event?: { id: string; organizer_id: string | null; user_id: string } }> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: event, error } = await supabaseAdmin.from("events").select("id, user_id, organizer_id").eq("id", eventId).maybeSingle();
   if (error || !event) return { ok: false, error: "Not found", status: 404 };
   // 1) Direct owner
@@ -52,6 +51,7 @@ export async function assertCanManageEvent(eventId: string, opts: { requireManag
 export async function assertCanAccessEventScan(eventId: string): Promise<AuthzResult> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: event } = await supabaseAdmin.from("events").select("id, user_id, organizer_id").eq("id", eventId).maybeSingle();
   if (!event) return { ok: false, error: "Not found", status: 404 };
   if (event.user_id === u.userId) return { ok: true, userId: u.userId };
@@ -67,6 +67,7 @@ export async function assertCanAccessEventScan(eventId: string): Promise<AuthzRe
 export async function assertCanManageFundraiser(fundraiserId: string): Promise<AuthzResult> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: f } = await supabaseAdmin.from("fundraisers").select("id, user_id, organizer_id").eq("id", fundraiserId).maybeSingle();
   if (!f) return { ok: false, error: "Not found", status: 404 };
   if (f.user_id === u.userId) return { ok: true, userId: u.userId };
@@ -80,6 +81,7 @@ export async function assertCanManageFundraiser(fundraiserId: string): Promise<A
 export async function assertCanManageBusiness(businessId: string): Promise<AuthzResult> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: b } = await supabaseAdmin.from("businesses").select("id, owner_id, organizer_id").eq("id", businessId).maybeSingle();
   if (!b) return { ok: false, error: "Not found", status: 404 };
   if (b.owner_id === u.userId) return { ok: true, userId: u.userId };
@@ -93,6 +95,7 @@ export async function assertCanManageBusiness(businessId: string): Promise<Authz
 export async function assertCanManageArticle(articleId: string): Promise<AuthzResult> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: a } = await supabaseAdmin.from("articles").select("id, owner_id, organizer_id").eq("id", articleId).maybeSingle();
   if (!a) return { ok: false, error: "Not found", status: 404 };
   if (a.owner_id === u.userId) return { ok: true, userId: u.userId };
@@ -106,6 +109,7 @@ export async function assertCanManageArticle(articleId: string): Promise<AuthzRe
 export async function assertCanManageProduct(productId: string): Promise<AuthzResult> {
   const u = await requireUser();
   if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
   const { data: p } = await supabaseAdmin.from("products").select("id, owner_id, business_id").eq("id", productId).maybeSingle();
   if (!p) return { ok: false, error: "Not found", status: 404 };
   if (p.owner_id === u.userId) return { ok: true, userId: u.userId };

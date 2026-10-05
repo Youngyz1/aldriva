@@ -31,10 +31,19 @@ import type {
 } from '@/types/admin-management';
 import type { EntityRole } from '@/lib/entity-auth';
 
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdminClient(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
+  return createClient(url, key);
+}
+
+export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const client = getAdminClient();
+    const value = (client as any)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+});
 
 export async function listAllAuthUsers(client: SupabaseClient = supabaseAdmin) {
   const perPage = 1000;
