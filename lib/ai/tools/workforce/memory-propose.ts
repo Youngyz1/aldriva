@@ -46,11 +46,29 @@ export interface ValidMemoryProposal {
   reason: string;
 }
 
-/** Secret-pattern detector (mirrors redactSentinelMessage pairs — detect, then reject). */
+/**
+ * Secret-pattern detector (mirrors redactSentinelMessage pairs — detect,
+ * then reject). Covers: PEM private-key headers, Stripe-style sk_live_ /
+ * sk_test_ keys, OpenAI/Anthropic hyphen keys (sk-live/test/ant/proj-),
+ * Google AIza keys, GitHub tokens (ghp_/github_pat_), Supabase sbp_ keys,
+ * Stripe whsec_ webhook secrets, space-separated Bearer tokens, bare JWTs
+ * (eyJ header . payload . signature), postgres connection strings carrying
+ * a password, and labelled key/secret/token/password assignments. Bare
+ * ordinary words never match: every unlabelled pattern demands a
+ * provider-specific prefix plus token-shaped characters (or, for Bearer,
+ * a 10+ character token), so prose like "Bearer shares rose" stays clean.
+ */
 export function containsSecretPattern(v: string): boolean {
   if (typeof v !== 'string' || v.length === 0) return false;
-  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(v)) return true;
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY[A-Z ]*-----/.test(v)) return true;
   if (/sk_(live|test)_[A-Za-z0-9]+/.test(v)) return true;
+  if (/\bsk-(live|test|ant|proj)-[A-Za-z0-9\-_]+/.test(v)) return true;
+  if (/\bAIza[0-9A-Za-z\-_]{30,}\b/.test(v)) return true;
+  if (/\b(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/.test(v)) return true;
+  if (/\b(sbp_[A-Za-z0-9\-_]{12,}|whsec_[A-Za-z0-9\-_]{16,})\b/.test(v)) return true;
+  if (/\bBearer\s+[A-Za-z0-9\-._~+/]{10,}={0,2}\b/i.test(v)) return true;
+  if (/\beyJ[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_]{8,}\.[A-Za-z0-9\-_.+/=]{8,}/.test(v)) return true;
+  if (/\bpostgres(?:ql)?:\/\/[^/\s]*:[^@\s]+@[^\s]+/.test(v)) return true;
   return /(api[_-]?key|secret|token|passwd|password|authorization|bearer|session|cookie)\s*[:=]\s*['"]?[^'"\s,}]+['"]?/i.test(v);
 }
 

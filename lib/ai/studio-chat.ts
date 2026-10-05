@@ -59,7 +59,10 @@ export interface BoundedHistoryItem {
  * dropped first until the total fits 8000. Returned oldest-first.
  */
 export function boundHistory(rows: StudioHistoryRow[]): BoundedHistoryItem[] {
-  const sorted = [...rows].sort((a, b) => a.seq - b.seq).slice(-STUDIO_HISTORY_ROWS);
+  const sorted = rows
+    .filter((r) => hasDisplayText(r.content ?? ''))
+    .sort((a, b) => a.seq - b.seq)
+    .slice(-STUDIO_HISTORY_ROWS);
   const items: BoundedHistoryItem[] = sorted.map((r) => ({
     seq: r.seq,
     role: r.role,
@@ -79,8 +82,9 @@ export function boundHistory(rows: StudioHistoryRow[]): BoundedHistoryItem[] {
  * never-override disclaimer. Empty string when there is nothing to inject.
  */
 export function wrapHistoryForPrompt(items: BoundedHistoryItem[], conversationId: string): string {
-  if (items.length === 0) return '';
-  const lines = items.map((i) => {
+  const usable = items.filter((i) => hasDisplayText(i.content));
+  if (usable.length === 0) return '';
+  const lines = usable.map((i) => {
     const screened = screenUntrustedInput(i.content, `studio-chat:${conversationId}#${i.seq}`).sanitizedText;
     return `[${i.role} #${i.seq}]: ${screened}`;
   });
@@ -96,6 +100,23 @@ export function deriveTitle(text: string): string {
 /** User prompts matching the secret pattern are answered, never stored. */
 export function shouldPersistPrompt(prompt: string): boolean {
   return !containsSecretPattern(prompt);
+}
+
+/**
+ * Visible reply when the model produced no display text. Returned to the
+ * UI but NEVER stored (no assistant row is persisted for empty content).
+ * The guard verdict computed for the turn is left unchanged.
+ */
+export const STUDIO_EMPTY_REPLY = 'The assistant returned no answer. Try rephrasing.';
+
+/** Empty-reply variant naming the tool that ran without a summary. */
+export function emptyReplyAfterTool(toolName: string): string {
+  return `The assistant ran ${toolName} but returned no summary. Try rephrasing.`;
+}
+
+/** Display-text check: blank or whitespace-only text is never persisted. */
+export function hasDisplayText(text: string): boolean {
+  return typeof text === 'string' && text.trim().length > 0;
 }
 
 export interface StoredUserMessage {

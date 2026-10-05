@@ -22,9 +22,12 @@ import { insertSystemEvent } from '@/lib/observability/system-events';
 import {
   boundHistory,
   deriveTitle,
+  emptyReplyAfterTool,
+  hasDisplayText,
   loadConversationHistory,
   nextMessageSeq,
   shouldPersistPrompt,
+  STUDIO_EMPTY_REPLY,
   toStoredAssistantMessage,
   toStoredUserMessage,
   wrapHistoryForPrompt,
@@ -96,7 +99,10 @@ async function persistStudioTurn(
       content: userRow.content,
     });
     if (userInsert.error) return false;
-    if (result.guardVerdict !== 'rejected') {
+    // Empty model output is never persisted: the user row above still
+    // stands (with the first-turn title below), but no assistant row with
+    // blank content is stored. The caller answers with a visible fallback.
+    if (result.guardVerdict !== 'rejected' && hasDisplayText(result.text)) {
       const asst = toStoredAssistantMessage({
         text: result.text,
         toolName: result.toolName,
@@ -382,9 +388,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Empty model output is answered, never stored: the verdict above is
+    // unchanged and persistStudioTurn skips the assistant row, so the
+    // fallback below exists only in this response, never in history.
+    const replyText = hasDisplayText(guardedText)
+      ? guardedText
+      : executedToolCalls.length > 0
+        ? emptyReplyAfterTool(executedToolCalls[0].tool)
+        : STUDIO_EMPTY_REPLY;
+
     return NextResponse.json({
       success: true,
-      text: guardedText,
+      text: replyText,
       guardVerdict,
       guardReason,
       toolCalls: executedToolCalls,
