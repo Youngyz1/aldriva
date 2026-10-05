@@ -407,6 +407,64 @@ async function main() {
         }
       }
     });
+
+    // ── 10. Workforce grant hardening (migration 153, Stage 23 Phase B) ───
+    await inTxn(client, "workforce-grants", async () => {
+      const tables = [
+        "tool_definitions",
+        "agents", "agent_versions", "agent_tools",
+        "knowledge_documents", "knowledge_document_versions", "knowledge_chunks",
+        "agent_tasks", "approvals", "agent_runs", "agent_steps", "agent_reports",
+        "system_events", "incidents", "incident_events",
+        "qa_runs", "qa_test_results",
+        "agent_memory", "agent_memory_versions",
+      ];
+      // Skip until 153 lands: staging still carries the Supabase defaults.
+      const applied = await client.query(
+        "SELECT has_table_privilege('anon', 'agents', 'SELECT') AS anon_select"
+      );
+      if (applied.rows[0].anon_select !== false) {
+        skip("workforce-grants", "migration 153 not applied on staging");
+        return;
+      }
+      // RLS enabled on every table (pg_class ground truth, not pg_policies).
+      const { rows: rls } = await client.query(
+        "SELECT relname FROM pg_class WHERE relname = ANY($1) AND relrowsecurity = true", [tables]
+      );
+      const secured = new Set(rls.map((r) => r.relname));
+      for (const table of tables) {
+        if (secured.has(table)) pass(`workforce-grants:rls:${table}`, "RLS enabled");
+        else fail(`workforce-grants:rls:${table}`, "RLS not enabled");
+      }
+      // Anon holds nothing; authenticated holds SELECT only (qa_runs: no
+      // table-level SELECT at all — 151's column grants cover the reads).
+      for (const table of tables) {
+        for (const priv of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+          const anon = await client.query(
+            "SELECT has_table_privilege('anon', $1, $2) AS ok", [table, priv]
+          );
+          if (anon.rows[0].ok === false) pass(`workforce-grants:priv:anon:${table}.${priv}`, "revoked");
+          else fail(`workforce-grants:priv:anon:${table}.${priv}`, `anon still holds ${priv}`);
+          const want = priv === "SELECT" && table !== "qa_runs";
+          const auth = await client.query(
+            "SELECT has_table_privilege('authenticated', $1, $2) AS ok", [table, priv]
+          );
+          if (auth.rows[0].ok === want) pass(`workforce-grants:priv:authenticated:${table}.${priv}=${want}`);
+          else fail(`workforce-grants:priv:authenticated:${table}.${priv}`, `expected ${want}`);
+        }
+      }
+      // qa_runs column surface: public id stays readable, the claim secret stays hidden.
+      const idCol = await client.query(
+        "SELECT has_column_privilege('authenticated', 'qa_runs', 'id', 'SELECT') AS ok"
+      );
+      if (idCol.rows[0].ok === true) pass("workforce-grants:qa_runs:id", "column readable");
+      else fail("workforce-grants:qa_runs:id", "id column not readable");
+      const secretCol = await client.query(
+        "SELECT has_column_privilege('authenticated', 'qa_runs', 'claim_token_hash', 'SELECT') AS ok"
+      );
+      if (secretCol.rows[0].ok === false) pass("workforce-grants:qa_runs:claim_token_hash", "secret hidden");
+      else fail("workforce-grants:qa_runs:claim_token_hash", "secret column readable");
+    });
   } finally {
     await client.end();
   }

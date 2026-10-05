@@ -127,3 +127,4 @@ migration_149_agent_memory.sql
 migration_150_memory_hardening.sql
 migration_151_workforce_rls_narrowing.sql
 migration_152_studio_chat_persistence.sql
+migration_153_workforce_grant_hardening.sql
