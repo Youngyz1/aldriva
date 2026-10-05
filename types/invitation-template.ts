@@ -108,6 +108,8 @@ export interface InvitationPageData {
   title: string;
   /** ISO 8601 start date & time (e.g. "2026-11-14T19:00:00Z") */
   eventDate: string;
+  /** [OPTIONAL] Locale for date/time formatting and Aldriva UI dictionary ('en' | 'fr'). Default: 'en' */
+  locale?: "en" | "fr";
 
   // ── [HIDE-IF-EMPTY] Timezone ──────────────────────────────────────────────
   /** IANA timezone identifier (e.g. "America/Los_Angeles", "Europe/London"). If omitted, local browser time is used. */

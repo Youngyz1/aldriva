@@ -22,12 +22,23 @@ import {
   getTemplateById,
 } from "@/components/invitation/templates/registry";
 import { InvitationPageData } from "@/types/invitation-template";
-import { Sparkles, Smartphone, Monitor, Image as ImageIcon, User, Layers, Tag } from "lucide-react";
+import { InvitationLocale } from "@/lib/invitation-i18n";
+import {
+  Sparkles,
+  Smartphone,
+  Monitor,
+  Image as ImageIcon,
+  User,
+  Layers,
+  Tag,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 type ScenarioKey =
   | "default"
   | "minimal"
-  | "vip"
   | "portrait_hero"
   | "landscape_hero"
   | "bright_photo"
@@ -49,10 +60,6 @@ const SCENARIO_LABELS: Record<ScenarioKey, { label: string; description: string 
   minimal: {
     label: "Minimal Content",
     description: "Demonstrates HIDE-IF-EMPTY: missing optional sections close up with zero gaps.",
-  },
-  vip: {
-    label: "VIP Guest View",
-    description: "VIP greeting line, VIP badge, and priority seat assignment.",
   },
   portrait_hero: {
     label: "Portrait Hero Photo",
@@ -119,23 +126,6 @@ function resolveScenarioData(
         ...MINIMAL_INVITATION_SAMPLE_DATA,
         title: base.title,
         eventDate: base.eventDate,
-      };
-      break;
-    case "vip":
-      scenarioData = {
-        ...base,
-        guest: {
-          ...base.guest,
-          isVip: true,
-          rsvpStatus: "accepted",
-          rsvpAt: "2026-10-01T14:22:00Z",
-        },
-        seat: {
-          label: "Honorary Dais · Seat 1",
-          tableNumber: "1",
-          tableName: "Presidential Dais",
-          isVip: true,
-        },
       };
       break;
     case "portrait_hero":
@@ -266,6 +256,8 @@ export default function InvitationPreviewPage() {
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [guestType, setGuestType] = useState<GuestType>("standard");
   const [weddingSubtype, setWeddingSubtype] = useState<WeddingSubtype>("church");
+  const [locale, setLocale] = useState<InvitationLocale>("en");
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
   const currentTemplate = useMemo(() => getTemplateById(templateId), [templateId]);
   const activeCategory = currentTemplate.category;
@@ -281,40 +273,40 @@ export default function InvitationPreviewPage() {
   );
 
   const finalPageData = useMemo(
-    () => applyGuestType(scenarioData, guestType),
-    [scenarioData, guestType]
+    () => ({
+      ...applyGuestType(scenarioData, guestType),
+      locale,
+    }),
+    [scenarioData, guestType, locale]
   );
 
   const TemplateComponent = currentTemplate.component;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      {/* ── Top Dev Toolbar ───────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-zinc-900/95 border-b border-zinc-800 px-4 py-2.5 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          {/* Brand & Template Descriptor */}
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              <Sparkles className="w-4 h-4" />
+      {/* ── Compact Dev Toolbar (Single compact row on mobile, expandable) ──── */}
+      <header className="sticky top-0 z-50 bg-zinc-900/95 border-b border-zinc-800 px-3 py-2 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          {/* Brand & Active Template Pill */}
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+              <Sparkles className="w-3.5 h-3.5" />
             </span>
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider text-amber-400 block">
+            <div className="min-w-0">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-400 truncate block">
                 {currentTemplate.name}
               </span>
-              <span className="text-[10px] text-zinc-400 hidden md:inline">
+              <span className="text-[10px] text-zinc-400 hidden xl:inline truncate">
                 {currentTemplate.description}
               </span>
             </div>
           </div>
 
-          {/* Test Controls Strip */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Desktop Controls (Always visible lg+) */}
+          <div className="hidden lg:flex items-center gap-1.5 flex-wrap">
             {/* Category Dropdown */}
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs">
+            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
               <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-bold hidden sm:inline">
-                Category:
-              </span>
               <select
                 value={activeCategory}
                 onChange={(e) => {
@@ -333,11 +325,8 @@ export default function InvitationPreviewPage() {
             </div>
 
             {/* Template Dropdown */}
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs">
+            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
               <Tag className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-bold hidden sm:inline">
-                Template:
-              </span>
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
@@ -351,38 +340,25 @@ export default function InvitationPreviewPage() {
               </select>
             </div>
 
-            {/* Wedding Subtype (Visible only when in Wedding category) */}
+            {/* Wedding Subtype */}
             {activeCategory === "wedding" && (
-              <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs">
-                <span className="text-[11px] text-rose-300 uppercase tracking-wider font-bold hidden sm:inline">
-                  Subtype:
-                </span>
+              <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
                 <select
                   value={weddingSubtype}
                   onChange={(e) => setWeddingSubtype(e.target.value as WeddingSubtype)}
                   className="bg-transparent text-rose-200 font-bold text-xs focus:outline-none cursor-pointer pr-1"
                 >
-                  <option value="church" className="bg-zinc-900 text-white">
-                    Church / White Wedding
-                  </option>
-                  <option value="civil" className="bg-zinc-900 text-white">
-                    Civil / Court
-                  </option>
-                  <option value="traditional" className="bg-zinc-900 text-white">
-                    Traditional
-                  </option>
-                  <option value="engagement" className="bg-zinc-900 text-white">
-                    Engagement
-                  </option>
-                  <option value="vow_renewal" className="bg-zinc-900 text-white">
-                    Vow Renewal
-                  </option>
+                  <option value="church" className="bg-zinc-900 text-white">Church Wedding</option>
+                  <option value="civil" className="bg-zinc-900 text-white">Civil / Court</option>
+                  <option value="traditional" className="bg-zinc-900 text-white">Traditional</option>
+                  <option value="engagement" className="bg-zinc-900 text-white">Engagement</option>
+                  <option value="vow_renewal" className="bg-zinc-900 text-white">Vow Renewal</option>
                 </select>
               </div>
             )}
 
             {/* Scenario Dropdown */}
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs">
+            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
               <ImageIcon className="w-3.5 h-3.5 text-zinc-400" />
               <select
                 value={scenarioKey}
@@ -398,31 +374,47 @@ export default function InvitationPreviewPage() {
             </div>
 
             {/* Guest Type Dropdown */}
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1 text-xs">
+            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
               <User className="w-3.5 h-3.5 text-zinc-400" />
               <select
                 value={guestType}
                 onChange={(e) => setGuestType(e.target.value as GuestType)}
                 className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer pr-1"
               >
-                <option value="standard" className="bg-zinc-900 text-white">
-                  Standard Guest
-                </option>
-                <option value="vip" className="bg-zinc-900 text-white">
-                  VIP Guest
-                </option>
-                <option value="no_pass" className="bg-zinc-900 text-white">
-                  No Seat / No Pass
-                </option>
+                <option value="standard" className="bg-zinc-900 text-white">Standard Guest</option>
+                <option value="vip" className="bg-zinc-900 text-white">VIP Guest</option>
+                <option value="no_pass" className="bg-zinc-900 text-white">No Pass</option>
               </select>
             </div>
 
+            {/* Language Switcher */}
+            <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setLocale("en")}
+                className={`px-2 py-1 rounded-md text-[11px] font-black uppercase transition-all ${
+                  locale === "en" ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale("fr")}
+                className={`px-2 py-1 rounded-md text-[11px] font-black uppercase transition-all ${
+                  locale === "fr" ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                FR
+              </button>
+            </div>
+
             {/* Viewport Width Toggles */}
-            <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-xl p-0.5 text-xs">
+            <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setViewport("desktop")}
-                className={`p-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                className={`p-1.5 rounded-md transition-all flex items-center gap-1 ${
                   viewport === "desktop"
                     ? "bg-amber-500 text-zinc-950 font-bold"
                     : "text-zinc-400 hover:text-white"
@@ -430,13 +422,12 @@ export default function InvitationPreviewPage() {
                 title="Desktop View"
               >
                 <Monitor className="w-3.5 h-3.5" />
-                <span className="text-[11px] hidden sm:inline">1440px</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setViewport("mobile")}
-                className={`p-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                className={`p-1.5 rounded-md transition-all flex items-center gap-1 ${
                   viewport === "mobile"
                     ? "bg-amber-500 text-zinc-950 font-bold"
                     : "text-zinc-400 hover:text-white"
@@ -444,11 +435,139 @@ export default function InvitationPreviewPage() {
                 title="Mobile 390px View"
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span className="text-[11px] hidden sm:inline">390px</span>
               </button>
             </div>
           </div>
+
+          {/* Mobile Right Controls: Language + Collapse Button */}
+          <div className="flex items-center gap-1.5 lg:hidden">
+            {/* Quick Language Toggle */}
+            <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setLocale("en")}
+                className={`px-1.5 py-0.5 rounded font-black ${
+                  locale === "en" ? "bg-amber-500 text-zinc-950" : "text-zinc-400"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale("fr")}
+                className={`px-1.5 py-0.5 rounded font-black ${
+                  locale === "fr" ? "bg-amber-500 text-zinc-950" : "text-zinc-400"
+                }`}
+              >
+                FR
+              </button>
+            </div>
+
+            {/* Toggle Panel Button */}
+            <button
+              type="button"
+              onClick={() => setMobileControlsOpen((prev) => !prev)}
+              className="px-2 py-1 rounded-lg bg-zinc-800 text-xs font-bold text-zinc-200 flex items-center gap-1 border border-zinc-700"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px]">Controls</span>
+              {mobileControlsOpen ? (
+                <ChevronUp className="w-3 h-3 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-zinc-400" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Expandable Panel for Narrow / Mobile View */}
+        {mobileControlsOpen && (
+          <div className="mt-2 pt-2 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-3 gap-2 lg:hidden">
+            {/* Category */}
+            <div className="flex flex-col gap-0.5 bg-zinc-950 border border-zinc-800 rounded-lg p-1.5">
+              <span className="text-[9px] uppercase font-bold text-zinc-400">Category</span>
+              <select
+                value={activeCategory}
+                onChange={(e) => {
+                  const newCat = e.target.value as TemplateCategory;
+                  const firstInCat = INVITATION_TEMPLATES.find((t) => t.category === newCat);
+                  if (firstInCat) setTemplateId(firstInCat.id);
+                }}
+                className="bg-transparent text-white font-bold text-xs focus:outline-none"
+              >
+                {Object.entries(INVITATION_CATEGORIES).map(([key, item]) => (
+                  <option key={key} value={key} className="bg-zinc-900 text-white">
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Template */}
+            <div className="flex flex-col gap-0.5 bg-zinc-950 border border-zinc-800 rounded-lg p-1.5">
+              <span className="text-[9px] uppercase font-bold text-zinc-400">Template</span>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="bg-transparent text-white font-bold text-xs focus:outline-none"
+              >
+                {currentCategoryTemplates.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-zinc-900 text-white">
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Scenario */}
+            <div className="flex flex-col gap-0.5 bg-zinc-950 border border-zinc-800 rounded-lg p-1.5 col-span-2 sm:col-span-1">
+              <span className="text-[9px] uppercase font-bold text-zinc-400">Scenario</span>
+              <select
+                value={scenarioKey}
+                onChange={(e) => setScenarioKey(e.target.value as ScenarioKey)}
+                className="bg-transparent text-white font-bold text-xs focus:outline-none"
+              >
+                {Object.entries(SCENARIO_LABELS).map(([key, item]) => (
+                  <option key={key} value={key} className="bg-zinc-900 text-white">
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Guest */}
+            <div className="flex flex-col gap-0.5 bg-zinc-950 border border-zinc-800 rounded-lg p-1.5">
+              <span className="text-[9px] uppercase font-bold text-zinc-400">Guest Type</span>
+              <select
+                value={guestType}
+                onChange={(e) => setGuestType(e.target.value as GuestType)}
+                className="bg-transparent text-white font-bold text-xs focus:outline-none"
+              >
+                <option value="standard" className="bg-zinc-900 text-white">Standard Guest</option>
+                <option value="vip" className="bg-zinc-900 text-white">VIP Guest</option>
+                <option value="no_pass" className="bg-zinc-900 text-white">No Pass</option>
+              </select>
+            </div>
+
+            {/* Wedding Subtype (if applicable) */}
+            {activeCategory === "wedding" && (
+              <div className="flex flex-col gap-0.5 bg-zinc-950 border border-zinc-800 rounded-lg p-1.5">
+                <span className="text-[9px] uppercase font-bold text-rose-300">Subtype</span>
+                <select
+                  value={weddingSubtype}
+                  onChange={(e) => setWeddingSubtype(e.target.value as WeddingSubtype)}
+                  className="bg-transparent text-rose-200 font-bold text-xs focus:outline-none"
+                >
+                  <option value="church" className="bg-zinc-900 text-white">Church</option>
+                  <option value="civil" className="bg-zinc-900 text-white">Civil</option>
+                  <option value="traditional" className="bg-zinc-900 text-white">Traditional</option>
+                  <option value="engagement" className="bg-zinc-900 text-white">Engagement</option>
+                  <option value="vow_renewal" className="bg-zinc-900 text-white">Vow Renewal</option>
+                </select>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* ── Main Template Container (Full Width on Desktop, Phone Frame on Mobile) ── */}

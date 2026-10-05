@@ -32,6 +32,11 @@ import {
   InvitationGalleryItem,
   InvitationScheduleItem,
 } from "@/types/invitation-template";
+import {
+  getInvitationDictionary,
+  formatLocalizedEventDate,
+  InvitationLocale,
+} from "@/lib/invitation-i18n";
 import VenueMapClient from "@/components/VenueMapClient";
 
 interface Props {
@@ -41,6 +46,9 @@ interface Props {
 }
 
 export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Props) {
+  const locale: InvitationLocale = data.locale || "en";
+  const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
+
   const [currentRsvp, setCurrentRsvp] = useState<"pending" | "accepted" | "declined">(
     data.guest.rsvpStatus || "pending"
   );
@@ -53,44 +61,13 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
   }, [data.guest.rsvpStatus]);
 
   // ── 1. VIP Determination ───────────────────────────────────────────────────
-  // Strictly driven by explicit boolean flags, NEVER by title string matching
   const isVipGuest = Boolean(data.guest.isVip || data.seat?.isVip);
 
-  // ── 2. Timezone-Aware Date & Time Formatter ─────────────────────────────────
-  const { dateDisplay, timeDisplay } = useMemo(() => {
-    if (!data.eventDate) return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    try {
-      const d = new Date(data.eventDate);
-      const tzOptions: Intl.DateTimeFormatOptions = data.timezone
-        ? { timeZone: data.timezone }
-        : {};
-
-      const dateStr = d.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-        ...tzOptions,
-      });
-
-      const timeStr = d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        ...tzOptions,
-      });
-
-      const tzAbbr = data.timezone
-        ? d.toLocaleTimeString("en-US", { timeZoneName: "short", ...tzOptions }).split(" ").pop()
-        : "";
-
-      return {
-        dateDisplay: dateStr,
-        timeDisplay: tzAbbr ? `${timeStr} ${tzAbbr}` : timeStr,
-      };
-    } catch {
-      return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    }
-  }, [data.eventDate, data.timezone]);
+  // ── 2. Timezone-Aware Localized Date & Time Formatter ────────────────────────
+  const { dateDisplay, timeDisplay } = useMemo(
+    () => formatLocalizedEventDate(data.eventDate, locale, data.timezone),
+    [data.eventDate, locale, data.timezone]
+  );
 
   // ── 3. RSVP Submission Handler ─────────────────────────────────────────────
   async function handleRsvpAction(response: "accepted" | "declined") {
@@ -116,19 +93,13 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       setCurrentRsvp(response);
       setRsvpFeedback({
         type: "success",
-        text:
-          response === "accepted"
-            ? "Your attendance has been confirmed! We look forward to welcoming you."
-            : "Your response has been noted. Thank you for letting us know.",
+        text: response === "accepted" ? dict.attendanceConfirmed : dict.responseNoted,
       });
     } catch {
       setCurrentRsvp(response);
       setRsvpFeedback({
         type: "success",
-        text:
-          response === "accepted"
-            ? "Attendance confirmed (preview mode)."
-            : "Declined response recorded (preview mode).",
+        text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
       });
     } finally {
       setSubmittingRsvp(false);
@@ -243,7 +214,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           <div className="text-center pt-2 sm:pt-4 mb-4">
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-[10px] sm:text-xs font-bold uppercase tracking-[0.22em] text-amber-300">
               <Sparkles className="w-3 h-3 text-amber-400" />
-              {data.eyebrow || "You're Invited"}
+              {data.eyebrow || dict.youAreInvited}
             </span>
           </div>
 
@@ -285,10 +256,10 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                   className="text-2xl sm:text-3xl font-bold text-amber-200/90 tracking-wide"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
-                  An Exclusive Invitation
+                  {dict.exclusiveInvitation}
                 </div>
                 <div className="text-xs text-zinc-500 uppercase tracking-widest mt-1 font-mono">
-                  {data.city || "Aldriva Event"}
+                  {data.city || (locale === "fr" ? "Événement Aldriva" : "Aldriva Event")}
                 </div>
               </div>
             )}
@@ -317,7 +288,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
         {/* Scroll Cue */}
         <div className="mt-6 flex flex-col items-center gap-1.5 text-zinc-500 text-[11px] font-semibold tracking-wider uppercase">
-          <span>{data.scrollPrompt || "Explore Invitation"}</span>
+          <span>{data.scrollPrompt || dict.exploreInvitation}</span>
           <ChevronDown className="w-4 h-4 text-amber-400 animate-bounce" />
         </div>
       </section>
@@ -328,7 +299,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           {/* Personalized Guest Greeting */}
           <div className="mb-6 inline-block">
             <div className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-amber-400/90 mb-1">
-              {isVipGuest ? "Honored VIP Guest" : "Cordially Welcoming"}
+              {isVipGuest ? dict.honoredVipGuest : (locale === "fr" ? "Chaleureuse Bienvenue" : "Cordially Welcoming")}
             </div>
             <div
               className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
@@ -349,13 +320,15 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            {data.storyHeadline || "A Message from the Host"}
+            {data.storyHeadline || dict.messageFromHost}
           </h2>
 
           <div className="mt-5 text-zinc-300 text-sm sm:text-base leading-relaxed space-y-4 font-light max-w-2xl mx-auto">
             <p className="whitespace-pre-line">
               {data.storyText ||
-                "We are delighted to invite you to celebrate this special occasion with us. Your presence will make our gathering truly memorable."}
+                (locale === "fr"
+                  ? "Nous avons le plaisir de vous inviter à célébrer cet événement exceptionnel à nos côtés. Votre présence rendra cette rencontre inoubliable."
+                  : "We are delighted to invite you to celebrate this special occasion with us. Your presence will make our gathering truly memorable.")}
             </p>
           </div>
 
@@ -383,10 +356,9 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             </div>
             <div>
               <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                Date
+                {dict.when}
               </div>
               <div className="text-sm font-bold text-white mt-0.5">{dateDisplay}</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">Save to calendar below</div>
             </div>
           </div>
 
@@ -396,10 +368,9 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             </div>
             <div>
               <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                Time
+                {locale === "fr" ? "Heure" : "Time"}
               </div>
               <div className="text-sm font-bold text-white mt-0.5">{timeDisplay}</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">Prompt arrival requested</div>
             </div>
           </div>
 
@@ -410,7 +381,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               </div>
               <div>
                 <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                  Location
+                  {dict.location}
                 </div>
                 <div className="text-sm font-bold text-white mt-0.5">
                   {data.venue || data.city}
@@ -426,9 +397,9 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       <section className="py-12 sm:py-16 px-4 bg-zinc-900/40 border-t border-b border-zinc-900">
         <div className="max-w-3xl mx-auto text-center">
           <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-3">
-            Countdown to Event
+            {locale === "fr" ? "Compte à Rebours" : "Countdown to Event"}
           </div>
-          <CountdownTicker targetDate={data.eventDate} timezone={data.timezone} />
+          <CountdownTicker targetDate={data.eventDate} timezone={data.timezone} dict={dict} />
         </div>
       </section>
 
@@ -437,13 +408,13 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         <section className="py-16 sm:py-24 px-4 max-w-5xl mx-auto">
           <div className="text-center max-w-xl mx-auto mb-10">
             <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
-              Visual Highlights
+              {dict.visualHighlights}
             </div>
             <h2
               className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              Gallery & Memories
+              {dict.galleryAndMemories}
             </h2>
           </div>
 
@@ -457,13 +428,13 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-10">
               <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
-                Order of Events
+                {dict.orderOfEvents}
               </div>
               <h2
                 className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
-                Itinerary & Program
+                {dict.itineraryAndProgram}
               </h2>
             </div>
 
@@ -477,13 +448,13 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         <section className="py-16 sm:py-24 px-4 max-w-4xl mx-auto">
           <div className="text-center max-w-xl mx-auto mb-10">
             <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
-              Location & Travel
+              {dict.locationAndTravel}
             </div>
             <h2
               className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              Venue & Directions
+              {dict.venueAndDirections}
             </h2>
           </div>
 
@@ -491,7 +462,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-zinc-800">
               <div>
                 <h3 className="text-xl sm:text-2xl font-bold text-white">
-                  {data.venue || "Venue"}
+                  {data.venue || dict.venues}
                 </h3>
                 {data.address && (
                   <p className="text-xs sm:text-sm text-zinc-400 mt-1 flex items-center gap-1.5">
@@ -509,7 +480,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                 rel="noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 transition shrink-0"
               >
-                <span>Get Directions</span>
+                <span>{dict.getDirections}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -532,7 +503,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               <div className="mt-5 p-4 rounded-2xl bg-zinc-800/40 border border-zinc-800 text-xs text-zinc-300 flex items-start gap-3">
                 <Car className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-white block mb-0.5">Parking & Arrival</strong>
+                  <strong className="text-white block mb-0.5">{dict.parkingAndArrival}</strong>
                   {data.parkingNotes}
                 </div>
               </div>
@@ -551,7 +522,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div className="text-[10px] font-bold tracking-[0.2em] text-amber-400 uppercase">
-                  Attire Guidelines
+                  {dict.attireGuidelines}
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-white mt-1">
                   {data.dressCode}
@@ -567,7 +538,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             {data.accommodations && data.accommodations.length > 0 && (
               <div>
                 <h4 className="text-[10px] font-bold tracking-[0.2em] text-amber-400 uppercase text-center mb-4">
-                  Recommended Accommodations
+                  {dict.recommendedAccommodations}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {data.accommodations.map((hotel, idx) => (
@@ -591,7 +562,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                           rel="noreferrer"
                           className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-semibold shrink-0 flex items-center gap-1 transition"
                         >
-                          Book <ExternalLink className="w-3 h-3" />
+                          {dict.book} <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                     </div>
@@ -604,7 +575,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 max-w-2xl mx-auto flex items-start gap-3">
                 <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">
-                  <strong className="text-white block mb-0.5">Important Information</strong>
+                  <strong className="text-white block mb-0.5">{dict.importantInfo}</strong>
                   {data.additionalNotes}
                 </div>
               </div>
@@ -618,23 +589,23 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-400/30 bg-amber-500/10 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 mb-2.5">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            Official Guest Pass
+            {dict.officialGuestPass}
           </div>
           <h2
             className="text-2xl sm:text-4xl font-bold text-white tracking-tight"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Your Invitation & RSVP
+            {dict.yourInvitationAndRsvp}
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1.5">
-            Kindly confirm your attendance below. Your digital pass and admission credential are ready.
+            {dict.kindlyConfirm}
           </p>
         </div>
 
         {/* Personalized Pass Card */}
         <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
-            {isVipGuest ? "VIP Honored Guest Pass" : "Official Invitation Pass"}
+            {isVipGuest ? dict.vipGuestPass : dict.officialGuestPass}
           </span>
           <h3
             className="text-2xl sm:text-3xl font-bold text-white mt-1 tracking-tight"
@@ -652,7 +623,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           {data.seat && (
             <div className="my-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs font-bold">
               <Armchair className="w-4 h-4 text-amber-400" />
-              <span>Assigned: {data.seat.label}</span>
+              <span>{dict.assignedSeat}: {data.seat.label}</span>
             </div>
           )}
 
@@ -677,7 +648,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           {/* Interactive Decision Actions */}
           <div className="my-6 p-5 rounded-2xl bg-zinc-950/80 border border-zinc-800 text-center">
             <p className="text-[11px] font-black uppercase tracking-wider text-zinc-300 mb-3.5">
-              Will you be joining us?
+              {dict.willYouJoinUs}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-sm mx-auto">
@@ -698,7 +669,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                 ) : (
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 )}
-                <span>{currentRsvp === "accepted" ? "You're Attending" : "Accept Invitation"}</span>
+                <span>{currentRsvp === "accepted" ? dict.attending : dict.accept}</span>
               </button>
 
               <button
@@ -716,7 +687,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                 ) : (
                   <XCircle className="w-3.5 h-3.5" />
                 )}
-                <span>{currentRsvp === "declined" ? "Declined" : "Unable to Attend"}</span>
+                <span>{currentRsvp === "declined" ? dict.declined : dict.decline}</span>
               </button>
             </div>
           </div>
@@ -737,7 +708,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                 />
               </div>
               <p className="mt-1.5 text-[9px] font-mono uppercase tracking-widest text-zinc-400">
-                Scan for admission at door
+                {dict.scanForAdmission}
               </p>
             </div>
           )}
@@ -750,7 +721,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold transition"
             >
               <CalendarPlus className="w-3.5 h-3.5 text-amber-400" />
-              <span>Download iCal (.ics)</span>
+              <span>{dict.downloadIcal}</span>
             </button>
 
             <a
@@ -760,7 +731,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold transition"
             >
               <Calendar className="w-3.5 h-3.5 text-amber-400" />
-              <span>Google Calendar</span>
+              <span>{dict.googleCalendar}</span>
             </a>
 
             <button
@@ -769,7 +740,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold transition"
             >
               <Share2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>{copiedLink ? "Copied Link!" : "Share Link"}</span>
+              <span>{copiedLink ? dict.copiedLink : dict.share}</span>
             </button>
           </div>
         </div>
@@ -781,7 +752,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           {data.title} {data.city ? `· ${data.city}` : ""}
         </p>
         <p className="text-[11px] text-zinc-600">
-          Powered by <span className="font-bold text-zinc-400">Aldriva</span> Digital Invitations
+          {dict.poweredByAldriva}
         </p>
       </footer>
     </div>
@@ -794,7 +765,7 @@ function GroupedScheduleView({ schedule }: { schedule: InvitationScheduleItem[] 
 
   if (!hasDayGrouping) {
     return (
-      <div className="relative pl-6 sm:pl-8 border-l-2 border-amber-500/30 space-y-8 my-4 ml-4 sm:ml-8">
+      <div className="relative pl-6 sm:pl-8 border-l-2 border-amber-500/30 space-y-8 ml-4 sm:ml-8">
         {schedule.map((item, idx) => (
           <ScheduleItemCard key={idx} item={item} />
         ))}
@@ -861,7 +832,15 @@ function ScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
 }
 
 // ── Subcomponent: Countdown Ticker ───────────────────────────────────────────
-function CountdownTicker({ targetDate, timezone }: { targetDate: string; timezone?: string | null }) {
+function CountdownTicker({
+  targetDate,
+  timezone,
+  dict,
+}: {
+  targetDate: string;
+  timezone?: string | null;
+  dict?: import("@/lib/invitation-i18n").InvitationDictionary;
+}) {
   const [timeLeft, setTimeLeft] = useState<{
     days: number;
     hours: number;
@@ -898,16 +877,16 @@ function CountdownTicker({ targetDate, timezone }: { targetDate: string; timezon
     return (
       <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold text-xs sm:text-sm">
         <Sparkles className="w-4 h-4 text-amber-400" />
-        <span>The event celebration is currently underway!</span>
+        <span>{dict ? dict.celebrationUnderway : "The event celebration is currently underway!"}</span>
       </div>
     );
   }
 
   const units = [
-    { label: "Days", value: timeLeft.days },
-    { label: "Hours", value: timeLeft.hours },
-    { label: "Hours", value: timeLeft.minutes, realLabel: "Minutes" },
-    { label: "Seconds", value: timeLeft.seconds },
+    { label: dict?.days || "Days", value: timeLeft.days },
+    { label: dict?.hours || "Hours", value: timeLeft.hours },
+    { label: dict?.minutes || "Min", value: timeLeft.minutes },
+    { label: dict?.seconds || "Sec", value: timeLeft.seconds },
   ];
 
   return (
@@ -927,7 +906,7 @@ function CountdownTicker({ targetDate, timezone }: { targetDate: string; timezon
             {String(unit.value).padStart(2, "0")}
           </span>
           <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-400/90 mt-2.5">
-            {unit.realLabel || unit.label}
+            {unit.label}
           </span>
         </div>
       ))}

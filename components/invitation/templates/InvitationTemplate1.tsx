@@ -3,12 +3,9 @@
 /**
  * components/invitation/templates/InvitationTemplate1.tsx
  *
- * Invitation Page Template 1 — Light Editorial
- * Revision 2: Warm ivory/paper palette, serif display type, typographic
- * date/venue/countdown (no icon-cards), canvas QR, focal-point hero,
- * mixed-aspect gallery with lightbox+swipe, multi-venue, music player.
- *
- * The dark zinc/amber-gold design is preserved as InvitationTemplateBlackTie.tsx.
+ * Invitation Page Template — "Gala Editorial"
+ * Revision 4: i18n support (EN/FR dictionaries & localized date/time formatting),
+ * lining numerals in countdown, compact layout, canvas QR pass.
  */
 
 import React, {
@@ -19,10 +16,7 @@ import React, {
   useCallback,
 } from "react";
 import Image from "next/image";
-import {
-  Cormorant_Garamond,
-  Lora,
-} from "next/font/google";
+import { Cormorant_Garamond, Lora } from "next/font/google";
 import {
   CheckCircle2,
   XCircle,
@@ -43,10 +37,14 @@ import {
   InvitationScheduleItem,
   InvitationVenueItem,
 } from "@/types/invitation-template";
+import {
+  getInvitationDictionary,
+  formatLocalizedEventDate,
+  InvitationLocale,
+} from "@/lib/invitation-i18n";
 import VenueMapClient from "@/components/VenueMapClient";
 
 // ── Typography ────────────────────────────────────────────────────────────────
-// Two font families, loaded once at module level for performance.
 const display = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -64,21 +62,18 @@ const text = Lora({
 });
 
 // ── Design Tokens ─────────────────────────────────────────────────────────────
-// Palette: warm ivory + deep ink + umber accent
-// All as CSS custom properties applied inline on the root element.
 const CSS_VARS = {
   "--inv-bg": "#F8F5F0",
   "--inv-bg-alt": "#F1EDE6",
   "--inv-ink": "#1C1A18",
   "--inv-ink-muted": "#5A5650",
   "--inv-ink-subtle": "#8C887F",
-  "--inv-accent": "#7A5C3A",       // warm umber
-  "--inv-accent-light": "#C4A882", // lighter umber for rules/ornaments
+  "--inv-accent": "#7A5C3A",
+  "--inv-accent-light": "#C4A882",
   "--inv-rule": "#D8D2C8",
   "--inv-white": "#FFFFFF",
 } as const;
 
-// Helper — shortcut for display/text font application
 const FF_DISPLAY = `var(--font-display), 'Georgia', serif`;
 const FF_TEXT = `var(--font-text), 'Georgia', serif`;
 
@@ -89,6 +84,9 @@ interface Props {
 }
 
 export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
+  const locale: InvitationLocale = data.locale || "en";
+  const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
+
   const [currentRsvp, setCurrentRsvp] = useState<"pending" | "accepted" | "declined">(
     data.guest.rsvpStatus || "pending"
   );
@@ -104,47 +102,13 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
   }, [data.guest.rsvpStatus]);
 
   // ── 1. VIP Determination ─────────────────────────────────────────────────
-  // Strictly driven by explicit boolean flags, NEVER by title string matching
   const isVipGuest = Boolean(data.guest.isVip || data.seat?.isVip);
 
-  // ── 2. Timezone-Aware Date & Time Formatter ──────────────────────────────
-  const { dateDisplay, timeDisplay } = useMemo(() => {
-    if (!data.eventDate) return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    try {
-      const d = new Date(data.eventDate);
-      const tzOptions: Intl.DateTimeFormatOptions = data.timezone
-        ? { timeZone: data.timezone }
-        : {};
-
-      const dateStr = d.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-        ...tzOptions,
-      });
-
-      const timeStr = d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        ...tzOptions,
-      });
-
-      const tzAbbr = data.timezone
-        ? d
-            .toLocaleTimeString("en-US", { timeZoneName: "short", ...tzOptions })
-            .split(" ")
-            .pop()
-        : "";
-
-      return {
-        dateDisplay: dateStr,
-        timeDisplay: tzAbbr ? `${timeStr} ${tzAbbr}` : timeStr,
-      };
-    } catch {
-      return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    }
-  }, [data.eventDate, data.timezone]);
+  // ── 2. Localized Timezone-Aware Date & Time ──────────────────────────────
+  const { dateDisplay, timeDisplay } = useMemo(
+    () => formatLocalizedEventDate(data.eventDate, locale, data.timezone),
+    [data.eventDate, locale, data.timezone]
+  );
 
   // ── 3. RSVP Handler ──────────────────────────────────────────────────────
   async function handleRsvpAction(response: "accepted" | "declined") {
@@ -170,19 +134,13 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       setCurrentRsvp(response);
       setRsvpFeedback({
         type: "success",
-        text:
-          response === "accepted"
-            ? "Your attendance has been confirmed. We look forward to welcoming you."
-            : "Your response has been noted. Thank you for letting us know.",
+        text: response === "accepted" ? dict.attendanceConfirmed : dict.responseNoted,
       });
     } catch {
       setCurrentRsvp(response);
       setRsvpFeedback({
         type: "success",
-        text:
-          response === "accepted"
-            ? "Attendance confirmed (preview mode)."
-            : "Declined response recorded (preview mode).",
+        text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
       });
     } finally {
       setSubmittingRsvp(false);
@@ -282,7 +240,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
     >
       {/* Optional Background Music */}
       {data.musicAudioUrl && (
-        <FloatingMusicPlayer audioUrl={data.musicAudioUrl} title={data.musicTitle} />
+        <FloatingMusicPlayer
+          audioUrl={data.musicAudioUrl}
+          title={data.musicTitle}
+          dict={dict}
+        />
       )}
 
       {/* ── Section 1: Hero ─────────────────────────────────────────────────── */}
@@ -291,7 +253,6 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         style={{ background: "var(--inv-bg)" }}
         className="relative w-full"
       >
-        {/* Hero image — full width, fixed aspect per breakpoint */}
         <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] max-h-[640px] overflow-hidden">
           {data.heroImage ? (
             <>
@@ -304,7 +265,6 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                 className="object-cover"
                 style={heroFocusStyle}
               />
-              {/* Scrim: gradient from bottom ensures ink text always readable on any photo */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
@@ -314,25 +274,21 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               />
             </>
           ) : (
-            /* Typographic / geometric fallback — no stock imagery */
-            <HeroFallback title={data.title} city={data.city} />
+            <HeroFallback title={data.title} city={data.city} eyebrow={dict.youAreInvited} />
           )}
         </div>
 
-        {/* Hero text block — overlaps bottom of image on medium+, stacks below on mobile */}
         <div
           className="relative z-10 mx-auto max-w-3xl px-6 sm:px-10 text-center"
           style={{ marginTop: data.heroImage ? "-4rem" : "0", paddingBottom: "2.5rem" }}
         >
-          {/* Eyebrow */}
           <p
             className="text-xs tracking-[0.28em] uppercase mb-4"
             style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT, letterSpacing: "0.28em" }}
           >
-            {data.eyebrow || "You're Invited"}
+            {data.eyebrow || dict.youAreInvited}
           </p>
 
-          {/* Title — fluid scale, balanced wrapping, max 2–3 lines mobile */}
           <h1
             className="leading-[1.12] text-balance"
             style={{
@@ -356,21 +312,24 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             </p>
           )}
 
-          {/* Thin rule ornament */}
           <div className="flex items-center gap-4 justify-center mt-6">
             <div className="h-px flex-1 max-w-[80px]" style={{ background: "var(--inv-rule)" }} />
             <span style={{ color: "var(--inv-accent-light)", fontSize: "1.1rem" }}>✦</span>
             <div className="h-px flex-1 max-w-[80px]" style={{ background: "var(--inv-rule)" }} />
           </div>
 
-          {/* Date · Time · Venue — typographic, visible on first viewport on 390×844 */}
           <div
             className="mt-5 space-y-1"
             style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT }}
           >
             <p
               className="text-sm sm:text-base"
-              style={{ fontFamily: FF_DISPLAY, fontStyle: "italic", fontSize: "clamp(1rem, 2.5vw, 1.2rem)", color: "var(--inv-ink)" }}
+              style={{
+                fontFamily: FF_DISPLAY,
+                fontStyle: "italic",
+                fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
+                color: "var(--inv-ink)",
+              }}
             >
               {dateDisplay}
             </p>
@@ -384,12 +343,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             )}
           </div>
 
-          {/* Scroll cue */}
           <p
             className="mt-6 text-[10px] tracking-[0.25em] uppercase"
             style={{ color: "var(--inv-ink-subtle)" }}
           >
-            {data.scrollPrompt || "Explore Invitation"}
+            {data.scrollPrompt || dict.exploreInvitation}
           </p>
         </div>
       </section>
@@ -401,12 +359,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         style={{ background: "var(--inv-bg)" }}
       >
         <div className="max-w-2xl mx-auto text-center">
-          {/* Personalized greeting */}
           <p
             className="text-[10px] tracking-[0.3em] uppercase mb-2"
             style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
           >
-            {isVipGuest ? "Honored VIP Guest" : "Dear Guest"}
+            {isVipGuest ? dict.honoredVipGuest : dict.dearGuest}
           </p>
           <p
             className="mb-6"
@@ -422,7 +379,12 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             {(data.guest.title || data.guest.organization) && (
               <span
                 className="block mt-1"
-                style={{ fontSize: "0.7em", fontWeight: 400, fontStyle: "normal", color: "var(--inv-ink-muted)" }}
+                style={{
+                  fontSize: "0.7em",
+                  fontWeight: 400,
+                  fontStyle: "normal",
+                  color: "var(--inv-ink-muted)",
+                }}
               >
                 {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
               </span>
@@ -441,7 +403,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               letterSpacing: "-0.01em",
             }}
           >
-            {data.storyHeadline || "A Message from the Host"}
+            {data.storyHeadline || dict.messageFromHost}
           </h2>
 
           <div
@@ -454,7 +416,6 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             </p>
           </div>
 
-          {/* Optional story/host image — full-bleed moment */}
           {data.storyImage && (
             <div className="mt-14 relative w-full max-w-md mx-auto aspect-[3/4] rounded-none overflow-hidden shadow-sm">
               <Image
@@ -469,7 +430,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         </div>
       </section>
 
-      {/* ── Section 3: Countdown (typographic, no tiles) ─────────────────────── */}
+      {/* ── Section 3: Countdown ────────────────────────────────────────────── */}
       <section
         aria-label="Event countdown"
         className="py-14 sm:py-20 px-6"
@@ -477,11 +438,15 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       >
         <div className="max-w-2xl mx-auto text-center">
           <SectionLabel>Counting Down</SectionLabel>
-          <CountdownTicker targetDate={data.eventDate} timezone={data.timezone} />
+          <CountdownTicker
+            targetDate={data.eventDate}
+            timezone={data.timezone}
+            dict={dict}
+          />
         </div>
       </section>
 
-      {/* ── Section 4: Full-bleed gallery image moment (if gallery has 1+) ─── */}
+      {/* ── Section 4: Photo Gallery (HIDE-IF-EMPTY) ───────────────────────── */}
       {data.gallery && data.gallery.length > 0 && (
         <section
           aria-label="Photo gallery"
@@ -490,8 +455,8 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         >
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
-              <SectionLabel>Visual Memories</SectionLabel>
-              <SectionTitle>Gallery</SectionTitle>
+              <SectionLabel>{dict.visualHighlights}</SectionLabel>
+              <SectionTitle>{dict.gallery}</SectionTitle>
             </div>
             <EditorialGallery images={data.gallery} />
           </div>
@@ -507,8 +472,8 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         >
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
-              <SectionLabel>Order of Events</SectionLabel>
-              <SectionTitle>Itinerary & Program</SectionTitle>
+              <SectionLabel>{dict.orderOfEvents}</SectionLabel>
+              <SectionTitle>{dict.itineraryAndProgram}</SectionTitle>
             </div>
             <GroupedScheduleView schedule={data.schedule} />
           </div>
@@ -524,8 +489,8 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         >
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
-              <SectionLabel>Location & Travel</SectionLabel>
-              <SectionTitle>Venue & Directions</SectionTitle>
+              <SectionLabel>{dict.locationAndTravel}</SectionLabel>
+              <SectionTitle>{dict.venueAndDirections}</SectionTitle>
             </div>
 
             <div className="space-y-2 text-center mb-8">
@@ -556,7 +521,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                   className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase"
                   style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
                 >
-                  <span>Get Directions</span>
+                  <span>{dict.getDirections}</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
@@ -596,8 +561,8 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         >
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
-              <SectionLabel>Event Locations</SectionLabel>
-              <SectionTitle>Venues</SectionTitle>
+              <SectionLabel>{dict.locationAndTravel}</SectionLabel>
+              <SectionTitle>{dict.venues}</SectionTitle>
             </div>
             <div className="space-y-8">
               {data.venues.map((v: InvitationVenueItem, idx: number) => (
@@ -649,7 +614,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
           <div className="max-w-2xl mx-auto space-y-14">
             {data.dressCode && (
               <div className="text-center">
-                <SectionLabel>Attire</SectionLabel>
+                <SectionLabel>{dict.attire}</SectionLabel>
                 <p
                   style={{
                     fontFamily: FF_DISPLAY,
@@ -673,7 +638,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
 
             {data.accommodations && data.accommodations.length > 0 && (
               <div>
-                <SectionLabel className="text-center block mb-6">Recommended Stays</SectionLabel>
+                <SectionLabel className="text-center block mb-6">{dict.recommendedStays}</SectionLabel>
                 <div className="space-y-4">
                   {data.accommodations.map((hotel, idx) => (
                     <div
@@ -702,7 +667,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                           className="shrink-0 text-xs tracking-widest uppercase flex items-center gap-1"
                           style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
                         >
-                          Book <ExternalLink className="w-3 h-3" />
+                          {dict.book} <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                     </div>
@@ -713,7 +678,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
 
             {data.additionalNotes && (
               <div className="text-center">
-                <SectionLabel>Please Note</SectionLabel>
+                <SectionLabel>{dict.importantInfo}</SectionLabel>
                 <p
                   className="text-sm leading-relaxed max-w-lg mx-auto whitespace-pre-line"
                   style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT }}
@@ -735,14 +700,13 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       >
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
-            <SectionLabel>Your Invitation</SectionLabel>
-            <SectionTitle>RSVP & Guest Pass</SectionTitle>
+            <SectionLabel>{dict.yourInvitationAndRsvp}</SectionLabel>
+            <SectionTitle>{dict.yourInvitationAndRsvp}</SectionTitle>
             <p className="mt-2 text-sm" style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT }}>
-              Kindly confirm your attendance. Your digital pass is ready below.
+              {dict.kindlyConfirm}
             </p>
           </div>
 
-          {/* Pass card — clean editorial frame */}
           <div
             className="border p-8 text-center"
             style={{
@@ -754,7 +718,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               className="text-[10px] tracking-[0.3em] uppercase mb-1"
               style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
             >
-              {isVipGuest ? "VIP Guest Pass" : "Official Invitation"}
+              {isVipGuest ? dict.vipGuestPass : dict.officialInvitation}
             </p>
             <p
               style={{
@@ -773,7 +737,6 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               </p>
             )}
 
-            {/* Seat assignment */}
             {data.seat && (
               <div className="mt-4">
                 <HairlineRule />
@@ -781,13 +744,12 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                   className="mt-3 text-xs tracking-widest uppercase"
                   style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
                 >
-                  {data.seat.label}
+                  {dict.reservedSeat}: {data.seat.label}
                   {data.seat.tableName && ` — ${data.seat.tableName}`}
                 </p>
               </div>
             )}
 
-            {/* RSVP feedback banner */}
             {rsvpFeedback && (
               <div
                 className={`mt-5 p-3 text-xs flex items-center justify-center gap-2 ${
@@ -805,13 +767,12 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               </div>
             )}
 
-            {/* RSVP buttons */}
             <div className="mt-6 mb-4">
               <p
                 className="text-[10px] tracking-[0.25em] uppercase mb-4"
                 style={{ color: "var(--inv-ink-subtle)", fontFamily: FF_TEXT }}
               >
-                Will you be joining us?
+                {dict.willYouJoinUs}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xs mx-auto">
                 <button
@@ -834,7 +795,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                   ) : (
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   )}
-                  <span>{currentRsvp === "accepted" ? "Attending" : "Accept"}</span>
+                  <span>{currentRsvp === "accepted" ? dict.attending : dict.accept}</span>
                 </button>
 
                 <button
@@ -856,12 +817,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                   ) : (
                     <XCircle className="w-3.5 h-3.5" />
                   )}
-                  <span>{currentRsvp === "declined" ? "Declined" : "Decline"}</span>
+                  <span>{currentRsvp === "declined" ? dict.declined : dict.decline}</span>
                 </button>
               </div>
             </div>
 
-            {/* QR Pass — canvas-based, no external URL */}
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
               <div className="mt-4">
                 <HairlineRule />
@@ -872,12 +832,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                   className="mt-2 text-[9px] tracking-[0.2em] uppercase"
                   style={{ color: "var(--inv-ink-subtle)", fontFamily: FF_TEXT }}
                 >
-                  Present for admission
+                  {dict.presentForAdmission}
                 </p>
               </div>
             )}
 
-            {/* Calendar & Share actions */}
             <div
               className="mt-6 pt-5 border-t flex flex-wrap items-center justify-center gap-3"
               style={{ borderColor: "var(--inv-rule)" }}
@@ -889,7 +848,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                 style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
-                <span>Add to Calendar</span>
+                <span>{dict.addToCalendar}</span>
               </button>
               <span style={{ color: "var(--inv-rule)" }}>·</span>
               <a
@@ -899,7 +858,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                 className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase"
                 style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
               >
-                <span>Google Cal</span>
+                <span>{dict.googleCalendar}</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
               <span style={{ color: "var(--inv-rule)" }}>·</span>
@@ -910,7 +869,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
                 style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>{copiedLink ? "Copied!" : "Share"}</span>
+                <span>{copiedLink ? dict.copiedLink : dict.share}</span>
               </button>
             </div>
           </div>
@@ -931,10 +890,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
           {data.title}
           {data.city ? ` · ${data.city}` : ""}
         </p>
-        <p>
-          Powered by <span style={{ color: "var(--inv-ink-muted)", fontWeight: 600 }}>Aldriva</span>{" "}
-          Digital Invitations
-        </p>
+        <p>{dict.poweredByAldriva}</p>
       </footer>
     </div>
   );
@@ -980,14 +936,20 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Hero Fallback: typographic/geometric, no stock imagery ───────────────────
-function HeroFallback({ title, city }: { title: string; city?: string | null }) {
+function HeroFallback({
+  title,
+  city,
+  eyebrow,
+}: {
+  title: string;
+  city?: string | null;
+  eyebrow: string;
+}) {
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center overflow-hidden"
       style={{ background: "var(--inv-bg-alt)" }}
     >
-      {/* Geometric ornament: concentric rings */}
       <div
         className="absolute inset-0 pointer-events-none"
         aria-hidden="true"
@@ -1013,7 +975,7 @@ function HeroFallback({ title, city }: { title: string; city?: string | null }) 
         className="text-[9px] tracking-[0.4em] uppercase mb-5 z-10"
         style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
       >
-        You're Invited
+        {eyebrow}
       </p>
       <h2
         className="z-10 text-balance"
@@ -1040,28 +1002,24 @@ function HeroFallback({ title, city }: { title: string; city?: string | null }) 
   );
 }
 
-// ── Canvas QR Code — uses qrcode npm package, no external URL ────────────────
 function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current || !value) return;
-    // Dynamically import to avoid SSR issues
-    import("qrcode").then((QRCode) => {
-      if (!canvasRef.current) return;
-      QRCode.toCanvas(canvasRef.current, value, {
-        width: size,
-        margin: 2,
-        color: {
-          dark: "#1C1A18",   // matches --inv-ink
-          light: "#FFFFFF",
-        },
-      }).catch(() => {
-        // silently fail; canvas stays blank rather than crashing
-      });
-    }).catch(() => {
-      // qrcode package unavailable
-    });
+    import("qrcode")
+      .then((QRCode) => {
+        if (!canvasRef.current) return;
+        QRCode.toCanvas(canvasRef.current, value, {
+          width: size,
+          margin: 2,
+          color: {
+            dark: "#1C1A18",
+            light: "#FFFFFF",
+          },
+        }).catch(() => {});
+      })
+      .catch(() => {});
   }, [value, size]);
 
   return (
@@ -1075,13 +1033,14 @@ function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
   );
 }
 
-// ── Countdown Ticker — typographic numerals, no tiles ───────────────────────
 function CountdownTicker({
   targetDate,
   timezone,
+  dict,
 }: {
   targetDate: string;
   timezone?: string | null;
+  dict: ReturnType<typeof getInvitationDictionary>;
 }) {
   const [timeLeft, setTimeLeft] = useState<{
     days: number;
@@ -1121,16 +1080,16 @@ function CountdownTicker({
         className="text-sm tracking-wider"
         style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT, fontStyle: "italic" }}
       >
-        The celebration is underway.
+        {dict.celebrationUnderway}
       </p>
     );
   }
 
   const units = [
-    { label: "Days", value: timeLeft.days },
-    { label: "Hours", value: timeLeft.hours },
-    { label: "Min", value: timeLeft.minutes },
-    { label: "Sec", value: timeLeft.seconds },
+    { label: dict.days, value: timeLeft.days },
+    { label: dict.hours, value: timeLeft.hours },
+    { label: dict.minutes, value: timeLeft.minutes },
+    { label: dict.seconds, value: timeLeft.seconds },
   ];
 
   return (
@@ -1140,7 +1099,6 @@ function CountdownTicker({
     >
       {units.map((unit, idx) => (
         <div key={idx} className="flex flex-col items-center">
-          {/* Large numeral — display typeface with lining numbers */}
           <span
             aria-label={`${unit.value} ${unit.label}`}
             className="tabular-nums lining-nums"
@@ -1163,27 +1121,21 @@ function CountdownTicker({
           >
             {unit.label}
           </span>
-          {/* Thin separating rule */}
-          {idx < units.length - 1 && (
-            <span
-              className="hidden sm:block absolute"
-              aria-hidden="true"
-              style={{ color: "var(--inv-rule)" }}
-            />
-          )}
         </div>
       ))}
     </div>
   );
 }
 
-// ── Grouped Schedule View ────────────────────────────────────────────────────
 function GroupedScheduleView({ schedule }: { schedule: InvitationScheduleItem[] }) {
   const hasDayGrouping = schedule.some((item) => Boolean(item.day));
 
   if (!hasDayGrouping) {
     return (
-      <div className="space-y-6 border-l" style={{ borderColor: "var(--inv-rule)", marginLeft: "1.5rem", paddingLeft: "1.5rem" }}>
+      <div
+        className="space-y-6 border-l"
+        style={{ borderColor: "var(--inv-rule)", marginLeft: "1.5rem", paddingLeft: "1.5rem" }}
+      >
         {schedule.map((item, idx) => (
           <ScheduleItemCard key={idx} item={item} />
         ))}
@@ -1225,7 +1177,6 @@ function GroupedScheduleView({ schedule }: { schedule: InvitationScheduleItem[] 
 function ScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
   return (
     <div className="relative">
-      {/* Timeline dot */}
       <div
         className="absolute -left-[1.875rem] top-1.5 w-2.5 h-2.5 rounded-full border-2"
         style={{
@@ -1233,7 +1184,6 @@ function ScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
           borderColor: "var(--inv-accent-light)",
         }}
       />
-
       <p
         className="text-[10px] tracking-[0.2em] uppercase mb-0.5"
         style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
@@ -1259,7 +1209,6 @@ function ScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
   );
 }
 
-// ── Editorial Mixed-Aspect Gallery with Lightbox ─────────────────────────────
 function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const touchStartX = useRef<number | null>(null);
@@ -1303,7 +1252,6 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
 
   return (
     <>
-      {/* 1 Image: Large Editorial Hero */}
       {count === 1 && (
         <div className="max-w-2xl mx-auto">
           <button
@@ -1318,16 +1266,10 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
               sizes="(max-width: 768px) 100vw, 768px"
               className="object-cover group-hover:scale-[1.02] transition-transform duration-700"
             />
-            {images[0].caption && (
-              <div className="absolute inset-0 flex items-end p-4" style={{ background: "linear-gradient(to top, rgba(28,26,24,0.55) 0%, transparent 60%)" }}>
-                <span className="text-xs text-white/90">{images[0].caption}</span>
-              </div>
-            )}
           </button>
         </div>
       )}
 
-      {/* 2 Images: Balanced Dual Frame */}
       {count === 2 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
           {images.map((img, idx) => (
@@ -1344,17 +1286,11 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
                 sizes="(max-width: 640px) 100vw, 400px"
                 className="object-cover group-hover:scale-[1.02] transition-transform duration-700"
               />
-              {img.caption && (
-                <div className="absolute inset-0 flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(to top, rgba(28,26,24,0.55) 0%, transparent 60%)" }}>
-                  <span className="text-xs text-white/90">{img.caption}</span>
-                </div>
-              )}
             </button>
           ))}
         </div>
       )}
 
-      {/* 3 Images: Leading Frame + 2 Stacked */}
       {count === 3 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
           <button
@@ -1369,11 +1305,6 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
               sizes="(max-width: 640px) 100vw, 600px"
               className="object-cover group-hover:scale-[1.02] transition-transform duration-700"
             />
-            {images[0].caption && (
-              <div className="absolute inset-0 flex items-end p-3" style={{ background: "linear-gradient(to top, rgba(28,26,24,0.55) 0%, transparent 60%)" }}>
-                <span className="text-xs text-white/90">{images[0].caption}</span>
-              </div>
-            )}
           </button>
           <div className="flex flex-col gap-3">
             {images.slice(1, 3).map((img, idx) => (
@@ -1396,7 +1327,6 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
         </div>
       )}
 
-      {/* 4+ Images: Responsive Editorial Mosaic */}
       {count >= 4 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {images.map((img, idx) => {
@@ -1419,18 +1349,12 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
                   sizes="(max-width: 768px) 50vw, 33vw"
                   className="object-cover group-hover:scale-[1.02] transition-transform duration-700"
                 />
-                {img.caption && (
-                  <div className="absolute inset-0 flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(to top, rgba(28,26,24,0.55) 0%, transparent 60%)" }}>
-                    <span className="text-xs text-white/90 line-clamp-2">{img.caption}</span>
-                  </div>
-                )}
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Lightbox Modal with Touch Swipe */}
       {activeIdx !== null && (
         <div
           role="dialog"
@@ -1502,13 +1426,14 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
   );
 }
 
-// ── Floating Music Player ─────────────────────────────────────────────────────
 function FloatingMusicPlayer({
   audioUrl,
   title,
+  dict,
 }: {
   audioUrl: string;
   title?: string | null;
+  dict: ReturnType<typeof getInvitationDictionary>;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1566,7 +1491,7 @@ function FloatingMusicPlayer({
           className="text-[11px] uppercase tracking-widest hidden sm:inline max-w-[120px] truncate"
           style={{ fontFamily: FF_TEXT }}
         >
-          {isPlaying ? (title || "Playing") : "Music"}
+          {isPlaying ? (title || dict.playing) : dict.music}
         </span>
         {isPlaying && (
           <span className="flex items-end gap-0.5 h-3">

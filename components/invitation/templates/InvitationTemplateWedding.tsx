@@ -44,6 +44,11 @@ import {
   InvitationScheduleItem,
   InvitationVenueItem,
 } from "@/types/invitation-template";
+import {
+  getInvitationDictionary,
+  formatLocalizedEventDate,
+  InvitationLocale,
+} from "@/lib/invitation-i18n";
 import VenueMapClient from "@/components/VenueMapClient";
 
 // ── Typography ────────────────────────────────────────────────────────────────
@@ -98,6 +103,9 @@ interface Props {
 }
 
 export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Props) {
+  const locale: InvitationLocale = data.locale || "en";
+  const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
+
   const [currentRsvp, setCurrentRsvp] = useState<"pending" | "accepted" | "declined">(
     data.guest.rsvpStatus || "pending"
   );
@@ -115,44 +123,11 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
   // ── 1. VIP Determination ─────────────────────────────────────────────────
   const isVipGuest = Boolean(data.guest.isVip || data.seat?.isVip);
 
-  // ── 2. Timezone-Aware Date & Time Formatter ──────────────────────────────
-  const { dateDisplay, timeDisplay } = useMemo(() => {
-    if (!data.eventDate) return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    try {
-      const d = new Date(data.eventDate);
-      const tzOptions: Intl.DateTimeFormatOptions = data.timezone
-        ? { timeZone: data.timezone }
-        : {};
-
-      const dateStr = d.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-        ...tzOptions,
-      });
-
-      const timeStr = d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        ...tzOptions,
-      });
-
-      const tzAbbr = data.timezone
-        ? d
-            .toLocaleTimeString("en-US", { timeZoneName: "short", ...tzOptions })
-            .split(" ")
-            .pop()
-        : "";
-
-      return {
-        dateDisplay: dateStr,
-        timeDisplay: tzAbbr ? `${timeStr} ${tzAbbr}` : timeStr,
-      };
-    } catch {
-      return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
-    }
-  }, [data.eventDate, data.timezone]);
+  // ── 2. Localized Timezone-Aware Date & Time Formatter ────────────────────
+  const { dateDisplay, timeDisplay } = useMemo(
+    () => formatLocalizedEventDate(data.eventDate, locale, data.timezone),
+    [data.eventDate, locale, data.timezone]
+  );
 
   // ── 3. RSVP Handler ──────────────────────────────────────────────────────
   async function handleRsvpAction(response: "accepted" | "declined") {
@@ -270,45 +245,14 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
   // ── 5. Wedding Subtype Headings & Defaults ─────────────────────────────────
   const subtypeWording = useMemo(() => {
-    switch (data.weddingSubtype) {
-      case "church":
-        return {
-          eyebrow: "The Holy Matrimony Of",
-          ceremonyLabel: "Church Ceremony",
-          receptionLabel: "Wedding Banquet",
-        };
-      case "civil":
-        return {
-          eyebrow: "The Marriage Celebration Of",
-          ceremonyLabel: "Civil Ceremony",
-          receptionLabel: "Dinner Reception",
-        };
-      case "traditional":
-        return {
-          eyebrow: "Traditional Wedding Rites Of",
-          ceremonyLabel: "Traditional Ceremony",
-          receptionLabel: "Evening Reception",
-        };
-      case "engagement":
-        return {
-          eyebrow: "The Engagement & Introduction Of",
-          ceremonyLabel: "Betrothal & Blessing",
-          receptionLabel: "Celebration Dinner",
-        };
-      case "vow_renewal":
-        return {
-          eyebrow: "The Vow Renewal Of",
-          ceremonyLabel: "Vow Renewal Ceremony",
-          receptionLabel: "Anniversary Reception",
-        };
-      default:
-        return {
-          eyebrow: "The Wedding Celebration Of",
-          ceremonyLabel: "The Ceremony",
-          receptionLabel: "The Reception",
-        };
-    }
-  }, [data.weddingSubtype]);
+    const stKey = data.weddingSubtype || "default";
+    const conf = dict.subtypes[stKey] || dict.subtypes.default;
+    return {
+      eyebrow: conf.eyebrow,
+      ceremonyLabel: conf.ceremony,
+      receptionLabel: conf.reception,
+    };
+  }, [data.weddingSubtype, dict]);
 
   const coupleDisplay = useMemo(() => {
     if (data.partner1Name && data.partner2Name) {
@@ -681,7 +625,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           className="py-14 sm:py-20 px-6 bg-[--wed-bg-alt]"
         >
           <div className="max-w-2xl mx-auto text-center space-y-6">
-            <WeddingLabel>Wedding Palette &amp; Attire</WeddingLabel>
+            <WeddingLabel>{dict.attireGuidelines}</WeddingLabel>
 
             {data.dressCode && (
               <div>
@@ -703,7 +647,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             {data.colorsOfTheDay && data.colorsOfTheDay.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs uppercase tracking-widest text-[--wed-ink-subtle] mb-4">
-                  Colors of the Day
+                  {dict.colorsOfTheDay}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
                   {data.colorsOfTheDay.map((color, cIdx) => (
@@ -732,12 +676,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         <section aria-label="Order of Events" className="py-16 sm:py-24 px-6 bg-[--wed-bg]">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
-              <WeddingLabel>Timeline</WeddingLabel>
+              <WeddingLabel>{dict.timeline}</WeddingLabel>
               <h2
                 className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
-                Order of Events
+                {dict.orderOfEvents}
               </h2>
             </div>
 
@@ -751,12 +695,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         <section aria-label="Photo Album" className="py-16 sm:py-24 px-6 bg-[--wed-bg-alt]">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
-              <WeddingLabel>Captured Moments</WeddingLabel>
+              <WeddingLabel>{dict.capturedMoments}</WeddingLabel>
               <h2
                 className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
-                Gallery &amp; Memories
+                {dict.galleryAndMemories}
               </h2>
             </div>
 
@@ -778,7 +722,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   className="text-xl font-medium text-[--wed-ink]"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
-                  Gift Registry &amp; Wishing Well
+                  {dict.giftRegistry}
                 </h3>
                 <p className="text-xs sm:text-sm text-[--wed-ink-muted] leading-relaxed max-w-md mx-auto whitespace-pre-line">
                   {data.registryNote}
@@ -788,12 +732,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
             {data.accommodations && data.accommodations.length > 0 && (
               <div>
-                <WeddingLabel>Where to Stay</WeddingLabel>
+                <WeddingLabel>{dict.whereToStay}</WeddingLabel>
                 <h3
                   className="text-xl font-medium text-[--wed-ink] mb-6"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
-                  Accommodations
+                  {dict.recommendedAccommodations}
                 </h3>
                 <div className="space-y-4">
                   {data.accommodations.map((hotel, hIdx) => (
@@ -814,7 +758,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                           rel="noreferrer"
                           className="shrink-0 text-xs tracking-wider uppercase text-[--wed-rose] font-semibold hover:underline flex items-center gap-1"
                         >
-                          Book <ExternalLink className="w-3 h-3" />
+                          {dict.book} <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                     </div>
@@ -834,15 +778,15 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       >
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
-            <WeddingLabel>Kindly Respond</WeddingLabel>
+            <WeddingLabel>{dict.kindlyRespond}</WeddingLabel>
             <h2
               className="text-2xl sm:text-4xl text-[--wed-ink] font-medium"
               style={{ fontFamily: FF_DISPLAY }}
             >
-              RSVP &amp; Pass
+              {dict.yourInvitationAndRsvp}
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-[--wed-ink-muted]">
-              Please reply at your earliest convenience so we may reserve your place.
+              {dict.kindlyRespond}
             </p>
           </div>
 
@@ -850,7 +794,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           <div className="p-8 sm:p-10 rounded-2xl bg-white border-2 border-[--wed-blush]/40 shadow-xl text-center space-y-6">
             <div>
               <span className="text-[10px] tracking-[0.25em] uppercase text-[--wed-rose] font-semibold">
-                {isVipGuest ? "Honored Wedding Pass" : "Official Response"}
+                {isVipGuest ? dict.honoredWeddingGuest : dict.officialResponse}
               </span>
               <h3
                 className="text-2xl sm:text-3xl text-[--wed-ink] font-medium mt-1"
@@ -869,7 +813,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             {data.seat && (
               <div className="py-2.5 px-4 rounded-xl bg-[--wed-bg-alt] inline-block">
                 <span className="text-xs font-semibold text-[--wed-rose] tracking-wide">
-                  Reserved: {data.seat.label}
+                  {dict.assignedSeat}: {data.seat.label}
                   {data.seat.tableName && ` (${data.seat.tableName})`}
                 </span>
               </div>
@@ -896,7 +840,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             {/* Interactive RSVP Decision */}
             <div className="space-y-3 pt-2">
               <p className="text-xs uppercase tracking-wider text-[--wed-ink-subtle] font-medium">
-                Will you be celebrating with us?
+                {dict.willYouCelebrate}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-sm mx-auto">
@@ -919,7 +863,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                     <Check className="w-3.5 h-3.5" />
                   )}
                   <span>
-                    {currentRsvp === "accepted" ? "Joyfully Attending" : "Joyfully Accept"}
+                    {currentRsvp === "accepted" ? dict.joyfullyAttending : dict.joyfullyAccept}
                   </span>
                 </button>
 
@@ -944,7 +888,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                     <XCircle className="w-3.5 h-3.5" />
                   )}
                   <span>
-                    {currentRsvp === "declined" ? "Regretfully Declined" : "Regretfully Decline"}
+                    {currentRsvp === "declined" ? dict.regretfullyDeclined : dict.regretfullyDecline}
                   </span>
                 </button>
               </div>
@@ -957,7 +901,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   <WeddingCanvasQR value={data.ticketInstance.qrCode} size={150} />
                 </div>
                 <p className="mt-2 text-[9px] uppercase tracking-widest text-[--wed-ink-subtle]">
-                  Admission Pass for Entry
+                  {dict.scanForAdmission}
                 </p>
               </div>
             )}
@@ -970,7 +914,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                 className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
-                <span>iCal</span>
+                <span>{dict.downloadIcal}</span>
               </button>
               <span className="text-[--wed-rule]">·</span>
               <a
@@ -979,7 +923,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
               >
-                <span>Google Cal</span>
+                <span>{dict.googleCalendar}</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
               <span className="text-[--wed-rule]">·</span>
@@ -989,7 +933,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                 className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>{copiedLink ? "Copied!" : "Share"}</span>
+                <span>{copiedLink ? dict.copiedLink : dict.share}</span>
               </button>
             </div>
           </div>
@@ -1002,10 +946,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           {coupleDisplay.p1} {coupleDisplay.p2 ? `& ${coupleDisplay.p2}` : ""}
           {data.city ? ` · ${data.city}` : ""}
         </p>
-        <p>
-          Powered by <span className="font-semibold text-[--wed-ink-muted]">Aldriva</span> Wedding
-          Invitations
-        </p>
+        <p>{dict.poweredByAldriva}</p>
       </footer>
     </div>
   );

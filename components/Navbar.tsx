@@ -73,6 +73,11 @@ export default function Navbar() {
   const initials = accountName ? accountName.slice(0, 2).toUpperCase() : "";
   const publicProfileHref = account ? `/profile/${account.id}` : "/login";
 
+  // Invitation routes (/invitation/[token], /invitation/preview) are standalone chrome-free experiences
+  if (pathname?.includes("/invitation")) {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
       <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-4 md:px-6">
