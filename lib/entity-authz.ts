@@ -3,7 +3,7 @@
  * Each helper is entity-specific; do not merge into generic (type,id) to preserve divergent ownership models.
  */
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkTenantAccess, getEntityRole, type EntityRole } from "@/lib/entity-auth";
+import { checkTenantAccess, type EntityRole } from "@/lib/entity-auth";
 import { getCurrentUser } from "@/lib/auth";
 
 export type AuthzResult = { ok: true; userId: string; role?: EntityRole | null } | { ok: false; error: string; status: 401 | 403 | 404 };
