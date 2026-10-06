@@ -70,7 +70,7 @@ export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, d
   if (!imageUrl) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-4">
+    <div className="space-y-4 border-t border-zinc-200 pt-4">
       <div>
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-zinc-800">Focal Point</h3>
@@ -117,7 +117,7 @@ export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, d
             className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${normalized.x}%`, top: `${normalized.y}%` }}
           >
-            <div className="absolute inset-0 rounded-full border-2 border-white shadow-md" />
+            <div className="absolute inset-0 rounded-full border-2 border-white shadow-xs" />
             <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-600" />
           </div>
         </div>

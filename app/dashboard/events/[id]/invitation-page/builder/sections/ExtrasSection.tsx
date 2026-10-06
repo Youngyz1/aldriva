@@ -92,8 +92,8 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
 
       {/* Wedding specific fields */}
       {isWedding && (
-        <div className="space-y-4 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-rose-900">Wedding Configuration</h3>
+        <div className="space-y-4 border-t border-zinc-200 pt-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Wedding Configuration</h3>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -185,8 +185,8 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
 
       {/* Birthday specific fields */}
       {isBirthday && (
-        <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900">Birthday Configuration</h3>
+        <div className="space-y-4 border-t border-zinc-200 pt-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Birthday Configuration</h3>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -257,7 +257,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
       )}
 
       {/* Accommodations (Max 6) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+      <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold text-zinc-900">Hotel & Accommodation Recommendations (Max 6)</h3>
@@ -276,7 +276,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
         </div>
 
         {accommodations.map((acc, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3">
+          <div key={i} className="flex flex-col gap-2 border-t border-zinc-100 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"
@@ -319,7 +319,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
       </div>
 
       {/* Colors of the Day (Max 5) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+      <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold text-zinc-900">Color Palette & Swatches (Max 5)</h3>
@@ -339,7 +339,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {colors.map((c, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-2.5">
+            <div key={i} className="flex items-center gap-2 border-t border-zinc-100 py-2.5">
               <input
                 type="color"
                 disabled={disabled}

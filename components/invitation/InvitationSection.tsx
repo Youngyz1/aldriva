@@ -27,7 +27,7 @@ export function InvitationSection({ id, index, title, summary, open, onToggle, c
   const headerId = `inv-section-header-${id}`;
   const panelId = `inv-section-panel-${id}`;
   return (
-    <section aria-labelledby={headerId} className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
+    <section aria-labelledby={headerId} className="border-b border-zinc-200 pb-1">
       <h2 className="m-0">
         <button
           id={headerId}
@@ -35,7 +35,7 @@ export function InvitationSection({ id, index, title, summary, open, onToggle, c
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => onToggle(id)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50"
+          className="flex w-full items-center gap-3 py-3 text-left transition hover:bg-zinc-50/60 rounded-lg px-1"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-black text-zinc-600 tabular-nums">
             {index + 1}
@@ -51,7 +51,7 @@ export function InvitationSection({ id, index, title, summary, open, onToggle, c
         </button>
       </h2>
       {open && (
-        <div id={panelId} role="region" aria-labelledby={headerId} className="border-t border-zinc-100 px-4 py-4">
+        <div id={panelId} role="region" aria-labelledby={headerId} className="border-t border-zinc-100 px-1 py-4">
           {children}
         </div>
       )}

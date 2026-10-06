@@ -504,7 +504,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             </div>
 
             {hasMapCoordinates && (
-              <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--inv-rule)" }}>
+              <div className="overflow-hidden">
                 <VenueMapClient
                   lat={data.latitude}
                   lng={data.longitude}
@@ -683,11 +683,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
           </div>
 
           <div
-            className="border p-8 text-center"
-            style={{
-              borderColor: "var(--inv-rule)",
-              background: "var(--inv-white)",
-            }}
+            className="py-4 text-center"
           >
             <p
               className="text-[10px] tracking-[0.3em] uppercase mb-1"

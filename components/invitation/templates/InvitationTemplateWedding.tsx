@@ -450,7 +450,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                     key={idx}
                     className={`flex flex-col ${
                       isEven ? "md:flex-row" : "md:flex-row-reverse"
-                    } items-center gap-6 sm:gap-10 p-6 rounded-2xl bg-white border border-(--wed-rule) shadow-sm`}
+                    } items-center gap-6 sm:gap-10 py-2`}
                   >
                     {storyItem.image && (
                       <div className="relative w-full md:w-1/2 aspect-[4/3] rounded-xl overflow-hidden shadow-inner shrink-0">
@@ -526,7 +526,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                 {data.venues.map((venue: InvitationVenueItem, idx: number) => (
                   <div
                     key={idx}
-                    className="p-6 sm:p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm flex flex-col justify-between text-center space-y-4"
+                    className="py-4 flex flex-col justify-between text-center space-y-4"
                   >
                     <div>
                       <span className="inline-block text-[10px] tracking-[0.25em] uppercase text-(--wed-rose) font-semibold mb-2">
@@ -561,7 +561,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
               </div>
             ) : (
               /* Single venue fallback */
-              <div className="max-w-2xl mx-auto p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm text-center space-y-4">
+              <div className="max-w-2xl mx-auto text-center space-y-4">
                 <h3
                   className="text-2xl font-medium text-(--wed-ink)"
                   style={{ fontFamily: FF_DISPLAY }}
@@ -574,7 +574,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   </p>
                 )}
                 {hasMapCoordinates && (
-                  <div className="mt-4 rounded-xl overflow-hidden border border-(--wed-rule)">
+                  <div className="mt-4 overflow-hidden">
                     <VenueMapClient
                       lat={data.latitude}
                       lng={data.longitude}
@@ -692,7 +692,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         <section aria-label="Registry and Lodging" className="py-16 px-6 bg-(--wed-bg)">
           <div className="max-w-2xl mx-auto space-y-12 text-center">
             {data.registryNote && (
-              <div className="p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm space-y-3">
+              <div className="py-4 space-y-3">
                 <div className="w-10 h-10 rounded-full bg-(--wed-blush-light) text-(--wed-rose) flex items-center justify-center mx-auto">
                   <Gift className="w-5 h-5" />
                 </div>
@@ -721,7 +721,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   {data.accommodations.map((hotel, hIdx) => (
                     <div
                       key={hIdx}
-                      className="p-4 rounded-xl bg-white border border-(--wed-rule) flex items-center justify-between gap-4 text-left"
+                      className="py-3 border-t border-(--wed-rule) flex items-center justify-between gap-4 text-left"
                     >
                       <div>
                         <p className="text-sm font-semibold text-(--wed-ink)">{hotel.name}</p>
@@ -766,7 +766,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           </div>
 
           {/* Formal Response Card Envelope/Card */}
-          <div className="p-8 sm:p-10 rounded-2xl bg-white border border-(--wed-rule) shadow-sm text-center space-y-6">
+          <div className="py-4 text-center space-y-6">
             <div>
               <span className="text-[10px] tracking-[0.25em] uppercase text-(--wed-rose) font-semibold">
                 {isVipGuest ? dict.honoredWeddingGuest : dict.officialResponse}
@@ -786,7 +786,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
             {/* Seat assignment */}
             {data.seat && (
-              <div className="py-2.5 px-4 rounded-xl bg-(--wed-bg-alt) inline-block">
+              <div className="py-2.5 inline-block">
                 <span className="text-xs font-semibold text-(--wed-rose) tracking-wide">
                   {dict.assignedSeat}: {data.seat.label}
                   {data.seat.tableName && ` (${data.seat.tableName})`}

@@ -174,14 +174,8 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 1: Hero Composition (Editorial & Framed) ─────────────── */}
       <section id="inv-hero" className="relative w-full max-w-5xl mx-auto px-4 pt-6 sm:pt-12 pb-10 sm:pb-16 flex flex-col items-center">
-        {/* Outer Invitation Frame Container */}
-        <div className="w-full rounded-3xl sm:rounded-[36px] border border-amber-500/25 bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 p-4 sm:p-8 shadow-2xl shadow-black/80 relative overflow-hidden">
-          
-          {/* Subtle Corner Accents */}
-          <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-amber-400/40 rounded-tl-lg pointer-events-none" />
-          <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-amber-400/40 rounded-tr-lg pointer-events-none" />
-          <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-amber-400/40 rounded-bl-lg pointer-events-none" />
-          <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-amber-400/40 rounded-br-lg pointer-events-none" />
+        {/* Open hero composition (card-free default: no outer frame) */}
+        <div className="w-full relative overflow-hidden">
 
           {/* Top Eyebrow */}
           <div className="text-center pt-2 sm:pt-4 mb-4">
@@ -207,8 +201,8 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             )}
           </div>
 
-          {/* Hero Media Slot (Framed with object-fit: cover and focal point) */}
-          <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] max-h-[440px] rounded-2xl sm:rounded-3xl overflow-hidden border border-amber-500/20 shadow-inner bg-zinc-950">
+          {/* Hero Media Slot (object-fit: cover with focal point) */}
+          <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] max-h-[440px] overflow-hidden bg-zinc-950">
             {data.heroImage ? (
               <Image
                 src={data.heroImage}
@@ -240,20 +234,20 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
           {/* First Viewport Date / Time / Location Strip (Visible on 390x844 without scrolling) */}
           <div className="mt-4 sm:mt-6 pt-4 border-t border-zinc-800/80 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-center">
-            <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
               <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
               <span className="truncate">{dateDisplay}</span>
             </div>
 
             {showTime && (
-              <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
                 <Clock className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="truncate">{timeDisplay}</span>
               </div>
             )}
 
             {hasVenueInfo && (
-              <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200 sm:col-span-1">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
                 <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="truncate">{data.venue || data.city}</span>
               </div>
@@ -325,7 +319,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       {/* ── Section 3: Event Key Details Cards ───────────────────────────── */}
       <section id="inv-details" className="py-12 px-4 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5">
+          <div className="py-2 flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
@@ -338,7 +332,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           </div>
 
           {showTime && (
-            <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5">
+            <div className="py-2 flex items-start gap-3.5">
               <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                 <Clock className="w-5 h-5" />
               </div>
@@ -352,7 +346,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           )}
 
           {hasVenueInfo && (
-            <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5 sm:col-span-2 lg:col-span-1">
+            <div className="py-2 flex items-start gap-3.5 sm:col-span-2 lg:col-span-1">
               <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                 <MapPin className="w-5 h-5" />
               </div>
@@ -435,7 +429,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             </h2>
           </div>
 
-          <div className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="py-2">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-zinc-800">
               <div>
                 <h3 className="text-xl sm:text-2xl font-bold text-white">
@@ -464,7 +458,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
             {/* Embedded Map (Only if coordinates or address exist) */}
             {hasMapCoordinates && (
-              <div className="mt-6 rounded-2xl overflow-hidden border border-zinc-800">
+              <div className="mt-6">
                 <VenueMapClient
                   lat={data.latitude}
                   lng={data.longitude}
@@ -477,7 +471,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             )}
 
             {data.parkingNotes && (
-              <div className="mt-5 p-4 rounded-2xl bg-zinc-800/40 border border-zinc-800 text-xs text-zinc-300 flex items-start gap-3">
+              <div className="mt-5 pt-4 border-t border-zinc-800 text-xs text-zinc-300 flex items-start gap-3">
                 <Car className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <strong className="text-white block mb-0.5">{dict.parkingAndArrival}</strong>
@@ -521,7 +515,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
                   {data.accommodations.map((hotel, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-start justify-between gap-3"
+                      className="py-4 border-t border-zinc-800 flex items-start justify-between gap-3"
                     >
                       <div className="flex items-start gap-2.5">
                         <Hotel className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -549,7 +543,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             )}
 
             {data.additionalNotes && (
-              <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 max-w-2xl mx-auto flex items-start gap-3">
+              <div className="py-4 border-t border-zinc-800 max-w-2xl mx-auto flex items-start gap-3">
                 <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">
                   <strong className="text-white block mb-0.5">{dict.importantInfo}</strong>
@@ -580,7 +574,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         </div>
 
         {/* Personalized Pass Card */}
-        <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden">
+        <div className="py-4 text-center">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
             {isVipGuest ? dict.vipGuestPass : dict.officialGuestPass}
           </span>
@@ -623,7 +617,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
           )}
 
           {/* Interactive Decision Actions */}
-          <div className="my-6 p-5 rounded-2xl bg-zinc-950/80 border border-zinc-800 text-center">
+          <div className="my-6 py-5 border-y border-zinc-800 text-center">
             <p className="text-[11px] font-black uppercase tracking-wider text-zinc-300 mb-3.5">
               {dict.willYouJoinUs}
             </p>
@@ -782,7 +776,7 @@ function ScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
     <div className="relative group">
       <div className="absolute -left-[31px] sm:-left-[39px] top-1.5 w-3.5 h-3.5 rounded-full bg-amber-400 border-4 border-zinc-950 shadow-md shadow-amber-400/50 group-hover:scale-125 transition-transform" />
 
-      <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 shadow-md hover:border-amber-500/40 transition">
+      <div className="py-4 hover:border-amber-500/40 transition border-t border-zinc-800 first:border-t-0 first:pt-0">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
           <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20">
             {item.time}
@@ -871,7 +865,7 @@ function CountdownTicker({
       {units.map((unit, idx) => (
         <div
           key={idx}
-          className="p-3 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-lg flex flex-col items-center justify-center"
+          className="py-2 flex flex-col items-center justify-center"
         >
           <span
             className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight font-mono tabular-nums lining-nums leading-none"

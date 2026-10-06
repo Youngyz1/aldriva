@@ -17,8 +17,7 @@ interface Props {
 
 export function MusicSection({ eventId, draft, updateDraft, disabled }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
-      <AudioUploadField
+    <AudioUploadField
         eventId={eventId}
         value={draft.music_audio_url}
         title={draft.music_title}
@@ -28,6 +27,5 @@ export function MusicSection({ eventId, draft, updateDraft, disabled }: Props) {
           updateDraft({ music_audio_url: url, music_title: title || null })
         }
       />
-    </div>
   );
 }

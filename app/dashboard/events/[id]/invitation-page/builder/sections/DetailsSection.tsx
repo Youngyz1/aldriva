@@ -131,7 +131,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
       </div>
 
       {/* Multiple Venues (Optional, max 3) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+      <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold text-zinc-900">Multiple Locations (Max 3)</h3>
@@ -150,7 +150,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
         </div>
 
         {venues.map((v, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 sm:flex-row sm:items-center">
+          <div key={i} className="flex flex-col gap-2 border-t border-zinc-100 py-3 sm:flex-row sm:items-center">
             <input
               type="text"
               maxLength={30}
@@ -191,7 +191,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
       </div>
 
       {/* Schedule / Itinerary (Max 15) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+      <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold text-zinc-900">Event Schedule / Timeline (Max 15)</h3>
@@ -210,7 +210,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
         </div>
 
         {schedule.map((item, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3">
+          <div key={i} className="flex flex-col gap-2 border-t border-zinc-100 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"

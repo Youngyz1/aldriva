@@ -388,8 +388,8 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Status header */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-xs">
+      {/* Status header (plain row, hairline divider — no card) */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-1 pb-3">
         <h1 className="mr-auto text-base font-black text-zinc-950">
           {initialData.event.title} — Invitation Page
         </h1>

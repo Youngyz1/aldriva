@@ -356,7 +356,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
             </p>
           )}
 
-          <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] text-left space-y-3">
+          <div className="py-4 text-left space-y-3">
             <h3
               className="text-xl font-black text-(--bday-ink) flex items-center gap-2"
               style={{ fontFamily: FF_DISPLAY }}
@@ -404,7 +404,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* When & Time */}
-            <div className="p-6 rounded-3xl bg-(--bday-yellow) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+            <div className="py-4 flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-ink)/70">
                   {dict.when}
@@ -418,7 +418,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Where */}
             {hasVenueInfo && (
-              <div className="p-6 rounded-3xl bg-(--bday-mint) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+              <div className="py-4 flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-ink)/70">
                     {dict.location}
@@ -437,14 +437,14 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Dress Code */}
             {data.dressCode && (
-              <div className="p-6 rounded-3xl bg-(--bday-coral) text-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+              <div className="py-4 flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/80">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-coral)">
                     {dict.attire}
                   </span>
-                  <h3 className="text-lg font-black text-white mt-1">{data.dressCode}</h3>
+                  <h3 className="text-lg font-black text-(--bday-ink) mt-1">{data.dressCode}</h3>
                   {data.dressCodeNotes && (
-                    <p className="text-xs text-white/90 mt-0.5">{data.dressCodeNotes}</p>
+                    <p className="text-xs text-(--bday-ink-muted) mt-0.5">{data.dressCodeNotes}</p>
                   )}
                 </div>
               </div>
@@ -452,12 +452,12 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Wishlist / Gift Note */}
             {data.giftNote && (
-              <div className="p-6 rounded-3xl bg-(--bday-purple) text-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] sm:col-span-2 lg:col-span-1">
+              <div className="py-4 sm:col-span-2 lg:col-span-1">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/80 flex items-center gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-purple) flex items-center gap-1">
                     <Gift className="w-3.5 h-3.5" /> {dict.registryNoteTitle}
                   </span>
-                  <p className="text-xs mt-2 leading-relaxed text-white/95 font-medium whitespace-pre-line">
+                  <p className="text-xs mt-2 leading-relaxed text-(--bday-ink-muted) font-medium whitespace-pre-line">
                     {data.giftNote}
                   </p>
                 </div>
@@ -497,7 +497,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               {data.schedule.map((item: InvitationScheduleItem, idx: number) => (
                 <div
                   key={idx}
-                  className="p-5 rounded-2xl bg-white border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] flex items-start gap-4 hover:translate-x-1 transition-transform"
+                  className="py-4 border-t border-(--bday-ink)/15 flex items-start gap-4"
                 >
                   <div className="px-3 py-1 rounded-xl bg-(--bday-yellow) border border-(--bday-ink) text-xs font-black text-(--bday-ink) shrink-0">
                     {item.time}
@@ -549,7 +549,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       {hasVenueInfo && (
         <section aria-label="Venue and Location" className="py-16 px-6 bg-(--bday-bg)">
           <div className="max-w-3xl mx-auto">
-            <div className="p-8 rounded-3xl bg-white border-3 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] space-y-5">
+            <div className="py-4 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <span className="text-xs font-black uppercase tracking-widest text-(--bday-coral)">
@@ -582,7 +582,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               </div>
 
               {hasMapCoordinates && (
-                <div className="rounded-2xl overflow-hidden border-2 border-(--bday-ink)">
+                <div>
                   <VenueMapClient
                     lat={data.latitude}
                     lng={data.longitude}
@@ -595,7 +595,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               )}
 
               {data.parkingNotes && (
-                <p className="text-xs text-(--bday-ink-muted) font-medium bg-(--bday-bg-alt) p-3 rounded-xl">
+                <p className="text-xs text-(--bday-ink-muted) font-medium">
                   🚗 {data.parkingNotes}
                 </p>
               )}
@@ -627,7 +627,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
           </div>
 
           {/* Chunky Party Pass Ticket */}
-          <div className="p-8 sm:p-10 rounded-3xl bg-white border-3 border-(--bday-ink) shadow-[8px_8px_0px_0px_#141218] text-center space-y-6">
+          <div className="py-4 text-center space-y-6">
             <div>
               <span className="inline-block px-3 py-1 rounded-full bg-(--bday-yellow) border border-(--bday-ink) text-[10px] font-black uppercase tracking-widest text-(--bday-ink)">
                 {isVipGuest ? dict.vipPartyPass : dict.officialPartyPass}
@@ -869,7 +869,7 @@ function BirthdayCountdownTicker({
       {units.map((unit, idx) => (
         <div
           key={idx}
-          className="p-3 sm:p-4 rounded-2xl bg-white text-(--bday-ink) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col items-center"
+          className="p-1 flex flex-col items-center text-white"
         >
           <span
             className="tabular-nums lining-nums font-black text-2xl sm:text-4xl leading-none"

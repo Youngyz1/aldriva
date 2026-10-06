@@ -105,12 +105,12 @@ export function PublishSection({
       </div>
 
       {/* Validation Checklist (failures are jump links) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <div className="space-y-3 border-t border-zinc-200 pt-4">
         <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Publish Readiness Checks</h3>
 
-        <div className="space-y-2">
+        <div className="divide-y divide-zinc-100">
           {/* Title check */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Invitation Title</span>
             <span className="font-semibold text-emerald-600 flex items-center gap-1">
               <CheckCircle2 size={13} /> {draft.display_title || event.title}
@@ -118,7 +118,7 @@ export function PublishSection({
           </div>
 
           {/* Template check */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Selected Template</span>
             <span className="font-semibold text-emerald-600 flex items-center gap-1">
               <CheckCircle2 size={13} /> {draft.template_id}
@@ -126,7 +126,7 @@ export function PublishSection({
           </div>
 
           {/* Timezone check */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Event Timezone</span>
             {draft.timezone ? (
               <span className="font-semibold text-emerald-600 flex items-center gap-1">
@@ -144,7 +144,7 @@ export function PublishSection({
           </div>
 
           {/* Event date & time check */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Event Date & Time</span>
             {event.event_date ? (
               <span className="font-semibold text-emerald-600 flex items-center gap-1">
@@ -163,7 +163,7 @@ export function PublishSection({
 
           {/* Template Specific Checks */}
           {draft.template_id === "wedding-romantic" && (
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between py-2 text-xs">
               <span className="text-zinc-700">Couple Names</span>
               {draft.partner1_name && draft.partner2_name ? (
                 <span className="font-semibold text-emerald-600 flex items-center gap-1">
@@ -182,7 +182,7 @@ export function PublishSection({
           )}
 
           {draft.template_id === "birthday-bold" && (
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between py-2 text-xs">
               <span className="text-zinc-700">Celebrant Name</span>
               {draft.celebrant_name ? (
                 <span className="font-semibold text-emerald-600 flex items-center gap-1">
