@@ -16,12 +16,16 @@ export interface InvitationScheduleItem {
   time: string;
   /** [REQUIRED in item] e.g. "Welcome & Champagne" or "Keynote Address" */
   title: string;
+  /** Optional title alias for schema compatibility */
+  label?: string | null;
   /** [HIDE-IF-EMPTY] Optional context, e.g. "Main Garden Courtyard" */
   description?: string | null;
   /** [HIDE-IF-EMPTY] Optional category badge, e.g. "Reception" */
   badge?: string | null;
   /** [HIDE-IF-EMPTY] Optional day grouping label, e.g. "Day 1 - Friday" or "Saturday Morning" */
   day?: string | null;
+  /** Optional day alias for schema compatibility */
+  dayLabel?: string | null;
 }
 
 // ── Photo Gallery Item ───────────────────────────────────────────────────────

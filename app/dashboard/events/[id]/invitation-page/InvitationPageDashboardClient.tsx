@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Globe, Eye, CheckCircle2, AlertCircle } from "lucide-react";
+import { Eye, CheckCircle2, AlertCircle } from "lucide-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
+import { InvitationPageWizard } from "./wizard/InvitationPageWizard";
 
 export interface InvitationPageDashboardClientProps {
   eventId: string;
@@ -36,7 +37,7 @@ export default function InvitationPageDashboardClient({
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-zinc-950">
@@ -72,27 +73,14 @@ export default function InvitationPageDashboardClient({
             className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-800 shadow-xs hover:bg-zinc-50 transition disabled:opacity-50"
           >
             <Eye size={14} className="text-zinc-500" />
-            <span>{previewLoading ? "Generating..." : "Preview Draft"}</span>
+            <span>{previewLoading ? "Opening..." : "Preview Draft"}</span>
           </button>
         </div>
       </div>
 
-      {/* Placeholder container for Stage B Wizard */}
-      <div
-        id="invitation-wizard-mount"
-        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs"
-      >
-        <div className="text-center py-8">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-            <Globe size={24} />
-          </div>
-          <h2 className="mt-3 text-base font-bold text-zinc-900">
-            Invitation Page Creator
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500 max-w-md mx-auto">
-            Template: <span className="font-bold text-zinc-700">{data.draft.template_id}</span> · Locale: <span className="font-bold text-zinc-700">{data.draft.locale.toUpperCase()}</span> · Timezone: <span className="font-bold text-zinc-700">{data.draft.timezone || "UTC"}</span>
-          </p>
-        </div>
+      {/* Wizard mount */}
+      <div id="invitation-wizard-mount">
+        <InvitationPageWizard eventId={eventId} initialData={initialData} />
       </div>
     </div>
   );

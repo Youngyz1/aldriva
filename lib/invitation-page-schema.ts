@@ -43,10 +43,16 @@ export function isValidStorageAudioUrl(url: string | null | undefined): boolean 
 // ── Item Schemas ─────────────────────────────────────────────────────────
 
 export const ScheduleItemSchema = z.object({
-  dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
   time: z.string().min(1, "Time is required").max(20, "Time must be at most 20 characters"),
-  label: z.string().min(1, "Event title is required").max(80, "Event title must be at most 80 characters"),
+  title: z.string().max(80, "Event title must be at most 80 characters").optional().nullable(),
+  label: z.string().max(80, "Event title must be at most 80 characters").optional().nullable(),
   description: z.string().max(200, "Description must be at most 200 characters").optional().nullable(),
+  badge: z.string().max(40, "Badge must be at most 40 characters").optional().nullable(),
+  day: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
+  dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
+}).refine((item) => Boolean(item.title || item.label), {
+  message: "Event title is required",
+  path: ["title"],
 });
 
 export const GalleryItemSchema = z.object({

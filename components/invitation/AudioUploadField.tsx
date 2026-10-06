@@ -16,7 +16,7 @@ export interface AudioUploadFieldProps {
 
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024; // 5 MB
 
-export default function AudioUploadField({
+export function AudioUploadField({
   eventId,
   value,
   title,
