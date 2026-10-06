@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 export default async function InvitationLivePreviewRoute({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ eventId: string }>;
 }) {
   await connection();
-  const { id: eventId } = await params;
+  const { eventId } = await params;
 
   const user = await getCurrentUser();
   if (!user) {

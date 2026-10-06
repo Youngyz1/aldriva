@@ -589,13 +589,20 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
                 Preview language only — your editing language is unchanged.
               </span>
             </div>
-            <div className="flex justify-center bg-zinc-100 p-3">
+            <div className="overflow-x-auto bg-zinc-100 p-3">
+              {/*
+                Exact iframe width (not max-width): the iframe establishes
+                its own viewport for media queries, so 390 renders the true
+                mobile template breakpoints and 1440 the true desktop ones.
+                Wider than the column, it scrolls horizontally instead of
+                squeezing.
+              */}
               <iframe
                 ref={iframeRef}
                 title="Live invitation preview"
-                src={`/dashboard/events/${eventId}/invitation-page/live-preview`}
-                className="h-[720px] w-full rounded-lg border border-zinc-200 bg-white"
-                style={{ maxWidth: previewViewport }}
+                src={`/invitation/builder-preview/${eventId}`}
+                className="mx-auto block h-[720px] rounded-lg border border-zinc-200 bg-white"
+                style={{ width: previewViewport }}
                 sandbox="allow-scripts allow-same-origin"
               />
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * app/dashboard/events/[id]/invitation-page/live-preview/LivePreviewFrame.tsx
+ * app/invitation/builder-preview/[eventId]/LivePreviewFrame.tsx
  *
  * Client half of the live preview: listens for postMessage draft payloads
  * from the builder (origin + shape validated, malformed ignored), renders
