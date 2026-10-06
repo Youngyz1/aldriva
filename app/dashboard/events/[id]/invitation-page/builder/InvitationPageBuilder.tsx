@@ -39,6 +39,9 @@ import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
 import { MusicSection } from "./sections/MusicSection";
 import { ExtrasSection } from "./sections/ExtrasSection";
+import { PublishSection } from "./sections/PublishSection";
+import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
+import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
 import { InvitationTemplateSelect } from "@/components/invitation/InvitationTemplateSelect";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
@@ -199,8 +202,11 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [previewViewport, setPreviewViewport] = useState<PreviewViewport>(390);
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
-  const [pageStatus] = useState(initialData.draft.page_status);
+  const [pageStatus, setPageStatus] = useState(initialData.draft.page_status);
+  const [publishedAt, setPublishedAt] = useState<string | null>(initialData.publishedAt);
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   // ── Sequenced autosave (single flight, latest-wins, flush on leave) ────
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -322,6 +328,56 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
     // Clicking a section header scrolls the live preview to that section.
     postToPreview({ source: PREVIEW_MESSAGE_SOURCE, kind: "scroll-to", sectionId: id });
   }, [postToPreview]);
+
+  // Jump link target: open the section, scroll the form to its header,
+  // and move keyboard focus there.
+  const handleJumpToSection = useCallback((id: BuilderSectionId) => {
+    setOpenSection(id as SectionId);
+    postToPreview({ source: PREVIEW_MESSAGE_SOURCE, kind: "scroll-to", sectionId: id });
+    requestAnimationFrame(() => {
+      const header = document.getElementById(`inv-section-header-${id}`);
+      header?.scrollIntoView({ behavior: "smooth", block: "start" });
+      header?.focus({ preventScroll: true });
+    });
+  }, [postToPreview]);
+
+  const handlePublish = useCallback(
+    async (locale: "en" | "fr") => {
+      setActionError(null);
+      setActionBusy(true);
+      try {
+        // Flush pending autosaves first so publish snapshots the latest draft.
+        await saveQueue.flush();
+        const result = await publishInvitationPage(eventId, locale);
+        if (result.ok) {
+          setPageStatus("published");
+          setPublishedAt(result.publishedAt ?? new Date().toISOString());
+        } else {
+          setActionError(
+            result.error ?? result.errors?.map((e) => e.message).join(" · ") ?? "Publish failed."
+          );
+        }
+      } finally {
+        setActionBusy(false);
+      }
+    },
+    [eventId, saveQueue]
+  );
+
+  const handleUnpublish = useCallback(async () => {
+    setActionError(null);
+    setActionBusy(true);
+    try {
+      const result = await unpublishInvitationPage(eventId);
+      if (result.ok) {
+        setPageStatus("draft");
+      } else {
+        setActionError(result.error ?? "Unpublish failed.");
+      }
+    } finally {
+      setActionBusy(false);
+    }
+  }, [eventId]);
 
   const isPublished = pageStatus === "published";
   const hasUnpublished = hasDraftChanges(
@@ -472,8 +528,21 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
                 />
               )}
               {id === "publish" && (
-                <p className="text-xs text-zinc-500">
-                  Publish checklist and actions arrive with the next slice.
+                <PublishSection
+                  eventId={eventId}
+                  draft={draft}
+                  event={initialData.event}
+                  pageStatus={pageStatus}
+                  publishedAt={publishedAt}
+                  onPublish={handlePublish}
+                  onUnpublish={handleUnpublish}
+                  onJumpToSection={handleJumpToSection}
+                  disabled={actionBusy}
+                />
+              )}
+              {actionError && id === "publish" && (
+                <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-700">
+                  {actionError}
                 </p>
               )}
             </InvitationSection>
