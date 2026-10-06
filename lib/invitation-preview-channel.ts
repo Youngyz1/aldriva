@@ -108,6 +108,18 @@ export const SAMPLE_PREVIEW_GUEST = {
   is_vip: false,
 } as const;
 
+/**
+ * Sample ticket so the host can see the QR block exactly as a pending
+ * guest would (templates render it whenever a QR exists and RSVP is not
+ * declined). Same placeholder value as the draft-preview route.
+ * Guest behaviour is unchanged — this object never leaves the preview.
+ */
+export const SAMPLE_PREVIEW_TICKET = {
+  qr_code: "PREVIEW-QR-PLACEHOLDER",
+  status: "valid",
+  checked_in_at: null,
+} as const;
+
 const PLACEHOLDER_TEXT: Record<string, string> = {
   partner1_name: "[Partner 1]",
   partner2_name: "[Partner 2]",

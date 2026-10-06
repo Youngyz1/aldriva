@@ -22,6 +22,7 @@ import {
   PREVIEW_MESSAGE_SOURCE,
   resolvePreviewAnchor,
   SAMPLE_PREVIEW_GUEST,
+  SAMPLE_PREVIEW_TICKET,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
 
@@ -83,7 +84,13 @@ export function LivePreviewFrame({ event }: Props) {
     };
     return {
       templateId,
-      data: assembleInvitationPageData(snapshot as never, liveEvent, { ...SAMPLE_PREVIEW_GUEST }, null, null),
+      data: assembleInvitationPageData(
+        snapshot as never,
+        liveEvent,
+        { ...SAMPLE_PREVIEW_GUEST },
+        { ...SAMPLE_PREVIEW_TICKET },
+        null
+      ),
     };
   }, [payload, event]);
 
@@ -96,7 +103,7 @@ export function LivePreviewFrame({ event }: Props) {
   return (
     <div className="min-h-screen bg-white">
       <p className="sticky top-0 z-10 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-[11px] font-semibold text-amber-800">
-        Preview — bracketed names are samples for empty fields. Nothing here is saved.
+        Preview — bracketed names and the QR code are samples for the pending-guest view. Nothing here is saved.
       </p>
       {renderTemplate()}
     </div>
