@@ -116,10 +116,10 @@ export interface TemplateGroupOption {
  * chosen type first, then the rest under "All templates". "Other" (and no
  * choice yet) shows everything in a single "All templates" group.
  */
-export function orderTemplatesForType(
-  templates: TemplateGroupOption[],
+export function orderTemplatesForType<T extends { category: TemplateCategory }>(
+  templates: T[],
   type: InvitationType | null | undefined
-): { matching: TemplateGroupOption[]; others: TemplateGroupOption[] } {
+): { matching: T[]; others: T[] } {
   const want: TemplateCategory | null =
     type === "wedding"
       ? "wedding"

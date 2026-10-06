@@ -32,8 +32,7 @@ import {
   PREVIEW_MESSAGE_SOURCE,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
-import { BasicsSection } from "./sections/BasicsSection";
-import { HeroSection } from "./sections/HeroSection";
+import { BasicsSection } from "./sections/BasicsSection";import { HeroSection } from "./sections/HeroSection";
 import { StorySection } from "./sections/StorySection";
 import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
@@ -45,6 +44,13 @@ import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
 import { InvitationTemplateSelect } from "@/components/invitation/InvitationTemplateSelect";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export interface BuilderDraft extends InvitationPageDraftInput {
@@ -481,41 +487,11 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
             >
               {id === "type" && <InvitationTypePicker value={invitationType} onChange={handleTypeChange} />}
               {id === "template" && (
-                <div className="space-y-3">
-                  <InvitationTemplateSelect
-                    value={draft.template_id || "gala-editorial"}
-                    onChange={handleTemplateChange}
-                    invitationType={invitationType}
-                  />
-                  {pendingTemplate && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" role="alert">
-                      <p className="text-xs font-bold text-amber-900">
-                        Switching templates will hide these completed fields (your content is kept):
-                      </p>
-                      <ul className="mt-1 list-inside list-disc text-xs text-amber-800">
-                        {hiddenOnSwitch.map((label) => (
-                          <li key={label}>{label}</li>
-                        ))}
-                      </ul>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={confirmTemplateSwitch}
-                          className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-700"
-                        >
-                          Switch anyway
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPendingTemplate(null)}
-                          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
-                        >
-                          Keep template
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <InvitationTemplateSelect
+                  value={draft.template_id || "gala-editorial"}
+                  onChange={handleTemplateChange}
+                  invitationType={invitationType}
+                />
               )}
               {id !== "type" && id !== "template" && id !== "publish" && (
                 <SectionBody
@@ -609,6 +585,45 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Template-switch warning modal (focus trapped, Escape closes) */}
+      <Dialog
+        open={pendingTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingTemplate(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch template?</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-zinc-600">
+            Switching templates will hide these completed fields. Your content
+            is kept and reappears if you switch back.
+          </p>
+          <ul className="list-inside list-disc space-y-0.5 text-xs font-semibold text-zinc-800">
+            {hiddenOnSwitch.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setPendingTemplate(null)}
+              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+            >
+              Keep template
+            </button>
+            <button
+              type="button"
+              onClick={confirmTemplateSwitch}
+              className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
+            >
+              Switch anyway
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
