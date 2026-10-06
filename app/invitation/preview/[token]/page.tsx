@@ -3,6 +3,13 @@
  *
  * Host draft preview route.
  *
+ * Dynamic behaviour:
+ * - No `export const dynamic` — cacheComponents compatible.
+ * - The static outer shell (InvitationPreviewPage) is prerenderable: it validates
+ *   the token shape and renders the Suspense boundary.
+ * - PreviewLoader calls `await connection()` which opts it out of the prerender
+ *   cache (same pattern as app/invitation/[token]/page.tsx).
+ *
  * Security:
  * - Reads ONLY the draft (not the published snapshot) via a time-limited preview token
  *   stored in `invitation_page_preview_tokens`. The token is created by the event owner
@@ -12,24 +19,17 @@
  * - RSVP buttons are disabled — no RSVP writes are possible.
  * - The guest shown is a sample ("Preview Guest") with a placeholder QR code.
  * - This route DOES NOT create or touch any event_invitations row.
- *
- * Production safety:
- * - When NODE_ENV !== 'development' this route still functions — it is the
- *   intentional host preview mechanism accessible only via a secret token.
- *   The page is protected by token entropy (64 hex chars, 7-day TTL) and
- *   the noindex / no-store headers ensure it does not appear in search engines
- *   or CDN caches.
  */
 
 import { Metadata } from "next";
+import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "next/link";
 import { Eye, Clock, MailX } from "lucide-react";
 import { getInvitationPagePreviewByToken } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import { BRAND } from "@/config/branding";
 import type { InvitationPageData } from "@/types/invitation-template";
-
-export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -40,6 +40,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// ── Static outer shell ────────────────────────────────────────────────────────
+// Token shape is validated here without any I/O so this component is safe to
+// prerender. All data fetching is delegated to PreviewLoader behind <Suspense>.
+
 export default async function InvitationPreviewPage({
   params,
 }: {
@@ -47,10 +51,25 @@ export default async function InvitationPreviewPage({
 }) {
   const { token } = await params;
 
-  // Token shape check — 64 hex characters.
+  // Token shape check — 64 hex characters. No I/O here.
   if (!token || typeof token !== "string" || token.length !== 64) {
     return <PreviewErrorView reason="invalid" />;
   }
+
+  return (
+    <Suspense fallback={<PreviewLoadingView />}>
+      <PreviewLoader token={token} />
+    </Suspense>
+  );
+}
+
+// ── Dynamic data component ────────────────────────────────────────────────────
+// `connection()` opts this out of the prerender cache: draft data is mutable
+// (token can expire, draft can change) and must never be served stale.
+
+async function PreviewLoader({ token }: { token: string }) {
+  // Must be first — opts this subtree out of the component cache.
+  await connection();
 
   const result = await getInvitationPagePreviewByToken(token);
 
@@ -61,7 +80,7 @@ export default async function InvitationPreviewPage({
   const { draft, event } = result;
 
   // Build InvitationPageData from the draft (not the published snapshot).
-  // Draft fields map the same as snapshot fields — we synthesize a snapshot object
+  // Draft fields map the same as snapshot fields — synthesise a snapshot object
   // from the draft row for assembly purposes.
   const draftAsSnapshot = {
     template_id: draft.template_id,
@@ -131,7 +150,6 @@ export default async function InvitationPreviewPage({
   // Resolve template from registry
   const { getTemplateById } = await import("@/components/invitation/templates/registry");
   const registryEntry = getTemplateById(draft.template_id);
-
   const TemplateComponent = registryEntry.component;
 
   return (
@@ -139,7 +157,7 @@ export default async function InvitationPreviewPage({
       {/* Preview Banner — shown above the template, not part of it */}
       <PreviewBanner expiresAt={result.expiresAt} locale={draft.locale} />
       {/*
-        Pass onRsvp=undefined so the template disables its RSVP buttons.
+        onRsvp is intentionally omitted so the template disables its RSVP buttons.
         No RSVP writes are possible from the preview route.
       */}
       <TemplateComponent data={pageData} />
@@ -148,6 +166,18 @@ export default async function InvitationPreviewPage({
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
+
+function PreviewLoadingView() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/90 p-8 text-center shadow-2xl">
+        <div className="mx-auto mb-4 h-16 w-16 animate-pulse rounded-2xl border border-zinc-700 bg-zinc-800" />
+        <div className="mx-auto h-5 w-40 animate-pulse rounded-lg bg-zinc-800" />
+        <div className="mx-auto mt-3 h-3.5 w-56 animate-pulse rounded-lg bg-zinc-800/70" />
+      </div>
+    </main>
+  );
+}
 
 function PreviewBanner({ expiresAt, locale }: { expiresAt: string; locale: "en" | "fr" }) {
   const isFr = locale === "fr";
