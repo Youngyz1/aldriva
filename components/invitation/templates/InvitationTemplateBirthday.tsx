@@ -18,7 +18,7 @@
  * - RSVP & Pass: VIP Party Pass with party confirmation ("Count Me In! 🎉") and canvas QR pass.
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import {
@@ -28,12 +28,9 @@ import {
   Share2,
   Volume2,
   VolumeX,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Check,
   Loader2,
-  X,
   Gift,
   PartyPopper,
   Sparkles,
@@ -53,6 +50,7 @@ import {
 } from "@/lib/invitation-i18n";
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
+import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
 
 // ── Typography ────────────────────────────────────────────────────────────────
 const displayFont = Outfit({
@@ -890,147 +888,14 @@ function BirthdayCountdownTicker({
   );
 }
 
-// ── Polaroid / Sticker Gallery with Lightbox ─────────────────────────────────
+// ── Birthday Gallery (shared natural-ratio masonry grid) ────────────────────
 function BirthdayGallery({ images }: { images: InvitationGalleryItem[] }) {
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const touchStartX = useRef<number | null>(null);
-
-  const handleNext = useCallback(() => {
-    setActiveIdx((prev) => (prev !== null ? (prev < images.length - 1 ? prev + 1 : 0) : null));
-  }, [images.length]);
-
-  const handlePrev = useCallback(() => {
-    setActiveIdx((prev) => (prev !== null ? (prev > 0 ? prev - 1 : images.length - 1) : null));
-  }, [images.length]);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (activeIdx === null) return;
-      if (e.key === "Escape") setActiveIdx(null);
-      if (e.key === "ArrowLeft") handlePrev();
-      if (e.key === "ArrowRight") handleNext();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeIdx, handleNext, handlePrev]);
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (diff > 40) handlePrev();
-    if (diff < -40) handleNext();
-    touchStartX.current = null;
-  }
-
-  const rotations = ["rotate-1", "-rotate-1.5", "rotate-2", "-rotate-1", "rotate-1.5"];
-
   return (
-    <>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-        {images.map((img, idx) => {
-          const rotClass = rotations[idx % rotations.length];
-          return (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
-              className={`p-3 pb-6 rounded-2xl bg-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] ${rotClass} motion-reduce:rotate-0 hover:rotate-0 hover:scale-[1.02] transition-all cursor-pointer text-left relative`}
-            >
-              {/* Tape sticker at top */}
-              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-10 h-4 bg-(--bday-yellow)/80 border border-(--bday-ink)/30 shadow-xs z-10" />
-
-              <div className="relative aspect-square rounded-xl overflow-hidden bg-zinc-100">
-                <Image
-                  src={img.url}
-                  alt={img.alt || img.caption || `Party memory ${idx + 1}`}
-                  fill
-                  sizes="(max-width: 768px) 50vw, 33vw"
-                  className="object-cover"
-                />
-              </div>
-
-              {img.caption && (
-                <p className="mt-2 text-xs font-bold text-(--bday-ink) truncate text-center">
-                  {img.caption}
-                </p>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Lightbox Modal */}
-      {activeIdx !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm touch-none select-none"
-          onClick={() => setActiveIdx(null)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <button
-            type="button"
-            onClick={() => setActiveIdx(null)}
-            className="absolute top-4 right-4 p-3 rounded-full text-white bg-white/10 hover:bg-white/20 z-50"
-            aria-label="Close photo preview"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {images.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev();
-                }}
-                className="absolute left-3 sm:left-6 p-3 rounded-full text-white bg-white/10 hover:bg-white/20 z-50 hidden sm:block"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext();
-                }}
-                className="absolute right-3 sm:right-6 p-3 rounded-full text-white bg-white/10 hover:bg-white/20 z-50 hidden sm:block"
-                aria-label="Next image"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-
-          <div
-            className="relative max-w-3xl max-h-[85vh] w-full h-full flex flex-col items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative w-full h-[70vh]">
-              <Image
-                src={images[activeIdx].url}
-                alt={images[activeIdx].alt || images[activeIdx].caption || "Party preview"}
-                fill
-                sizes="100vw"
-                className="object-contain"
-              />
-            </div>
-            {images[activeIdx].caption && (
-              <p className="mt-3 text-center text-xs text-white/90 max-w-md font-bold">
-                {images[activeIdx].caption}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </>
+    <InvitationGalleryGrid
+      images={images}
+      captionClassName="text-xs font-bold text-(--bday-ink) text-center"
+      lightboxCaptionClassName="text-xs text-white/90 max-w-md font-bold text-center"
+    />
   );
 }
 

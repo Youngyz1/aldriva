@@ -67,9 +67,9 @@ export function InvitationGalleryManager({ eventId, items, onChange, disabled }:
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="space-y-4">
         {items.map((item, i) => (
-          <div key={i} className="relative rounded-xl border border-zinc-200 bg-white p-4 space-y-3">
+          <div key={i} className="border-t border-zinc-200 py-4 first:border-t-0 first:pt-0 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-zinc-700">Photo {i + 1}</span>
               <div className="flex items-center gap-1">

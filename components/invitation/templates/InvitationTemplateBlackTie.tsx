@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import {
   Calendar,
@@ -21,9 +21,6 @@ import {
   Armchair,
   Check,
   Loader2,
-  X,
-  ChevronLeft,
-  ChevronRight,
   Info,
   Compass,
 } from "lucide-react";
@@ -39,6 +36,7 @@ import {
 } from "@/lib/invitation-i18n";
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
+import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
 
 interface Props {
   data: InvitationPageData;
@@ -885,250 +883,14 @@ function CountdownTicker({
   );
 }
 
-// ── Subcomponent: Editorial Mixed-Aspect Gallery ─────────────────────────────
+// ── Subcomponent: Editorial Gallery (shared natural-ratio masonry grid) ─────
 function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const touchStartX = useRef<number | null>(null);
-
-  const handleNext = useCallback(() => {
-    setActiveIdx((prev) => (prev !== null ? (prev < images.length - 1 ? prev + 1 : 0) : null));
-  }, [images.length]);
-
-  const handlePrev = useCallback(() => {
-    setActiveIdx((prev) => (prev !== null ? (prev > 0 ? prev - 1 : images.length - 1) : null));
-  }, [images.length]);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (activeIdx === null) return;
-      if (e.key === "Escape") setActiveIdx(null);
-      if (e.key === "ArrowLeft") handlePrev();
-      if (e.key === "ArrowRight") handleNext();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeIdx, handleNext, handlePrev]);
-
-  // Touch swipe support for mobile lightbox
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    if (diffX > 40) handlePrev();
-    if (diffX < -40) handleNext();
-    touchStartX.current = null;
-  }
-
-  // Layout arrangement based on count rules
-  const count = images.length;
-
   return (
-    <>
-      {/* 1 Image: Large Editorial Hero */}
-      {count === 1 && (
-        <div className="max-w-2xl mx-auto">
-          <button
-            type="button"
-            onClick={() => setActiveIdx(0)}
-            className="w-full relative aspect-[16/10] rounded-3xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-400/50 transition cursor-pointer text-left group shadow-xl"
-          >
-            <Image
-              src={images[0].url}
-              alt={images[0].alt || images[0].caption || "Gallery photo"}
-              fill
-              sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            {images[0].caption && (
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent p-4 flex items-end">
-                <span className="text-xs text-zinc-200 font-medium">{images[0].caption}</span>
-              </div>
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* 2 Images: Balanced Dual Frame */}
-      {count === 2 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
-          {images.map((img, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
-              className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-400/50 transition cursor-pointer text-left group shadow-lg"
-            >
-              <Image
-                src={img.url}
-                alt={img.alt || img.caption || `Gallery photo ${idx + 1}`}
-                fill
-                sizes="(max-width: 640px) 100vw, 400px"
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              {img.caption && (
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent p-3 flex items-end opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs text-zinc-200 font-medium">{img.caption}</span>
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 3 Images: 1 Leading Portrait + 2 Stacked Landscape Tiles */}
-      {count === 3 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 max-w-4xl mx-auto">
-          <button
-            type="button"
-            onClick={() => setActiveIdx(0)}
-            className="sm:col-span-2 relative aspect-[16/10] sm:aspect-auto sm:h-full rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-400/50 transition cursor-pointer group shadow-lg"
-          >
-            <Image
-              src={images[0].url}
-              alt={images[0].alt || images[0].caption || "Gallery photo 1"}
-              fill
-              sizes="(max-width: 640px) 100vw, 600px"
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            {images[0].caption && (
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent p-3 flex items-end">
-                <span className="text-xs text-zinc-200 font-medium">{images[0].caption}</span>
-              </div>
-            )}
-          </button>
-
-          <div className="flex flex-col gap-3.5">
-            {images.slice(1, 3).map((img, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setActiveIdx(idx + 1)}
-                className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-400/50 transition cursor-pointer group shadow-md"
-              >
-                <Image
-                  src={img.url}
-                  alt={img.alt || img.caption || `Gallery photo ${idx + 2}`}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 300px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 4+ Images: Responsive Editorial Mosaic Grid */}
-      {count >= 4 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-          {images.map((img, idx) => {
-            const isFeatured = idx === 0 || (count >= 8 && idx === 4);
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setActiveIdx(idx)}
-                className={`group relative rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-amber-400/50 transition cursor-pointer text-left shadow-md ${
-                  isFeatured
-                    ? "col-span-2 aspect-[16/10] md:aspect-auto md:row-span-2"
-                    : "aspect-square"
-                }`}
-              >
-                <Image
-                  src={img.url}
-                  alt={img.alt || img.caption || `Gallery photo ${idx + 1}`}
-                  fill
-                  sizes="(max-width: 768px) 50vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                {img.caption && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-3 flex items-end">
-                    <span className="text-xs text-white font-medium line-clamp-2">
-                      {img.caption}
-                    </span>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Lightbox Modal with Mobile Swipe */}
-      {activeIdx !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in touch-none select-none"
-          onClick={() => setActiveIdx(null)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <button
-            type="button"
-            onClick={() => setActiveIdx(null)}
-            className="absolute top-4 right-4 p-3 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white z-50"
-            aria-label="Close image preview"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {images.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePrev();
-              }}
-              className="absolute left-3 sm:left-6 p-3 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white z-50 hidden sm:block"
-              aria-label="Previous image"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-
-          {images.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleNext();
-              }}
-              className="absolute right-3 sm:right-6 p-3 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white z-50 hidden sm:block"
-              aria-label="Next image"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
-
-          <div
-            className="relative max-w-3xl max-h-[85vh] w-full h-full flex flex-col items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative w-full h-[70vh]">
-              <Image
-                src={images[activeIdx].url}
-                alt={images[activeIdx].alt || images[activeIdx].caption || "Gallery preview"}
-                fill
-                sizes="100vw"
-                className="object-contain"
-              />
-            </div>
-            {images[activeIdx].caption && (
-              <p className="mt-3 text-center text-xs sm:text-sm text-zinc-300 max-w-md">
-                {images[activeIdx].caption}
-              </p>
-            )}
-            <div className="text-[10px] text-zinc-500 font-mono mt-1">
-              {activeIdx + 1} of {images.length} (swipe on mobile)
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <InvitationGalleryGrid
+      images={images}
+      captionClassName="text-xs text-zinc-400"
+      lightboxCaptionClassName="text-xs sm:text-sm text-zinc-300 max-w-md text-center"
+    />
   );
 }
 
