@@ -75,7 +75,6 @@ export function WizardStepStory({ eventId, draft, updateDraft, disabled }: StepP
             <InvitationImageUploadField
               value={draft.story_image_url}
               folder={`invitation-story/${eventId}`}
-              aspectRatio={4 / 3}
               label="Select Story Image"
               hint="Optional image featured alongside the narrative."
               disabled={disabled}

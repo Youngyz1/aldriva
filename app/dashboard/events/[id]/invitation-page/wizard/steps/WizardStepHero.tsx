@@ -4,6 +4,7 @@ import React from "react";
 import type { WizardDraft } from "../InvitationPageWizard";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { InvitationImageUploadField } from "@/components/invitation/InvitationImageUploadField";
+import { InvitationFocalPicker } from "@/components/invitation/InvitationFocalPicker";
 
 interface StepProps {
   eventId: string;
@@ -31,9 +32,8 @@ export function WizardStepHero({ eventId, draft, updateDraft, disabled }: StepPr
             <InvitationImageUploadField
               value={draft.hero_image_url}
               folder={`invitation-hero/${eventId}`}
-              aspectRatio={16 / 9}
               label="Select Hero Image"
-              hint="Max 5MB. Compressed and resized up to 1600px for optimal loading."
+              hint="Full photo kept as-is. Optional crop/zoom inside. Resized to 1600px on upload."
               disabled={disabled}
               onUploaded={(url) => updateDraft({ hero_image_url: url })}
               onRemove={() => updateDraft({ hero_image_url: null })}
@@ -63,51 +63,16 @@ export function WizardStepHero({ eventId, draft, updateDraft, disabled }: StepPr
           />
         </div>
 
-        {/* Focal Point Controls */}
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-4">
-          <div>
-            <h3 className="text-xs font-bold text-zinc-800">Focal Point Alignment</h3>
-            <p className="text-[11px] text-zinc-500">
-              Control where the crop focuses on narrow mobile screens (0% = Left/Top, 100% = Right/Bottom).
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-zinc-700">Horizontal Focus (X)</span>
-                <span className="font-bold text-orange-600">{draft.hero_image_focus_x ?? 50}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                disabled={disabled}
-                value={draft.hero_image_focus_x ?? 50}
-                onChange={(e) => updateDraft({ hero_image_focus_x: Number(e.target.value) })}
-                className="w-full accent-orange-600"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-zinc-700">Vertical Focus (Y)</span>
-                <span className="font-bold text-orange-600">{draft.hero_image_focus_y ?? 50}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                disabled={disabled}
-                value={draft.hero_image_focus_y ?? 50}
-                onChange={(e) => updateDraft({ hero_image_focus_y: Number(e.target.value) })}
-                className="w-full accent-orange-600"
-              />
-            </div>
-          </div>
-        </div>
+        {/* Focal Point Picker (click/drag + live template-frame preview) */}
+        <InvitationFocalPicker
+          imageUrl={draft.hero_image_url}
+          focal={{ x: draft.hero_image_focus_x ?? 50, y: draft.hero_image_focus_y ?? 50 }}
+          onChange={(focal) =>
+            updateDraft({ hero_image_focus_x: focal.x, hero_image_focus_y: focal.y })
+          }
+          templateId={draft.template_id}
+          disabled={disabled}
+        />
 
         {/* Scroll Prompt */}
         <div className="space-y-1.5">
