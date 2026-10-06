@@ -136,6 +136,24 @@ export function WizardStepPublish({
             )}
           </div>
 
+          {/* Event date & time check */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-zinc-700">Event Date & Time</span>
+            {event.event_date ? (
+              <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                <CheckCircle2 size={13} />{" "}
+                {new Date(event.event_date).toLocaleDateString(
+                  draft.locale === "fr" ? "fr-FR" : "en-US",
+                  { month: "short", day: "numeric", year: "numeric" }
+                )}
+              </span>
+            ) : (
+              <span className="font-semibold text-red-600 flex items-center gap-1">
+                <AlertCircle size={13} /> Missing date — set it in the event settings
+              </span>
+            )}
+          </div>
+
           {/* Template Specific Checks */}
           {draft.template_id === "wedding-romantic" && (
             <div className="flex items-center justify-between text-xs">

@@ -267,7 +267,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         {/* Decorative Floral Top Motif */}
         <div className="flex items-center gap-3 justify-center mb-4">
           <div className="h-px w-12 sm:w-16" style={{ background: "var(--wed-rule)" }} />
-          <span className="text-xs tracking-[0.25em] uppercase text-[--wed-rose] font-medium">
+          <span className="text-xs tracking-[0.25em] uppercase text-(--wed-rose) font-medium">
             {data.eyebrow || subtypeWording.eyebrow}
           </span>
           <div className="h-px w-12 sm:w-16" style={{ background: "var(--wed-rule)" }} />
@@ -278,19 +278,19 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           {coupleDisplay.p2 ? (
             <h1 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4 leading-tight">
               <span
-                className="text-4xl sm:text-6xl text-[--wed-ink] tracking-normal"
+                className="text-4xl sm:text-6xl text-(--wed-ink) tracking-normal"
                 style={{ fontFamily: FF_SCRIPT }}
               >
                 {coupleDisplay.p1}
               </span>
               <span
-                className="text-xl sm:text-2xl text-[--wed-rose] italic"
+                className="text-xl sm:text-2xl text-(--wed-rose) italic"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 &amp;
               </span>
               <span
-                className="text-4xl sm:text-6xl text-[--wed-ink] tracking-normal"
+                className="text-4xl sm:text-6xl text-(--wed-ink) tracking-normal"
                 style={{ fontFamily: FF_SCRIPT }}
               >
                 {coupleDisplay.p2}
@@ -298,7 +298,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             </h1>
           ) : (
             <h1
-              className="text-3xl sm:text-5xl text-[--wed-ink] leading-tight font-medium"
+              className="text-3xl sm:text-5xl text-(--wed-ink) leading-tight font-medium"
               style={{ fontFamily: FF_DISPLAY }}
             >
               {data.title}
@@ -308,7 +308,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           {/* Family note (Hide-if-empty) */}
           {data.familyNote && (
             <p
-              className="mt-3 text-xs sm:text-sm italic text-[--wed-ink-muted]"
+              className="mt-3 text-xs sm:text-sm italic text-(--wed-ink-muted)"
               style={{ fontFamily: FF_BODY }}
             >
               {data.familyNote}
@@ -317,7 +317,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         </div>
 
         {/* Arch Photo Frame (Distinctive Wedding Shape) */}
-        <div className="relative my-6 w-full max-w-[320px] sm:max-w-[380px] aspect-[3/4] rounded-t-[160px] sm:rounded-t-[190px] rounded-b-2xl overflow-hidden border-4 border-white shadow-xl shadow-[--wed-blush]/30 bg-[--wed-bg-alt]">
+        <div className="relative my-6 w-full max-w-[320px] sm:max-w-[380px] aspect-[3/4] rounded-t-[160px] sm:rounded-t-[190px] rounded-b-2xl overflow-hidden border-4 border-white shadow-xl shadow-(--wed-blush)/30 bg-(--wed-bg-alt)">
           {data.heroImage ? (
             <Image
               src={data.heroImage}
@@ -330,15 +330,15 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             />
           ) : (
             /* Designed Fallback: Monogram Arch & Botanical Ornament */
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-[--wed-bg-alt] text-center">
-              <div className="w-16 h-16 rounded-full border border-[--wed-blush] bg-white flex items-center justify-center text-[--wed-rose] mb-3 shadow-sm">
-                <Heart className="w-7 h-7 fill-[--wed-blush-light] text-[--wed-rose]" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-(--wed-bg-alt) text-center">
+              <div className="w-16 h-16 rounded-full border border-(--wed-blush) bg-white flex items-center justify-center text-(--wed-rose) mb-3 shadow-sm">
+                <Heart className="w-7 h-7 fill-(--wed-blush-light) text-(--wed-rose)" />
               </div>
-              <p className="text-3xl text-[--wed-ink]" style={{ fontFamily: FF_SCRIPT }}>
+              <p className="text-3xl text-(--wed-ink)" style={{ fontFamily: FF_SCRIPT }}>
                 {coupleDisplay.p1[0]} &amp; {coupleDisplay.p2 ? coupleDisplay.p2[0] : "A"}
               </p>
               <p
-                className="text-xs uppercase tracking-widest text-[--wed-sage] mt-2 font-medium"
+                className="text-xs uppercase tracking-widest text-(--wed-sage) mt-2 font-medium"
                 style={{ fontFamily: FF_BODY }}
               >
                 {data.city || "Wedding Celebration"}
@@ -350,22 +350,24 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         {/* First Viewport Date / Time / Ceremony Line (Visible on 390x844 without scrolling) */}
         <div className="mt-2 space-y-1.5 max-w-md mx-auto">
           <p
-            className="text-base sm:text-lg font-medium text-[--wed-ink]"
+            className="text-base sm:text-lg font-medium text-(--wed-ink)"
             style={{ fontFamily: FF_DISPLAY }}
           >
             {dateDisplay}
           </p>
-          <p className="text-xs sm:text-sm text-[--wed-ink-muted]">
-            {timeDisplay}
-          </p>
+          {data.timezone && data.eventDate && (
+            <p className="text-xs sm:text-sm text-(--wed-ink-muted)">
+              {timeDisplay}
+            </p>
+          )}
           {hasVenueInfo && (
-            <p className="text-xs sm:text-sm text-[--wed-ink-muted]">
+            <p className="text-xs sm:text-sm text-(--wed-ink-muted)">
               {[data.venue, data.city].filter(Boolean).join(" · ")}
             </p>
           )}
 
           {data.hashtag && (
-            <p className="pt-2 text-xs tracking-wider text-[--wed-rose] font-medium">
+            <p className="pt-2 text-xs tracking-wider text-(--wed-rose) font-medium">
               {data.hashtag}
             </p>
           )}
@@ -375,24 +377,24 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       {/* ── Section 2: Welcome / Guest Greeting ────────────────────────────── */}
       <section
         aria-label="Welcome and Guest Message"
-        className="py-14 sm:py-20 px-6 bg-[--wed-bg-alt]"
+        className="py-14 sm:py-20 px-6 bg-(--wed-bg-alt)"
       >
         <div className="max-w-2xl mx-auto text-center">
           {/* Personalized Greeting */}
           <p
-            className="text-[10px] tracking-[0.3em] uppercase text-[--wed-rose] font-semibold mb-2"
+            className="text-[10px] tracking-[0.3em] uppercase text-(--wed-rose) font-semibold mb-2"
             style={{ fontFamily: FF_BODY }}
           >
             {isVipGuest ? "Honored Wedding Guest" : "Dearest"}
           </p>
           <h2
-            className="text-2xl sm:text-3xl text-[--wed-ink] font-medium mb-2"
+            className="text-2xl sm:text-3xl text-(--wed-ink) font-medium mb-2"
             style={{ fontFamily: FF_DISPLAY, fontStyle: "italic" }}
           >
             {data.guest.name}
           </h2>
           {(data.guest.title || data.guest.organization) && (
-            <p className="text-xs text-[--wed-ink-muted] mb-6">
+            <p className="text-xs text-(--wed-ink-muted) mb-6">
               {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
             </p>
           )}
@@ -400,14 +402,14 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           <WeddingHairline />
 
           <h3
-            className="text-xl sm:text-2xl text-[--wed-ink] font-medium mt-6 mb-4"
+            className="text-xl sm:text-2xl text-(--wed-ink) font-medium mt-6 mb-4"
             style={{ fontFamily: FF_DISPLAY }}
           >
             {data.storyHeadline || "A Message of Welcome"}
           </h3>
 
           <div
-            className="text-sm sm:text-base leading-[1.85] text-[--wed-ink-muted] max-w-xl mx-auto space-y-4"
+            className="text-sm sm:text-base leading-[1.85] text-(--wed-ink-muted) max-w-xl mx-auto space-y-4"
             style={{ fontFamily: FF_BODY }}
           >
             <p className="whitespace-pre-line">
@@ -420,12 +422,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 3: Our Story (Alternating Milestones) ──────────────────── */}
       {(data.weddingStory && data.weddingStory.length > 0) ? (
-        <section aria-label="Our Story" className="py-16 sm:py-24 px-6 bg-[--wed-bg]">
+        <section aria-label="Our Story" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>Chapter By Chapter</WeddingLabel>
               <h2
-                className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
+                className="text-2xl sm:text-3xl text-(--wed-ink) font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 Our Story
@@ -440,7 +442,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                     key={idx}
                     className={`flex flex-col ${
                       isEven ? "md:flex-row" : "md:flex-row-reverse"
-                    } items-center gap-6 sm:gap-10 p-6 rounded-2xl bg-white border border-[--wed-rule] shadow-sm`}
+                    } items-center gap-6 sm:gap-10 p-6 rounded-2xl bg-white border border-(--wed-rule) shadow-sm`}
                   >
                     {storyItem.image && (
                       <div className="relative w-full md:w-1/2 aspect-[4/3] rounded-xl overflow-hidden shadow-inner shrink-0">
@@ -456,14 +458,14 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                     <div className="flex-1 text-center md:text-left space-y-2">
                       {storyItem.title && (
                         <h3
-                          className="text-lg sm:text-xl font-medium text-[--wed-ink]"
+                          className="text-lg sm:text-xl font-medium text-(--wed-ink)"
                           style={{ fontFamily: FF_DISPLAY }}
                         >
                           {storyItem.title}
                         </h3>
                       )}
                       <p
-                        className="text-xs sm:text-sm text-[--wed-ink-muted] leading-relaxed whitespace-pre-line"
+                        className="text-xs sm:text-sm text-(--wed-ink-muted) leading-relaxed whitespace-pre-line"
                         style={{ fontFamily: FF_BODY }}
                       >
                         {storyItem.text}
@@ -476,7 +478,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           </div>
         </section>
       ) : data.storyImage ? (
-        <section aria-label="Couple Portrait" className="py-12 px-6 bg-[--wed-bg]">
+        <section aria-label="Couple Portrait" className="py-12 px-6 bg-(--wed-bg)">
           <div className="max-w-md mx-auto aspect-[4/5] relative rounded-2xl overflow-hidden shadow-lg border-4 border-white">
             <Image
               src={data.storyImage}
@@ -490,7 +492,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       ) : null}
 
       {/* ── Section 4: Countdown (Lining Numerals, Tabular) ────────────────── */}
-      <section aria-label="Wedding Countdown" className="py-14 sm:py-20 px-6 bg-[--wed-bg-alt]">
+      <section aria-label="Wedding Countdown" className="py-14 sm:py-20 px-6 bg-(--wed-bg-alt)">
         <div className="max-w-2xl mx-auto text-center">
           <WeddingLabel>Counting Down to the Big Day</WeddingLabel>
           <WeddingCountdownTicker targetDate={data.eventDate} timezone={data.timezone} />
@@ -499,12 +501,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 5: Venues (Ceremony & Reception) ───────────────────────── */}
       {(hasMultiVenue || hasVenueInfo) && (
-        <section aria-label="Wedding Locations" className="py-16 sm:py-24 px-6 bg-[--wed-bg]">
+        <section aria-label="Wedding Locations" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>When &amp; Where</WeddingLabel>
               <h2
-                className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
+                className="text-2xl sm:text-3xl text-(--wed-ink) font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 Ceremony &amp; Celebration
@@ -516,20 +518,20 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                 {data.venues.map((venue: InvitationVenueItem, idx: number) => (
                   <div
                     key={idx}
-                    className="p-6 sm:p-8 rounded-2xl bg-white border border-[--wed-rule] shadow-sm flex flex-col justify-between text-center space-y-4"
+                    className="p-6 sm:p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm flex flex-col justify-between text-center space-y-4"
                   >
                     <div>
-                      <span className="inline-block text-[10px] tracking-[0.25em] uppercase text-[--wed-rose] font-semibold mb-2">
+                      <span className="inline-block text-[10px] tracking-[0.25em] uppercase text-(--wed-rose) font-semibold mb-2">
                         {venue.label || (idx === 0 ? subtypeWording.ceremonyLabel : subtypeWording.receptionLabel)}
                       </span>
                       <h3
-                        className="text-xl font-medium text-[--wed-ink]"
+                        className="text-xl font-medium text-(--wed-ink)"
                         style={{ fontFamily: FF_DISPLAY }}
                       >
                         {venue.name}
                       </h3>
                       {venue.address && (
-                        <p className="mt-1 text-xs sm:text-sm text-[--wed-ink-muted]">
+                        <p className="mt-1 text-xs sm:text-sm text-(--wed-ink-muted)">
                           {venue.address}
                         </p>
                       )}
@@ -541,7 +543,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 text-xs tracking-wider uppercase text-[--wed-sage] hover:underline font-semibold"
+                      className="inline-flex items-center justify-center gap-1.5 text-xs tracking-wider uppercase text-(--wed-sage) hover:underline font-semibold"
                     >
                       <span>Directions</span>
                       <ExternalLink className="w-3 h-3" />
@@ -551,20 +553,20 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
               </div>
             ) : (
               /* Single venue fallback */
-              <div className="max-w-2xl mx-auto p-8 rounded-2xl bg-white border border-[--wed-rule] shadow-sm text-center space-y-4">
+              <div className="max-w-2xl mx-auto p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm text-center space-y-4">
                 <h3
-                  className="text-2xl font-medium text-[--wed-ink]"
+                  className="text-2xl font-medium text-(--wed-ink)"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
                   {data.venue || "Wedding Venue"}
                 </h3>
                 {(data.address || data.city) && (
-                  <p className="text-sm text-[--wed-ink-muted]">
+                  <p className="text-sm text-(--wed-ink-muted)">
                     {[data.address, data.city].filter(Boolean).join(", ")}
                   </p>
                 )}
                 {hasMapCoordinates && (
-                  <div className="mt-4 rounded-xl overflow-hidden border border-[--wed-rule]">
+                  <div className="mt-4 rounded-xl overflow-hidden border border-(--wed-rule)">
                     <VenueMapClient
                       lat={data.latitude}
                       lng={data.longitude}
@@ -576,7 +578,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   </div>
                 )}
                 {data.parkingNotes && (
-                  <p className="text-xs text-[--wed-ink-muted] mt-3">
+                  <p className="text-xs text-(--wed-ink-muted) mt-3">
                     {data.parkingNotes}
                   </p>
                 )}
@@ -590,7 +592,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       {(data.colorsOfTheDay || data.dressCode) && (
         <section
           aria-label="Attire and Colors"
-          className="py-14 sm:py-20 px-6 bg-[--wed-bg-alt]"
+          className="py-14 sm:py-20 px-6 bg-(--wed-bg-alt)"
         >
           <div className="max-w-2xl mx-auto text-center space-y-6">
             <WeddingLabel>{dict.attireGuidelines}</WeddingLabel>
@@ -598,13 +600,13 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             {data.dressCode && (
               <div>
                 <h3
-                  className="text-xl sm:text-2xl text-[--wed-ink] font-medium"
+                  className="text-xl sm:text-2xl text-(--wed-ink) font-medium"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
                   {data.dressCode}
                 </h3>
                 {data.dressCodeNotes && (
-                  <p className="mt-2 text-xs sm:text-sm text-[--wed-ink-muted] max-w-md mx-auto leading-relaxed">
+                  <p className="mt-2 text-xs sm:text-sm text-(--wed-ink-muted) max-w-md mx-auto leading-relaxed">
                     {data.dressCodeNotes}
                   </p>
                 )}
@@ -614,7 +616,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             {/* Color swatches */}
             {data.colorsOfTheDay && data.colorsOfTheDay.length > 0 && (
               <div className="pt-4">
-                <p className="text-xs uppercase tracking-widest text-[--wed-ink-subtle] mb-4">
+                <p className="text-xs uppercase tracking-widest text-(--wed-ink-subtle) mb-4">
                   {dict.colorsOfTheDay}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
@@ -626,7 +628,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                         title={color.name || color.hex}
                       />
                       {color.name && (
-                        <span className="text-[10px] text-[--wed-ink-muted] tracking-wide">
+                        <span className="text-[10px] text-(--wed-ink-muted) tracking-wide">
                           {color.name}
                         </span>
                       )}
@@ -641,12 +643,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 7: Schedule / Timeline (HIDE-IF-EMPTY) ─────────────────── */}
       {data.schedule && data.schedule.length > 0 && (
-        <section aria-label="Order of Events" className="py-16 sm:py-24 px-6 bg-[--wed-bg]">
+        <section aria-label="Order of Events" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>{dict.timeline}</WeddingLabel>
               <h2
-                className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
+                className="text-2xl sm:text-3xl text-(--wed-ink) font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 {dict.orderOfEvents}
@@ -660,12 +662,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 8: Photo Album Gallery (HIDE-IF-EMPTY) ─────────────────── */}
       {data.gallery && data.gallery.length > 0 && (
-        <section aria-label="Photo Album" className="py-16 sm:py-24 px-6 bg-[--wed-bg-alt]">
+        <section aria-label="Photo Album" className="py-16 sm:py-24 px-6 bg-(--wed-bg-alt)">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>{dict.capturedMoments}</WeddingLabel>
               <h2
-                className="text-2xl sm:text-3xl text-[--wed-ink] font-medium"
+                className="text-2xl sm:text-3xl text-(--wed-ink) font-medium"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 {dict.galleryAndMemories}
@@ -679,20 +681,20 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 9: Registry & Accommodations (HIDE-IF-EMPTY) ───────────── */}
       {(data.registryNote || (data.accommodations && data.accommodations.length > 0)) && (
-        <section aria-label="Registry and Lodging" className="py-16 px-6 bg-[--wed-bg]">
+        <section aria-label="Registry and Lodging" className="py-16 px-6 bg-(--wed-bg)">
           <div className="max-w-2xl mx-auto space-y-12 text-center">
             {data.registryNote && (
-              <div className="p-8 rounded-2xl bg-white border border-[--wed-rule] shadow-sm space-y-3">
-                <div className="w-10 h-10 rounded-full bg-[--wed-blush-light] text-[--wed-rose] flex items-center justify-center mx-auto">
+              <div className="p-8 rounded-2xl bg-white border border-(--wed-rule) shadow-sm space-y-3">
+                <div className="w-10 h-10 rounded-full bg-(--wed-blush-light) text-(--wed-rose) flex items-center justify-center mx-auto">
                   <Gift className="w-5 h-5" />
                 </div>
                 <h3
-                  className="text-xl font-medium text-[--wed-ink]"
+                  className="text-xl font-medium text-(--wed-ink)"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
                   {dict.giftRegistry}
                 </h3>
-                <p className="text-xs sm:text-sm text-[--wed-ink-muted] leading-relaxed max-w-md mx-auto whitespace-pre-line">
+                <p className="text-xs sm:text-sm text-(--wed-ink-muted) leading-relaxed max-w-md mx-auto whitespace-pre-line">
                   {data.registryNote}
                 </p>
               </div>
@@ -702,7 +704,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
               <div>
                 <WeddingLabel>{dict.whereToStay}</WeddingLabel>
                 <h3
-                  className="text-xl font-medium text-[--wed-ink] mb-6"
+                  className="text-xl font-medium text-(--wed-ink) mb-6"
                   style={{ fontFamily: FF_DISPLAY }}
                 >
                   {dict.recommendedAccommodations}
@@ -711,12 +713,12 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                   {data.accommodations.map((hotel, hIdx) => (
                     <div
                       key={hIdx}
-                      className="p-4 rounded-xl bg-white border border-[--wed-rule] flex items-center justify-between gap-4 text-left"
+                      className="p-4 rounded-xl bg-white border border-(--wed-rule) flex items-center justify-between gap-4 text-left"
                     >
                       <div>
-                        <p className="text-sm font-semibold text-[--wed-ink]">{hotel.name}</p>
+                        <p className="text-sm font-semibold text-(--wed-ink)">{hotel.name}</p>
                         {hotel.notes && (
-                          <p className="text-xs text-[--wed-ink-muted] mt-0.5">{hotel.notes}</p>
+                          <p className="text-xs text-(--wed-ink-muted) mt-0.5">{hotel.notes}</p>
                         )}
                       </div>
                       {hotel.bookingUrl && (
@@ -724,7 +726,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
                           href={hotel.bookingUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="shrink-0 text-xs tracking-wider uppercase text-[--wed-rose] font-semibold hover:underline flex items-center gap-1"
+                          className="shrink-0 text-xs tracking-wider uppercase text-(--wed-rose) font-semibold hover:underline flex items-center gap-1"
                         >
                           {dict.book} <ExternalLink className="w-3 h-3" />
                         </a>
@@ -742,36 +744,33 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       <section
         id="rsvp-section"
         aria-label="Wedding Response Card"
-        className="py-16 sm:py-24 px-6 bg-[--wed-bg-alt]"
+        className="py-16 sm:py-24 px-6 bg-(--wed-bg-alt)"
       >
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
             <WeddingLabel>{dict.kindlyRespond}</WeddingLabel>
             <h2
-              className="text-2xl sm:text-4xl text-[--wed-ink] font-medium"
+              className="text-2xl sm:text-4xl text-(--wed-ink) font-medium"
               style={{ fontFamily: FF_DISPLAY }}
             >
               {dict.yourInvitationAndRsvp}
             </h2>
-            <p className="mt-2 text-xs sm:text-sm text-[--wed-ink-muted]">
-              {dict.kindlyRespond}
-            </p>
           </div>
 
           {/* Formal Response Card Envelope/Card */}
-          <div className="p-8 sm:p-10 rounded-2xl bg-white border-2 border-[--wed-blush]/40 shadow-xl text-center space-y-6">
+          <div className="p-8 sm:p-10 rounded-2xl bg-white border border-(--wed-rule) shadow-sm text-center space-y-6">
             <div>
-              <span className="text-[10px] tracking-[0.25em] uppercase text-[--wed-rose] font-semibold">
+              <span className="text-[10px] tracking-[0.25em] uppercase text-(--wed-rose) font-semibold">
                 {isVipGuest ? dict.honoredWeddingGuest : dict.officialResponse}
               </span>
               <h3
-                className="text-2xl sm:text-3xl text-[--wed-ink] font-medium mt-1"
+                className="text-2xl sm:text-3xl text-(--wed-ink) font-medium mt-1"
                 style={{ fontFamily: FF_DISPLAY, fontStyle: "italic" }}
               >
                 {data.guest.name}
               </h3>
               {(data.guest.title || data.guest.organization) && (
-                <p className="text-xs text-[--wed-ink-muted] mt-0.5">
+                <p className="text-xs text-(--wed-ink-muted) mt-0.5">
                   {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
                 </p>
               )}
@@ -779,8 +778,8 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
             {/* Seat assignment */}
             {data.seat && (
-              <div className="py-2.5 px-4 rounded-xl bg-[--wed-bg-alt] inline-block">
-                <span className="text-xs font-semibold text-[--wed-rose] tracking-wide">
+              <div className="py-2.5 px-4 rounded-xl bg-(--wed-bg-alt) inline-block">
+                <span className="text-xs font-semibold text-(--wed-rose) tracking-wide">
                   {dict.assignedSeat}: {data.seat.label}
                   {data.seat.tableName && ` (${data.seat.tableName})`}
                 </span>
@@ -807,7 +806,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
             {/* Interactive RSVP Decision */}
             <div className="space-y-3 pt-2">
-              <p className="text-xs uppercase tracking-wider text-[--wed-ink-subtle] font-medium">
+              <p className="text-xs uppercase tracking-wider text-(--wed-ink-subtle) font-medium">
                 {dict.willYouCelebrate}
               </p>
 
@@ -864,41 +863,41 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
             {/* Canvas QR Code Pass */}
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
-              <div className="pt-4 border-t border-[--wed-rule]">
-                <div className="p-3 bg-[--wed-bg-alt] rounded-xl inline-block shadow-inner">
+              <div className="pt-4 border-t border-(--wed-rule)">
+                <div className="p-3 bg-(--wed-bg-alt) rounded-xl inline-block shadow-inner">
                   <WeddingCanvasQR value={data.ticketInstance.qrCode} size={150} />
                 </div>
-                <p className="mt-2 text-[9px] uppercase tracking-widest text-[--wed-ink-subtle]">
+                <p className="mt-2 text-[9px] uppercase tracking-widest text-(--wed-ink-subtle)">
                   {dict.scanForAdmission}
                 </p>
               </div>
             )}
 
             {/* Calendar & Share links */}
-            <div className="pt-4 border-t border-[--wed-rule] flex flex-wrap items-center justify-center gap-4 text-xs">
+            <div className="pt-4 border-t border-(--wed-rule) flex flex-wrap items-center justify-center gap-4 text-xs">
               <button
                 type="button"
                 onClick={downloadIcsFile}
-                className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
+                className="inline-flex items-center gap-1.5 text-(--wed-rose) uppercase tracking-wider font-semibold hover:underline"
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
                 <span>{dict.downloadIcal}</span>
               </button>
-              <span className="text-[--wed-rule]">·</span>
+              <span className="text-(--wed-rule)">·</span>
               <a
                 href={getGoogleCalendarUrl()}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
+                className="inline-flex items-center gap-1.5 text-(--wed-rose) uppercase tracking-wider font-semibold hover:underline"
               >
                 <span>{dict.googleCalendar}</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
-              <span className="text-[--wed-rule]">·</span>
+              <span className="text-(--wed-rule)">·</span>
               <button
                 type="button"
                 onClick={handleShare}
-                className="inline-flex items-center gap-1.5 text-[--wed-rose] uppercase tracking-wider font-semibold hover:underline"
+                className="inline-flex items-center gap-1.5 text-(--wed-rose) uppercase tracking-wider font-semibold hover:underline"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>{copiedLink ? dict.copiedLink : dict.share}</span>
@@ -909,8 +908,8 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
       </section>
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="py-12 border-t border-[--wed-rule] text-center text-xs text-[--wed-ink-subtle] space-y-1 bg-[--wed-bg]">
-        <p className="text-[--wed-ink-muted] font-medium">
+      <footer className="py-12 border-t border-(--wed-rule) text-center text-xs text-(--wed-ink-subtle) space-y-1 bg-(--wed-bg)">
+        <p className="text-(--wed-ink-muted) font-medium">
           {coupleDisplay.p1} {coupleDisplay.p2 ? `& ${coupleDisplay.p2}` : ""}
           {data.city ? ` · ${data.city}` : ""}
         </p>
@@ -926,7 +925,7 @@ function WeddingHairline() {
   return (
     <div className="flex items-center gap-4 justify-center my-4">
       <div className="h-px flex-1 max-w-[60px]" style={{ background: "var(--wed-rule)" }} />
-      <span className="text-[--wed-rose] text-xs">❦</span>
+      <span className="text-(--wed-rose) text-xs">❦</span>
       <div className="h-px flex-1 max-w-[60px]" style={{ background: "var(--wed-rule)" }} />
     </div>
   );
@@ -935,7 +934,7 @@ function WeddingHairline() {
 function WeddingLabel({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="text-[10px] tracking-[0.28em] uppercase text-[--wed-rose] font-semibold mb-2"
+      className="text-[10px] tracking-[0.28em] uppercase text-(--wed-rose) font-semibold mb-2"
       style={{ fontFamily: FF_BODY }}
     >
       {children}
@@ -1017,7 +1016,7 @@ function WeddingCountdownTicker({
 
   if (timeLeft.isPast) {
     return (
-      <p className="text-sm italic text-[--wed-ink-muted]">
+      <p className="text-sm italic text-(--wed-ink-muted)">
         The wedding celebration has arrived!
       </p>
     );
@@ -1035,7 +1034,7 @@ function WeddingCountdownTicker({
       {units.map((unit, idx) => (
         <div key={idx} className="flex flex-col items-center">
           <span
-            className="tabular-nums lining-nums leading-none font-semibold text-[--wed-ink]"
+            className="tabular-nums lining-nums leading-none font-semibold text-(--wed-ink)"
             style={{
               fontFamily: FF_DISPLAY,
               fontSize: "clamp(2.2rem, 5.5vw, 3.5rem)",
@@ -1046,7 +1045,7 @@ function WeddingCountdownTicker({
             {String(unit.value).padStart(2, "0")}
           </span>
           <span
-            className="mt-3 text-[9px] uppercase tracking-[0.25em] text-[--wed-ink-subtle] font-medium"
+            className="mt-3 text-[9px] uppercase tracking-[0.25em] text-(--wed-ink-subtle) font-medium"
             style={{ fontFamily: FF_BODY }}
           >
             {unit.label}
@@ -1063,7 +1062,7 @@ function WeddingScheduleView({ schedule }: { schedule: InvitationScheduleItem[] 
 
   if (!hasDayGrouping) {
     return (
-      <div className="space-y-6 border-l-2 border-[--wed-blush] ml-4 pl-6">
+      <div className="space-y-6 border-l-2 border-(--wed-blush) ml-4 pl-6">
         {schedule.map((item, idx) => (
           <WeddingScheduleItemCard key={idx} item={item} />
         ))}
@@ -1082,10 +1081,10 @@ function WeddingScheduleView({ schedule }: { schedule: InvitationScheduleItem[] 
     <div className="space-y-10">
       {Object.entries(groups).map(([dayLabel, items], gIdx) => (
         <div key={gIdx}>
-          <p className="text-xs uppercase tracking-widest text-[--wed-rose] font-semibold mb-4 ml-4">
+          <p className="text-xs uppercase tracking-widest text-(--wed-rose) font-semibold mb-4 ml-4">
             {dayLabel}
           </p>
-          <div className="space-y-6 border-l-2 border-[--wed-blush] ml-4 pl-6">
+          <div className="space-y-6 border-l-2 border-(--wed-blush) ml-4 pl-6">
             {items.map((item, idx) => (
               <WeddingScheduleItemCard key={idx} item={item} />
             ))}
@@ -1099,19 +1098,19 @@ function WeddingScheduleView({ schedule }: { schedule: InvitationScheduleItem[] 
 function WeddingScheduleItemCard({ item }: { item: InvitationScheduleItem }) {
   return (
     <div className="relative">
-      <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-white border-2 border-[--wed-rose]" />
-      <span className="text-[10px] uppercase tracking-wider text-[--wed-rose] font-semibold">
+      <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-white border-2 border-(--wed-rose)" />
+      <span className="text-[10px] uppercase tracking-wider text-(--wed-rose) font-semibold">
         {item.time}
-        {item.badge && <span className="text-[--wed-ink-subtle] ml-2">— {item.badge}</span>}
+        {item.badge && <span className="text-(--wed-ink-subtle) ml-2">— {item.badge}</span>}
       </span>
       <h4
-        className="text-base font-medium text-[--wed-ink] mt-0.5"
+        className="text-base font-medium text-(--wed-ink) mt-0.5"
         style={{ fontFamily: FF_DISPLAY }}
       >
         {item.title}
       </h4>
       {item.description && (
-        <p className="text-xs text-[--wed-ink-muted] leading-relaxed mt-0.5 font-light">
+        <p className="text-xs text-(--wed-ink-muted) leading-relaxed mt-0.5 font-light">
           {item.description}
         </p>
       )}
@@ -1382,7 +1381,7 @@ function FloatingWeddingMusic({ audioUrl, title }: { audioUrl: string; title?: s
         aria-label={isPlaying ? "Pause wedding music" : "Play wedding music"}
       >
         {isPlaying ? (
-          <Volume2 className="w-3.5 h-3.5 text-[--wed-rose]" />
+          <Volume2 className="w-3.5 h-3.5 text-(--wed-rose)" />
         ) : (
           <VolumeX className="w-3.5 h-3.5" />
         )}
@@ -1391,9 +1390,9 @@ function FloatingWeddingMusic({ audioUrl, title }: { audioUrl: string; title?: s
         </span>
         {isPlaying && (
           <span className="flex items-end gap-0.5 h-3">
-            <span className="w-0.5 h-3 bg-[--wed-rose] animate-bounce" />
-            <span className="w-0.5 h-2 bg-[--wed-rose] animate-bounce delay-75" />
-            <span className="w-0.5 h-3 bg-[--wed-rose] animate-bounce delay-150" />
+            <span className="w-0.5 h-3 bg-(--wed-rose) animate-bounce" />
+            <span className="w-0.5 h-2 bg-(--wed-rose) animate-bounce delay-75" />
+            <span className="w-0.5 h-3 bg-(--wed-rose) animate-bounce delay-150" />
           </span>
         )}
       </button>

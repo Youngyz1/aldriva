@@ -226,11 +226,11 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
         {/* Top Eyebrow Sticker (HIDE-IF-EMPTY) */}
         {data.eyebrow && data.eyebrow.trim().length > 0 && (
           <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-[--bday-ink] shadow-[2px_2px_0px_0px_#141218] mb-4 rotate-[-1deg]"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-(--bday-ink) shadow-[2px_2px_0px_0px_#141218] mb-4 rotate-[-1deg]"
             style={{ background: "var(--bday-yellow)", color: "var(--bday-ink)" }}
           >
-            <PartyPopper className="w-4 h-4 text-[--bday-ink]" />
-            <span className="text-xs font-black uppercase tracking-wider text-[--bday-ink]">
+            <PartyPopper className="w-4 h-4 text-(--bday-ink)" />
+            <span className="text-xs font-black uppercase tracking-wider text-(--bday-ink)">
               {data.eyebrow}
             </span>
           </div>
@@ -248,21 +248,21 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
           )}
 
           <h1
-            className="text-4xl sm:text-6xl lg:text-7xl font-black text-[--bday-ink] tracking-tight leading-[1.08] text-balance"
+            className="text-4xl sm:text-6xl lg:text-7xl font-black text-(--bday-ink) tracking-tight leading-[1.08] text-balance"
             style={{ fontFamily: FF_DISPLAY }}
           >
             {data.title}
           </h1>
 
           {data.hostNames && (
-            <p className="mt-2 text-sm sm:text-base font-medium text-[--bday-ink-muted]">
+            <p className="mt-2 text-sm sm:text-base font-medium text-(--bday-ink-muted)">
               {data.hostNames}
             </p>
           )}
 
           {data.theme && data.theme.trim().length > 0 && (
             <div
-              className="mt-3 inline-block px-3 py-1 rounded-full border border-[--bday-ink] text-xs font-bold text-[--bday-ink] shadow-[2px_2px_0px_0px_#141218]"
+              className="mt-3 inline-block px-3 py-1 rounded-full border border-(--bday-ink) text-xs font-bold text-(--bday-ink) shadow-[2px_2px_0px_0px_#141218]"
               style={{ background: "var(--bday-mint)" }}
             >
               {locale === "fr" ? "Thème :" : "Theme:"} {data.theme}
@@ -271,7 +271,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
         </div>
 
         {/* Tilted Photo Frame with Sticker Badge */}
-        <div className="relative my-4 w-full max-w-[340px] sm:max-w-[420px] aspect-[4/3] rounded-3xl overflow-hidden border-4 border-[--bday-ink] shadow-[6px_6px_0px_0px_#141218] rotate-[-1.5deg] motion-reduce:rotate-0 bg-[--bday-yellow]">
+        <div className="relative my-4 w-full max-w-[340px] sm:max-w-[420px] aspect-[4/3] rounded-3xl overflow-hidden border-4 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] rotate-[-1.5deg] motion-reduce:rotate-0 bg-(--bday-yellow)">
           {data.heroImage ? (
             <Image
               src={data.heroImage}
@@ -284,8 +284,8 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
             />
           ) : (
             /* Designed Fallback: Retro Pop Art Celebrant Badge */
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[--bday-yellow] via-[--bday-coral] to-[--bday-purple] text-center text-white">
-              <div className="w-16 h-16 rounded-2xl bg-white border-2 border-[--bday-ink] text-[--bday-coral] flex items-center justify-center shadow-[3px_3px_0px_0px_#141218] mb-3">
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-(--bday-yellow) via-(--bday-coral) to-(--bday-purple) text-center text-white">
+              <div className="w-16 h-16 rounded-2xl bg-white border-2 border-(--bday-ink) text-(--bday-coral) flex items-center justify-center shadow-[3px_3px_0px_0px_#141218] mb-3">
                 <PartyPopper className="w-8 h-8" />
               </div>
               <p
@@ -294,7 +294,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               >
                 {locale === "fr" ? "Faisons la Fête !" : "Let's Party!"}
               </p>
-              <p className="text-xs font-bold uppercase tracking-widest text-[--bday-yellow] mt-1 drop-shadow-[1px_1px_0px_#141218]">
+              <p className="text-xs font-bold uppercase tracking-widest text-(--bday-yellow) mt-1 drop-shadow-[1px_1px_0px_#141218]">
                 {data.city || (locale === "fr" ? "Célébration" : "Birthday Bash")}
               </p>
             </div>
@@ -303,31 +303,33 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
         {/* First Viewport Date / Time / Venue Strip (Visible on 390x844 without scrolling) */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-lg mx-auto text-xs font-bold">
-          <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-[--bday-ink] shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-[--bday-coral]" />
+          <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-(--bday-ink) shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-(--bday-coral)" />
             <span>{dateDisplay}</span>
           </div>
-          <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-[--bday-ink] shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-[--bday-indigo]" />
-            <span>{timeDisplay}</span>
-          </div>
+          {data.timezone && data.eventDate && (
+            <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-(--bday-ink) shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-(--bday-indigo)" />
+              <span>{timeDisplay}</span>
+            </div>
+          )}
           {hasVenueInfo && (
-            <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-[--bday-ink] shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-[--bday-mint]" />
+            <div className="px-3.5 py-2 rounded-xl bg-white border-2 border-(--bday-ink) shadow-[2px_2px_0px_0px_#141218] flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-(--bday-mint)" />
               <span>{data.venue || data.city}</span>
             </div>
           )}
         </div>
 
         {data.hashtag && (
-          <p className="mt-3 text-xs font-extrabold text-[--bday-indigo] tracking-wider">
+          <p className="mt-3 text-xs font-extrabold text-(--bday-indigo) tracking-wider">
             {data.hashtag}
           </p>
         )}
       </section>
 
       {/* ── Section 2: Celebrant Message & Guest Welcome ───────────────────── */}
-      <section aria-label="Celebrant Message" className="py-14 sm:py-20 px-6 bg-[--bday-bg-alt]">
+      <section aria-label="Celebrant Message" className="py-14 sm:py-20 px-6 bg-(--bday-bg-alt)">
         <div className="max-w-2xl mx-auto text-center">
           {/* Guest Personalization */}
           <div
@@ -338,26 +340,26 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
           </div>
 
           <h2
-            className="text-3xl sm:text-4xl font-black text-[--bday-ink] mt-1 mb-2"
+            className="text-3xl sm:text-4xl font-black text-(--bday-ink) mt-1 mb-2"
             style={{ fontFamily: FF_DISPLAY }}
           >
             {data.guest.name}
           </h2>
           {(data.guest.title || data.guest.organization) && (
-            <p className="text-xs text-[--bday-ink-muted] mb-6 font-semibold">
+            <p className="text-xs text-(--bday-ink-muted) mb-6 font-semibold">
               {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
             </p>
           )}
 
-          <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] text-left space-y-3">
+          <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] text-left space-y-3">
             <h3
-              className="text-xl font-black text-[--bday-ink] flex items-center gap-2"
+              className="text-xl font-black text-(--bday-ink) flex items-center gap-2"
               style={{ fontFamily: FF_DISPLAY }}
             >
-              <Sparkles className="w-5 h-5 text-[--bday-yellow]" />
+              <Sparkles className="w-5 h-5 text-(--bday-yellow)" />
               {data.storyHeadline || dict.messageFromHost}
             </h3>
-            <p className="text-sm sm:text-base leading-relaxed text-[--bday-ink-muted] whitespace-pre-line">
+            <p className="text-sm sm:text-base leading-relaxed text-(--bday-ink-muted) whitespace-pre-line">
               {data.storyText ||
                 (locale === "fr"
                   ? "Une année de plus et tellement hâte de célébrer avec les meilleures personnes au monde ! Venez prêts à danser et faire la fête. Rendons cette soirée inoubliable !"
@@ -367,7 +369,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
           {/* Optional Host/Celebrant Photo */}
           {data.storyImage && (
-            <div className="mt-8 max-w-sm mx-auto aspect-[4/5] relative rounded-3xl overflow-hidden border-4 border-[--bday-ink] shadow-[6px_6px_0px_0px_#141218] rotate-1">
+            <div className="mt-8 max-w-sm mx-auto aspect-[4/5] relative rounded-3xl overflow-hidden border-4 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] rotate-1">
               <Image
                 src={data.storyImage}
                 alt="Celebrant portrait"
@@ -381,14 +383,14 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 3: Party Details (Chunky Color-Block Cards) ────────────── */}
-      <section aria-label="Party Details" className="py-14 sm:py-20 px-6 bg-[--bday-bg]">
+      <section aria-label="Party Details" className="py-14 sm:py-20 px-6 bg-(--bday-bg)">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
-            <span className="text-xs font-black uppercase tracking-widest text-[--bday-indigo]">
+            <span className="text-xs font-black uppercase tracking-widest text-(--bday-indigo)">
               {dict.needToKnow}
             </span>
             <h2
-              className="text-3xl sm:text-4xl font-black text-[--bday-ink] mt-1"
+              className="text-3xl sm:text-4xl font-black text-(--bday-ink) mt-1"
               style={{ fontFamily: FF_DISPLAY }}
             >
               {dict.partyDetails}
@@ -397,28 +399,30 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* When & Time */}
-            <div className="p-6 rounded-3xl bg-[--bday-yellow] border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+            <div className="p-6 rounded-3xl bg-(--bday-yellow) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[--bday-ink]/70">
+                <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-ink)/70">
                   {dict.when}
                 </span>
-                <h3 className="text-lg font-black text-[--bday-ink] mt-1">{dateDisplay}</h3>
-                <p className="text-xs font-bold text-[--bday-ink-muted] mt-0.5">{timeDisplay}</p>
+                <h3 className="text-lg font-black text-(--bday-ink) mt-1">{dateDisplay}</h3>
+                {data.timezone && data.eventDate && (
+                  <p className="text-xs font-bold text-(--bday-ink-muted) mt-0.5">{timeDisplay}</p>
+                )}
               </div>
             </div>
 
             {/* Where */}
             {hasVenueInfo && (
-              <div className="p-6 rounded-3xl bg-[--bday-mint] border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+              <div className="p-6 rounded-3xl bg-(--bday-mint) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[--bday-ink]/70">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-(--bday-ink)/70">
                     {dict.location}
                   </span>
-                  <h3 className="text-lg font-black text-[--bday-ink] mt-1">
+                  <h3 className="text-lg font-black text-(--bday-ink) mt-1">
                     {data.venue || data.city}
                   </h3>
                   {data.address && (
-                    <p className="text-xs font-bold text-[--bday-ink-muted] mt-0.5">
+                    <p className="text-xs font-bold text-(--bday-ink-muted) mt-0.5">
                       {data.address}
                     </p>
                   )}
@@ -428,7 +432,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Dress Code */}
             {data.dressCode && (
-              <div className="p-6 rounded-3xl bg-[--bday-coral] text-white border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
+              <div className="p-6 rounded-3xl bg-(--bday-coral) text-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-white/80">
                     {dict.attire}
@@ -443,7 +447,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Wishlist / Gift Note */}
             {data.giftNote && (
-              <div className="p-6 rounded-3xl bg-[--bday-purple] text-white border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] sm:col-span-2 lg:col-span-1">
+              <div className="p-6 rounded-3xl bg-(--bday-purple) text-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] sm:col-span-2 lg:col-span-1">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-white/80 flex items-center gap-1">
                     <Gift className="w-3.5 h-3.5" /> {dict.registryNoteTitle}
@@ -459,9 +463,9 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 4: Countdown (Bold Lining Numbers) ──────────────────────── */}
-      <section aria-label="Birthday Countdown" className="py-14 sm:py-20 px-6 bg-[--bday-indigo] text-white">
+      <section aria-label="Birthday Countdown" className="py-14 sm:py-20 px-6 bg-(--bday-indigo) text-white">
         <div className="max-w-2xl mx-auto text-center">
-          <span className="inline-block px-3 py-1 rounded-full bg-[--bday-yellow] text-[--bday-ink] text-xs font-black uppercase tracking-widest mb-4">
+          <span className="inline-block px-3 py-1 rounded-full bg-(--bday-yellow) text-(--bday-ink) text-xs font-black uppercase tracking-widest mb-4">
             {locale === "fr" ? "Le Compte à Rebours est Lancé !" : "The Countdown Is On!"}
           </span>
           <BirthdayCountdownTicker targetDate={data.eventDate} timezone={data.timezone} dict={dict} />
@@ -470,14 +474,14 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 5: Schedule / Party Timeline (HIDE-IF-EMPTY) ────────────── */}
       {data.schedule && data.schedule.length > 0 && (
-        <section aria-label="Party Schedule" className="py-16 sm:py-24 px-6 bg-[--bday-bg]">
+        <section aria-label="Party Schedule" className="py-16 sm:py-24 px-6 bg-(--bday-bg)">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
-              <span className="text-xs font-black uppercase tracking-widest text-[--bday-coral]">
+              <span className="text-xs font-black uppercase tracking-widest text-(--bday-coral)">
                 {dict.timeline}
               </span>
               <h2
-                className="text-3xl sm:text-4xl font-black text-[--bday-ink] mt-1"
+                className="text-3xl sm:text-4xl font-black text-(--bday-ink) mt-1"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 {dict.partyLineup}
@@ -488,22 +492,22 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               {data.schedule.map((item: InvitationScheduleItem, idx: number) => (
                 <div
                   key={idx}
-                  className="p-5 rounded-2xl bg-white border-2 border-[--bday-ink] shadow-[3px_3px_0px_0px_#141218] flex items-start gap-4 hover:translate-x-1 transition-transform"
+                  className="p-5 rounded-2xl bg-white border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] flex items-start gap-4 hover:translate-x-1 transition-transform"
                 >
-                  <div className="px-3 py-1 rounded-xl bg-[--bday-yellow] border border-[--bday-ink] text-xs font-black text-[--bday-ink] shrink-0">
+                  <div className="px-3 py-1 rounded-xl bg-(--bday-yellow) border border-(--bday-ink) text-xs font-black text-(--bday-ink) shrink-0">
                     {item.time}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-base font-extrabold text-[--bday-ink]">{item.title}</h4>
+                      <h4 className="text-base font-extrabold text-(--bday-ink)">{item.title}</h4>
                       {item.badge && (
-                        <span className="px-2 py-0.5 rounded-full bg-[--bday-mint] text-[10px] font-bold text-[--bday-ink]">
+                        <span className="px-2 py-0.5 rounded-full bg-(--bday-mint) text-[10px] font-bold text-(--bday-ink)">
                           {item.badge}
                         </span>
                       )}
                     </div>
                     {item.description && (
-                      <p className="text-xs text-[--bday-ink-muted] mt-1 leading-relaxed">
+                      <p className="text-xs text-(--bday-ink-muted) mt-1 leading-relaxed">
                         {item.description}
                       </p>
                     )}
@@ -517,14 +521,14 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 6: Polaroid / Sticker Photo Gallery (HIDE-IF-EMPTY) ────── */}
       {data.gallery && data.gallery.length > 0 && (
-        <section aria-label="Party Gallery" className="py-16 sm:py-24 px-6 bg-[--bday-bg-alt]">
+        <section aria-label="Party Gallery" className="py-16 sm:py-24 px-6 bg-(--bday-bg-alt)">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
-              <span className="text-xs font-black uppercase tracking-widest text-[--bday-purple]">
+              <span className="text-xs font-black uppercase tracking-widest text-(--bday-purple)">
                 {dict.visualHighlights}
               </span>
               <h2
-                className="text-3xl sm:text-4xl font-black text-[--bday-ink] mt-1"
+                className="text-3xl sm:text-4xl font-black text-(--bday-ink) mt-1"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 {dict.gallery}
@@ -538,22 +542,22 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 7: Location & Directions (HIDE-IF-EMPTY) ────────────────── */}
       {hasVenueInfo && (
-        <section aria-label="Venue and Location" className="py-16 px-6 bg-[--bday-bg]">
+        <section aria-label="Venue and Location" className="py-16 px-6 bg-(--bday-bg)">
           <div className="max-w-3xl mx-auto">
-            <div className="p-8 rounded-3xl bg-white border-3 border-[--bday-ink] shadow-[6px_6px_0px_0px_#141218] space-y-5">
+            <div className="p-8 rounded-3xl bg-white border-3 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <span className="text-xs font-black uppercase tracking-widest text-[--bday-coral]">
+                  <span className="text-xs font-black uppercase tracking-widest text-(--bday-coral)">
                     {dict.venues}
                   </span>
                   <h3
-                    className="text-2xl sm:text-3xl font-black text-[--bday-ink] mt-0.5"
+                    className="text-2xl sm:text-3xl font-black text-(--bday-ink) mt-0.5"
                     style={{ fontFamily: FF_DISPLAY }}
                   >
                     {data.venue || dict.location}
                   </h3>
                   {(data.address || data.city) && (
-                    <p className="text-sm font-medium text-[--bday-ink-muted] mt-0.5">
+                    <p className="text-sm font-medium text-(--bday-ink-muted) mt-0.5">
                       {[data.address, data.city].filter(Boolean).join(", ")}
                     </p>
                   )}
@@ -565,7 +569,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-5 py-2.5 rounded-xl bg-[--bday-yellow] border-2 border-[--bday-ink] text-xs font-black uppercase tracking-wider text-[--bday-ink] shadow-[3px_3px_0px_0px_#141218] hover:translate-y-0.5 transition-all inline-flex items-center gap-1.5 shrink-0"
+                  className="px-5 py-2.5 rounded-xl bg-(--bday-yellow) border-2 border-(--bday-ink) text-xs font-black uppercase tracking-wider text-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] hover:translate-y-0.5 transition-all inline-flex items-center gap-1.5 shrink-0"
                 >
                   <span>{dict.getDirections}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -573,7 +577,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               </div>
 
               {hasMapCoordinates && (
-                <div className="rounded-2xl overflow-hidden border-2 border-[--bday-ink]">
+                <div className="rounded-2xl overflow-hidden border-2 border-(--bday-ink)">
                   <VenueMapClient
                     lat={data.latitude}
                     lng={data.longitude}
@@ -586,7 +590,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               )}
 
               {data.parkingNotes && (
-                <p className="text-xs text-[--bday-ink-muted] font-medium bg-[--bday-bg-alt] p-3 rounded-xl">
+                <p className="text-xs text-(--bday-ink-muted) font-medium bg-(--bday-bg-alt) p-3 rounded-xl">
                   🚗 {data.parkingNotes}
                 </p>
               )}
@@ -599,38 +603,38 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       <section
         id="rsvp-section"
         aria-label="Birthday RSVP and Party Pass"
-        className="py-16 sm:py-24 px-6 bg-[--bday-bg-alt]"
+        className="py-16 sm:py-24 px-6 bg-(--bday-bg-alt)"
       >
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
-            <span className="text-xs font-black uppercase tracking-widest text-[--bday-indigo]">
+            <span className="text-xs font-black uppercase tracking-widest text-(--bday-indigo)">
               {dict.claimYourSpot}
             </span>
             <h2
-              className="text-3xl sm:text-5xl font-black text-[--bday-ink] mt-1"
+              className="text-3xl sm:text-5xl font-black text-(--bday-ink) mt-1"
               style={{ fontFamily: FF_DISPLAY }}
             >
               {dict.yourInvitationAndRsvp}
             </h2>
-            <p className="mt-2 text-xs sm:text-sm font-semibold text-[--bday-ink-muted]">
+            <p className="mt-2 text-xs sm:text-sm font-semibold text-(--bday-ink-muted)">
               {dict.kindlyConfirm}
             </p>
           </div>
 
           {/* Chunky Party Pass Ticket */}
-          <div className="p-8 sm:p-10 rounded-3xl bg-white border-3 border-[--bday-ink] shadow-[8px_8px_0px_0px_#141218] text-center space-y-6">
+          <div className="p-8 sm:p-10 rounded-3xl bg-white border-3 border-(--bday-ink) shadow-[8px_8px_0px_0px_#141218] text-center space-y-6">
             <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[--bday-yellow] border border-[--bday-ink] text-[10px] font-black uppercase tracking-widest text-[--bday-ink]">
+              <span className="inline-block px-3 py-1 rounded-full bg-(--bday-yellow) border border-(--bday-ink) text-[10px] font-black uppercase tracking-widest text-(--bday-ink)">
                 {isVipGuest ? dict.vipPartyPass : dict.officialPartyPass}
               </span>
               <h3
-                className="text-3xl sm:text-4xl font-black text-[--bday-ink] mt-2"
+                className="text-3xl sm:text-4xl font-black text-(--bday-ink) mt-2"
                 style={{ fontFamily: FF_DISPLAY }}
               >
                 {data.guest.name}
               </h3>
               {(data.guest.title || data.guest.organization) && (
-                <p className="text-xs font-semibold text-[--bday-ink-muted] mt-1">
+                <p className="text-xs font-semibold text-(--bday-ink-muted) mt-1">
                   {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
                 </p>
               )}
@@ -638,8 +642,8 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Seat assignment (if provided) */}
             {data.seat && (
-              <div className="p-2.5 rounded-xl bg-[--bday-mint] border border-[--bday-ink] inline-block">
-                <span className="text-xs font-extrabold text-[--bday-ink]">
+              <div className="p-2.5 rounded-xl bg-(--bday-mint) border border-(--bday-ink) inline-block">
+                <span className="text-xs font-extrabold text-(--bday-ink)">
                   🎉 {dict.table}: {data.seat.label}
                   {data.seat.tableName && ` (${data.seat.tableName})`}
                 </span>
@@ -649,10 +653,10 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
             {/* RSVP Feedback Banner */}
             {rsvpFeedback && (
               <div
-                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border-2 border-[--bday-ink] shadow-[2px_2px_0px_0px_#141218] ${
+                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border-2 border-(--bday-ink) shadow-[2px_2px_0px_0px_#141218] ${
                   rsvpFeedback.type === "success"
-                    ? "bg-[--bday-mint] text-[--bday-ink]"
-                    : "bg-[--bday-coral] text-white"
+                    ? "bg-(--bday-mint) text-(--bday-ink)"
+                    : "bg-(--bday-coral) text-white"
                 }`}
               >
                 {rsvpFeedback.type === "success" ? (
@@ -666,7 +670,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* RSVP Buttons */}
             <div className="space-y-3 pt-2">
-              <p className="text-xs font-black uppercase tracking-wider text-[--bday-ink]">
+              <p className="text-xs font-black uppercase tracking-wider text-(--bday-ink)">
                 {dict.areYouComing}
               </p>
 
@@ -675,7 +679,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
                   type="button"
                   onClick={() => handleRsvpAction("accepted")}
                   disabled={submittingRsvp || currentRsvp === "accepted"}
-                  className="py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-[--bday-ink] shadow-[3px_3px_0px_0px_#141218]"
+                  className="py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218]"
                   style={{
                     background: currentRsvp === "accepted" ? "#06D6A0" : "#FF5E5B",
                     color: currentRsvp === "accepted" ? "#141218" : "#FFFFFF",
@@ -693,7 +697,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
                   type="button"
                   onClick={() => handleRsvpAction("declined")}
                   disabled={submittingRsvp || currentRsvp === "declined"}
-                  className="py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-[--bday-ink] shadow-[3px_3px_0px_0px_#141218] bg-white text-[--bday-ink-muted]"
+                  className="py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] bg-white text-(--bday-ink-muted)"
                   style={{
                     textDecoration: currentRsvp === "declined" ? "line-through" : "none",
                   }}
@@ -710,22 +714,22 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
             {/* Canvas QR Pass */}
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
-              <div className="pt-4 border-t-2 border-dashed border-[--bday-ink]">
-                <div className="p-3 bg-[--bday-yellow] rounded-2xl border-2 border-[--bday-ink] inline-block shadow-[3px_3px_0px_0px_#141218]">
+              <div className="pt-4 border-t-2 border-dashed border-(--bday-ink)">
+                <div className="p-3 bg-(--bday-yellow) rounded-2xl border-2 border-(--bday-ink) inline-block shadow-[3px_3px_0px_0px_#141218]">
                   <BirthdayCanvasQR value={data.ticketInstance.qrCode} size={150} />
                 </div>
-                <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[--bday-ink]">
+                <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-(--bday-ink)">
                   {dict.scanAtDoor}
                 </p>
               </div>
             )}
 
             {/* Calendar & Share links */}
-            <div className="pt-4 border-t-2 border-[--bday-ink] flex flex-wrap items-center justify-center gap-3 text-xs font-black">
+            <div className="pt-4 border-t-2 border-(--bday-ink) flex flex-wrap items-center justify-center gap-3 text-xs font-black">
               <button
                 type="button"
                 onClick={downloadIcsFile}
-                className="px-3 py-1.5 rounded-lg bg-[--bday-yellow] border border-[--bday-ink] flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
+                className="px-3 py-1.5 rounded-lg bg-(--bday-yellow) border border-(--bday-ink) flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
                 <span>{dict.downloadIcal}</span>
@@ -734,7 +738,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
                 href={getGoogleCalendarUrl()}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-[--bday-mint] border border-[--bday-ink] flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
+                className="px-3 py-1.5 rounded-lg bg-(--bday-mint) border border-(--bday-ink) flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
               >
                 <span>{dict.googleCalendar}</span>
                 <ExternalLink className="w-3 h-3" />
@@ -742,7 +746,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               <button
                 type="button"
                 onClick={handleShare}
-                className="px-3 py-1.5 rounded-lg bg-white border border-[--bday-ink] flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
+                className="px-3 py-1.5 rounded-lg bg-white border border-(--bday-ink) flex items-center gap-1 shadow-[2px_2px_0px_0px_#141218]"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>{copiedLink ? dict.copiedLink : dict.share}</span>
@@ -753,8 +757,8 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="py-12 border-t-2 border-[--bday-ink] text-center text-xs font-bold text-[--bday-ink-muted] space-y-1 bg-[--bday-bg]">
-        <p className="text-[--bday-ink]">
+      <footer className="py-12 border-t-2 border-(--bday-ink) text-center text-xs font-bold text-(--bday-ink-muted) space-y-1 bg-(--bday-bg)">
+        <p className="text-(--bday-ink)">
           {data.title}
           {data.city ? ` · ${data.city}` : ""}
         </p>
@@ -842,7 +846,7 @@ function BirthdayCountdownTicker({
 
   if (timeLeft.isPast) {
     return (
-      <p className="text-base font-black text-[--bday-yellow]">
+      <p className="text-base font-black text-(--bday-yellow)">
         🎉 {dict ? dict.celebrationUnderway : "It's Party Time! The celebration is live!"} 🎉
       </p>
     );
@@ -860,7 +864,7 @@ function BirthdayCountdownTicker({
       {units.map((unit, idx) => (
         <div
           key={idx}
-          className="p-3 sm:p-4 rounded-2xl bg-white text-[--bday-ink] border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] flex flex-col items-center"
+          className="p-3 sm:p-4 rounded-2xl bg-white text-(--bday-ink) border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] flex flex-col items-center"
         >
           <span
             className="tabular-nums lining-nums font-black text-2xl sm:text-4xl leading-none"
@@ -872,7 +876,7 @@ function BirthdayCountdownTicker({
           >
             {String(unit.value).padStart(2, "0")}
           </span>
-          <span className="mt-3 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[--bday-coral]">
+          <span className="mt-3 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-(--bday-coral)">
             {unit.label}
           </span>
         </div>
@@ -929,10 +933,10 @@ function BirthdayGallery({ images }: { images: InvitationGalleryItem[] }) {
               key={idx}
               type="button"
               onClick={() => setActiveIdx(idx)}
-              className={`p-3 pb-6 rounded-2xl bg-white border-2 border-[--bday-ink] shadow-[4px_4px_0px_0px_#141218] ${rotClass} motion-reduce:rotate-0 hover:rotate-0 hover:scale-[1.02] transition-all cursor-pointer text-left relative`}
+              className={`p-3 pb-6 rounded-2xl bg-white border-2 border-(--bday-ink) shadow-[4px_4px_0px_0px_#141218] ${rotClass} motion-reduce:rotate-0 hover:rotate-0 hover:scale-[1.02] transition-all cursor-pointer text-left relative`}
             >
               {/* Tape sticker at top */}
-              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-10 h-4 bg-[--bday-yellow]/80 border border-[--bday-ink]/30 shadow-xs z-10" />
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-10 h-4 bg-(--bday-yellow)/80 border border-(--bday-ink)/30 shadow-xs z-10" />
 
               <div className="relative aspect-square rounded-xl overflow-hidden bg-zinc-100">
                 <Image
@@ -945,7 +949,7 @@ function BirthdayGallery({ images }: { images: InvitationGalleryItem[] }) {
               </div>
 
               {img.caption && (
-                <p className="mt-2 text-xs font-bold text-[--bday-ink] truncate text-center">
+                <p className="mt-2 text-xs font-bold text-(--bday-ink) truncate text-center">
                   {img.caption}
                 </p>
               )}
@@ -1066,22 +1070,22 @@ function FloatingBirthdayMusic({ audioUrl, title }: { audioUrl: string; title?: 
       <button
         type="button"
         onClick={togglePlay}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-[--bday-ink] shadow-[3px_3px_0px_0px_#141218] bg-[--bday-yellow] text-[--bday-ink] transition-all text-xs font-black"
+        className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] bg-(--bday-yellow) text-(--bday-ink) transition-all text-xs font-black"
         aria-label={isPlaying ? "Pause party music" : "Play party music"}
       >
         {isPlaying ? (
-          <Volume2 className="w-4 h-4 text-[--bday-coral]" />
+          <Volume2 className="w-4 h-4 text-(--bday-coral)" />
         ) : (
-          <VolumeX className="w-4 h-4 text-[--bday-ink]" />
+          <VolumeX className="w-4 h-4 text-(--bday-ink)" />
         )}
         <span className="uppercase tracking-wider hidden sm:inline max-w-[120px] truncate">
           {isPlaying ? (title || "Party Beats") : "Music"}
         </span>
         {isPlaying && (
           <span className="flex items-end gap-0.5 h-3">
-            <span className="w-0.5 h-3 bg-[--bday-coral] animate-bounce" />
-            <span className="w-0.5 h-2 bg-[--bday-coral] animate-bounce delay-75" />
-            <span className="w-0.5 h-3 bg-[--bday-coral] animate-bounce delay-150" />
+            <span className="w-0.5 h-3 bg-(--bday-coral) animate-bounce" />
+            <span className="w-0.5 h-2 bg-(--bday-coral) animate-bounce delay-75" />
+            <span className="w-0.5 h-3 bg-(--bday-coral) animate-bounce delay-150" />
           </span>
         )}
       </button>

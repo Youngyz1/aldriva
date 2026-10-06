@@ -174,7 +174,7 @@ export interface ValidationErrorItem {
 
 export function validateForPublish(
   draft: InvitationPageDraftInput,
-  event: { title: string; event_date: string; eventbrite_event_id?: string | null; category?: string | null },
+  event: { title: string; event_date: string | null; eventbrite_event_id?: string | null; category?: string | null },
   locale: "en" | "fr" = "en"
 ): { valid: boolean; errors: ValidationErrorItem[] } {
   const errors: ValidationErrorItem[] = [];
@@ -196,6 +196,17 @@ export function validateForPublish(
       message: isFr
         ? "Le fuseau horaire de l'événement est obligatoire pour publier."
         : "Event timezone is required to publish.",
+    });
+  }
+
+  // 2b. Event date & time verification (REQUIRED to publish — no default
+  // time is ever shown, so publishing without a real date is blocked)
+  if (!event.event_date) {
+    errors.push({
+      field: "event_date",
+      message: isFr
+        ? "La date et l'heure de l'événement sont requises pour publier. Définissez-les dans les paramètres de l'événement."
+        : "Event date & time is required to publish. Set it in the event settings first.",
     });
   }
 

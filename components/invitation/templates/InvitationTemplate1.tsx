@@ -195,7 +195,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
 
   return (
     <div
-      className={`min-h-screen antialiased overflow-x-hidden selection:bg-[--inv-accent-light]/30 ${display.variable} ${text.variable} ${className}`}
+      className={`min-h-screen antialiased overflow-x-hidden selection:bg-(--inv-accent-light)/30 ${display.variable} ${text.variable} ${className}`}
       style={{
         ...CSS_VARS,
         background: "var(--inv-bg)",
@@ -298,9 +298,11 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             >
               {dateDisplay}
             </p>
-            <p className="text-sm" style={{ color: "var(--inv-ink-muted)" }}>
-              {timeDisplay}
-            </p>
+            {data.timezone && data.eventDate && (
+              <p className="text-sm" style={{ color: "var(--inv-ink-muted)" }}>
+                {timeDisplay}
+              </p>
+            )}
             {hasVenueInfo && (
               <p className="text-sm" style={{ color: "var(--inv-ink-muted)" }}>
                 {[data.venue, data.city].filter(Boolean).join(" · ")}
@@ -665,7 +667,6 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       >
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-10">
-            <SectionLabel>{dict.yourInvitationAndRsvp}</SectionLabel>
             <SectionTitle>{dict.yourInvitationAndRsvp}</SectionTitle>
             <p className="mt-2 text-sm" style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT }}>
               {dict.kindlyConfirm}

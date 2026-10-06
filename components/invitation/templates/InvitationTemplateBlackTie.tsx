@@ -70,6 +70,10 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
     [data.eventDate, locale, data.timezone]
   );
 
+  // Time is only shown once the host has explicitly chosen a timezone and
+  // the event carries a date — never render a default-looking time line.
+  const showTime = Boolean(data.timezone && data.eventDate);
+
   // ── 3. RSVP Submission Handler ─────────────────────────────────────────────
   async function handleRsvpAction(response: "accepted" | "declined") {
     if (submittingRsvp) return;
@@ -237,10 +241,12 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               <span className="truncate">{dateDisplay}</span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
-              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="truncate">{timeDisplay}</span>
-            </div>
+            {showTime && (
+              <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="truncate">{timeDisplay}</span>
+              </div>
+            )}
 
             {hasVenueInfo && (
               <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-200 sm:col-span-1">
@@ -327,17 +333,19 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                {locale === "fr" ? "Heure" : "Time"}
+          {showTime && (
+            <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                <Clock className="w-5 h-5" />
               </div>
-              <div className="text-sm font-bold text-white mt-0.5">{timeDisplay}</div>
+              <div>
+                <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  {locale === "fr" ? "Heure" : "Time"}
+                </div>
+                <div className="text-sm font-bold text-white mt-0.5">{timeDisplay}</div>
+              </div>
             </div>
-          </div>
+          )}
 
           {hasVenueInfo && (
             <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5 sm:col-span-2 lg:col-span-1">

@@ -116,7 +116,7 @@ export interface InvitationPageData {
   locale?: "en" | "fr";
 
   // ── [HIDE-IF-EMPTY] Timezone ──────────────────────────────────────────────
-  /** IANA timezone identifier (e.g. "America/Los_Angeles", "Europe/London"). If omitted, local browser time is used. */
+  /** IANA timezone identifier (e.g. "America/Los_Angeles", "Europe/London"). When omitted, templates hide the time line entirely — no default time is ever rendered. Required before publishing. */
   timezone?: string | null;
 
   // ── [DEFAULT-WITH-OVERRIDE] Hero & Headlines ──────────────────────────────
