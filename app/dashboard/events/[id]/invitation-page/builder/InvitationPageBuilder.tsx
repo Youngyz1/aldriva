@@ -14,10 +14,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Pencil, Eye } from "lucide-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
 import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
+import { saveInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { hasDraftChanges } from "@/lib/invitation-page-helpers";
+import { createDraftSaveQueue, type SaveStatus } from "@/lib/draft-save-queue";
 import {
   DEFAULT_TEMPLATE_FOR_TYPE,
   hiddenContentOnTemplateSwitch,
@@ -29,6 +32,13 @@ import {
   PREVIEW_MESSAGE_SOURCE,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
+import { BasicsSection } from "./sections/BasicsSection";
+import { HeroSection } from "./sections/HeroSection";
+import { StorySection } from "./sections/StorySection";
+import { DetailsSection } from "./sections/DetailsSection";
+import { GallerySection } from "./sections/GallerySection";
+import { MusicSection } from "./sections/MusicSection";
+import { ExtrasSection } from "./sections/ExtrasSection";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
 import { InvitationTemplateSelect } from "@/components/invitation/InvitationTemplateSelect";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
@@ -122,6 +132,34 @@ const SECTION_TITLES: Record<SectionId, string> = {
 
 type PreviewViewport = 390 | 1440;
 
+interface SectionBodyProps {
+  id: Exclude<SectionId, "type" | "template" | "publish">;
+  eventId: string;
+  draft: BuilderDraft;
+  event: InvitationPageDraftData["event"];
+  invitationType: InvitationType | null;
+  updateDraft: (patch: Partial<BuilderDraft>) => void;
+}
+
+function SectionBody({ id, eventId, draft, event, invitationType, updateDraft }: SectionBodyProps) {
+  switch (id) {
+    case "basics":
+      return <BasicsSection draft={draft} event={event} updateDraft={updateDraft} />;
+    case "hero":
+      return <HeroSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+    case "story":
+      return <StorySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+    case "details":
+      return <DetailsSection draft={draft} event={event} updateDraft={updateDraft} />;
+    case "gallery":
+      return <GallerySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+    case "music":
+      return <MusicSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+    case "extras":
+      return <ExtrasSection draft={draft} invitationType={invitationType} updateDraft={updateDraft} />;
+  }
+}
+
 interface Props {
   eventId: string;
   initialData: InvitationPageDraftData;
@@ -163,6 +201,48 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
   const [pageStatus] = useState(initialData.draft.page_status);
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
+
+  // ── Sequenced autosave (single flight, latest-wins, flush on leave) ────
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveQueue] = useState(() =>
+    createDraftSaveQueue<BuilderDraft>((payload) => saveInvitationPageDraft(eventId, payload))
+  );
+  const firstDraftRef = useRef(true);
+
+  useEffect(() => {
+    return saveQueue.subscribe(() => {
+      const state = saveQueue.getState();
+      setSaveStatus(state.status);
+      setSaveError(state.error);
+    });
+  }, [saveQueue]);
+
+  // Queue every draft change (skip the initial mount — nothing is dirty yet).
+  useEffect(() => {
+    if (firstDraftRef.current) {
+      firstDraftRef.current = false;
+      return;
+    }
+    saveQueue.request(draft);
+  }, [draft, saveQueue]);
+
+  // Best-effort flush when the host leaves the route.
+  useEffect(() => {
+    function handleBeforeUnload() {
+      void saveQueue.flush();
+    }
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") void saveQueue.flush();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      void saveQueue.flush();
+    };
+  }, [saveQueue]);
 
   // ── Live preview channel (same-origin iframe, debounced drafts) ────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -244,7 +324,11 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
   }, [postToPreview]);
 
   const isPublished = pageStatus === "published";
-  const hasUnpublished = initialData.hasUnpublishedChanges;
+  const hasUnpublished = hasDraftChanges(
+    draft as unknown as Parameters<typeof hasDraftChanges>[0],
+    initialData.draft.published_snapshot,
+    pageStatus
+  );
 
   return (
     <div className="space-y-4">
@@ -266,6 +350,38 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
             <AlertCircle size={12} /> Unpublished changes
           </span>
+        )}
+        {/* Autosave status */}
+        <span
+          role="status"
+          className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-600"
+        >
+          {saveStatus === "saving" && (
+            <>
+              <Loader2 size={12} className="animate-spin" /> Saving…
+            </>
+          )}
+          {saveStatus === "saved" && (
+            <>
+              <CheckCircle2 size={12} className="text-emerald-600" /> Saved
+            </>
+          )}
+          {saveStatus === "failed" && (
+            <>
+              <AlertCircle size={12} className="text-red-600" /> Save failed
+              <button
+                type="button"
+                onClick={() => saveQueue.retry()}
+                className="ml-1 underline hover:text-red-800"
+              >
+                Retry
+              </button>
+            </>
+          )}
+          {saveStatus === "idle" && <>Autosave on</>}
+        </span>
+        {saveError && saveStatus === "failed" && (
+          <span className="text-[11px] font-semibold text-red-600">{saveError}</span>
         )}
         {/* Phone Edit/Preview toggle (desktop shows both panes) */}
         <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-0.5 lg:hidden" role="group" aria-label="Edit or preview">
@@ -345,9 +461,19 @@ export function InvitationPageBuilder({ eventId, initialData }: Props) {
                   )}
                 </div>
               )}
-              {id !== "type" && id !== "template" && (
+              {id !== "type" && id !== "template" && id !== "publish" && (
+                <SectionBody
+                  id={id}
+                  eventId={eventId}
+                  draft={draft}
+                  event={initialData.event}
+                  invitationType={invitationType}
+                  updateDraft={updateDraft}
+                />
+              )}
+              {id === "publish" && (
                 <p className="text-xs text-zinc-500">
-                  {SECTION_TITLES[id]} fields arrive with the next slice.
+                  Publish checklist and actions arrive with the next slice.
                 </p>
               )}
             </InvitationSection>
