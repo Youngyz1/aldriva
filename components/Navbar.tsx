@@ -83,7 +83,8 @@ export default function Navbar() {
       {/*
         Layout: 3-column flex row.
         - Left (shrink-0):  BrandMark — always a fixed, small size.
-        - Center (min-w-0, overflow-hidden, flex-1): HomeAdaptiveNav — shrinks freely.
+        - Center (min-w-0, flex-1): HomeAdaptiveNav — shrinks freely. NO overflow-hidden:
+          the dropdown panel must not be clipped by a flex ancestor.
         - Right (shrink-0): EN|FR + Notification + auth button — NEVER shrinks.
         At 320px: BrandMark ~60px, right cluster ~72px (logged-out) or ~40px (logged-in avatar)
         leaves ~188px for the center, which collapses to the icon-only trigger.
@@ -95,8 +96,10 @@ export default function Navbar() {
           <BrandMark className="[&>img]:h-7 [&>img]:max-w-[6rem] sm:[&>img]:h-10 sm:[&>img]:max-w-none" priority />
         </Link>
 
-        {/* Center: adaptive nav — allowed to shrink, never overflows */}
-        <div className="flex min-w-0 flex-1 items-center justify-center overflow-hidden">
+        {/* Center: adaptive nav — shrinks freely via min-w-0 flex-1.
+            NO overflow-hidden: the dropdown panel is absolutely/fixed positioned
+            and must not be clipped by its flex ancestor. */}
+        <div className="flex min-w-0 flex-1 items-center justify-center">
           <HomeAdaptiveNav />
         </div>
 
