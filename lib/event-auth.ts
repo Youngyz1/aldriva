@@ -47,13 +47,14 @@ export async function hasEventTeamAccess(
  * Composite authorization check for an event:
  * Returns true if the user is:
  * 1. The direct event creator (events.user_id = userId), OR
- * 2. The direct owner or an authorized entity member of the event's organizer (organizers.user_id = userId OR entity_members role in ENTITY_ROLES_CONTENT_WRITE), OR
+ * 2. The direct owner or an authorized entity member of the event's organizer (organizers.user_id = userId OR entity_members role in minEntityRoles), OR
  * 3. An active event_team_members row matching minEventRoles.
  */
 export async function hasEventOrOrganizerAccess(
   userId: string,
   eventId: string,
-  minEventRoles: EventTeamRole[] = EVENT_TEAM_ROLES_SCANNER
+  minEventRoles: EventTeamRole[] = EVENT_TEAM_ROLES_SCANNER,
+  minEntityRoles: import('@/lib/entity-auth').EntityRole[] = ENTITY_ROLES_CONTENT_WRITE
 ): Promise<boolean> {
   if (!userId || !eventId) return false;
 
@@ -81,8 +82,8 @@ export async function hasEventOrOrganizerAccess(
 
     if (organizer?.user_id === userId) return true;
 
-    // Organizer-wide entity_members check (owners, admins, managers, editors)
-    const isEntityMember = await hasEntityAccess(userId, event.organizer_id, ENTITY_ROLES_CONTENT_WRITE);
+    // Organizer-wide entity_members check
+    const isEntityMember = await hasEntityAccess(userId, event.organizer_id, minEntityRoles);
     if (isEntityMember) return true;
   }
 

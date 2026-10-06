@@ -157,6 +157,13 @@ export interface EventInvitationPageRow {
   updated_at: string;
 }
 
+export interface InvitationPageDraftData {
+  draft: EventInvitationPageRow;
+  event: EventLiveFields;
+  hasUnpublishedChanges: boolean;
+  publishedAt: string | null;
+}
+
 /**
  * Live event fields read directly from `events` table at render time.
  */

@@ -13,8 +13,9 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   InvitationPageDraftSchema,
@@ -27,6 +28,7 @@ import type {
   EventInvitationPageRow,
   EventLiveFields,
   InvitationLocale,
+  InvitationPageDraftData,
 } from "@/lib/types/invitation-page-snapshot";
 import { cleanupOrphanInvitationAudio } from "@/lib/uploadAudio";
 
@@ -51,6 +53,23 @@ export interface PreviewTokenResult {
 }
 
 /**
+ * Checks whether caller has permission to view, edit, or publish invitation pages for an event.
+ * Allowed: event owner, organizer owner/admin/manager, event_manager, platform admin.
+ * Denied: editor, finance, viewer, ticket_scanner, non-members.
+ */
+export async function checkInvitationPageAccess(userId: string, eventId: string): Promise<boolean> {
+  if (!userId || !eventId) return false;
+  const isPlatformAdmin = await isAdmin();
+  if (isPlatformAdmin) return true;
+  return await hasEventOrOrganizerAccess(userId, eventId, ["event_manager"], ENTITY_ROLES_MANAGE);
+}
+
+// hasDraftChanges lives in lib/invitation-page-helpers (no "use server").
+// "use server" files may only export async functions — non-async exports
+// are rejected by Turbopack. Import locally for use in getInvitationPageDraft.
+import { hasDraftChanges } from "@/lib/invitation-page-helpers";
+
+/**
  * Saves or updates an in-progress draft for an event's invitation page.
  */
 export async function saveInvitationPageDraft(
@@ -62,7 +81,7 @@ export async function saveInvitationPageDraft(
     return { ok: false, error: "Unauthorized. Please log in." };
   }
 
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+  const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden. You do not have permission to manage this event." };
   }
@@ -156,7 +175,7 @@ export async function publishInvitationPage(
     return { ok: false, error: "Unauthorized. Please log in." };
   }
 
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+  const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden. You do not have permission to manage this event." };
   }
@@ -284,7 +303,7 @@ export async function unpublishInvitationPage(eventId: string): Promise<{ ok: bo
     return { ok: false, error: "Unauthorized." };
   }
 
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+  const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden." };
   }
@@ -315,7 +334,7 @@ export async function createOrRegeneratePreviewToken(eventId: string): Promise<P
     return { ok: false, error: "Unauthorized." };
   }
 
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+  const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden." };
   }
@@ -346,23 +365,94 @@ export async function createOrRegeneratePreviewToken(eventId: string): Promise<P
 }
 
 /**
- * Fetches the draft row for the event dashboard editor.
+ * Fetches the draft row for the event dashboard editor along with live event fields
+ * and difference detection against any published snapshot.
  */
-export async function getInvitationPageDraft(eventId: string): Promise<EventInvitationPageRow | null> {
+export async function getInvitationPageDraft(
+  eventId: string
+): Promise<InvitationPageDraftData | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+  const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) return null;
 
   const admin = createSupabaseAdmin();
-  const { data } = await admin
-    .from("event_invitation_pages")
-    .select("*")
-    .eq("event_id", eventId)
-    .maybeSingle();
+  const [{ data: event }, { data: draft }] = await Promise.all([
+    admin
+      .from("events")
+      .select("id, title, slug, event_date, end_date, venue, street_address, city, latitude, longitude, banner, timezone, category")
+      .eq("id", eventId)
+      .maybeSingle(),
+    admin
+      .from("event_invitation_pages")
+      .select("*")
+      .eq("event_id", eventId)
+      .maybeSingle(),
+  ]);
 
-  return (data as EventInvitationPageRow) ?? null;
+  if (!event) return null;
+
+  const effectiveDraft: EventInvitationPageRow = (draft as EventInvitationPageRow) || {
+    id: "",
+    event_id: event.id,
+    template_id: "gala-editorial",
+    locale: "en",
+    page_status: "draft",
+    published_at: null,
+    published_snapshot: null,
+    display_title: null,
+    eyebrow: null,
+    host_names: null,
+    story_headline: null,
+    story_text: null,
+    story_image_url: null,
+    hero_image_url: null,
+    hero_image_alt: null,
+    hero_image_focus_x: 50,
+    hero_image_focus_y: 50,
+    scroll_prompt: null,
+    venue_name: null,
+    address: null,
+    parking_notes: null,
+    timezone: event.timezone || "UTC",
+    dress_code: null,
+    dress_code_notes: null,
+    additional_notes: null,
+    hashtag: null,
+    music_audio_url: null,
+    music_title: null,
+    partner1_name: null,
+    partner2_name: null,
+    family_note: null,
+    wedding_subtype: null,
+    registry_note: null,
+    celebrant_name: null,
+    age_milestone: null,
+    theme: null,
+    gift_note: null,
+    schedule: null,
+    gallery: null,
+    venues: null,
+    accommodations: null,
+    colors_of_the_day: null,
+    wedding_story: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const hasUnpublished = hasDraftChanges(
+    effectiveDraft,
+    effectiveDraft.published_snapshot,
+    effectiveDraft.page_status
+  );
+
+  return {
+    draft: effectiveDraft,
+    event: event as EventLiveFields,
+    hasUnpublishedChanges: hasUnpublished,
+    publishedAt: effectiveDraft.published_at,
+  };
 }
 
 /**

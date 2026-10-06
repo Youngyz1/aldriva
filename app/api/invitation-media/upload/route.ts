@@ -14,8 +14,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 import { validateAudioBytes, uploadInvitationAudio } from "@/lib/uploadAudio";
 
 // Allow up to 6MB body (5MB file + headers), per Next.js route handler config.
@@ -37,8 +38,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing eventId query parameter." }, { status: 400 });
   }
 
-  // 3. Permission check
-  const hasAccess = await hasEventOrOrganizerAccess(user.id, eventId.trim(), ["event_manager"]);
+  // 3. Permission check — allows owner, admin, manager, event_manager, platform admin; denies editor.
+  const hasAccess =
+    (await isAdmin()) ||
+    (await hasEventOrOrganizerAccess(user.id, eventId.trim(), ["event_manager"], ENTITY_ROLES_MANAGE));
   if (!hasAccess) {
     return NextResponse.json({ error: "Forbidden. You do not have permission to manage this event." }, { status: 403 });
   }

@@ -17,6 +17,7 @@ function iconForTab(id: string): string {
     guests: "Users",
     "ticket-design": "Palette",
     "invitation-design": "Sparkles",
+    "invitation-page": "Globe",
     seating: "LayoutDashboard",
     team: "Users",
     edit: "Edit3",

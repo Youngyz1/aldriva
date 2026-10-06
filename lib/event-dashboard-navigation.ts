@@ -1,6 +1,17 @@
 export type EventUserRole = "owner" | "event_manager" | "ticket_scanner" | null;
 
-export type EventSubNavTabId = "overview" | "operations" | "checkins" | "scan" | "team" | "edit" | "seating" | "guests" | "ticket-design" | "invitation-design";
+export type EventSubNavTabId =
+  | "overview"
+  | "operations"
+  | "checkins"
+  | "scan"
+  | "team"
+  | "edit"
+  | "seating"
+  | "guests"
+  | "ticket-design"
+  | "invitation-design"
+  | "invitation-page";
 
 export type EventSubNavTab = {
   id: EventSubNavTabId;
@@ -66,6 +77,14 @@ export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): Ev
       id: "invitation-design",
       label: "Invitation Design",
       href: `/dashboard/events/${eventId}/invitation-design`,
+    });
+  }
+
+  if (canManageEvent) {
+    tabs.push({
+      id: "invitation-page",
+      label: "Invitation Page",
+      href: `/dashboard/events/${eventId}/invitation-page`,
     });
   }
 
