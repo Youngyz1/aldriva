@@ -1,39 +1,34 @@
-import { BRAND } from "@/config/branding";
+import { BRAND } from "../config/branding";
 
 // Safety-net fallback only — BRAND.website (config/branding.ts) is the real
 // source of truth and is expected to always be set.
 const FALLBACK_DOMAIN = "https://aldriva.com";
 
 export function getSiteUrl() {
-  // NEXT_PUBLIC_SITE_URL is the same env var articles/businesses/products
-  // pages already build their absolute URLs from — prefer it so every page
-  // type resolves to one consistent, intentionally-configured origin.
-  // NEXT_PUBLIC_APP_URL is kept as a secondary fallback for any deployment
-  // that only has that one set. NEXT_PUBLIC_BASE_URL is a third var that
-  // some deployments (and .env.local/.env.example) set instead — without it
-  // here, getSiteUrl() silently falls back to localhost (dev) or the
-  // hardcoded production domain, leaking an uncrawlable/wrong origin into
-  // og:url and og:image tags scraped by Facebook/WhatsApp/Slack.
+  // 1. Explicitly configured site/app URLs (public and server-side)
   const configuredUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_BASE_URL;
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.SITE_URL ||
+    process.env.APP_URL;
+
   if (configuredUrl) return configuredUrl.replace(/\/$/, "");
 
-  // Deliberately never falls back to VERCEL_URL: that's the per-deployment
-  // preview/production alias (e.g. "event-platform-<hash>-<team>.vercel.app"),
-  // not the custom production domain — using it here previously leaked a
-  // Vercel preview URL into fundraiser OG/twitter image tags, which sits
-  // behind Vercel's deployment auth wall and is unreachable by external
-  // scrapers like Facebook/WhatsApp. VERCEL_ENV is injected on every Vercel
-  // deployment (production or preview) but never in local dev, so its
-  // presence is what actually distinguishes "really running locally" from
-  // "deployed somewhere" — falling back to the real production domain
-  // there, and only using localhost when neither configured var nor
-  // VERCEL_ENV is present.
+  // 2. Vercel Staging / Preview branch URL (when deployed on a non-production branch)
+  if (process.env.VERCEL_ENV === "preview") {
+    const vercelUrl = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+    if (vercelUrl) {
+      const normalized = vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
+      return normalized.replace(/\/$/, "");
+    }
+  }
+
+  // 3. Local development
   if (process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV) {
     return "http://localhost:3000";
   }
 
+  // 4. Production fallback domain
   return BRAND.website || FALLBACK_DOMAIN;
 }
