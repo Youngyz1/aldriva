@@ -381,7 +381,7 @@ export async function getInvitationPageDraft(
   const [{ data: event }, { data: draft }] = await Promise.all([
     admin
       .from("events")
-      .select("id, title, slug, event_date, end_date, venue, street_address, city, latitude, longitude, banner, timezone, category")
+      .select("id, title, slug, event_date, end_date, venue, street_address, city, latitude, longitude, banner, category")
       .eq("id", eventId)
       .maybeSingle(),
     admin
@@ -415,7 +415,7 @@ export async function getInvitationPageDraft(
     venue_name: null,
     address: null,
     parking_notes: null,
-    timezone: event.timezone || "UTC",
+    timezone: "UTC",
     dress_code: null,
     dress_code_notes: null,
     additional_notes: null,
