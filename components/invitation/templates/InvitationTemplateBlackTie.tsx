@@ -37,6 +37,7 @@ import {
   formatLocalizedEventDate,
   InvitationLocale,
 } from "@/lib/invitation-i18n";
+import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 
 interface Props {
@@ -109,64 +110,28 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
   // ── 4. Calendar (.ics & Google) Constructors ───────────────────────────────
   function downloadIcsFile() {
     if (!data.eventDate) return;
-    const startDate = new Date(data.eventDate);
-    const endDate = data.endDate
-      ? new Date(data.endDate)
-      : new Date(startDate.getTime() + 4 * 60 * 60 * 1000);
-
-    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
-    const formatICSDate = (d: Date) =>
-      `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-
-    const locationStr = [data.venue, data.address, data.city].filter(Boolean).join(", ");
-
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//Aldriva//Invitation Experience//EN",
-      "CALSCALE:GREGORIAN",
-      "METHOD:PUBLISH",
-      "BEGIN:VEVENT",
-      `SUMMARY:${data.title}`,
-      `DESCRIPTION:Official Invitation for ${data.guest.name}`,
-      locationStr ? `LOCATION:${locationStr}` : "",
-      `DTSTART:${formatICSDate(startDate)}`,
-      `DTEND:${formatICSDate(endDate)}`,
-      "STATUS:CONFIRMED",
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ]
-      .filter(Boolean)
-      .join("\r\n");
-
-    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invitation-${data.title.toLowerCase().replace(/[^a-z0-9]/g, "-")}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerIcsDownload({
+      title: data.title,
+      description: data.guest ? `Official Invitation for ${data.guest.name}` : undefined,
+      venue: data.venue,
+      address: data.address,
+      startDate: data.eventDate,
+      endDate: data.endDate,
+      timezone: data.timezone || "UTC",
+    });
   }
 
   function getGoogleCalendarUrl() {
     if (!data.eventDate) return "#";
-    const startDate = new Date(data.eventDate);
-    const endDate = data.endDate
-      ? new Date(data.endDate)
-      : new Date(startDate.getTime() + 4 * 60 * 60 * 1000);
-
-    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
-    const fmt = (d: Date) =>
-      `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-
-    const details = `Official Invitation for ${data.guest.name}`;
-    const location = [data.venue, data.address, data.city].filter(Boolean).join(", ");
-
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-      data.title
-    )}&dates=${fmt(startDate)}/${fmt(endDate)}&details=${encodeURIComponent(
-      details
-    )}&location=${encodeURIComponent(location)}`;
+    return generateGoogleCalendarUrl({
+      title: data.title,
+      description: data.guest ? `Official Invitation for ${data.guest.name}` : undefined,
+      venue: data.venue,
+      address: data.address,
+      startDate: data.eventDate,
+      endDate: data.endDate,
+      timezone: data.timezone || "UTC",
+    });
   }
 
   function handleShare() {

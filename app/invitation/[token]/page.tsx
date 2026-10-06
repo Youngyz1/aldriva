@@ -6,6 +6,8 @@ import { MailX } from "lucide-react";
 import { getInvitationByToken } from "@/lib/invitations";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
+import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
+import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -50,6 +52,12 @@ export default async function PublicInvitationPage({
  * could show a valid pass for a revoked invitation or stale RSVP state.
  * Everything outside this boundary (metadata, shell, malformed-token view)
  * remains statically cacheable.
+ *
+ * BRANCH LOGIC:
+ * 1. If the event has a *published* invitation_page → render the new custom page
+ *    template via the Invitation Template Registry. Unknown template_id → card fallback.
+ * 2. If no published page (or page unpublished) → render the existing invitation card
+ *    unchanged. Old invitations without any page always land here.
  */
 async function InvitationLoader({ token }: { token: string }) {
   await connection();
@@ -62,6 +70,85 @@ async function InvitationLoader({ token }: { token: string }) {
 
   const { invitation, ticketInstance, seat } = result;
   const event = invitation.events as any;
+
+  // ── Branch: check for published invitation page ───────────────────────────
+  const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
+
+  if (publishedPage) {
+    const { getTemplateById } = await import("@/components/invitation/templates/registry");
+    const registryEntry = getTemplateById(publishedPage.published_snapshot.template_id);
+
+    if (registryEntry) {
+      // Assemble live data layers into the InvitationPageData contract.
+      const guestRecord = {
+        guest_name: invitation.guest_name,
+        guest_title: invitation.guest_title,
+        organization: invitation.organization,
+        rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
+        rsvp_at: invitation.rsvp_at,
+        token: invitation.token,
+        is_vip: seat?.is_vip ?? false,
+      };
+
+      const seatRecord = seat
+        ? {
+            section: seat.section,
+            row_label: seat.row_label,
+            seat_number: seat.seat_number,
+            table_number: seat.table_number,
+            table_name: seat.table_name,
+            is_vip: Boolean(seat.is_vip),
+          }
+        : null;
+
+      const ticketRecord = ticketInstance
+        ? {
+            qr_code: ticketInstance.qr_code,
+            status: ticketInstance.status,
+            checked_in_at: ticketInstance.checked_in_at,
+          }
+        : null;
+
+      const liveEvent = {
+        id: event.id,
+        title: event.title || "Exclusive Event",
+        slug: event.slug || "",
+        event_date: event.event_date || "",
+        end_date: event.end_date || null,
+        venue: event.venue || null,
+        street_address: null as string | null, // not selected in getInvitationByToken
+        city: event.city || null,
+        latitude: null as number | null,
+        longitude: null as number | null,
+      };
+
+      const pageData = assembleInvitationPageData(
+        publishedPage.published_snapshot,
+        liveEvent,
+        guestRecord,
+        ticketRecord,
+        seatRecord
+      );
+
+      const TemplateComponent = registryEntry.component;
+
+      // RSVP handler — delegates to the existing RSVP API.
+      async function handleRsvp(response: "accepted" | "declined") {
+        "use server";
+        const { rsvpInvitation } = await import("@/lib/invitations");
+        await rsvpInvitation({ token, response });
+      }
+
+      return <TemplateComponent data={pageData} onRsvp={handleRsvp} />;
+    }
+
+    // Unknown template_id — log and fall through to card fallback.
+    console.error(
+      `[InvitationLoader] Unknown template_id "${publishedPage.published_snapshot.template_id}" for event ${event?.id}. Falling back to card.`
+    );
+  }
+
+  // ── Fallback: existing invitation card (unchanged) ────────────────────────
   const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
   const template = await getInvitationTemplateById(event?.invitation_template_id);
 
