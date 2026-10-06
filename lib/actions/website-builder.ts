@@ -671,7 +671,7 @@ export async function getBuilderEmbedOptions(
     // 1. Tenant-scoped Events
     const { data: eventsData } = await supabaseAdmin
       .from("events")
-      .select("id, title, organizer_id, status, start_date")
+      .select("id, title, organizer_id, status, event_date")
       .eq("organizer_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -720,7 +720,7 @@ export async function getBuilderEmbedOptions(
           title: e.title,
           organizer_id: e.organizer_id,
           status: e.status,
-          start_date: e.start_date,
+          start_date: e.event_date,
         })),
         products: productsList,
         fundraisers: (fundraisersData || []).map((f) => ({

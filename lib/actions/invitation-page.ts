@@ -378,7 +378,7 @@ export async function getInvitationPageDraft(
   if (!hasAccess) return null;
 
   const admin = createSupabaseAdmin();
-  const [{ data: event }, { data: draft }] = await Promise.all([
+  const [{ data: event, error: eventErr }, { data: draft, error: draftErr }] = await Promise.all([
     admin
       .from("events")
       .select("id, title, slug, event_date, end_date, venue, street_address, city, latitude, longitude, banner, category")
@@ -390,6 +390,15 @@ export async function getInvitationPageDraft(
       .eq("event_id", eventId)
       .maybeSingle(),
   ]);
+
+  if (eventErr) {
+    console.error("[getInvitationPageDraft] Error fetching event:", eventErr);
+    throw new Error(`Failed to load event data: ${eventErr.message}`);
+  }
+  if (draftErr) {
+    console.error("[getInvitationPageDraft] Error fetching draft:", draftErr);
+    throw new Error(`Failed to load invitation draft: ${draftErr.message}`);
+  }
 
   if (!event) return null;
 
