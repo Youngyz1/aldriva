@@ -106,6 +106,7 @@ export interface InvitationDictionary {
   birthdayDeclined: string;
   previewConfirmed: string;
   previewDeclined: string;
+  rsvpFailed: string;
 
   // Actions
   addToCalendar: string;
@@ -219,6 +220,7 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     birthdayDeclined: "We'll miss you! Thanks for letting us know.",
     previewConfirmed: "Attendance confirmed (preview mode).",
     previewDeclined: "Declined response recorded (preview mode).",
+    rsvpFailed: "We couldn't record your response. Please try again.",
 
     addToCalendar: "Add to Calendar",
     downloadIcal: "Download iCal (.ics)",
@@ -352,6 +354,7 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     birthdayDeclined: "Vous allez nous manquer ! Merci pour votre réponse.",
     previewConfirmed: "Présence confirmée (mode aperçu).",
     previewDeclined: "Réponse négative enregistrée (mode aperçu).",
+    rsvpFailed: "Nous n'avons pas pu enregistrer votre réponse. Veuillez réessayer.",
 
     addToCalendar: "Ajouter au calendrier",
     downloadIcal: "Télécharger iCal (.ics)",

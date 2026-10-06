@@ -101,11 +101,15 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         text: response === "accepted" ? dict.attendanceConfirmed : dict.responseNoted,
       });
     } catch {
-      setCurrentRsvp(response);
-      setRsvpFeedback({
-        type: "success",
-        text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
-      });
+      if (onRsvp) {
+        setRsvpFeedback({ type: "error", text: dict.rsvpFailed });
+      } else {
+        setCurrentRsvp(response);
+        setRsvpFeedback({
+          type: "success",
+          text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
+        });
+      }
     } finally {
       setSubmittingRsvp(false);
     }

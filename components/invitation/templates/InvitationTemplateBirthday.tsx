@@ -146,11 +146,15 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
         text: response === "accepted" ? dict.birthdayConfirmed : dict.birthdayDeclined,
       });
     } catch {
-      setCurrentRsvp(response);
-      setRsvpFeedback({
-        type: "success",
-        text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
-      });
+      if (onRsvp) {
+        setRsvpFeedback({ type: "error", text: dict.rsvpFailed });
+      } else {
+        setCurrentRsvp(response);
+        setRsvpFeedback({
+          type: "success",
+          text: response === "accepted" ? dict.previewConfirmed : dict.previewDeclined,
+        });
+      }
     } finally {
       setSubmittingRsvp(false);
     }

@@ -160,14 +160,20 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             : "Your response has been noted with warm appreciation. Thank you.",
       });
     } catch {
-      setCurrentRsvp(response);
-      setRsvpFeedback({
-        type: "success",
-        text:
-          response === "accepted"
-            ? "Attendance confirmed (preview mode)."
-            : "Declined response recorded (preview mode).",
-      });
+      if (onRsvp) {
+        // Real guest page: the write failed — surface it honestly instead
+        // of pretending the response was recorded.
+        setRsvpFeedback({ type: "error", text: dict.rsvpFailed });
+      } else {
+        setCurrentRsvp(response);
+        setRsvpFeedback({
+          type: "success",
+          text:
+            response === "accepted"
+              ? "Attendance confirmed (preview mode)."
+              : "Declined response recorded (preview mode).",
+        });
+      }
     } finally {
       setSubmittingRsvp(false);
     }
