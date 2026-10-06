@@ -173,7 +173,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       )}
 
       {/* ── Section 1: Hero Composition (Editorial & Framed) ─────────────── */}
-      <section className="relative w-full max-w-5xl mx-auto px-4 pt-6 sm:pt-12 pb-10 sm:pb-16 flex flex-col items-center">
+      <section id="inv-hero" className="relative w-full max-w-5xl mx-auto px-4 pt-6 sm:pt-12 pb-10 sm:pb-16 flex flex-col items-center">
         {/* Outer Invitation Frame Container */}
         <div className="w-full rounded-3xl sm:rounded-[36px] border border-amber-500/25 bg-gradient-to-b from-zinc-900 via-zinc-900/95 to-zinc-950 p-4 sm:p-8 shadow-2xl shadow-black/80 relative overflow-hidden">
           
@@ -269,7 +269,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 2: Message / Story from Host ─────────────────────────── */}
-      <section className="py-14 sm:py-20 px-4 bg-gradient-to-b from-zinc-950 via-zinc-900/60 to-zinc-950 border-t border-b border-amber-500/10">
+      <section id="inv-story" className="py-14 sm:py-20 px-4 bg-gradient-to-b from-zinc-950 via-zinc-900/60 to-zinc-950 border-t border-b border-amber-500/10">
         <div className="max-w-3xl mx-auto text-center">
           {/* Personalized Guest Greeting */}
           <div className="mb-6 inline-block">
@@ -323,7 +323,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 3: Event Key Details Cards ───────────────────────────── */}
-      <section className="py-12 px-4 max-w-4xl mx-auto">
+      <section id="inv-details" className="py-12 px-4 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-md flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
@@ -382,7 +382,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 5: Gallery (HIDE-IF-EMPTY) ───────────────────────────── */}
       {data.gallery && data.gallery.length > 0 && (
-        <section className="py-16 sm:py-24 px-4 max-w-5xl mx-auto">
+        <section id="inv-gallery" className="py-16 sm:py-24 px-4 max-w-5xl mx-auto">
           <div className="text-center max-w-xl mx-auto mb-10">
             <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
               {dict.visualHighlights}
@@ -401,7 +401,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 6: Schedule / Timeline (HIDE-IF-EMPTY) ───────────────── */}
       {data.schedule && data.schedule.length > 0 && (
-        <section className="py-16 sm:py-24 px-4 bg-zinc-900/60 border-t border-b border-zinc-900">
+        <section id="inv-schedule" className="py-16 sm:py-24 px-4 bg-zinc-900/60 border-t border-b border-zinc-900">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-10">
               <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
@@ -422,7 +422,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 7: Venue & Directions (HIDE-IF-EMPTY) ────────────────── */}
       {hasVenueInfo && (
-        <section className="py-16 sm:py-24 px-4 max-w-4xl mx-auto">
+        <section id="inv-venue" className="py-16 sm:py-24 px-4 max-w-4xl mx-auto">
           <div className="text-center max-w-xl mx-auto mb-10">
             <div className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase mb-2">
               {dict.locationAndTravel}

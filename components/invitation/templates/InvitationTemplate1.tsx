@@ -218,6 +218,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
 
       {/* ── Section 1: Hero ─────────────────────────────────────────────────── */}
       <section
+        id="inv-hero"
         aria-label="Event hero"
         style={{ background: "var(--inv-bg)" }}
         className="relative w-full"
@@ -325,6 +326,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
 
       {/* ── Section 2: Story / Welcome ───────────────────────────────────────── */}
       <section
+        id="inv-story"
         aria-label="Host message"
         className="py-16 sm:py-24 px-6"
         style={{ background: "var(--inv-bg)" }}
@@ -420,6 +422,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       {/* ── Section 4: Photo Gallery (HIDE-IF-EMPTY) ───────────────────────── */}
       {data.gallery && data.gallery.length > 0 && (
         <section
+          id="inv-gallery"
           aria-label="Photo gallery"
           className="py-16 sm:py-24 px-6"
           style={{ background: "var(--inv-bg)" }}
@@ -437,6 +440,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       {/* ── Section 5: Schedule / Timeline (HIDE-IF-EMPTY) ──────────────────── */}
       {data.schedule && data.schedule.length > 0 && (
         <section
+          id="inv-schedule"
           aria-label="Event schedule"
           className="py-16 sm:py-24 px-6"
           style={{ background: "var(--inv-bg-alt)" }}
@@ -454,6 +458,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
       {/* ── Section 6: Venue & Directions (HIDE-IF-EMPTY) ───────────────────── */}
       {hasVenueInfo && (
         <section
+          id="inv-details"
           aria-label="Venue and directions"
           className="py-16 sm:py-24 px-6"
           style={{ background: "var(--inv-bg)" }}

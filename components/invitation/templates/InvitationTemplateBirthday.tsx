@@ -224,6 +224,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 1: Hero Composition (Tilted Photo & Milestone Badge) ────── */}
       <section
+        id="inv-hero"
         aria-label="Birthday Hero"
         className="relative w-full pt-8 sm:pt-14 pb-12 px-4 sm:px-6 flex flex-col items-center text-center"
       >
@@ -333,7 +334,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 2: Celebrant Message & Guest Welcome ───────────────────── */}
-      <section aria-label="Celebrant Message" className="py-14 sm:py-20 px-6 bg-(--bday-bg-alt)">
+              <section id="inv-story" aria-label="Celebrant Message" className="py-14 sm:py-20 px-6 bg-(--bday-bg-alt)">
         <div className="max-w-2xl mx-auto text-center">
           {/* Guest Personalization */}
           <div
@@ -387,7 +388,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       </section>
 
       {/* ── Section 3: Party Details (Chunky Color-Block Cards) ────────────── */}
-      <section aria-label="Party Details" className="py-14 sm:py-20 px-6 bg-(--bday-bg)">
+              <section id="inv-details" aria-label="Party Details" className="py-14 sm:py-20 px-6 bg-(--bday-bg)">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <span className="text-xs font-black uppercase tracking-widest text-(--bday-indigo)">
@@ -478,7 +479,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 5: Schedule / Party Timeline (HIDE-IF-EMPTY) ────────────── */}
       {data.schedule && data.schedule.length > 0 && (
-        <section aria-label="Party Schedule" className="py-16 sm:py-24 px-6 bg-(--bday-bg)">
+                  <section id="inv-schedule" aria-label="Party Schedule" className="py-16 sm:py-24 px-6 bg-(--bday-bg)">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
               <span className="text-xs font-black uppercase tracking-widest text-(--bday-coral)">
@@ -525,7 +526,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
 
       {/* ── Section 6: Polaroid / Sticker Photo Gallery (HIDE-IF-EMPTY) ────── */}
       {data.gallery && data.gallery.length > 0 && (
-        <section aria-label="Party Gallery" className="py-16 sm:py-24 px-6 bg-(--bday-bg-alt)">
+                  <section id="inv-gallery" aria-label="Party Gallery" className="py-16 sm:py-24 px-6 bg-(--bday-bg-alt)">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
               <span className="text-xs font-black uppercase tracking-widest text-(--bday-purple)">

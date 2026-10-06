@@ -267,6 +267,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 1: Hero Composition (Arch Photo & Calligraphic Names) ──── */}
       <section
+        id="inv-hero"
         aria-label="Wedding Hero"
         className="relative w-full pt-10 sm:pt-16 pb-16 px-4 sm:px-6 flex flex-col items-center text-center"
       >
@@ -382,6 +383,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 2: Welcome / Guest Greeting ────────────────────────────── */}
       <section
+        id="inv-story"
         aria-label="Welcome and Guest Message"
         className="py-14 sm:py-20 px-6 bg-(--wed-bg-alt)"
       >
@@ -507,7 +509,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 5: Venues (Ceremony & Reception) ───────────────────────── */}
       {(hasMultiVenue || hasVenueInfo) && (
-        <section aria-label="Wedding Locations" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
+        <section id="inv-details" aria-label="Wedding Locations" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>When &amp; Where</WeddingLabel>
@@ -649,7 +651,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 7: Schedule / Timeline (HIDE-IF-EMPTY) ─────────────────── */}
       {data.schedule && data.schedule.length > 0 && (
-        <section aria-label="Order of Events" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
+        <section id="inv-schedule" aria-label="Order of Events" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>{dict.timeline}</WeddingLabel>
@@ -668,7 +670,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
 
       {/* ── Section 8: Photo Album Gallery (HIDE-IF-EMPTY) ─────────────────── */}
       {data.gallery && data.gallery.length > 0 && (
-        <section aria-label="Photo Album" className="py-16 sm:py-24 px-6 bg-(--wed-bg-alt)">
+        <section id="inv-gallery" aria-label="Photo Album" className="py-16 sm:py-24 px-6 bg-(--wed-bg-alt)">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
               <WeddingLabel>{dict.capturedMoments}</WeddingLabel>

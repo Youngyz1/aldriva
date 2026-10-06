@@ -13,7 +13,7 @@
  * Slice D: publish section. Slice E: replaces the wizard on the route.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Pencil, Eye } from "lucide-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
@@ -23,6 +23,12 @@ import {
   hiddenContentOnTemplateSwitch,
   type InvitationType,
 } from "@/lib/invitation-type-fields";
+import {
+  isPreviewMessage,
+  isSameOriginMessage,
+  PREVIEW_MESSAGE_SOURCE,
+  type PreviewDraftMessage,
+} from "@/lib/invitation-preview-channel";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
 import { InvitationTemplateSelect } from "@/components/invitation/InvitationTemplateSelect";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
@@ -148,8 +154,7 @@ function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
   }
 }
 
-export function InvitationPageBuilder({ eventId: _eventId, initialData }: Props) {
-  void _eventId;
+export function InvitationPageBuilder({ eventId, initialData }: Props) {
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
   const [openSection, setOpenSection] = useState<SectionId>("type");
@@ -158,6 +163,43 @@ export function InvitationPageBuilder({ eventId: _eventId, initialData }: Props)
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
   const [pageStatus] = useState(initialData.draft.page_status);
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
+
+  // ── Live preview channel (same-origin iframe, debounced drafts) ────────
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const latestPayloadRef = useRef<PreviewDraftMessage | null>(null);
+
+  const postToPreview = useCallback((msg: PreviewDraftMessage | { source: typeof PREVIEW_MESSAGE_SOURCE; kind: "scroll-to"; sectionId: string }) => {
+    iframeRef.current?.contentWindow?.postMessage(msg, window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    latestPayloadRef.current = {
+      source: PREVIEW_MESSAGE_SOURCE,
+      kind: "draft",
+      templateId: draft.template_id || "gala-editorial",
+      locale: previewLocale,
+      draft: { ...draft },
+      event: { ...(initialData.event as unknown as Record<string, unknown>) },
+    };
+    const timer = setTimeout(() => {
+      if (latestPayloadRef.current) postToPreview(latestPayloadRef.current);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [draft, previewLocale, initialData.event, postToPreview]);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (!isSameOriginMessage(e.origin, window.location.origin)) return;
+      if (!isPreviewMessage(e.data)) return;
+      // The frame announces readiness so the latest draft is flushed even
+      // if it was posted before the frame's listener attached.
+      if (e.data.kind === "ready" && latestPayloadRef.current) {
+        postToPreview(latestPayloadRef.current);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [postToPreview]);
 
   const updateDraft = useCallback((patch: Partial<BuilderDraft>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
@@ -197,7 +239,9 @@ export function InvitationPageBuilder({ eventId: _eventId, initialData }: Props)
 
   const toggleSection = useCallback((id: string) => {
     setOpenSection((cur) => (cur === id ? cur : (id as SectionId)));
-  }, []);
+    // Clicking a section header scrolls the live preview to that section.
+    postToPreview({ source: PREVIEW_MESSAGE_SOURCE, kind: "scroll-to", sectionId: id });
+  }, [postToPreview]);
 
   const isPublished = pageStatus === "published";
   const hasUnpublished = initialData.hasUnpublishedChanges;
@@ -351,13 +395,14 @@ export function InvitationPageBuilder({ eventId: _eventId, initialData }: Props)
               </span>
             </div>
             <div className="flex justify-center bg-zinc-100 p-3">
-              {/* Live preview iframe arrives in slice B */}
-              <div
-                className="flex min-h-96 w-full items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white text-xs text-zinc-400"
+              <iframe
+                ref={iframeRef}
+                title="Live invitation preview"
+                src={`/dashboard/events/${eventId}/invitation-page/live-preview`}
+                className="h-[720px] w-full rounded-lg border border-zinc-200 bg-white"
                 style={{ maxWidth: previewViewport }}
-              >
-                Live preview ({previewViewport}px · {previewLocale.toUpperCase()}) arrives in slice B.
-              </div>
+                sandbox="allow-scripts allow-same-origin"
+              />
             </div>
           </div>
         </div>
