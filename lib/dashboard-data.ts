@@ -131,6 +131,16 @@ export async function queryDashboardEvents(params: {
       ? organizerEventsQuery.in('organizer_id', organizerIds)
       : Promise.resolve({ data: [] as DashboardEventRecord[], error: null });
 
+  let userEventsQuery = supabaseAdmin
+    .from('events')
+    .select(DASHBOARD_EVENT_COLUMNS);
+
+  if (dateStart) userEventsQuery = userEventsQuery.gte('created_at', dateStart);
+
+  const userEventsPromise = userId
+    ? userEventsQuery.eq('user_id', userId)
+    : Promise.resolve({ data: [] as DashboardEventRecord[], error: null });
+
   const membershipsPromise = userId
     ? supabaseAdmin
         .from('event_team_members')
@@ -139,13 +149,15 @@ export async function queryDashboardEvents(params: {
         .eq('status', 'active')
     : Promise.resolve({ data: [] as { event_id: string; role: EventTeamRole }[], error: null });
 
-  const [organizerEventsRes, membershipsRes] = await Promise.all([
+  const [organizerEventsRes, membershipsRes, userEventsRes] = await Promise.all([
     organizerEventsPromise,
     membershipsPromise,
+    userEventsPromise,
   ]);
 
   if (organizerEventsRes.error) throw new Error(organizerEventsRes.error.message);
   if (membershipsRes.error) throw new Error(membershipsRes.error.message);
+  if (userEventsRes.error) throw new Error(userEventsRes.error.message);
 
   const teamEventRoleMap = new Map<string, EventTeamRole>();
   for (const m of membershipsRes.data ?? []) {
@@ -155,8 +167,12 @@ export async function queryDashboardEvents(params: {
   }
 
   const organizerEvents = (organizerEventsRes.data ?? []) as DashboardEventRecord[];
-  const organizerEventIds = new Set(organizerEvents.map((ev) => ev.id));
-  const teamOnlyEventIds = Array.from(teamEventRoleMap.keys()).filter((id) => !organizerEventIds.has(id));
+  const userEvents = (userEventsRes.data ?? []) as DashboardEventRecord[];
+  const knownEventIds = new Set([
+    ...organizerEvents.map((ev) => ev.id),
+    ...userEvents.map((ev) => ev.id),
+  ]);
+  const teamOnlyEventIds = Array.from(teamEventRoleMap.keys()).filter((id) => !knownEventIds.has(id));
 
   let teamEvents: DashboardEventRecord[] = [];
   if (teamOnlyEventIds.length > 0) {
@@ -172,13 +188,13 @@ export async function queryDashboardEvents(params: {
     teamEvents = (data ?? []) as DashboardEventRecord[];
   }
 
-  if (organizerEvents.length === 0 && teamEvents.length === 0) {
+  if (organizerEvents.length === 0 && userEvents.length === 0 && teamEvents.length === 0) {
     return { items: [], stats: emptyStats, total: 0, page: 1, per_page: perPage, total_pages: 1 };
   }
 
-  // Deduplicate events by id (prevents duplicate rows if user is organizer AND team member)
+  // Deduplicate events by id (prevents duplicate rows if user is owner, organizer, and/or team member)
   const eventMap = new Map<string, DashboardEventRecord>();
-  for (const ev of [...organizerEvents, ...teamEvents]) {
+  for (const ev of [...organizerEvents, ...userEvents, ...teamEvents]) {
     if (!eventMap.has(ev.id)) {
       eventMap.set(ev.id, ev);
     }
