@@ -60,13 +60,13 @@ export default function LanguageSwitcher({ variant = 'inline' }: { variant?: 'in
   }
 
   return (
-    <div className="flex items-center gap-1 text-xs font-bold">
+    <div className="flex items-center gap-0.5 text-xs font-bold">
       <button
         type="button"
         onClick={() => switchTo('en')}
         aria-label="Switch to English"
         aria-current={locale === 'en' ? 'true' : undefined}
-        className={`${locale === 'en' ? 'text-zinc-950 underline underline-offset-4' : 'text-zinc-500 hover:text-zinc-800'}`}
+        className={`px-1 py-0.5 sm:px-1.5 ${locale === 'en' ? 'text-zinc-950 underline underline-offset-4' : 'text-zinc-500 hover:text-zinc-800'}`}
       >
         EN
       </button>
@@ -76,7 +76,7 @@ export default function LanguageSwitcher({ variant = 'inline' }: { variant?: 'in
         onClick={() => switchTo('fr')}
         aria-label="Passer en français"
         aria-current={locale === 'fr' ? 'true' : undefined}
-        className={`${locale === 'fr' ? 'text-zinc-950 underline underline-offset-4' : 'text-zinc-500 hover:text-zinc-800'}`}
+        className={`px-1 py-0.5 sm:px-1.5 ${locale === 'fr' ? 'text-zinc-950 underline underline-offset-4' : 'text-zinc-500 hover:text-zinc-800'}`}
       >
         FR
       </button>

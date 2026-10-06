@@ -80,26 +80,42 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-4 md:px-6">
-        <Link href="/" className="min-w-0 shrink-0 text-zinc-950">
-          <BrandMark className="[&>img]:h-8 [&>img]:max-w-[7.5rem] sm:[&>img]:h-12 sm:[&>img]:max-w-none" priority />
+      {/*
+        Layout: 3-column flex row.
+        - Left (shrink-0):  BrandMark — always a fixed, small size.
+        - Center (min-w-0, overflow-hidden, flex-1): HomeAdaptiveNav — shrinks freely.
+        - Right (shrink-0): EN|FR + Notification + auth button — NEVER shrinks.
+        At 320px: BrandMark ~60px, right cluster ~72px (logged-out) or ~40px (logged-in avatar)
+        leaves ~188px for the center, which collapses to the icon-only trigger.
+      */}
+      <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-1 px-2 sm:h-16 sm:gap-2 sm:px-4 md:px-6">
+
+        {/* Left: brand */}
+        <Link href="/" className="shrink-0 text-zinc-950">
+          <BrandMark className="[&>img]:h-7 [&>img]:max-w-[6rem] sm:[&>img]:h-10 sm:[&>img]:max-w-none" priority />
         </Link>
 
-        {/* Center: Home adaptive navigation — public platform nav */}
-        <div className="flex flex-1 items-center justify-center px-2">
+        {/* Center: adaptive nav — allowed to shrink, never overflows */}
+        <div className="flex min-w-0 flex-1 items-center justify-center overflow-hidden">
           <HomeAdaptiveNav />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Right: EN|FR + notification bell + auth button — ALWAYS visible, never shrinks */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+
+          {/* Language switcher — inline compact on mobile */}
           <LanguageSwitcher variant="inline" />
+
+          {/* Notification bell — only when signed in */}
           {account && <NotificationBell userId={account.id} />}
 
           {account ? (
+            /* ── Signed-in: avatar button ── */
             <div className="relative" ref={accountRef}>
               <button
                 type="button"
                 onClick={() => setAccountOpen((o) => !o)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white p-1.5 transition hover:border-orange-200 sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-3"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white p-1 transition hover:border-orange-200 sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-3"
                 aria-expanded={accountOpen}
                 aria-label="Account menu"
               >
@@ -107,7 +123,7 @@ export default function Navbar() {
                   variant="avatar"
                   title={accountName}
                   initials={initials}
-                  className="h-8 w-8 rounded-full from-orange-600 to-orange-600 text-xs font-bold"
+                  className="h-7 w-7 rounded-full from-orange-600 to-orange-600 text-xs font-bold sm:h-8 sm:w-8"
                 />
                 <span className="hidden max-w-28 truncate text-sm font-bold text-zinc-800 sm:inline">
                   {accountName}
@@ -136,6 +152,24 @@ export default function Navbar() {
               )}
             </div>
           ) : (
+            /* ── Signed-out: Login pill — always visible, never hidden ── */
+            <Link
+              href="/login"
+              className={cn(
+                "rounded-full border border-zinc-200 bg-white font-bold text-zinc-700 transition hover:border-zinc-300 hover:text-orange-600",
+                // Mobile: compact pill, text-xs
+                "px-2.5 py-1.5 text-xs",
+                // sm+: normal size, show Sign up too
+                "sm:hidden"
+              )}
+              aria-label="Login"
+            >
+              {tNav('login')}
+            </Link>
+          )}
+
+          {/* sm+: Sign in + Sign up pair (hidden on mobile; mobile uses the pill above) */}
+          {!account && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-700 hover:text-orange-600">
                 {tNav('login')}
@@ -147,12 +181,6 @@ export default function Navbar() {
                 {tNav('signup')}
               </Link>
             </div>
-          )}
-          {/* Mobile login link when not authenticated */}
-          {!account && (
-            <Link href="/login" className="rounded-lg px-2 py-1 text-xs font-bold text-zinc-700 sm:hidden">
-              {tNav('login')}
-            </Link>
           )}
         </div>
       </div>

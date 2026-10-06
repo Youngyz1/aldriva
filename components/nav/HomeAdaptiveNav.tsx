@@ -67,7 +67,9 @@ export default function HomeAdaptiveNav() {
         animate={{ width: open ? "auto" : "auto" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
-        {/* Trigger */}
+        {/* Trigger
+          Mobile (<=480px): icon only — no text label, tighter padding.
+          Tablet+: icon + activeLabel text + chevron. */}
         <button
           type="button"
           aria-expanded={open}
@@ -75,16 +77,21 @@ export default function HomeAdaptiveNav() {
           aria-label={open ? "Close site navigation" : "Open site navigation"}
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition",
+            "flex items-center rounded-full transition",
+            // Mobile: icon-only with compact padding
+            "gap-0 px-2.5 py-2 max-[480px]:gap-0",
+            // sm+: icon + label + chevron with normal padding
+            "sm:gap-1.5 sm:px-4 sm:py-2",
             open ? "bg-zinc-900 text-white" : "bg-white text-zinc-800 hover:bg-zinc-50"
           )}
         >
           <Home className="h-4 w-4 shrink-0" />
-          <span>{activeLabel}</span>
-          <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")} />
+          {/* Label: hidden on narrow screens, visible from sm up */}
+          <span className="hidden text-sm font-bold sm:inline">{activeLabel}</span>
+          <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform hidden sm:block", open && "rotate-180")} />
         </button>
 
-        {/* Expanded items — inline on desktop, handled via same container */}
+        {/* Expanded items — inline on desktop */}
         <AnimatePresence initial={false}>
           {open && (
             <motion.nav
@@ -116,13 +123,7 @@ export default function HomeAdaptiveNav() {
                     </Link>
                   );
                 })}
-                {/* When active is Home, Home already in trigger, don't duplicate */}
-                {activeLabel === t('home') &&
-                  NAV_ITEMS.slice(1).map((item) => null)}
               </div>
-
-              {/* Show active as first item on desktop when not Home is trigger? Already trigger shows active, so remaining items exclude active */}
-              {/* Mobile: vertical dropdown handled below, hide inline */}
             </motion.nav>
           )}
         </AnimatePresence>
