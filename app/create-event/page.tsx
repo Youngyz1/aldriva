@@ -21,11 +21,9 @@ import {
 } from "@/lib/video-validation";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import RichTextEditor from "@/components/editor/RichTextEditor";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { EVENT_CATEGORIES, SUBCATEGORIES_BY_CATEGORY, isValidEventCategory, isValidEventSubcategory } from "@/lib/event-taxonomy";
-
-const EVENT_BANNER_ASPECT = 16 / 9;
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 
@@ -576,11 +574,8 @@ export default function CreateEventPage() {
             <CreatorPanel title="Event Image">
               <div className="grid gap-5">
                 <CreatorField label="Event Banner" hint="The full image is preserved — nothing is cropped out.">
-                  <ImageUploadWithCrop
+                  <ImageUploader
                     value={bannerPreview}
-                    aspectRatio={EVENT_BANNER_ASPECT}
-                    fitMode="fit"
-                    previewClassName="h-32 w-full rounded-xl"
                     label="Upload banner"
                     onCropped={(file, previewUrl) => {
                       setNotice("");

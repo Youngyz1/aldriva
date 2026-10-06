@@ -21,9 +21,16 @@
  * Uploads through the shared `uploadImage` pipeline, so server-side URL
  * and path checks keep passing in every flow (bucket + folder scoping
  * is the caller's responsibility).
+ *
+ * Two modes: immediate (default — needs `bucket` + `folder`, uploads on
+ * confirm and reports the public URL via `onUploaded`) and defer
+ * (`onCropped` — hands the rendered File + preview URL back so the
+ * caller can upload later, e.g. once the storage folder exists).
+ * `hideTrigger` + the `open()` handle embed the picker behind a custom
+ * trigger such as a toolbar icon button.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { Loader2, RotateCw, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,11 +50,21 @@ import {
   type OutputTypeOption,
 } from "@/lib/image-upload";
 
+export interface ImageUploaderHandle {
+  open: () => void;
+}
+
 export interface ImageUploaderProps {
-  /** Supabase Storage bucket, e.g. "cms-media", "profile-images". */
-  bucket: string;
-  /** Path prefix within the bucket, e.g. an event or user id. */
-  folder: string;
+  /**
+   * Supabase Storage bucket, e.g. "cms-media", "profile-images".
+   * Optional only in defer mode (`onCropped`): the caller uploads later.
+   */
+  bucket?: string;
+  /**
+   * Path prefix within the bucket, e.g. an event or user id.
+   * Optional only in defer mode (`onCropped`).
+   */
+  folder?: string;
   /**
    * "free" (default) keeps the whole original image; a number fixes the
    * crop-frame ratio (width/height, e.g. 1 for square avatars).
@@ -66,10 +83,23 @@ export interface ImageUploaderProps {
   allowCamera?: boolean;
   /** Overwrite an existing object at the same path instead of erroring. */
   upsert?: boolean;
+  /**
+   * Hides the built-in trigger row so the caller can open the picker
+   * through the `open()` handle (e.g. a toolbar icon button). The
+   * full-image editor still appears once a file is selected.
+   */
+  hideTrigger?: boolean;
   /** Receives the public URL once the upload succeeds. */
   onUploaded?: (url: string) => void;
   onError?: (message: string) => void;
   onRemove?: () => void;
+  /**
+   * Defer mode: instead of uploading, hand the rendered File plus an
+   * object-URL preview back to the caller (which owns the later upload,
+   * e.g. create forms that only learn the storage folder on submit).
+   * Pass either `onCropped`, or both `bucket` and `folder`.
+   */
+  onCropped?: (file: File, previewUrl: string) => void;
   /** Confirm button label (default "Use photo"). */
   confirmLabel?: string;
 }
@@ -209,24 +239,33 @@ async function renderFinalImage(
   };
 }
 
-export function ImageUploader({
-  bucket,
-  folder,
-  aspect = "free",
-  maxLongEdge = DEFAULT_MAX_LONG_EDGE_PX,
-  outputType = "auto",
-  value,
-  label = "Upload photo",
-  hint,
-  disabled,
-  allowCamera = false,
-  upsert,
-  onUploaded,
-  onError,
-  onRemove,
-  confirmLabel = "Use photo",
-}: ImageUploaderProps) {
+export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(function ImageUploader(
+  {
+    bucket,
+    folder,
+    aspect = "free",
+    maxLongEdge = DEFAULT_MAX_LONG_EDGE_PX,
+    outputType = "auto",
+    value,
+    label = "Upload photo",
+    hint,
+    disabled,
+    allowCamera = false,
+    upsert,
+    hideTrigger = false,
+    onUploaded,
+    onError,
+    onRemove,
+    onCropped,
+    confirmLabel = "Use photo",
+  }: ImageUploaderProps,
+  ref: React.ForwardedRef<ImageUploaderHandle>
+) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    open: () => fileInputRef.current?.click(),
+  }));
 
   const [normalized, setNormalized] = useState<NormalizedImage | null>(null);
   const [sourceName, setSourceName] = useState("");
@@ -303,6 +342,12 @@ export function ImageUploader({
 
   async function handleConfirm() {
     if (!normalized || uploading) return;
+    if (!onCropped && (!bucket || !folder)) {
+      reportError(
+        "ImageUploader: pass either onCropped, or both bucket and folder for it to upload for you."
+      );
+      return;
+    }
     setUploading(true);
     setError("");
     try {
@@ -315,7 +360,16 @@ export function ImageUploader({
         outputType
       );
       setFinalBytes(file.size);
-      const url = await uploadImage(file, bucket, folder, { upsert });
+      if (onCropped) {
+        // Defer mode: the caller owns the upload (e.g. the storage
+        // folder only exists after submit). Release the working copy,
+        // then hand over the rendered file plus a preview URL.
+        resetSelection();
+        const previewUrl = URL.createObjectURL(file);
+        onCropped(file, previewUrl);
+        return;
+      }
+      const url = await uploadImage(file, bucket as string, folder as string, { upsert });
       URL.revokeObjectURL(normalized.url);
       setNormalized(null);
       onUploaded?.(url);
@@ -351,7 +405,9 @@ export function ImageUploader({
         disabled={disabled}
       />
 
-      {/* Current value + trigger */}
+      {/* Current value + trigger (hidden in toolbar/defer mode — the
+          full-image editor below still appears once a file is picked) */}
+      {!hideTrigger && (
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
           {previewSrc ? (
@@ -391,6 +447,7 @@ export function ImageUploader({
           {error && !normalized && <p className="text-xs font-semibold text-red-600">{error}</p>}
         </div>
       </div>
+      )}
 
       {/* Full-image editor (natural aspect ratio unless a fixed aspect is set) */}
       {normalized && (
@@ -513,4 +570,4 @@ export function ImageUploader({
       )}
     </div>
   );
-}
+});

@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import { EVENT_CATEGORIES, SUBCATEGORIES_BY_CATEGORY, normalizeEventCategory } from "@/lib/event-taxonomy";
-
-const EVENT_BANNER_ASPECT = 16 / 9;
 
 
 type Organizer = { id: string; name: string };
@@ -333,11 +331,8 @@ export default function EditEventPage() {
 
           <div className="space-y-4 border-t border-zinc-200 pt-6">
             <h2 className="text-lg font-black text-zinc-950">Event Banner</h2>
-            <ImageUploadWithCrop
+            <ImageUploader
               value={form.banner}
-              aspectRatio={EVENT_BANNER_ASPECT}
-              fitMode="fit"
-              previewClassName="h-40 w-full rounded-2xl"
               label="Upload banner"
               bucket="event-banners"
               folder={eventId}
