@@ -38,6 +38,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/seating`}>Seating</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/operations`}>Operations</Link></Button>
         </CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm">Invite special guests</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">
+          <Button asChild size="sm"><Link href={`/dashboard/events/${id}/invitation-page/builder`}>Invitation builder</Link></Button>
+          <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/guests`}>Guests & RSVPs</Link></Button>
+        </CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm">Public page</CardTitle></CardHeader><CardContent><Button asChild size="sm" variant="outline"><Link href={`/events/${event.slug}`} target="_blank">View public event →</Link></Button></CardContent></Card>
       </div>
     </div>

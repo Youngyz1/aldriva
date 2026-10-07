@@ -2,6 +2,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Plus } from "lucide-react";
+import { CreateInvitationButton } from "@/components/events/CreateInvitationButton";
 
 export default async function OrgEventsPage({
   params,
@@ -30,12 +31,15 @@ export default async function OrgEventsPage({
           <p className="text-xs font-black uppercase tracking-wide text-orange-600">Organization</p>
           <h1 className="mt-1 text-2xl font-black">Events</h1>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
         <Link
           href="/create-event"
           className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700"
         >
           <Plus className="h-4 w-4" /> New Event
         </Link>
+        <CreateInvitationButton label="+ New Invitation" className="px-4 py-2.5" />
+        </div>
       </div>
 
       {(events ?? []).length === 0 ? (
@@ -43,9 +47,12 @@ export default async function OrgEventsPage({
           <Calendar className="mb-3 h-10 w-10 text-zinc-300" />
           <p className="font-black text-zinc-900">No events yet</p>
           <p className="mt-1 text-sm text-zinc-500">Create your first event to get started.</p>
-          <Link href="/create-event" className="mt-4 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white hover:bg-orange-700">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Link href="/create-event" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white hover:bg-orange-700">
             Create Event
           </Link>
+          <CreateInvitationButton label="Create Invitation" className="px-4 py-2.5" />
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">

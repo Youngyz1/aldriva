@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
 
 // Helpers for safe URLs
 const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
@@ -180,9 +181,10 @@ export function validateForPublish(
   const errors: ValidationErrorItem[] = [];
   const isFr = locale === "fr";
 
-  // 1. Title verification
+  // 1. Title verification (untouched invitation drafts carry the
+  // placeholder title — publishing requires a real one)
   const title = (draft.display_title?.trim() || event.title || "").trim();
-  if (!title) {
+  if (!title || title === INVITATION_DRAFT_TITLE) {
     errors.push({
       field: "title",
       message: isFr ? "Le titre de l'invitation est requis." : "Invitation title is required.",

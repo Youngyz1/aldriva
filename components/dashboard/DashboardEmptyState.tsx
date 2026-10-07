@@ -7,6 +7,8 @@ type Props = {
   description: string;
   actionLabel?: string;
   actionHref?: string;
+  /** Optional second action rendered under the primary link (e.g. Create invitation). */
+  secondaryAction?: React.ReactNode;
 };
 
 export default function DashboardEmptyState({
@@ -14,6 +16,7 @@ export default function DashboardEmptyState({
   description,
   actionLabel,
   actionHref,
+  secondaryAction,
 }: Props) {
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-6 py-14 text-center sm:rounded-2xl sm:px-8 sm:py-20">
@@ -27,6 +30,7 @@ export default function DashboardEmptyState({
           {actionLabel}
         </Link>
       )}
+      {secondaryAction}
     </div>
   );
 }

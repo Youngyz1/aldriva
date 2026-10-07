@@ -133,9 +133,10 @@ export async function resolveEventsEmbed(
     )
     .eq("organizer_id", tenantId);
 
-  // Status gate: public visitors only see published events
+  // Status gate: public visitors only see published events (invitation-kind
+  // events are never publicly listed, even to other tenants' visitors)
   if (!isTeamMember) {
-    query = query.eq("status", "published");
+    query = query.eq("status", "published").eq("kind", "public");
   }
 
   // Selected event IDs filter if specified

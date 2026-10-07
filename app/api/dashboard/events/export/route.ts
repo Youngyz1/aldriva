@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
       search: sp.get('search') ?? '',
       status: sp.get('status') ?? 'all',
       visibility: sp.get('visibility') ?? 'all',
+      kind: sp.get('kind') ?? 'all',
       date: (sp.get('date') ?? 'all') as DateFilter,
       sort: sp.get('sort') ?? 'newest',
       page: 1,

@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { escapePostgrestOrValue } from "@/lib/fundraiser-data";
 import { cacheLife } from "next/cache";
 import { normalizeEventCategory } from "@/lib/event-taxonomy";
+import { applyPublicListableFilter } from "@/lib/invitation-events";
 
 export type EventListSort = "date_asc" | "date_desc" | "newest";
 
@@ -122,10 +123,11 @@ export async function getEventList(
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 12;
 
-  let query = supabase
-    .from("events")
-    .select(EVENT_LIST_COLUMNS, { count: "exact" })
-    .eq("visibility", "public")
+  let query = applyPublicListableFilter(
+    supabase
+      .from("events")
+      .select(EVENT_LIST_COLUMNS, { count: "exact" })
+  )
     .eq("status", "approved")
     .is("deleted_at", null);
 

@@ -49,10 +49,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unable to delete events.' }, { status: 500 });
     }
   } else if (action === 'publish') {
+    // Invitation-kind drafts publish through the invitation builder, never here.
     const { error } = await supabaseAdmin
       .from('events')
       .update({ status: 'approved' })
-      .in('id', ownedIds);
+      .in('id', ownedIds)
+      .neq('kind', 'invitation');
     if (error) {
       console.error("[dashboard/events/bulk]", error);
       return NextResponse.json({ error: 'Unable to publish events.' }, { status: 500 });
@@ -61,7 +63,8 @@ export async function POST(req: NextRequest) {
     const { error } = await supabaseAdmin
       .from('events')
       .update({ status: 'pending' })
-      .in('id', ownedIds);
+      .in('id', ownedIds)
+      .neq('kind', 'invitation');
     if (error) {
       console.error("[dashboard/events/bulk]", error);
       return NextResponse.json({ error: 'Unable to unpublish events.' }, { status: 500 });

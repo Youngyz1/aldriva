@@ -5,6 +5,12 @@
 
 ---
 
+## [2026-10] — Round 3 Commit 1: invitation events as first-class events (2026-10-07)
+- Creation without a prior event: `createInvitationDraft` server action (kind=invitation, private, draft, placeholder title, key-derived slug; UNIQUE slug turns double submits into fetch-existing) with `CreateInvitationButton` next to every dashboard Create-event surface (events list header + empty state, `/dashboard/events/new` third card, both org overviews, both org events pages). Public ticket-first flow untouched.
+- Builder Basics collects event title/date/venue/city for invitation-kind events (`updateInvitationEventFields`); `validateForPublish` rejects the placeholder title so it can never ship in a snapshot.
+- Public exclusion via shared `applyPublicListableFilter` (event-data, sitemap, cities; embeds + related queries carry an explicit kind predicate); ticket purchase rejects invitation kind; bulk publish/unpublish skip invitation rows.
+- Dashboard list: kind filter + badge, "Draft invitation" label for untouched drafts (delete kept), convert-to-invitation action blocked when tickets sold. No kind-gating on builder/guests/RSVP/seating; public event home gains "Invite special guests". 16 new tests in `lib/__tests__/invitation-events-kind.test.cjs`.
+
 ## [2026-10] — Migration 155: event kind (public/invitation) (2026-10-07)
 - Migration `db/migration_155_event_kind.sql` (+ rollback twin, supabase mirror `20261007000001_…`, **NOT applied to any database — review before applying**): `events.kind TEXT NOT NULL DEFAULT 'public'` with `events_kind_check` (`public`/`invitation`); `events_status_check` relaxed to also allow `draft` (existing pending/approved/rejected rows stay valid; no NOT NULL relaxed); `events_invitation_private_check` (`kind='invitation'` forces `visibility='private'`); `idx_events_kind`. Existing rows take `kind='public'` from the default — no data conversion, no silent reclassification. Share-link columns deferred to migration 156. Rollback aborts loudly if any `kind='invitation'` or `status='draft'` rows remain, then reverses in reverse order. Static pins in `lib/__tests__/migration-155-event-kind.test.cjs`; numbering tracker (`stage17-pass-one`) bumped 154 → 155. Note: `db/migration_154_*` has no supabase mirror yet (flagged, untouched).
 

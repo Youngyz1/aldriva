@@ -381,7 +381,7 @@ export async function getInvitationPageDraft(
   const [{ data: event, error: eventErr }, { data: draft, error: draftErr }] = await Promise.all([
     admin
       .from("events")
-      .select("id, title, slug, event_date, end_date, venue, street_address, city, latitude, longitude, banner, category")
+      .select("id, title, slug, kind, event_date, end_date, venue, street_address, city, latitude, longitude, banner, category")
       .eq("id", eventId)
       .maybeSingle(),
     admin

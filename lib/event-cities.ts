@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { applyPublicListableFilter } from "@/lib/invitation-events";
 
 // Cleans a raw `events.city` value into a display-ready label:
 //  - drops pure "STATE ZIP" junk rows (e.g. "FL 32081" — a zip code with no
@@ -39,10 +40,7 @@ export async function getCachedEventCities(): Promise<string[]> {
   cacheLife({ revalidate: 600 });
 
   const adminClient = createSupabaseAdmin();
-  const { data } = await adminClient
-    .from("events")
-    .select("city")
-    .eq("visibility", "public")
+  const { data } = await applyPublicListableFilter(adminClient.from("events").select("city"))
     .eq("status", "approved")
     .not("city", "is", null);
 

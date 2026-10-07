@@ -20,6 +20,9 @@ import {
 } from "@/lib/dashboard-event-actions";
 import { useDashboardParams } from "@/hooks/use-dashboard-params";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
+import { CreateInvitationButton } from "@/components/events/CreateInvitationButton";
+import { isUntouchedInvitationDraft } from "@/lib/invitation-events";
+import { convertToInvitationEvent } from "@/lib/actions/invitation-events";
 import type { DashboardEventDetail, DashboardEventRow, DashboardEventStats } from "@/types/dashboard-management";
 
 const BULK_ACTIONS = [
@@ -33,6 +36,7 @@ const statusBadge: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   approved: "bg-emerald-100 text-emerald-700",
   rejected: "bg-red-100 text-red-600",
+  draft: "bg-zinc-200 text-zinc-700",
 };
 
 const visibilityBadge: Record<string, string> = {
@@ -40,9 +44,14 @@ const visibilityBadge: Record<string, string> = {
   private: "bg-zinc-100 text-zinc-600",
 };
 
+const kindBadge: Record<string, string> = {
+  public: "bg-sky-100 text-sky-700",
+  invitation: "bg-violet-100 text-violet-700",
+};
+
 function statusLabel(status: string) {
   if (status === "approved") return "Published";
-  if (status === "pending") return "Draft";
+  if (status === "pending" || status === "draft") return "Draft";
   return status;
 }
 
@@ -54,6 +63,7 @@ function EventsClientInner() {
 
   const status = getParam("status");
   const visibility = getParam("visibility");
+  const kind = getParam("kind");
   const date = getParam("date");
   const sort = getParam("sort", "newest");
 
@@ -69,6 +79,8 @@ function EventsClientInner() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DashboardEventRow | DashboardEventDetail | null>(null);
+  const [convertTarget, setConvertTarget] = useState<DashboardEventRow | null>(null);
+  const [convertError, setConvertError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const queryString = useMemo(
@@ -76,10 +88,11 @@ function EventsClientInner() {
       buildQueryString({
         status: status !== "all" ? status : undefined,
         visibility: visibility !== "all" ? visibility : undefined,
+        kind: kind !== "all" ? kind : undefined,
         date: date !== "all" ? date : undefined,
         sort: sort !== "newest" ? sort : undefined,
       }),
-    [buildQueryString, status, visibility, date, sort]
+    [buildQueryString, status, visibility, kind, date, sort]
   );
 
   const fetchData = useCallback(async () => {
@@ -179,6 +192,25 @@ function EventsClientInner() {
     }
   }
 
+  async function convertEvent() {
+    if (!convertTarget) return;
+
+    setWorking(`convert:${convertTarget.id}`);
+    setConvertError("");
+
+    try {
+      const result = await convertToInvitationEvent(convertTarget.id);
+      if (!result.ok) {
+        setConvertError(result.error ?? "Conversion failed.");
+        return;
+      }
+      setConvertTarget(null);
+      await fetchData();
+    } finally {
+      setWorking(null);
+    }
+  }
+
   const selectableRows = useMemo(() => rows.filter(canSelectDashboardEventForBulk), [rows]);
   const allSelected = selectableRows.length > 0 && selectableRows.every((r) => selected.has(r.id));
 
@@ -215,12 +247,15 @@ function EventsClientInner() {
         title={t('title')}
         description="Manage events, tickets sold, and revenue across your organizer profiles."
         action={
-          <Link
-            href="/dashboard/events/new"
-            className="shrink-0 rounded-xl bg-orange-600 px-5 py-3 text-sm font-black text-white hover:bg-orange-700"
-          >
-            + {t('createEvent')}
-          </Link>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <CreateInvitationButton className="px-4 py-3" />
+            <Link
+              href="/dashboard/events/new"
+              className="shrink-0 rounded-xl bg-orange-600 px-5 py-3 text-sm font-black text-white hover:bg-orange-700"
+            >
+              + {t('createEvent')}
+            </Link>
+          </div>
         }
       />
 
@@ -253,6 +288,17 @@ function EventsClientInner() {
               { value: "private", label: "Private" },
             ],
             onChange: (v) => updateParams({ visibility: v === "all" ? null : v }),
+          },
+          {
+            id: "kind",
+            label: "Kind",
+            value: kind,
+            options: [
+              { value: "all", label: "All Kinds" },
+              { value: "public", label: "Public" },
+              { value: "invitation", label: "Invitation" },
+            ],
+            onChange: (v) => updateParams({ kind: v === "all" ? null : v }),
           },
           {
             id: "date",
@@ -322,6 +368,7 @@ function EventsClientInner() {
             description="Create your first event to start selling tickets."
             actionLabel={t('createEvent')}
             actionHref="/dashboard/events/new"
+            secondaryAction={<CreateInvitationButton label="Or create an invitation" />}
           />
         }
       >
@@ -341,6 +388,7 @@ function EventsClientInner() {
                 <th className="py-3 pr-4">Title</th>
                 <th className="py-3 pr-4">Date</th>
                 <th className="py-3 pr-4">Status</th>
+                <th className="py-3 pr-4">Kind</th>
                 <th className="py-3 pr-4">Visibility</th>
                 <th className="py-3 pr-4">Tickets</th>
                 <th className="py-3 pr-4">Revenue</th>
@@ -372,13 +420,18 @@ function EventsClientInner() {
                         onClick={() => openDrawer(row.id)}
                         className="font-black text-zinc-900 hover:text-violet-700 hover:underline"
                       >
-                        {row.title}
+                        {isUntouchedInvitationDraft(row) ? "Draft invitation" : row.title}
                       </button>
                     </td>
                     <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.event_date)}</td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
                         {statusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${kindBadge[row.kind ?? "public"] ?? kindBadge.public}`}>
+                        {row.kind === "invitation" ? "Invitation" : "Public"}
                       </span>
                     </td>
                     <td className="py-3 pr-4">
@@ -412,6 +465,13 @@ function EventsClientInner() {
                                 : []),
                               ...(actionIds.includes("edit")
                                 ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
+                                : []),
+                              ...(row.kind === "public" && row.has_invitation_page
+                                ? [{
+                                    key: "convert",
+                                    label: "Convert to invitation",
+                                    onSelect: () => { setConvertTarget(row); setConvertError(""); },
+                                  }]
                                 : []),
                               ...(actionIds.includes("delete")
                                 ? [{
@@ -550,6 +610,16 @@ function EventsClientInner() {
         onConfirm={deleteEvent}
         loading={deleteTarget ? working === `delete:${deleteTarget.id}` : false}
         variant="danger"
+      />
+
+      <AdminConfirmDialog
+        open={convertTarget !== null}
+        onOpenChange={(open) => { if (!open) { setConvertTarget(null); setConvertError(""); } }}
+        title="Convert to invitation event"
+        description={`Remove "${convertTarget?.title ?? "this event"}" from public discovery? It becomes a private invitation event (guests, RSVP and seating keep working; ticket sales stop). Blocked when tickets were sold.${convertError ? ` ${convertError}` : ""}`}
+        confirmLabel="Convert"
+        onConfirm={convertEvent}
+        loading={convertTarget ? working === `convert:${convertTarget.id}` : false}
       />
     </div>
   );

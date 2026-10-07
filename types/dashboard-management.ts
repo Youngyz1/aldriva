@@ -1,4 +1,4 @@
-export type DashboardEventStatus = 'pending' | 'approved' | 'rejected';
+export type DashboardEventStatus = 'pending' | 'approved' | 'rejected' | 'draft';
 export type DashboardEventSort = 'newest' | 'oldest' | 'alphabetical' | 'most_tickets' | 'most_revenue' | 'event_date';
 
 export type DashboardEventRow = {
@@ -8,6 +8,8 @@ export type DashboardEventRow = {
   event_date: string | null;
   status: DashboardEventStatus;
   visibility: string;
+  kind: 'public' | 'invitation';
+  has_invitation_page: boolean;
   ticket_count: number;
   revenue: number;
   created_at: string;

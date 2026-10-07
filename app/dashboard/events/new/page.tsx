@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { isAdmin } from "@/lib/auth";
+import { CreateInvitationCard } from "@/components/events/CreateInvitationCard";
 
 export default async function NewDashboardEventPage() {
   const ctx = await getDashboardContext();
@@ -42,7 +43,7 @@ export default async function NewDashboardEventPage() {
         </p>
       </header>
 
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         <Link
           href="/create-event"
           className="rounded-2xl border border-orange-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
@@ -70,6 +71,8 @@ export default async function NewDashboardEventPage() {
             Import Event
           </span>
         </Link>
+
+        <CreateInvitationCard />
       </div>
     </div>
   );

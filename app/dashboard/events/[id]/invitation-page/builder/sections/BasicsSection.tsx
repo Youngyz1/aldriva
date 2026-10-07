@@ -3,20 +3,37 @@
 /**
  * Builder Basics section — migrated unchanged from WizardStepBasics:
  * locale, display title, eyebrow, host names, timezone.
+ *
+ * Invitation-kind events additionally collect the event record itself
+ * (title, date/time, venue, city) here — there is no separate event form
+ * for them. Saved explicitly via updateInvitationEventFields.
  */
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
+import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
+import { updateInvitationEventFields } from "@/lib/actions/invitation-events";
 
 interface Props {
   draft: BuilderDraft;
   event: EventLiveFields;
+  eventId: string;
   updateDraft: (patch: Partial<BuilderDraft>) => void;
   disabled?: boolean;
 }
 
-const COMMON_TIMEZONES = [
-  "UTC",
+/** ISO/timestamptz → datetime-local input value (local wall time). */
+function toDateTimeLocal(value: string | null | undefined): string {
+  if (!value) return "";
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
+const COMMON_TIMEZONES = [  "UTC",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
@@ -36,9 +53,125 @@ const COMMON_TIMEZONES = [
   "Australia/Sydney",
 ];
 
-export function BasicsSection({ draft, event, updateDraft, disabled }: Props) {
+export function BasicsSection({ draft, event, eventId, updateDraft, disabled }: Props) {
+  const isInvitationKind = event.kind === "invitation";
+  const router = useRouter();
+  const [eventTitle, setEventTitle] = useState(
+    event.title === INVITATION_DRAFT_TITLE ? "" : event.title
+  );
+  const [eventDate, setEventDate] = useState(() => toDateTimeLocal(event.event_date));
+  const [venue, setVenue] = useState(event.venue ?? "");
+  const [city, setCity] = useState(event.city ?? "");
+  const [eventSaving, setEventSaving] = useState(false);
+  const [eventSaved, setEventSaved] = useState(false);
+  const [eventError, setEventError] = useState("");
+
+  async function handleSaveEvent() {
+    if (eventSaving) return;
+    setEventSaving(true);
+    setEventError("");
+    setEventSaved(false);
+    try {
+      const result = await updateInvitationEventFields(eventId, {
+        title: eventTitle,
+        event_date: eventDate || null,
+        venue: venue || null,
+        city: city || null,
+      });
+      if (!result.ok) {
+        setEventError(result.error ?? "Could not save event details.");
+        return;
+      }
+      setEventSaved(true);
+      router.refresh();
+    } catch {
+      setEventError("Could not save event details.");
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      {isInvitationKind && (
+        <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4 sm:col-span-2">
+          <p className="text-xs font-black uppercase tracking-wide text-violet-700">
+            Event details (required to publish)
+          </p>
+          <div className="space-y-1.5">
+            <label htmlFor="event_title" className="text-xs font-bold text-zinc-700">
+              Event Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="event_title"
+              type="text"
+              maxLength={140}
+              disabled={disabled}
+              placeholder="e.g. Amara & Kwame's Wedding"
+              value={eventTitle}
+              onChange={(e) => setEventTitle(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-zinc-50"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="event_date" className="text-xs font-bold text-zinc-700">
+                Date &amp; Time <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="event_date"
+                type="datetime-local"
+                disabled={disabled}
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-zinc-50"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="event_city" className="text-xs font-bold text-zinc-700">
+                City
+              </label>
+              <input
+                id="event_city"
+                type="text"
+                maxLength={120}
+                disabled={disabled}
+                placeholder="e.g. Abidjan"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-zinc-50"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="event_venue" className="text-xs font-bold text-zinc-700">
+              Venue
+            </label>
+            <input
+              id="event_venue"
+              type="text"
+              maxLength={200}
+              disabled={disabled}
+              placeholder="e.g. Palais des Congrès"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-zinc-50"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={disabled || eventSaving}
+              onClick={handleSaveEvent}
+              className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+            >
+              {eventSaving ? "Saving…" : "Save event details"}
+            </button>
+            {eventSaved && <span className="text-xs font-bold text-emerald-600">Saved.</span>}
+            {eventError && <span className="text-xs font-semibold text-red-600">{eventError}</span>}
+          </div>
+        </div>
+      )}
       {/* Locale */}
       <div className="space-y-1.5 sm:col-span-2">
         <label className="text-xs font-bold text-zinc-700">Language / Langue</label>

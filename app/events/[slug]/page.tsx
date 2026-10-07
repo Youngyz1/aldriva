@@ -234,6 +234,7 @@ export default async function EventPage({
       .eq("organizer_id", organizer.id)
       .neq("id", event.id)
       .eq("visibility", "public")
+      .eq("kind", "public")
       .order("event_date", { ascending: true })
       .limit(4);
     moreEvents = data || [];
@@ -253,6 +254,7 @@ export default async function EventPage({
         .select("id, title, slug, banner, event_date, city, venue")
         .neq("id", event.id)
         .eq("visibility", "public")
+        .eq("kind", "public")
         .gte("event_date", windowStart.toISOString())
         .lte("event_date", windowEnd.toISOString())
         .order("event_date", { ascending: true })

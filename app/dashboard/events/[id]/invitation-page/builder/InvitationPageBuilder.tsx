@@ -153,7 +153,7 @@ interface SectionBodyProps {
 function SectionBody({ id, eventId, draft, event, invitationType, updateDraft }: SectionBodyProps) {
   switch (id) {
     case "basics":
-      return <BasicsSection draft={draft} event={event} updateDraft={updateDraft} />;
+      return <BasicsSection draft={draft} event={event} eventId={eventId} updateDraft={updateDraft} />;
     case "hero":
       return <HeroSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "story":

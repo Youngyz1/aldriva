@@ -36,6 +36,7 @@ type DashboardEventRecord = {
   event_date: string | null;
   status: string | null;
   visibility: string | null;
+  kind: string | null;
   created_at: string;
   organizer_id: string | null;
   user_id: string | null;
@@ -44,7 +45,7 @@ type DashboardEventRecord = {
 type EventTeamRole = 'event_manager' | 'ticket_scanner';
 
 const DASHBOARD_EVENT_COLUMNS =
-  'id, title, slug, event_date, status, visibility, created_at, organizer_id, user_id';
+  'id, title, slug, event_date, status, visibility, kind, created_at, organizer_id, user_id';
 
 function paginate<T>(items: T[], page: number, perPage: number): PaginatedResult<T, never> & { items: T[] } {
   const total = items.length;
@@ -93,6 +94,7 @@ export async function queryDashboardEvents(params: {
   search?: string;
   status?: string;
   visibility?: string;
+  kind?: string;
   date?: DateFilter;
   sort?: string;
   page?: number;
@@ -104,6 +106,7 @@ export async function queryDashboardEvents(params: {
     search = '',
     status = 'all',
     visibility = 'all',
+    kind = 'all',
     date = 'all',
     sort = 'newest',
     page = 1,
@@ -204,6 +207,14 @@ export async function queryDashboardEvents(params: {
   const eventIds = uniqueEvents.map((e) => e.id);
   const ticketMap = await getEventTicketMap(eventIds);
 
+  // Invitation-page presence per event (drives "Draft invitation" labels
+  // and the convert-to-invitation action).
+  const { data: pageRows } = await supabaseAdmin
+    .from('event_invitation_pages')
+    .select('event_id')
+    .in('event_id', eventIds.length > 0 ? eventIds : ['00000000-0000-0000-0000-000000000000']);
+  const pageEventIds = new Set((pageRows ?? []).map((r) => (r as { event_id: string }).event_id));
+
   const organizerIdSet = new Set(organizerIds);
 
   let rows: DashboardEventRow[] = uniqueEvents.map((ev) => {
@@ -221,6 +232,8 @@ export async function queryDashboardEvents(params: {
       event_date: ev.event_date,
       status: (ev.status ?? 'approved') as DashboardEventRow['status'],
       visibility: ev.visibility ?? 'public',
+      kind: (ev.kind ?? 'public') as DashboardEventRow['kind'],
+      has_invitation_page: pageEventIds.has(ev.id),
       ticket_count: tickets.count,
       revenue: tickets.revenue,
       created_at: ev.created_at,
@@ -230,10 +243,12 @@ export async function queryDashboardEvents(params: {
   });
 
   if (status === 'published') rows = rows.filter((r) => r.status === 'approved');
-  else if (status === 'draft') rows = rows.filter((r) => r.status === 'pending');
+  else if (status === 'draft') rows = rows.filter((r) => r.status === 'pending' || r.status === 'draft');
   else if (status !== 'all') rows = rows.filter((r) => r.status === status);
 
   if (visibility !== 'all') rows = rows.filter((r) => r.visibility === visibility);
+
+  if (kind !== 'all') rows = rows.filter((r) => r.kind === kind);
 
   if (search) {
     rows = rows.filter((r) => matchesSearch(search, r.title, r.slug ?? ''));
@@ -242,7 +257,7 @@ export async function queryDashboardEvents(params: {
   const stats: DashboardEventStats = {
     total: rows.length,
     published: rows.filter((r) => r.status === 'approved').length,
-    draft: rows.filter((r) => r.status === 'pending').length,
+    draft: rows.filter((r) => r.status === 'pending' || r.status === 'draft').length,
     tickets_sold: rows.reduce((s, r) => s + r.ticket_count, 0),
     revenue: rows.reduce((s, r) => s + r.revenue, 0),
   };
@@ -282,7 +297,7 @@ export async function getDashboardEventDetail(
 ): Promise<DashboardEventDetail | null> {
   const { data: ev } = await supabaseAdmin
     .from('events')
-    .select('id, title, slug, event_date, status, visibility, created_at, category, city, description, organizer_id, user_id, organizers(name)')
+    .select('id, title, slug, event_date, status, visibility, kind, created_at, category, city, description, organizer_id, user_id, organizers(name)')
     .eq('id', eventId)
     .maybeSingle();
 
@@ -307,6 +322,11 @@ export async function getDashboardEventDetail(
   const ticketMap = await getEventTicketMap([ev.id]);
   const tickets = ticketMap[ev.id] ?? { count: 0, revenue: 0 };
   const org = Array.isArray(ev.organizers) ? ev.organizers[0] : ev.organizers;
+  const { data: pageRow } = await supabaseAdmin
+    .from('event_invitation_pages')
+    .select('event_id')
+    .eq('event_id', ev.id)
+    .maybeSingle();
 
   return {
     id: ev.id,
@@ -315,6 +335,8 @@ export async function getDashboardEventDetail(
     event_date: ev.event_date,
     status: (ev.status ?? 'approved') as DashboardEventRow['status'],
     visibility: ev.visibility ?? 'public',
+    kind: ((ev as { kind?: string | null }).kind ?? 'public') as DashboardEventRow['kind'],
+    has_invitation_page: !!pageRow,
     ticket_count: tickets.count,
     revenue: tickets.revenue,
     created_at: ev.created_at,

@@ -69,10 +69,11 @@ export async function resolveTicketCheckoutPricing(
     return fail(400, "Invalid checkout details.");
   }
 
-  // 1. Event must exist and be on sale.
+  // 1. Event must exist and be on sale. Invitation-kind events never sell
+  // tickets (their guests arrive via personal invitation links instead).
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("id, title, slug, status, deleted_at")
+    .select("id, title, slug, status, kind, deleted_at")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -80,7 +81,8 @@ export async function resolveTicketCheckoutPricing(
     eventError ||
     !event ||
     (event as { deleted_at?: unknown }).deleted_at ||
-    event.status !== "approved"
+    event.status !== "approved" ||
+    (event as { kind?: string | null }).kind === "invitation"
   ) {
     return fail(404, "This event is not available for ticket sales.");
   }

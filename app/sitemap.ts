@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { getSiteUrl } from "@/lib/site-url";
+import { applyPublicListableFilter } from "@/lib/invitation-events";
 
 const BASE_URL = getSiteUrl();
 
@@ -36,11 +37,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/products`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
   ];
 
-  // ── Dynamic: public events ───────────────────────────────────────
-  const { data: events } = await supabase
-    .from("events")
-    .select("slug, created_at")
-    .eq("visibility", "public")
+  // ── Dynamic: public events (invitation-kind excluded via the shared filter) ──
+  const { data: events } = await applyPublicListableFilter(
+    supabase.from("events").select("slug, created_at")
+  )
     .order("created_at", { ascending: false })
     .limit(5000);
 

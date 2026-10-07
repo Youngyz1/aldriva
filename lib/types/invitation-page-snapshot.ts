@@ -171,6 +171,7 @@ export interface EventLiveFields {
   id: string;
   title: string;
   slug?: string | null;
+  kind?: string | null;
   event_date: string;
   end_date?: string | null;
   venue?: string | null;
