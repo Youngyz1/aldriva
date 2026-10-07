@@ -5,6 +5,9 @@
 
 ---
 
+## [2026-10] — Migration 155: event kind (public/invitation) (2026-10-07)
+- Migration `db/migration_155_event_kind.sql` (+ rollback twin, supabase mirror `20261007000001_…`, **NOT applied to any database — review before applying**): `events.kind TEXT NOT NULL DEFAULT 'public'` with `events_kind_check` (`public`/`invitation`); `events_status_check` relaxed to also allow `draft` (existing pending/approved/rejected rows stay valid; no NOT NULL relaxed); `events_invitation_private_check` (`kind='invitation'` forces `visibility='private'`); `idx_events_kind`. Existing rows take `kind='public'` from the default — no data conversion, no silent reclassification. Share-link columns deferred to migration 156. Rollback aborts loudly if any `kind='invitation'` or `status='draft'` rows remain, then reverses in reverse order. Static pins in `lib/__tests__/migration-155-event-kind.test.cjs`; numbering tracker (`stage17-pass-one`) bumped 154 → 155. Note: `db/migration_154_*` has no supabase mirror yet (flagged, untouched).
+
 ## [2026-10] — Stage 22B: AI gateway admin-only (2026-10-05)
 - `POST/GET /api/ai/gateway`: replaced the any-signed-in-user gate with the admin check (`401` unauthenticated, `403` non-admin per `app/api/admin/*` convention, first statement before parsing/rate-limit/data); allowlist, tenant fail-closed, approval/guard audit unchanged.
 
