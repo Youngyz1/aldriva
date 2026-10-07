@@ -1,6 +1,6 @@
 "use client";
 
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import { MAX_PREVIEW_IMAGES } from "@/lib/products-constants";
 import {
   DIGITAL_LICENSES,
@@ -183,10 +183,7 @@ export default function DigitalProductFields({
             </button>
           </div>
         ) : null}
-        <ImageUploadWithCrop
-          aspectRatio={1}
-          fitMode="fit"
-          previewClassName="hidden"
+        <ImageUploader
           label={value.cover_image_url ? "Replace Cover" : "+ Add Cover"}
           bucket="fundraiser-media"
           folder="product-covers"
@@ -224,10 +221,7 @@ export default function DigitalProductFields({
             ))}
           </div>
         )}
-        <ImageUploadWithCrop
-          aspectRatio={16 / 10}
-          fitMode="fit"
-          previewClassName="hidden"
+        <ImageUploader
           label={atPreviewLimit ? `Maximum ${MAX_PREVIEW_IMAGES} previews reached` : "+ Add Preview"}
           disabled={atPreviewLimit}
           bucket="fundraiser-media"

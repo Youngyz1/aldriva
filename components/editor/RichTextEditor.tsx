@@ -13,7 +13,7 @@ import {
   videoMimeToExtension,
   VIDEO_MAGIC_HEAD_BYTES,
 } from "@/lib/video-validation";
-import ImageUploadWithCrop, { type ImageUploadWithCropHandle } from "@/components/ImageUploadWithCrop";
+import { ImageUploader, type ImageUploaderHandle } from "@/components/shared/ImageUploader";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Bold as BoldIcon,
@@ -192,7 +192,7 @@ export default function RichTextEditor({
   const [uploading, setUploading] = useState(false);
   const [modalType, setModalType] = useState<"image" | "video" | "link" | null>(null);
   const [modalInput, setModalInput] = useState("");
-  const imageCropRef = useRef<ImageUploadWithCropHandle>(null);
+  const imageCropRef = useRef<ImageUploaderHandle>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -380,10 +380,9 @@ export default function RichTextEditor({
   return (
     <div className="w-full rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
       {/* Hidden file inputs for uploads */}
-      <ImageUploadWithCrop
+      <ImageUploader
         ref={imageCropRef}
         hideTrigger
-        fitMode="fit"
         bucket="fundraiser-media"
         folder="editor-images"
         onUploaded={(url) => editor.chain().focus().setImage({ src: url }).run()}

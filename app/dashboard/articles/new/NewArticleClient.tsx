@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Sparkles, Layers, Wand2 } from "lucide-react";
 import RichTextEditor from "@/components/editor/RichTextEditor";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import ArticleTemplateSelector from "@/components/articles/ArticleTemplateSelector";
 import ArticleAiAssistantModal from "@/components/articles/ArticleAiAssistantModal";
 import ArticleEntityPickerModal, { type AldrivaEntityResult } from "@/components/articles/ArticleEntityPickerModal";
 import { type ArticleTemplate } from "@/lib/article-templates";
 import { createArticle } from "@/lib/actions/articles";
-
-const ARTICLE_COVER_ASPECT = 16 / 9;
 
 type OrganizerSelect = {
   id: string;
@@ -507,11 +505,8 @@ export default function NewArticleClient({
               Cover Image
             </h3>
 
-            <ImageUploadWithCrop
+            <ImageUploader
               value={form.cover_image_url}
-              aspectRatio={ARTICLE_COVER_ASPECT}
-              fitMode="fit"
-              previewClassName="h-32 w-full rounded-xl"
               label="Upload cover image"
               bucket="fundraiser-media"
               folder="article-covers"

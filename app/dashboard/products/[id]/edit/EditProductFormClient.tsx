@@ -10,7 +10,7 @@ import DigitalProductFields, {
   type DigitalFormState,
 } from "@/components/products/DigitalProductFields";
 import AssetManager from "@/components/products/AssetManager";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 
 type Product = {
   id: string;
@@ -200,10 +200,7 @@ export default function EditProductFormClient({
                 </div>
               )}
 
-              <ImageUploadWithCrop
-                aspectRatio={1}
-                fitMode="fit"
-                previewClassName="hidden"
+              <ImageUploader
                 label={atImageLimit ? `Maximum ${MAX_IMAGES} images reached` : "+ Add Image"}
                 disabled={atImageLimit}
                 bucket="fundraiser-media"

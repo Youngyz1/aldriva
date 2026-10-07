@@ -10,7 +10,7 @@ import DigitalProductFields, {
   EMPTY_DIGITAL_STATE,
   type DigitalFormState,
 } from "@/components/products/DigitalProductFields";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 
 export default function NewProductFormClient({
   ownedBusinesses,
@@ -167,10 +167,7 @@ export default function NewProductFormClient({
                 </div>
               )}
 
-              <ImageUploadWithCrop
-                aspectRatio={1}
-                fitMode="fit"
-                previewClassName="hidden"
+              <ImageUploader
                 label={atImageLimit ? `Maximum ${MAX_IMAGES} images reached` : "+ Add Image"}
                 disabled={atImageLimit}
                 bucket="fundraiser-media"
