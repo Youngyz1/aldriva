@@ -5,6 +5,11 @@
 
 ---
 
+## [2026-10] — Round 3 Commit 2: preview-first invitation home (2026-10-07)
+- Event root routes by kind: invitation-kind opens `invitation-home`, public keeps the overview. Home shows the real template in the builder-preview iframe (sample guest, no writes, labelled sample QR), Draft/Published/Unpublished-changes badge, Edit/Send/Copy-link/Publish actions, no-page template-choice CTA, and Guests (RSVP counts)/Seating/Team/Operations/Check-ins/Scan links. Public overview untouched.
+- Builder starts at template choice for fresh drafts, skips to the form for existing pages (`initialSection`). Fixed Commit 1 creation entries pushing to a non-existent `/builder` suffix (real route is `invitation-page`).
+- Stale-draft cleanup as dry-run-by-default (`lib/invitation-cleanup.ts`, `POST /api/cron/invitation-drafts`, live needs `?live=1` + `ENABLE_INVITATION_DRAFT_DELETE=1`); logs to stdout. vercel.json schedule held back: the sentinel suite pins the cron count (plan budget) — one-line addition pending confirmation. 12 new tests in `lib/__tests__/invitation-home.test.cjs`.
+
 ## [2026-10] — Round 3 Commit 1: invitation events as first-class events (2026-10-07)
 - Creation without a prior event: `createInvitationDraft` server action (kind=invitation, private, draft, placeholder title, key-derived slug; UNIQUE slug turns double submits into fetch-existing) with `CreateInvitationButton` next to every dashboard Create-event surface (events list header + empty state, `/dashboard/events/new` third card, both org overviews, both org events pages). Public ticket-first flow untouched.
 - Builder Basics collects event title/date/venue/city for invitation-kind events (`updateInvitationEventFields`); `validateForPublish` rejects the placeholder title so it can never ship in a snapshot.

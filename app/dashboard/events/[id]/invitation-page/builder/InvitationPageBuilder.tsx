@@ -172,6 +172,12 @@ function SectionBody({ id, eventId, draft, event, invitationType, updateDraft }:
 interface Props {
   eventId: string;
   initialData: InvitationPageDraftData;
+  /**
+   * Override the initial open section. The dashboard passes "basics" when
+   * a page row already exists (an existing page never re-asks for a
+   * template); fresh drafts start at "type" (template choice, then form).
+   */
+  initialSection?: SectionId;
 }
 
 function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
@@ -201,10 +207,10 @@ function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
   }
 }
 
-export function InvitationPageBuilder({ eventId, initialData }: Props) {
+export function InvitationPageBuilder({ eventId, initialData, initialSection = "type" }: Props) {
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
-  const [openSection, setOpenSection] = useState<SectionId>("type");
+  const [openSection, setOpenSection] = useState<SectionId>(initialSection);
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [previewViewport, setPreviewViewport] = useState<PreviewViewport>(390);
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");

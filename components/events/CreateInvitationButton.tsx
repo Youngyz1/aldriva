@@ -41,7 +41,7 @@ export function CreateInvitationButton({
       }
       // Key is single-use per intent: a fresh draft starts a fresh key.
       clearInvitationDraftKey();
-      router.push(`/dashboard/events/${result.eventId}/invitation-page/builder`);
+      router.push(`/dashboard/events/${result.eventId}/invitation-page`);
     } catch {
       setError("Could not create the invitation.");
     } finally {
