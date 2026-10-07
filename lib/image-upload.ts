@@ -24,6 +24,30 @@ export interface ImageDimensions {
 }
 
 /**
+ * Minimum-size guard for flows with a display-size floor (e.g. organizer
+ * banners need at least 1200x300px so they don't blur once displayed).
+ * Returns an error message when the source is too small, else null.
+ * Unreadable dimensions fail open (null) rather than blocking upload.
+ */
+export function checkMinDimensions(
+  width: number,
+  height: number,
+  minWidth?: number,
+  minHeight?: number
+): string | null {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+  if ((minWidth && width < minWidth) || (minHeight && height < minHeight)) {
+    return (
+      `This image is too small (${Math.round(width)}x${Math.round(height)}px). ` +
+      `Use at least ${minWidth ?? 0}x${minHeight ?? 0}px so it doesn't blur once cropped and displayed.`
+    );
+  }
+  return null;
+}
+
+/**
  * Computes the output dimensions: the long edge is scaled to `maxLongEdge`
  * keeping the aspect ratio. Images already at or below the ceiling are
  * returned unchanged — never upscaled.

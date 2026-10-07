@@ -10,9 +10,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
-
-const ORGANIZER_BANNER_ASPECT = MIN_BANNER_WIDTH / MIN_BANNER_HEIGHT; // 4:1
+import { ImageUploader } from "@/components/shared/ImageUploader";
 
 type FormState = {
   name:     string;
@@ -258,11 +256,8 @@ export default function CreateOrganizerPage() {
           {/* BANNER */}
           <div>
             <label className="mb-3 block font-semibold text-sm text-zinc-700">Banner Image (Min 1200x300px)</label>
-            <ImageUploadWithCrop
+            <ImageUploader
               value={bannerPreview}
-              aspectRatio={ORGANIZER_BANNER_ASPECT}
-              fitMode="fit"
-              previewClassName="h-48 w-full rounded-2xl"
               label="Upload banner"
               minWidth={MIN_BANNER_WIDTH}
               minHeight={MIN_BANNER_HEIGHT}
@@ -274,11 +269,9 @@ export default function CreateOrganizerPage() {
           {/* PHOTO */}
           <div>
             <label className="mb-3 block font-semibold text-sm text-zinc-700">Profile Logo / Photo</label>
-            <ImageUploadWithCrop
+            <ImageUploader
               value={photoPreview}
-              aspectRatio={1}
-              fitMode="fit"
-              previewClassName="h-28 w-28 rounded-2xl"
+              aspect={1}
               label="Upload Logo"
               hint="JPG, PNG, or WebP recommended"
               onCropped={handleCroppedPhoto}

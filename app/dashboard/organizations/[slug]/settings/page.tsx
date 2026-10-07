@@ -9,9 +9,7 @@ import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import {
   Globe, Mail, AlertTriangle, Check, ArrowRight, ShieldCheck, Loader2
 } from "lucide-react";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
-
-const ORGANIZER_BANNER_ASPECT = MIN_BANNER_WIDTH / MIN_BANNER_HEIGHT; // 4:1
+import { ImageUploader } from "@/components/shared/ImageUploader";
 
 type OrgForm = {
   name: string;
@@ -376,11 +374,9 @@ export default function OrgSettingsPage() {
             {/* Logo upload */}
             <div className="space-y-3">
               <span className="block text-xs font-bold text-zinc-600">Organization Logo (Square)</span>
-              <ImageUploadWithCrop
+              <ImageUploader
                 value={photoPreview || form.photo}
-                aspectRatio={1}
-                fitMode="fit"
-                previewClassName="h-20 w-20 rounded-xl"
+                aspect={1}
                 label="Choose Photo"
                 onCropped={handleCroppedPhoto}
               />
@@ -389,11 +385,8 @@ export default function OrgSettingsPage() {
             {/* Banner upload */}
             <div className="space-y-3">
               <span className="block text-xs font-bold text-zinc-600">Banner Image (Min 1200x300px)</span>
-              <ImageUploadWithCrop
+              <ImageUploader
                 value={bannerPreview || form.banner}
-                aspectRatio={ORGANIZER_BANNER_ASPECT}
-                fitMode="fit"
-                previewClassName="h-20 w-36 rounded-xl"
                 label="Choose Banner"
                 minWidth={MIN_BANNER_WIDTH}
                 minHeight={MIN_BANNER_HEIGHT}

@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";
 import {
+  checkMinDimensions,
   computeResizeTarget,
   DEFAULT_MAX_LONG_EDGE_PX,
   exifSwapsDimensions,
@@ -102,6 +103,13 @@ export interface ImageUploaderProps {
   onCropped?: (file: File, previewUrl: string) => void;
   /** Confirm button label (default "Use photo"). */
   confirmLabel?: string;
+  /**
+   * Reject the source file when its natural size is below this floor.
+   * Cropping only reframes pixels — it can't fix a genuinely low-res
+   * source, so this guards against a blurry result once displayed.
+   */
+  minWidth?: number;
+  minHeight?: number;
 }
 
 interface NormalizedImage {
@@ -109,6 +117,9 @@ interface NormalizedImage {
   url: string;
   width: number;
   height: number;
+  /** Oriented source size before the long-edge resize (for min-size guards). */
+  sourceWidth: number;
+  sourceHeight: number;
   originalBytes: number;
 }
 
@@ -160,6 +171,8 @@ async function normalizeImageFile(file: File, maxLongEdge: number): Promise<Norm
       url: URL.createObjectURL(blob),
       width: target.width,
       height: target.height,
+      sourceWidth: oriented.width,
+      sourceHeight: oriented.height,
       originalBytes: file.size,
     };
   } finally {
@@ -258,6 +271,8 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
     onRemove,
     onCropped,
     confirmLabel = "Use photo",
+    minWidth,
+    minHeight,
   }: ImageUploaderProps,
   ref: React.ForwardedRef<ImageUploaderHandle>
 ) {
@@ -326,6 +341,14 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
     setPreparing(true);
     try {
       const image = await normalizeImageFile(file, maxLongEdge);
+      const tooSmall =
+        (minWidth || minHeight) &&
+        checkMinDimensions(image.sourceWidth, image.sourceHeight, minWidth, minHeight);
+      if (tooSmall) {
+        URL.revokeObjectURL(image.url);
+        reportError(tooSmall);
+        return;
+      }
       setNormalized(image);
       setSourceName(file.name);
       setSourceType(file.type);
