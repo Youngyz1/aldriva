@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import { beneficiaryTypeLabel, isBeneficiaryType } from "@/lib/beneficiary";
 
 type Profile = {
@@ -157,13 +157,11 @@ export default function BeneficiaryProfileForm({
           Photo
         </span>
         <div className="flex items-center gap-3">
-          <ImageUploadWithCrop
+          <ImageUploader
             value={form.photo || undefined}
             bucket="fundraiser-media"
             folder="beneficiary-photos"
-            aspectRatio={1}
-            cropShape="round"
-            previewClassName="h-16 w-16 rounded-full"
+            aspect={1}
             onUploaded={(url) => update("photo", url)}
             onError={setError}
             label={form.photo ? "Change photo" : "Add photo"}

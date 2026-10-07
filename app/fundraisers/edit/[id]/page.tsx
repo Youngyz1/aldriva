@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import BeneficiarySelector, {
   EMPTY_BENEFICIARY_DRAFT,
   type BeneficiaryDraft,
@@ -15,9 +15,8 @@ import BeneficiaryInvite from "@/components/fundraisers/BeneficiaryInvite";
 import { validateBeneficiary, resolveBeneficiary } from "@/lib/beneficiary";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
 
-// Matches the detail-page hero (FundraiserMediaSlider)'s mobile ratio — the
-// single ratio every uploaded photo is cropped to.
-const FUNDRAISER_PHOTO_ASPECT_RATIO = 4 / 5;
+// Fundraiser photos keep their full originals; the detail-page hero
+// (FundraiserMediaSlider) frames them at its own mobile ratio.
 
 
 function generateSlug(title: string) {
@@ -420,11 +419,9 @@ export default function EditFundraiserPage() {
               {form.banner && (
                 <img src={form.banner} alt="Banner" className="h-20 w-32 shrink-0 rounded-xl border border-zinc-200 object-cover" />
               )}
-              <ImageUploadWithCrop
+              <ImageUploader
                 bucket="fundraiser-media"
                 folder="fundraiser-photos"
-                aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
-                fitMode="fit"
                 onUploaded={(url) => update("banner", url)}
                 onError={setError}
                 label={form.banner ? "Change banner" : "Upload banner"}
@@ -448,11 +445,9 @@ export default function EditFundraiserPage() {
                         {item.url && (
                           <img src={item.url} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-zinc-200 object-cover" />
                         )}
-                        <ImageUploadWithCrop
+                        <ImageUploader
                           bucket="fundraiser-media"
                           folder="fundraiser-photos"
-                          aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
-                          fitMode="fit"
                           onUploaded={(url) => updateGalleryItem(index, "url", url)}
                           onError={setError}
                           label={item.url ? "Change photo" : "Upload photo"}

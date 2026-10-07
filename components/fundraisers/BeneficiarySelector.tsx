@@ -1,6 +1,6 @@
 "use client";
 
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import {
   BENEFICIARY_TYPE_CONFIG,
   BENEFICIARY_TYPE_OPTIONS,
@@ -222,13 +222,11 @@ export default function BeneficiarySelector({
                 Photo
               </span>
               <div className="flex items-center gap-3">
-                <ImageUploadWithCrop
+                <ImageUploader
                   value={value.photo || undefined}
                   bucket="fundraiser-media"
                   folder="beneficiary-photos"
-                  aspectRatio={1}
-                  cropShape="round"
-                  previewClassName="h-16 w-16 rounded-full"
+                  aspect={1}
                   onUploaded={(url) => update("photo", url)}
                   onError={onError}
                   label={value.photo ? "Change photo" : "Add photo"}

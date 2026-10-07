@@ -19,7 +19,7 @@ import {
 } from "@/lib/video-validation";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import BeneficiarySelector, {
   EMPTY_BENEFICIARY_DRAFT,
   type BeneficiaryDraft,
@@ -27,9 +27,8 @@ import BeneficiarySelector, {
 import { validateBeneficiary, beneficiaryTypeLabel } from "@/lib/beneficiary";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
 
-// Matches the detail-page hero (FundraiserMediaSlider)'s mobile ratio — the
-// single ratio every uploaded photo is cropped to.
-const FUNDRAISER_PHOTO_ASPECT_RATIO = 4 / 5;
+// Fundraiser photos keep their full originals; the detail-page hero
+// (FundraiserMediaSlider) frames them at its own mobile ratio.
 const MAX_FUNDRAISER_PHOTOS = 8;
 
 const FUNDRAISER_STEPS = [
@@ -369,8 +368,8 @@ export default function CreateFundraiserPage() {
       return;
     }
 
-    // Photos are already cropped and uploaded (each ImageUploadWithCrop
-    // instance uploads immediately on confirm), so this is just recording them.
+    // Photos are already uploaded (each ImageUploader instance uploads
+    // immediately on confirm), so this is just recording them.
     const uploadedMedia = photoUrls.map((url, position) => ({ url, position }));
 
     if (uploadedMedia.length > 0) {
@@ -583,11 +582,9 @@ export default function CreateFundraiserPage() {
             <CreatorPanel title="Fundraiser Photos">
               <div className="grid gap-5">
                 <CreatorField label={`Add photos (${photoUrls.length}/${MAX_FUNDRAISER_PHOTOS})`} hint="The first image becomes the fundraiser cover.">
-                  <ImageUploadWithCrop
+                  <ImageUploader
                     bucket="fundraiser-media"
                     folder="fundraiser-photos"
-                    aspectRatio={FUNDRAISER_PHOTO_ASPECT_RATIO}
-                    fitMode="fit"
                     onUploaded={addPhoto}
                     onError={setError}
                     disabled={photoUrls.length >= MAX_FUNDRAISER_PHOTOS}
