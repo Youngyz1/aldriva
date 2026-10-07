@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { SettingsCard } from "@/components/ui/settings-card";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import { type AccountInfo, type AddressInfo, defaultAddress } from "@/types/settings";
 
 const fieldClass =
@@ -168,11 +168,9 @@ export default function ProfileClient({
         title="Profile Photo"
         description="This photo will be displayed on your profile and public posts."
       >
-        <ImageUploadWithCrop
+        <ImageUploader
           value={profilePhoto}
-          aspectRatio={1}
-          cropShape="round"
-          previewClassName="h-28 w-28 rounded-full"
+          aspect={1}
           label="Choose File"
           hint="Allowed formats: JPG, PNG, WebP. Max file size: 5MB."
           onCropped={handleCroppedPhoto}

@@ -153,7 +153,6 @@ export function GalleryInspector({
                 value={item.src}
                 tenantId={tenantId}
                 folderSubpath="gallery"
-                aspectRatio={4 / 3}
                 onChange={(url) => handleUpdateImage(index, { src: url })}
               />
 

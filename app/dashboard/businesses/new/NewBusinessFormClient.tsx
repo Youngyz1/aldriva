@@ -236,7 +236,6 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
                 value={form.logo}
                 tenantId={tenantId}
                 folderSubpath="business-logos"
-                aspectRatio={1}
                 cropShape="round"
                 onChange={(url) => setForm((prev) => ({ ...prev, logo: url }))}
               />

@@ -121,7 +121,6 @@ export function AboutInspector({
           tenantId={tenantId}
           folderSubpath="team"
           cropShape="round"
-          aspectRatio={1}
           onChange={(url) => update({ founderImage: url })}
         />
 

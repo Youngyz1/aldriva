@@ -242,7 +242,6 @@ export default function EditBusinessFormClient({
                 value={form.logo}
                 tenantId={tenantId}
                 folderSubpath="business-logos"
-                aspectRatio={1}
                 cropShape="round"
                 onChange={(url) => setForm((prev) => ({ ...prev, logo: url }))}
               />

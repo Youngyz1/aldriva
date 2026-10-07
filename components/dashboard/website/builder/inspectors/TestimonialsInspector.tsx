@@ -210,7 +210,6 @@ export function TestimonialsInspector({
                 tenantId={tenantId}
                 folderSubpath="avatars"
                 cropShape="round"
-                aspectRatio={1}
                 onChange={(url) => handleUpdateItem(index, { avatar: url })}
               />
             </div>

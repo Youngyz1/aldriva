@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import ImageUploadWithCrop from "@/components/ImageUploadWithCrop";
+import { ImageUploader } from "@/components/shared/ImageUploader";
 import { InspectorField } from "./InspectorField";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
 import { sanitizeUrl } from "@/lib/sanitize-html";
@@ -14,7 +14,11 @@ interface MediaUploadFieldProps {
   value?: string | null;
   tenantId: string;
   folderSubpath?: string;
-  aspectRatio?: number;
+  /**
+   * "round" marks avatar-style images and keeps a fixed square frame;
+   * anything else keeps the full original (free). The old numeric
+   * aspectRatio prop is gone — blocks frame content at their own ratios.
+   */
   cropShape?: "rect" | "round";
   onChange: (url: string) => void;
   requiredForPublish?: boolean;
@@ -26,7 +30,6 @@ export function MediaUploadField({
   value,
   tenantId,
   folderSubpath = "blocks",
-  aspectRatio,
   cropShape = "rect",
   onChange,
   requiredForPublish,
@@ -124,20 +127,18 @@ export function MediaUploadField({
           )}
         </div>
 
-        {/* Upload Mode with ImageUploadWithCrop */}
+        {/* Upload mode with the shared uploader */}
         {mode === "upload" ? (
           <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-col items-center justify-center">
-            <ImageUploadWithCrop
+            <ImageUploader
               bucket="cms-media"
               folder={uploadFolder}
               value={value}
-              aspectRatio={aspectRatio}
-              cropShape={cropShape}
+              aspect={cropShape === "round" ? 1 : "free"}
               onUploaded={(uploadedUrl) => {
                 setManualUrl(uploadedUrl);
                 onChange(uploadedUrl);
               }}
-              previewClassName="w-full h-36 rounded-lg object-cover"
             />
           </div>
         ) : mode === "myMedia" ? (

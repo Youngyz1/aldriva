@@ -144,7 +144,6 @@ export function HeroInspector({
           value={block.backgroundImage}
           tenantId={tenantId}
           folderSubpath="heroes"
-          aspectRatio={16 / 9}
           onChange={(url) => update({ backgroundImage: url })}
         />
 
