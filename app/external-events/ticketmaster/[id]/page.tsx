@@ -214,10 +214,10 @@ export default async function TicketmasterEventPage({
               <p className="mt-8 text-sm text-zinc-500">
                 Organizing this event?{" "}
                 <Link
-                  href={`/import?mode=events&url=${encodeURIComponent(ticketUrl || "")}`}
+                  href="/create-event"
                   className="font-bold text-orange-600 underline decoration-dotted underline-offset-2 hover:text-orange-700"
                 >
-                  Create or claim it on Aldriva
+                  Create it on Aldriva
                 </Link>{" "}
                 to sell tickets directly.
               </p>
