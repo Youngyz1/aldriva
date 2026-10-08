@@ -226,6 +226,18 @@
   - A CI script scans `.next/static` at run time for values from server secret environment variables and common credential-shaped patterns. It reports filenames only and never prints matched values.
   - `proxy.ts` is marked and builds successfully. Its service-role reads remain in place for pre-stream checks of restricted or unpublished article, business, product, and website records; changing that access model is a separate design decision.
 
+### DEC-0027: Driver-aware public and private R2 media
+- **Decision Date**: 2026-10-08
+- **Status**: Implementation approved; migrations and live storage verification pending.
+- **Key Tenets**:
+  - Public image upload purposes have independent owner checks, MIME allowlists, size caps, and key prefixes. CMS remains active-admin-only. The public R2 path is production-only; non-production uploads use Supabase when the selected driver is `supabase`.
+  - R2 temporary uploads use the private `R2_TMP_BUCKET`, are bound to the authenticated uploader at finalize time, and are subject to a one-day lifecycle rule. Finalized public images are processed before storage. A database-backed quota caps an account at 40 reservations and 200 MiB per UTC day; upload-url/finalize request limits are 20 per user and 60 per IP per 10 minutes.
+  - Replacing an image does not delete the previous object. It remains available for existing references and requires a later reference-aware orphan cleanup process.
+  - Private media uses the generic `R2_PRIVATE_BUCKET` helper for direct signed PUT, HEAD verification, short-lived signed GET, and deletion. Private files are not decoded or converted. Product asset provider is stored per row so legacy Supabase files and new R2 files can coexist.
+  - Image display accepts same-origin paths, configured `MEDIA_BASE_URL` media, and Supabase Storage hosts only. The Next image configuration is derived from the media URL configuration and checks it for consistency.
+  - Migration 159 adds the product asset provider; migration 160 adds public-media targets and quota accounting and was already applied on staging. Migration 161 adds configurable quota parameters while retaining the 160 overload during rollout. Migrations 159 and 161 remain pending and have canonical `db/` SQL, rollback pairs, and timestamped forward mirrors under `supabase/migrations/`.
+  - Video and invitation-audio storage remain unchanged. Moving them requires separate size limits, resumable/multipart upload design, and updates to their existing upload/playback call sites.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

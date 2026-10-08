@@ -3,6 +3,11 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — R2 media amendment: user uploads, private products, and host allowlist (2026-10-08)
+- Opened the public R2 pipeline to authenticated users through purpose-specific policies, scoped ownership checks, env-configurable per-user/IP rate limits, and an atomic daily quota (defaults: 40 uploads / 200 MiB per UTC day). Quotas apply only to R2-driver uploads. CMS remains admin-only; non-production deployments use Supabase and refuse public R2 operations.
+- Routed homepage CMS and event banners through the image driver. Added generic private-media PUT/HEAD/signed-GET/delete helpers for paid product assets; migration 159 defaults existing rows to Supabase and new production assets to R2. Migration 160 adds event target metadata and quota accounting and had already been applied on staging. Migration 161 adds configurable quota parameters; it and migration 159 remain pending. No database or R2 access occurred during this work.
+- Restricted image rendering to same-origin paths, Supabase hosts, and the configured media hostname. Added R2 bucket/CORS/lifecycle setup notes and left video/audio paths unchanged. No real database or R2 bucket was accessed.
+
 ## [2026-10] — Server-only boundaries for secret-reading modules (2026-10-08)
 - Split privileged seating mutations, overview data, site URL generation, and invitation URL generation from browser-shared modules, then added `server-only` boundaries to secret readers and server-only helpers. `proxy.ts` compiles with the marker; standalone scripts and test fixtures remain unmarked.
 - Added a test alias for `server-only` and `npm run check:client-secrets`, which checks live environment secret values and credential patterns in `.next/static` without printing values. TypeScript and production build passed; 1,456/1,456 registered tests passed; scan found no secret matches.
