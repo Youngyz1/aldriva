@@ -20,6 +20,8 @@ import {
   VIDEO_MAGIC_HEAD_BYTES,
 } from "@/lib/video-validation";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
+import { uploadPublicMedia } from "@/lib/media/upload-public-media";
+import { MAX_PUBLIC_MEDIA_BYTES, PUBLIC_MEDIA_TYPES } from "@/lib/media/constants";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -356,7 +358,16 @@ export default function CreateEventForm() {
     if (bannerFile) {
       setUploadProgress("Uploading banner...");
       try {
-        const bannerUrl = await uploadImage(bannerFile, "event-banners", createdEvent.id);
+        const bannerUrl = await uploadImage(bannerFile, null, createdEvent.id, {
+          maxOriginalBytes: MAX_PUBLIC_MEDIA_BYTES,
+          allowedTypes: PUBLIC_MEDIA_TYPES,
+          upload: (file, onProgress) => uploadPublicMedia(
+            file,
+            "event-banner",
+            { targetId: createdEvent.id },
+            onProgress
+          ),
+        });
         const { error: bannerError } = await supabase
           .from("events")
           .update({ banner: bannerUrl })

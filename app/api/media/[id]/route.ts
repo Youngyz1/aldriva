@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getCurrentUserProfile } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { canUseR2Uploads } from "@/lib/media/driver-policy";
 import { authorizeMediaTarget, isMediaPurpose, isUuid } from "@/lib/media/public-media";
 import { deleteObject } from "@/lib/storage/r2";
 
@@ -26,7 +27,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const admin = createSupabaseAdmin();
     const { data: media, error: queryError } = await admin
       .from("media")
-      .select("id, tenant_id, owner_user_id, object_key, purpose")
+      .select("id, tenant_id, owner_user_id, object_key, purpose, target_id")
       .eq("id", id)
       .maybeSingle();
     if (queryError) throw queryError;
@@ -36,9 +37,17 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     if (
       (media.purpose === "avatar" && media.owner_user_id !== user.id) ||
-      !(await authorizeMediaTarget(user.id, media.purpose, media.tenant_id, "delete"))
+      !(await authorizeMediaTarget(user.id, media.purpose, media.tenant_id, "delete", media.target_id))
     ) {
       return NextResponse.json({ error: "You do not have permission to delete this image." }, { status: 403 });
+    }
+
+    if (!canUseR2Uploads({
+      driver: process.env.IMAGE_STORAGE_DRIVER,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    })) {
+      return NextResponse.json({ error: "R2 operations are unavailable for this deployment." }, { status: 409 });
     }
 
     const finalBucket = process.env.R2_BUCKET;

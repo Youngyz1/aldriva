@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const MAX_OBJECT_BYTES = 10 * 1024 * 1024;
@@ -53,6 +53,21 @@ export async function getUploadUrl(bucket: string, key: string, contentType: str
     expiresIn: 300,
     signableHeaders: new Set(["content-type", "content-length"]),
   });
+}
+
+/** Presigned private download URL. Callers should use a short expiry. */
+export async function getSignedGetUrl(bucket: string, key: string, expiresIn = 120): Promise<string> {
+  return getSignedUrl(getClient(), new GetObjectCommand({ Bucket: bucket, Key: key }), {
+    expiresIn: Math.min(Math.max(Math.floor(expiresIn), 1), 300),
+  });
+}
+
+export async function headObject(bucket: string, key: string): Promise<{ contentLength: number | null; contentType: string | null }> {
+  const response = await getClient().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  return {
+    contentLength: typeof response.ContentLength === "number" ? response.ContentLength : null,
+    contentType: response.ContentType ?? null,
+  };
 }
 
 export async function getObject(bucket: string, key: string, maxBytes = MAX_OBJECT_BYTES): Promise<{ body: Buffer; contentLength: number; contentType: string | null }> {

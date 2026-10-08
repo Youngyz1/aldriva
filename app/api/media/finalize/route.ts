@@ -2,13 +2,15 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getCurrentUser, getCurrentUserProfile } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { enforceRateLimit } from "@/lib/rate-limit";
+import { canUseR2Uploads } from "@/lib/media/driver-policy";
+import { enforcePublicMediaRateLimits } from "@/lib/media/upload-limits";
 import { deleteObject, getObject, getPublicUrl, putObject, R2ObjectTooLargeError } from "@/lib/storage/r2";
 import { processPublicImage } from "@/lib/media/process-public-image";
 import {
   authorizeMediaTarget,
-  isMediaPurpose,
-  MAX_PUBLIC_MEDIA_BYTES,
+  getFinalMediaKey,
+  isUploadMediaPurpose,
+  MEDIA_PURPOSE_POLICIES,
   parseTemporaryMediaKey,
 } from "@/lib/media/public-media";
 
@@ -29,7 +31,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "An active account is required." }, { status: 403 });
     }
 
-    const limited = await enforceRateLimit("mediaUpload", request, user.id);
+    if (!canUseR2Uploads({
+      driver: process.env.IMAGE_STORAGE_DRIVER,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    })) {
+      return NextResponse.json({ error: "R2 uploads are unavailable for this deployment." }, { status: 409 });
+    }
+
+    const limited = await enforcePublicMediaRateLimits(request, user.id);
     if (limited) return limited;
 
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -38,24 +48,25 @@ export async function POST(request: Request) {
     tempKey = parsedKey.key;
     tempBucket = process.env.R2_TMP_BUCKET ?? null;
 
-    if (!isMediaPurpose(body?.purpose)) {
+    if (!isUploadMediaPurpose(body?.purpose)) {
       return NextResponse.json({ error: "Unsupported media purpose." }, { status: 400 });
     }
     if (body.purpose !== parsedKey.purpose) {
       return NextResponse.json({ error: "The temporary upload does not match this purpose." }, { status: 400 });
     }
     const purpose = parsedKey.purpose;
+    const policy = MEDIA_PURPOSE_POLICIES[purpose];
 
-    if (!(await authorizeMediaTarget(user.id, purpose, parsedKey.tenantId, "upload"))) {
+    if (!(await authorizeMediaTarget(user.id, purpose, parsedKey.tenantId, "upload", parsedKey.targetId))) {
       return NextResponse.json({ error: "You do not have permission to upload this image." }, { status: 403 });
     }
 
     const finalBucket = process.env.R2_BUCKET;
     if (!tempBucket || !finalBucket || tempBucket === finalBucket) throw new Error("R2 storage is not configured.");
 
-    const uploaded = await getObject(tempBucket, tempKey, MAX_PUBLIC_MEDIA_BYTES);
-    if (uploaded.contentLength < 1 || uploaded.contentLength > MAX_PUBLIC_MEDIA_BYTES) {
-      return NextResponse.json({ error: "Images must be 10 MB or smaller." }, { status: 400 });
+    const uploaded = await getObject(tempBucket, tempKey, policy.maxBytes);
+    if (uploaded.contentLength < 1 || uploaded.contentLength > policy.maxBytes) {
+      return NextResponse.json({ error: `Images must be ${Math.floor(policy.maxBytes / 1024 / 1024)} MB or smaller.` }, { status: 400 });
     }
 
     let processed: Awaited<ReturnType<typeof processPublicImage>>;
@@ -64,9 +75,25 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: "The uploaded file is not a valid image." }, { status: 400 });
     }
-    const ownerUserId = parsedKey.tenantId ? null : user.id;
-    const objectOwnerId = parsedKey.tenantId ?? user.id;
-    finalKey = objectOwnerId + "/" + purpose + "/" + randomUUID() + ".webp";
+    if (!(policy.allowedTypes as readonly string[]).includes(processed.inputType)) {
+      return NextResponse.json({ error: "This image format is not allowed for this purpose." }, { status: 400 });
+    }
+
+    let recordTenantId = parsedKey.tenantId;
+    let ownerUserId = parsedKey.tenantId ? null : user.id;
+    if (parsedKey.targetId) {
+      const admin = createSupabaseAdmin();
+      const { data: event } = await admin
+        .from("events")
+        .select("id, organizer_id, user_id")
+        .eq("id", parsedKey.targetId)
+        .maybeSingle();
+      if (!event) return NextResponse.json({ error: "The upload target no longer exists." }, { status: 404 });
+      recordTenantId = event.organizer_id ?? null;
+      ownerUserId = recordTenantId ? null : user.id;
+    }
+
+    finalKey = getFinalMediaKey(user.id, purpose, recordTenantId, parsedKey.targetId, randomUUID());
 
     await putObject(
       finalBucket,
@@ -82,16 +109,17 @@ export async function POST(request: Request) {
     const { data, error } = await admin
       .from("media")
       .insert({
-        tenant_id: parsedKey.tenantId,
+        tenant_id: recordTenantId,
         owner_user_id: ownerUserId,
         uploader_user_id: user.id,
+        target_id: parsedKey.targetId,
         object_key: finalKey,
         public_url: publicUrl,
         content_type: "image/webp",
         size_bytes: processed.body.byteLength,
         width: processed.width,
         height: processed.height,
-        purpose,
+        purpose: policy.recordPurpose,
       })
       .select("id")
       .single();

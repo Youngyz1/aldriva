@@ -162,7 +162,7 @@ function CmsImageField({
     folder,
     maxOriginalBytes: MAX_PUBLIC_MEDIA_BYTES,
     allowedTypes: PUBLIC_MEDIA_TYPES,
-    upload: (file, onProgress) => uploadPublicMedia(file, "cms", onProgress),
+    upload: (file, onProgress) => uploadPublicMedia(file, "cms", {}, onProgress),
     onSuccess: (url) => {
       setUploadError(null);
       onChange(url);
@@ -427,7 +427,11 @@ export default function HomepageCmsTabs({
       body: JSON.stringify({ settings: rows }),
     });
     setSaving(false);
-    res.ok ? flash("Settings saved.") : setErr((await res.json().catch(() => ({}))).error ?? "Save failed.");
+    if (res.ok) {
+      flash("Settings saved.");
+    } else {
+      setErr((await res.json().catch(() => ({}))).error ?? "Save failed.");
+    }
   }
 
   // ── Featured events toggle ──
