@@ -78,7 +78,7 @@ export default function AssetManager({ productId }: { productId: string }) {
       const urlRes = await fetch(`/api/products/${productId}/upload-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileSizeBytes: file.size }),
+        body: JSON.stringify({ fileName: file.name, fileSizeBytes: file.size, mimeType: file.type || undefined }),
       });
       const urlData = await urlRes.json().catch(() => ({}));
       if (!urlRes.ok) throw new Error(urlData.error || "Could not prepare upload.");
@@ -86,7 +86,7 @@ export default function AssetManager({ productId }: { productId: string }) {
       // 3. PUT the bytes straight to private storage (no app server in path).
       const putRes = await fetch(urlData.signedUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: { "Content-Type": urlData.contentType || file.type || "application/octet-stream" },
         body: file,
       });
       if (!putRes.ok) throw new Error("Upload to storage failed. Please retry.");
@@ -100,7 +100,7 @@ export default function AssetManager({ productId }: { productId: string }) {
           path: urlData.path,
           fileName: file.name,
           fileSizeBytes: file.size,
-          mimeType: file.type || undefined,
+          mimeType: urlData.contentType || file.type || undefined,
         }),
       });
       const confirmData = await confirmRes.json().catch(() => ({}));

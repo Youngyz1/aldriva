@@ -4,14 +4,18 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isEmailEntitled } from "@/lib/security/entitlement";
 import { proveProductOrderViaStripeSession } from "@/lib/product-access";
+import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
+import { getPrivateMediaSignedGetUrl } from "@/lib/storage/private-media";
 import {
   DIGITAL_ASSET_BUCKET,
   decideDownloadAccess,
   isUuid,
+  productAssetStorageProvider,
 } from "@/lib/digital-products";
 
 /** Short-lived delivery URLs: 2 minutes, single-purpose. */
 const SIGNED_URL_TTL_SECONDS = 120;
+export const maxDuration = 60;
 
 const GENERIC_DENY = "Download not available.";
 
@@ -81,7 +85,7 @@ export async function GET(
 
     const { data: asset } = await admin
       .from("product_assets")
-      .select("id, file_path, file_name, mime_type, file_size_bytes")
+      .select("id, file_path, file_name, mime_type, file_size_bytes, storage_provider")
       .eq("id", assetId)
       .eq("product_id", productId)
       .maybeSingle();
@@ -164,17 +168,30 @@ export async function GET(
       return NextResponse.json({ error: GENERIC_DENY }, { status: 404 });
     }
 
-    const { data: signed, error: signError } = await admin.storage
-      .from(DIGITAL_ASSET_BUCKET)
-      .createSignedUrl(
+    let signedUrl: string | null = null;
+    const storageProvider = productAssetStorageProvider((asset as { storage_provider?: string }).storage_provider);
+    if (storageProvider === "r2") {
+      if (!canUsePrivateR2Media({
+        driver: process.env.IMAGE_STORAGE_DRIVER,
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV,
+      })) return NextResponse.json({ error: GENERIC_DENY }, { status: 404 });
+      signedUrl = await getPrivateMediaSignedGetUrl(
         (asset as { file_path: string }).file_path,
         SIGNED_URL_TTL_SECONDS
       );
-
-    if (signError || !signed?.signedUrl) {
-      console.error("[products/download] sign error:", signError?.message);
-      return NextResponse.json({ error: GENERIC_DENY }, { status: 404 });
+    } else if (storageProvider === "supabase") {
+      const { data: signed, error: signError } = await admin.storage
+        .from(DIGITAL_ASSET_BUCKET)
+        .createSignedUrl(
+          (asset as { file_path: string }).file_path,
+          SIGNED_URL_TTL_SECONDS
+        );
+      if (signError) console.error("[products/download] sign error:", signError.message);
+      signedUrl = signed?.signedUrl ?? null;
     }
+
+    if (storageProvider === null || !signedUrl) return NextResponse.json({ error: GENERIC_DENY }, { status: 404 });
 
     // Best-effort analytics log — never blocks delivery.
     try {
@@ -189,7 +206,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      downloadUrl: signed.signedUrl,
+      downloadUrl: signedUrl,
       expiresIn: SIGNED_URL_TTL_SECONDS,
       fileName: (asset as { file_name: string }).file_name,
       mimeType: (asset as { mime_type: string }).mime_type,

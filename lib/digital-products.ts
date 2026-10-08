@@ -12,6 +12,14 @@
 
 export const DIGITAL_ASSET_BUCKET = "product-assets";
 
+export type ProductAssetStorageProvider = "supabase" | "r2";
+
+/** Legacy rows without a column value remain on Supabase during rollout. */
+export function productAssetStorageProvider(value: unknown): ProductAssetStorageProvider | null {
+  if (value === null || value === undefined || value === "supabase") return "supabase";
+  return value === "r2" ? "r2" : null;
+}
+
 /** Matches the storage bucket cap in migration_116 (200MB, same as event-videos). */
 export const DIGITAL_ASSET_MAX_BYTES = 200 * 1024 * 1024;
 

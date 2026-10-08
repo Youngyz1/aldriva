@@ -3,11 +3,16 @@ import { randomUUID } from "crypto";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { requireProductOwner } from "@/lib/product-access";
+import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
+import { getPrivateMediaPutUrl } from "@/lib/storage/private-media";
 import {
+  ASSET_EXTENSION_MIMES,
   DIGITAL_ASSET_BUCKET,
   buildAssetPath,
   validateAssetRequest,
 } from "@/lib/digital-products";
+
+export const maxDuration = 60;
 
 /**
  * POST /api/products/[id]/upload-url
@@ -36,9 +41,10 @@ export async function POST(
     if (limited) return limited;
 
     const body = await req.json().catch(() => ({}));
-    const { fileName, fileSizeBytes } = body as {
+    const { fileName, fileSizeBytes, mimeType } = body as {
       fileName?: unknown;
       fileSizeBytes?: unknown;
+      mimeType?: unknown;
     };
 
     const check = validateAssetRequest(fileName, fileSizeBytes);
@@ -50,6 +56,31 @@ export async function POST(
     const path = buildAssetPath(productId, assetId, fileName as string);
     if (!path) {
       return NextResponse.json({ error: "Invalid file name." }, { status: 400 });
+    }
+
+    const extension = check.ext ?? "";
+    const allowedMimes = ASSET_EXTENSION_MIMES[extension] ?? [];
+    if (typeof mimeType === "string" && mimeType.length > 0 && !allowedMimes.includes(mimeType)) {
+      return NextResponse.json({ error: "File content type does not match its extension." }, { status: 400 });
+    }
+    const contentType = typeof mimeType === "string" && allowedMimes.includes(mimeType)
+      ? mimeType
+      : allowedMimes[0];
+    if (!contentType) return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+
+    const useR2 = canUsePrivateR2Media({
+      driver: process.env.IMAGE_STORAGE_DRIVER,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
+    if (useR2) {
+      const privateBucket = process.env.R2_PRIVATE_BUCKET;
+      if (!privateBucket || privateBucket === process.env.R2_BUCKET || privateBucket === process.env.R2_TMP_BUCKET) {
+        throw new Error("Private R2 storage must use a separate bucket.");
+      }
+      const r2Path = `products/${path}`;
+      const signedUrl = await getPrivateMediaPutUrl(r2Path, contentType, fileSizeBytes as number);
+      return NextResponse.json({ assetId, path: r2Path, signedUrl, contentType, provider: "r2" });
     }
 
     const admin = createSupabaseAdmin();
@@ -70,6 +101,8 @@ export async function POST(
       path,
       token: data.token,
       signedUrl: data.signedUrl,
+      contentType,
+      provider: "supabase",
     });
   } catch (err) {
     console.error("[products/upload-url] route error:", err);

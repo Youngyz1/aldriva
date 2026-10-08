@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { requireProductOwner } from "@/lib/product-access";
+import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
+import { deletePrivateMediaObject } from "@/lib/storage/private-media";
 import {
   DIGITAL_ASSET_BUCKET,
   isUuid,
+  productAssetStorageProvider,
 } from "@/lib/digital-products";
+
+export const maxDuration = 60;
 
 /** Public metadata shape — file_path is never exposed to the browser. */
 function toPublicAsset(row: {
@@ -175,7 +180,7 @@ export async function DELETE(
     const admin = createSupabaseAdmin();
     const { data: row } = await admin
       .from("product_assets")
-      .select("id, file_path")
+      .select("id, file_path, storage_provider")
       .eq("id", assetId)
       .eq("product_id", productId)
       .maybeSingle();
@@ -184,12 +189,31 @@ export async function DELETE(
       return NextResponse.json({ error: "Asset not found." }, { status: 404 });
     }
 
-    const { error: storageError } = await admin.storage
-      .from(DIGITAL_ASSET_BUCKET)
-      .remove([(row as { file_path: string }).file_path]);
-    if (storageError) {
-      console.error("[products/assets] storage remove error:", storageError.message);
-      // Continue: the row must still go so a stuck object can't block the UI.
+    const provider = productAssetStorageProvider((row as { storage_provider?: string }).storage_provider);
+    if (provider === "r2") {
+      if (!canUsePrivateR2Media({
+        driver: process.env.IMAGE_STORAGE_DRIVER,
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV,
+      })) {
+        return NextResponse.json({ error: "R2 operations are unavailable for this deployment." }, { status: 409 });
+      }
+      try {
+        await deletePrivateMediaObject((row as { file_path: string }).file_path);
+      } catch (storageError) {
+        console.error("[products/assets] R2 remove failed:", storageError instanceof Error ? storageError.name : "unknown");
+        // Continue: deleting the database row keeps the existing removal behavior.
+      }
+    } else if (provider === "supabase") {
+      const { error: storageError } = await admin.storage
+        .from(DIGITAL_ASSET_BUCKET)
+        .remove([(row as { file_path: string }).file_path]);
+      if (storageError) {
+        console.error("[products/assets] storage remove error:", storageError.message);
+        // Continue: the row must still go so a stuck object can't block the UI.
+      }
+    } else {
+      return NextResponse.json({ error: "Asset storage provider is invalid." }, { status: 500 });
     }
 
     const { error } = await admin
