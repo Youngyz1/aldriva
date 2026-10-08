@@ -604,8 +604,12 @@ function EventsClientInner() {
       <AdminConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Event"
-        description={`Delete "${deleteTarget?.title ?? "this event"}"? Events with paid, pending, or refunded ticket orders are blocked to preserve payment history.`}
+        title={deleteTarget?.kind === "invitation" ? "Delete Invitation" : "Delete Event"}
+        description={
+          deleteTarget?.kind === "invitation"
+            ? `Delete this invitation${deleteTarget?.title && deleteTarget.title !== "Untitled invitation" ? ` ("${deleteTarget.title}")` : ""}? Its page, share link, guest list and RSVP records are removed with it. Invitations never take payments, so nothing financial is affected.`
+            : `Delete "${deleteTarget?.title ?? "this event"}"? Events with paid, pending, or refunded ticket orders are blocked to preserve payment history.`
+        }
         confirmLabel="Delete"
         onConfirm={deleteEvent}
         loading={deleteTarget ? working === `delete:${deleteTarget.id}` : false}
