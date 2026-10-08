@@ -18,6 +18,22 @@
  */
 
 import DOMPurify from "isomorphic-dompurify";
+import { safeImageSrc } from "@/lib/image-url";
+
+// Article <img> URLs follow the same strict display allowlist as structured
+// image fields. Video and source URLs remain governed by their existing rules.
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+  if (node.nodeName.toLowerCase() !== "img") return;
+  if (data.attrName.toLowerCase() === "srcset") {
+    data.keepAttr = false;
+    return;
+  }
+  if (data.attrName.toLowerCase() === "src") {
+    const safe = safeImageSrc(data.attrValue);
+    if (safe) data.attrValue = safe;
+    else data.keepAttr = false;
+  }
+});
 
 // Semantic formatting emitted by the Tiptap editor (starter-kit + image,
 // link, underline extensions) plus basic tables for legacy content.
@@ -172,4 +188,3 @@ export function sanitizeUrl(url: unknown, fallback = ""): string {
 
   return fallback;
 }
-

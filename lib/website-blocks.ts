@@ -12,6 +12,7 @@
  */
 
 import { sanitizeUrl, MAX_ARTICLE_HTML_LENGTH } from "./sanitize-html";
+import { safeImageSrc } from "./image-url";
 
 // ── 1. Block Component Types ──────────────────────────────────────────────────
 
@@ -321,6 +322,28 @@ function validateUrlField(
   return sanitized;
 }
 
+function validateImageUrlField(
+  val: unknown,
+  path: string,
+  issues: ValidationIssue[]
+): string | undefined {
+  if (val === undefined || val === null || val === "") return undefined;
+  if (typeof val !== "string") {
+    issues.push({ path, message: "Image URL must be a string." });
+    return undefined;
+  }
+  if (val.length > BLOCK_LIMITS.URL_MAX_LENGTH) {
+    issues.push({ path, message: `Image URL exceeds maximum length of ${BLOCK_LIMITS.URL_MAX_LENGTH} characters.` });
+    return undefined;
+  }
+  const safe = safeImageSrc(val);
+  if (!safe) {
+    issues.push({ path, message: "Image URL host is not allowed." });
+    return undefined;
+  }
+  return safe;
+}
+
 function validateStringField(
   val: unknown,
   path: string,
@@ -430,8 +453,8 @@ function extractSectionEnvelope(raw: Record<string, unknown>): Partial<SectionEn
     if (typeof bg.color === "string" && bg.color.trim()) {
       out.color = bg.color.trim().slice(0, 50);
     }
-    if (typeof bg.image === "string" && sanitizeUrl(bg.image)) {
-      out.image = sanitizeUrl(bg.image) as string;
+    if (typeof bg.image === "string" && safeImageSrc(bg.image)) {
+      out.image = safeImageSrc(bg.image) as string;
     }
     if (typeof bg.overlay === "number" && [0, 0.25, 0.5, 0.75].includes(bg.overlay)) {
       out.overlay = bg.overlay;
@@ -559,7 +582,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         BLOCK_LIMITS.SUBHEADING_MAX_LENGTH,
         issues
       );
-      const backgroundImage = validateUrlField(
+      const backgroundImage = validateImageUrlField(
         obj.backgroundImage,
         "backgroundImage",
         issues
@@ -756,7 +779,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         BLOCK_LIMITS.LABEL_MAX_LENGTH,
         issues
       );
-      const founderImage = validateUrlField(
+      const founderImage = validateImageUrlField(
         obj.founderImage,
         "founderImage",
         issues
@@ -876,7 +899,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           return;
         }
         const im = img as Record<string, unknown>;
-        const src = validateUrlField(im.src, `images[${idx}].src`, issues);
+        const src = validateImageUrlField(im.src, `images[${idx}].src`, issues);
         const alt = validateStringField(
           im.alt,
           `images[${idx}].alt`,
@@ -975,7 +998,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           BLOCK_LIMITS.LABEL_MAX_LENGTH,
           issues
         );
-        const avatar = validateUrlField(
+        const avatar = validateImageUrlField(
           t.avatar,
           `items[${idx}].avatar`,
           issues
@@ -1548,7 +1571,7 @@ export function parseBlock(raw: unknown): Block | null {
         ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
-        backgroundImage: sanitizeUrl(obj.backgroundImage) || undefined,
+        backgroundImage: typeof obj.backgroundImage === "string" ? safeImageSrc(obj.backgroundImage) || undefined : undefined,
         backgroundColor: typeof obj.backgroundColor === "string" ? obj.backgroundColor.slice(0, 50) : undefined,
         ctaLabel: typeof obj.ctaLabel === "string" ? obj.ctaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,
         ctaHref: sanitizeUrl(obj.ctaHref) || undefined,
@@ -1588,7 +1611,7 @@ export function parseBlock(raw: unknown): Block | null {
         mission: typeof obj.mission === "string" ? obj.mission.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         founderName: typeof obj.founderName === "string" ? obj.founderName.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
         founderRole: typeof obj.founderRole === "string" ? obj.founderRole.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
-        founderImage: sanitizeUrl(obj.founderImage) || undefined,
+        founderImage: typeof obj.founderImage === "string" ? safeImageSrc(obj.founderImage) || undefined : undefined,
         highlights: Array.isArray(obj.highlights)
           ? obj.highlights.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).map((h) => ({
               ...(isValidUuid((h as Record<string, unknown>)?.id) ? { id: String((h as Record<string, unknown>).id).trim() } : {}),
@@ -1612,7 +1635,7 @@ export function parseBlock(raw: unknown): Block | null {
               .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
               .map((img) => ({
                 ...(isValidUuid((img as Record<string, unknown>)?.id) ? { id: String((img as Record<string, unknown>).id).trim() } : {}),
-                src: sanitizeUrl(img?.src) || "",
+                src: typeof img?.src === "string" ? safeImageSrc(img.src) || "" : "",
                 alt: typeof img?.alt === "string" ? img.alt.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
                 caption: typeof img?.caption === "string" ? img.caption.slice(0, 300) : undefined,
               }))
@@ -1635,7 +1658,7 @@ export function parseBlock(raw: unknown): Block | null {
                 quote: typeof t?.quote === "string" ? t.quote.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : "",
                 author: typeof t?.author === "string" ? t.author.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
                 role: typeof t?.role === "string" ? t.role.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
-                avatar: sanitizeUrl(t?.avatar) || undefined,
+                avatar: typeof t?.avatar === "string" ? safeImageSrc(t.avatar) || undefined : undefined,
                 rating: Number(t?.rating) >= 1 && Number(t?.rating) <= 5 ? Math.round(Number(t.rating)) : undefined,
               }))
               .filter((t) => Boolean(t.quote))

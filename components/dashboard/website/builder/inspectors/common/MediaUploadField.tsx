@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import { InspectorField } from "./InspectorField";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 import { Link as LinkIcon, Upload, X, Images } from "lucide-react";
 import { MyMediaPicker } from "@/components/dashboard/website/builder/media/MyMediaPicker";
 
@@ -41,8 +41,8 @@ export function MediaUploadField({
     setManualUrl(value || "");
   }, [value]);
 
-  const urlError = manualUrl && !sanitizeUrl(manualUrl)
-    ? "Invalid or disallowed URL scheme. Must be http, https, or relative URL."
+  const urlError = manualUrl && !safeImageSrc(manualUrl)
+    ? "Image URL must use this site's media host, Supabase Storage, or a relative path."
     : manualUrl.length > BLOCK_LIMITS.URL_MAX_LENGTH
       ? `URL exceeds ${BLOCK_LIMITS.URL_MAX_LENGTH} characters.`
       : undefined;
@@ -51,9 +51,9 @@ export function MediaUploadField({
 
   function handleManualUrlChange(newUrl: string) {
     setManualUrl(newUrl);
-    const sanitized = sanitizeUrl(newUrl);
+    const sanitized = safeImageSrc(newUrl);
     if (sanitized && newUrl.length <= BLOCK_LIMITS.URL_MAX_LENGTH) {
-      onChange(newUrl);
+      onChange(sanitized);
     } else if (!newUrl) {
       onChange("");
     }

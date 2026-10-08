@@ -3,7 +3,7 @@
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireTenantContext } from "@/lib/tenant-context";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 import { revalidatePath } from "next/cache";
 
 const NAME_MAX = 80;
@@ -35,7 +35,7 @@ function validateImageUrl(url: unknown): string | null {
   if (!url) return null;
   if (typeof url !== "string") return "Image URL must be string";
   if (url.length > 2048) return "Image URL too long";
-  if (!sanitizeUrl(url)) return "Invalid image URL";
+  if (!safeImageSrc(url)) return "Invalid image URL";
   return null;
 }
 function validatePosition(v: unknown): string | null {
@@ -195,7 +195,7 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
   const { data: section } = await admin.from("menu_sections").select("id, organizer_id").eq("id", sectionId).eq("organizer_id", organizerId).maybeSingle();
   if (!section) return { success: false, error: "Section not found or not owned by tenant" };
 
-  const sanitizedImage = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+  const sanitizedImage = input.image_url ? safeImageSrc(input.image_url) || null : null;
   let position = input.position;
   if (position === undefined || position === null) {
     const { data: maxRow } = await admin.from("menu_items").select("position").eq("section_id", sectionId).order("position", { ascending: false }).limit(1).maybeSingle();
@@ -250,7 +250,7 @@ export async function updateMenuItem(itemId: string, sectionId: string, organize
   if (input.image_url !== undefined) {
     const e = validateImageUrl(input.image_url);
     if (e) return { success: false, error: e };
-    updates.image_url = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+    updates.image_url = input.image_url ? safeImageSrc(input.image_url) || null : null;
   }
   if (input.dietary_tags !== undefined) {
     const e = validateTags(input.dietary_tags, DIETARY_TAGS, "dietary_tags");

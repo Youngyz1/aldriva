@@ -9,7 +9,7 @@
 
 import type { Block, SectionEnvelope, SectionSpacing, SectionBackground, SectionContainer } from "./website-blocks";
 import { isBlockVisible } from "./website-blocks";
-import { sanitizeUrl } from "./sanitize-html";
+import { safeImageSrc } from "./image-url";
 
 export const ALLOWED_SPACINGS: readonly SectionSpacing[] = ["compact", "default", "roomy"] as const;
 
@@ -87,7 +87,7 @@ export function getBackground(block: Block): SectionBackground | undefined {
   if (!bg || typeof bg !== "object") return undefined;
   const out: SectionBackground = {};
   if (typeof bg.color === "string" && bg.color.trim()) out.color = bg.color.trim().slice(0, 50);
-  if (typeof bg.image === "string" && sanitizeUrl(bg.image)) out.image = sanitizeUrl(bg.image) as string;
+  if (typeof bg.image === "string" && safeImageSrc(bg.image)) out.image = safeImageSrc(bg.image) as string;
   if (typeof bg.overlay === "number" && [0, 0.25, 0.5, 0.75].includes(bg.overlay)) out.overlay = bg.overlay;
   if (Object.keys(out).length === 0) return undefined;
   return out;

@@ -5,7 +5,7 @@ import { Image as ImageIcon, Trash2, Check, RefreshCw, Loader2 } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { listTenantMedia, deleteTenantMedia, type MyMediaItem } from "@/lib/media/my-media";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 
 interface MyMediaPickerProps {
   tenantId: string;
@@ -110,7 +110,7 @@ export function MyMediaPicker({ tenantId, onSelect, selectedUrl }: MyMediaPicker
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
           {items.map((item) => {
-            const safeUrl = sanitizeUrl(item.publicUrl);
+            const safeUrl = safeImageSrc(item.publicUrl);
             const isSelected = selectedUrl && safeUrl === selectedUrl;
             return (
               <div

@@ -4,7 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireTenantContext } from "@/lib/tenant-context";
 import { createSlug } from "@/lib/slug";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 import { revalidatePath } from "next/cache";
 
 const TITLE_MAX = 120;
@@ -48,7 +48,7 @@ function validateImageUrl(url: unknown): string | null {
   if (!url) return null;
   if (typeof url !== "string") return "Image URL must be a string";
   if (url.length > 2048) return "Image URL too long";
-  if (!sanitizeUrl(url)) return "Invalid image URL";
+  if (!safeImageSrc(url)) return "Invalid image URL";
   return null;
 }
 function validatePosition(v: unknown): string | null {
@@ -122,7 +122,7 @@ export async function createService(organizerId: string, input: { title: string;
   base = base.slice(0, SLUG_MAX - 6).replace(/-+$/, "");
   if (!base) base = "service";
 
-  const sanitizedImage = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+  const sanitizedImage = input.image_url ? safeImageSrc(input.image_url) || null : null;
 
   // default position: max+1 within organizer scope, capped at POSITION_MAX
   let position = input.position;
@@ -211,7 +211,7 @@ export async function updateService(serviceId: string, organizerId: string, inpu
   if (input.image_url !== undefined) {
     const e = validateImageUrl(input.image_url);
     if (e) return { success: false, error: e };
-    updates.image_url = input.image_url ? sanitizeUrl(input.image_url) || null : null;
+    updates.image_url = input.image_url ? safeImageSrc(input.image_url) || null : null;
   }
   if (input.position !== undefined) {
     const e = validatePosition(input.position);

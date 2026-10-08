@@ -19,13 +19,14 @@
  *
  * Security & Data Isolation:
  *  - HTML content is sanitized server-side via isomorphic-dompurify (lib/sanitize-html.ts).
- *  - URL attributes (href, src, bgImage) are sanitized via sanitizeUrl().
+ *  - Link URLs use sanitizeUrl(); image URLs use the configured media/Supabase allowlist.
  *  - Embed resolvers are executed server-side with injected tenantId and isTeamMember gating.
  */
 
 import React from "react";
 import Link from "next/link";
 import { sanitizeArticleHtml, sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 import {
   Block,
   HeroBlock,
@@ -120,7 +121,7 @@ function SectionHeading({
 // ── 1. Hero Block ────────────────────────────────────────────────────────────
 
 function HeroBlockRenderer({ block }: { block: HeroBlock }) {
-  const safeBgImage = block.backgroundImage ? sanitizeUrl(block.backgroundImage) : "";
+  const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) : "";
   const safeCtaHref = block.ctaHref ? sanitizeUrl(block.ctaHref) : "";
   const safeSecCtaHref = block.secondaryCtaHref ? sanitizeUrl(block.secondaryCtaHref) : "";
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
@@ -371,7 +372,7 @@ function FeaturesBlockRenderer({ block }: { block: FeaturesBlock }) {
 // ── 3. About Block ───────────────────────────────────────────────────────────
 
 function AboutBlockRenderer({ block }: { block: AboutBlock }) {
-  const safeFounderImage = block.founderImage ? sanitizeUrl(block.founderImage) : "";
+  const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
 
   return (
     <section className="w-full py-16">
@@ -471,7 +472,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
       {layout === "carousel" ? (
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
           {(block.images ?? []).map((img, i) => {
-            const safeImgSrc = sanitizeUrl(img.src);
+            const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
@@ -497,7 +498,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
       ) : layout === "masonry" ? (
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
           {(block.images ?? []).map((img, i) => {
-            const safeImgSrc = sanitizeUrl(img.src);
+            const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
@@ -523,7 +524,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
       ) : (
         <div className={`grid grid-cols-1 gap-4 ${colClass}`}>
           {(block.images ?? []).map((img, i) => {
-            const safeImgSrc = sanitizeUrl(img.src);
+            const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
@@ -568,7 +569,7 @@ function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
         }
       >
         {(block.items ?? []).map((t, i) => {
-          const safeAvatar = t.avatar ? sanitizeUrl(t.avatar) : "";
+          const safeAvatar = t.avatar ? safeImageSrc(t.avatar) : "";
           const rating = t.rating ? Math.min(Math.max(1, Math.round(t.rating)), 5) : 0;
 
           return (
@@ -846,7 +847,7 @@ async function EventsEmbedBlockRenderer({
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event: ResolvedEventItem) => {
-            const safeCover = event.cover_image ? sanitizeUrl(event.cover_image) : "";
+            const safeCover = event.cover_image ? safeImageSrc(event.cover_image) : "";
             return (
               <div
                 key={event.id}
@@ -942,7 +943,7 @@ async function ProductsEmbedBlockRenderer({
       ) : layout === "list" ? (
         <div className="flex flex-col gap-4">
           {products.map((product: ResolvedProductItem) => {
-            const firstImg = product.images?.[0] ? sanitizeUrl(product.images[0]) : "";
+            const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
             return (
               <div
                 key={product.id}
@@ -994,7 +995,7 @@ async function ProductsEmbedBlockRenderer({
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product: ResolvedProductItem) => {
-            const firstImg = product.images?.[0] ? sanitizeUrl(product.images[0]) : "";
+            const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
             return (
               <div
                 key={product.id}
@@ -1083,7 +1084,7 @@ async function FundraiserEmbedBlockRenderer({
   // Layout: Banner (Single prominent featured campaign)
   if (layout === "banner") {
     const featured = fundraisers[0];
-    const safeImage = featured.image_url ? sanitizeUrl(featured.image_url) : "";
+    const safeImage = featured.image_url ? safeImageSrc(featured.image_url) : "";
     const progressPercent = Math.min(
       100,
       Math.round((featured.raised / (featured.goal_amount || 1)) * 100)
@@ -1158,7 +1159,7 @@ async function FundraiserEmbedBlockRenderer({
       <SectionHeading heading={block.heading || "Active Campaigns"} subheading={block.subheading} />
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {fundraisers.map((f: ResolvedFundraiserItem) => {
-          const safeImage = f.image_url ? sanitizeUrl(f.image_url) : "";
+          const safeImage = f.image_url ? safeImageSrc(f.image_url) : "";
           const progressPercent = Math.min(
             100,
             Math.round((f.raised / (f.goal_amount || 1)) * 100)
@@ -1249,7 +1250,7 @@ async function ServicesEmbedBlockRenderer({
       ) : layout === "list" ? (
         <div className="flex flex-col gap-4">
           {services.map((svc: ResolvedServiceItem) => {
-            const safeImg = svc.image_url ? sanitizeUrl(svc.image_url) : "";
+            const safeImg = svc.image_url ? safeImageSrc(svc.image_url) : "";
             return (
               <div key={svc.id} className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
                 <div className="flex items-center gap-4">
@@ -1275,7 +1276,7 @@ async function ServicesEmbedBlockRenderer({
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((svc: ResolvedServiceItem) => {
-            const safeImg = svc.image_url ? sanitizeUrl(svc.image_url) : "";
+            const safeImg = svc.image_url ? safeImageSrc(svc.image_url) : "";
             return (
               <div key={svc.id} className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
                 <div className="relative aspect-4/3 w-full bg-zinc-100">
@@ -1335,7 +1336,7 @@ async function MenuEmbedBlockRenderer({
                   <div className="text-xs text-zinc-400">No items in this section.</div>
                 ) : (
                   sec.items.map((it) => {
-                    const safeImg = it.image_url ? sanitizeUrl(it.image_url) : "";
+                    const safeImg = safeImageSrc(it.image_url);
                     return (
                       <div key={it.id} className="flex gap-3 rounded-lg border border-zinc-100 p-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100">

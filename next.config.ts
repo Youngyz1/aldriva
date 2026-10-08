@@ -32,6 +32,30 @@ if (!process.env.RESEND_API_KEY) {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseOrigin = supabaseUrl && supabaseUrl !== "https://placeholder.supabase.co" ? new URL(supabaseUrl).origin : "";
 const supabaseWssOrigin = supabaseOrigin ? supabaseOrigin.replace(/^https:/, "wss:") : "";
+function mediaHostname(value: string | undefined, name: string): string {
+  if (!value) return "";
+  const url = new URL(value);
+  if (url.protocol !== "https:") throw new Error(`${name} must use HTTPS.`);
+  return url.hostname.toLowerCase();
+}
+const serverMediaHost = mediaHostname(process.env.MEDIA_BASE_URL, "MEDIA_BASE_URL");
+const publicMediaHost = mediaHostname(process.env.NEXT_PUBLIC_MEDIA_BASE_URL, "NEXT_PUBLIC_MEDIA_BASE_URL");
+if (serverMediaHost && publicMediaHost && serverMediaHost !== publicMediaHost) {
+  throw new Error("MEDIA_BASE_URL and NEXT_PUBLIC_MEDIA_BASE_URL must use the same host.");
+}
+if (process.env.VERCEL_ENV === "production" && (!serverMediaHost || !publicMediaHost)) {
+  throw new Error("Production requires matching MEDIA_BASE_URL and NEXT_PUBLIC_MEDIA_BASE_URL hosts.");
+}
+const serverImageDriver = process.env.IMAGE_STORAGE_DRIVER || "supabase";
+const publicImageDriver = process.env.NEXT_PUBLIC_IMAGE_STORAGE_DRIVER || "supabase";
+if (serverImageDriver !== publicImageDriver) {
+  throw new Error("IMAGE_STORAGE_DRIVER and NEXT_PUBLIC_IMAGE_STORAGE_DRIVER must match.");
+}
+if (serverImageDriver !== "r2" && serverImageDriver !== "supabase") {
+  throw new Error("IMAGE_STORAGE_DRIVER must be 'r2' or 'supabase'.");
+}
+const configuredMediaHost = publicMediaHost || serverMediaHost;
+const mediaOrigin = configuredMediaHost ? `https://${configuredMediaHost}` : "";
 const r2EndpointOrigin = (() => {
   try {
     return process.env.R2_ENDPOINT ? new URL(process.env.R2_ENDPOINT).origin : "";
@@ -63,20 +87,11 @@ const cspDirectives = [
     "'self'",
     "data:",
     "blob:",
-    "https://images.unsplash.com",
-    "https://media.aldriva.com",
-    supabaseOrigin,
-    "https://img.evbuc.com",
-    "https://s1.ticketm.net",
-    "https://seatgeekimages.com",
-    "https://images.gofundme.com",
-    "https://d2g8igdw686xgo.cloudfront.net",
-    "https://upload.wikimedia.org",
-    "https://*.tile.openstreetmap.org",
-    "https://*.stripe.com",
-    "https://*.link.com",
-    "https://lh3.googleusercontent.com",
-    "https://www.google-analytics.com",
+    mediaOrigin,
+    "https://supabase.co",
+    "https://supabase.in",
+    "https://*.supabase.co",
+    "https://*.supabase.in",
   ],
   [
     "font-src",
@@ -148,26 +163,11 @@ const nextConfig: NextConfig = {
     // TEMPORARY: Vercel image optimization disabled due to Hobby plan quota limits (402 errors sitewide). Long-term fix planned: migrate image serving to a self-hosted AWS pipeline (S3 + Lambda + CloudFront). Do not re-enable without confirming quota/plan first.
     unoptimized: true,
     remotePatterns: [
-      // Unsplash – used for hero images and fallbacks
-      { protocol: "https", hostname: "images.unsplash.com" },
-      // Supabase Storage – matches any project subdomain
+      { protocol: "https", hostname: "supabase.co" },
+      { protocol: "https", hostname: "supabase.in" },
       { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "*.supabase.in" },
-      { protocol: "https", hostname: "media.aldriva.com" },
-      // External event sources
-      { protocol: "https", hostname: "img.evbuc.com" },
-      { protocol: "https", hostname: "s1.ticketm.net" },
-      { protocol: "https", hostname: "seatgeek.com" },
-      { protocol: "https", hostname: "*.seatgeek.com" },
-      { protocol: "https", hostname: "seatgeekimages.com" },
-      { protocol: "https", hostname: "*.seatgeekimages.com" },
-      { protocol: "https", hostname: "images.gofundme.com" },
-      { protocol: "https", hostname: "d2g8igdw686xgo.cloudfront.net" },
-      // Wikimedia Commons – TopDestinations landmark photos
-      { protocol: "https", hostname: "upload.wikimedia.org" },
-      // Google / misc avatars that may appear in reviews/testimonials
-      { protocol: "https", hostname: "lh3.googleusercontent.com" },
-      { protocol: "https", hostname: "*.googleusercontent.com" },
+      ...(configuredMediaHost ? [{ protocol: "https" as const, hostname: configuredMediaHost }] : []),
     ],
     // Allow unoptimised fallback for blobs (editor-uploaded media)
     dangerouslyAllowSVG: false,

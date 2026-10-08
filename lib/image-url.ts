@@ -1,23 +1,3 @@
-const EXACT_IMAGE_HOSTS = new Set([
-  "images.unsplash.com",
-  "img.evbuc.com",
-  "s1.ticketm.net",
-  "seatgeek.com",
-  "seatgeekimages.com",
-  "images.gofundme.com",
-  "d2g8igdw686xgo.cloudfront.net",
-  "upload.wikimedia.org",
-  "lh3.googleusercontent.com",
-]);
-
-const WILDCARD_IMAGE_HOST_SUFFIXES = [
-  ".supabase.co",
-  ".supabase.in",
-  ".googleusercontent.com",
-  ".seatgeek.com",
-  ".seatgeekimages.com",
-];
-
 // Rejects known non-image media files (videos, audio).
 const NON_IMAGE_FILE_EXTENSION = /\.(mp4|m4v|mov|webm|mkv|avi|ogv|mp3|wav|m4a|flac)$/i;
 
@@ -47,11 +27,25 @@ export const PROXY_UNWRAP_RULES: ProxyUnwrapRule[] = [
   },
 ];
 
+function configuredMediaHostname(): string | null {
+  const value = process.env.NEXT_PUBLIC_MEDIA_BASE_URL;
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 function isAllowedImageHost(hostname: string) {
-  return (
-    EXACT_IMAGE_HOSTS.has(hostname) ||
-    WILDCARD_IMAGE_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix))
-  );
+  const normalized = hostname.toLowerCase();
+  const mediaHost = configuredMediaHostname();
+  return normalized === mediaHost ||
+    normalized === "supabase.co" ||
+    normalized === "supabase.in" ||
+    normalized.endsWith(".supabase.co") ||
+    normalized.endsWith(".supabase.in");
 }
 
 export function unwrapKnownImageProxy(url: URL): string | null {
@@ -72,7 +66,7 @@ export function safeImageSrc(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
 
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//") && !trimmed.includes("\\")) {
     return trimmed;
   }
 

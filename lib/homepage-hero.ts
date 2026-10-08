@@ -1,4 +1,5 @@
 import { BRAND } from "@/config/branding";
+import { safeImageSrc } from "@/lib/image-url";
 
 export type HomepageSettings = {
   imageUrl: string;
@@ -40,8 +41,7 @@ export type HomepageSettings = {
 export type HomepageHeroSettings = HomepageSettings;
 
 export const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
-  imageUrl:
-    "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1800&auto=format&fit=crop",
+  imageUrl: "/aldriva-og-image-v2.png",
   eyebrow: "EVENTS • FUNDRAISING • SPONSORSHIPS",
   headlineLine1: "Sell Tickets. Raise Funds.",
   headlineLine2: "Find Sponsors.",
@@ -53,23 +53,22 @@ export const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
   secondaryButtonHref: "/dashboard/events/new",
   seoTitle: `${BRAND.name} — Buy Tickets, Run Events & Fundraise`,
   seoDescription: "Discover events, buy tickets, support causes.",
-  seoOgImageUrl:
-    "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1800&auto=format&fit=crop",
+  seoOgImageUrl: "/aldriva-og-image-v2.png",
   // Events landing defaults
-  eventsHeroImageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1800&auto=format&fit=crop",
+  eventsHeroImageUrl: "/aldriva-og-image-v2.png",
   eventsHeroEyebrow: "LIVE EXPERIENCES",
   eventsHeroHeadlineLine1: "Find Your Next Event",
   eventsHeroHeadlineLine2: "",
   eventsHeroDescription: "Concerts, conferences, workshops, festivals, and local experiences.",
   // Fundraisers landing defaults
-  fundraisersHeroImageUrl: "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=1800&auto=format&fit=crop",
+  fundraisersHeroImageUrl: "/aldriva-og-image-v2.png",
   fundraisersHeroEyebrow: "COMMUNITY FUNDRAISING",
   fundraisersHeroHeadlineLine1: "Support Causes That Matter",
   fundraisersHeroHeadlineLine2: "",
   fundraisersHeroDescription: "Help communities, charities, and individuals reach their goals.",
   fundraisersHeroImages: [],
   // Organizers defaults
-  organizersHeroImageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1800&auto=format&fit=crop",
+  organizersHeroImageUrl: "/aldriva-og-image-v2.png",
   organizersHeroEyebrow: "ORGANIZATION DIRECTORY",
   organizersHeroHeadlineLine1: "Meet Event Creators",
   organizersHeroHeadlineLine2: "",
@@ -129,7 +128,8 @@ export function parseHeroImages(raw: string | null | undefined): string[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
-      .map((u) => u.trim())
+      .map((u) => safeImageSrc(u))
+      .filter((u): u is string => u !== null)
       .slice(0, MAX_HERO_FAN_IMAGES);
   } catch {
     return [];
@@ -191,18 +191,14 @@ export function getHomepageSettings(
   if (dbSettings.organizers_hero_description) settings.organizersHeroDescription = dbSettings.organizers_hero_description;
 
   // Validation
-  if (!settings.imageUrl.startsWith("http") && !settings.imageUrl.startsWith("/")) {
-    settings.imageUrl = DEFAULT_HOMEPAGE_SETTINGS.imageUrl;
-  }
+  settings.imageUrl = safeImageSrc(settings.imageUrl) ?? DEFAULT_HOMEPAGE_SETTINGS.imageUrl;
   if (!settings.buttonHref.startsWith("/") && !settings.buttonHref.startsWith("http")) {
     settings.buttonHref = DEFAULT_HOMEPAGE_SETTINGS.buttonHref;
   }
   if (settings.secondaryButtonHref && !settings.secondaryButtonHref.startsWith("/") && !settings.secondaryButtonHref.startsWith("http")) {
     settings.secondaryButtonHref = DEFAULT_HOMEPAGE_SETTINGS.secondaryButtonHref;
   }
-  if (!settings.seoOgImageUrl.startsWith("http") && !settings.seoOgImageUrl.startsWith("/")) {
-    settings.seoOgImageUrl = settings.imageUrl;
-  }
+  settings.seoOgImageUrl = safeImageSrc(settings.seoOgImageUrl) ?? settings.imageUrl;
   // Legacy-brand guard: pre-rebrand CMS rows advertised a Fund4AGoodCause
   // OG image (fund4agoodcause.com). Never serve that domain as our social
   // preview — fall back to the canonical versioned Aldriva OG card
@@ -214,15 +210,9 @@ export function getHomepageSettings(
   }
 
   // URL fallback validations for landing images
-  if (settings.eventsHeroImageUrl && !settings.eventsHeroImageUrl.startsWith("http") && !settings.eventsHeroImageUrl.startsWith("/")) {
-    settings.eventsHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.eventsHeroImageUrl;
-  }
-  if (settings.fundraisersHeroImageUrl && !settings.fundraisersHeroImageUrl.startsWith("http") && !settings.fundraisersHeroImageUrl.startsWith("/")) {
-    settings.fundraisersHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.fundraisersHeroImageUrl;
-  }
-  if (settings.organizersHeroImageUrl && !settings.organizersHeroImageUrl.startsWith("http") && !settings.organizersHeroImageUrl.startsWith("/")) {
-    settings.organizersHeroImageUrl = DEFAULT_HOMEPAGE_SETTINGS.organizersHeroImageUrl;
-  }
+  settings.eventsHeroImageUrl = safeImageSrc(settings.eventsHeroImageUrl) ?? DEFAULT_HOMEPAGE_SETTINGS.eventsHeroImageUrl;
+  settings.fundraisersHeroImageUrl = safeImageSrc(settings.fundraisersHeroImageUrl) ?? DEFAULT_HOMEPAGE_SETTINGS.fundraisersHeroImageUrl;
+  settings.organizersHeroImageUrl = safeImageSrc(settings.organizersHeroImageUrl) ?? DEFAULT_HOMEPAGE_SETTINGS.organizersHeroImageUrl;
 
   return settings;
 }

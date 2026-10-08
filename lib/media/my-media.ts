@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 
 export const CMS_MEDIA_BUCKET = "cms-media" as const;
 
@@ -74,7 +74,7 @@ export async function listTenantMedia(
       if (!isSafeTenantPath(tenantId, fullPath)) continue;
       const { data: urlData } = supabase.storage.from(CMS_MEDIA_BUCKET).getPublicUrl(fullPath);
       const publicUrl = urlData?.publicUrl || "";
-      const sanitized = sanitizeUrl(publicUrl);
+      const sanitized = safeImageSrc(publicUrl);
       if (!sanitized) continue;
       allItems.push({
         path: fullPath,

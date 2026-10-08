@@ -9,7 +9,7 @@ import { Block, cloneBlockWithNewIds, normalizeBlocks } from "@/lib/website-bloc
 import { isEditablePath, setElementValue } from "@/lib/website-block-edit-schema";
 import type { BlockType, SectionEnvelope, SectionBackground } from "@/lib/website-blocks";
 import { BuilderState, BuilderAction, Selection } from "./types";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { safeImageSrc } from "@/lib/image-url";
 
 const MAX_HISTORY_LENGTH = 30;
 
@@ -190,7 +190,7 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
           const raw = bg as Record<string, unknown>;
           const out: SectionBackground = {};
           if (typeof raw.color === "string" && raw.color.trim()) out.color = raw.color.trim().slice(0, 50);
-          if (typeof raw.image === "string" && sanitizeUrl(raw.image)) out.image = sanitizeUrl(raw.image) as string;
+          if (typeof raw.image === "string" && safeImageSrc(raw.image)) out.image = safeImageSrc(raw.image) as string;
           if (typeof raw.overlay === "number" && [0, 0.25, 0.5, 0.75].includes(raw.overlay as number)) out.overlay = raw.overlay as SectionBackground["overlay"];
           if (Object.keys(out).length > 0) nextBlock.background = out;
           else delete nextBlock.background;

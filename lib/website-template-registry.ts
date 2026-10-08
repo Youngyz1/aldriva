@@ -168,7 +168,7 @@ export const TEMPLATE_REGISTRY: CanonicalTemplate[] = [
         sortOrder: 0,
         blocks: normalizeBlocks([
           { type: "hero", heading: "Taste the Difference", subheading: "Fresh ingredients, crafted daily. Dine in or order online.", ctaLabel: "View Menu", ctaHref: "/menu", secondaryCtaLabel: "Reserve Table", secondaryCtaHref: "/contact", variant: "split", align: "left", badge: "Now Open" },
-          { type: "gallery", heading: "Our Kitchen", subheading: "A glimpse inside.", columns: 3, layout: "grid", images: [{ src: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800", alt: "Restaurant interior" }, { src: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800", alt: "Dish" }, { src: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800", alt: "Dining" }] },
+          { type: "gallery", heading: "Our Kitchen", subheading: "A glimpse inside.", columns: 3, layout: "grid", images: [{ src: "/images/Donation.jpeg", alt: "Restaurant interior" }, { src: "/images/Donation.jpeg", alt: "Dish" }, { src: "/images/Donation.jpeg", alt: "Dining" }] },
           { type: "features", heading: "Why Dine With Us", columns: 3, items: [{ title: "Farm Fresh", description: "Locally sourced every morning.", icon: "🥗" }, { title: "Wood-Fired", description: "Authentic flavor, every bite.", icon: "🔥" }, { title: "Family Owned", description: "30 years of hospitality.", icon: "❤️" }] },
           { type: "contact", heading: "Visit Us", email: "hello@restaurant.com", phone: "+1 (555) 123-4567", address: "42 Main St, Foodtown", hours: "Mon-Sun 11am - 10pm", showMap: true },
           { type: "faq", heading: "Good to Know", items: [{ question: "Do you take reservations?", answer: "Yes — call us or book via the contact form." }, { question: "Delivery available?", answer: "Yes, within 5 miles. Order via phone." }] },
@@ -200,7 +200,7 @@ export const TEMPLATE_REGISTRY: CanonicalTemplate[] = [
         blocks: normalizeBlocks([
           { type: "hero", heading: "Curated for You", subheading: "Discover products you’ll love — hand-picked every season.", ctaLabel: "Shop Now", ctaHref: "/products", variant: "split", align: "left" },
           { type: "products_embed", heading: "Featured Products", subheading: "Our bestsellers.", limit: 6, layout: "grid" },
-          { type: "gallery", heading: "Lookbook", layout: "carousel", images: [{ src: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800", alt: "Store" }] },
+          { type: "gallery", heading: "Lookbook", layout: "carousel", images: [{ src: "/aldriva-og-image-v2.png", alt: "Store" }] },
           { type: "testimonials", heading: "Loved by Customers", items: [{ quote: "Best boutique in town — always finds me the perfect fit.", author: "Taylor Swift", rating: 5 }] },
           { type: "cta_banner", heading: "Get 10% off your first order", subheading: "Join our newsletter.", ctaLabel: "Join Now", ctaHref: "/contact", variant: "brand" },
         ]),
@@ -261,7 +261,7 @@ export const TEMPLATE_REGISTRY: CanonicalTemplate[] = [
         sortOrder: 0,
         blocks: normalizeBlocks([
           { type: "hero", heading: "Design that Speaks", subheading: "Portfolio of work that blends art and strategy.", ctaLabel: "View Work", ctaHref: "#gallery", secondaryCtaLabel: "Contact", secondaryCtaHref: "/contact", variant: "center" },
-          { type: "gallery", heading: "Selected Work", layout: "masonry", columns: 3, images: [{ src: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800", alt: "Work 1" }, { src: "https://images.unsplash.com/photo-1508923446990-8364b10a3bb5?w=800", alt: "Work 2" }, { src: "https://images.unsplash.com/photo-152254255022e-0da6a9aeefed?w=800", alt: "Work 3" }] },
+          { type: "gallery", heading: "Selected Work", layout: "masonry", columns: 3, images: [{ src: "/aldriva-og-image-v2.png", alt: "Work 1" }, { src: "/aldriva-og-image-v2.png", alt: "Work 2" }, { src: "/aldriva-og-image-v2.png", alt: "Work 3" }] },
           { type: "about", heading: "Hello", subheading: "I’m a designer & maker.", story: "Crafting digital experiences for 8 years." },
           { type: "contact", heading: "Let’s Work Together", subheading: "Available for freelance projects.", email: "hello@portfolio.com" },
         ]),
