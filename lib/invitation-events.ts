@@ -12,6 +12,8 @@
  *   invitation-kind-only.
  */
 
+import { getSiteUrl } from "@/lib/site-url";
+
 /** Event kinds (events.kind, migration 155). */
 export const EVENT_KIND_PUBLIC = "public" as const;
 export const EVENT_KIND_INVITATION = "invitation" as const;
@@ -23,6 +25,15 @@ export const INVITATION_DRAFT_TITLE = "Untitled invitation";
 
 /** Placeholder slug prefix for invitation drafts (suffixed with key-derived entropy). */
 export const INVITATION_DRAFT_SLUG_PREFIX = "invitation-";
+
+/**
+ * Builds the public URL of a general share link for a token.
+ * Lives here (not in the server-actions module) because "use server"
+ * files may only export async functions.
+ */
+export function buildShareUrl(token: string): string {
+  return `${getSiteUrl()}/invitation/shared/${token}`;
+}
 
 /**
  * Deterministic draft slug from the client-supplied idempotency key.

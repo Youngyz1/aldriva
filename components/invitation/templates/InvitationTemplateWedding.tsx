@@ -49,6 +49,7 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
 const scriptFont = Great_Vibes({
@@ -99,9 +100,11 @@ interface Props {
   data: InvitationPageData;
   onRsvp?: (response: "accepted" | "declined") => Promise<void>;
   className?: string;
+  /** General share-link mode: guest-only blocks render as a neutral note. */
+  shared?: boolean;
 }
 
-export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Props) {
+export function InvitationTemplateWedding({ data, onRsvp, className = "", shared = false }: Props) {
   const locale: InvitationLocale = data.locale || "en";
   const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
 
@@ -386,6 +389,10 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
         className="py-14 sm:py-20 px-6 bg-(--wed-bg-alt)"
       >
         <div className="max-w-2xl mx-auto text-center">
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
+          <>
           {/* Personalized Greeting */}
           <p
             className="text-[10px] tracking-[0.3em] uppercase text-(--wed-rose) font-semibold mb-2"
@@ -403,6 +410,8 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
             <p className="text-xs text-(--wed-ink-muted) mb-6">
               {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
             </p>
+          )}
+          </>
           )}
 
           <WeddingHairline />
@@ -764,6 +773,9 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
           </div>
 
           {/* Formal Response Card Envelope/Card */}
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
           <div className="py-4 text-center space-y-6">
             <div>
               <span className="text-[10px] tracking-[0.25em] uppercase text-(--wed-rose) font-semibold">
@@ -910,6 +922,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "" }: Prop
               </button>
             </div>
           </div>
+          )}
         </div>
       </section>
 

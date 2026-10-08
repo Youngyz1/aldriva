@@ -41,6 +41,7 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
 const display = Cormorant_Garamond({
@@ -79,9 +80,11 @@ interface Props {
   data: InvitationPageData;
   onRsvp?: (response: "accepted" | "declined") => Promise<void>;
   className?: string;
+  /** General share-link mode: guest-only blocks render as a neutral note. */
+  shared?: boolean;
 }
 
-export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
+export function InvitationTemplate1({ data, onRsvp, className = "", shared = false }: Props) {
   const locale: InvitationLocale = data.locale || "en";
   const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
 
@@ -329,6 +332,10 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
         style={{ background: "var(--inv-bg)" }}
       >
         <div className="max-w-2xl mx-auto text-center">
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
+          <>
           <p
             className="text-[10px] tracking-[0.3em] uppercase mb-2"
             style={{ color: "var(--inv-accent)", fontFamily: FF_TEXT }}
@@ -360,6 +367,8 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               </span>
             )}
           </p>
+          </>
+          )}
 
           <HairlineRule />
 
@@ -679,6 +688,9 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
             </p>
           </div>
 
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
           <div
             className="py-4 text-center"
           >
@@ -841,6 +853,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "" }: Props) {
               </button>
             </div>
           </div>
+          )}
         </div>
       </section>
 

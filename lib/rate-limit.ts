@@ -115,6 +115,13 @@ export const RATE_LIMITS = {
    * bumps an incident, so unauthenticated 401s must not log unthrottled.
    */
   authDenialLog: { limit: 1, windowSeconds: 60 },
+
+  /**
+   * Round 3 COMMIT 3: general share-link reads. Anonymous per-IP bucket,
+   * 60/min leaves normal forwarding (family group chats) ample room while
+   * bounding token-probing. Fail-open like every other limiter.
+   */
+  invitationShareView: { limit: 60, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

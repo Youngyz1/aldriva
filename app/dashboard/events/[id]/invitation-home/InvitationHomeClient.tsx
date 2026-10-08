@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
+import { ShareLinkPanel } from "@/components/invitation/ShareLinkPanel";
 
 type PreviewViewport = 390 | 1440;
 
@@ -31,6 +32,8 @@ export function InvitationHomeClient({
   hasUnpublishedChanges,
   draftLocale,
   rsvpCounts,
+  shareEnabled,
+  shareUrl,
 }: {
   eventId: string;
   eventTitle: string;
@@ -39,12 +42,13 @@ export function InvitationHomeClient({
   hasUnpublishedChanges: boolean;
   draftLocale: string;
   rsvpCounts: { accepted: number; declined: number; pending: number };
+  shareEnabled: boolean;
+  shareUrl: string | null;
 }) {
   const router = useRouter();
   const [viewport, setViewport] = useState<PreviewViewport>(390);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [shareNotice, setShareNotice] = useState("");
 
   const status =
     pageStatus === "published" && !hasUnpublishedChanges
@@ -72,12 +76,6 @@ export function InvitationHomeClient({
     } finally {
       setBusy(false);
     }
-  }
-
-  function handleCopyLink() {
-    // Commit 3 wires the general share link here. Until then the host is
-    // told plainly that sharing is off and where to enable it.
-    setShareNotice("The share link is off. Enable sharing to get a link anyone can open.");
   }
 
   const builderHref = `/dashboard/events/${eventId}/invitation-page`;
@@ -115,14 +113,6 @@ export function InvitationHomeClient({
           </Link>
           <button
             type="button"
-            data-testid="copy-link"
-            onClick={handleCopyLink}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-black text-zinc-700 hover:bg-zinc-50"
-          >
-            Copy link
-          </button>
-          <button
-            type="button"
             onClick={handlePublishToggle}
             disabled={busy}
             className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
@@ -137,14 +127,14 @@ export function InvitationHomeClient({
           {error}
         </p>
       )}
-      {shareNotice && (
-        <p
-          data-testid="share-prompt"
-          className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-800"
-        >
-          {shareNotice}
-        </p>
-      )}
+
+      <ShareLinkPanel
+        eventId={eventId}
+        initialEnabled={shareEnabled}
+        initialUrl={shareUrl}
+        published={pageStatus === "published"}
+        isInvitationKind
+      />
 
       {!hasPage ? (
         <div

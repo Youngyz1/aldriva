@@ -37,14 +37,17 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { SharedNote } from "@/components/invitation/SharedNote";
 
 interface Props {
   data: InvitationPageData;
   onRsvp?: (response: "accepted" | "declined") => Promise<void>;
   className?: string;
+  /** General share-link mode: guest-only blocks render as a neutral note. */
+  shared?: boolean;
 }
 
-export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Props) {
+export function InvitationTemplateBlackTie({ data, onRsvp, className = "", shared = false }: Props) {
   const locale: InvitationLocale = data.locale || "en";
   const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
 
@@ -263,6 +266,10 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
       {/* ── Section 2: Message / Story from Host ─────────────────────────── */}
       <section id="inv-story" className="py-14 sm:py-20 px-4 bg-gradient-to-b from-zinc-950 via-zinc-900/60 to-zinc-950 border-t border-b border-amber-500/10">
         <div className="max-w-3xl mx-auto text-center">
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
+          <>
           {/* Personalized Guest Greeting */}
           <div className="mb-6 inline-block">
             <div className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-amber-400/90 mb-1">
@@ -280,6 +287,8 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
               )}
             </div>
           </div>
+          </>
+          )}
 
           <div className="h-px w-20 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent mx-auto my-5" />
 
@@ -572,6 +581,9 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
         </div>
 
         {/* Personalized Pass Card */}
+        {shared ? (
+          <SharedNote locale={locale} />
+        ) : (
         <div className="py-4 text-center">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
             {isVipGuest ? dict.vipGuestPass : dict.officialGuestPass}
@@ -713,6 +725,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "" }: Pro
             </button>
           </div>
         </div>
+        )}
       </section>
 
       {/* ── Section 12: Footer ───────────────────────────────────────────── */}

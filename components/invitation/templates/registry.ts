@@ -29,6 +29,11 @@ export interface TemplateRegistryItem {
     data: InvitationPageData;
     onRsvp?: (response: "accepted" | "declined") => Promise<void>;
     className?: string;
+    /**
+     * General share-link mode: guest-only blocks (personal greeting,
+     * RSVP, entry pass) render as a neutral note instead. No guest data.
+     */
+    shared?: boolean;
   }>;
 }
 

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { assertCanManageEvent } from "@/lib/entity-authz";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { getShareLinkState } from "@/lib/actions/invitation-sharing";
 import { InvitationHomeClient } from "./InvitationHomeClient";
 
 export const metadata: Metadata = {
@@ -33,12 +34,13 @@ export default async function InvitationHomePage({
     .maybeSingle();
   if (!event || (event as { kind?: string | null }).kind !== "invitation") return notFound();
 
-  const [draftData, rsvps] = await Promise.all([
+  const [draftData, rsvps, share] = await Promise.all([
     getInvitationPageDraft(eventId),
     admin
       .from("event_invitations")
       .select("rsvp_status")
       .eq("event_id", eventId),
+    getShareLinkState(eventId),
   ]);
 
   const counts = { accepted: 0, declined: 0, pending: 0 };
@@ -57,6 +59,8 @@ export default async function InvitationHomePage({
       hasUnpublishedChanges={draftData?.hasUnpublishedChanges ?? false}
       draftLocale={draftData?.draft.locale ?? "en"}
       rsvpCounts={counts}
+      shareEnabled={share.ok && (share.enabled ?? false)}
+      shareUrl={share.ok ? (share.url ?? null) : null}
     />
   );
 }

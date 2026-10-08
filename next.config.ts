@@ -183,6 +183,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/invitation/shared/:token*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

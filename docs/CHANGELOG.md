@@ -3,6 +3,10 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Round 3 Commit 3: general share link (2026-10-08)
+- Migration `db/migration_156_invitation_share_link.sql` (+ rollback twin, supabase mirror `20261007000003_…`, **NOT applied to any database**): `share_token` UNIQUE, `share_enabled` default false, `share_regenerated_at` on `event_invitation_pages`. Rollback drops in reverse order. Also backfilled the missing 154 supabase mirror (`20261007000002_…`, byte-identical).
+- General share link (invitation-kind only): 256-bit token, works only while published + enabled; host enable/disable/regenerate (inline confirm) in a new dashboard panel stating anyone with the link can read the page. Shared route renders the real template `shared` with guest-only blocks as a neutral note — no guest name, RSVP, or QR. Disabled/unpublished/invalid/public-kind tokens share one neutral page; noindex, no-store header, per-IP rate limit, always dynamic. Personal guest links unchanged on both kinds. 20 new tests in `lib/__tests__/invitation-sharing.test.cjs`.
+
 ---
 
 ## [2026-10] — Round 3 Commit 2: preview-first invitation home (2026-10-07)

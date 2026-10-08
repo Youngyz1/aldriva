@@ -51,6 +51,7 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
 const displayFont = Outfit({
@@ -88,9 +89,11 @@ interface Props {
   data: InvitationPageData;
   onRsvp?: (response: "accepted" | "declined") => Promise<void>;
   className?: string;
+  /** General share-link mode: guest-only blocks render as a neutral note. */
+  shared?: boolean;
 }
 
-export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Props) {
+export function InvitationTemplateBirthday({ data, onRsvp, className = "", shared = false }: Props) {
   const locale: InvitationLocale = data.locale || "en";
   const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
 
@@ -334,6 +337,10 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
       {/* ── Section 2: Celebrant Message & Guest Welcome ───────────────────── */}
               <section id="inv-story" aria-label="Celebrant Message" className="py-14 sm:py-20 px-6 bg-(--bday-bg-alt)">
         <div className="max-w-2xl mx-auto text-center">
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
+          <>
           {/* Guest Personalization */}
           <div
             className="inline-block px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_#141218] mb-2"
@@ -352,6 +359,8 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
             <p className="text-xs text-(--bday-ink-muted) mb-6 font-semibold">
               {[data.guest.title, data.guest.organization].filter(Boolean).join(" · ")}
             </p>
+          )}
+          </>
           )}
 
           <div className="py-4 text-left space-y-3">
@@ -625,6 +634,9 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
           </div>
 
           {/* Chunky Party Pass Ticket */}
+          {shared ? (
+            <SharedNote locale={locale} />
+          ) : (
           <div className="py-4 text-center space-y-6">
             <div>
               <span className="inline-block px-3 py-1 rounded-full bg-(--bday-yellow) border border-(--bday-ink) text-[10px] font-black uppercase tracking-widest text-(--bday-ink)">
@@ -756,6 +768,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "" }: Pro
               </button>
             </div>
           </div>
+          )}
         </div>
       </section>
 
