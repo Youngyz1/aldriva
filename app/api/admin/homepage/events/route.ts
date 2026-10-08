@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/events/route.ts
  * GET   — search all events or fetch featured events (ordered).

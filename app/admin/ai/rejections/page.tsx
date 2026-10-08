@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/admin/ai/rejections/page.tsx
  *

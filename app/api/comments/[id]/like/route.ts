@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/comments/[id]/like/route.ts
  * POST   — like a comment (anyone, no login).

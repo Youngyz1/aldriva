@@ -1,3 +1,4 @@
+import "server-only";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createNotification } from "@/lib/notifications";

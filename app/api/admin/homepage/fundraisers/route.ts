@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/fundraisers/route.ts
  * GET   — search all fundraisers or fetch featured fundraisers (ordered).

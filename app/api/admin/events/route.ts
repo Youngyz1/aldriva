@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/events/route.ts
  * GET — all events joined with organizer name.

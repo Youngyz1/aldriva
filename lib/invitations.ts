@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/invitations.ts
  * Core business logic and credential creation for digital invitations.

@@ -1,3 +1,4 @@
+import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { enforceRateLimit } from "@/lib/rate-limit";

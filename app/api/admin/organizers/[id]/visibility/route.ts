@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/organizers/[id]/visibility/route.ts
  * GET  — fetch current visibility offsets and audit history for an organizer.

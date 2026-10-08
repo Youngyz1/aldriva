@@ -8,7 +8,7 @@ import {
   getProgressPercentage,
 } from "@/lib/fund4good-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getSiteUrl } from "@/lib/site-url";
+import { getClientSiteUrl } from "@/lib/site-url-client";
 import { cn } from "@/lib/utils";
 import { getStatusMeta } from "./campaign-status";
 import { Share2, Pencil, ExternalLink, Check } from "lucide-react";
@@ -24,7 +24,7 @@ export function CampaignHeader({ campaign, className }: CampaignHeaderProps) {
   const progress = getProgressPercentage(campaign.raised, campaign.goal);
 
   async function handleShare() {
-    const url = `${getSiteUrl()}/fundraisers/${campaign.slug}`;
+    const url = `${getClientSiteUrl()}/fundraisers/${campaign.slug}`;
     const ok = await copyTextToClipboard(url);
     if (ok) {
       setCopied(true);

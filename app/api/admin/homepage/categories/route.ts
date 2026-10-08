@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/categories/route.ts
  * GET    — list all homepage categories (ordered).

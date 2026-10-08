@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Live, multi-source external event search.
  *

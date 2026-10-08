@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { type Campaign, formatCurrency } from "@/lib/fund4good-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getSiteUrl } from "@/lib/site-url";
+import { getClientSiteUrl } from "@/lib/site-url-client";
 import { cn } from "@/lib/utils";
 import { getStatusMeta } from "./campaign-status";
 import FundraisingProgressRing from "@/components/ui/FundraisingProgressRing";
@@ -31,7 +31,7 @@ export function CampaignHealthCard({ campaign, className }: CampaignHealthCardPr
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = `${getSiteUrl()}/fundraisers/${campaign.slug}`;
+    const url = `${getClientSiteUrl()}/fundraisers/${campaign.slug}`;
     const ok = await copyTextToClipboard(url);
     if (ok) {
       setCopied(true);

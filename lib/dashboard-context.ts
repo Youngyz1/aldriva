@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/dashboard-context.ts
  * Uses React's per-request cache() so getCurrentUser() and the organizer

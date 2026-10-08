@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/event-notifications.ts
  * Unified Communications & Notifications Dispatcher for Aldriva Events.

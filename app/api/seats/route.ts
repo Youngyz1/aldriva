@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import {
-  reserveSeatsAtomic,
   resolveEffectiveSeatPrice,
   SectionDefinition,
   TicketTypeSummary,
 } from "@/lib/seating";
+import { reserveSeatsAtomic } from "@/lib/seating-server";
 
 const supabaseAdmin = createSupabaseAdmin();
 

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/ai/tools/get_content_history.ts
  *

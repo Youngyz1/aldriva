@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/ai/providers/openrouter.ts
  * OpenRouter Cloud AI Provider implementation for Aldriva AI.

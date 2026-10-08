@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * POST /api/exec/claim — Stage 10.2 worker claim endpoint (control plane).
  *

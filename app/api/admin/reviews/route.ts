@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/reviews/route.ts
  * GET /api/admin/reviews  — paginated list of all reviews for admin moderation

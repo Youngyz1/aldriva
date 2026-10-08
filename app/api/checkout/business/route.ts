@@ -1,3 +1,4 @@
+import "server-only";
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";

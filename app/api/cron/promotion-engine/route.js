@@ -1,3 +1,4 @@
+import "server-only";
 import { getNextPromotion } from '../../../../lib/promotionEngine.js';
 import { generatePromotionCaption } from '../../../../lib/generateCaption.js';
 import {

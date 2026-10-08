@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * POST /api/exec/heartbeat — Stage 10.5 lease renewal endpoint.
  *

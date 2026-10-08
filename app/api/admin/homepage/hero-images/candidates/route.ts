@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/hero-images/candidates/route.ts
  * GET — fundraisers whose banner resolves to a real, allowed image, for the

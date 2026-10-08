@@ -56,6 +56,9 @@ export const RATE_LIMITS = {
    */
   productAsset: { limit: 30, windowSeconds: 3600 },
 
+  /** R2 public-media uploads issue a temporary PUT and a finalization request. */
+  mediaUpload: { limit: 60, windowSeconds: 3600 },
+
   /**
    * AI writing assistant rate limit for authors drafting and polishing articles.
    */

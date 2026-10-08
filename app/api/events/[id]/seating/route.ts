@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { removeSeatFromInvitation } from "@/lib/invitations";
-import { assignSeatToInvitationAtomic, SeatGeometry, partitionSeatSaves, isPersistedSeatId } from "@/lib/seating";
+import { SeatGeometry, partitionSeatSaves, isPersistedSeatId } from "@/lib/seating";
+import { assignSeatToInvitationAtomic } from "@/lib/seating-server";
 
 const admin = createSupabaseAdmin();
 

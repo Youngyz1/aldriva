@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/reviews/route.ts
  * GET  /api/reviews?event_id=<uuid>          — list approved reviews for an event

@@ -1,3 +1,4 @@
+import "server-only";
 import { jsPDF } from "jspdf";
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";

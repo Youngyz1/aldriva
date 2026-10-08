@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/reviews/[id]/route.ts
  * PUT    /api/reviews/:id  — update own review (auth required)

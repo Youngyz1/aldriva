@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/settings/route.ts
  * POST — upsert homepage CMS settings (hero + SEO keys only).

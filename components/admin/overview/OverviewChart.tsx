@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatMoney } from "./data";
+import { formatMoney } from "./format";
 
 export type ChartRow = {
   label: string;

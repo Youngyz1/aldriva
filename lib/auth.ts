@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/auth.ts
  * Server-side RBAC helper functions.

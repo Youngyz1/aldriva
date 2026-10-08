@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { BRAND } from "@/config/branding";

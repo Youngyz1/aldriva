@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/fundraisers/route.ts
  * GET — all fundraisers. Admin-only.

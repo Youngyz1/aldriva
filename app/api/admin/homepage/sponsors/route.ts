@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/sponsors/route.ts
  * GET    — list all sponsors ordered by position.

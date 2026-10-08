@@ -27,7 +27,9 @@ import {
   Upload,
 } from "lucide-react";
 import { HomepageSettings } from "@/lib/homepage-hero";
-import { useImageUpload, ALLOWED_IMAGE_TYPES } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-image-upload";
+import { MAX_PUBLIC_MEDIA_BYTES, PUBLIC_MEDIA_TYPES } from "@/lib/media/constants";
+import { uploadPublicMedia } from "@/lib/media/upload-public-media";
 import PageHeader from "@/components/admin/PageHeader";
 import {
   Sheet,
@@ -136,7 +138,6 @@ interface CmsImageFieldProps {
   value: string;
   onChange: (val: string) => void;
   folder: string;
-  bucket?: string;
   placeholder?: string;
   helpText?: string;
   aspectRatioHint?: string;
@@ -148,7 +149,6 @@ function CmsImageField({
   value,
   onChange,
   folder,
-  bucket = "cms-media",
   placeholder = "https://… or /…",
   helpText,
   aspectRatioHint,
@@ -157,9 +157,12 @@ function CmsImageField({
   const [aspectWarning, setAspectWarning] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const { uploading, fileInputRef, triggerUpload, handleFileChange } = useImageUpload({
-    bucket,
+  const { uploading, progress, fileInputRef, triggerUpload, handleFileChange } = useImageUpload({
+    bucket: null,
     folder,
+    maxOriginalBytes: MAX_PUBLIC_MEDIA_BYTES,
+    allowedTypes: PUBLIC_MEDIA_TYPES,
+    upload: (file, onProgress) => uploadPublicMedia(file, "cms", onProgress),
     onSuccess: (url) => {
       setUploadError(null);
       onChange(url);
@@ -236,7 +239,9 @@ function CmsImageField({
             {uploading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-violet-600" />
-                <span>Uploading…</span>
+                <span>
+                  Uploading{typeof progress?.percent === "number" ? ` ${progress.percent}%` : "…"}
+                </span>
               </>
             ) : (
               <>
@@ -248,7 +253,7 @@ function CmsImageField({
           <input
             ref={fileInputRef}
             type="file"
-            accept={ALLOWED_IMAGE_TYPES.join(",")}
+            accept={PUBLIC_MEDIA_TYPES.join(",")}
             onChange={onFileInputChange}
             className="hidden"
           />
@@ -258,6 +263,10 @@ function CmsImageField({
       {aspectRatioHint && (
         <p className="text-xs text-zinc-400 font-medium">{aspectRatioHint}</p>
       )}
+
+      <p className="text-xs text-zinc-500">
+        Images uploaded here are public and can be viewed by anyone with the URL.
+      </p>
 
       {aspectWarning && (
         <p className="text-xs text-amber-600 font-semibold">{aspectWarning}</p>

@@ -9,6 +9,19 @@
 > **TypeScript Health**: 0 errors (`npx tsc --noEmit --skipLibCheck` verified)  
 > **Build Health**: Next.js 16.3.4 production build verified (compiled successfully, Turbopack)
 
+## Parallel Infrastructure Milestone — R2 Public Media (2026-10-08)
+
+- **Status: PARTIALLY COMPLETE.** R2 upload-url/finalize/delete routes, private temporary bucket support, WebP processing, CMS admin-only authorization, tenant membership authorization, migration 157 plus mirror, and homepage `CmsImageField` integration are implemented. ESLint, TypeScript, production build, 1,424 tests, and `git diff --check` pass. Migration application, live bucket/CORS/upload verification, and authenticated responsive browser review remain pending. See `docs/phases/phase-r2-media-storage.md`.
+- Existing Supabase image flows retain their default behavior. Other private storage and video/audio flows were not changed. R2 stores only intentionally public images; do not use it for identity documents, KYC, receipts, invoices, or other private files.
+- **Report-only finding:** the website-builder `MediaUploadField` uploads to `cms-media` for tenant users, but migration 117 grants writes only to active platform admins. No policy or builder change is included in this milestone.
+
+## Parallel Security Milestone — Server-only boundaries (2026-10-08)
+
+- **Status: COMPLETE.** Split privileged seating mutations, server overview data, server site URL generation, and invitation share URL generation away from browser-shared modules before adding boundaries. Added `server-only` to secret-reading modules and server-only helpers; standalone scripts and test fixtures remain unmarked. `proxy.ts` accepts the marker in the production build.
+- Added a test-only `server-only` stub alias and `npm run check:client-secrets`, which checks credential-shaped patterns and actual secret environment values against `.next/static` (including source maps) while reporting file names only. No secret findings; no source maps were present in the current build. The `NEXT_PUBLIC_` environment-name audit found no secret-named entries.
+- **Verification:** TypeScript and production build passed; the registered suite passed 1,456/1,456 tests across 109 suites; the client-secret scan passed. The suite currently registers 1,456 tests, including tests added in the working tree since the earlier R2 report.
+- **Report only:** `proxy.ts` uses the service-role REST key on article, business, product, and website slug gates to check restricted/unpublished state before streaming. The existing check appears to require privileged reads; replacing this with a narrow RPC or public projection needs a separate design. See `docs/phases/phase-server-only-boundaries.md`.
+
 ---
 
 ## 1. System Implementation Classification
@@ -180,4 +193,3 @@
 **Completed Checklist (2026-09-24 — Hardening & Landing):** `[✓]` atomic instantiation migration 131 + hydration + idempotency, `[✓]` element editing with prototype guard, `[✓]` section/container controls with sanitized backgrounds, `[✓]` stable MOVE_BLOCK reordering, `[✓]` template library read-only preview, `[✓]` My Media tenant-scoped picker (5 surfaces, no Connected Media), `[✓]` migrations 134/135 present (homepage promotions, profile locale/i18n), `[✓]` verification (tsc 0, eslint 0, tests 650/650, build Pass).
 
 **Next:** **Phase 5 — Products, Services & Menus** — migration 136 `services`/`menu_sections`/`menu_items`. See `docs/phases/phase-05-products-services.md`. Do NOT start until this hardening is committed and documented (this file).
-

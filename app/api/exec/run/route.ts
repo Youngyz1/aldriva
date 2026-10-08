@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * POST /api/exec/run — Stage 10.4 bounded execution unit (control plane).
  *

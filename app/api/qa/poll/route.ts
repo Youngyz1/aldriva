@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * GET /api/qa/poll — Stage 7 worker poll endpoint (control plane).
  *

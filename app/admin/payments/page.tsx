@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/admin/payments/page.tsx
  * Read-only view of all ticket orders and donations across the platform.

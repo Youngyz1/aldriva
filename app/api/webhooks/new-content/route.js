@@ -1,3 +1,4 @@
+import "server-only";
 import { generateContentCaption } from '../../../../lib/generateCaption';
 import { postToFacebook } from '../../../../lib/facebook';
 

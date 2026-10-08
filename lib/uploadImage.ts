@@ -9,7 +9,7 @@ import {
 /**
  * The single entry point every image upload in the app should go through.
  * Flow: validate original file -> compress -> validate compressed size ->
- * upload to Supabase Storage -> return the public URL.
+ * use an optional custom transport or default to Supabase Storage -> return the URL.
  *
  * Only applies to newly uploaded images. Never touches images already
  * sitting in Storage — this module has no code path that reads or rewrites
@@ -26,7 +26,7 @@ export type UploadImageErrorCode =
 
 const ERROR_MESSAGES: Record<UploadImageErrorCode, string> = {
   invalid_type: "Unsupported file type. Please upload a JPEG, PNG, or WebP image.",
-  too_large: "This image is too large. Please choose a file under 5MB.",
+  too_large: "This image is too large. Please choose a file that is 5 MB or smaller.",
   corrupted: "This file doesn't look like a valid image. Please try a different file.",
   compression_failed: "We couldn't process this image. Please try a different file.",
   upload_failed: "The upload failed. Please try again.",
@@ -44,10 +44,8 @@ export type UploadStage = "validating" | "compressing" | "uploading";
 
 export interface UploadImageProgress {
   stage: UploadStage;
-  /** 0-100 during "compressing" (real progress from the compressor).
-   * "uploading" has no byte-level progress available from the Supabase JS
-   * client (it wraps fetch, which doesn't expose upload progress), so this
-   * is left undefined for that stage — see docs/image-upload.md. */
+  /** 0-100 during compression and when a custom upload transport reports bytes.
+   * The Supabase JS client does not expose byte-level upload progress. */
   percent?: number;
 }
 
@@ -55,6 +53,12 @@ export interface UploadImageOptions {
   /** Overwrite an existing object at the same path instead of erroring. */
   upsert?: boolean;
   onProgress?: (progress: UploadImageProgress) => void;
+  /** Optional alternate transport; validation and browser compression still run first. */
+  upload?: (file: File, onProgress?: (percent: number) => void) => Promise<string>;
+  /** Per-surface ceiling for the original selected file. Defaults to 5 MB. */
+  maxOriginalBytes?: number;
+  /** Per-surface MIME allowlist. Defaults to JPEG, PNG, and WebP. */
+  allowedTypes?: readonly string[];
 }
 
 async function assertDecodableImage(file: File): Promise<void> {
@@ -78,20 +82,40 @@ async function assertDecodableImage(file: File): Promise<void> {
  */
 export async function uploadImage(
   file: File,
-  bucket: string,
+  bucket: string | null,
   folder: string,
   options: UploadImageOptions = {}
 ): Promise<string> {
-  const { upsert, onProgress } = options;
+  const {
+    upsert,
+    onProgress,
+    upload,
+    maxOriginalBytes = MAX_ORIGINAL_BYTES,
+    allowedTypes = ALLOWED_IMAGE_TYPES,
+  } = options;
 
   onProgress?.({ stage: "validating" });
 
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
-    throw new UploadImageError("invalid_type");
+  const isAllowedType =
+    allowedTypes === ALLOWED_IMAGE_TYPES
+      ? ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])
+      : allowedTypes.includes(file.type);
+  if (!isAllowedType) {
+    const typeLabels: Record<string, string> = {
+      "image/jpeg": "JPEG",
+      "image/png": "PNG",
+      "image/webp": "WebP",
+      "image/avif": "AVIF",
+    };
+    const labels = allowedTypes.map((type) => typeLabels[type] ?? type);
+    throw new UploadImageError("invalid_type", `Unsupported file type. Allowed image types: ${labels.join(", ")}.`);
   }
 
-  if (file.size > MAX_ORIGINAL_BYTES) {
-    throw new UploadImageError("too_large");
+  if (file.size > maxOriginalBytes) {
+    throw new UploadImageError(
+      "too_large",
+      `This image is too large. Please choose a file that is ${Math.floor(maxOriginalBytes / 1024 / 1024)} MB or smaller.`
+    );
   }
 
   await assertDecodableImage(file);
@@ -110,7 +134,7 @@ export async function uploadImage(
     throw new UploadImageError("compression_failed", undefined, err);
   }
 
-  if (compressed.size > MAX_ORIGINAL_BYTES) {
+  if (compressed.size > maxOriginalBytes) {
     throw new UploadImageError(
       "too_large",
       "This image is still too large after compression. Please choose a smaller or simpler image."
@@ -120,14 +144,22 @@ export async function uploadImage(
   onProgress?.({ stage: "uploading" });
 
   try {
+    if (upload) {
+      return await upload(compressed, (percent) =>
+        onProgress?.({ stage: "uploading", percent })
+      );
+    }
+
+    if (!bucket) throw new Error("An image storage bucket is required.");
+
     const result = await uploadPublicFile({
       supabase,
       bucket,
       file: compressed,
       folder,
       kind: "image",
-      allowedTypes: ALLOWED_IMAGE_TYPES,
-      maxBytes: MAX_ORIGINAL_BYTES,
+      allowedTypes,
+      maxBytes: maxOriginalBytes,
       upsert,
     });
     return result.publicUrl;

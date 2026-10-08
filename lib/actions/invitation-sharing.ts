@@ -17,7 +17,7 @@ import { randomBytes } from "node:crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkInvitationPageAccess } from "@/lib/actions/invitation-page";
-import { buildShareUrl } from "@/lib/invitation-events";
+import { buildShareUrl } from "@/lib/invitation-url";
 
 export interface ShareLinkState {
   ok: boolean;

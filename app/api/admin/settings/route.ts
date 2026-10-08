@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/settings/route.ts
  * GET  — fetch allowlisted platform_settings rows.

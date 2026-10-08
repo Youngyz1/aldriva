@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/homepage/testimonials/route.ts
  * GET    — list all testimonials ordered by position.

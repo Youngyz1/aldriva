@@ -207,6 +207,25 @@
   - Visibility `is_active BOOLEAN` only; public RLS `is_active=true` (plus section gate for items); editors `INSERT/UPDATE`, managers `DELETE`; `showInactive` removed from `services_embed`/`menu_embed` types (was ignored by resolvers; prefer removal over new plumbing).
   - Bounds: `title 1..120`/`slug ^[a-z0-9-]+$` per organizer (9 attempts + random suffix fallback; 23505 mapped only to slug conflict), `name 1..80`, `description 2000/500`, `duration 5..1440`, `position 0..999` **not unique** (insert defaults `max+1`, capped 999), `dietary_tags 7` / `allergens 6` max 12, `modifiers JSONB` max 12 `{name 1..80, price_delta -10000..10000}` via `menu_modifiers_valid`, `sanitizeUrl` on `image_url`, prices hardcoded `$` with `TODO: multi-currency not in Phase 5` in dashboard and `BlockRenderer` (see Known Issues).
 
+### DEC-0025: Public image media on Cloudflare R2
+- **Decision Date**: 2026-10-08
+- **Status**: Implementation approved; migration and live R2 verification pending.
+- **Key Tenets**:
+  - Raw uploads go to a separate private bucket (`R2_TMP_BUCKET`) with no public domain. Processed images only go to public `R2_BUCKET`; temporary paths are never created in the public bucket.
+  - R2 helpers accept a bucket parameter. Final public URLs use `MEDIA_BASE_URL`; temporary objects never receive public URLs.
+  - Only allowlisted, intentionally public image purposes are accepted. SVG decoding is blocked; Sharp re-decodes, applies orientation, strips metadata through WebP re-encoding, and limits dimensions to 2000×2000.
+  - CMS uploads require an active platform admin; tenant purposes require existing tenant membership roles. Media metadata is RLS-protected; API service-role writes follow these checks.
+  - Existing Supabase image flows, private buckets, video, and audio remain unchanged. Migration 157 is canonical in `db/` with a timestamped Supabase mirror.
+
+### DEC-0026: Server-only boundaries for secret-reading modules
+- **Decision Date**: 2026-10-08
+- **Status**: Shipped & Active
+- **Key Tenets**:
+  - Secret-reading modules and server-only helpers carry `import "server-only"`; mixed modules are split so client components import only browser-safe helpers, types, and constants.
+  - Tests alias the package to an empty local stub. The markers remain in application code; standalone scripts and test fixtures are intentionally not marked.
+  - A CI script scans `.next/static` at run time for values from server secret environment variables and common credential-shaped patterns. It reports filenames only and never prints matched values.
+  - `proxy.ts` is marked and builds successfully. Its service-role reads remain in place for pre-stream checks of restricted or unpublished article, business, product, and website records; changing that access model is a separate design decision.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/admin-data.ts
  * Shared data aggregation helpers for admin management APIs.

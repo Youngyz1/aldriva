@@ -32,6 +32,13 @@ if (!process.env.RESEND_API_KEY) {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseOrigin = supabaseUrl && supabaseUrl !== "https://placeholder.supabase.co" ? new URL(supabaseUrl).origin : "";
 const supabaseWssOrigin = supabaseOrigin ? supabaseOrigin.replace(/^https:/, "wss:") : "";
+const r2EndpointOrigin = (() => {
+  try {
+    return process.env.R2_ENDPOINT ? new URL(process.env.R2_ENDPOINT).origin : "";
+  } catch {
+    return "";
+  }
+})();
 
 const cspDirectives = [
   "default-src 'self'",
@@ -57,6 +64,7 @@ const cspDirectives = [
     "data:",
     "blob:",
     "https://images.unsplash.com",
+    "https://media.aldriva.com",
     supabaseOrigin,
     "https://img.evbuc.com",
     "https://s1.ticketm.net",
@@ -82,6 +90,7 @@ const cspDirectives = [
     "'self'",
     supabaseOrigin,
     supabaseWssOrigin,
+    r2EndpointOrigin,
     "https://api.stripe.com",
     "https://link.com",
     "https://*.link.com",
@@ -125,11 +134,7 @@ const cspDirectives = [
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-role-key",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key",
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_key_for_build_00000000000000000000",
-    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "whsec_placeholder",
-    RESEND_API_KEY: process.env.RESEND_API_KEY || "re_placeholder",
   },
   // TEMPORARY — Cache Components Phase 0 validation only, on the
   // cache-components/phase-0-suspense-wrap branch. Do not merge to main with
@@ -148,6 +153,7 @@ const nextConfig: NextConfig = {
       // Supabase Storage – matches any project subdomain
       { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "*.supabase.in" },
+      { protocol: "https", hostname: "media.aldriva.com" },
       // External event sources
       { protocol: "https", hostname: "img.evbuc.com" },
       { protocol: "https", hostname: "s1.ticketm.net" },

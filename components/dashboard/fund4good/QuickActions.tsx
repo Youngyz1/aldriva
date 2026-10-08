@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { type Campaign } from "@/lib/fund4good-data";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getSiteUrl } from "@/lib/site-url";
+import { getClientSiteUrl } from "@/lib/site-url-client";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
 import { cn } from "@/lib/utils";
 import {
@@ -28,7 +28,7 @@ interface QuickActionsProps {
 export function QuickActions({ campaign, className }: QuickActionsProps) {
   const [copied, setCopied] = useState(false);
   const { exporting, exportCsv } = useDashboardExport();
-  const shareUrl = `${getSiteUrl()}/fundraisers/${campaign.slug}`;
+  const shareUrl = `${getClientSiteUrl()}/fundraisers/${campaign.slug}`;
 
   async function handleShare() {
     const ok = await copyTextToClipboard(shareUrl);

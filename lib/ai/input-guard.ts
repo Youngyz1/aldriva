@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/ai/input-guard.ts
  *

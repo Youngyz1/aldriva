@@ -1,3 +1,4 @@
+import "server-only";
 import { unstable_cache } from "next/cache";
 
 export type RawImage = { ratio?: string; width?: number; url?: string };

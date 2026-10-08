@@ -3,6 +3,15 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Server-only boundaries for secret-reading modules (2026-10-08)
+- Split privileged seating mutations, overview data, site URL generation, and invitation URL generation from browser-shared modules, then added `server-only` boundaries to secret readers and server-only helpers. `proxy.ts` compiles with the marker; standalone scripts and test fixtures remain unmarked.
+- Added a test alias for `server-only` and `npm run check:client-secrets`, which checks live environment secret values and credential patterns in `.next/static` without printing values. TypeScript and production build passed; 1,456/1,456 registered tests passed; scan found no secret matches.
+
+## [2026-10] — R2 public media foundation (2026-10-08)
+- Added authenticated R2 upload-url/finalize/delete routes with private temporary storage, 10 MB input checks, purpose allowlisting, tenant/admin authorization, and rate limiting. Final images are decoded and re-encoded as metadata-stripped WebP, EXIF orientation applied, then resized to fit 2000×2000.
+- Added provider-agnostic bucket-parameterized R2 helpers, sharp `>=0.35.5` (SVG decoding blocked), media metadata migration 157 and Supabase mirror, and CSP/image host support. Homepage CMS uploads now reuse browser validation/compression and explain that uploaded images are public.
+- Verification: ESLint passed with 0 errors (4 existing warnings in `HomepageCmsTabs.tsx`), TypeScript passed, production build passed (354 static pages; sandbox network warnings for external event-provider fetches), full suite passed (1,424 tests / 96 suites), and `git diff --check` passed. Migration application, private bucket/CORS setup, live R2 checks, and authenticated responsive browser review remain outstanding. Website-builder `cms-media` write-policy mismatch documented only; existing Supabase media flows remain in place.
+
 ## [2026-10] — Round 3 Commit 3: general share link (2026-10-08)
 - Migration `db/migration_156_invitation_share_link.sql` (+ rollback twin, supabase mirror `20261007000003_…`, **NOT applied to any database**): `share_token` UNIQUE, `share_enabled` default false, `share_regenerated_at` on `event_invitation_pages`. Rollback drops in reverse order. Also backfilled the missing 154 supabase mirror (`20261007000002_…`, byte-identical).
 - General share link (invitation-kind only): 256-bit token, works only while published + enabled; host enable/disable/regenerate (inline confirm) in a new dashboard panel stating anyone with the link can read the page. Shared route renders the real template `shared` with guest-only blocks as a neutral note — no guest name, RSVP, or QR. Disabled/unpublished/invalid/public-kind tokens share one neutral page; noindex, no-store header, per-IP rate limit, always dynamic. Personal guest links unchanged on both kinds. 20 new tests in `lib/__tests__/invitation-sharing.test.cjs`.

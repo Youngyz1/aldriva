@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/reviews/[id]/route.ts
  * PATCH  /api/admin/reviews/:id  — approve or hide a review

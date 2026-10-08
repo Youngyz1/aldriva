@@ -1,3 +1,4 @@
+import "server-only";
 import { generateDailyPost } from '../../../../lib/generateCaption';
 import {
   getContentMode,

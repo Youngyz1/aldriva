@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/ai/providers/gemini.ts
  * Google Gemini AI Provider implementation for Aldriva AI.

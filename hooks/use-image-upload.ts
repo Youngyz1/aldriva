@@ -11,10 +11,13 @@ import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";
 export { ALLOWED_IMAGE_TYPES };
 
 interface UseImageUploadOptions {
-  bucket?: string;
+  bucket?: string | null;
   folder: string; // e.g. 'article-covers' or 'business-logos'
   onSuccess: (url: string) => void;
   onError?: (errorMsg: string) => void;
+  upload?: (file: File, onProgress?: (percent: number) => void) => Promise<string>;
+  maxOriginalBytes?: number;
+  allowedTypes?: readonly string[];
 }
 
 /**
@@ -27,6 +30,9 @@ export function useImageUpload({
   folder,
   onSuccess,
   onError,
+  upload,
+  maxOriginalBytes,
+  allowedTypes,
 }: UseImageUploadOptions) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<UploadImageProgress | null>(null);
@@ -45,6 +51,9 @@ export function useImageUpload({
       setProgress(null);
       const url = await uploadImage(file, bucket, folder, {
         onProgress: setProgress,
+        upload,
+        maxOriginalBytes,
+        allowedTypes,
       });
       onSuccess(url);
     } catch (err: unknown) {

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Shared helpers for tagging/parsing NOWPayments `order_id` values with an
  * explicit kind, so `/api/crypto/webhook` can dispatch to exactly one table

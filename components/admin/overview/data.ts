@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * components/admin/overview/data.ts
  * Server-side data access for the admin Overview page.
@@ -14,6 +15,7 @@
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { overviewStrings, type OverviewRange } from "./strings";
+export { formatMoney } from "./format";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -736,18 +738,6 @@ export async function getGlanceData(b: RangeBounds): Promise<GlanceRow[]> {
     { id: "payouts", total: payTotal, rangeNew: payNew, rangePrev: payPrev, states: [{ label: st.requested, value: payRequested }, { label: st.processing, value: payProcessing }], href: "/admin/finance/payouts" },
     { id: "tickets", total: tickTotal, rangeNew: tickNew, rangePrev: tickPrev, states: [], href: "/admin/payments" },
   ];
-}
-
-export function formatMoney(value: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: value !== 0 && Math.abs(value) < 100 ? 2 : 0,
-    }).format(value);
-  } catch {
-    return `$${Number(value || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-  }
 }
 
 export function formatCompact(value: number): string {

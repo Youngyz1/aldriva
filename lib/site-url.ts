@@ -1,3 +1,4 @@
+import "server-only";
 import { BRAND } from "../config/branding";
 
 // Safety-net fallback only — BRAND.website (config/branding.ts) is the real

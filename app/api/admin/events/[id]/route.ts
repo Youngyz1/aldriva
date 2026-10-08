@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/events/[id]/route.ts
  * PATCH — update event status or is_featured flag.

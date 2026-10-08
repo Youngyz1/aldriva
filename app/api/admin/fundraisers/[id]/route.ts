@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/fundraisers/[id]/route.ts
  * PATCH — update fundraiser is_featured flag and/or backdate created_at.

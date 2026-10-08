@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * app/api/admin/fundraisers/[id]/import/route.ts
  * POST — admin-only import of historical donors and/or Words-of-Support.

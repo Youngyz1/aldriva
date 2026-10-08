@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * lib/ai/output-guard.ts
  *
