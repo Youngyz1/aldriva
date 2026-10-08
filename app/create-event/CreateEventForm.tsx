@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -54,19 +54,24 @@ const TEMPLATE_CONFIG: Record<string, { sections: { name: string; rows: number; 
   large: { sections: [{ name: "Floor A", rows: 5, seatsPerRow: 25 }, { name: "Floor B", rows: 5, seatsPerRow: 25 }, { name: "VIP", rows: 2, seatsPerRow: 20 }] },
 };
 
-function generateSlug(title: string) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
-}
+import {
+  EventSlugError,
+  insertWithUniqueSlug,
+  localizedPublishError,
+  slugifyEventTitle,
+} from "@/lib/event-slug";
 
 
 export default function CreateEventForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Synchronous double-submit guard: React state updates do not block a
+  // second click in the same tick, so the disabled button alone cannot
+  // prevent two inserts. The ref makes the second submit a no-op and the
+  // idempotent slug flow below makes a retry safe. Reset on every failure
+  // so the user can fix and resubmit; form data is never cleared.
+  const submitInFlight = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [checking, setChecking] = useState(true);
@@ -215,11 +220,12 @@ export default function CreateEventForm() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitInFlight.current) return;
+    submitInFlight.current = true;
     setLoading(true);
     setError("");
     setNotice("");
 
-    const slug = generateSlug(form.title);
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -243,6 +249,7 @@ export default function CreateEventForm() {
     if (form.organizer_id && !organizers.some((organizer) => organizer.id === form.organizer_id)) {
       setError("Select one of your organizer profiles before publishing an event.");
       setLoading(false);
+      submitInFlight.current = false;
       return;
     }
 
@@ -252,6 +259,8 @@ export default function CreateEventForm() {
       if (videoFile.size > VIDEO_MAX_BYTES) {
         setError("Video exceeds the 50MB size limit.");
         setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
         return;
       }
       // Magic-byte check on actual file content: accept="video/*" and the
@@ -261,11 +270,13 @@ export default function CreateEventForm() {
       if (!validation.valid) {
         setError(validation.error ?? "Unsupported video format. Use MP4, WebM, Ogg, or QuickTime.");
         setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
         return;
       }
       // Extension and stored content type come from detected bytes.
       const ext = videoMimeToExtension(validation.mimeType ?? "video/mp4");
-      const fileName = `${slug}-${Date.now()}.${ext}`;
+      const fileName = `${slugifyEventTitle(form.title)}-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("event-videos")
         .upload(fileName, videoFile, { contentType: validation.mimeType ?? videoFile.type });
@@ -273,6 +284,8 @@ export default function CreateEventForm() {
       if (uploadError) {
         setError("Video upload failed: " + uploadError.message);
         setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
         return;
       }
 
@@ -284,40 +297,59 @@ export default function CreateEventForm() {
     if (!isValidEventCategory(form.category)) {
       setError("Invalid event category");
       setLoading(false);
+      submitInFlight.current = false;
       return;
     }
     if (!isValidEventSubcategory(form.category, form.subcategory)) {
       setError("Invalid subcategory for the selected category");
       setLoading(false);
+      submitInFlight.current = false;
       return;
     }
 
-    const { data: createdEvent, error: eventError } = await supabase
-      .from("events")
-      .insert({
-        title: form.title,
-        slug,
-        description: form.description,
-        category: form.category,
-        subcategory: form.subcategory,
-        event_type: form.event_type,
-        venue: form.venue,
-        city: form.city,
-        event_date: form.event_date,
-        end_date: form.end_date || null,
-        video_url,
-        organizer_id: form.organizer_id || null,
-        user_id: session.user.id,
-        latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
-        visibility: visibility || "public",
-      })
-      .select()
-      .single();
+    // Collision-safe insert: the base slug comes from the title, reserved
+    // slugs are suffixed, and a lost availability race retries with a fresh
+    // suffix instead of surfacing events_slug_key. Raw database text never
+    // reaches the UI — failures show one localized message and the form
+    // keeps all entered data for an immediate retry.
+    const slugExists = async (slug: string) => {
+      const { data } = await supabase.from("events").select("id").eq("slug", slug).maybeSingle();
+      return !!data;
+    };
+    const insertEvent = async (slug: string) => {
+      const { data, error } = await supabase
+        .from("events")
+        .insert({
+          title: form.title,
+          slug,
+          description: form.description,
+          category: form.category,
+          subcategory: form.subcategory,
+          event_type: form.event_type,
+          venue: form.venue,
+          city: form.city,
+          event_date: form.event_date,
+          end_date: form.end_date || null,
+          video_url,
+          organizer_id: form.organizer_id || null,
+          user_id: session.user.id,
+          latitude: form.latitude ? parseFloat(form.latitude) : null,
+          longitude: form.longitude ? parseFloat(form.longitude) : null,
+          visibility: visibility || "public",
+        })
+        .select()
+        .single();
+      return { data, error };
+    };
 
-    if (eventError) {
-      setError(eventError.message);
+    let createdEvent;
+    try {
+      ({ data: createdEvent } = await insertWithUniqueSlug(insertEvent, slugExists, form.title));
+    } catch (err) {
+      if (!(err instanceof EventSlugError)) throw err;
+      setError(localizedPublishError());
       setLoading(false);
+      submitInFlight.current = false;
       return;
     }
 
@@ -332,12 +364,16 @@ export default function CreateEventForm() {
         if (bannerError) {
           setError("Banner update failed: " + bannerError.message);
           setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
           return;
         }
       } catch (err) {
         const message = err instanceof UploadImageError ? err.message : "Banner upload failed.";
         setError(message);
         setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
         return;
       }
       setUploadProgress("");
@@ -354,6 +390,8 @@ export default function CreateEventForm() {
       if (ticketError) {
         setError(ticketError.message);
         setLoading(false);
+        submitInFlight.current = false;
+      submitInFlight.current = false;
         return;
       }
     }

@@ -12,10 +12,6 @@ import { EVENT_CATEGORIES, SUBCATEGORIES_BY_CATEGORY, normalizeEventCategory } f
 type Organizer = { id: string; name: string };
 type Ticket = { id: string; name: string; price: number; quantity: number };
 
-function generateSlug(title: string) {
-  return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
-}
-
 function toDateTimeLocal(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -173,14 +169,14 @@ export default function EditEventPage() {
         throw new Error("Choose an organizer profile that belongs to your account.");
       }
 
-      const nextSlug = generateSlug(form.title);
+      // Slugs are minted once at creation and never change: retitling an
+      // event must not move its public URL (Round 3, Commit 3d).
       const subsForCat = (SUBCATEGORIES_BY_CATEGORY as Record<string, readonly string[]>)[form.category] ?? [];
       const validatedSub = subsForCat.includes(form.subcategory as never) ? form.subcategory : subsForCat[0] ?? null;
       const { error: updateError } = await supabase
         .from("events")
         .update({
           title: form.title,
-          slug: nextSlug,
           category: form.category,
           subcategory: validatedSub,
           event_type: form.event_type,
@@ -200,7 +196,7 @@ export default function EditEventPage() {
       if (updateError) throw new Error(updateError.message);
       await upsertTicket(0, form.ticket1_name, form.ticket1_price, 100);
       await upsertTicket(1, form.ticket2_name, form.ticket2_price, 50);
-      router.push(`/events/${nextSlug}`);
+      router.push(`/events/${slug}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not update event.");
     } finally {

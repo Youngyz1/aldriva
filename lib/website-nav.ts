@@ -165,6 +165,9 @@ export const RESERVED_WEBSITE_SLUGS = new Set([
   "external-events",
   "eventbrite-sync",
   "gofundme-sync",
+  "create-event",
+  "create-fundraiser",
+  "create-organizer",
 ]);
 
 export function isReservedWebsiteSlug(slug: string): boolean {

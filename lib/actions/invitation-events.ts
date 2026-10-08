@@ -25,6 +25,7 @@ import {
   INVITATION_DRAFT_TITLE,
   buildInvitationDraftSlug,
 } from "@/lib/invitation-events";
+import { isUniqueViolation } from "@/lib/event-slug";
 
 export interface InvitationDraftResult {
   ok: boolean;
@@ -62,8 +63,11 @@ export async function createInvitationDraft(draftKey: string): Promise<Invitatio
   if (!error && data) return { ok: true, eventId: data.id };
 
   // Idempotency: UNIQUE(events.slug) fired → the first submit already won.
-  // Return the existing row after verifying it belongs to this user.
-  if (error && (error.code === "23505" || /duplicate|unique/i.test(error.message))) {
+  // Return the existing row after verifying it belongs to this user, so a
+  // double submit creates exactly one draft. The draft slug is key-derived
+  // (stable per intent) rather than title-derived, and shared-slug
+  // violation detection keeps this in sync with the public flow.
+  if (error && isUniqueViolation(error)) {
     const { data: existing } = await admin
       .from("events")
       .select("id, user_id, kind")
