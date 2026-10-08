@@ -90,10 +90,11 @@ of declared raw bytes per user per UTC day. Each upload-URL and finalize request
 counts against the request limits. These quotas apply to R2-driver uploads;
 Supabase-driver uploads do not call the R2 upload routes or quota RPC.
 
-The app calls the four-argument quota RPC introduced by migration 161. Until
-161 is applied, the upload-URL route returns HTTP 503 with a clear migration
-message rather than failing with a generic server error. Migration 161 keeps
-migration 160's two-argument RPC available during rollout.
+The app calls the four-argument quota RPC introduced by migration 161. If the
+required schema or RPC is missing, the upload-URL route returns HTTP 503 and
+asks operators to verify migrations 160 and 161 rather than failing with a
+generic server error. Migration 161 keeps migration 160's two-argument RPC
+available during rollout.
 
 Replacing an image creates a new immutable R2 object and media row; the old
 object is not automatically deleted because the system cannot know whether

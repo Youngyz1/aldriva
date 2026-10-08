@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     console.error("[media/upload-url] failed:", error instanceof Error ? error.name : "unknown");
     if (error instanceof PublicMediaQuotaMigrationMissingError) {
       return NextResponse.json({
-        error: "Public media quota migration 161 is not applied. R2 uploads are temporarily unavailable.",
+        error: "Public media quota is unavailable. Verify that migrations 160 and 161 are applied; R2 uploads are temporarily unavailable.",
       }, { status: 503, headers: { "Cache-Control": "no-store" } });
     }
     return NextResponse.json({ error: "Could not prepare the image upload." }, { status: 500 });

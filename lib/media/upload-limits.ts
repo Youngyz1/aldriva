@@ -65,7 +65,7 @@ export async function reservePublicMediaQuota(userId: string, bytes: number): Pr
 
 export class PublicMediaQuotaMigrationMissingError extends Error {
   constructor() {
-    super("Public media quota migration 161 is not applied.");
+    super("Public media quota RPC is unavailable; verify that migrations 160 and 161 are applied.");
     this.name = "PublicMediaQuotaMigrationMissingError";
   }
 }
