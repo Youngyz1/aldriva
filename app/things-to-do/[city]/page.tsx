@@ -160,7 +160,7 @@ export default async function ThingsToDoPage({
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 font-bold"><Calendar className="h-8 w-8" /></div>
             <h3 className="text-xl font-black">No events found in {decodedCity}</h3>
             <p className="text-zinc-500 mt-2">
-              Be the first to <Link href="/create-event" className="text-orange-500 font-semibold hover:underline">create an event</Link> in this city!
+              Be the first to <Link href="/dashboard/events/new" className="text-orange-500 font-semibold hover:underline">create an event</Link> in this city!
             </p>
           </div>
         )}

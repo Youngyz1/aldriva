@@ -30,8 +30,8 @@ const pathways = [
   {
     title: "Host",
     description:
-      "Create events, import listings from trusted sources, connect them to the right organizer, and keep every post editable after it goes live.",
-    href: "/create-event",
+      "Create public events or private invitations, connect them to the right organizer, and keep every post editable after it goes live.",
+    href: "/dashboard/events/new",
     label: "Create an event",
   },
   {
@@ -85,7 +85,7 @@ export default function AboutPage() {
             <Link href="/events" className="rounded-full bg-orange-600 px-6 py-3 font-black text-white transition hover:bg-orange-700">
               Find an experience
             </Link>
-            <Link href="/create-event" className="rounded-full bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-zinc-100">
+            <Link href="/dashboard/events/new" className="rounded-full bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-zinc-100">
               Start hosting
             </Link>
           </div>
@@ -177,7 +177,7 @@ export default function AboutPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/create-event" className="rounded-full bg-orange-600 px-6 py-3 font-black text-white transition hover:bg-orange-700">
+            <Link href="/dashboard/events/new" className="rounded-full bg-orange-600 px-6 py-3 font-black text-white transition hover:bg-orange-700">
               Create event
             </Link>
             <Link href="/create-fundraiser" className="rounded-full bg-zinc-950 px-6 py-3 font-black text-white transition hover:bg-zinc-800">

@@ -361,7 +361,7 @@ export default async function EventsResultsSection({
                       ? "Check spelling, try different keywords, or browse all events."
                       : "Try another location or date range."
                   }
-                  action={{ label: query ? "Browse events" : "Create event", href: query ? "/events" : "/create-event" }}
+                  action={{ label: query ? "Browse events" : "Create event", href: query ? "/events" : "/dashboard/events/new" }}
                 />
               </>
             )}

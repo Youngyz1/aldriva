@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
-import { isAdmin } from "@/lib/auth";
 import { CreateInvitationCard } from "@/components/events/CreateInvitationCard";
 
 export default async function NewDashboardEventPage() {
   const ctx = await getDashboardContext();
   if (!ctx) redirect("/login");
 
-  // Non-admins skip the two-column choice screen — go straight to the create
-  // form.
-  const admin = await isAdmin();
-  if (!admin) {
-    redirect("/create-event");
-  }
+  // NOTE (Round 3, Commit 3c): the isAdmin() gate that used to sit here was
+  // added in 874d0ece ("feat(import): gate CSV/URL import behind
+  // platform-admin access") solely because one of the choice columns was the
+  // admin-only Import Event card. That card was deleted in Commit 3b and
+  // nothing else on this page is admin-only (public form: open to all
+  // logged-in users; invitation draft: login-only server action), so every
+  // logged-in user now sees both cards. Logged-out users never reach this
+  // render: proxy.ts redirects /dashboard/* to /login?redirect=<original>.
 
   if (ctx.organizerIds.length === 0) {
     return (
@@ -46,7 +47,7 @@ export default async function NewDashboardEventPage() {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Link
-          href="/create-event"
+          href="/create-event?from=new"
           className="rounded-2xl border border-orange-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
         >
           <p className="text-sm font-black uppercase tracking-wide text-orange-600">Create</p>

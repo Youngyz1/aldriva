@@ -142,7 +142,7 @@ export default function PlatformPage() {
               Browse Events
             </Link>
             <Link
-              href="/create-event"
+              href="/dashboard/events/new"
               className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100"
             >
               Create Event

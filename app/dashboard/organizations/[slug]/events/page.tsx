@@ -31,7 +31,7 @@ export default async function OrgEventsPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
         <Link
-          href="/create-event"
+          href="/dashboard/events/new"
           className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700"
         >
           <Plus className="h-4 w-4" /> New Event
@@ -46,7 +46,7 @@ export default async function OrgEventsPage({
           <p className="font-black text-zinc-900">No events yet</p>
           <p className="mt-1 text-sm text-zinc-500">Create your first event to get started.</p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Link href="/create-event" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white hover:bg-orange-700">
+          <Link href="/dashboard/events/new" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white hover:bg-orange-700">
             Create Event
           </Link>
           <CreateInvitationButton label="Create Invitation" className="px-4 py-2.5" />

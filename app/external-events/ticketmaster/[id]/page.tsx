@@ -214,7 +214,7 @@ export default async function TicketmasterEventPage({
               <p className="mt-8 text-sm text-zinc-500">
                 Organizing this event?{" "}
                 <Link
-                  href="/create-event"
+                  href="/dashboard/events/new"
                   className="font-bold text-orange-600 underline decoration-dotted underline-offset-2 hover:text-orange-700"
                 >
                   Create it on Aldriva

@@ -110,7 +110,7 @@ export default async function OrgOverviewPage({
         {(recentEvents ?? []).length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 py-10 text-center">
             <p className="text-sm font-medium text-zinc-500">No events yet.</p>
-            <Link href="/create-event" className="mt-3 inline-block rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700">
+            <Link href="/dashboard/events/new" className="mt-3 inline-block rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700">
               Create Event
             </Link>
           </div>
@@ -136,7 +136,7 @@ export default async function OrgOverviewPage({
       <section className="border-t border-zinc-200 pt-6">
         <h2 className="mb-4 font-black text-zinc-950">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/create-event" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700">+ New Event</Link>
+          <Link href="/dashboard/events/new" className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-orange-700">+ New Event</Link>
           <CreateInvitationButton label="+ New Invitation" className="px-4 py-2.5" />
           <Link href="/create-fundraiser" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-emerald-700">+ New Fundraiser</Link>
           <Link href={`${base}/settings`} className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50">Edit Organization</Link>

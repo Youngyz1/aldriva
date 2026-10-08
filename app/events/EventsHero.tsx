@@ -67,7 +67,7 @@ export default async function EventsHero() {
               Browse Events
             </Link>
             <Link
-              href="/create-event"
+              href="/dashboard/events/new"
               className="inline-flex rounded-full border border-white/80 bg-white/10 px-5 py-2.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/20 sm:px-7 sm:py-3 sm:text-base"
             >
               Create Event

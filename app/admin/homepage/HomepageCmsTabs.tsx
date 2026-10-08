@@ -607,7 +607,7 @@ export default function HomepageCmsTabs({
               </div>
               <div>
                 <FieldLabel>Secondary CTA link</FieldLabel>
-                <Input value={settings.secondaryButtonHref} onChange={e => setSettings({...settings, secondaryButtonHref: e.target.value})} placeholder="/create-event" />
+                <Input value={settings.secondaryButtonHref} onChange={e => setSettings({...settings, secondaryButtonHref: e.target.value})} placeholder="/dashboard/events/new" />
               </div>
             </div>
             <SaveBtn saving={saving} label="Save Hero Section" />

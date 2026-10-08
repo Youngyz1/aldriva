@@ -41,7 +41,7 @@ export const VERTICAL_CONFIG: Record<VerticalKey, VerticalConfig> = {
     iconBg: "bg-indigo-50",
     iconColor: "text-indigo-600",
     statsHref: "/dashboard/events",
-    createHref: "/create-event",
+    createHref: "/dashboard/events/new",
     createCta: "Create an event",
     createAgainCta: "Create another event",
   },

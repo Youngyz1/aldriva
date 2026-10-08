@@ -48,7 +48,7 @@ export default function ArticleCtaBanner({ categories = [] }: ArticleCtaBannerPr
             </p>
           </div>
           <Link
-            href="/create-event"
+            href="/dashboard/events/new"
             className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-violet-700 hover:bg-violet-50 transition shadow-lg shrink-0"
           >
             Create an Event →

@@ -443,7 +443,7 @@ export default async function HomePage() {
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center">
             <h3 className="text-2xl font-black">{tHomepage('noEventsYet')}</h3>
-            <Link href="/create-event" className="mt-4 inline-block rounded-xl bg-orange-600 px-5 py-3 font-black text-white">
+            <Link href="/dashboard/events/new" className="mt-4 inline-block rounded-xl bg-orange-600 px-5 py-3 font-black text-white">
               {tHomepage('createFirstEvent')}
             </Link>
           </div>

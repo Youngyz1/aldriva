@@ -23,7 +23,7 @@ export const ENTITY_TYPES: Record<EntityKind, EntityTypeConfig> = {
     pluralLabel: "Events",
     description: "Create and manage an event",
     icon: Calendar,
-    createHref: "/create-event",
+    createHref: "/dashboard/events/new",
     listHref: "/dashboard/events",
     viewHref: (id) => `/dashboard/events/${id}/overview`,
     requiresOrganizer: true,

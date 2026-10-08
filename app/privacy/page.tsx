@@ -450,7 +450,7 @@ export default function PrivacyPage() {
               <Link href="/about" className="hover:text-orange-600">About</Link>
               <Link href="/events" className="hover:text-orange-600">Events</Link>
               <Link href="/organizers" className="hover:text-orange-600">Organizations</Link>
-              <Link href="/create-event" className="hover:text-orange-600">Create events</Link>
+              <Link href="/dashboard/events/new" className="hover:text-orange-600">Create events</Link>
               <Link href="/signup" className="hover:text-orange-600">Create account</Link>
             </div>
           </article>

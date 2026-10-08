@@ -50,7 +50,7 @@ export const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
   buttonText: "Browse Events",
   buttonHref: "/events",
   secondaryButtonText: "Create Event",
-  secondaryButtonHref: "/create-event",
+  secondaryButtonHref: "/dashboard/events/new",
   seoTitle: `${BRAND.name} — Buy Tickets, Run Events & Fundraise`,
   seoDescription: "Discover events, buy tickets, support causes.",
   seoOgImageUrl:
@@ -161,7 +161,7 @@ export function getHomepageSettings(
   if (dbSettings.homepage_hero_button_href) settings.buttonHref = dbSettings.homepage_hero_button_href;
   
   settings.secondaryButtonText = dbSettings.homepage_hero_secondary_button_text ?? "Create Event";
-  settings.secondaryButtonHref = dbSettings.homepage_hero_secondary_button_href ?? "/create-event";
+  settings.secondaryButtonHref = dbSettings.homepage_hero_secondary_button_href ?? "/dashboard/events/new";
 
   // SEO settings
   settings.seoTitle = dbSettings.homepage_seo_title || `${BRAND.name} — Buy Tickets, Run Events & Fundraise`;

@@ -189,7 +189,7 @@ export async function getMyThingsData(
       key: "events",
       label: "My Events",
       listHref: "/dashboard/events",
-      createHref: "/create-event",
+      createHref: "/dashboard/events/new",
       createLabel: "New Event",
       items: ((personalEventsRes.data as unknown[]) ?? []).map((r: unknown) => {
         const x = r as { id: string; title: string; slug: string; status: string; created_at: string };
