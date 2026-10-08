@@ -13,6 +13,26 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
  */
 
 /** Per-endpoint budgets. Tuned to be far above real usage — see RATIONALE. */
+function positiveIntegerEnv(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (!value || !/^\d+$/.test(value)) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function getPublicMediaRateLimitConfig() {
+  return {
+    user: {
+      limit: positiveIntegerEnv("MEDIA_UPLOAD_USER_LIMIT", 20),
+      windowSeconds: positiveIntegerEnv("MEDIA_UPLOAD_USER_WINDOW_SECONDS", 600),
+    },
+    ip: {
+      limit: positiveIntegerEnv("MEDIA_UPLOAD_IP_LIMIT", 60),
+      windowSeconds: positiveIntegerEnv("MEDIA_UPLOAD_IP_WINDOW_SECONDS", 600),
+    },
+  };
+}
+
 export const RATE_LIMITS = {
   /**
    * Sends email through Resend. Tightest budget on the platform: a legitimate
@@ -56,8 +76,10 @@ export const RATE_LIMITS = {
    */
   productAsset: { limit: 30, windowSeconds: 3600 },
 
-  /** R2 public-media uploads issue a temporary PUT and a finalization request. */
-  mediaUpload: { limit: 60, windowSeconds: 3600 },
+  /** Public media API requests per authenticated user: upload-url and finalize. */
+  mediaUpload: getPublicMediaRateLimitConfig().user,
+  /** Public media API requests per source IP, shared across users. */
+  mediaUploadIp: getPublicMediaRateLimitConfig().ip,
 
   /**
    * AI writing assistant rate limit for authors drafting and polishing articles.
