@@ -22,16 +22,40 @@ export type UploadImageErrorCode =
   | "corrupted"
   | "compression_failed"
   | "upload_failed"
+  | "storage_unavailable"
   | "network_error";
 
-const ERROR_MESSAGES: Record<UploadImageErrorCode, string> = {
+const ERROR_MESSAGES_EN: Record<UploadImageErrorCode, string> = {
   invalid_type: "Unsupported file type. Please upload a JPEG, PNG, or WebP image.",
   too_large: "This image is too large. Please choose a file that is 5 MB or smaller.",
   corrupted: "This file doesn't look like a valid image. Please try a different file.",
   compression_failed: "We couldn't process this image. Please try a different file.",
   upload_failed: "The upload failed. Please try again.",
+  storage_unavailable:
+    "Image storage isn't set up yet. Please try again later or contact support.",
   network_error: "Upload failed due to a network problem. Check your connection and try again.",
 };
+
+const ERROR_MESSAGES_FR: Record<UploadImageErrorCode, string> = {
+  invalid_type: "Type de fichier non pris en charge. Veuillez téléverser une image JPEG, PNG ou WebP.",
+  too_large: "Cette image est trop lourde. Veuillez choisir un fichier de 5 Mo ou moins.",
+  corrupted: "Ce fichier ne semble pas être une image valide. Veuillez essayer un autre fichier.",
+  compression_failed: "Nous n'avons pas pu traiter cette image. Veuillez essayer un autre fichier.",
+  upload_failed: "Le téléversement a échoué. Veuillez réessayer.",
+  storage_unavailable:
+    "Le stockage d'images n'est pas encore configuré. Veuillez réessayer plus tard ou contacter le support.",
+  network_error:
+    "Le téléversement a échoué à cause d'un problème réseau. Vérifiez votre connexion et réessayez.",
+};
+
+/** Localized uploader copy. Storage errors never surface raw provider text. */
+export function getUploadErrorMessage(code: UploadImageErrorCode, locale?: string): string {
+  const resolved = (locale ?? "").toLowerCase();
+  if (resolved.startsWith("fr")) return ERROR_MESSAGES_FR[code];
+  return ERROR_MESSAGES_EN[code];
+}
+
+const ERROR_MESSAGES: Record<UploadImageErrorCode, string> = ERROR_MESSAGES_EN;
 
 export class UploadImageError extends Error {
   constructor(public readonly code: UploadImageErrorCode, message?: string, public readonly cause?: unknown) {
@@ -168,6 +192,13 @@ export async function uploadImage(
       // fetch() throws a bare TypeError ("Failed to fetch") on network-level failure
       throw new UploadImageError("network_error", undefined, err);
     }
+    if (err instanceof Error && /bucket[^a-z]*not found|not_found|NoSuchBucket/i.test(err.message)) {
+      // The bucket was never created in this project (fresh/staging
+      // environments miss hand-created media buckets). Never surface the
+      // raw provider text ("Bucket not found"); the setup script
+      // db/migration_158_media_buckets_setup.sql creates it.
+      throw new UploadImageError("storage_unavailable", undefined, err);
+    }
     if (err instanceof Error && /row-level security/i.test(err.message)) {
       // Storage RLS denial (e.g. uploading into another event's path).
       // Never surface raw policy internals; the denial itself is the signal.
@@ -177,10 +208,8 @@ export async function uploadImage(
         err
       );
     }
-    throw new UploadImageError(
-      "upload_failed",
-      err instanceof Error ? err.message : undefined,
-      err
-    );
+    // Any other storage failure: generic message, raw provider text stays in
+    // `cause` for server logs only — it never reaches err.message.
+    throw new UploadImageError("upload_failed", undefined, err);
   }
 }
