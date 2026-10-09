@@ -14,6 +14,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Pencil, Eye } from "lucide-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
@@ -208,6 +210,7 @@ function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
 }
 
 export function InvitationPageBuilder({ eventId, initialData, initialSection = "type" }: Props) {
+  const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
   const [openSection, setOpenSection] = useState<SectionId>(initialSection);
@@ -364,6 +367,7 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
         if (result.ok) {
           setPageStatus("published");
           setPublishedAt(result.publishedAt ?? new Date().toISOString());
+          router.push(`/dashboard/events/${eventId}/invitation-page`);
         } else {
           setActionError(
             result.error ?? result.errors?.map((e) => e.message).join(" · ") ?? "Publish failed."
@@ -373,7 +377,7 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
         setActionBusy(false);
       }
     },
-    [eventId, saveQueue]
+    [eventId, router, saveQueue]
   );
 
   const handleUnpublish = useCallback(async () => {
@@ -400,11 +404,31 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
 
   return (
     <div className="space-y-4">
+      {!initialData.draft.id && (
+        <section
+          data-testid="start-designing-intro"
+          className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3"
+        >
+          <h2 className="text-sm font-black text-zinc-950">Start designing your invitation</h2>
+          <p className="mt-1 text-xs font-medium text-zinc-600">
+            Choose an invitation type and template, then add the details your guests will see.
+          </p>
+        </section>
+      )}
       {/* Status header (plain row, hairline divider — no card) */}
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-1 pb-3">
         <h1 className="mr-auto text-base font-black text-zinc-950">
           {initialData.event.title} — Invitation Page
         </h1>
+        {initialData.draft.id && (
+          <Link
+            data-testid="back-to-preview"
+            href={`/dashboard/events/${eventId}/invitation-page`}
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+          >
+            Back to preview
+          </Link>
+        )}
         {isPublished ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
             <CheckCircle2 size={12} /> Live

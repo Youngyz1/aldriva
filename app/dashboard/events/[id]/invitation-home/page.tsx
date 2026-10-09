@@ -34,21 +34,10 @@ export default async function InvitationHomePage({
     .maybeSingle();
   if (!event || (event as { kind?: string | null }).kind !== "invitation") return notFound();
 
-  const [draftData, rsvps, share] = await Promise.all([
+  const [draftData, share] = await Promise.all([
     getInvitationPageDraft(eventId),
-    admin
-      .from("event_invitations")
-      .select("rsvp_status")
-      .eq("event_id", eventId),
     getShareLinkState(eventId),
   ]);
-
-  const counts = { accepted: 0, declined: 0, pending: 0 };
-  for (const row of (rsvps.data ?? []) as { rsvp_status: string }[]) {
-    if (row.rsvp_status === "accepted") counts.accepted += 1;
-    else if (row.rsvp_status === "declined") counts.declined += 1;
-    else counts.pending += 1;
-  }
 
   return (
     <InvitationHomeClient
@@ -58,7 +47,7 @@ export default async function InvitationHomePage({
       pageStatus={draftData?.draft.page_status ?? "draft"}
       hasUnpublishedChanges={draftData?.hasUnpublishedChanges ?? false}
       draftLocale={draftData?.draft.locale ?? "en"}
-      rsvpCounts={counts}
+      rsvpCounts={null}
       shareEnabled={share.ok && (share.enabled ?? false)}
       shareUrl={share.ok ? (share.url ?? null) : null}
     />

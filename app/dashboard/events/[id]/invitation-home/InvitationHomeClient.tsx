@@ -41,7 +41,7 @@ export function InvitationHomeClient({
   pageStatus: string;
   hasUnpublishedChanges: boolean;
   draftLocale: string;
-  rsvpCounts: { accepted: number; declined: number; pending: number };
+  rsvpCounts: { accepted: number; declined: number; pending: number } | null;
   shareEnabled: boolean;
   shareUrl: string | null;
 }) {
@@ -86,7 +86,7 @@ export function InvitationHomeClient({
     <div className="space-y-6" data-testid="invitation-home">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-violet-600">Invitation event</p>
+          <p className="text-xs font-black uppercase tracking-wide text-violet-600">Invitation page</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight">{eventTitle}</h1>
           <span
             data-testid="page-status"
@@ -100,10 +100,10 @@ export function InvitationHomeClient({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href={builderHref}
+            href={`${builderHref}?edit=1`}
             className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700"
           >
-            Edit
+            Edit invitation
           </Link>
           <Link
             href={guestsHref}
@@ -195,9 +195,13 @@ export function InvitationHomeClient({
             className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50"
           >
             <p className="text-sm font-black">Guests</p>
-            <p data-testid="rsvp-counts" className="mt-1 text-xs font-semibold text-zinc-500">
-              {rsvpCounts.accepted} accepted · {rsvpCounts.pending} pending · {rsvpCounts.declined} declined
-            </p>
+            {rsvpCounts ? (
+              <p data-testid="rsvp-counts" className="mt-1 text-xs font-semibold text-zinc-500">
+                {rsvpCounts.accepted} accepted · {rsvpCounts.pending} pending · {rsvpCounts.declined} declined
+              </p>
+            ) : (
+              <p className="mt-1 text-xs font-semibold text-zinc-500">Manage the guest list and invitations</p>
+            )}
           </Link>
           <Link
             href={seatingHref}
@@ -207,7 +211,7 @@ export function InvitationHomeClient({
             <p className="mt-1 text-xs font-semibold text-zinc-500">Assign seats to invited guests</p>
           </Link>
           <Link
-            href={builderHref}
+            href={`${builderHref}?edit=1`}
             className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50"
           >
             <p className="text-sm font-black">Edit invitation</p>

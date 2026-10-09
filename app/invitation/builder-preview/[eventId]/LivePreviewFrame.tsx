@@ -28,6 +28,7 @@ import {
 
 interface Props {
   event: Record<string, unknown>;
+  initialDraft?: Record<string, unknown>;
 }
 
 const EMPTY_DRAFT: Record<string, unknown> = {
@@ -35,7 +36,7 @@ const EMPTY_DRAFT: Record<string, unknown> = {
   locale: "en",
 };
 
-export function LivePreviewFrame({ event }: Props) {
+export function LivePreviewFrame({ event, initialDraft }: Props) {
   const [payload, setPayload] = useState<PreviewDraftMessage | null>(null);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function LivePreviewFrame({ event }: Props) {
   }, []);
 
   const pageData = useMemo(() => {
-    const draft = placeholderSnapshot({ ...(payload?.draft ?? EMPTY_DRAFT) });
+    const draft = placeholderSnapshot({ ...(payload?.draft ?? initialDraft ?? EMPTY_DRAFT) });
     const templateId =
       (payload?.templateId as string) || (draft.template_id as string) || "gala-editorial";
     const locale = payload?.locale || (draft.locale as "en" | "fr") || "en";
@@ -92,7 +93,7 @@ export function LivePreviewFrame({ event }: Props) {
         null
       ),
     };
-  }, [payload, event]);
+  }, [payload, event, initialDraft]);
 
   const renderTemplate = useCallback(() => {
     const entry = getTemplateById(pageData.templateId);

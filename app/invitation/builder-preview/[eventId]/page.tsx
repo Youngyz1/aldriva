@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { checkInvitationPageAccess } from "@/lib/actions/invitation-page";
+import { checkInvitationPageAccess, getInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { LivePreviewFrame } from "./LivePreviewFrame";
 
@@ -28,15 +28,11 @@ export default async function InvitationLivePreviewRoute({
   // no RSVP writes — but the event itself must not leak to strangers.
   const canAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!canAccess) {
-    return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-center shadow-xs">
-        <h2 className="text-xl font-black text-red-700">Access Restricted</h2>
-        <p className="mt-2 text-sm font-semibold text-red-600">
-          Only Event Managers and Organizers can preview this invitation page.
-        </p>
-      </div>
-    );
+    return notFound();
   }
+
+  const pageData = await getInvitationPageDraft(eventId);
+  if (!pageData) return notFound();
 
   const admin = createSupabaseAdmin();
   const { data: event } = await admin
@@ -53,5 +49,5 @@ export default async function InvitationLivePreviewRoute({
     );
   }
 
-  return <LivePreviewFrame event={event} />;
+  return <LivePreviewFrame event={event} initialDraft={pageData.draft as unknown as Record<string, unknown>} />;
 }

@@ -2,8 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { checkInvitationPageAccess, getInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { getShareLinkState } from "@/lib/actions/invitation-sharing";
 import type { Metadata } from "next";
 import InvitationPageDashboardClient from "./InvitationPageDashboardClient";
+import { InvitationHomeClient } from "../invitation-home/InvitationHomeClient";
 
 export const metadata: Metadata = {
   title: "Invitation Page | Aldriva Dashboard",
@@ -12,8 +14,10 @@ export const metadata: Metadata = {
 
 export default async function EventInvitationPageDashboardRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ edit?: string | string[] }>;
 }) {
   await connection();
   const { id: eventId } = await params;
@@ -65,6 +69,25 @@ export default async function EventInvitationPageDashboardRoute({
 
   if (!data) {
     notFound();
+  }
+
+  const query = await searchParams;
+  const hasPage = data.draft.id !== "";
+  if (hasPage && query.edit !== "1") {
+    const share = await getShareLinkState(eventId);
+    return (
+      <InvitationHomeClient
+        eventId={eventId}
+        eventTitle={data.event.title || "Invitation"}
+        hasPage
+        pageStatus={data.draft.page_status}
+        hasUnpublishedChanges={data.hasUnpublishedChanges}
+        draftLocale={data.draft.locale}
+        rsvpCounts={null}
+        shareEnabled={share.ok && (share.enabled ?? false)}
+        shareUrl={share.ok ? (share.url ?? null) : null}
+      />
+    );
   }
 
   return (
