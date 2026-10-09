@@ -3,8 +3,14 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-10] — Invitation Round 5, step 1: unified template model + design-tab removal (2026-10-09, uncommitted)
-- Code-owned `UNIFIED_INVITATION_TEMPLATES` registry (4 pairs, versioned ids, no migration): one selection resolves card slug + page id. Pure `resolveUnifiedPair` derives the display pair without rewriting (exact > card > page > null; mismatches stay custom). `setUnifiedInvitationTemplate` writes both columns atomically behind access + kind gates (page row upserted when absent).
+## [2026-10] — Invitation Round 5, step 2: unified picker + atomic RPC (2026-10-09, uncommitted)
+- Migration `db/migration_163_unified_template_rpc.sql` (+ rollback twin, byte-identical mirror `20261009000001_…`, **NOT applied — owner applies to staging**): `set_unified_invitation_template` writes card UUID + page template id in one transaction with a DB-level kind guard; `SECURITY DEFINER`, pinned search path, service-role-only (migration_131 precedent). Chosen over compensating rollback (compensation can itself fail); partial failure is structurally impossible, pinned by SQL-shape tests.
+- `setUnifiedInvitationTemplate` now calls the RPC and reports `needsPublish` (published page still renders the old design while the card updates live); RPC/DB errors map to fixed generic strings.
+- `UnifiedTemplatePicker` in the builder template section (4 complete pairs; card thumbnail + page swatch per option; Card | Page preview tabs; custom-combination banner with one-click Unify, never auto-rewrites; native radiogroup keyboard; selected/saving/error states; publish notice with jump-to-Publish). Replaces the page-only dropdown and its builder modal (confirm now inline in the picker). Builder threads server-resolved `cardSlug` + card catalog; draft syncs via existing autosave; `hasDraftChanges` already covers `template_id` so the unpublished badge follows.
+- i18n: 21 `unified*` keys in en + fr with parity pins. Tests: +13 step-2 pins; rewritten modal/dropdown pins; stage17 tracker → 163.
+
+## [2026-10] — Invitation Round 5, step 1: unified template model + design-tab removal (2026-10-09, committed as 57b10b5)
+- Code-owned `UNIFIED_INVITATION_TEMPLATES` registry (4 pairs, versioned ids, no migration): one selection resolves card slug + page id. Pure `resolveUnifiedPair` derives the display pair without rewriting (exact > card > page > null; mismatches stay custom). `setUnifiedInvitationTemplate` wrote both columns behind access + kind gates (sequential in step 1; made atomic via the 163 RPC in step 2).
 - Standalone Invitation Design tab removed from nav (all kinds); `/dashboard/events/[id]/invitation-design` is now a kind-gated redirect to the builder; `PATCH /api/events/[id]/invitation-design` returns 410 and writes nothing; `InvitationDesignClient.tsx` deleted. Retained: renderer, card.png, table, fallback, email art. Builder opens for card-only drafts via synthesized defaults.
 - Tests: new `lib/__tests__/unified-invitation-templates.test.cjs` (17); regressions/kind pins updated for the removed tab.
 

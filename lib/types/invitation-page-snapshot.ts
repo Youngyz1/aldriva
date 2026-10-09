@@ -181,6 +181,8 @@ export interface EventLiveFields {
   longitude?: number | null;
   eventbrite_event_id?: string | null;
   category?: string | null;
+  /** Selected card template row id (UUID) or code fallback id. Round 5 unified picker. */
+  invitation_template_id?: string | null;
 }
 
 /**

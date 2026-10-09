@@ -28,11 +28,11 @@
 - **Status: SUPERSEDED by Round 4 below (uncommitted, awaiting owner review).** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
 - **Gate cleared by owner**: 154–161 verified on staging; `we-are-getting-married` reclassified to `kind='invitation'`; two public events keep unpublished draft pages (must stay unreachable).
 
-## Invitation Round 5 — step 1: unified model + design-tab removal (2026-10-09, UNCOMMITTED)
+## Invitation Round 5 — step 2: unified picker + atomic RPC (2026-10-09, UNCOMMITTED)
 
-- **Status: BUILT, awaiting owner review alongside Round 4.** Unified registry (4 pairs) + `setUnifiedInvitationTemplate` (both columns, kind-gated); design tab removed, design route redirects kind-gated, PATCH is 410, card pipeline fully retained. No migration (163 still reserved). Unified picker UI, 2 missing pages, Cover, and email land in steps 2–5.
-- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,609/1,609 pass** (17 new unified tests).
-- **Blocked on owner**: review the step-1 report (with the invitation-design audit), then approve step 2 (unified picker).
+- **Status: BUILT, awaiting owner review.** Migration 163 (RPC + rollback + byte-identical mirror) written, NOT applied — owner applies to staging first. Unified picker in the builder template section (4 pairs, Card|Page tabs, custom-unify, publish notice); page-only dropdown + builder modal removed; 21 i18n keys en+fr. Step 1 committed as 57b10b5. Next per owner order: Cover (step 3), then 2 missing pages, then email.
+- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,613/1,613 pass**.
+- **Blocked on owner**: apply 163 to staging + verify; staging picker click-through; approve step 3 (Cover).
 
 ## Invitation Round 4 — Memories + Rule-1 strip (2026-10-09, COMMITTED as a390017)
 

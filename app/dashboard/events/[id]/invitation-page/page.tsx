@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { checkInvitationPageAccess, assertInvitationKindEvent, getInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { getShareLinkState } from "@/lib/actions/invitation-sharing";
+import { getInvitationTemplates } from "@/lib/invitation-templates";
 import type { Metadata } from "next";
 import InvitationPageDashboardClient from "./InvitationPageDashboardClient";
 import { InvitationHomeClient } from "../invitation-home/InvitationHomeClient";
@@ -95,10 +96,20 @@ export default async function EventInvitationPageDashboardRoute({
     );
   }
 
+  // Round 5: card catalog + current card slug for the unified picker.
+  // Resolved server-side so the builder stays a pure client component.
+  const cardTemplates = await getInvitationTemplates();
+  const cardRowId =
+    (data.event as { invitation_template_id?: string | null } | null)?.invitation_template_id ?? null;
+  const cardSlug =
+    cardTemplates.find((t) => t.id === cardRowId || t.slug === cardRowId)?.slug ?? null;
+
   return (
     <InvitationPageDashboardClient
       eventId={eventId}
       initialData={data}
+      cardSlug={cardSlug}
+      cardTemplates={cardTemplates}
     />
   );
 }

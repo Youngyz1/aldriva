@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Pencil, Eye } from "lucide-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
+import type { InvitationTemplate } from "@/lib/invitation-types";
 import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
 import { saveInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { hasDraftChanges } from "@/lib/invitation-page-helpers";
@@ -44,15 +45,8 @@ import { PublishSection } from "./sections/PublishSection";
 import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
 import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
-import { InvitationTemplateSelect } from "@/components/invitation/InvitationTemplateSelect";
+import { UnifiedTemplatePicker } from "@/components/invitation/UnifiedTemplatePicker";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export interface BuilderDraft extends InvitationPageDraftInput {
@@ -180,6 +174,10 @@ interface Props {
    * template); fresh drafts start at "type" (template choice, then form).
    */
   initialSection?: SectionId;
+  /** Current card slug (server-resolved). Null when none selected. Round 5. */
+  cardSlug?: string | null;
+  /** Card catalog for the unified picker. Round 5. */
+  cardTemplates?: InvitationTemplate[];
 }
 
 function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
@@ -209,7 +207,13 @@ function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
   }
 }
 
-export function InvitationPageBuilder({ eventId, initialData, initialSection = "type" }: Props) {
+export function InvitationPageBuilder({
+  eventId,
+  initialData,
+  initialSection = "type",
+  cardSlug = null,
+  cardTemplates = [],
+}: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
@@ -219,7 +223,6 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
   const [pageStatus, setPageStatus] = useState(initialData.draft.page_status);
   const [publishedAt, setPublishedAt] = useState<string | null>(initialData.publishedAt);
-  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -314,28 +317,6 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
       setOpenSection("template");
     },
     [updateDraft]
-  );
-
-  const hiddenOnSwitch = pendingTemplate
-    ? hiddenContentOnTemplateSwitch(draft, draft.template_id, pendingTemplate)
-    : [];
-
-  const confirmTemplateSwitch = useCallback(() => {
-    if (pendingTemplate) updateDraft({ template_id: pendingTemplate });
-    setPendingTemplate(null);
-  }, [pendingTemplate, updateDraft]);
-
-  const handleTemplateChange = useCallback(
-    (templateId: string) => {
-      const hidden = hiddenContentOnTemplateSwitch(draft, draft.template_id, templateId);
-      if (hidden.length > 0) {
-        // Warn only when the switch actually hides sections with content.
-        setPendingTemplate(templateId);
-      } else {
-        updateDraft({ template_id: templateId });
-      }
-    },
-    [draft, updateDraft]
   );
 
   const toggleSection = useCallback((id: string) => {
@@ -517,10 +498,19 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
             >
               {id === "type" && <InvitationTypePicker value={invitationType} onChange={handleTypeChange} />}
               {id === "template" && (
-                <InvitationTemplateSelect
-                  value={draft.template_id || "gala-editorial"}
-                  onChange={handleTemplateChange}
+                <UnifiedTemplatePicker
+                  eventId={eventId}
+                  cardSlug={cardSlug}
+                  cardTemplates={cardTemplates}
+                  currentPageId={draft.template_id || "gala-editorial"}
+                  isPublished={pageStatus === "published"}
                   invitationType={invitationType}
+                  disabled={actionBusy}
+                  onApplied={(pageId) => updateDraft({ template_id: pageId })}
+                  onJumpToPublish={() => handleJumpToSection("publish")}
+                  getHiddenForPage={(pageId) =>
+                    hiddenContentOnTemplateSwitch(draft, draft.template_id, pageId)
+                  }
                 />
               )}
               {id !== "type" && id !== "template" && id !== "publish" && (
@@ -615,45 +605,6 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
           </div>
         </div>
       </div>
-
-      {/* Template-switch warning modal (focus trapped, Escape closes) */}
-      <Dialog
-        open={pendingTemplate !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingTemplate(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Switch template?</DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-zinc-600">
-            Switching templates will hide these completed fields. Your content
-            is kept and reappears if you switch back.
-          </p>
-          <ul className="list-inside list-disc space-y-0.5 text-xs font-semibold text-zinc-800">
-            {hiddenOnSwitch.map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setPendingTemplate(null)}
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
-            >
-              Keep template
-            </button>
-            <button
-              type="button"
-              onClick={confirmTemplateSwitch}
-              className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700"
-            >
-              Switch anyway
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
