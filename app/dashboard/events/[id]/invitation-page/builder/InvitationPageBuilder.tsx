@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
@@ -35,7 +36,8 @@ import {
   PREVIEW_MESSAGE_SOURCE,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
-import { BasicsSection } from "./sections/BasicsSection";import { HeroSection } from "./sections/HeroSection";
+import { BasicsSection } from "./sections/BasicsSection";
+import { HeroSection } from "./sections/HeroSection";
 import { StorySection } from "./sections/StorySection";
 import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
@@ -214,6 +216,7 @@ export function InvitationPageBuilder({
   cardSlug = null,
   cardTemplates = [],
 }: Props) {
+  const t = useTranslations("Events");
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
@@ -454,7 +457,9 @@ export function InvitationPageBuilder({
           {saveStatus === "idle" && <>Autosave on</>}
         </span>
         {saveError && saveStatus === "failed" && (
-          <span className="text-[11px] font-semibold text-red-600">{saveError}</span>
+          <span className="text-[11px] font-semibold text-red-600">
+            {saveError === "coverHeroStorageHostOnly" ? t("coverHeroStorageHostOnly") : saveError}
+          </span>
         )}
         {/* Phone Edit/Preview toggle (desktop shows both panes) */}
         <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-0.5 lg:hidden" role="group" aria-label="Edit or preview">
@@ -502,6 +507,7 @@ export function InvitationPageBuilder({
                   eventId={eventId}
                   cardSlug={cardSlug}
                   cardTemplates={cardTemplates}
+                  heroImageUrl={draft.hero_image_url ?? null}
                   currentPageId={draft.template_id || "gala-editorial"}
                   isPublished={pageStatus === "published"}
                   invitationType={invitationType}

@@ -25,6 +25,7 @@ export interface InvitationImageUploadFieldProps {
   label?: string;
   hint?: string;
   disabled?: boolean;
+  confirmLabel?: string;
   /** Receives the cms-media public URL once the upload succeeds. */
   onUploaded: (url: string) => void;
   onRemove?: () => void;
@@ -37,6 +38,7 @@ export function InvitationImageUploadField({
   label = "Upload photo",
   hint,
   disabled,
+  confirmLabel,
   onUploaded,
   onRemove,
   onError,
@@ -46,13 +48,14 @@ export function InvitationImageUploadField({
       bucket="cms-media"
       folder={folder}
       value={value}
+      maxLongEdge={1600}
       label={label}
       hint={hint}
       disabled={disabled}
+      confirmLabel={confirmLabel ?? "Use original"}
       onUploaded={onUploaded}
       onRemove={onRemove}
       onError={onError}
-      confirmLabel="Use original"
     />
   );
 }

@@ -4,7 +4,8 @@ export type InvitationTemplateCategory =
   | "Corporate & Conference"
   | "Gala & Fundraiser"
   | "Concert & Festival"
-  | "Casual & Community";
+  | "Casual & Community"
+  | "Cover";
 
 export const INVITATION_CATEGORIES: InvitationTemplateCategory[] = [
   "Wedding & Formal",
@@ -13,6 +14,7 @@ export const INVITATION_CATEGORIES: InvitationTemplateCategory[] = [
   "Gala & Fundraiser",
   "Concert & Festival",
   "Casual & Community",
+  "Cover",
 ];
 
 export interface LayoutSlotConfig {
@@ -46,6 +48,12 @@ export interface InvitationLayoutConfig {
     accent: string;
     background: string;
   };
+  /**
+   * Optional brightness applied to the background artwork (0-1, default 1).
+   * The Cover card sets 0.72 so lower-third live text stays readable on any
+   * photo. Existing templates omit it (unchanged rendering).
+   */
+  heroDim?: number;
   slots: {
     headerBadge?: LayoutSlotConfig;
     eventTitle: LayoutSlotConfig;

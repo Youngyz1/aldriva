@@ -7,6 +7,8 @@ import "server-only";
 
 import { randomBytes, randomUUID } from "crypto";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
+import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
 
 export type InvitationStatus = "draft" | "sent" | "cancelled" | "revoked" | "expired";
 export type RsvpStatus = "pending" | "accepted" | "declined";
@@ -482,7 +484,13 @@ export async function sendInvitationEmail(
   const { getSiteUrl } = await import("@/lib/site-url");
   const siteUrl = getSiteUrl().replace(/\/$/, "");
   const invitationUrl = `${siteUrl}/invitation/${invitation.token}`;
-  const invitationCardImageUrl = `${siteUrl}/api/invitation/${invitation.token}/card.png`;
+  const publishedPage = eventData?.id ? await getPublishedInvitationPage(eventData.id) : null;
+  const invitationCardImageUrl = buildInvitationCardImageUrl(
+    siteUrl,
+    invitation.token,
+    eventData?.invitation_template_id,
+    publishedPage?.published_at
+  );
   const hasCustomTemplate = Boolean(eventData?.invitation_template_id);
 
   const guestDisplayName = invitation.guest_title
@@ -785,4 +793,3 @@ export async function restoreInvitation(params: RestoreInvitationParams) {
 
   return { success: true, restored_status: restoredStatus };
 }
-

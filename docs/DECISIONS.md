@@ -240,7 +240,7 @@
 
 ### DEC-0028: Invitation-kind scoping (Rule 1), Memories routes, and retention policy
 - **Decision Date**: 2026-10-09
-- **Status**: Approved, implementation pending (Round 4 / Round 5)
+- **Status**: Approved, implemented in code (Round 4)
 - **Key Tenets**:
   - `kind='public'` events show no Preview Invitation, invitation-page card, or invitation controls; `kind='invitation'` events show them. Gating uses `isInvitationEvent()` (`lib/invitation-events.ts`) only — no second helper. Enforcement is server-side too: invitation-page, builder, invitation-design, guest-management, and share-link routes/actions reject `kind='public'` events (404/403), not just UI hiding. The prior "invitation tooling works on both kinds" pins are rewritten to pin this rule.
   - `/invitation/[token]` stays the canonical guest route (existing emailed links unchanged); Memories uses a new short `/m/[token]` route (proxy matcher + Navbar chrome exclusion). Memory QR tokens are event-level with a distinct `mem_` + base62 prefix, never the 32-char uppercase admission format; the scanner rejects them with "This is a photo-upload code, not an admission ticket." `check_in_ticket` is not modified.

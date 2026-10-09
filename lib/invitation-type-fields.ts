@@ -36,6 +36,7 @@ export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
   "black-tie": "gala_corporate",
   "wedding-romantic": "wedding",
   "birthday-bold": "birthday",
+  cover: "universal",
 };
 
 export type TypeFieldKey =

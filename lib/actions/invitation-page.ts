@@ -18,6 +18,7 @@ import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { isInvitationEvent } from "@/lib/invitation-events";
+import { isAllowedCoverHeroUrl } from "@/lib/memories/cover-art-policy";
 import {
   InvitationPageDraftSchema,
   validateForPublish,
@@ -119,6 +120,14 @@ export async function saveInvitationPageDraft(
   }
 
   const valid = parsed.data;
+  if (
+    valid.template_id === "cover" &&
+    valid.hero_image_url &&
+    !isAllowedCoverHeroUrl(valid.hero_image_url)
+  ) {
+    return { ok: false, error: "coverHeroStorageHostOnly" };
+  }
+
   const admin = createSupabaseAdmin();
 
   const payload = {
@@ -507,13 +516,18 @@ export async function getInvitationPageDraft(
  */
 export async function getPublishedInvitationPage(
   eventId: string
-): Promise<{ published_snapshot: InvitationPageSnapshot; page_status: "published"; locale: InvitationLocale } | null> {
+): Promise<{
+  published_snapshot: InvitationPageSnapshot;
+  page_status: "published";
+  locale: InvitationLocale;
+  published_at: string | null;
+} | null> {
   if (!eventId) return null;
 
   const admin = createSupabaseAdmin();
   const { data } = await admin
     .from("event_invitation_pages")
-    .select("published_snapshot, page_status, locale")
+    .select("published_snapshot, page_status, locale, published_at")
     .eq("event_id", eventId)
     .eq("page_status", "published")
     .maybeSingle();
@@ -524,6 +538,7 @@ export async function getPublishedInvitationPage(
     published_snapshot: data.published_snapshot as InvitationPageSnapshot,
     page_status: "published",
     locale: (data.locale as InvitationLocale) || "en",
+    published_at: (data.published_at as string | null) ?? null,
   };
 }
 

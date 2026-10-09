@@ -28,15 +28,21 @@
 - **Status: SUPERSEDED by Round 4 below (uncommitted, awaiting owner review).** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
 - **Gate cleared by owner**: 154–161 verified on staging; `we-are-getting-married` reclassified to `kind='invitation'`; two public events keep unpublished draft pages (must stay unreachable).
 
-## Invitation Round 5 — step 2: unified picker + atomic RPC (2026-10-09, UNCOMMITTED)
+## Invitation Round 5 — step 3: Cover template (2026-10-09, UNCOMMITTED)
 
-- **Status: BUILT, awaiting owner review.** Migration 163 (RPC + rollback + byte-identical mirror) written, NOT applied — owner applies to staging first. Unified picker in the builder template section (4 pairs, Card|Page tabs, custom-unify, publish notice); page-only dropdown + builder modal removed; 21 i18n keys en+fr. Step 1 committed as 57b10b5. Next per owner order: Cover (step 3), then 2 missing pages, then email.
+- **Status: BUILT, awaiting owner review.** Cover pair (code-owned card + page), snapshot-only card hero with guarded 3s fetch, builder empty state, i18n. No migration (164 still reserved).
+- **Known limitation: invitation hero images live in the public `cms-media` bucket** (unguessable `invitation-hero/{eventId}/` paths, never linked publicly, but readable by anyone with the URL — same posture as all existing invitation artwork). Revisit with private signed URLs later if guest-photo-grade privacy is ever required for heroes.
+- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,623/1,623 pass**.
+
+## Invitation Round 5 — step 2: unified picker + atomic RPC (2026-10-09, COMMITTED as 5bff7c9)
+
+- **Status: COMMITTED as 5bff7c9 (step 3 built on top, uncommitted).** Migration 163 (RPC + rollback + byte-identical mirror) applied on staging by owner. Unified picker in the builder template section (4 pairs, Card|Page tabs, custom-unify, publish notice); page-only dropdown + builder modal removed; 21 i18n keys en+fr. Step 1 committed as 57b10b5.
 - **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,613/1,613 pass**.
-- **Blocked on owner**: apply 163 to staging + verify; staging picker click-through; approve step 3 (Cover).
+- **Blocked on owner**: staging picker click-through; approve step 3 (Cover).
 
 ## Invitation Round 4 — Memories + Rule-1 strip (2026-10-09, COMMITTED as a390017)
 
-- **Status: COMMITTED as a390017; migration 162 APPLIED ON STAGING by owner (production untouched).** Retention email copy APPROVED with plain-text mirror; flag stays unset everywhere. Memories confirmed for BOTH event kinds (pinned by test).
+- **Status: COMMITTED as a390017; migration 162 APPLIED ON STAGING by owner.** Retention email copy APPROVED with plain-text mirror; flag stays unset everywhere. Memories confirmed for BOTH event kinds (pinned by test).
 - **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0 (new `/m/[token]`, memory APIs, memories tab all compile — build caught and fixed one real `"use server"` violation), `npm test` **1,592/1,592 pass**.
 - **Blocked on owner**: manual staging tests (walkthrough: upload → moderation → ZIP → retention dry-run); production migration decision.
 

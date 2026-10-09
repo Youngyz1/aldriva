@@ -134,6 +134,33 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       },
     },
   },
+  {
+    id: "cover",
+    name: "Cover Story",
+    slug: "cover",
+    category: "Cover",
+    // Code-resolved only (Round 5): the artwork is the event's own hero
+    // photo at render time, so no fixed background row exists. Empty string
+    // keeps the NOT NULL shape without pointing at a real object — both
+    // renderers skip empty backgrounds and fall back to the palette.
+    background_image_url: "",
+    thumbnail_url: null,
+    is_active: true,
+    sort_order: 70,
+    layout_config: {
+      canvas: { width: 1200, height: 630 },
+      typography: { titleFont: "Playfair Display", bodyFont: "Montserrat", accentFont: "Montserrat" },
+      colorPalette: { primary: "#f5f0e6", secondary: "#ffffff", accent: "#c2410c", background: "#101014" },
+      heroDim: 0.72,
+      slots: {
+        headerBadge: { topPercent: 58, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#e7e5e4" },
+        eventTitle: { topPercent: 64, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 34, fontWeight: 700, fontFamily: "Playfair Display", color: "#ffffff" },
+        guestName: { topPercent: 76, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 22, fontWeight: 700, fontFamily: "Montserrat", color: "#f5f0e6" },
+        customMessage: { topPercent: 84, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 400, fontFamily: "Montserrat", color: "#e7e5e4" },
+        eventMeta: { topPercent: 91, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 12, fontWeight: 600, fontFamily: "Montserrat", color: "#d6d3d1" },
+      },
+    },
+  },
 ];
 
 export async function getInvitationTemplates(): Promise<InvitationTemplate[]> {
@@ -149,7 +176,13 @@ export async function getInvitationTemplates(): Promise<InvitationTemplate[]> {
       return DEFAULT_INVITATION_TEMPLATES;
     }
 
-    return data as InvitationTemplate[];
+    // Code-only variants (Cover) have no DB row by design — append any
+    // default whose slug is absent, deduped so DB rows always win.
+    const rows = data as InvitationTemplate[];
+    const missing = DEFAULT_INVITATION_TEMPLATES.filter(
+      (d) => !rows.some((r) => r.slug === d.slug || r.id === d.id)
+    );
+    return [...rows, ...missing];
   } catch {
     return DEFAULT_INVITATION_TEMPLATES;
   }

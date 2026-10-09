@@ -6,6 +6,7 @@
  */
 
 import type { BuilderDraft } from "../InvitationPageBuilder";
+import { useTranslations } from "next-intl";
 import { InvitationImageUploadField } from "@/components/invitation/InvitationImageUploadField";
 import { InvitationFocalPicker } from "@/components/invitation/InvitationFocalPicker";
 
@@ -17,8 +18,18 @@ interface Props {
 }
 
 export function HeroSection({ eventId, draft, updateDraft, disabled }: Props) {
+  const t = useTranslations("Events");
+  // Round 5 Cover: the cover page IS the hero photo — surface an explicit
+  // empty state here instead of a quiet "No hero image" summary line.
+  const isCover = draft.template_id === "cover";
   return (
     <div className="space-y-6">
+      {isCover && !draft.hero_image_url && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5" role="status">
+          <p className="text-xs font-bold text-amber-900">{t("coverPhotoTitle")}</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">{t("coverPhotoBody")}</p>
+        </div>
+      )}
       {/* Hero Image Upload */}
       <div className="space-y-2">
         <label className="text-xs font-bold text-zinc-700">Hero Image</label>
@@ -29,6 +40,7 @@ export function HeroSection({ eventId, draft, updateDraft, disabled }: Props) {
             label="Select Hero Image"
             hint="Full photo kept as-is. Optional crop/zoom inside. Resized to 1600px on upload."
             disabled={disabled}
+            confirmLabel={isCover ? t("coverUseProcessedPhoto") : undefined}
             onUploaded={(url) => updateDraft({ hero_image_url: url })}
             onRemove={() => updateDraft({ hero_image_url: null })}
           />

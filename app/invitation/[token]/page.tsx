@@ -8,17 +8,59 @@ import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
+import { getSiteUrl } from "@/lib/site-url";
+import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: `Digital Invitation Pass | ${BRAND.name}`,
-    description: "Official digital invitation pass and RSVP portal.",
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
+  const title = `Digital Invitation Pass | ${BRAND.name}`;
+  const description = "Official digital invitation pass and RSVP portal.";
+  const baseMetadata: Metadata = {
+    title,
+    description,
     robots: {
       index: false,
       follow: false,
       nocache: true,
     },
   };
+
+  const { token } = await params;
+  if (!token || token.length !== 64) return baseMetadata;
+
+  try {
+    await connection();
+    const result = await getInvitationByToken(token);
+    if (!result?.invitation) return baseMetadata;
+
+    const event = result.invitation.events as { id?: string; invitation_template_id?: string | null } | null;
+    const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
+    const cardImageUrl = buildInvitationCardImageUrl(
+      getSiteUrl(),
+      token,
+      event?.invitation_template_id,
+      publishedPage?.published_at
+    );
+
+    return {
+      ...baseMetadata,
+      openGraph: {
+        title,
+        description,
+        type: "website",
+        images: [{ url: cardImageUrl, width: 1200, height: 630, alt: "Invitation card preview" }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        images: [cardImageUrl],
+      },
+    };
+  } catch {
+    return baseMetadata;
+  }
 }
 
 export default async function PublicInvitationPage({

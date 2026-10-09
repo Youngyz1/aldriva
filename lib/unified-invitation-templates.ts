@@ -75,6 +75,16 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
     pageId: "gala-editorial",
     blurb: "Slate-blue corporate card with a light editorial page.",
   },
+  {
+    id: "cover@1.0.0",
+    baseId: "cover",
+    name: "Cover Story",
+    categoryLabel: "Cover",
+    occasion: "other",
+    cardSlug: "cover",
+    pageId: "cover",
+    blurb: "Full-bleed event photo with live text, card and page.",
+  },
 ];
 
 /** Suggested pair when an occasion is picked (host can still choose any). */

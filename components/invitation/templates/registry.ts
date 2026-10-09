@@ -16,8 +16,9 @@ import { InvitationTemplate1 as GalaEditorialTemplate } from "./InvitationTempla
 import { InvitationTemplateBlackTie } from "./InvitationTemplateBlackTie";
 import { InvitationTemplateWedding } from "./InvitationTemplateWedding";
 import { InvitationTemplateBirthday } from "./InvitationTemplateBirthday";
+import { InvitationTemplateCover } from "./InvitationTemplateCover";
 
-export type TemplateCategory = "gala_corporate" | "wedding" | "birthday";
+export type TemplateCategory = "gala_corporate" | "wedding" | "birthday" | "universal";
 
 export interface TemplateRegistryItem {
   id: string;
@@ -49,6 +50,10 @@ export const INVITATION_CATEGORIES: Record<TemplateCategory, { label: string; de
   birthday: {
     label: "Birthday Celebration",
     description: "Joyful, energetic modern color blocks with polaroid galleries and chunky party cards.",
+  },
+  universal: {
+    label: "Cover",
+    description: "Full-bleed photo cover with live text, for any occasion.",
   },
 };
 
@@ -84,6 +89,14 @@ export const INVITATION_TEMPLATES: TemplateRegistryItem[] = [
     categoryLabel: "Birthday Celebration",
     description: "Joyful bright color blocks, tilted sticker frames, polaroid gallery, and chunky party cards.",
     component: InvitationTemplateBirthday,
+  },
+  {
+    id: "cover",
+    name: "Cover Story",
+    category: "universal",
+    categoryLabel: "Cover",
+    description: "Full-bleed event photo with live title, host, date, and venue text.",
+    component: InvitationTemplateCover,
   },
 ];
 

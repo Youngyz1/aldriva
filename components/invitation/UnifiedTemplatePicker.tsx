@@ -16,7 +16,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AlertCircle, Check, CheckCircle2, Loader2 } from "lucide-react";
 import {
   DEFAULT_UNIFIED_FOR_OCCASION,
@@ -41,6 +41,7 @@ const PAGE_SWATCH: Record<string, { bg: string; ink: string; accent: string }> =
   "black-tie": { bg: "#09090B", ink: "#FFFFFF", accent: "#FBBF24" },
   "wedding-romantic": { bg: "#FAF8F5", ink: "#2C2220", accent: "#A37068" },
   "birthday-bold": { bg: "#FFFDF7", ink: "#141218", accent: "#FF5E5B" },
+  cover: { bg: "#101014", ink: "#FFFFFF", accent: "#C2410C" },
 };
 
 const SAMPLE_CARD_GUEST = {
@@ -61,6 +62,8 @@ export interface UnifiedTemplatePickerProps {
   cardSlug: string | null;
   /** Card catalog (art + layout configs for thumbnails and preview). */
   cardTemplates: InvitationTemplate[];
+  /** Draft hero URL so the Cover card preview shows real art. Null = palette fallback. */
+  heroImageUrl?: string | null;
   /** Current page template id (live draft value). */
   currentPageId: string;
   /** True while the published page still renders a previous design. */
@@ -80,8 +83,9 @@ function cardBySlug(cardTemplates: InvitationTemplate[], slug: string | null) {
   return cardTemplates.find((t) => t.slug === slug || t.id === slug);
 }
 
-function pageName(pageId: string | null) {
+function pageName(pageId: string | null, coverName: string) {
   if (!pageId) return "—";
+  if (pageId === "cover") return coverName;
   return INVITATION_TEMPLATES.find((t) => t.id === pageId)?.name ?? pageId;
 }
 
@@ -89,6 +93,7 @@ export function UnifiedTemplatePicker({
   eventId,
   cardSlug,
   cardTemplates,
+  heroImageUrl = null,
   currentPageId,
   isPublished,
   invitationType,
@@ -97,7 +102,13 @@ export function UnifiedTemplatePicker({
   onJumpToPublish,
   getHiddenForPage,
 }: UnifiedTemplatePickerProps) {
+  const locale = useLocale();
   const t = useTranslations("Events");
+  const coverName = locale === "fr" ? t("unifiedCoverName") : "Cover Story";
+  const coverCategory = locale === "fr" ? t("unifiedCoverCategory") : "Cover";
+  const coverDescription = t("unifiedCoverDescription");
+  const pairName = (pair: UnifiedInvitationTemplate) =>
+    pair.baseId === "cover" ? coverName : pair.name;
 
   const resolved = useMemo(
     () => resolveUnifiedPair({ cardSlug, pageId: currentPageId }),
@@ -116,16 +127,19 @@ export function UnifiedTemplatePicker({
 
   const selected: UnifiedInvitationTemplate =
     UNIFIED_INVITATION_TEMPLATES.find((p) => p.id === selectedId) ?? UNIFIED_INVITATION_TEMPLATES[0];
+  const selectedName = pairName(selected);
   const selectedCard = cardBySlug(cardTemplates, selected.cardSlug);
   const selectedSwatch = PAGE_SWATCH[selected.pageId] ?? { bg: "#FFFFFF", ink: "#18181B", accent: "#C2410C" };
   const pageFields = extrasForTemplate(selected.pageId);
 
-  const customCardName = cardBySlug(cardTemplates, cardSlug)?.name ?? cardSlug;
+  const customCardName =
+    cardSlug === "cover" ? coverName : cardBySlug(cardTemplates, cardSlug)?.name ?? cardSlug;
 
   // Unify suggestion: the card-dominant pair for the current card, else the
   // occasion default. Never auto-applied — only on explicit click.
   const unifyTarget: UnifiedInvitationTemplate =
     getUnifiedTemplateForUnify(cardSlug) ?? UNIFIED_INVITATION_TEMPLATES[0];
+  const unifyTargetName = pairName(unifyTarget);
 
   function getUnifiedTemplateForUnify(slug: string | null): UnifiedInvitationTemplate | undefined {
     if (slug) {
@@ -182,7 +196,7 @@ export function UnifiedTemplatePicker({
           <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
             {t("unifiedCustomBody", {
               card: customCardName ?? t("unifiedNoCard"),
-              page: pageName(currentPageId),
+              page: pageName(currentPageId, coverName),
             })}
           </p>
           <button
@@ -191,7 +205,7 @@ export function UnifiedTemplatePicker({
             onClick={requestUnify}
             className="mt-2 rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs hover:bg-amber-700 active:scale-[0.98] disabled:opacity-60"
           >
-            {t("unifiedUnify", { name: unifyTarget.name })}
+            {t("unifiedUnify", { name: unifyTargetName })}
           </button>
         </div>
       )}
@@ -201,6 +215,8 @@ export function UnifiedTemplatePicker({
         {UNIFIED_INVITATION_TEMPLATES.map((pair) => {
           const card = cardBySlug(cardTemplates, pair.cardSlug);
           const swatch = PAGE_SWATCH[pair.pageId] ?? selectedSwatch;
+          const localizedName = pairName(pair);
+          const localizedCategory = pair.baseId === "cover" ? coverCategory : pair.categoryLabel;
           const isSelected = selected.id === pair.id;
           const isSaved = savedId === pair.id;
           return (
@@ -238,7 +254,7 @@ export function UnifiedTemplatePicker({
                     className="flex h-9 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
                     style={{ background: swatch.bg }}
                     role="img"
-                    aria-label={`${pair.name} card thumbnail`}
+                    aria-label={`${localizedName} card thumbnail`}
                   >
                     <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
                     <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
@@ -248,14 +264,19 @@ export function UnifiedTemplatePicker({
                   className="flex h-9 w-8 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
                   style={{ background: swatch.bg }}
                   role="img"
-                  aria-label={`${pair.name} page thumbnail`}
+                  aria-label={`${localizedName} page thumbnail`}
                 >
                   <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
                   <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold text-zinc-900">{pair.name}</span>
-                  <span className="block truncate text-[11px] text-zinc-500">{pair.categoryLabel}</span>
+                  <span className="block truncate text-xs font-bold text-zinc-900">{localizedName}</span>
+                  <span className="block truncate text-[11px] text-zinc-500">{localizedCategory}</span>
+                  {pair.baseId === "cover" && (
+                    <span className="mt-0.5 block line-clamp-2 text-[10px] leading-snug text-zinc-500">
+                      {coverDescription}
+                    </span>
+                  )}
                 </span>
                 {isSelected && <Check size={14} className="shrink-0 text-orange-600" aria-hidden />}
               </span>
@@ -272,7 +293,7 @@ export function UnifiedTemplatePicker({
       {/* Larger preview with Card | Page tabs. */}
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-3 py-2">
-          <p className="truncate text-xs font-bold text-zinc-800">{selected.name}</p>
+          <p className="truncate text-xs font-bold text-zinc-800">{selectedName}</p>
           <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5" role="group" aria-label={t("unifiedPreviewLabel")}>
             {(["card", "page"] as const).map((tab) => (
               <button
@@ -295,7 +316,7 @@ export function UnifiedTemplatePicker({
             selectedCard ? (
               <InvitationCardRenderer
                 template={selectedCard}
-                data={{ ...SAMPLE_CARD_GUEST }}
+                data={{ ...SAMPLE_CARD_GUEST, backgroundImageUrl: heroImageUrl }}
                 scale={1}
               />
             ) : (

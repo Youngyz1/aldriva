@@ -13,6 +13,11 @@ export interface InvitationCardData {
   city?: string | null;
   customMessage?: string | null;
   headerBadgeText?: string | null;
+  /**
+   * Round 5 Cover: per-event hero art. Falls back to the template's fixed
+   * background_image_url when absent (all existing templates).
+   */
+  backgroundImageUrl?: string | null;
 }
 
 import {
@@ -105,14 +110,20 @@ export function InvitationCardRenderer({
       }}
     >
       {/* Background image if present */}
-      {template.background_image_url && (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={template.background_image_url}
-          alt={template.name}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        />
-      )}
+      {(() => {
+        const bgUrl = data.backgroundImageUrl || template.background_image_url || "";
+        if (!bgUrl) return null;
+        const heroDim = template.layout_config.heroDim;
+        return (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={bgUrl}
+            alt={template.name}
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            style={heroDim !== undefined ? { filter: `brightness(${heroDim})` } : undefined}
+          />
+        );
+      })()}
 
       {/* Decorative Frame */}
       <div

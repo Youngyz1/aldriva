@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 import { getInvitationByToken } from "@/lib/invitations";
 import { getInvitationTemplateById } from "@/lib/invitation-templates";
 import { loadInvitationFonts } from "@/lib/invitation-fonts";
+import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
+import { fetchCoverHeroDataUri } from "@/lib/invitation-cover-art";
 import {
   formatEventDateTime,
   formatEventLocation,
@@ -34,6 +36,22 @@ export async function GET(
 
   const templateId = event?.invitation_template_id || null;
   const template = await getInvitationTemplateById(templateId);
+  const isCoverTemplate = template.id === "cover" || template.slug === "cover";
+
+  // Round 5 Cover: the card hero comes from the PUBLISHED snapshot only —
+  // guests must never see unpublished draft edits. No published page means
+  // no hero (solid palette fallback, identical to the fetch-failure path).
+  let coverHero: string | null = null;
+  if (isCoverTemplate && event?.id) {
+    const published = await getPublishedInvitationPage(event.id);
+    const snapshotHero = published?.published_snapshot.hero_image_url ?? null;
+    if (snapshotHero) {
+      coverHero = await fetchCoverHeroDataUri(snapshotHero);
+      if (!coverHero) {
+        console.error("[invitation/card.png] Cover hero unavailable; rendering palette fallback.");
+      }
+    }
+  }
 
   const { layout_config } = template;
   const { slots, colorPalette, typography } = layout_config;
@@ -73,30 +91,38 @@ export async function GET(
           width: 1200,
           height: 630,
           backgroundColor: colorPalette.background,
-          backgroundImage: `radial-gradient(ellipse 80% 80% at 50% -20%, ${colorPalette.primary}33, transparent), radial-gradient(ellipse 80% 80% at 50% 120%, ${colorPalette.accent}26, transparent)`,
+          backgroundImage: isCoverTemplate
+            ? "none"
+            : `radial-gradient(ellipse 80% 80% at 50% -20%, ${colorPalette.primary}33, transparent), radial-gradient(ellipse 80% 80% at 50% 120%, ${colorPalette.accent}26, transparent)`,
           fontFamily: typography.bodyFont || "Plus Jakarta Sans",
           color: colorPalette.secondary || "#ffffff",
           overflow: "hidden",
         }}
       >
-        {/* Background Image if present */}
-        {template.background_image_url && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={template.background_image_url}
-            alt=""
-            width="1200"
-            height="630"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: 1200,
-              height: 630,
-              objectFit: "cover",
-            }}
-          />
-        )}
+        {/* Background Image if present (Cover: snapshot hero, else fixed art) */}
+        {(() => {
+          const bgSrc = coverHero || template.background_image_url || "";
+          if (!bgSrc) return null;
+          const heroDim = layout_config.heroDim;
+          return (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={bgSrc}
+              alt=""
+              width="1200"
+              height="630"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: 1200,
+                height: 630,
+                objectFit: "cover",
+                ...(heroDim !== undefined ? { filter: `brightness(${heroDim})` } : {}),
+              }}
+            />
+          );
+        })()}
         {/* Outer Border Inset */}
         <div
           style={{
