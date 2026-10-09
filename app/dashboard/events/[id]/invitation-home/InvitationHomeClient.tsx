@@ -180,7 +180,7 @@ export function InvitationHomeClient({
             <iframe
               data-testid="invitation-preview"
               title="Invitation preview"
-              src={`/invitation/builder-preview/${eventId}`}
+              src={`/invitation/builder-preview/${eventId}?embed=1`}
               style={{ width: viewport }}
               className="mx-auto block h-[640px] max-w-none rounded-xl border border-zinc-200 bg-white"
             />

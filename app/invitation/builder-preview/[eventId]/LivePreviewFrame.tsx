@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { getTemplateById } from "@/components/invitation/templates/registry";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import {
@@ -28,6 +29,8 @@ import {
 
 interface Props {
   event: Record<string, unknown>;
+  eventId: string;
+  embedded: boolean;
   initialDraft?: Record<string, unknown>;
 }
 
@@ -36,7 +39,7 @@ const EMPTY_DRAFT: Record<string, unknown> = {
   locale: "en",
 };
 
-export function LivePreviewFrame({ event, initialDraft }: Props) {
+export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Props) {
   const [payload, setPayload] = useState<PreviewDraftMessage | null>(null);
 
   useEffect(() => {
@@ -103,9 +106,29 @@ export function LivePreviewFrame({ event, initialDraft }: Props) {
 
   return (
     <div className="min-h-screen bg-white">
-      <p className="sticky top-0 z-10 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-[11px] font-semibold text-amber-800">
-        Preview — bracketed names and the QR code are samples for the pending-guest view. Nothing here is saved.
-      </p>
+      {embedded ? (
+        <p className="sticky top-0 z-10 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-[11px] font-semibold text-amber-800">
+          Preview — bracketed names and the QR code are samples for the pending-guest view. Nothing here is saved.
+        </p>
+      ) : (
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          <p className="font-semibold">Private: only you can see this. Guest names and QR code are samples; nothing here is saved.</p>
+          <nav className="flex flex-wrap gap-2" aria-label="Preview actions">
+            <Link
+              href={`/dashboard/events/${eventId}/overview`}
+              className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-800 hover:bg-amber-100"
+            >
+              Back to event
+            </Link>
+            <Link
+              href={`/dashboard/events/${eventId}/invitation-page?edit=1`}
+              className="rounded-xl bg-orange-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-800"
+            >
+              Edit invitation
+            </Link>
+          </nav>
+        </header>
+      )}
       {renderTemplate()}
     </div>
   );

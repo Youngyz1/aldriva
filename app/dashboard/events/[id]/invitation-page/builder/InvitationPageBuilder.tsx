@@ -606,7 +606,7 @@ export function InvitationPageBuilder({ eventId, initialData, initialSection = "
               <iframe
                 ref={iframeRef}
                 title="Live invitation preview"
-                src={`/invitation/builder-preview/${eventId}`}
+                src={`/invitation/builder-preview/${eventId}?embed=1`}
                 className="mx-auto block h-[720px] rounded-lg border border-zinc-200 bg-white"
                 style={{ width: previewViewport }}
                 sandbox="allow-scripts allow-same-origin"

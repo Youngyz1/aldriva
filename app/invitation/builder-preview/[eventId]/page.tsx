@@ -13,11 +13,14 @@ export const metadata: Metadata = {
 
 export default async function InvitationLivePreviewRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ embed?: string | string[] }>;
 }) {
   await connection();
-  const { eventId } = await params;
+  const [{ eventId }, query] = await Promise.all([params, searchParams]);
+  const embedded = query.embed === "1";
 
   const user = await getCurrentUser();
   if (!user) {
@@ -33,6 +36,7 @@ export default async function InvitationLivePreviewRoute({
 
   const pageData = await getInvitationPageDraft(eventId);
   if (!pageData) return notFound();
+  if (!embedded && !pageData.draft.id) return notFound();
 
   const admin = createSupabaseAdmin();
   const { data: event } = await admin
@@ -49,5 +53,12 @@ export default async function InvitationLivePreviewRoute({
     );
   }
 
-  return <LivePreviewFrame event={event} initialDraft={pageData.draft as unknown as Record<string, unknown>} />;
+  return (
+    <LivePreviewFrame
+      event={event}
+      eventId={eventId}
+      embedded={embedded}
+      initialDraft={pageData.draft as unknown as Record<string, unknown>}
+    />
+  );
 }
