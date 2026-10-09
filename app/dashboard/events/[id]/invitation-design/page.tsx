@@ -1,11 +1,20 @@
 import { notFound, redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
-import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { assertInvitationKindEvent } from "@/lib/actions/invitation-page";
-import { getInvitationTemplates } from "@/lib/invitation-templates";
-import InvitationDesignClient from "./InvitationDesignClient";
+import type { Metadata } from "next";
 
+export const metadata: Metadata = {
+  title: "Invitation Design | Aldriva Dashboard",
+  robots: { index: false, follow: false, nocache: true },
+};
+
+/**
+ * Round 5: the standalone card-design step is gone. Template selection
+ * lives in ONE place — the invitation page builder's unified picker.
+ * This route stays as a kind-gated redirect (never a 404 for valid
+ * invitation events) so bookmarks and old links keep working.
+ */
 export default async function EventInvitationDesignPage({
   params,
 }: {
@@ -17,53 +26,21 @@ export default async function EventInvitationDesignPage({
   if (!ctx) redirect("/login");
 
   const canManage = await hasEventOrOrganizerAccess(ctx.user.id, eventId, ["event_manager"]);
-
   if (!canManage) {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
         <h2 className="text-xl font-black text-red-700">Access Restricted</h2>
         <p className="mt-2 text-sm font-semibold text-red-600">
-          Only Event Managers and Organizers can configure invitation card designs.
+          Only Event Managers and Organizers can configure invitation designs.
         </p>
       </div>
     );
   }
 
-  const admin = createSupabaseAdmin();
-  const [{ data: event }, templates] = await Promise.all([
-    admin
-      .from("events")
-      .select("id, title, slug, event_date, end_date, venue, city, banner, invitation_template_id, kind")
-      .eq("id", eventId)
-      .single(),
-    getInvitationTemplates(),
-  ]);
-
-  if (!event) {
-    redirect("/dashboard/events");
-  }
-
-  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  // Kind gate stays: public-kind events never had a design surface.
   if (!(await assertInvitationKindEvent(eventId))) {
     notFound();
   }
 
-  const initialTemplateId = event.invitation_template_id || (templates[0]?.id ?? null);
-
-  return (
-    <InvitationDesignClient
-      eventId={eventId}
-      event={{
-        title: event.title,
-        slug: event.slug,
-        eventDate: event.event_date,
-        endDate: event.end_date,
-        venue: event.venue,
-        city: event.city,
-        banner: event.banner,
-      }}
-      templates={templates}
-      initialTemplateId={initialTemplateId}
-    />
-  );
+  redirect(`/dashboard/events/${eventId}/invitation-page`);
 }

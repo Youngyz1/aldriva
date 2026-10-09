@@ -28,11 +28,17 @@
 - **Status: SUPERSEDED by Round 4 below (uncommitted, awaiting owner review).** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
 - **Gate cleared by owner**: 154–161 verified on staging; `we-are-getting-married` reclassified to `kind='invitation'`; two public events keep unpublished draft pages (must stay unreachable).
 
-## Invitation Round 4 — Memories + Rule-1 strip (2026-10-09, UNCOMMITTED)
+## Invitation Round 5 — step 1: unified model + design-tab removal (2026-10-09, UNCOMMITTED)
 
-- **Status: BUILT, migration 162 APPLIED ON STAGING by owner (production untouched).** Code uncommitted, awaiting owner review. Retention email copy APPROVED with plain-text mirror; flag stays unset everywhere. Memories confirmed for BOTH event kinds (pinned by test).
+- **Status: BUILT, awaiting owner review alongside Round 4.** Unified registry (4 pairs) + `setUnifiedInvitationTemplate` (both columns, kind-gated); design tab removed, design route redirects kind-gated, PATCH is 410, card pipeline fully retained. No migration (163 still reserved). Unified picker UI, 2 missing pages, Cover, and email land in steps 2–5.
+- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,609/1,609 pass** (17 new unified tests).
+- **Blocked on owner**: review the step-1 report (with the invitation-design audit), then approve step 2 (unified picker).
+
+## Invitation Round 4 — Memories + Rule-1 strip (2026-10-09, COMMITTED as a390017)
+
+- **Status: COMMITTED as a390017; migration 162 APPLIED ON STAGING by owner (production untouched).** Retention email copy APPROVED with plain-text mirror; flag stays unset everywhere. Memories confirmed for BOTH event kinds (pinned by test).
 - **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0 (new `/m/[token]`, memory APIs, memories tab all compile — build caught and fixed one real `"use server"` violation), `npm test` **1,592/1,592 pass**.
-- **Blocked on owner**: staging walkthrough (upload → moderation → ZIP → retention dry-run); review the report, then approve the single Round-4 commit + Round 5.
+- **Blocked on owner**: manual staging tests (walkthrough: upload → moderation → ZIP → retention dry-run); production migration decision.
 
 ---
 

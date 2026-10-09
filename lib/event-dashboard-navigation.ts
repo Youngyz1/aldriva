@@ -11,7 +11,6 @@ export type EventSubNavTabId =
   | "guests"
   | "memories"
   | "ticket-design"
-  | "invitation-design"
   | "invitation-page";
 
 export type EventSubNavTab = {
@@ -86,14 +85,6 @@ export function getEventSubNavTabs(
       id: "ticket-design",
       label: "Ticket Design",
       href: `/dashboard/events/${eventId}/ticket-design`,
-    });
-  }
-
-  if (canManageEvent && showInvitationTabs) {
-    tabs.push({
-      id: "invitation-design",
-      label: "Invitation Design",
-      href: `/dashboard/events/${eventId}/invitation-design`,
     });
   }
 
