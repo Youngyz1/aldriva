@@ -23,6 +23,11 @@
 - **Verification:** TypeScript and production build passed; the registered suite passed 1,456/1,456 tests across 109 suites; the client-secret scan passed. The suite currently registers 1,456 tests, including tests added in the working tree since the earlier R2 report.
 - **Report only:** `proxy.ts` uses the service-role REST key on article, business, product, and website slug gates to check restricted/unpublished state before streaming. The existing check appears to require privileged reads; replacing this with a narrow RPC or public projection needs a separate design. See `docs/phases/phase-server-only-boundaries.md`.
 
+## Invitation Rounds — Phase 0 baseline (2026-10-09)
+
+- **Status: COMPLETE, awaiting owner inputs.** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Baseline: ESLint 0 errors, `tsc --noEmit` 0 errors, full suite **1,550/1,553** — 3 failures, all stale expectations from the same rework, owned by the Round 4 Rule-1 test rewrite. Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
+- **Blocked on owner**: read-only data-check SQL results (public-kind events with invitation rows) + `supabase migration list` outputs for staging and prod. Round 4 starts after both arrive; Round 4 code merges only after 155/156 verify on staging.
+
 ---
 
 ## 1. System Implementation Classification

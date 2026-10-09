@@ -238,6 +238,18 @@
   - Migration 159 adds the product asset provider; migration 160 adds public-media targets and quota accounting and was already applied on staging. Migration 161 adds configurable quota parameters while retaining the 160 overload during rollout. Migrations 159 and 161 remain pending and have canonical `db/` SQL, rollback pairs, and timestamped forward mirrors under `supabase/migrations/`.
   - Video and invitation-audio storage remain unchanged. Moving them requires separate size limits, resumable/multipart upload design, and updates to their existing upload/playback call sites.
 
+### DEC-0028: Invitation-kind scoping (Rule 1), Memories routes, and retention policy
+- **Decision Date**: 2026-10-09
+- **Status**: Approved, implementation pending (Round 4 / Round 5)
+- **Key Tenets**:
+  - `kind='public'` events show no Preview Invitation, invitation-page card, or invitation controls; `kind='invitation'` events show them. Gating uses `isInvitationEvent()` (`lib/invitation-events.ts`) only — no second helper. Enforcement is server-side too: invitation-page, builder, invitation-design, guest-management, and share-link routes/actions reject `kind='public'` events (404/403), not just UI hiding. The prior "invitation tooling works on both kinds" pins are rewritten to pin this rule.
+  - `/invitation/[token]` stays the canonical guest route (existing emailed links unchanged); Memories uses a new short `/m/[token]` route (proxy matcher + Navbar chrome exclusion). Memory QR tokens are event-level with a distinct `mem_` + base62 prefix, never the 32-char uppercase admission format; the scanner rejects them with "This is a photo-upload code, not an admission ticket." `check_in_ticket` is not modified.
+  - `/events/[slug]` gains an explicit `kind='invitation'` gate plus `noindex`; `generateMetadata` returns generic/empty metadata for invitation-kind slugs instead of relying on the implicit private-visibility 404.
+  - Guest RSVP POST and all new guest token endpoints (`/m/` page, upload-URL issuance, upload completion) use the existing Postgres-backed `lib/rate-limit.ts` (per-IP and per-token buckets, following the `invitationShareView` precedent).
+  - Memories photos never touch the public audio-only `invitation-media` bucket. A new private storage driver interface (`put/head/signGet/signPut/delete`) selects R2-private (`R2_PRIVATE_BUCKET`, built on `lib/storage/private-media.ts`) in production and a Supabase private-bucket driver for staging/local, chosen by env var per `lib/media/driver-policy.ts` conventions.
+  - Retention: 12 months after event end (fallback: upload date), organizer notice at 30 days and 7 days via Resend (following the `sendInvitationEmail` pattern in `lib/invitations.ts`), download-before-delete, dry-run mode, feature flag OFF by default. Never enabled without owner approval.
+  - Migrations: staging first with per-migration verification queries, then prod; new work continues numbering from 162 with `supabase/migrations/` mirrors + rollback twins. Round 4 code does not merge until 155/156 are verified on staging.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |
