@@ -8,10 +8,14 @@
  * full-image uploader. Upload errors stay on the failing item with Retry.
  */
 
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { canAddGalleryItem, INVITATION_GALLERY_MAX, moveGalleryItem } from "@/lib/invitation-images";
-import { InvitationImageUploadField } from "@/components/invitation/InvitationImageUploadField";
+import {
+  InvitationImageUploadBatchField,
+  InvitationImageUploadField,
+} from "@/components/invitation/InvitationImageUploadField";
 
 interface Props {
   eventId: string;
@@ -21,28 +25,38 @@ interface Props {
 }
 
 export function InvitationGalleryManager({ eventId, items, onChange, disabled }: Props) {
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
   const canAdd = canAddGalleryItem(items.length);
 
-  function handleAdd() {
-    if (!canAdd) return;
-    onChange([...items, { url: "", alt: "", caption: "" }]);
+  function setItems(next: InvitationGalleryItem[]) {
+    itemsRef.current = next;
+    onChange(next);
+  }
+
+  function handleBatchUploaded(url: string) {
+    const current = itemsRef.current;
+    if (!canAddGalleryItem(current.length)) return;
+    setItems([...current, { url, alt: "", caption: "" }]);
   }
 
   function handleUpdate(index: number, patch: Partial<InvitationGalleryItem>) {
-    onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+    setItems(itemsRef.current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   }
 
   function handleRemove(index: number) {
-    onChange(items.filter((_, i) => i !== index));
+    setItems(itemsRef.current.filter((_, i) => i !== index));
   }
 
   function handleMove(index: number, direction: -1 | 1) {
-    onChange(moveGalleryItem(items, index, direction));
+    setItems(moveGalleryItem(itemsRef.current, index, direction));
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
             Photo Gallery ({items.length} / {INVITATION_GALLERY_MAX})
@@ -50,14 +64,12 @@ export function InvitationGalleryManager({ eventId, items, onChange, disabled }:
           <p className="text-[11px] text-zinc-500">Add up to 12 featured photos for guests to explore.</p>
         </div>
         {canAdd && (
-          <button
-            type="button"
+          <InvitationImageUploadBatchField
+            folder={`invitation-gallery/${eventId}`}
+            maxFiles={Math.max(0, INVITATION_GALLERY_MAX - items.length)}
             disabled={disabled}
-            onClick={handleAdd}
-            className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
-          >
-            <Plus size={13} /> Add Photo
-          </button>
+            onUploaded={handleBatchUploaded}
+          />
         )}
       </div>
 

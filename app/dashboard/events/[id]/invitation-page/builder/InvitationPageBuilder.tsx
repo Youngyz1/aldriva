@@ -220,7 +220,7 @@ export function InvitationPageBuilder({
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
-  const [openSection, setOpenSection] = useState<SectionId>(initialSection);
+  const [openSection, setOpenSection] = useState<SectionId | null>(initialSection);
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [previewViewport, setPreviewViewport] = useState<PreviewViewport>(390);
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
@@ -323,10 +323,26 @@ export function InvitationPageBuilder({
   );
 
   const toggleSection = useCallback((id: string) => {
-    setOpenSection((cur) => (cur === id ? cur : (id as SectionId)));
-    // Clicking a section header scrolls the live preview to that section.
+    const sectionId = id as SectionId;
+    if (openSection !== null && openSection !== sectionId) {
+      const header = document.getElementById(`inv-section-header-${sectionId}`);
+      const previousTop = header?.getBoundingClientRect().top;
+      if (previousTop !== undefined) {
+        requestAnimationFrame(() => {
+          const currentTop = document
+            .getElementById(`inv-section-header-${sectionId}`)
+            ?.getBoundingClientRect().top;
+          if (currentTop !== undefined) {
+            const adjustment = currentTop - previousTop;
+            if (adjustment !== 0) window.scrollBy({ top: adjustment, behavior: "instant" });
+          }
+        });
+      }
+    }
+    setOpenSection((current) => (current === sectionId ? null : sectionId));
+    // Keep the live preview in sync without moving the builder page.
     postToPreview({ source: PREVIEW_MESSAGE_SOURCE, kind: "scroll-to", sectionId: id });
-  }, [postToPreview]);
+  }, [openSection, postToPreview]);
 
   // Jump link target: open the section, scroll the form to its header,
   // and move keyboard focus there.

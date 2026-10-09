@@ -252,6 +252,10 @@ export function formatImageBytes(bytes: number): string {
 
 export type OutputTypeOption = "auto" | "jpeg" | "webp";
 
+export function isHeicImageFile(file: { name: string; type: string }): boolean {
+  return /\.hei[cf]$/i.test(file.name) || /^image\/hei[cf]$/i.test(file.type);
+}
+
 /**
  * Output MIME type for the re-encode step. "auto" (default) keeps JPEG as
  * JPEG and converts PNG/WebP to WebP; explicit options force the format.

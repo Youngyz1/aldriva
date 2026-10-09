@@ -14,6 +14,7 @@ import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { validateForPublish } from "@/lib/invitation-page-schema";
 import { sectionForPublishField, type BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
+import { INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
 
 interface Props {
   eventId: string;
@@ -41,6 +42,8 @@ export function PublishSection({
   const [previewLoading, setPreviewLoading] = useState(false);
   const isPublished = pageStatus === "published";
   const validation = validateForPublish(draft, event, draft.locale || "en");
+  const templateDisplayName =
+    INVITATION_TEMPLATES.find((template) => template.id === draft.template_id)?.name ?? draft.template_id;
 
   const handlePreview = async () => {
     setPreviewLoading(true);
@@ -121,7 +124,7 @@ export function PublishSection({
           <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Selected Template</span>
             <span className="font-semibold text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 size={13} /> {draft.template_id}
+              <CheckCircle2 size={13} /> {templateDisplayName}
             </span>
           </div>
 
@@ -223,8 +226,8 @@ export function PublishSection({
       </div>
 
       {/* Publish / Unpublish Actions */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-        <div>
+      <div className="flex flex-col items-stretch gap-4 pt-2">
+        <div className="min-w-0">
           <p className="text-xs font-bold text-zinc-900">
             {isPublished ? "Republish or Unpublish" : "Ready to launch?"}
           </p>
@@ -233,13 +236,13 @@ export function PublishSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
           {isPublished && (
             <button
               type="button"
               disabled={disabled}
               onClick={onUnpublish}
-              className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50"
+              className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50 sm:w-auto"
             >
               Unpublish Page
             </button>
@@ -249,7 +252,7 @@ export function PublishSection({
             type="button"
             disabled={disabled || !validation.valid}
             onClick={() => onPublish(draft.locale || "en")}
-            className="flex items-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40 sm:w-auto"
           >
             <Sparkles size={14} />
             {isPublished ? "Update Published Snapshot" : "Publish Invitation Page"}

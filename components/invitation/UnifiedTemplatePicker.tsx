@@ -107,6 +107,20 @@ export function UnifiedTemplatePicker({
   const coverName = locale === "fr" ? t("unifiedCoverName") : "Cover Story";
   const coverCategory = locale === "fr" ? t("unifiedCoverCategory") : "Cover";
   const coverDescription = t("unifiedCoverDescription");
+  const pairDescription = (pair: UnifiedInvitationTemplate) => {
+    switch (pair.baseId) {
+      case "royal-elegance":
+        return t("unifiedRoyalEleganceDescription");
+      case "festive-gold-noir":
+        return t("unifiedFestiveGoldNoirDescription");
+      case "grand-gala-noir":
+        return t("unifiedGrandGalaNoirDescription");
+      case "modern-executive":
+        return t("unifiedModernExecutiveDescription");
+      default:
+        return coverDescription;
+    }
+  };
   const pairName = (pair: UnifiedInvitationTemplate) =>
     pair.baseId === "cover" ? coverName : pair.name;
 
@@ -194,10 +208,12 @@ export function UnifiedTemplatePicker({
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
           <p className="text-xs font-bold text-amber-900">{t("unifiedCustomTitle")}</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
-            {t("unifiedCustomBody", {
-              card: customCardName ?? t("unifiedNoCard"),
-              page: pageName(currentPageId, coverName),
-            })}
+            {customCardName
+              ? t("unifiedCustomBody", {
+                  card: customCardName,
+                  page: pageName(currentPageId, coverName),
+                })
+              : t("unifiedCustomBodyNoCard", { page: pageName(currentPageId, coverName) })}
           </p>
           <button
             type="button"
@@ -211,7 +227,7 @@ export function UnifiedTemplatePicker({
       )}
 
       {/* Pair grid (complete pairs only). Native radios: arrows/space free. */}
-      <div role="radiogroup" aria-label={t("unifiedPickerTitle")} className="grid grid-cols-2 gap-2">
+      <div role="radiogroup" aria-label={t("unifiedPickerTitle")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {UNIFIED_INVITATION_TEMPLATES.map((pair) => {
           const card = cardBySlug(cardTemplates, pair.cardSlug);
           const swatch = PAGE_SWATCH[pair.pageId] ?? selectedSwatch;
@@ -241,45 +257,47 @@ export function UnifiedTemplatePicker({
                 }}
                 className="sr-only"
               />
-              <span className="flex items-center gap-2">
-                {card?.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={card.thumbnail_url}
-                    alt=""
-                    className="h-9 w-14 shrink-0 rounded-md border border-zinc-200 object-cover"
-                  />
-                ) : (
-                  <span
-                    className="flex h-9 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
-                    style={{ background: swatch.bg }}
-                    role="img"
-                    aria-label={`${localizedName} card thumbnail`}
-                  >
-                    <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
-                    <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
-                  </span>
-                )}
-                <span
-                  className="flex h-9 w-8 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
-                  style={{ background: swatch.bg }}
-                  role="img"
-                  aria-label={`${localizedName} page thumbnail`}
-                >
-                  <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
-                  <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold text-zinc-900">{localizedName}</span>
-                  <span className="block truncate text-[11px] text-zinc-500">{localizedCategory}</span>
-                  {pair.baseId === "cover" && (
-                    <span className="mt-0.5 block line-clamp-2 text-[10px] leading-snug text-zinc-500">
-                      {coverDescription}
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
+                    {card?.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={card.thumbnail_url}
+                        alt=""
+                        className="h-9 w-14 shrink-0 rounded-md border border-zinc-200 object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-9 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
+                        style={{ background: swatch.bg }}
+                        role="img"
+                        aria-label={`${localizedName} card thumbnail`}
+                      >
+                        <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
+                        <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
+                      </span>
+                    )}
+                    <span
+                      className="flex h-9 w-8 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-zinc-200 p-1"
+                      style={{ background: swatch.bg }}
+                      role="img"
+                      aria-label={`${localizedName} page thumbnail`}
+                    >
+                      <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />
+                      <span className="h-1 w-1/2 rounded-full" style={{ background: swatch.ink, opacity: 0.85 }} />
                     </span>
-                  )}
-                </span>
-                {isSelected && <Check size={14} className="shrink-0 text-orange-600" aria-hidden />}
-              </span>
+                  </div>
+                  {isSelected && <Check size={14} className="shrink-0 text-orange-600" aria-hidden />}
+                </div>
+                <div className="min-w-0">
+                  <span className="block whitespace-normal break-words text-xs font-bold text-zinc-900">{localizedName}</span>
+                  <span className="block whitespace-normal break-words text-[11px] text-zinc-500">{localizedCategory}</span>
+                  <span className="mt-0.5 block line-clamp-3 whitespace-normal break-words text-[10px] leading-snug text-zinc-500">
+                    {pairDescription(pair)}
+                  </span>
+                </div>
+              </div>
               {isSaved && (
                 <span className="mt-1.5 inline-block rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">
                   {t("unifiedCurrent")}

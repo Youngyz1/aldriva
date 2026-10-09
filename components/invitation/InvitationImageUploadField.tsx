@@ -12,6 +12,8 @@
  */
 
 import { ImageUploader } from "@/components/shared/ImageUploader";
+import { ImageUploaderMultiple } from "@/components/shared/ImageUploader";
+import { useTranslations } from "next-intl";
 
 export interface InvitationImageUploadFieldProps {
   /** Current image URL from cms-media; shown as preview. Null = no image. */
@@ -43,6 +45,7 @@ export function InvitationImageUploadField({
   onRemove,
   onError,
 }: InvitationImageUploadFieldProps) {
+  const t = useTranslations("Events");
   return (
     <ImageUploader
       bucket="cms-media"
@@ -53,9 +56,49 @@ export function InvitationImageUploadField({
       hint={hint}
       disabled={disabled}
       confirmLabel={confirmLabel ?? "Use original"}
+      heicUnsupportedMessage={t("invitationHeicUnsupported")}
       onUploaded={onUploaded}
       onRemove={onRemove}
       onError={onError}
+    />
+  );
+}
+
+interface InvitationImageUploadBatchFieldProps {
+  folder: string;
+  maxFiles: number;
+  disabled?: boolean;
+  onUploaded: (url: string) => void;
+}
+
+export function InvitationImageUploadBatchField({
+  folder,
+  maxFiles,
+  disabled,
+  onUploaded,
+}: InvitationImageUploadBatchFieldProps) {
+  const t = useTranslations("Events");
+  return (
+    <ImageUploaderMultiple
+      bucket="cms-media"
+      folder={folder}
+      maxLongEdge={1600}
+      maxFiles={maxFiles}
+      label={t("invitationGalleryAddPhotos")}
+      hint={t("invitationGalleryRemainingHint", { remaining: maxFiles })}
+      disabled={disabled}
+      onUploaded={onUploaded}
+      messages={{
+        queued: t("invitationGalleryQueued"),
+        processing: t("invitationGalleryProcessing"),
+        uploading: t("invitationGalleryUploading"),
+        complete: t("invitationGalleryComplete"),
+        retry: t("invitationGalleryRetry"),
+        remove: t("invitationGalleryRemove"),
+        unsupportedType: t("invitationGalleryUnsupportedType"),
+        heicUnsupported: t("invitationHeicUnsupported"),
+        overflow: (count) => t("invitationGalleryOverflow", { count }),
+      }}
     />
   );
 }

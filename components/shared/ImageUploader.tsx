@@ -32,7 +32,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { Loader2, RotateCw, Upload, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, RotateCw, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";
@@ -48,8 +48,14 @@ import {
   resolveCropAspect,
   resolveOutputExtension,
   resolveOutputMime,
+  isHeicImageFile,
   type OutputTypeOption,
 } from "@/lib/image-upload";
+import {
+  createBoundedTaskQueue,
+  INVITATION_GALLERY_UPLOAD_CONCURRENCY,
+  selectFilesWithinLimit,
+} from "@/lib/invitation-gallery-batch";
 
 export interface ImageUploaderHandle {
   open: () => void;
@@ -103,6 +109,8 @@ export interface ImageUploaderProps {
   onCropped?: (file: File, previewUrl: string) => void;
   /** Confirm button label (default "Use photo"). */
   confirmLabel?: string;
+  /** Localized invitation-specific rejection for HEIC/HEIF source files. */
+  heicUnsupportedMessage?: string;
   /**
    * Reject the source file when its natural size is below this floor.
    * Cropping only reframes pixels — it can't fix a genuinely low-res
@@ -112,7 +120,7 @@ export interface ImageUploaderProps {
   minHeight?: number;
 }
 
-interface NormalizedImage {
+export interface NormalizedImage {
   /** Object URL of the EXIF-corrected, resized working copy. */
   url: string;
   width: number;
@@ -133,7 +141,7 @@ function fileBaseName(name: string): string {
  * `maxLongEdge` (never upscales). Returns a working copy whose pixels
  * match what the editor displays 1:1.
  */
-async function normalizeImageFile(file: File, maxLongEdge: number): Promise<NormalizedImage> {
+export async function normalizeImageFile(file: File, maxLongEdge: number): Promise<NormalizedImage> {
   const buffer = await file.arrayBuffer();
   const exifOrientation = readExifOrientation(buffer);
   const bitmap = await createImageBitmap(new Blob([buffer], { type: file.type }));
@@ -193,7 +201,7 @@ function loadHtmlImage(url: string): Promise<HTMLImageElement> {
  * Renders the final upload: optional free/fixed-aspect crop + user
  * rotation applied to the normalized working copy, re-encoded.
  */
-async function renderFinalImage(
+export async function renderFinalImage(
   normalizedUrl: string,
   crop: Area | null,
   rotationDeg: number,
@@ -271,6 +279,7 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
     onRemove,
     onCropped,
     confirmLabel = "Use photo",
+    heicUnsupportedMessage,
     minWidth,
     minHeight,
   }: ImageUploaderProps,
@@ -332,7 +341,11 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
     if (disabled || preparing || uploading) return;
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
-      reportError("Unsupported file type. Please upload a JPEG, PNG, or WebP image.");
+      reportError(
+        isHeicImageFile(file) && heicUnsupportedMessage
+          ? heicUnsupportedMessage
+          : "Unsupported file type. Please upload a JPEG, PNG, or WebP image."
+      );
       return;
     }
 
@@ -421,7 +434,10 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
       <input
         ref={fileInputRef}
         type="file"
-        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        accept={[
+          ...ALLOWED_IMAGE_TYPES,
+          ...(heicUnsupportedMessage ? [".heic", ".heif", "image/heic", "image/heif"] : []),
+        ].join(",")}
         capture={allowCamera ? "environment" : undefined}
         onChange={handleFileChange}
         className="hidden"
@@ -594,3 +610,228 @@ export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>
     </div>
   );
 });
+
+export interface ImageUploaderMultipleMessages {
+  queued: string;
+  processing: string;
+  uploading: string;
+  complete: string;
+  retry: string;
+  remove: string;
+  unsupportedType: string;
+  heicUnsupported: string;
+  overflow: (count: number) => string;
+}
+
+export interface ImageUploaderMultipleProps {
+  bucket: string;
+  folder: string;
+  maxFiles: number;
+  maxLongEdge?: number;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+  messages: ImageUploaderMultipleMessages;
+  onUploaded: (url: string) => void;
+}
+
+type BatchJobStatus = "queued" | "processing" | "uploading" | "complete" | "error";
+
+interface BatchJob {
+  id: string;
+  name: string;
+  status: BatchJobStatus;
+  progress: number;
+  error?: string;
+  retryable: boolean;
+}
+
+/** Gallery batch mode shares the normalizer, renderer, and storage uploader above. */
+export function ImageUploaderMultiple({
+  bucket,
+  folder,
+  maxFiles,
+  maxLongEdge = DEFAULT_MAX_LONG_EDGE_PX,
+  label,
+  hint,
+  disabled,
+  messages,
+  onUploaded,
+}: ImageUploaderMultipleProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const filesRef = useRef(new Map<string, File>());
+  const jobsRef = useRef<BatchJob[]>([]);
+  const [queue] = useState(() => createBoundedTaskQueue(INVITATION_GALLERY_UPLOAD_CONCURRENCY));
+  const onUploadedRef = useRef(onUploaded);
+  useEffect(() => {
+    onUploadedRef.current = onUploaded;
+  }, [onUploaded]);
+  const [jobs, setJobs] = useState<BatchJob[]>([]);
+  const [overflowMessage, setOverflowMessage] = useState("");
+
+  function commitJobs(update: (current: BatchJob[]) => BatchJob[]) {
+    const next = update(jobsRef.current);
+    jobsRef.current = next;
+    setJobs(next);
+  }
+
+  function updateJob(id: string, patch: Partial<BatchJob>) {
+    commitJobs((current) => current.map((job) => (job.id === id ? { ...job, ...patch } : job)));
+  }
+
+  function enqueueUpload(id: string) {
+    const file = filesRef.current.get(id);
+    if (!file) return;
+    void queue.enqueue(async () => {
+      let normalized: NormalizedImage | null = null;
+      try {
+        updateJob(id, { status: "processing", progress: 20, error: undefined });
+        normalized = await normalizeImageFile(file, maxLongEdge);
+        const rendered = await renderFinalImage(normalized.url, null, 0, file.type, file.name, "auto");
+        updateJob(id, { status: "uploading", progress: 70 });
+        const url = await uploadImage(rendered.file, bucket, folder);
+        onUploadedRef.current(url);
+        filesRef.current.delete(id);
+        updateJob(id, { status: "complete", progress: 100, retryable: false });
+      } catch (error) {
+        const message = error instanceof UploadImageError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not process this image.";
+        updateJob(id, { status: "error", error: message, retryable: true });
+      } finally {
+        if (normalized) URL.revokeObjectURL(normalized.url);
+      }
+    });
+  }
+
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!selected.length || disabled) return;
+
+    const unsupported = selected.filter(
+      (file) => !ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])
+    );
+    const supported = selected.filter(
+      (file) => ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])
+    );
+    const occupied = jobsRef.current.filter((job) => job.status !== "complete" && job.retryable).length;
+    const available = Math.max(0, maxFiles - occupied);
+    const { accepted, overflowCount } = selectFilesWithinLimit(supported, available);
+    setOverflowMessage(overflowCount > 0 ? messages.overflow(overflowCount) : "");
+
+    const rejectedJobs: BatchJob[] = unsupported.map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      name: file.name,
+      status: "error",
+      progress: 0,
+      error: isHeicImageFile(file) ? messages.heicUnsupported : messages.unsupportedType,
+      retryable: false,
+    }));
+    commitJobs((current) => [...current, ...rejectedJobs]);
+
+    const acceptedJobs: BatchJob[] = accepted.map((file) => {
+      const id = `${Date.now()}-${Math.random()}`;
+      filesRef.current.set(id, file);
+      return { id, name: file.name, status: "queued", progress: 0, retryable: true };
+    });
+    commitJobs((current) => [...current, ...acceptedJobs]);
+    for (const job of acceptedJobs) enqueueUpload(job.id);
+  }
+
+  function retry(job: BatchJob) {
+    if (!job.retryable) return;
+    updateJob(job.id, { status: "queued", progress: 0, error: undefined });
+    enqueueUpload(job.id);
+  }
+
+  function remove(job: BatchJob) {
+    filesRef.current.delete(job.id);
+    commitJobs((current) => current.filter((candidate) => candidate.id !== job.id));
+  }
+
+  const occupied = jobs.filter((job) => job.status !== "complete" && job.retryable).length;
+  const available = Math.max(0, maxFiles - occupied);
+
+  return (
+    <div className="space-y-2">
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept={[...ALLOWED_IMAGE_TYPES, ".heic", ".heif", "image/heic", "image/heif"].join(",")}
+        onChange={handleFiles}
+        className="hidden"
+        disabled={disabled || available === 0}
+      />
+      <button
+        type="button"
+        disabled={disabled || available === 0}
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-black text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+      >
+        <Upload className="h-3.5 w-3.5" />
+        {label}
+      </button>
+      {hint && <p className="text-[11px] text-zinc-500">{hint}</p>}
+      {overflowMessage && <p className="text-xs font-semibold text-amber-700" role="status">{overflowMessage}</p>}
+      {jobs.length > 0 && (
+        <ul className="space-y-2" aria-live="polite">
+          {jobs.map((job) => {
+            const statusText = job.status === "error"
+              ? job.error
+              : job.status === "queued"
+                ? messages.queued
+                : job.status === "processing"
+                  ? messages.processing
+                  : job.status === "uploading"
+                    ? messages.uploading
+                    : messages.complete;
+            return (
+              <li key={job.id} className="rounded-lg border border-zinc-200 bg-white px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-xs font-semibold text-zinc-800">{job.name}</p>
+                    <p className={job.status === "error" ? "mt-0.5 text-[11px] text-red-700" : "mt-0.5 text-[11px] text-zinc-500"}>
+                      {statusText}
+                    </p>
+                  </div>
+                  {job.status === "error" && (
+                    <div className="flex shrink-0 gap-2">
+                      {job.retryable && (
+                        <button type="button" onClick={() => retry(job)} className="text-[11px] font-bold text-orange-700 hover:underline">
+                          {messages.retry}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => remove(job)} className="text-[11px] font-bold text-zinc-500 hover:underline">
+                        {messages.remove}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {job.status === "complete" ? (
+                  <CheckCircle2 size={14} className="mt-2 text-emerald-600" aria-hidden />
+                ) : job.status === "error" ? (
+                  <AlertCircle size={14} className="mt-2 text-red-600" aria-hidden />
+                ) : (
+                  <div
+                    role="progressbar"
+                    aria-label={`${job.name}: ${statusText}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={job.progress}
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100"
+                  >
+                    <div className="h-full rounded-full bg-orange-600 transition-[width]" style={{ width: `${job.progress}%` }} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
