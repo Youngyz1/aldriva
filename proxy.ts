@@ -723,6 +723,9 @@ export const config = {
     // begins so draft/archived sites return a real HTTP 404 to anonymous
     // visitors. Matches /site/<slug> and /site/<slug>/<any-subpage>.
     "/site/:path*",
+    // Memories guest upload pages (/m/[token]) — standalone chrome-free
+    // experience like /invitation/*; locale handling must still run.
+    "/m/:path*",
     // Fallback for any other page to ensure locale handling runs
     "/((?!api|_next|_vercel|_proxy|.*\\..*).*)",
   ],

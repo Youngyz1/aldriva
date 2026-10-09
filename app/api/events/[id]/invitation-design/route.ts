@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { isInvitationEvent } from "@/lib/invitation-events";
 
 export async function PATCH(
   request: NextRequest,
@@ -26,6 +27,15 @@ export async function PATCH(
     const { invitationTemplateId } = body;
 
     const admin = createSupabaseAdmin();
+
+    // Round 4 Rule 1: invitation design serves invitation-kind events only.
+    const { data: kindRow } = await admin.from("events").select("kind").eq("id", eventId).maybeSingle();
+    if (!isInvitationEvent(kindRow as { kind?: string | null } | null)) {
+      return NextResponse.json(
+        { error: "Invitation design is available only for invitation events." },
+        { status: 404 }
+      );
+    }
 
     const { error: updateErr } = await admin
       .from("events")

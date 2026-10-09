@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { checkInvitationPageAccess, getInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { checkInvitationPageAccess, assertInvitationKindEvent, getInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { LivePreviewFrame } from "./LivePreviewFrame";
 
@@ -31,6 +31,12 @@ export default async function InvitationLivePreviewRoute({
   // no RSVP writes — but the event itself must not leak to strangers.
   const canAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!canAccess) {
+    return notFound();
+  }
+
+  // Round 4 Rule 1: the owner preview is invitation-kind only. Leftover
+  // draft pages on public-kind events become unreachable here.
+  if (!(await assertInvitationKindEvent(eventId))) {
     return notFound();
   }
 

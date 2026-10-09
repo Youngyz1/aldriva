@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { checkInvitationPageAccess, getInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { checkInvitationPageAccess, assertInvitationKindEvent, getInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { getShareLinkState } from "@/lib/actions/invitation-sharing";
 import type { Metadata } from "next";
 import InvitationPageDashboardClient from "./InvitationPageDashboardClient";
@@ -37,6 +37,11 @@ export default async function EventInvitationPageDashboardRoute({
         </p>
       </div>
     );
+  }
+
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    notFound();
   }
 
   let data = null;

@@ -1,7 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { assertInvitationKindEvent } from "@/lib/actions/invitation-page";
 import GuestsClient from "./GuestsClient";
 
 export default async function EventGuestsPage({
@@ -34,11 +35,16 @@ export default async function EventGuestsPage({
   // 1. Fetch event
   const { data: event } = await admin
     .from("events")
-    .select("id, title, event_date, venue, city")
+    .select("id, title, event_date, venue, city, kind")
     .eq("id", eventId)
     .single();
 
   if (!event) redirect("/dashboard/events");
+
+  // Round 4 Rule 1: guest management serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    notFound();
+  }
 
   // 2. Fetch invitations (safe fields only — no token)
   const { data: invitations } = await admin

@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "next-intl/server";
+import { isInvitationEvent } from "@/lib/invitation-events";
 
 export default async function EventOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,6 +43,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/seating`}>Seating</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/operations`}>Operations</Link></Button>
         </CardContent></Card>
+        {/* Round 4 Rule 1: the Invitation page card renders for
+            invitation-kind events only. kind='public' events show no
+            Preview Invitation or invitation controls. */}
+        {isInvitationEvent(event as { kind?: string | null }) && (
         <Card><CardHeader><CardTitle className="text-sm">Invitation page</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">
           {hasInvitationPage ? (
             <Button asChild size="sm"><Link href={`/invitation/builder-preview/${id}`}>{t("previewInvitation")}</Link></Button>
@@ -50,6 +55,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           )}
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/guests`}>Guests & RSVPs</Link></Button>
         </CardContent></Card>
+        )}
         <Card>
           <CardHeader><CardTitle className="text-sm">{event.visibility === "private" ? "Private page" : "Public page"}</CardTitle></CardHeader>
           <CardContent>

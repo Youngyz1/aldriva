@@ -15,6 +15,7 @@ function iconForTab(id: string): string {
     checkins: "CheckCircle2",
     scan: "QrCode",
     guests: "Users",
+    memories: "Camera",
     "ticket-design": "Palette",
     "invitation-design": "Sparkles",
     "invitation-page": "Globe",
@@ -43,7 +44,7 @@ export default async function EventDashboardLayout({
 
   const { data: event } = await admin
     .from("events")
-    .select("id, title, slug, user_id, organizer_id")
+    .select("id, title, slug, user_id, organizer_id, kind")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -59,7 +60,10 @@ export default async function EventDashboardLayout({
     redirect("/dashboard/events");
   }
 
-  const tabs = getEventSubNavTabs(eventId, userRole);
+  const tabs = getEventSubNavTabs(eventId, userRole, {
+    // Round 4 Rule 1: invitation tabs render for invitation-kind events only.
+    isInvitationKind: (event as { kind?: string | null } | null)?.kind === "invitation",
+  });
   const base = `/dashboard/events/${eventId}`;
   const navGroups = [
     {

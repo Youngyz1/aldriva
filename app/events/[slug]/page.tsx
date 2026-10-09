@@ -23,6 +23,8 @@ import {
   jsonLdScriptValue,
   stripHtml,
 } from "@/lib/structured-data";
+import { isInvitationEvent } from "@/lib/invitation-events";
+import { invitationSlugMetadata } from "@/lib/event-slug-metadata";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1600&auto=format&fit=crop";
@@ -55,7 +57,7 @@ type OptionalEventFields = {
 const getEventBySlug = cache(async (slug: string) => {
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, slug, description, banner, city, venue, event_date, category, organizer_id, visibility, user_id, latitude, longitude, review_count, average_rating, source_organizer_name, source_organizer_url, source_url, created_at, status")
+    .select("id, title, slug, description, banner, city, venue, event_date, category, organizer_id, visibility, user_id, latitude, longitude, review_count, average_rating, source_organizer_name, source_organizer_url, source_url, created_at, status, kind")
     .eq("slug", slug)
     .is("deleted_at", null)
     .maybeSingle();
@@ -101,6 +103,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
+
+  // Round 4 Rule 1: invitation-kind slugs emit only robots noindex plus the
+  // generic nonexistent-slug title — no description, canonical, OG, or
+  // twitter metadata — even though the page body 404s.
+  if (isInvitationEvent(event as { kind?: string | null } | null)) {
+    return invitationSlugMetadata();
+  }
 
   const title = event?.title
     ? `${event.title} — Aldriva`
@@ -190,6 +199,13 @@ export default async function EventPage({
   const event = await getEventBySlug(slug);
 
   if (!event) return notFound();
+
+  // Round 4 Rule 1: explicit invitation-kind gate. Invitation events live
+  // behind personal links and the dashboard — never on the public slug
+  // page, for any visitor including the owner. (Previously this relied on
+  // the implicit private-visibility check below.)
+  if (isInvitationEvent(event as { kind?: string | null })) return notFound();
+
   const optionalEvent = await getOptionalEventFields(event.id);
   const defaultCountry = await getVisitorCountry();
   const eventImage = normalizeImageUrl(event.banner, FALLBACK_EVENT_IMAGE);

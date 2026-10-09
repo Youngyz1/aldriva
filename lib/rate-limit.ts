@@ -147,6 +147,38 @@ export const RATE_LIMITS = {
    * bounding token-probing. Fail-open like every other limiter.
    */
   invitationShareView: { limit: 60, windowSeconds: 60 },
+
+  /**
+   * Round 4: guest RSVP writes. Keyed per-IP AND per-token by callers
+   * (two buckets per request): the token bucket bounds targeted RSVP
+   * spam on a single invitation, the IP bucket bounds spray. Fail-open.
+   */
+  invitationRsvp: { limit: 20, windowSeconds: 600 },
+
+  /**
+   * Round 4: Memories guest page reads (`/m/[token]`). Anonymous per-IP
+   * bucket, same posture as invitationShareView. Fail-open.
+   */
+  memoryView: { limit: 60, windowSeconds: 60 },
+
+  /**
+   * Round 4: Memories signed-upload-URL issuance. Keyed per-IP AND
+   * per-token by callers. Bounds storage-egress farming via minted PUTs.
+   * Fail-open.
+   */
+  memoryUploadUrl: { limit: 20, windowSeconds: 600 },
+
+  /**
+   * Round 4: Memories upload completion (validation + conversion work).
+   * Keyed per-IP AND per-token by callers. Fail-open.
+   */
+  memoryUploadComplete: { limit: 20, windowSeconds: 600 },
+
+  /**
+   * Round 4: Memories photo reports. Anonymous per-IP bucket; 10/hour
+   * stops report-spam while leaving genuine reports unaffected. Fail-open.
+   */
+  memoryReport: { limit: 10, windowSeconds: 3600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

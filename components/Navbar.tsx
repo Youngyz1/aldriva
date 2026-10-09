@@ -74,7 +74,8 @@ export default function Navbar() {
   const publicProfileHref = account ? `/profile/${account.id}` : "/login";
 
   // Invitation routes (/invitation/[token], /invitation/preview) are standalone chrome-free experiences
-  if (pathname?.includes("/invitation")) {
+  // Round 4: Memories guest upload pages (/m/[token]) are standalone too.
+  if (pathname?.includes("/invitation") || pathname?.startsWith("/m/")) {
     return null;
   }
 

@@ -1,7 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { assertInvitationKindEvent } from "@/lib/actions/invitation-page";
 import { getInvitationTemplates } from "@/lib/invitation-templates";
 import InvitationDesignClient from "./InvitationDesignClient";
 
@@ -32,7 +33,7 @@ export default async function EventInvitationDesignPage({
   const [{ data: event }, templates] = await Promise.all([
     admin
       .from("events")
-      .select("id, title, slug, event_date, end_date, venue, city, banner, invitation_template_id")
+      .select("id, title, slug, event_date, end_date, venue, city, banner, invitation_template_id, kind")
       .eq("id", eventId)
       .single(),
     getInvitationTemplates(),
@@ -40,6 +41,11 @@ export default async function EventInvitationDesignPage({
 
   if (!event) {
     redirect("/dashboard/events");
+  }
+
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    notFound();
   }
 
   const initialTemplateId = event.invitation_template_id || (templates[0]?.id ?? null);

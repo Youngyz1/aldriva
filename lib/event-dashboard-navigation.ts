@@ -9,6 +9,7 @@ export type EventSubNavTabId =
   | "edit"
   | "seating"
   | "guests"
+  | "memories"
   | "ticket-design"
   | "invitation-design"
   | "invitation-page";
@@ -19,10 +20,18 @@ export type EventSubNavTab = {
   href: string;
 };
 
-export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): EventSubNavTab[] {
+export function getEventSubNavTabs(
+  eventId: string,
+  userRole: EventUserRole,
+  opts?: { isInvitationKind?: boolean }
+): EventSubNavTab[] {
   const isOrganizer = userRole === "owner";
   const isEventManager = userRole === "event_manager";
   const canManageEvent = isOrganizer || isEventManager;
+  // Round 4 Rule 1: invitation tooling tabs exist only for invitation-kind
+  // events. Memories serve every kind (photos are not invitations).
+  // Callers that do not pass the kind keep the previous full tab set.
+  const showInvitationTabs = opts?.isInvitationKind !== false;
 
   const tabs: EventSubNavTab[] = [];
 
@@ -56,11 +65,19 @@ export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): Ev
     });
   }
 
-  if (canManageEvent) {
+  if (canManageEvent && showInvitationTabs) {
     tabs.push({
       id: "guests",
       label: "Guests & Invites",
       href: `/dashboard/events/${eventId}/guests`,
+    });
+  }
+
+  if (canManageEvent) {
+    tabs.push({
+      id: "memories",
+      label: "Memories",
+      href: `/dashboard/events/${eventId}/memories`,
     });
   }
 
@@ -72,7 +89,7 @@ export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): Ev
     });
   }
 
-  if (canManageEvent) {
+  if (canManageEvent && showInvitationTabs) {
     tabs.push({
       id: "invitation-design",
       label: "Invitation Design",
@@ -80,7 +97,7 @@ export function getEventSubNavTabs(eventId: string, userRole: EventUserRole): Ev
     });
   }
 
-  if (canManageEvent) {
+  if (canManageEvent && showInvitationTabs) {
     tabs.push({
       id: "invitation-page",
       label: "Invitation Page",

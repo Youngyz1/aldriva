@@ -17,6 +17,7 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { isInvitationEvent } from "@/lib/invitation-events";
 import {
   InvitationPageDraftSchema,
   validateForPublish,
@@ -64,6 +65,23 @@ export async function checkInvitationPageAccess(userId: string, eventId: string)
   return await hasEventOrOrganizerAccess(userId, eventId, ["event_manager"], ENTITY_ROLES_MANAGE);
 }
 
+/**
+ * Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+ * Single source of truth for the kind gate (`isInvitationEvent`, no second
+ * helper). Routes render notFound() on false; mutations return
+ * `{ ok: false }` on false; API routes answer 404 on false.
+ *
+ * Deliberately NOT folded into checkInvitationPageAccess: conversion and
+ * creation flows call that helper on public-kind events and must keep
+ * working.
+ */
+export async function assertInvitationKindEvent(eventId: string): Promise<boolean> {
+  if (!eventId) return false;
+  const admin = createSupabaseAdmin();
+  const { data } = await admin.from("events").select("kind").eq("id", eventId).maybeSingle();
+  return isInvitationEvent(data as { kind?: string | null } | null);
+}
+
 // hasDraftChanges lives in lib/invitation-page-helpers (no "use server").
 // "use server" files may only export async functions — non-async exports
 // are rejected by Turbopack. Import locally for use in getInvitationPageDraft.
@@ -84,6 +102,11 @@ export async function saveInvitationPageDraft(
   const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden. You do not have permission to manage this event." };
+  }
+
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    return { ok: false, error: "Invitation pages are available only for invitation events." };
   }
 
   const parsed = InvitationPageDraftSchema.safeParse(draftInput);
@@ -178,6 +201,11 @@ export async function publishInvitationPage(
   const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden. You do not have permission to manage this event." };
+  }
+
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    return { ok: false, error: "Invitation pages are available only for invitation events." };
   }
 
   const admin = createSupabaseAdmin();
@@ -308,6 +336,11 @@ export async function unpublishInvitationPage(eventId: string): Promise<{ ok: bo
     return { ok: false, error: "Forbidden." };
   }
 
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    return { ok: false, error: "Invitation pages are available only for invitation events." };
+  }
+
   const admin = createSupabaseAdmin();
   const { error } = await admin
     .from("event_invitation_pages")
@@ -337,6 +370,11 @@ export async function createOrRegeneratePreviewToken(eventId: string): Promise<P
   const hasAccess = await checkInvitationPageAccess(user.id, eventId);
   if (!hasAccess) {
     return { ok: false, error: "Forbidden." };
+  }
+
+  // Round 4 Rule 1: invitation tooling serves invitation-kind events only.
+  if (!(await assertInvitationKindEvent(eventId))) {
+    return { ok: false, error: "Invitation pages are available only for invitation events." };
   }
 
   const token = randomBytes(32).toString("hex");

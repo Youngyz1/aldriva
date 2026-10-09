@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { isInvitationEvent } from "@/lib/invitation-events";
 import { parseCsvText, validateGuestRows, executeAtomicBatchImport } from "@/lib/guest-import";
 
 async function getAuthorizedEventId(
@@ -13,6 +15,16 @@ async function getAuthorizedEventId(
   const eventId = params.id;
   const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
   if (!canManage) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Round 4 Rule 1: guest management serves invitation-kind events only.
+  const admin = createSupabaseAdmin();
+  const { data: event } = await admin.from("events").select("kind").eq("id", eventId).maybeSingle();
+  if (!isInvitationEvent(event as { kind?: string | null } | null)) {
+    return NextResponse.json(
+      { error: "Guest management is available only for invitation events." },
+      { status: 404 }
+    );
+  }
 
   return { userId: user.id, eventId };
 }

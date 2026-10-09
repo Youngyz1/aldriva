@@ -25,8 +25,14 @@
 
 ## Invitation Rounds — Phase 0 baseline (2026-10-09)
 
-- **Status: COMPLETE, awaiting owner inputs.** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Baseline: ESLint 0 errors, `tsc --noEmit` 0 errors, full suite **1,550/1,553** — 3 failures, all stale expectations from the same rework, owned by the Round 4 Rule-1 test rewrite. Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
-- **Blocked on owner**: read-only data-check SQL results (public-kind events with invitation rows) + `supabase migration list` outputs for staging and prod. Round 4 starts after both arrive; Round 4 code merges only after 155/156 verify on staging.
+- **Status: SUPERSEDED by Round 4 below (uncommitted, awaiting owner review).** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
+- **Gate cleared by owner**: 154–161 verified on staging; `we-are-getting-married` reclassified to `kind='invitation'`; two public events keep unpublished draft pages (must stay unreachable).
+
+## Invitation Round 4 — Memories + Rule-1 strip (2026-10-09, UNCOMMITTED)
+
+- **Status: BUILT, migration 162 APPLIED ON STAGING by owner (production untouched).** Code uncommitted, awaiting owner review. Retention email copy APPROVED with plain-text mirror; flag stays unset everywhere. Memories confirmed for BOTH event kinds (pinned by test).
+- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0 (new `/m/[token]`, memory APIs, memories tab all compile — build caught and fixed one real `"use server"` violation), `npm test` **1,592/1,592 pass**.
+- **Blocked on owner**: staging walkthrough (upload → moderation → ZIP → retention dry-run); review the report, then approve the single Round-4 commit + Round 5.
 
 ---
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rsvpInvitation } from "@/lib/invitations";
+import { isRateLimited, rateLimitedResponse } from "@/lib/memories/guest-limits";
 
 export async function POST(
   req: NextRequest,
@@ -9,6 +10,12 @@ export async function POST(
 
   if (!token || typeof token !== "string" || token.length !== 64) {
     return NextResponse.json({ error: "Invalid invitation token." }, { status: 400 });
+  }
+
+  // Round 4: per-IP + per-token buckets (fail-open). Bounds RSVP spam
+  // without blocking genuine guests when the limiter is down.
+  if (await isRateLimited(req, "invitationRsvp", `token:${token}`)) {
+    return rateLimitedResponse();
   }
 
   let body: Record<string, unknown>;

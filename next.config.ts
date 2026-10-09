@@ -198,6 +198,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Round 4: per-guest memory upload pages must never be cached.
+        source: "/m/:token*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

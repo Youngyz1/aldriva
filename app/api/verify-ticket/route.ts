@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { MEMORY_QR_SCANNER_MESSAGE, isMemoryQrScan } from "@/lib/memories/tokens";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set — server misconfiguration.");
@@ -229,6 +230,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No code provided." }, { status: 400 });
   }
 
+  // Round 4: memory photo-upload QRs are not admission tickets. The prefix
+  // can never match a ticket_instances.qr_code, but answer explicitly so
+  // door staff get guidance instead of a bare "not found".
+  if (isMemoryQrScan(code)) {
+    return NextResponse.json({ error: MEMORY_QR_SCANNER_MESSAGE, valid: false }, { status: 400 });
+  }
+
   const ticketData = await findTicketByCode(code);
 
   if (!ticketData) {
@@ -266,6 +274,14 @@ export async function POST(req: NextRequest) {
 
     if (!code) {
       return NextResponse.json({ error: "No code provided." }, { status: 400 });
+    }
+
+    // Round 4: never route a photo-upload code into the check-in RPC.
+    if (isMemoryQrScan(code)) {
+      return NextResponse.json(
+        { success: false, message: MEMORY_QR_SCANNER_MESSAGE, status: "memory_code" },
+        { status: 400 }
+      );
     }
 
     const ticketData = await findTicketByCode(code);
