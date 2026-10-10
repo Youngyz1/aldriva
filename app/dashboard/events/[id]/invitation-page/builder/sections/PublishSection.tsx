@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, AlertCircle, Eye, Globe, Sparkles } from "lucide-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
@@ -15,6 +16,7 @@ import { validateForPublish } from "@/lib/invitation-page-schema";
 import { sectionForPublishField, type BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
 import { INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
+import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
 
 interface Props {
   eventId: string;
@@ -39,11 +41,14 @@ export function PublishSection({
   onJumpToSection,
   disabled,
 }: Props) {
+  const t = useTranslations("Events");
   const [previewLoading, setPreviewLoading] = useState(false);
   const isPublished = pageStatus === "published";
   const validation = validateForPublish(draft, event, draft.locale || "en");
-  const templateDisplayName =
-    INVITATION_TEMPLATES.find((template) => template.id === draft.template_id)?.name ?? draft.template_id;
+  const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
+  const templateDisplayName = templateNameKey
+    ? t(templateNameKey)
+    : INVITATION_TEMPLATES.find((template) => template.id === draft.template_id)?.name ?? draft.template_id;
 
   const handlePreview = async () => {
     setPreviewLoading(true);

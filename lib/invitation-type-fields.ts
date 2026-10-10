@@ -30,6 +30,15 @@ export const DEFAULT_TEMPLATE_FOR_TYPE: Record<InvitationType, string> = {
   other: "gala-editorial",
 };
 
+/** Recover the builder type from the saved page template when reopening. */
+export function invitationTypeForTemplate(templateId: string | null | undefined): InvitationType {
+  const category = templateId ? TEMPLATE_CATEGORY_BY_ID[templateId] : undefined;
+  if (category === "wedding") return "wedding";
+  if (category === "birthday") return "birthday";
+  if (category === "gala_corporate") return "gala";
+  return "other";
+}
+
 /** Registry template category per template id (mirrors the registry). */
 export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
   "gala-editorial": "gala_corporate",

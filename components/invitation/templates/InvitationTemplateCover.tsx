@@ -42,6 +42,7 @@ interface Props {
   className?: string;
   /** General share-link mode: guest-only blocks render as a neutral note. */
   shared?: boolean;
+  previewMode?: "thumbnail";
 }
 
 function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
@@ -60,7 +61,7 @@ function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
   return <canvas ref={canvasRef} aria-label="Entry QR code" />;
 }
 
-export function InvitationTemplateCover({ data, onRsvp, className = "", shared = false }: Props) {
+export function InvitationTemplateCover({ data, onRsvp, className = "", shared = false, previewMode }: Props) {
   const locale: InvitationLocale = data.locale || "en";
   const dict = useMemo(() => getInvitationDictionary(locale), [locale]);
 
@@ -117,12 +118,12 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
 
   return (
     <main
-      className={cn("min-h-screen bg-[#101014] text-white", className)}
+      className={cn("min-h-screen bg-[#101014] text-white", previewMode === "thumbnail" && "!min-h-0", className)}
       style={{ fontFamily: FF_TEXT }}
     >
       {/* ── Section 1: full-bleed hero + live panel ─────────────────────── */}
       <section id="inv-hero" aria-label="Event cover" className="relative w-full">
-        <div className="relative min-h-[92svh] w-full overflow-hidden">
+        <div className={cn("relative w-full overflow-hidden", previewMode === "thumbnail" ? "min-h-[520px]" : "min-h-[92svh]")}>
           {data.heroImage ? (
             <Image
               src={data.heroImage}

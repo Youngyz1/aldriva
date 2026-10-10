@@ -3,11 +3,19 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-10] — Invitation Round 5, step 3: Cover template (2026-10-09, uncommitted)
+## [2026-10] — Invitation Round 5, step 3c visual round 2 (2026-10-10, uncommitted)
+- Moved the template-tile card preview to a small portrait crop in the tile footer, keeping Black Tie and Editorial page date/venue content unobstructed. The crop uses the selected card template's own art; only Cover receives the event hero.
+- The type section now collapses after confirmed changes and shows the current type when collapsed. The template section subtitle resolves localized display names through the unified registry.
+- Added tests for the portrait card inset and the collapsed type/template summaries. Latest verification: ESLint 0 errors on touched files, `tsc --noEmit` exit 0, production build exit 0, full suite **1,653/1,653 across 146 suites**. Awaiting owner visual review at 375px, 768px, and 1440px.
+
+## [2026-10] — Invitation Round 5, step 3b: builder UX fixes (2026-10-09, committed as 09f9470)
+- Accordion sections close on repeat click without page jumps; gallery supports bounded multi-file uploads with per-file progress/errors and existing image processing; HEIC copy, picker wrapping, and Publish readiness labels were corrected.
+
+## [2026-10] — Invitation Round 5, step 3: Cover template (2026-10-09, committed as 1c7dbdb)
 - Cover pair (`cover@1.0.0`, code-owned, no migration): code-resolved card variant (empty fixed background by design, lower-third slots, `heroDim: 0.72`) + `InvitationTemplateCover` page (full-bleed hero with focus, brightness filter + solid panel instead of gradient scrim, six standard anchors, shared mode, same data contract; panel contrast white 15.7:1 / zinc-200 12.4:1 / amber-200 12.6:1 worst-case, all WCAG AA).
 - Guest card hero reads the PUBLISHED snapshot only (never draft edits); unpublished Cover renders the solid palette fallback. `card.png` pre-fetches with `AbortSignal.timeout(3000)`, storage-host allowlist, single re-validated redirect hop, image/* + 5 MB cap — any failure logs and renders the fallback identically.
 - Hero pipeline unchanged (processed 1600px via `InvitationImageUploadField`; schema storage-URL allowlist at save); builder shows an explicit "Add a cover photo" empty state for Cover. Text fit reuses truncate/adaptive bounds (card) and clamp/ellipsis (page).
-- i18n: `coverPhotoTitle/Body` en+fr; the picker label is EN "Cover Story" / FR "En couverture", the category is EN "Cover" / FR "Couverture", and the French description is "Photo plein cadre avec texte en direct, carte et page." Rule 1 throughout (selection via the RPC; no card-only writes). Tests: 5 Cover review tests added since Phase 0 (the 1,623-test baseline already included the original 12 Cover pins); card-system registry evolved 6→7.
+- i18n: `coverPhotoTitle/Body` en+fr; the unified display name is EN "Cover" / FR "En couverture", the category is EN "Cover" / FR "Couverture", and the French description is "Photo plein cadre avec texte en direct, carte et page." Rule 1 throughout (selection via the RPC; no card-only writes). Tests: 5 Cover review tests added since Phase 0 (the 1,623-test baseline already included the original 12 Cover pins); card-system registry evolved 6→7.
 
 ## [2026-10] — Invitation Round 5, step 2: unified picker + atomic RPC (2026-10-09, committed as 5bff7c9)
 - Migration `db/migration_163_unified_template_rpc.sql` (+ rollback twin, byte-identical mirror `20261009000001_…`, **applied on staging by owner**): `set_unified_invitation_template` writes card UUID + page template id in one transaction with a DB-level kind guard; `SECURITY DEFINER`, pinned search path, service-role-only (migration_131 precedent). Chosen over compensating rollback (compensation can itself fail); partial failure is structurally impossible, pinned by SQL-shape tests.

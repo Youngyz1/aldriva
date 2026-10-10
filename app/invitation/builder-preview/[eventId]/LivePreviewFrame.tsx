@@ -12,18 +12,16 @@
  * Never writes: no onRsvp is passed, no real guest data enters here.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getTemplateById } from "@/components/invitation/templates/registry";
-import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
+import { buildInvitationTemplatePreviewData } from "@/lib/invitation-template-preview-data";
 import {
   isPreviewMessage,
   isSameOriginMessage,
-  placeholderSnapshot,
   PREVIEW_MESSAGE_SOURCE,
   resolvePreviewAnchor,
-  SAMPLE_PREVIEW_GUEST,
-  SAMPLE_PREVIEW_TICKET,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
 
@@ -39,7 +37,45 @@ const EMPTY_DRAFT: Record<string, unknown> = {
   locale: "en",
 };
 
+class CandidatePreviewErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+function TemplateRender({
+  templateId,
+  data,
+  sampleLabel,
+}: {
+  templateId: string;
+  data: ReturnType<typeof buildInvitationTemplatePreviewData>;
+  sampleLabel: string;
+}) {
+  const TemplateComponent = getTemplateById(templateId).component;
+  return (
+    <>
+      {data.sampleFields.length > 0 && (
+        <span className="fixed right-2 top-12 z-30 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-950 shadow-xs">
+          {sampleLabel}
+        </span>
+      )}
+      <TemplateComponent data={data.data} />
+    </>
+  );
+}
+
 export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Props) {
+  const t = useTranslations("Events");
   const [payload, setPayload] = useState<PreviewDraftMessage | null>(null);
 
   useEffect(() => {
@@ -65,44 +101,51 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
   }, []);
 
   const pageData = useMemo(() => {
-    const draft = placeholderSnapshot({ ...(payload?.draft ?? initialDraft ?? EMPTY_DRAFT) });
+    const draft = { ...(payload?.draft ?? initialDraft ?? EMPTY_DRAFT) };
     const templateId =
       (payload?.templateId as string) || (draft.template_id as string) || "gala-editorial";
-    const locale = payload?.locale || (draft.locale as "en" | "fr") || "en";
-    const liveEvent = {
-      id: String(event.id ?? ""),
-      title: (event.title as string) || "Exclusive Event",
-      slug: (event.slug as string) || "",
-      event_date: (event.event_date as string) || "",
-      end_date: (event.end_date as string | null) || null,
-      venue: (event.venue as string | null) || null,
-      street_address: (event.street_address as string | null) || null,
-      city: (event.city as string | null) || null,
-      latitude: (event.latitude as number | null) ?? null,
-      longitude: (event.longitude as number | null) ?? null,
-    };
-    const snapshot = {
-      template_id: templateId,
-      locale,
-      ...draft,
-    };
+    draft.locale = payload?.locale || (draft.locale as "en" | "fr") || "en";
+    const savedTemplateId = payload?.savedTemplateId || (draft.template_id as string) || "gala-editorial";
+    const active = buildInvitationTemplatePreviewData(templateId, draft, event);
+    const saved =
+      payload?.candidatePreview && savedTemplateId !== templateId
+        ? buildInvitationTemplatePreviewData(savedTemplateId, draft, event)
+        : active;
     return {
       templateId,
-      data: assembleInvitationPageData(
-        snapshot as never,
-        liveEvent,
-        { ...SAMPLE_PREVIEW_GUEST },
-        { ...SAMPLE_PREVIEW_TICKET },
-        null
-      ),
+      savedTemplateId,
+      candidatePreview: payload?.candidatePreview === true && savedTemplateId !== templateId,
+      active,
+      saved,
     };
   }, [payload, event, initialDraft]);
 
-  const renderTemplate = useCallback(() => {
-    const entry = getTemplateById(pageData.templateId);
-    const TemplateComponent = entry.component;
-    return <TemplateComponent data={pageData.data} />;
-  }, [pageData]);
+  const activeRender = (
+    <TemplateRender
+      templateId={pageData.templateId}
+      data={pageData.active}
+      sampleLabel={t("invitationPreviewSampleLabel")}
+    />
+  );
+  const previewRender = pageData.candidatePreview ? (
+    <CandidatePreviewErrorBoundary
+      key={`${pageData.savedTemplateId}:${pageData.templateId}`}
+      fallback={
+        <>
+          <p className="fixed inset-x-2 top-12 z-40 mx-auto w-fit rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-center text-xs font-semibold text-amber-950 shadow-xs" role="status">
+            {t("candidatePreviewFallbackNotice")}
+          </p>
+          <TemplateRender
+            templateId={pageData.savedTemplateId}
+            data={pageData.saved}
+            sampleLabel={t("invitationPreviewSampleLabel")}
+          />
+        </>
+      }
+    >
+      {activeRender}
+    </CandidatePreviewErrorBoundary>
+  ) : activeRender;
 
   return (
     <div className="min-h-screen bg-white">
@@ -129,7 +172,7 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
           </nav>
         </header>
       )}
-      {renderTemplate()}
+      {previewRender}
     </div>
   );
 }

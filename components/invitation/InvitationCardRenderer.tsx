@@ -6,6 +6,8 @@ import { InvitationTemplate, LayoutSlotConfig } from "@/lib/invitation-types";
 export interface InvitationCardData {
   eventTitle: string;
   guestName: string;
+  /** Host-facing name line for builder previews; never guest personalization. */
+  hostNames?: string | null;
   guestTitle?: string | null;
   organization?: string | null;
   eventDate?: string | null;
@@ -40,11 +42,17 @@ export {
 
 export function renderSlotStyle(
   slot?: LayoutSlotConfig,
-  options?: { overrideFontSize?: number; maxHeight?: number | string; lineHeight?: number }
+  options?: { overrideFontSize?: number; maxHeight?: number | string; lineHeight?: number; scale?: number }
 ): React.CSSProperties {
   if (!slot) return { display: "none" };
 
-  const fontSize = options?.overrideFontSize || slot.fontSize;
+  const scale = options?.scale ?? 1;
+  const fontSize = Number(((options?.overrideFontSize || slot.fontSize) * scale).toFixed(2));
+  const maxHeight = typeof options?.maxHeight === "number"
+    ? Number((options.maxHeight * scale).toFixed(2))
+    : typeof options?.maxHeight === "string" && options.maxHeight.endsWith("px")
+      ? `${Number((Number.parseFloat(options.maxHeight) * scale).toFixed(2))}px`
+      : options?.maxHeight;
   return {
     position: "absolute",
     top: `${slot.topPercent}%`,
@@ -58,11 +66,11 @@ export function renderSlotStyle(
     fontSize: `${fontSize}px`,
     fontWeight: (slot.fontWeight as any) || 400,
     fontFamily: slot.fontFamily || "inherit",
-    letterSpacing: slot.letterSpacing ? `${slot.letterSpacing}px` : undefined,
+    letterSpacing: slot.letterSpacing ? `${slot.letterSpacing * scale}px` : undefined,
     textTransform: slot.textTransform || "none",
     color: slot.color,
     lineHeight: options?.lineHeight || slot.lineHeight || 1.25,
-    maxHeight: options?.maxHeight,
+    maxHeight,
     overflow: "hidden",
     textOverflow: "ellipsis",
   };
@@ -82,9 +90,11 @@ export function InvitationCardRenderer({
   const { layout_config } = template;
   const { slots, colorPalette, typography } = layout_config;
 
-  const rawGuestDisplay = formatGuestDisplayName(data.guestName, data.guestTitle, data.organization);
-  const guestDisplay = truncateText(rawGuestDisplay, 75);
-  const guestFontSize = getAdaptiveFontSize(guestDisplay, slots.guestName?.fontSize || 26);
+  const hostDisplay = data.hostNames?.trim() || null;
+  const guestDisplay = hostDisplay ? null : formatGuestDisplayName(data.guestName, data.guestTitle, data.organization);
+  const nameDisplay = truncateText(hostDisplay || guestDisplay || "", 75);
+  const nameSlot = hostDisplay ? (slots.hostNames || slots.guestName) : slots.guestName;
+  const nameFontSize = getAdaptiveFontSize(nameDisplay, nameSlot?.fontSize || 26);
 
   const titleFontSize = getAdaptiveFontSize(data.eventTitle, slots.eventTitle?.fontSize || 36);
 
@@ -141,30 +151,30 @@ export function InvitationCardRenderer({
 
       {/* Slots */}
       {slots.headerBadge && (
-        <div style={renderSlotStyle(slots.headerBadge)}>
+        <div data-card-slot="header-badge" style={renderSlotStyle(slots.headerBadge, { scale })}>
           <span>{data.headerBadgeText || "OFFICIAL INVITATION"}</span>
         </div>
       )}
 
       {slots.eventTitle && (
-        <div style={renderSlotStyle(slots.eventTitle, { overrideFontSize: titleFontSize, maxHeight: "80px", lineHeight: 1.2 })}>
+        <div data-card-slot="event-title" style={renderSlotStyle(slots.eventTitle, { overrideFontSize: titleFontSize, maxHeight: "80px", lineHeight: 1.2, scale })}>
           <span style={{ fontFamily: slots.eventTitle.fontFamily || typography.titleFont }}>
             {data.eventTitle}
           </span>
         </div>
       )}
 
-      {slots.guestName && (
-        <div style={renderSlotStyle(slots.guestName, { overrideFontSize: guestFontSize, maxHeight: "58px", lineHeight: 1.22 })}>
-          <span style={{ fontFamily: slots.guestName.fontFamily || typography.accentFont || typography.titleFont }}>
-            {guestDisplay}
+      {nameDisplay && nameSlot && (
+        <div data-card-slot={hostDisplay && slots.hostNames ? "host-names" : hostDisplay ? "host-names-fallback" : "guest-name"} style={renderSlotStyle(nameSlot, { overrideFontSize: nameFontSize, maxHeight: "58px", lineHeight: 1.22, scale })}>
+          <span style={{ fontFamily: nameSlot.fontFamily || typography.accentFont || typography.titleFont }}>
+            {nameDisplay}
           </span>
         </div>
       )}
 
       {/* Optional Custom Message */}
       {slots.customMessage && data.customMessage && (
-        <div style={renderSlotStyle(slots.customMessage, { maxHeight: "48px", lineHeight: 1.35 })}>
+        <div data-card-slot="custom-message" style={renderSlotStyle(slots.customMessage, { maxHeight: "48px", lineHeight: 1.35, scale })}>
           <span style={{ fontFamily: slots.customMessage.fontFamily || typography.bodyFont }}>
             &ldquo;{data.customMessage}&rdquo;
           </span>
@@ -172,7 +182,7 @@ export function InvitationCardRenderer({
       )}
 
       {slots.eventMeta && (
-        <div style={renderSlotStyle(slots.eventMeta, { maxHeight: "36px" })}>
+        <div data-card-slot="event-meta" style={renderSlotStyle(slots.eventMeta, { maxHeight: "36px", scale })}>
           <span style={{ fontFamily: slots.eventMeta.fontFamily || typography.bodyFont }}>
             {metaDisplay}
           </span>

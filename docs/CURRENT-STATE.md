@@ -28,11 +28,12 @@
 - **Status: SUPERSEDED by Round 4 below (uncommitted, awaiting owner review).** Dirty overview/builder rework committed standalone as `6ee76d6` on `integration/full-recovery` (8 files, +111/−13). Owner decisions recorded as DEC-0028 (Rule-1 strip, `/m/` route, slug gate, retention, migration process).
 - **Gate cleared by owner**: 154–161 verified on staging; `we-are-getting-married` reclassified to `kind='invitation'`; two public events keep unpublished draft pages (must stay unreachable).
 
-## Invitation Round 5 — step 3: Cover template (2026-10-09, UNCOMMITTED)
+## Invitation Round 5 — step 3 + builder UX (updated 2026-10-10; step 3 committed as 1c7dbdb, 3b committed as 09f9470)
 
-- **Status: BUILT, awaiting owner review.** Cover pair (code-owned card + page), snapshot-only card hero with guarded 3s fetch, builder empty state, i18n. No migration (164 still reserved).
+- **Status: 3b committed locally; 3c remains uncommitted, awaiting owner visual review.** Cover pair (code-owned card + page), snapshot-only card hero with guarded 3s fetch, builder empty state, i18n. 3b adds accordion and gallery fixes; 3c adds the type dropdown, page-first template picker, and preview-only candidate selection. No migration (164 still reserved).
+- Latest 3c visual pass puts the portrait card crop in the tile footer to keep page details visible, uses each paired card's own art (Cover alone uses the event hero), closes the type section after confirmation, and localizes the collapsed type/template names.
 - **Known limitation: invitation hero images live in the public `cms-media` bucket** (unguessable `invitation-hero/{eventId}/` paths, never linked publicly, but readable by anyone with the URL — same posture as all existing invitation artwork). Revisit with private signed URLs later if guest-photo-grade privacy is ever required for heroes.
-- **Verification (real output)**: ESLint 0 errors, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,623/1,623 pass**.
+- **Latest verification (real output)**: ESLint 0 errors on touched files, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,653/1,653 pass across 146 suites**.
 
 ## Invitation Round 5 — step 2: unified picker + atomic RPC (2026-10-09, COMMITTED as 5bff7c9)
 

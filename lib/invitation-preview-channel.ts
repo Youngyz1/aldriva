@@ -22,6 +22,10 @@ export interface PreviewDraftMessage {
   locale: "en" | "fr";
   draft: Record<string, unknown>;
   event: Record<string, unknown>;
+  /** True when this message changes only the preview, not the saved draft. */
+  candidatePreview?: boolean;
+  /** Saved page restored if the candidate template fails to render. */
+  savedTemplateId?: string;
 }
 
 export interface PreviewScrollMessage {
@@ -58,7 +62,9 @@ export function isPreviewMessage(data: unknown): data is PreviewMessage {
         data.templateId.length > 0 &&
         (data.locale === "en" || data.locale === "fr") &&
         isRecord(data.draft) &&
-        isRecord(data.event)
+        isRecord(data.event) &&
+        (data.candidatePreview === undefined || typeof data.candidatePreview === "boolean") &&
+        (data.savedTemplateId === undefined || (typeof data.savedTemplateId === "string" && data.savedTemplateId.length > 0))
       );
     case "scroll-to":
       return typeof data.sectionId === "string" && data.sectionId.length > 0;

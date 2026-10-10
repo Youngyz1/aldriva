@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ReactNode, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import AppSidebar from "@/components/nav/AppSidebar";
 import SidebarNavList from "@/components/nav/SidebarNavList";
@@ -25,6 +26,8 @@ export function ManagementShell({
   mobileHeaderSlot?: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isInvitationBuilderRoute = /^\/dashboard\/events\/[^/]+\/invitation-page\/?$/.test(pathname);
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
       <AppSidebar
@@ -51,7 +54,7 @@ export function ManagementShell({
       />
       <div className="min-w-0 flex-1">
         {/* Mobile: single hamburger header — no bottom pills, no duplicate nav */}
-        <div className="sticky top-16 z-30 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
+        <div className={`${isInvitationBuilderRoute ? "relative" : "sticky top-16"} z-30 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3 lg:hidden`}>
           <Link href={backHref} className="flex items-center gap-1.5 text-xs font-bold text-zinc-600">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
           </Link>

@@ -87,6 +87,27 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
   },
 ];
 
+/** Translation keys used on user-facing picker, banner, and readiness surfaces. */
+export const UNIFIED_TEMPLATE_NAME_KEYS = {
+  "royal-elegance": "unifiedRoyalEleganceName",
+  "festive-gold-noir": "unifiedFestiveGoldNoirName",
+  "grand-gala-noir": "unifiedGrandGalaNoirName",
+  "modern-executive": "unifiedModernExecutiveName",
+  cover: "unifiedCoverName",
+} as const;
+
+export type UnifiedTemplateNameKey = (typeof UNIFIED_TEMPLATE_NAME_KEYS)[keyof typeof UNIFIED_TEMPLATE_NAME_KEYS];
+
+/** Resolve any pair, card, or page identifier to its localized display-name key. */
+export function getUnifiedTemplateNameKey(identifier: string | null | undefined): UnifiedTemplateNameKey | null {
+  if (!identifier) return null;
+  const pair = UNIFIED_INVITATION_TEMPLATES.find(
+    (template) => template.id === identifier || template.baseId === identifier ||
+      template.cardSlug === identifier || template.pageId === identifier
+  );
+  return pair ? UNIFIED_TEMPLATE_NAME_KEYS[pair.baseId as keyof typeof UNIFIED_TEMPLATE_NAME_KEYS] ?? null : null;
+}
+
 /** Suggested pair when an occasion is picked (host can still choose any). */
 export const DEFAULT_UNIFIED_FOR_OCCASION: Record<UnifiedTemplateOccasion, string> = {
   wedding: "royal-elegance@1.0.0",

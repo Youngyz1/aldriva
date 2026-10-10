@@ -18,6 +18,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 23, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#f59e0b" },
         eventTitle: { topPercent: 31, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 34, fontWeight: 700, fontFamily: "Cinzel", color: "#ffffff" },
+        hostNames: { topPercent: 50, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Playfair Display", color: "#fcd34d" },
         guestName: { topPercent: 50, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Playfair Display", color: "#fcd34d" },
         customMessage: { topPercent: 63, leftPercent: 20, widthPercent: 60, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#e2e8f0" },
         eventMeta: { topPercent: 75, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 13, fontWeight: 600, fontFamily: "Montserrat", color: "#cbd5e1" },
@@ -40,6 +41,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 16, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#fbbf24" },
         eventTitle: { topPercent: 27, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 38, fontWeight: 700, fontFamily: "Playfair Display", color: "#ffffff" },
+        hostNames: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Montserrat", color: "#fde68a" },
         guestName: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Montserrat", color: "#fde68a" },
         customMessage: { topPercent: 62, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#f1f5f9" },
         eventMeta: { topPercent: 76, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 14, fontWeight: 600, fontFamily: "Montserrat", color: "#cbd5e1" },
@@ -62,6 +64,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 17, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#38bdf8" },
         eventTitle: { topPercent: 27, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 36, fontWeight: 700, fontFamily: "Montserrat", color: "#ffffff" },
+        hostNames: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 24, fontWeight: 700, fontFamily: "Montserrat", color: "#7dd3fc" },
         guestName: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 24, fontWeight: 700, fontFamily: "Montserrat", color: "#7dd3fc" },
         customMessage: { topPercent: 62, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#e2e8f0" },
         eventMeta: { topPercent: 75, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 14, fontWeight: 600, fontFamily: "Montserrat", color: "#94a3b8" },
@@ -84,6 +87,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 17, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#fbbf24" },
         eventTitle: { topPercent: 27, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 38, fontWeight: 700, fontFamily: "Cinzel", color: "#ffffff" },
+        hostNames: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Playfair Display", color: "#fbbf24" },
         guestName: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Playfair Display", color: "#fbbf24" },
         customMessage: { topPercent: 62, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#f3f4f6" },
         eventMeta: { topPercent: 75, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 14, fontWeight: 600, fontFamily: "Montserrat", color: "#cbd5e1" },
@@ -106,6 +110,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 17, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#38bdf8" },
         eventTitle: { topPercent: 27, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 38, fontWeight: 700, fontFamily: "Montserrat", color: "#ffffff" },
+        hostNames: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Montserrat", color: "#f472b6" },
         guestName: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Montserrat", color: "#f472b6" },
         customMessage: { topPercent: 62, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#f5f3ff" },
         eventMeta: { topPercent: 75, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 14, fontWeight: 600, fontFamily: "Montserrat", color: "#cbd5e1" },
@@ -128,6 +133,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 16, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#fdba74" },
         eventTitle: { topPercent: 27, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 36, fontWeight: 700, fontFamily: "Montserrat", color: "#ffffff" },
+        hostNames: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 24, fontWeight: 700, fontFamily: "Playfair Display", color: "#ffedd5" },
         guestName: { topPercent: 48, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 24, fontWeight: 700, fontFamily: "Playfair Display", color: "#ffedd5" },
         customMessage: { topPercent: 62, leftPercent: 18, widthPercent: 64, textAlign: "center", fontSize: 15, fontWeight: 400, fontFamily: "Montserrat", color: "#fafaf9" },
         eventMeta: { topPercent: 75, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 14, fontWeight: 600, fontFamily: "Montserrat", color: "#cbd5e1" },
@@ -155,6 +161,7 @@ export const DEFAULT_INVITATION_TEMPLATES: InvitationTemplate[] = [
       slots: {
         headerBadge: { topPercent: 58, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: "#e7e5e4" },
         eventTitle: { topPercent: 64, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 34, fontWeight: 700, fontFamily: "Playfair Display", color: "#ffffff" },
+        hostNames: { topPercent: 76, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 22, fontWeight: 700, fontFamily: "Montserrat", color: "#f5f0e6" },
         guestName: { topPercent: 76, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 22, fontWeight: 700, fontFamily: "Montserrat", color: "#f5f0e6" },
         customMessage: { topPercent: 84, leftPercent: 15, widthPercent: 70, textAlign: "center", fontSize: 13, fontWeight: 400, fontFamily: "Montserrat", color: "#e7e5e4" },
         eventMeta: { topPercent: 91, leftPercent: 10, widthPercent: 80, textAlign: "center", fontSize: 12, fontWeight: 600, fontFamily: "Montserrat", color: "#d6d3d1" },

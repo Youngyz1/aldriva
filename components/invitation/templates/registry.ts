@@ -35,6 +35,8 @@ export interface TemplateRegistryItem {
      * RSVP, entry pass) render as a neutral note instead. No guest data.
      */
     shared?: boolean;
+    /** Render in the fixed viewport used by picker page thumbnails. */
+    previewMode?: "thumbnail";
   }>;
 }
 

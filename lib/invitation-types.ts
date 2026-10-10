@@ -57,6 +57,8 @@ export interface InvitationLayoutConfig {
   slots: {
     headerBadge?: LayoutSlotConfig;
     eventTitle: LayoutSlotConfig;
+    /** Organizer names in builder previews, separate from guest personalization. */
+    hostNames?: LayoutSlotConfig;
     guestName: LayoutSlotConfig;
     customMessage?: LayoutSlotConfig;
     eventMeta: LayoutSlotConfig;

@@ -28,8 +28,10 @@ import { createDraftSaveQueue, type SaveStatus } from "@/lib/draft-save-queue";
 import {
   DEFAULT_TEMPLATE_FOR_TYPE,
   hiddenContentOnTemplateSwitch,
+  invitationTypeForTemplate,
   type InvitationType,
 } from "@/lib/invitation-type-fields";
+import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
 import {
   isPreviewMessage,
   isSameOriginMessage,
@@ -137,7 +139,30 @@ const SECTION_TITLES: Record<SectionId, string> = {
   publish: "Publish",
 };
 
+const TYPE_NAME_MESSAGE_KEYS = {
+  wedding: "invitationTypeWedding",
+  birthday: "invitationTypeBirthday",
+  gala: "invitationTypeGala",
+  other: "invitationTypeOther",
+} as const satisfies Record<InvitationType, string>;
+
 type PreviewViewport = 390 | 1440;
+
+const TYPE_FIELD_MESSAGE_KEYS = {
+  "Partner 1 name": "invitationTypeFieldPartner1Name",
+  "Partner 2 name": "invitationTypeFieldPartner2Name",
+  "Family note": "invitationTypeFieldFamilyNote",
+  "Wedding subtype": "invitationTypeFieldWeddingSubtype",
+  "Registry note": "invitationTypeFieldRegistryNote",
+  "Ceremony & reception venues": "invitationTypeFieldVenues",
+  Accommodations: "invitationTypeFieldAccommodations",
+  "Colors of the day": "invitationTypeFieldColorsOfTheDay",
+  "Our story chapters": "invitationTypeFieldWeddingStory",
+  "Celebrant name": "invitationTypeFieldCelebrantName",
+  "Age milestone": "invitationTypeFieldAgeMilestone",
+  "Party theme": "invitationTypeFieldPartyTheme",
+  "Gift note": "invitationTypeFieldGiftNote",
+} as const;
 
 interface SectionBodyProps {
   id: Exclude<SectionId, "type" | "template" | "publish">;
@@ -182,12 +207,17 @@ interface Props {
   cardTemplates?: InvitationTemplate[];
 }
 
-function summaryFor(draft: BuilderDraft, section: SectionId): string | null {
+function summaryFor(
+  draft: BuilderDraft,
+  section: SectionId,
+  typeSummary: string | null,
+  templateSummary: string | null
+): string | null {
   switch (section) {
     case "type":
-      return null;
+      return typeSummary;
     case "template":
-      return draft.template_id;
+      return templateSummary ?? draft.template_id;
     case "basics":
       return [draft.display_title || "Untitled", draft.timezone || "No timezone"].join(" · ");
     case "hero":
@@ -219,8 +249,21 @@ export function InvitationPageBuilder({
   const t = useTranslations("Events");
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
-  const [invitationType, setInvitationType] = useState<InvitationType | null>(null);
+  const [invitationType, setInvitationType] = useState<InvitationType | null>(() =>
+    initialData.draft.id && initialData.draft.id !== ""
+      ? invitationTypeForTemplate(draftFromData(initialData).template_id)
+      : null
+  );
+  const [pendingTypeChange, setPendingTypeChange] = useState<{
+    type: InvitationType;
+    pageId: string;
+    hiddenFields: string[];
+  } | null>(null);
+  const [candidatePreviewTemplateId, setCandidatePreviewTemplateId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<SectionId | null>(initialSection);
+  const typeSummary = invitationType ? t(TYPE_NAME_MESSAGE_KEYS[invitationType]) : null;
+  const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
+  const templateSummary = templateNameKey ? t(templateNameKey) : draft.template_id;
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [previewViewport, setPreviewViewport] = useState<PreviewViewport>(390);
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
@@ -232,10 +275,14 @@ export function InvitationPageBuilder({
   // ── Sequenced autosave (single flight, latest-wins, flush on leave) ────
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const previousAutosaveDraftRef = useRef<BuilderDraft | null>(null);
+  const skipTemplateAutosaveRef = useRef<string | null>(null);
   const [saveQueue] = useState(() =>
     createDraftSaveQueue<BuilderDraft>((payload) => saveInvitationPageDraft(eventId, payload))
   );
   const firstDraftRef = useRef(true);
+  const typePickerFocusReturnRef = useRef<HTMLElement | null>(null);
+  const typeDialogCancelRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     return saveQueue.subscribe(() => {
@@ -249,8 +296,23 @@ export function InvitationPageBuilder({
   useEffect(() => {
     if (firstDraftRef.current) {
       firstDraftRef.current = false;
+      previousAutosaveDraftRef.current = draft;
       return;
     }
+    const rpcPersistedTemplate = skipTemplateAutosaveRef.current;
+    const previous = previousAutosaveDraftRef.current;
+    const templateOnlyRpcSync =
+      rpcPersistedTemplate === draft.template_id &&
+      previous !== null &&
+      previous.template_id !== draft.template_id &&
+      JSON.stringify(draft, (key, value) => key === "template_id" ? undefined : value) ===
+        JSON.stringify(previous, (key, value) => key === "template_id" ? undefined : value);
+    previousAutosaveDraftRef.current = draft;
+    if (templateOnlyRpcSync) {
+      skipTemplateAutosaveRef.current = null;
+      return;
+    }
+    if (rpcPersistedTemplate) skipTemplateAutosaveRef.current = null;
     saveQueue.request(draft);
   }, [draft, saveQueue]);
 
@@ -283,16 +345,21 @@ export function InvitationPageBuilder({
     latestPayloadRef.current = {
       source: PREVIEW_MESSAGE_SOURCE,
       kind: "draft",
-      templateId: draft.template_id || "gala-editorial",
+      templateId: candidatePreviewTemplateId || draft.template_id || "gala-editorial",
       locale: previewLocale,
-      draft: { ...draft },
+      draft: {
+        ...draft,
+        template_id: candidatePreviewTemplateId || draft.template_id || "gala-editorial",
+      },
       event: { ...(initialData.event as unknown as Record<string, unknown>) },
+      candidatePreview: Boolean(candidatePreviewTemplateId && candidatePreviewTemplateId !== draft.template_id),
+      savedTemplateId: draft.template_id || "gala-editorial",
     };
     const timer = setTimeout(() => {
       if (latestPayloadRef.current) postToPreview(latestPayloadRef.current);
     }, 400);
     return () => clearTimeout(timer);
-  }, [draft, previewLocale, initialData.event, postToPreview]);
+  }, [draft, previewLocale, initialData.event, postToPreview, candidatePreviewTemplateId]);
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -314,13 +381,62 @@ export function InvitationPageBuilder({
 
   const handleTypeChange = useCallback(
     (type: InvitationType) => {
-      setInvitationType(type);
-      // Suggest the matching template instantly; host can still pick any.
-      updateDraft({ template_id: DEFAULT_TEMPLATE_FOR_TYPE[type] });
-      setOpenSection("template");
+      if (type === invitationType) return;
+      const pageId = DEFAULT_TEMPLATE_FOR_TYPE[type];
+      const activeElement = document.activeElement;
+      typePickerFocusReturnRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+      setCandidatePreviewTemplateId(pageId === draft.template_id ? null : pageId);
+      setPendingTypeChange({
+        type,
+        pageId,
+        hiddenFields: hiddenContentOnTemplateSwitch(draft, draft.template_id, pageId).map((label) => {
+          const messageKey = TYPE_FIELD_MESSAGE_KEYS[label as keyof typeof TYPE_FIELD_MESSAGE_KEYS];
+          return messageKey ? t(messageKey) : label;
+        }),
+      });
     },
-    [updateDraft]
+    [draft, invitationType, t]
   );
+
+  useEffect(() => {
+    if (!pendingTypeChange) return;
+    requestAnimationFrame(() => typeDialogCancelRef.current?.focus());
+  }, [pendingTypeChange]);
+
+  const cancelTypeChange = useCallback(() => {
+    setPendingTypeChange(null);
+    setCandidatePreviewTemplateId(null);
+    requestAnimationFrame(() => typePickerFocusReturnRef.current?.focus());
+  }, []);
+
+  const confirmTypeChange = useCallback(() => {
+    if (!pendingTypeChange) return;
+    setInvitationType(pendingTypeChange.type);
+    // Confirmation is the type save point; until now only the iframe used
+    // the candidate page. Values remain on the draft while visibility changes.
+    updateDraft({ template_id: pendingTypeChange.pageId });
+    setCandidatePreviewTemplateId(null);
+    setPendingTypeChange(null);
+    setOpenSection(null);
+    requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
+  }, [pendingTypeChange, updateDraft]);
+
+  const handleUnifiedTemplateApplied = useCallback((pageId: string) => {
+    setInvitationType(invitationTypeForTemplate(pageId));
+    if (draft.template_id === pageId) return;
+    skipTemplateAutosaveRef.current = pageId;
+    setDraft((current) => ({ ...current, template_id: pageId }));
+  }, [draft.template_id]);
+
+  const pendingTypeLabel = pendingTypeChange
+    ? pendingTypeChange.type === "wedding"
+      ? t("invitationTypeWedding")
+      : pendingTypeChange.type === "birthday"
+        ? t("invitationTypeBirthday")
+        : pendingTypeChange.type === "gala"
+          ? t("invitationTypeGala")
+          : t("invitationTypeOther")
+    : "";
 
   const toggleSection = useCallback((id: string) => {
     const sectionId = id as SectionId;
@@ -507,13 +623,13 @@ export function InvitationPageBuilder({
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[440px_minmax(0,1fr)]">
         {/* Form column — CSS-hidden (never unmounted) when previewing on phones */}
         <div className={cn("space-y-3", mobileView === "preview" && "hidden lg:block")}>
-          {SECTION_IDS.map((id, i) => (
+      {SECTION_IDS.map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
               index={i}
               title={SECTION_TITLES[id]}
-              summary={summaryFor(draft, id)}
+              summary={summaryFor(draft, id, typeSummary, templateSummary)}
               open={openSection === id}
               onToggle={toggleSection}
             >
@@ -523,12 +639,16 @@ export function InvitationPageBuilder({
                   eventId={eventId}
                   cardSlug={cardSlug}
                   cardTemplates={cardTemplates}
-                  heroImageUrl={draft.hero_image_url ?? null}
+                  draft={draft as unknown as Record<string, unknown>}
+                  event={initialData.event as unknown as Record<string, unknown>}
                   currentPageId={draft.template_id || "gala-editorial"}
+                  candidatePageId={candidatePreviewTemplateId}
                   isPublished={pageStatus === "published"}
                   invitationType={invitationType}
                   disabled={actionBusy}
-                  onApplied={(pageId) => updateDraft({ template_id: pageId })}
+                  onBeforeApply={async () => { await saveQueue.flush(); }}
+                  onApplied={handleUnifiedTemplateApplied}
+                  onCandidateTemplate={setCandidatePreviewTemplateId}
                   onJumpToPublish={() => handleJumpToSection("publish")}
                   getHiddenForPage={(pageId) =>
                     hiddenContentOnTemplateSwitch(draft, draft.template_id, pageId)
@@ -627,6 +747,72 @@ export function InvitationPageBuilder({
           </div>
         </div>
       </div>
+
+      {pendingTypeChange && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 p-4"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              cancelTypeChange();
+              return;
+            }
+            if (event.key !== "Tab") return;
+            const buttons = [typeDialogCancelRef.current, document.getElementById("invitation-type-confirm")]
+              .filter((button): button is HTMLElement => button instanceof HTMLElement);
+            if (buttons.length < 2) return;
+            const first = buttons[0];
+            const last = buttons[buttons.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first.focus();
+            }
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="invitation-type-confirm-title"
+            aria-describedby="invitation-type-confirm-body"
+            className="w-full max-w-md rounded-xl border border-zinc-300 bg-white p-5 shadow-xl"
+          >
+            <h2 id="invitation-type-confirm-title" className="text-base font-black text-zinc-950">
+              {t("invitationTypeConfirmTitle")}
+            </h2>
+            <p id="invitation-type-confirm-body" className="mt-2 text-sm leading-relaxed text-zinc-700">
+              {pendingTypeChange.hiddenFields.length > 0
+                ? t("invitationTypeConfirmBody", {
+                    type: pendingTypeLabel,
+                    fields: pendingTypeChange.hiddenFields.join(", "),
+                  })
+                : t("invitationTypeConfirmNoHidden", {
+                    type: pendingTypeLabel,
+                  })}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                ref={typeDialogCancelRef}
+                type="button"
+                onClick={cancelTypeChange}
+                className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-800 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-700 focus-visible:ring-offset-2"
+              >
+                {t("invitationTypeCancelAction")}
+              </button>
+              <button
+                id="invitation-type-confirm"
+                type="button"
+                onClick={confirmTypeChange}
+                className="rounded-xl bg-orange-800 px-4 py-2 text-sm font-bold text-white hover:bg-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-700 focus-visible:ring-offset-2"
+              >
+                {t("invitationTypeConfirmAction")}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
