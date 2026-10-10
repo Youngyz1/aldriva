@@ -3,6 +3,9 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Staff Round A2: labels, names, hashed invitation tokens (2026-10-10)
+- Migration 166 (`db/migration_166_invite_token_hash.sql` + rollback twin, byte-identical supabase mirror): **applied on staging by owner; production has none. A2 adds labels, names and hashed invitation tokens; no badge minting or scan changes yet.**
+
 ## [2026-10] — Staff Round Phase A1/A1b: staff schema, badge hashing, grant hardening (2026-10-10)
 - Migration 164 (`db/migration_164_event_staff_labels_badges.sql` + rollback twin, byte-identical supabase mirror) and migration 165 (`db/migration_165_event_staff_badge_hardening.sql` + rollback twin, byte-identical supabase mirror): **both applied on staging by owner; production has neither. No app code changed in A1/A1b.**
 
