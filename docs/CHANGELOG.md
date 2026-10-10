@@ -3,6 +3,9 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Staff Round Phase A1/A1b: staff schema, badge hashing, grant hardening (2026-10-10)
+- Migration 164 (`db/migration_164_event_staff_labels_badges.sql` + rollback twin, byte-identical supabase mirror) and migration 165 (`db/migration_165_event_staff_badge_hardening.sql` + rollback twin, byte-identical supabase mirror): **both applied on staging by owner; production has neither. No app code changed in A1/A1b.**
+
 ## [2026-10] — Invitation Round 5, step 3d: template display names & device preview frame (2026-10-10, committed as c16fbbc)
 - Registered authoritative display names (EN: Aurora, Confetti, Midnight, Atelier, Cover Story / FR: Aurore, Confetti, Minuit, Atelier, En couverture) directly on `UNIFIED_INVITATION_TEMPLATES` with single-source resolution.
 - Rebuilt builder preview frame as a dedicated device component: iPhone-style CSS chassis (rounded bezel, dynamic island, home indicator, 390x844 logical screen, no fake Safari chrome) and plain browser desktop frame.

@@ -35,6 +35,10 @@
 - **Known limitation: invitation hero images live in the public `cms-media` bucket** (unguessable `invitation-hero/{eventId}/` paths, never linked publicly, but readable by anyone with the URL — same posture as all existing invitation artwork). Revisit with private signed URLs later if guest-photo-grade privacy is ever required for heroes.
 - **Latest verification (real output)**: ESLint 0 errors on touched files, `tsc --noEmit` exit 0, `npm run build` exit 0, `npm test` **1,654/1,654 pass across 146 suites**.
 
+## Staff Round — Phase A1/A1b schema (2026-10-10)
+
+- **Status: migrations 164 and 165 APPLIED ON STAGING by owner; production has neither.** 164 (forward + rollback twin + byte-identical mirror) and 165 (forward + rollback twin + byte-identical mirror) are committed locally. **No app code changed in A1/A1b.**
+
 ## Invitation Round 5 — step 2: unified picker + atomic RPC (2026-10-09, COMMITTED as 5bff7c9)
 
 - **Status: COMMITTED as 5bff7c9 (step 3 built on top, uncommitted).** Migration 163 (RPC + rollback + byte-identical mirror) applied on staging by owner. Unified picker in the builder template section (4 pairs, Card|Page tabs, custom-unify, publish notice); page-only dropdown + builder modal removed; 21 i18n keys en+fr. Step 1 committed as 57b10b5.
