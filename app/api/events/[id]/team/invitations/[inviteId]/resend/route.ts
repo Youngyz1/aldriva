@@ -1,12 +1,12 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { Resend } from "resend";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSiteUrl } from "@/lib/site-url";
 import { BRAND } from "@/config/branding";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { generateInviteToken, hashInviteToken } from "@/lib/staff/invite-tokens";
 
 function escapeHtml(value: string): string {
   return value
@@ -65,15 +65,16 @@ export async function POST(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    // Generate NEW 64-char token (completely overwrites old token column, rendering old link dead)
-    const newToken = randomBytes(32).toString("hex");
+    // Generate a NEW link token (hash stored; old link dead). The
+    // plaintext appears solely in the new emailed link (migration 166).
+    const newToken = generateInviteToken();
     const now = new Date();
     const newExpiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: updateErr } = await admin
       .from("event_team_invitations")
       .update({
-        token: newToken,
+        token_hash: hashInviteToken(newToken),
         status: "pending",
         expires_at: newExpiresAt,
         updated_at: now.toISOString(),

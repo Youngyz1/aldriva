@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { UserPlus, Shield, Scan, Trash2, Mail, RefreshCw, Copy, Check, ChevronDown, ArrowLeft, Loader2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
@@ -12,6 +13,9 @@ type Member = {
   user_name: string;
   user_email: string | null;
   role: "event_manager" | "ticket_scanner";
+  role_label: string | null;
+  position_label: string | null;
+  staff_name: string | null;
   status: "active" | "removed";
   created_at: string;
 };
@@ -20,6 +24,9 @@ type Invitation = {
   id: string;
   email: string;
   role: "event_manager" | "ticket_scanner";
+  role_label: string | null;
+  position_label: string | null;
+  staff_name: string | null;
   status: "pending" | "accepted" | "declined" | "expired" | "revoked";
   created_at: string;
   expires_at: string;
@@ -31,6 +38,7 @@ type Props = {
 };
 
 export default function TeamClient({ eventId, eventTitle }: Props) {
+  const t = useTranslations("Events");
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +48,9 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
   // Invite Form State
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"event_manager" | "ticket_scanner">("ticket_scanner");
+  const [inviteRoleLabel, setInviteRoleLabel] = useState("");
+  const [invitePositionLabel, setInvitePositionLabel] = useState("");
+  const [inviteStaffName, setInviteStaffName] = useState("");
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [manualAcceptUrl, setManualAcceptUrl] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -82,13 +93,22 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
       const res = await fetch(`/api/events/${eventId}/team/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+          roleLabel: inviteRoleLabel,
+          positionLabel: invitePositionLabel,
+          staffName: inviteStaffName,
+        }),
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "Could not send invitation.");
 
       setInviteEmail("");
+      setInviteRoleLabel("");
+      setInvitePositionLabel("");
+      setInviteStaffName("");
       if (data.acceptUrl && !data.emailed) {
         setManualAcceptUrl(data.acceptUrl);
         setSuccessMsg("Invitation created. Share the link manually below.");
@@ -241,8 +261,8 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
         <h2 className="flex items-center gap-2 border-b border-zinc-100 pb-3 text-lg font-black text-zinc-950">
           <UserPlus size={18} className="text-orange-600" /> Invite Event Staff
         </h2>
-        <form onSubmit={handleSendInvite} className="mt-4 grid gap-4 sm:grid-cols-3 items-end">
-          <div className="sm:col-span-1">
+        <form onSubmit={handleSendInvite} className="mt-4 grid gap-4 sm:grid-cols-6 items-end">
+          <div className="sm:col-span-2">
             <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
               Email Address
             </label>
@@ -256,6 +276,48 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
             />
           </div>
 
+          <div className="sm:col-span-1">
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+              {t("staffRoleLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={inviteRoleLabel}
+              onChange={(e) => setInviteRoleLabel(e.target.value)}
+              placeholder={t("staffRoleLabelPlaceholder")}
+              maxLength={80}
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="sm:col-span-1">
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+              {t("staffPositionLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={invitePositionLabel}
+              onChange={(e) => setInvitePositionLabel(e.target.value)}
+              placeholder={t("staffPositionLabelPlaceholder")}
+              maxLength={80}
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="sm:col-span-1">
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+              {t("staffName")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={inviteStaffName}
+              onChange={(e) => setInviteStaffName(e.target.value)}
+              placeholder={t("staffNamePlaceholder")}
+              maxLength={120}
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
               Role Permission
@@ -265,11 +327,12 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
               onChange={(e) => setInviteRole(e.target.value as any)}
               className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
             >
-              <option value="ticket_scanner">Ticket Scanner (Door Only)</option>
-              <option value="event_manager">Event Manager (Full Access)</option>
+              <option value="ticket_scanner">{t("staffPermissionScanner")}</option>
+              <option value="event_manager">{t("staffPermissionManager")}</option>
             </select>
           </div>
 
+          <div className="sm:col-span-6">
           <button
             type="submit"
             disabled={submittingInvite || !inviteEmail.trim()}
@@ -278,6 +341,7 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
             {submittingInvite ? <Loader2 className="animate-spin h-4 w-4" /> : <Mail size={16} />}
             Send Invitation
           </button>
+          </div>
         </form>
       </div>
 
@@ -302,8 +366,13 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
             {activeMembers.map((m) => (
               <div key={m.id} className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-zinc-50/60">
                 <div className="min-w-0">
-                  <p className="font-black text-zinc-950 text-sm">{m.user_name}</p>
+                  <p className="font-black text-zinc-950 text-sm">{m.staff_name || m.user_name}</p>
                   <p className="text-xs text-zinc-500 font-semibold">{m.user_email || m.user_id}</p>
+                  {(m.role_label || m.position_label) && (
+                    <p className="text-xs text-zinc-600 font-semibold truncate">
+                      {[m.role_label, m.position_label].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -313,6 +382,7 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
                         ? "bg-violet-100 text-violet-700"
                         : "bg-blue-100 text-blue-700"
                     }`}
+                    title={m.role === "event_manager" ? t("staffPermissionManager") : t("staffPermissionScanner")}
                   >
                     {m.role === "event_manager" ? "Manager" : "Scanner"}
                   </span>
@@ -349,7 +419,15 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
             {pendingInvitations.map((inv) => (
               <div key={inv.id} className="p-4 sm:px-6 flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-black text-zinc-900 text-sm">{inv.email}</p>
+                  <p className="font-black text-zinc-900 text-sm">{inv.staff_name || inv.email}</p>
+                  {inv.staff_name && (
+                    <p className="text-xs text-zinc-500 font-semibold">{inv.email}</p>
+                  )}
+                  {(inv.role_label || inv.position_label) && (
+                    <p className="text-xs text-zinc-600 font-semibold">
+                      {[inv.role_label, inv.position_label].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                   <p className="text-xs text-zinc-400 font-medium">
                     Invited {new Date(inv.created_at).toLocaleDateString()}
                   </p>

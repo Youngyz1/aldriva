@@ -1,12 +1,18 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { Resend } from "resend";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSiteUrl } from "@/lib/site-url";
 import { BRAND } from "@/config/branding";
 import { hasEventOrOrganizerAccess, EventTeamRole } from "@/lib/event-auth";
+import {
+  sanitizeOptionalLabel,
+  STAFF_ROLE_LABEL_MAX,
+  STAFF_POSITION_LABEL_MAX,
+  STAFF_NAME_MAX,
+} from "@/lib/staff/staff-labels";
+import { generateInviteToken, hashInviteToken } from "@/lib/staff/invite-tokens";
 
 function escapeHtml(value: string): string {
   return value
@@ -61,6 +67,18 @@ export async function POST(
       );
     }
 
+    // Display-only labels + staff name. The permission level comes solely
+    // from `role` above; labels are never read by authorization checks.
+    const roleLabelInput = sanitizeOptionalLabel(body.roleLabel, STAFF_ROLE_LABEL_MAX);
+    const positionLabelInput = sanitizeOptionalLabel(body.positionLabel, STAFF_POSITION_LABEL_MAX);
+    const staffNameInput = sanitizeOptionalLabel(body.staffName, STAFF_NAME_MAX);
+    if (!roleLabelInput.ok || !positionLabelInput.ok || !staffNameInput.ok) {
+      return NextResponse.json(
+        { error: "Role label and position must be 80 characters or fewer; staff name 120 or fewer." },
+        { status: 400 }
+      );
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
@@ -69,18 +87,18 @@ export async function POST(
     const roleLabel = role === "event_manager" ? "Event Manager" : "Ticket Scanner";
 
     // Check 1: Is this email already an active team member for this event?
-    const { data: existingProfile } = await admin
-      .from("profiles")
-      .select("id")
-      .ilike("email", email)
-      .maybeSingle();
+    // Resolved through auth.users (migration 166 helper) — profiles has no
+    // email column, so the old profiles.ilike('email') lookup never matched.
+    const { data: existingUserId } = await admin.rpc("get_user_id_by_email", {
+      p_email: email,
+    });
 
-    if (existingProfile) {
+    if (existingUserId) {
       const { data: activeMember } = await admin
         .from("event_team_members")
         .select("id, role")
         .eq("event_id", eventId)
-        .eq("user_id", existingProfile.id)
+        .eq("user_id", existingUserId)
         .eq("status", "active")
         .maybeSingle();
 
@@ -129,8 +147,10 @@ export async function POST(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    // Generate 64-char hex token
-    const token = randomBytes(32).toString("hex");
+    // Generate the plaintext link token; only the SHA-256 hash is stored
+    // (migration 166). The plaintext appears solely in the emailed link.
+    const token = generateInviteToken();
+    const tokenHash = hashInviteToken(token);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -138,12 +158,15 @@ export async function POST(
     const isUpdate = Boolean(existingInvite);
 
     if (existingInvite) {
-      // Reuse existing pending invitation: update token, role, and expiration date
+      // Reuse existing pending invitation: update token hash, labels, role, and expiration date
       const { error: updateError } = await admin
         .from("event_team_invitations")
         .update({
           role,
-          token,
+          role_label: roleLabelInput.value,
+          position_label: positionLabelInput.value,
+          staff_name: staffNameInput.value,
+          token_hash: tokenHash,
           expires_at: expiresAt,
           invited_by: user.id,
           updated_at: now.toISOString(),
@@ -161,9 +184,12 @@ export async function POST(
           event_id: eventId,
           email,
           role,
+          role_label: roleLabelInput.value,
+          position_label: positionLabelInput.value,
+          staff_name: staffNameInput.value,
           entrance_id: entranceId,
           invited_by: user.id,
-          token,
+          token_hash: tokenHash,
           status: "pending",
         })
         .select("id")

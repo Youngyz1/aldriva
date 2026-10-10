@@ -103,7 +103,7 @@ export async function bindPendingEventInvitations(userId: string, email: string)
   // 1. Indexed lookup on (email, status)
   const { data: pendingInvites } = await supabaseAdmin
     .from('event_team_invitations')
-    .select('id, event_id, role, entrance_id, invited_by')
+    .select('id, event_id, role, role_label, position_label, staff_name, entrance_id, invited_by')
     .eq('email', normalizedEmail)
     .eq('status', 'pending')
     .gt('expires_at', new Date().toISOString());
@@ -130,12 +130,16 @@ export async function bindPendingEventInvitations(userId: string, email: string)
       .maybeSingle();
 
     if (updatedInvite) {
-      // Upsert into event_team_members as active
+      // Upsert into event_team_members as active (labels + name copied;
+      // permission level copied from the fixed role enum; no badge).
       await supabaseAdmin.from('event_team_members').upsert(
         {
           event_id: invite.event_id,
           user_id: userId,
           role: invite.role,
+          role_label: invite.role_label,
+          position_label: invite.position_label,
+          staff_name: invite.staff_name,
           entrance_id: invite.entrance_id,
           status: 'active',
           invited_by: invite.invited_by,
