@@ -3,10 +3,16 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-10] — Invitation Round 5, step 3c visual round 2 (2026-10-10, uncommitted)
+## [2026-10] — Invitation Round 5, step 3d: template display names & device preview frame (2026-10-10, committed as 1442022)
+- Registered authoritative display names (EN: Aurora, Confetti, Midnight, Atelier, Cover Story / FR: Aurore, Confetti, Minuit, Atelier, En couverture) directly on `UNIFIED_INVITATION_TEMPLATES` with single-source resolution.
+- Rebuilt builder preview frame as a dedicated device component: iPhone-style CSS chassis (rounded bezel, dynamic island, home indicator, 390x844 logical screen, no fake Safari chrome) and plain browser desktop frame.
+- Scaled frame with `calculatePreviewFitScale` (fitting available width and height) and sized wrapper to scaled bounds to eliminate horizontal scrolling.
+- Verified with ESLint 0 errors, `tsc --noEmit` exit 0, production build exit 0, full suite **1,654/1,654 across 146 suites**.
+
+## [2026-10] — Invitation Round 5, step 3c: visual round 2 & unified picker (2026-10-10, committed as 1991ee0)
 - Moved the template-tile card preview to a small portrait crop in the tile footer, keeping Black Tie and Editorial page date/venue content unobstructed. The crop uses the selected card template's own art; only Cover receives the event hero.
 - The type section now collapses after confirmed changes and shows the current type when collapsed. The template section subtitle resolves localized display names through the unified registry.
-- Added tests for the portrait card inset and the collapsed type/template summaries. Latest verification: ESLint 0 errors on touched files, `tsc --noEmit` exit 0, production build exit 0, full suite **1,653/1,653 across 146 suites**. Awaiting owner visual review at 375px, 768px, and 1440px.
+- Added tests for the portrait card inset and the collapsed type/template summaries. Verified with ESLint 0 errors, `tsc --noEmit` exit 0, production build exit 0, full suite **1,653/1,653 across 146 suites**.
 
 ## [2026-10] — Invitation Round 5, step 3b: builder UX fixes (2026-10-09, committed as 09f9470)
 - Accordion sections close on repeat click without page jumps; gallery supports bounded multi-file uploads with per-file progress/errors and existing image processing; HEIC copy, picker wrapping, and Publish readiness labels were corrected.

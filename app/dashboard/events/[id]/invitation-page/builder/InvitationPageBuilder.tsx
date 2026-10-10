@@ -38,6 +38,7 @@ import {
   PREVIEW_MESSAGE_SOURCE,
   type PreviewDraftMessage,
 } from "@/lib/invitation-preview-channel";
+import { InvitationDevicePreviewFrame } from "@/components/invitation/InvitationDevicePreviewFrame";
 import { BasicsSection } from "./sections/BasicsSection";
 import { HeroSection } from "./sections/HeroSection";
 import { StorySection } from "./sections/StorySection";
@@ -335,7 +336,51 @@ export function InvitationPageBuilder({
 
   // ── Live preview channel (same-origin iframe, debounced drafts) ────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
   const latestPayloadRef = useRef<PreviewDraftMessage | null>(null);
+
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const w = rect.width || el.clientWidth;
+      const h = el.clientHeight || rect.height;
+      if (w > 0) {
+        setContainerDimensions((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+      }
+    };
+
+    measure();
+    const raf = requestAnimationFrame(measure);
+
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const cr = entry.contentRect;
+          if (cr.width > 0) {
+            setContainerDimensions({ width: cr.width, height: cr.height });
+          }
+        }
+      });
+      ro.observe(el);
+      return () => {
+        cancelAnimationFrame(raf);
+        ro.disconnect();
+      };
+    } else {
+      window.addEventListener("resize", measure);
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener("resize", measure);
+      };
+    }
+  }, [mobileView, previewViewport]);
 
   const postToPreview = useCallback((msg: PreviewDraftMessage | { source: typeof PREVIEW_MESSAGE_SOURCE; kind: "scroll-to"; sectionId: string }) => {
     iframeRef.current?.contentWindow?.postMessage(msg, window.location.origin);
@@ -620,10 +665,10 @@ export function InvitationPageBuilder({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[440px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[440px_minmax(0,1fr)] max-w-full overflow-x-hidden">
         {/* Form column — CSS-hidden (never unmounted) when previewing on phones */}
         <div className={cn("space-y-3", mobileView === "preview" && "hidden lg:block")}>
-      {SECTION_IDS.map((id, i) => (
+          {SECTION_IDS.map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
@@ -688,10 +733,10 @@ export function InvitationPageBuilder({
         </div>
 
         {/* Preview column — CSS-hidden (never unmounted) when editing on phones */}
-        <div className={cn("lg:sticky lg:top-4", mobileView === "edit" && "hidden lg:block")}>
-          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
+        <div className={cn("w-full max-w-full overflow-x-hidden lg:sticky lg:top-4", mobileView === "edit" && "hidden lg:block")}>
+          <div className="w-full max-w-full overflow-x-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
             <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-3 py-2">
-              <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5" role="group" aria-label="Preview width">
+              <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5" role="group" aria-label="Preview mode">
                 {([390, 1440] as PreviewViewport[]).map((w) => (
                   <button
                     key={w}
@@ -703,7 +748,7 @@ export function InvitationPageBuilder({
                       previewViewport === w ? "bg-white text-zinc-900 shadow-xs" : "text-zinc-500"
                     )}
                   >
-                    {w}px
+                    {w === 390 ? "Mobile (390px)" : "Desktop (1440px)"}
                   </button>
                 ))}
               </div>
@@ -727,21 +772,19 @@ export function InvitationPageBuilder({
                 Preview language only — your editing language is unchanged.
               </span>
             </div>
-            <div className="overflow-x-auto bg-zinc-100 p-3">
-              {/*
-                Exact iframe width (not max-width): the iframe establishes
-                its own viewport for media queries, so 390 renders the true
-                mobile template breakpoints and 1440 the true desktop ones.
-                Wider than the column, it scrolls horizontally instead of
-                squeezing.
-              */}
-              <iframe
-                ref={iframeRef}
-                title="Live invitation preview"
-                src={`/invitation/builder-preview/${eventId}?embed=1`}
-                className="mx-auto block h-[720px] rounded-lg border border-zinc-200 bg-white"
-                style={{ width: previewViewport }}
-                sandbox="allow-scripts allow-same-origin"
+            <div
+              ref={previewContainerRef}
+              className="w-full overflow-x-hidden bg-zinc-100 p-3 sm:p-4 flex flex-col items-center justify-start min-h-[500px]"
+            >
+              <InvitationDevicePreviewFrame
+                mode={previewViewport === 390 ? "mobile" : "desktop"}
+                containerWidth={
+                  containerDimensions.width ||
+                  (typeof window !== "undefined" ? Math.min(window.innerWidth - 32, 600) : 390)
+                }
+                containerHeight={containerDimensions.height || 750}
+                iframeRef={iframeRef}
+                iframeSrc={`/invitation/builder-preview/${eventId}?embed=1`}
               />
             </div>
           </div>

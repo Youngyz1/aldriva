@@ -148,3 +148,49 @@ export function placeholderSnapshot<T extends Record<string, unknown>>(draft: T)
   }
   return filled as T;
 }
+
+/**
+ * Calculates scale so a device preview frame fits available panel dimensions.
+ * Evaluates both width and height, capped at 1.0 (never scales up).
+ */
+export function calculatePreviewFitScale({
+  containerWidth,
+  containerHeight,
+  frameWidth,
+  frameHeight,
+  paddingX = 16,
+  paddingY = 16,
+}: {
+  containerWidth: number;
+  containerHeight?: number;
+  frameWidth: number;
+  frameHeight: number;
+  paddingX?: number;
+  paddingY?: number;
+}): number {
+  if (containerWidth <= 0 || frameWidth <= 0) return 1;
+  const availWidth = Math.max(0, containerWidth - paddingX);
+  const widthScale = availWidth / frameWidth;
+
+  if (containerHeight && containerHeight > 0 && frameHeight > 0) {
+    const availHeight = Math.max(0, containerHeight - paddingY);
+    const heightScale = availHeight / frameHeight;
+    return Math.min(widthScale, heightScale, 1);
+  }
+
+  return Math.min(widthScale, 1);
+}
+
+/**
+ * Convenience wrapper for width-only scale calculations.
+ */
+export function calculatePreviewScale(containerWidth: number, targetWidth: number, padding: number = 24): number {
+  return calculatePreviewFitScale({
+    containerWidth,
+    frameWidth: targetWidth,
+    frameHeight: 0,
+    paddingX: padding,
+    paddingY: 0,
+  });
+}
+

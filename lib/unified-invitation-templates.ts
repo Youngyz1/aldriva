@@ -25,6 +25,7 @@ export interface UnifiedInvitationTemplate {
   /** Unversioned base id for lookup (`royal-elegance`). */
   baseId: string;
   name: string;
+  nameKey: UnifiedTemplateNameKey;
   categoryLabel: string;
   occasion: UnifiedTemplateOccasion;
   /** Card variant: invitation_templates.slug (UUID resolved at write time). */
@@ -38,7 +39,8 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
   {
     id: "royal-elegance@1.0.0",
     baseId: "royal-elegance",
-    name: "Royal Elegance",
+    name: "Aurora",
+    nameKey: "unifiedRoyalEleganceName",
     categoryLabel: "Wedding & Formal",
     occasion: "wedding",
     cardSlug: "royal-elegance",
@@ -48,7 +50,8 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
   {
     id: "festive-gold-noir@1.0.0",
     baseId: "festive-gold-noir",
-    name: "Festive Gold & Noir",
+    name: "Confetti",
+    nameKey: "unifiedFestiveGoldNoirName",
     categoryLabel: "Birthday & Celebration",
     occasion: "birthday",
     cardSlug: "festive-gold-noir",
@@ -58,7 +61,8 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
   {
     id: "grand-gala-noir@1.0.0",
     baseId: "grand-gala-noir",
-    name: "Grand Gala Noir",
+    name: "Midnight",
+    nameKey: "unifiedGrandGalaNoirName",
     categoryLabel: "Gala & Fundraiser",
     occasion: "gala",
     cardSlug: "grand-gala-noir",
@@ -68,7 +72,8 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
   {
     id: "modern-executive@1.0.0",
     baseId: "modern-executive",
-    name: "Modern Executive",
+    name: "Atelier",
+    nameKey: "unifiedModernExecutiveName",
     categoryLabel: "Corporate & Conference",
     occasion: "other",
     cardSlug: "modern-executive",
@@ -79,6 +84,7 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
     id: "cover@1.0.0",
     baseId: "cover",
     name: "Cover Story",
+    nameKey: "unifiedCoverName",
     categoryLabel: "Cover",
     occasion: "other",
     cardSlug: "cover",
@@ -105,7 +111,7 @@ export function getUnifiedTemplateNameKey(identifier: string | null | undefined)
     (template) => template.id === identifier || template.baseId === identifier ||
       template.cardSlug === identifier || template.pageId === identifier
   );
-  return pair ? UNIFIED_TEMPLATE_NAME_KEYS[pair.baseId as keyof typeof UNIFIED_TEMPLATE_NAME_KEYS] ?? null : null;
+  return pair ? pair.nameKey : null;
 }
 
 /** Suggested pair when an occasion is picked (host can still choose any). */
