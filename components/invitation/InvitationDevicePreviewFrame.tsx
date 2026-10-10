@@ -143,6 +143,7 @@ export function InvitationDevicePreviewFrame({
 
           <iframe
             ref={iframeRef}
+            data-testid="invitation-preview"
             title={title}
             src={iframeSrc}
             className="block h-full w-full border-0 bg-white"

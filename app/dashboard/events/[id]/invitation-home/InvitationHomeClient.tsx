@@ -12,11 +12,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
 import { ShareLinkPanel } from "@/components/invitation/ShareLinkPanel";
-
-type PreviewViewport = 390 | 1440;
+import { InvitationPreviewPanel } from "@/components/invitation/InvitationPreviewPanel";
 
 const STATUS_STYLE: Record<string, string> = {
   Published: "bg-emerald-100 text-emerald-700",
@@ -45,8 +45,8 @@ export function InvitationHomeClient({
   shareEnabled: boolean;
   shareUrl: string | null;
 }) {
+  const t = useTranslations("Events");
   const router = useRouter();
-  const [viewport, setViewport] = useState<PreviewViewport>(390);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -154,37 +154,12 @@ export function InvitationHomeClient({
           </Link>
         </div>
       ) : (
-        <section aria-label="Invitation preview">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold text-zinc-500">
-              Guest preview — sample guest, sample QR, no RSVP writes.
-            </p>
-            <div className="flex gap-1 rounded-xl border border-zinc-200 bg-white p-1">
-              {([390, 1440] as PreviewViewport[]).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => setViewport(w)}
-                  aria-pressed={viewport === w}
-                  className={cn(
-                    "rounded-lg px-3 py-1 text-xs font-black",
-                    viewport === w ? "bg-zinc-950 text-white" : "text-zinc-500 hover:bg-zinc-100"
-                  )}
-                >
-                  {w === 390 ? "Mobile" : "Desktop"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-100 p-4">
-            <iframe
-              data-testid="invitation-preview"
-              title="Invitation preview"
-              src={`/invitation/builder-preview/${eventId}?embed=1`}
-              style={{ width: viewport }}
-              className="mx-auto block h-[640px] max-w-none rounded-xl border border-zinc-200 bg-white"
-            />
-          </div>
+        <section aria-label="Invitation preview" className="w-full max-w-full overflow-x-hidden">
+          <InvitationPreviewPanel
+            iframeSrc={`/invitation/builder-preview/${eventId}?embed=1`}
+            title={t("invitationPreviewTitle")}
+            caption={t("invitationPreviewGuestCaption")}
+          />
         </section>
       )}
 
