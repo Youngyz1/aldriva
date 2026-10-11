@@ -1,9 +1,12 @@
 -- db/tests/migration_168_test_harness.sql
 --
 -- Fixture-Driven SQL Test Harness for migration_168 (website content store).
--- Manual only: run with `psql <conn> -f db/tests/migration_168_test_harness.sql`.
--- Uses an isolated transaction with ROLLBACK: zero persistent test artifacts.
--- NOT executed by `npm test`. Do NOT run against production.
+-- Run AFTER migration 168 is applied. Manual only; NOT executed by `npm test`.
+-- Do NOT run against production.
+--
+-- Supabase SQL editor: paste this WHOLE file, select nothing, and run it once.
+-- It opens its own transaction and ends with ROLLBACK, so it leaves zero
+-- persistent rows. (psql also works: psql <conn> -f this file.)
 --
 -- Roles tested (same 6-role matrix as migration_129_test_harness.sql):
 -- 1. editor_user_a: Editor in Tenant A.
@@ -14,10 +17,6 @@
 -- 6. anon: Unauthenticated visitor.
 
 BEGIN;
-
--- ── 0. Apply Migration 168 in Transaction ───────────────────────────────────
-
-\i db/migration_168_website_content_store.sql
 
 DO $$
 DECLARE
@@ -48,24 +47,40 @@ BEGIN
   RAISE NOTICE 'SEEDING FIXTURES FOR MIGRATION 168 TEST HARNESS';
   RAISE NOTICE '=======================================================';
 
-  -- 1. Seed Profiles
-  INSERT INTO public.profiles (id, email, full_name, role, status)
-  VALUES
-    (v_editor_a, 'editor_a@test.com', 'Editor A', 'user', 'active'),
-    (v_manager_a, 'manager_a@test.com', 'Manager A', 'user', 'active'),
-    (v_dual_user, 'dual_user@test.com', 'Dual Role User', 'user', 'active'),
-    (v_editor_b, 'editor_b@test.com', 'Editor B', 'user', 'active'),
-    (v_non_member, 'non_member@test.com', 'Non Member User', 'user', 'active')
+  -- 0. Seed auth users (FK targets: entity_members.user_id and
+  -- organizers.user_id both reference auth.users(id); profiles rows for these
+  -- ids are auto-created by the handle_new_user trigger).
+  -- NOTE: auth.* is Supabase-managed and NOT defined in db/ (could not verify
+  -- column nullability from the repo). If this INSERT fails on a NOT NULL
+  -- column, the whole transaction rolls back with the column named — add it
+  -- and rerun. instance_id is read from the live auth.instances row.
+  INSERT INTO auth.users (id, instance_id, aud, role, email)
+  SELECT u.id, (SELECT id FROM auth.instances LIMIT 1), 'authenticated', 'authenticated', u.email
+  FROM (VALUES
+    (v_editor_a, 'h168-editor-a@test.com'),
+    (v_manager_a, 'h168-manager-a@test.com'),
+    (v_dual_user, 'h168-dual@test.com'),
+    (v_editor_b, 'h168-editor-b@test.com'),
+    (v_non_member, 'h168-non-member@test.com')
+  ) AS u(id, email)
   ON CONFLICT (id) DO NOTHING;
 
-  -- 2. Seed Organizers
+  -- 1. Seed Organizers.
+  -- NOTE: trg_organizers_seed_owner_member auto-inserts an 'owner' row for
+  -- organizers.user_id, so v_manager_a / v_dual_user start as owners; the
+  -- UPDATEs below set the exact roles this matrix needs.
   INSERT INTO public.organizers (id, name, slug, user_id)
   VALUES
-    (v_tenant_a, 'Tenant Org A', 'tenant-org-a', v_manager_a),
-    (v_tenant_b, 'Tenant Org B', 'tenant-org-b', v_dual_user)
+    (v_tenant_a, 'Tenant Org A', 'h168-tenant-org-a', v_manager_a),
+    (v_tenant_b, 'Tenant Org B', 'h168-tenant-org-b', v_dual_user)
   ON CONFLICT (id) DO NOTHING;
 
-  -- 3. Seed Entity Memberships
+  UPDATE public.entity_members SET role = 'manager'
+  WHERE organizer_id = v_tenant_a AND user_id = v_manager_a;
+  UPDATE public.entity_members SET role = 'manager'
+  WHERE organizer_id = v_tenant_b AND user_id = v_dual_user;
+
+  -- 2. Seed Entity Memberships
   INSERT INTO public.entity_members (organizer_id, user_id, role)
   VALUES
     (v_tenant_a, v_editor_a, 'editor'),
@@ -75,11 +90,13 @@ BEGIN
     (v_tenant_b, v_editor_b, 'editor')
   ON CONFLICT DO NOTHING;
 
-  -- 4. Seed Websites + one page (page used for p_page_blocks scoping test)
+  -- 3. Seed Websites + one page (page used for p_page_blocks scoping test).
+  -- Slugs are h168-prefixed so they cannot collide with real staging rows
+  -- (slug has a UNIQUE index; ON CONFLICT targets id only).
   INSERT INTO public.tenant_websites (id, tenant_id, site_title, slug, status)
   VALUES
-    (v_website_a, v_tenant_a, 'Website A', 'website-a', 'published'),
-    (v_website_b, v_tenant_b, 'Website B', 'website-b', 'published')
+    (v_website_a, v_tenant_a, 'Website A', 'h168-website-a', 'published'),
+    (v_website_b, v_tenant_b, 'Website B', 'h168-website-b', 'published')
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.website_pages (id, website_id, title, slug, is_home, status, blocks)
@@ -87,7 +104,7 @@ BEGIN
     (v_page_a, v_website_a, 'Home A', 'home', true, 'published', '[]'::jsonb)
   ON CONFLICT (id) DO NOTHING;
 
-  -- 5. Seed live content + working draft (version forced to 1 on insert)
+  -- 4. Seed live content + working draft (version forced to 1 on insert)
   INSERT INTO public.website_content (website_id, content, updated_by)
   VALUES
     (v_website_a, '{"business_name":"Live Acme"}'::jsonb, v_manager_a)
@@ -111,7 +128,10 @@ BEGIN
   -- ──────────────────────────────────────────────────────────────────────────
   -- CASE 1: Editor INSERT on the LIVE content document MUST FAIL
   -- (live table is RPC-only: no INSERT/UPDATE/DELETE policies for authenticated)
+  -- NOTE: SET LOCAL ROLE drops the editor session's superuser powers so RLS
+  -- and GRANTs are actually enforced (as they are for real app connections).
   -- ──────────────────────────────────────────────────────────────────────────
+  SET LOCAL ROLE authenticated;
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_editor_a, 'role', 'authenticated')::text, true);
 
@@ -174,6 +194,7 @@ BEGIN
   -- CASE 4: publish_content_draft with stale expected version MUST RAISE 40001
   -- (service_role bypasses RLS; authz passes via service_role branch)
   -- ──────────────────────────────────────────────────────────────────────────
+  SET LOCAL ROLE service_role;
   PERFORM set_config('role', 'service_role', true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_manager_a, 'role', 'service_role')::text, true);
 
@@ -255,6 +276,7 @@ BEGIN
   -- ──────────────────────────────────────────────────────────────────────────
   -- CASE 7A: Anon select MUST RAISE 42501 (REVOKE, no anon policy)
   -- ──────────────────────────────────────────────────────────────────────────
+  SET LOCAL ROLE anon;
   PERFORM set_config('role', 'anon', true);
   PERFORM set_config('request.jwt.claims', '{}', true);
 
@@ -273,6 +295,7 @@ BEGIN
   RAISE NOTICE '✔ TEST 7A PASSED: Anon draft select rejected [%]: "%"', v_error_sqlstate, v_error_msg;
 
   -- 7B: Authenticated non-member MUST RETURN 0 rows (RLS filtering)
+  SET LOCAL ROLE authenticated;
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_non_member, 'role', 'authenticated')::text, true);
 
@@ -285,6 +308,7 @@ BEGIN
   -- ──────────────────────────────────────────────────────────────────────────
   -- CASE 8: Editor in Tenant B reading Tenant A content MUST RETURN 0 rows
   -- ──────────────────────────────────────────────────────────────────────────
+  SET LOCAL ROLE authenticated;
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_editor_b, 'role', 'authenticated')::text, true);
 
@@ -297,6 +321,7 @@ BEGIN
   -- ──────────────────────────────────────────────────────────────────────────
   -- CASE 9: Manager direct UPDATE/DELETE on live content MUST FAIL (RPC-only)
   -- ──────────────────────────────────────────────────────────────────────────
+  SET LOCAL ROLE authenticated;
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_manager_a, 'role', 'authenticated')::text, true);
 
@@ -328,7 +353,7 @@ BEGIN
   IF NOT v_caught THEN
     RAISE EXCEPTION 'TEST 9B FAILED: Manager direct DELETE on live content was not denied';
   END IF;
-  RAISE NOTICE '✔ TEST 9B PASSED: Manager direct DELETE on live content denied [%]: "%"', v_error_sqlstate, v_error_msg';
+  RAISE NOTICE '✔ TEST 9B PASSED: Manager direct DELETE on live content denied [%]: "%"', v_error_sqlstate, v_error_msg;
 
   RAISE NOTICE '=======================================================';
   RAISE NOTICE 'ALL 9 HARNESS CASES COMPLETED SUCCESSFULLY';
@@ -336,3 +361,8 @@ BEGIN
 END $$;
 
 ROLLBACK;
+
+-- The SQL editor often hides RAISE NOTICE output, so this row is the pass
+-- signal. Any failed case stops the script with an error naming the test
+-- number before this line is reached.
+select 'HARNESS PASSED: all 9 cases ran with no error, everything rolled back' as result;
