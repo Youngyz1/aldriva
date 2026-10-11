@@ -65,6 +65,19 @@ BEGIN
   ) AS u(id, email)
   ON CONFLICT (id) DO NOTHING;
 
+  -- 0b. Seed profiles rows explicitly (id only — every other NOT NULL column
+  -- has a DEFAULT: role 'user', status 'active', created_at, preferences,
+  -- account_info, privacy_settings per migrations 01/06/07/12/15).
+  -- Staging showed the handle_new_user trigger does NOT reliably create these
+  -- for direct auth.users inserts, and website_content(_drafts).updated_by
+  -- REFERENCES profiles(id) (migration_168:27,36), so without these rows the
+  -- very first content INSERT fails 23503. ON CONFLICT covers ids the trigger
+  -- did create.
+  INSERT INTO public.profiles (id)
+  SELECT id FROM auth.users WHERE id IN
+    (v_editor_a, v_manager_a, v_dual_user, v_editor_b, v_non_member)
+  ON CONFLICT (id) DO NOTHING;
+
   -- 1. Seed Organizers.
   -- NOTE: trg_organizers_seed_owner_member auto-inserts an 'owner' row for
   -- organizers.user_id, so v_manager_a / v_dual_user start as owners; the
@@ -112,7 +125,8 @@ BEGIN
 
   INSERT INTO public.website_content_drafts (website_id, content, updated_by, version)
   VALUES
-    (v_website_a, '{"business_name":"Draft Acme"}'::jsonb, v_editor_a, 999)
+    (v_website_a, '{"business_name":"Draft Acme"}'::jsonb, v_editor_a, 999),
+    (v_website_b, '{"business_name":"B draft"}'::jsonb, v_dual_user, 999)
   ON CONFLICT (website_id) DO UPDATE SET content = EXCLUDED.content;
 
   SELECT version INTO v_row_count FROM public.website_content_drafts WHERE website_id = v_website_a;
@@ -250,11 +264,10 @@ BEGIN
 
   -- ──────────────────────────────────────────────────────────────────────────
   -- CASE 6: p_page_blocks pointing at another website's page MUST RAISE P0002
+  -- (B's draft was seeded with the fixtures: inserting it here would depend
+  -- on RLS being bypassed for the session role, which holds for service_role
+  -- on Supabase but is not something this harness should rely on)
   -- ──────────────────────────────────────────────────────────────────────────
-  INSERT INTO public.website_content_drafts (website_id, content, updated_by)
-  VALUES (v_website_b, '{"business_name":"B draft"}'::jsonb, v_dual_user)
-  ON CONFLICT (website_id) DO UPDATE SET content = EXCLUDED.content;
-
   v_caught := false;
   BEGIN
     SELECT public.publish_content_draft(
