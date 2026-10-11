@@ -31,8 +31,10 @@ import {
 } from "@/lib/website-content";
 import {
   checkPublishReadiness,
+  resolveTemplateContent,
 } from "@/lib/website-template-resolver";
 import { getFlagshipTemplate } from "@/lib/website-template-v2";
+import { generateStableId } from "@/lib/website-blocks";
 import { revalidatePath } from "next/cache";
 
 export interface ContentActionResult<T = unknown> {
@@ -131,6 +133,19 @@ export async function saveContentDraft(
   }
   const ctx = auth.ctx;
 
+  // Template-first (v2) only: the shared content store has no meaning for the
+  // 6 old templates (they use per-page drafts). Ownership is resolved
+  // server-side above — there is no tenant/ownership field in the payload to
+  // trust or distrust.
+  const saveTemplateId =
+    typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
+  if (!saveTemplateId || !getFlagshipTemplate(saveTemplateId)) {
+    return {
+      success: false,
+      error: "Content drafts are only available for template-first (v2) websites.",
+    };
+  }
+
   const normalized = normalizeContent(content) as ContentDoc;
   let serialized: string;
   try {
@@ -209,6 +224,7 @@ export interface ContentBuilderData {
   tenantId: string;
   websiteSlug: string;
   siteTitle: string;
+  metadata: Record<string, unknown>;
   liveContent: ContentDoc;
   draftContent: ContentDoc | null;
   content: ContentDoc;
@@ -263,6 +279,7 @@ export async function getContentForBuilder(
         tenantId: ctx.tenantId,
         websiteSlug: ctx.websiteSlug,
         siteTitle: ctx.siteTitle,
+        metadata: ctx.metadata,
         liveContent,
         draftContent,
         content: draftContent ?? liveContent,
@@ -332,30 +349,142 @@ export async function publishContentDraft(
     // id in metadata) skip the gate entirely.
     const templateId =
       typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
-    if (templateId && getFlagshipTemplate(templateId)) {
-      const templateVersion =
-        typeof ctx.metadata.templateVersion === "string"
-          ? ctx.metadata.templateVersion
-          : getFlagshipTemplate(templateId)?.version ?? "1.0.0";
-      const { data: gateDraft } = await supabaseAdmin
-        .from("website_content_drafts")
-        .select("content")
-        .eq("website_id", ctx.websiteId)
-        .maybeSingle();
-      if (gateDraft) {
-        const readiness = checkPublishReadiness(
-          templateId,
-          templateVersion,
-          normalizeContent(gateDraft.content ?? {})
-        );
-        if (!readiness.ready) {
-          const missing = readiness.missingRequired.map((slot) => slot.label).join(", ");
-          return {
-            success: false,
-            code: "NOT_READY",
-            error: `Not ready to publish — still missing: ${missing}.`,
-          };
+    const flagship = templateId ? getFlagshipTemplate(templateId) : undefined;
+    const templateVersion =
+      typeof ctx.metadata.templateVersion === "string"
+        ? ctx.metadata.templateVersion
+        : (flagship?.version ?? "1.0.0");
+    const { data: gateDraft } = await supabaseAdmin
+      .from("website_content_drafts")
+      .select("content, version")
+      .eq("website_id", ctx.websiteId)
+      .maybeSingle();
+    // Stale writes are rejected BEFORE any page materialization, so a
+    // version-mismatched publish never creates or touches page rows. The RPC
+    // stays the atomic authority (a race between this check and the RPC still
+    // maps 40001 to STALE_DRAFT below).
+    if (
+      flagship &&
+      gateDraft &&
+      typeof expectedVersion === "number" &&
+      typeof (gateDraft as { version?: unknown }).version === "number" &&
+      (gateDraft as { version: number }).version !== expectedVersion
+    ) {
+      return {
+        success: false,
+        code: "STALE_DRAFT",
+        error:
+          "This content was modified elsewhere. Reload to get the latest version, then publish again.",
+      };
+    }
+    if (flagship && gateDraft) {
+      const readiness = checkPublishReadiness(
+        templateId as string,
+        templateVersion,
+        normalizeContent(gateDraft.content ?? {})
+      );
+      if (!readiness.ready) {
+        const missing = readiness.missingRequired.map((slot) => slot.label).join(", ");
+        return {
+          success: false,
+          code: "NOT_READY",
+          error: `Not ready to publish — still missing: ${missing}.`,
+        };
+      }
+    }
+
+    // v2 materialization: resolve the draft into pages and make sure a
+    // website_pages row exists for every emitted page (created server-side
+    // before the RPC, scoped to this website; resolver "<template>--<slug>"
+    // ids are internal-only — rows are matched by slug). Caller-supplied
+    // pageBlocks are ignored for v2 sites: the resolver output is
+    // authoritative, so emitted pages, omitted pages, and nav stay in sync.
+    // Non-v2 sites keep the pass-through behavior below.
+    let v2PageBlocks: PublishPageBlocksEntry[] | null = null;
+    let v2SlugToId: Map<string, string> | null = null;
+    let v2EmittedSlugs: Set<string> | null = null;
+    let v2Resolved:
+      | ReturnType<typeof resolveTemplateContent>
+      | null = null;
+    if (flagship && gateDraft) {
+      v2Resolved = resolveTemplateContent(
+        templateId as string,
+        templateVersion,
+        normalizeContent(gateDraft.content ?? {})
+      );
+      const homeSlug =
+        v2Resolved.pages.find((page) => page.isHome)?.slug ?? "home";
+      v2EmittedSlugs = new Set(v2Resolved.pages.map((page) => page.slug));
+
+      const { data: existingPages, error: pagesErr } = await supabaseAdmin
+        .from("website_pages")
+        .select("id, slug, is_home, status")
+        .eq("website_id", ctx.websiteId);
+      if (pagesErr) {
+        console.error("[publishContentDraft] Failed to load website pages:", pagesErr);
+        return { success: false, error: "Failed to publish content. Please try again." };
+      }
+      const rows = (Array.isArray(existingPages) ? existingPages : []) as Array<{
+        id: string;
+        slug: string;
+        is_home: boolean;
+        status: string;
+      }>;
+      v2SlugToId = new Map(rows.map((row) => [row.slug, row.id]));
+
+      // Exactly one home page (partial unique index
+      // uq_website_pages_single_home): clear stale home flags first, then set
+      // the manifest home — sequential awaits, no transient double-home.
+      for (const row of rows) {
+        if (row.is_home && row.slug !== homeSlug) {
+          const { error: homeErr } = await supabaseAdmin
+            .from("website_pages")
+            .update({ is_home: false })
+            .eq("id", row.id);
+          if (homeErr) {
+            console.error("[publishContentDraft] Failed to clear home flag:", homeErr);
+            return { success: false, error: "Failed to publish content. Please try again." };
+          }
         }
+      }
+
+      v2PageBlocks = [];
+      for (const page of v2Resolved.pages) {
+        let realId = v2SlugToId.get(page.slug);
+        if (!realId) {
+          realId = generateStableId();
+          const { error: insertErr } = await supabaseAdmin
+            .from("website_pages")
+            .insert({
+              id: realId,
+              website_id: ctx.websiteId,
+              title: page.title,
+              slug: page.slug,
+              is_home: page.slug === homeSlug,
+              status: "draft",
+              blocks: [],
+              sort_order: page.sortOrder,
+            });
+          if (insertErr) {
+            console.error("[publishContentDraft] Failed to create missing page:", insertErr);
+            return { success: false, error: "Failed to publish content. Please try again." };
+          }
+          v2SlugToId.set(page.slug, realId);
+        } else {
+          const { error: updateErr } = await supabaseAdmin
+            .from("website_pages")
+            .update({
+              title: page.title,
+              sort_order: page.sortOrder,
+              is_home: page.slug === homeSlug,
+            })
+            .eq("id", realId);
+          if (updateErr) {
+            console.error("[publishContentDraft] Failed to sync page row:", updateErr);
+            return { success: false, error: "Failed to publish content. Please try again." };
+          }
+        }
+        v2PageBlocks.push({ page_id: realId, blocks: page.blocks as unknown[] });
       }
     }
 
@@ -365,7 +494,7 @@ export async function publishContentDraft(
         p_website_id: ctx.websiteId,
         p_expected_version:
           typeof expectedVersion === "number" ? expectedVersion : null,
-        p_page_blocks: pageBlocks ?? null,
+        p_page_blocks: v2PageBlocks ?? pageBlocks ?? null,
       }
     );
 
@@ -381,6 +510,13 @@ export async function publishContentDraft(
         };
       }
       if (code === "P0002" || message.includes("No content draft")) {
+        if (message.includes("does not belong")) {
+          console.error("[publishContentDraft] Page membership failure:", rpcErr);
+          return {
+            success: false,
+            error: "A page no longer belongs to this website. Please try publishing again.",
+          };
+        }
         return {
           success: false,
           code: "NO_DRAFT",
@@ -391,7 +527,74 @@ export async function publishContentDraft(
       return { success: false, error: "Failed to publish content. Please try again." };
     }
 
-    revalidatePath(`/site/${ctx.websiteSlug}`);
+    // v2 finalization (service role; the 129 page guard bypasses service_role):
+    // emitted pages -> published, stale/omitted rows -> draft (so removed
+    // pages disappear for visitors), website -> published, nav rebuilt from
+    // the resolved navigation with REAL page ids (omitted pages stay out),
+    // legacy per-page drafts dropped, then revalidate site + every page path.
+    // The RPC already committed the content doc at this point, so a failure
+    // here reports honestly with a save-and-republish recovery path.
+    if (flagship && v2Resolved && v2SlugToId && v2EmittedSlugs) {
+      try {
+        const slugToId: Map<string, string> = v2SlugToId;
+        const emittedSlugs: Set<string> = v2EmittedSlugs;
+        for (const [slug, realId] of slugToId) {
+          const shouldPublish = emittedSlugs.has(slug);
+          const { error: statusErr } = await supabaseAdmin
+            .from("website_pages")
+            .update({ status: shouldPublish ? "published" : "draft" })
+            .eq("id", realId);
+          if (statusErr) throw statusErr;
+        }
+        const { error: siteErr } = await supabaseAdmin
+          .from("tenant_websites")
+          .update({ status: "published" })
+          .eq("id", ctx.websiteId);
+        if (siteErr) throw siteErr;
+
+        const navItems = v2Resolved.navigation.map((entry) => ({
+          id: entry.id,
+          label: entry.label,
+          href: entry.href,
+          page_id: entry.pageSlug
+            ? (slugToId.get(entry.pageSlug) ?? null)
+            : null,
+          target: entry.target,
+          order: entry.order,
+        }));
+        const { error: navErr } = await supabaseAdmin
+          .from("website_navigation")
+          .upsert(
+            { website_id: ctx.websiteId, items: navItems },
+            { onConflict: "website_id" }
+          );
+        if (navErr) throw navErr;
+
+        for (const realId of slugToId.values()) {
+          const { error: draftDeleteErr } = await supabaseAdmin
+            .from("website_page_drafts")
+            .delete()
+            .eq("page_id", realId);
+          if (draftDeleteErr) throw draftDeleteErr;
+        }
+
+        revalidatePath(`/site/${ctx.websiteSlug}`);
+        for (const page of v2Resolved.pages) {
+          revalidatePath(
+            page.isHome ? `/site/${ctx.websiteSlug}` : `/site/${ctx.websiteSlug}/${page.slug}`
+          );
+        }
+      } catch (finalizeErr: unknown) {
+        console.error("[publishContentDraft] Post-publish finalization failed:", finalizeErr);
+        return {
+          success: false,
+          error:
+            "Content was published, but page status could not be finalized. Save the content again and republish.",
+        };
+      }
+    } else {
+      revalidatePath(`/site/${ctx.websiteSlug}`);
+    }
 
     const res = rpcRes as { version?: number; pages_written?: number } | null;
     return {

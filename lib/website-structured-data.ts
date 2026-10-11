@@ -20,6 +20,8 @@ export interface TenantWebsite {
   seo_description: string | null;
   seo_og_image: string | null;
   status: string;
+  /** Present at runtime (select *); carries templateId for v2 sites. */
+  metadata?: Record<string, unknown> | null;
 }
 
 

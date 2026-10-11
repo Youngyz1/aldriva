@@ -65,11 +65,16 @@ export interface OmittedPage {
   reason: string;
 }
 
+export interface ResolvedNavigationItem extends NavigationItem {
+  /** Template page slug this entry points at (null for anchor/external). */
+  pageSlug: string | null;
+}
+
 export interface ResolvedTemplate {
   templateId: string;
   templateVersion: string;
   pages: ResolvedPage[];
-  navigation: NavigationItem[];
+  navigation: ResolvedNavigationItem[];
   sampleFields: string[];
   skipped: SkippedSection[];
   /**
@@ -501,13 +506,14 @@ export function resolveTemplateManifest(
   }
 
   const emittedSlugs = new Set(pages.map((page) => page.slug));
-  const navigation: NavigationItem[] = template.navigation
+  const navigation: ResolvedNavigationItem[] = template.navigation
     .filter((entry) => !entry.pageSlug || emittedSlugs.has(entry.pageSlug))
     .map((entry, index) => ({
       id: `${template.id}-nav-${index}`,
       label: entry.label,
       href: entry.href,
       page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
+      pageSlug: entry.pageSlug,
       target: "_self" as const,
       order: entry.order,
     }));

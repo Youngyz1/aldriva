@@ -15,6 +15,10 @@ import {
   filterPublishedNavItems,
 } from "@/lib/website-structured-data";
 import { resolveThemeTokens, themeTokensToStyle } from "@/lib/website-blocks";
+import {
+  getV2TemplateForWebsite,
+  v2ThemeStyle,
+} from "@/lib/website-v2-theme";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -254,9 +258,17 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     website.theme_config?.primaryColor,
     website.theme_config?.darkMode
   );
+  // Template-first (v2) sites layer their locked look on top of the standard
+  // tokens. Old sites are untouched (getV2TemplateForWebsite returns
+  // undefined). Header/footer chrome stays as-is until the Stage 4C rebuild.
+  const v2Template = getV2TemplateForWebsite(website.metadata);
   const themeStyle = {
     ...themeTokensToStyle(tokens),
     ...themeConfigToStyle(website.theme_config),
+    ...(v2Template ? v2ThemeStyle(v2Template) : {}),
+    ...(v2Template
+      ? { backgroundColor: v2Template.templateBackground.base }
+      : {}),
   };
 
   const blocks = (targetPage.blocks as unknown[]) || [];
