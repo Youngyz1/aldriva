@@ -322,7 +322,7 @@ async function checkWebsiteAccess(
 
   // Check entity membership for this tenant (any role grants preview access).
   const memberRes = await fetch(
-    `${supabaseUrl}/rest/v1/entity_members?entity_id=eq.${encodeURIComponent(site.tenant_id)}&user_id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
+    `${supabaseUrl}/rest/v1/entity_members?organizer_id=eq.${encodeURIComponent(site.tenant_id)}&user_id=eq.${encodeURIComponent(userId)}&select=role&limit=1`,
     {
       headers: {
         apikey: serviceKey,
