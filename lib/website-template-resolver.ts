@@ -58,6 +58,13 @@ export interface SkippedSection {
   note?: string;
 }
 
+export interface OmittedPage {
+  purpose: TemplatePagePurpose;
+  slug: string;
+  title: string;
+  reason: string;
+}
+
 export interface ResolvedTemplate {
   templateId: string;
   templateVersion: string;
@@ -65,6 +72,13 @@ export interface ResolvedTemplate {
   navigation: NavigationItem[];
   sampleFields: string[];
   skipped: SkippedSection[];
+  /**
+   * Pages from the manifest that produced zero renderable blocks (all
+   * sections pendingBlock or chrome). Omitted from pages AND navigation so
+   * they never publish blank; the manifest keeps them, so they reappear
+   * automatically once their pendingBlock becomes a real block type.
+   */
+  omittedPages: OmittedPage[];
 }
 
 export interface SwitchPageMapping {
@@ -259,8 +273,44 @@ function buildTestimonials(ctx: BuildContext): Block {
   } as Block;
 }
 
+const WEEKDAY_LABELS: Record<string, string> = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
+
 function buildContact(ctx: BuildContext, heading: string): Block {
   const hours = asRecord(take(ctx, "hours", "hours.table"));
+  const hoursTable: Array<{ day: string; open?: string; close?: string; closed?: boolean }> = hours
+    ? (Object.keys(WEEKDAY_LABELS) as Array<keyof typeof WEEKDAY_LABELS>)
+        .map((day) => {
+          const slot = asRecord(hours[day]);
+          if (!slot) return null;
+          const open = asString(slot.open);
+          const close = asString(slot.close);
+          const closed = slot.closed === true;
+          if (!open && !close && !closed) return null;
+          const row: { day: string; open?: string; close?: string; closed?: boolean } = { day: WEEKDAY_LABELS[day] };
+          if (open) row.open = open;
+          if (close) row.close = close;
+          if (closed) row.closed = true;
+          return row;
+        })
+        .filter((row): row is { day: string; open?: string; close?: string; closed?: boolean } => row !== null)
+        .slice(0, 7)
+    : [];
+  const locations = (asRecordArray(take(ctx, "locations", "locations.list")) ?? [])
+    .map((row) => ({
+      ...(recordText(row, ["name", "title"]) ? { name: recordText(row, ["name", "title"]) } : {}),
+      ...(recordText(row, ["address"]) ? { address: recordText(row, ["address"]) } : {}),
+      ...(recordText(row, ["hours", "text"]) ? { hours: recordText(row, ["hours", "text"]) } : {}),
+    }))
+    .filter((row) => Boolean(row.name || row.address || row.hours))
+    .slice(0, 12);
   return {
     type: "contact",
     heading,
@@ -268,6 +318,9 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     phone: asString(take(ctx, "phone", "location.phone")),
     address: asString(take(ctx, "address", "location.address")),
     hours: hours ? asString(hours.today_tag) : undefined,
+    ...(hoursTable.length > 0 ? { hoursTable } : {}),
+    ...(locations.length > 0 ? { locations } : {}),
+    directionsUrl: asString(take(ctx, "directions_url", "location.directions")),
     showMap: false,
   } as Block;
 }
@@ -297,15 +350,27 @@ function buildCtaBand(ctx: BuildContext): Block {
   } as Block;
 }
 
-function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number): Block {
-  // Featured menu_item_ids target ITEMS for the future menu_order block — they
-  // are section-scoped here, so no selection is bound (shows first sections).
-  void ctx;
+function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): Block {
+  // Featured menu_item_ids bind only when they are UUID-shaped (anything else
+  // is dropped so validation never fails); section scoping + tenant isolation
+  // stay in resolveMenuEmbed. Unset/empty keeps "show all" behavior.
+  const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let selectedItemIds: string[] | undefined;
+  if (bindFeatured) {
+    const featured = take(ctx, "featured", "menu.featured") as { menu_item_ids?: unknown } | undefined;
+    const ids = Array.isArray(featured?.menu_item_ids)
+      ? featured.menu_item_ids.filter(
+          (id): id is string => typeof id === "string" && UUID_SHAPE.test(id.trim())
+        ).map((id) => id.trim()).slice(0, 12)
+      : [];
+    if (ids.length > 0) selectedItemIds = ids;
+  }
   return {
     type: "menu_embed",
     heading,
     limit,
     layout: "grid",
+    ...(selectedItemIds ? { selectedItemIds } : {}),
   } as Block;
 }
 
@@ -337,7 +402,7 @@ function buildSectionBlock(
       return buildCtaBand(ctx);
     case "menu_embed": {
       const heading = section.id === "menu.full" ? "Our full menu" : "Featured dishes";
-      return buildMenuEmbed(ctx, heading, section.id === "menu.full" ? 12 : 6);
+      return buildMenuEmbed(ctx, heading, section.id === "menu.full" ? 12 : 6, section.id !== "menu.full");
     }
     default:
       return null;
@@ -359,16 +424,30 @@ export function resolveTemplateContent(
   if (!template) {
     throw new Error(`Unknown flagship template: ${templateId}@${templateVersion}`);
   }
+  return resolveTemplateManifest(template, contentDoc);
+}
+
+/**
+ * Resolver core over an explicit manifest object (exported for tests: a test
+ * double that "implements" a pendingBlock proves the page comes back).
+ */
+export function resolveTemplateManifest(
+  template: WebsiteTemplateV2,
+  contentDoc: ContentDoc
+): ResolvedTemplate {
   // Deep-clone: the input doc is never mutated (pinned by test).
   const doc = JSON.parse(JSON.stringify(contentDoc ?? {})) as Record<string, unknown>;
   const samples = (FLAGSHIP_SAMPLES[template.id] ?? {}) as unknown as Record<string, unknown>;
 
   const sampleFields: string[] = [];
   const skipped: SkippedSection[] = [];
+  const omittedPages: OmittedPage[] = [];
   const ctx: BuildContext = { template, doc, samples: samples as ContentDoc, sampleFields };
 
-  const pages = template.pages.map((page) => {
+  const pages: ResolvedPage[] = [];
+  for (const page of template.pages) {
     const rawBlocks: Block[] = [];
+    const pendingNames: string[] = [];
     for (const section of template.sections) {
       if (section.page !== page.purpose) continue;
       if (section.chrome) continue;
@@ -380,11 +459,24 @@ export function resolveTemplateContent(
             pendingBlock: section.pendingBlock,
             ...(section.note ? { note: section.note } : {}),
           });
+          pendingNames.push(section.pendingBlock);
         }
         continue;
       }
       const block = buildSectionBlock(ctx, section);
       if (block) rawBlocks.push(block);
+    }
+    if (rawBlocks.length === 0) {
+      omittedPages.push({
+        purpose: page.purpose,
+        slug: page.slug,
+        title: page.title,
+        reason:
+          pendingNames.length > 0
+            ? `page '${page.slug}' has no renderable blocks yet (pending: ${pendingNames.join(", ")})`
+            : `page '${page.slug}' has no renderable blocks yet`,
+      });
+      continue;
     }
     const blocks = normalizeBlocks(rawBlocks);
     for (const block of blocks) {
@@ -397,7 +489,7 @@ export function resolveTemplateContent(
         );
       }
     }
-    return {
+    pages.push({
       id: pageIdFor(template.id, page.slug),
       slug: page.slug,
       title: page.title,
@@ -405,17 +497,20 @@ export function resolveTemplateContent(
       sortOrder: page.sortOrder,
       purpose: page.purpose,
       blocks,
-    };
-  });
+    });
+  }
 
-  const navigation: NavigationItem[] = template.navigation.map((entry, index) => ({
-    id: `${template.id}-nav-${index}`,
-    label: entry.label,
-    href: entry.href,
-    page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
-    target: "_self" as const,
-    order: entry.order,
-  }));
+  const emittedSlugs = new Set(pages.map((page) => page.slug));
+  const navigation: NavigationItem[] = template.navigation
+    .filter((entry) => !entry.pageSlug || emittedSlugs.has(entry.pageSlug))
+    .map((entry, index) => ({
+      id: `${template.id}-nav-${index}`,
+      label: entry.label,
+      href: entry.href,
+      page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
+      target: "_self" as const,
+      order: entry.order,
+    }));
 
   return {
     templateId: template.id,
@@ -424,7 +519,54 @@ export function resolveTemplateContent(
     navigation,
     sampleFields: [...sampleFields],
     skipped,
+    omittedPages,
   };
+}
+
+// ── Publish readiness (pure, no DB) ─────────────────────────────────────────
+// A site is publishable when every REQUIRED slot has real content. Optional
+// slots showing samples do NOT block publishing — they are reported in
+// sampleFieldsInUse so the UI can warn, but samples never enter the saved doc
+// (fill-empties-only), so publishing with placeholders only affects sections
+// the owner left empty.
+
+export interface MissingRequiredSlot {
+  slotId: string;
+  field: ContentKey;
+  label: string;
+}
+
+export interface PublishReadiness {
+  ready: boolean;
+  missingRequired: MissingRequiredSlot[];
+  sampleFieldsInUse: string[];
+}
+
+export function checkPublishReadiness(
+  templateId: string,
+  templateVersion: string,
+  contentDoc: ContentDoc
+): PublishReadiness {
+  const template = getFlagshipTemplate(templateId, templateVersion);
+  if (!template) {
+    throw new Error(`Unknown flagship template: ${templateId}@${templateVersion}`);
+  }
+  const doc = (contentDoc ?? {}) as Record<string, unknown>;
+  const samples = (FLAGSHIP_SAMPLES[template.id] ?? {}) as unknown as Record<string, unknown>;
+  const sampleFields: string[] = [];
+  const missingRequired: MissingRequiredSlot[] = [];
+  for (const slot of template.editableSlots) {
+    const live = doc[slot.field];
+    if (!isEmptyContentValue(live)) continue;
+    const sample = samples[slot.field];
+    if (!isEmptyContentValue(sample) && !sampleFields.includes(slot.slotId)) {
+      sampleFields.push(slot.slotId);
+    }
+    if (slot.required) {
+      missingRequired.push({ slotId: slot.slotId, field: slot.field, label: slot.label });
+    }
+  }
+  return { ready: missingRequired.length === 0, missingRequired, sampleFieldsInUse: sampleFields };
 }
 
 // ── Switch planner (pure, no DB) ────────────────────────────────────────────

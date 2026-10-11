@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" role="img" aria-label="Restaurant about placeholder">
+  <rect width="900" height="700" fill="#efe3cf"/>
+  <rect x="120" y="120" width="660" height="380" rx="16" fill="#e0c9a6"/>
+  <rect x="180" y="540" width="300" height="16" rx="8" fill="#cbb894"/>
+  <text x="450" y="590" text-anchor="middle" font-family="Georgia, serif" font-size="30" fill="#5b4a36">Our story</text>
+  <text x="450" y="628" text-anchor="middle" font-family="Georgia, serif" font-size="20" fill="#8a755c">About photo placeholder</text>
+</svg>

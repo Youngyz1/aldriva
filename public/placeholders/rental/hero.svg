@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Car rental hero placeholder">
+  <rect width="1200" height="800" fill="#101c33"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#1b2a47"/>
+  <rect x="180" y="330" width="520" height="150" rx="28" fill="#2563eb"/>
+  <circle cx="330" cy="500" r="62" fill="#0b1526"/>
+  <circle cx="330" cy="500" r="26" fill="#8fa3c4"/>
+  <circle cx="610" cy="500" r="62" fill="#0b1526"/>
+  <circle cx="610" cy="500" r="26" fill="#8fa3c4"/>
+  <rect x="700" y="330" width="320" height="150" rx="28" fill="#f97316"/>
+  <text x="600" y="620" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="bold" fill="#ffffff">DriveLine</text>
+  <text x="600" y="662" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#8fa3c4">Hero photo placeholder</text>
+</svg>

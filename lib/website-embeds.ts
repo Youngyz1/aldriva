@@ -332,6 +332,13 @@ export async function resolveMenuEmbed(
   const sectionIds = sections.map((s) => s.id);
   let itemQuery = supabase.from("menu_items").select("id, section_id, name, description, price, image_url, dietary_tags, allergens, modifiers, is_active, is_featured").in("section_id", sectionIds);
   if (!isTeamMember) itemQuery = itemQuery.eq("is_active", true);
+  // Item picks (featured dishes): constrain to the tenant's own sections so
+  // crafted ids from other tenants return nothing (DEC-0014). Tenant id comes
+  // from server context (function argument), never from block JSON.
+  const pickedItemIds = Array.isArray(block.selectedItemIds)
+    ? block.selectedItemIds.filter((id) => typeof id === "string" && id.length > 0)
+    : [];
+  if (pickedItemIds.length > 0) itemQuery = itemQuery.in("id", pickedItemIds);
   // also ensure section is active for public
   itemQuery = itemQuery.order("position", { ascending: true });
   const { data: items } = await itemQuery;
@@ -354,7 +361,11 @@ export async function resolveMenuEmbed(
     itemsBySection[it.section_id] = itemsBySection[it.section_id] || [];
     itemsBySection[it.section_id].push(mapped);
   }
-  return sections.map((sec) => ({
+  // Item-pick mode shows only sections that actually contain a picked item;
+  // the default (no picks) keeps every section, even empty ones, as before.
+  const pickedMode = Array.isArray(block.selectedItemIds) && block.selectedItemIds.length > 0;
+  const visibleSections = pickedMode ? sections.filter((sec) => (itemsBySection[sec.id] || []).length > 0) : sections;
+  return visibleSections.map((sec) => ({
     id: sec.id,
     name: sec.name,
     description: sec.description ?? null,

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" role="img" aria-label="Car rental about placeholder">
+  <rect width="900" height="700" fill="#e8edf4"/>
+  <rect x="120" y="120" width="660" height="330" rx="16" fill="#101c33"/>
+  <rect x="220" y="240" width="460" height="90" rx="18" fill="#2563eb"/>
+  <circle cx="300" cy="375" r="38" fill="#0b1526"/>
+  <circle cx="560" cy="375" r="38" fill="#0b1526"/>
+  <text x="450" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="#33415c">Why choose us</text>
+  <text x="450" y="580" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#64748b">About photo placeholder</text>
+</svg>

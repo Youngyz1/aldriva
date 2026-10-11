@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Restaurant hero placeholder">
+  <rect width="1200" height="800" fill="#f3e7d3"/>
+  <circle cx="600" cy="360" r="150" fill="#e0c9a6"/>
+  <circle cx="600" cy="360" r="105" fill="#c65d3b"/>
+  <rect x="420" y="560" width="360" height="18" rx="9" fill="#cbb894"/>
+  <text x="600" y="640" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#5b4a36">Table &amp; Flame</text>
+  <text x="600" y="680" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#8a755c">Hero photo placeholder</text>
+</svg>

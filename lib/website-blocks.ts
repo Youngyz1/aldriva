@@ -138,6 +138,20 @@ export interface TestimonialsBlock extends BaseBlock {
   layout?: "grid" | "carousel";
 }
 
+export interface ContactDayHours {
+  /** Short day label, e.g. "Mon". */
+  day: string;
+  open?: string;
+  close?: string;
+  closed?: boolean;
+}
+
+export interface ContactLocation {
+  name?: string;
+  address?: string;
+  hours?: string;
+}
+
 export interface ContactBlock extends BaseBlock {
   type: "contact";
   heading?: string;
@@ -146,6 +160,12 @@ export interface ContactBlock extends BaseBlock {
   phone?: string;
   address?: string;
   hours?: string;
+  /** Day-by-day hours list (max 7); renders as rows when present. */
+  hoursTable?: ContactDayHours[];
+  /** Pickup / branch locations (max 12). */
+  locations?: ContactLocation[];
+  /** Directions link, sanitized via sanitizeUrl. */
+  directionsUrl?: string;
   showMap?: boolean;
   mapQuery?: string;
 }
@@ -226,6 +246,12 @@ export interface MenuEmbedBlock extends BaseBlock {
   limit?: number; // Clamped 1..12 sections, default 6
   layout?: "grid" | "list";
   selectedSectionIds?: string[]; // Optional specific section IDs (max 12 UUIDs)
+  /**
+   * Optional specific menu ITEM IDs (max 12 UUIDs). When non-empty, only these
+   * items render (grouped under their sections). Unset/empty means "show all",
+   * exactly as before — existing blocks never go blank.
+   */
+  selectedItemIds?: string[];
 }
 
 export type Block =
@@ -1078,6 +1104,58 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         BLOCK_LIMITS.HOURS_MAX_LENGTH,
         issues
       );
+      const hoursTable: ContactDayHours[] = [];
+      if (obj.hoursTable !== undefined && obj.hoursTable !== null) {
+        if (!Array.isArray(obj.hoursTable)) {
+          issues.push({ path: "hoursTable", message: "Hours table must be an array." });
+        } else {
+          if (obj.hoursTable.length > 7) issues.push({ path: "hoursTable", message: "Hours table accepts at most 7 days." });
+          obj.hoursTable.slice(0, 7).forEach((row, idx) => {
+            if (!row || typeof row !== "object" || Array.isArray(row)) {
+              issues.push({ path: `hoursTable[${idx}]`, message: "Day entry must be an object." });
+              return;
+            }
+            const day = validateStringField((row as Record<string, unknown>).day, `hoursTable[${idx}].day`, 16, issues);
+            if (!day) {
+              issues.push({ path: `hoursTable[${idx}].day`, message: "Day label is required." });
+              return;
+            }
+            hoursTable.push({
+              day,
+              ...(validateStringField((row as Record<string, unknown>).open, `hoursTable[${idx}].open`, 16, issues)
+                ? { open: ((row as Record<string, unknown>).open as string).trim().slice(0, 16) }
+                : {}),
+              ...(validateStringField((row as Record<string, unknown>).close, `hoursTable[${idx}].close`, 16, issues)
+                ? { close: ((row as Record<string, unknown>).close as string).trim().slice(0, 16) }
+                : {}),
+              ...((row as Record<string, unknown>).closed === true ? { closed: true } : {}),
+            });
+          });
+        }
+      }
+      const locations: ContactLocation[] = [];
+      if (obj.locations !== undefined && obj.locations !== null) {
+        if (!Array.isArray(obj.locations)) {
+          issues.push({ path: "locations", message: "Locations must be an array." });
+        } else {
+          if (obj.locations.length > BLOCK_LIMITS.MAX_ARRAY_ITEMS) issues.push({ path: "locations", message: `Locations accepts at most ${BLOCK_LIMITS.MAX_ARRAY_ITEMS} entries.` });
+          obj.locations.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).forEach((row, idx) => {
+            if (!row || typeof row !== "object" || Array.isArray(row)) {
+              issues.push({ path: `locations[${idx}]`, message: "Location entry must be an object." });
+              return;
+            }
+            const entry: ContactLocation = {};
+            const name = validateStringField((row as Record<string, unknown>).name, `locations[${idx}].name`, BLOCK_LIMITS.LABEL_MAX_LENGTH, issues);
+            if (name) entry.name = name;
+            const locAddress = validateStringField((row as Record<string, unknown>).address, `locations[${idx}].address`, BLOCK_LIMITS.ADDRESS_MAX_LENGTH, issues);
+            if (locAddress) entry.address = locAddress;
+            const locHours = validateStringField((row as Record<string, unknown>).hours, `locations[${idx}].hours`, BLOCK_LIMITS.HOURS_MAX_LENGTH, issues);
+            if (locHours) entry.hours = locHours;
+            if (Object.keys(entry).length > 0) locations.push(entry);
+          });
+        }
+      }
+      const directionsUrl = validateUrlField(obj.directionsUrl, "directionsUrl", issues);
       const showMap = Boolean(obj.showMap);
       const mapQuery = validateStringField(
         obj.mapQuery,
@@ -1105,6 +1183,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(phone ? { phone } : {}),
           ...(address ? { address } : {}),
           ...(hours ? { hours } : {}),
+          ...(hoursTable.length > 0 ? { hoursTable } : {}),
+          ...(locations.length > 0 ? { locations } : {}),
+          ...(directionsUrl ? { directionsUrl } : {}),
           showMap,
           ...(mapQuery ? { mapQuery } : {}),
         },
@@ -1439,8 +1520,15 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         const validId = validateUuidField(id, `selectedSectionIds[${idx}]`, issues);
         if (validId) selectedSectionIds.push(validId);
       });
+      const rawItems = Array.isArray(obj.selectedItemIds) ? obj.selectedItemIds : [];
+      if (rawItems.length > BLOCK_LIMITS.MAX_ARRAY_ITEMS) issues.push({ path: "selectedItemIds", message: `selectedItemIds accepts at most ${BLOCK_LIMITS.MAX_ARRAY_ITEMS} IDs` });
+      const selectedItemIds: string[] = [];
+      rawItems.slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS).forEach((id, idx) => {
+        const validId = validateUuidField(id, `selectedItemIds[${idx}]`, issues);
+        if (validId) selectedItemIds.push(validId);
+      });
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}) } };
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}) } };
     }
 
     case "cta_banner": {
@@ -1675,6 +1763,28 @@ export function parseBlock(raw: unknown): Block | null {
         phone: typeof obj.phone === "string" ? obj.phone.slice(0, BLOCK_LIMITS.PHONE_MAX_LENGTH) : undefined,
         address: typeof obj.address === "string" ? obj.address.slice(0, BLOCK_LIMITS.ADDRESS_MAX_LENGTH) : undefined,
         hours: typeof obj.hours === "string" ? obj.hours.slice(0, BLOCK_LIMITS.HOURS_MAX_LENGTH) : undefined,
+        hoursTable: Array.isArray(obj.hoursTable)
+          ? obj.hoursTable
+              .slice(0, 7)
+              .map((row) => ({
+                day: typeof (row as Record<string, unknown>)?.day === "string" ? String((row as Record<string, unknown>).day).slice(0, 16) : "",
+                open: typeof (row as Record<string, unknown>)?.open === "string" ? String((row as Record<string, unknown>).open).slice(0, 16) : undefined,
+                close: typeof (row as Record<string, unknown>)?.close === "string" ? String((row as Record<string, unknown>).close).slice(0, 16) : undefined,
+                closed: (row as Record<string, unknown>)?.closed === true ? true : undefined,
+              }))
+              .filter((row) => row.day.length > 0)
+          : undefined,
+        locations: Array.isArray(obj.locations)
+          ? obj.locations
+              .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
+              .map((row) => ({
+                name: typeof (row as Record<string, unknown>)?.name === "string" ? String((row as Record<string, unknown>).name).slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
+                address: typeof (row as Record<string, unknown>)?.address === "string" ? String((row as Record<string, unknown>).address).slice(0, BLOCK_LIMITS.ADDRESS_MAX_LENGTH) : undefined,
+                hours: typeof (row as Record<string, unknown>)?.hours === "string" ? String((row as Record<string, unknown>).hours).slice(0, BLOCK_LIMITS.HOURS_MAX_LENGTH) : undefined,
+              }))
+              .filter((row) => Boolean(row.name || row.address || row.hours))
+          : undefined,
+        directionsUrl: typeof obj.directionsUrl === "string" ? sanitizeUrl(obj.directionsUrl).slice(0, BLOCK_LIMITS.URL_MAX_LENGTH) || undefined : undefined,
         showMap: Boolean(obj.showMap),
         mapQuery: typeof obj.mapQuery === "string" ? obj.mapQuery.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
       };
@@ -1778,6 +1888,9 @@ export function parseBlock(raw: unknown): Block | null {
         layout: obj.layout === "list" ? "list" : "grid",
         selectedSectionIds: Array.isArray(obj.selectedSectionIds)
           ? obj.selectedSectionIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
+          : undefined,
+        selectedItemIds: Array.isArray(obj.selectedItemIds)
+          ? obj.selectedItemIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
           : undefined,
       };
 

@@ -23,21 +23,21 @@ function ph(template: string, file: string): string {
 export const RESTAURANT_SAMPLES: ContentDoc = {
   business_name: "Table & Flame",
   tagline: "Wood-fired kitchen & neighborhood bar",
-  hero_image: ph("restaurant", "hero.jpg"),
+  hero_image: ph("restaurant", "hero.svg"),
   hero_headline: "Fire-kissed dishes, served with warmth",
   hero_subtext: "Seasonal ingredients, an open flame, and a table that always feels like home.",
   primary_cta_label: "Order Now",
   secondary_cta_label: "View Menu",
-  about_image: ph("restaurant", "about.jpg"),
+  about_image: ph("restaurant", "about.svg"),
   about_text:
     "Since 2012 we have cooked the food we love to eat: simple plates, bold flavors, and produce picked every morning.",
   gallery_images: [
-    ph("restaurant", "gallery-1.jpg"),
-    ph("restaurant", "gallery-2.jpg"),
-    ph("restaurant", "gallery-3.jpg"),
-    ph("restaurant", "gallery-4.jpg"),
-    ph("restaurant", "gallery-5.jpg"),
-    ph("restaurant", "gallery-6.jpg"),
+    ph("restaurant", "gallery-1.svg"),
+    ph("restaurant", "gallery-2.svg"),
+    ph("restaurant", "gallery-3.svg"),
+    ph("restaurant", "gallery-4.svg"),
+    ph("restaurant", "gallery-5.svg"),
+    ph("restaurant", "gallery-6.svg"),
   ],
   highlights: [
     { title: "Fresh daily", description: "Produce picked every morning." },
@@ -81,10 +81,10 @@ export const RESTAURANT_SAMPLES: ContentDoc = {
 export const RENTAL_SAMPLES: ContentDoc = {
   business_name: "DriveLine",
   tagline: "The right car, ready when you are",
-  hero_image: ph("rental", "hero.jpg"),
+  hero_image: ph("rental", "hero.svg"),
   hero_headline: "Rent the right car, today",
   primary_cta_label: "Book a Car",
-  about_image: ph("rental", "about.jpg"),
+  about_image: ph("rental", "about.svg"),
   about_text:
     "A local fleet, transparent prices, and handover in minutes. No hidden fees, no surprises at the counter.",
   trust: [

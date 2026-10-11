@@ -706,7 +706,7 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
             </div>
           )}
 
-          {block.hours && (
+          {block.hoursTable && block.hoursTable.length > 0 ? (
             <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
               <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
                 <Clock className="h-5 w-5" />
@@ -714,11 +714,64 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Opening Hours
               </span>
-              <p className="mt-1 text-sm font-medium text-zinc-900">
-                {block.hours}
-              </p>
+              <ul className="mt-2 divide-y divide-zinc-100 text-sm">
+                {block.hoursTable.map((row, index) => (
+                  <li key={index} className="flex items-center justify-between gap-4 py-1.5">
+                    <span className="font-medium text-zinc-900">{row.day}</span>
+                    <span className="text-zinc-600">
+                      {row.closed ? "Closed" : [row.open, row.close].filter(Boolean).join(" – ") || "–"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
+          ) : (
+            block.hours && (
+              <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Opening Hours
+                </span>
+                <p className="mt-1 text-sm font-medium text-zinc-900">
+                  {block.hours}
+                </p>
+              </div>
+            )
           )}
+
+          {block.locations &&
+            block.locations.map((location, index) => (
+              <div
+                key={index}
+                className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2"
+              >
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  {location.name || "Location"}
+                </span>
+                {location.address && (
+                  <p className="mt-1 text-sm font-medium text-zinc-900">{location.address}</p>
+                )}
+                {location.hours && <p className="mt-1 text-sm text-zinc-600">{location.hours}</p>}
+              </div>
+            ))}
+
+          {block.directionsUrl && sanitizeUrl(block.directionsUrl) ? (
+            <div className="sm:col-span-2">
+              <a
+                href={sanitizeUrl(block.directionsUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--site-primary,#c2410c)] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:opacity-90"
+              >
+                Get Directions
+              </a>
+            </div>
+          ) : null}
         </div>
 
         {/* Map Preview or Direction Link */}

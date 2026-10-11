@@ -29,6 +29,10 @@ import {
   MAX_CONTENT_DOC_CHARS,
   type ContentDoc,
 } from "@/lib/website-content";
+import {
+  checkPublishReadiness,
+} from "@/lib/website-template-resolver";
+import { getFlagshipTemplate } from "@/lib/website-template-v2";
 import { revalidatePath } from "next/cache";
 
 export interface ContentActionResult<T = unknown> {
@@ -36,7 +40,7 @@ export interface ContentActionResult<T = unknown> {
   data?: T;
   error?: string;
   /** Machine-readable stale-write signal (409-style); clients should reload. */
-  code?: "STALE_DRAFT" | "NO_DRAFT";
+  code?: "STALE_DRAFT" | "NO_DRAFT" | "NOT_READY";
 }
 
 interface ResolvedWebsiteContext {
@@ -44,6 +48,7 @@ interface ResolvedWebsiteContext {
   tenantId: string;
   websiteSlug: string;
   siteTitle: string;
+  metadata: Record<string, unknown>;
   userRole: EntityRole | null;
   canPublish: boolean;
 }
@@ -64,7 +69,7 @@ async function resolveAndAuthorizeWebsite(
   const supabaseAdmin = createSupabaseAdmin();
   const { data: websiteRow, error: websiteErr } = await supabaseAdmin
     .from("tenant_websites")
-    .select("id, tenant_id, slug, site_title")
+    .select("id, tenant_id, slug, site_title, metadata")
     .eq("id", websiteId)
     .maybeSingle();
 
@@ -96,6 +101,7 @@ async function resolveAndAuthorizeWebsite(
       tenantId,
       websiteSlug: websiteRow.slug as string,
       siteTitle: websiteRow.site_title as string,
+      metadata: (websiteRow.metadata ?? {}) as Record<string, unknown>,
       userRole,
       canPublish,
     },
@@ -319,6 +325,40 @@ export async function publishContentDraft(
 
   try {
     const supabaseAdmin = createSupabaseAdmin();
+
+    // Publish-readiness gate (v2 flagship templates only): refuse to publish
+    // when required slots have no real content, so samples never ship as
+    // ordinary content. Websites on the 6 old templates (or with no template
+    // id in metadata) skip the gate entirely.
+    const templateId =
+      typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
+    if (templateId && getFlagshipTemplate(templateId)) {
+      const templateVersion =
+        typeof ctx.metadata.templateVersion === "string"
+          ? ctx.metadata.templateVersion
+          : getFlagshipTemplate(templateId)?.version ?? "1.0.0";
+      const { data: gateDraft } = await supabaseAdmin
+        .from("website_content_drafts")
+        .select("content")
+        .eq("website_id", ctx.websiteId)
+        .maybeSingle();
+      if (gateDraft) {
+        const readiness = checkPublishReadiness(
+          templateId,
+          templateVersion,
+          normalizeContent(gateDraft.content ?? {})
+        );
+        if (!readiness.ready) {
+          const missing = readiness.missingRequired.map((slot) => slot.label).join(", ");
+          return {
+            success: false,
+            code: "NOT_READY",
+            error: `Not ready to publish — still missing: ${missing}.`,
+          };
+        }
+      }
+    }
+
     const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
       "publish_content_draft",
       {
