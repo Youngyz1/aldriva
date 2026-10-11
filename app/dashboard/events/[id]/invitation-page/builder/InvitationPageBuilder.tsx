@@ -23,7 +23,7 @@ import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapsh
 import type { InvitationTemplate } from "@/lib/invitation-types";
 import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
 import { saveInvitationPageDraft } from "@/lib/actions/invitation-page";
-import { hasDraftChanges } from "@/lib/invitation-page-helpers";
+import { hasDraftChanges, summarizeInvitationMusic } from "@/lib/invitation-page-helpers";
 import { createDraftSaveQueue, type SaveStatus } from "@/lib/draft-save-queue";
 import {
   DEFAULT_TEMPLATE_FOR_TYPE,
@@ -84,6 +84,7 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
     hashtag: d.hashtag ?? null,
     music_audio_url: d.music_audio_url ?? null,
     music_title: d.music_title ?? null,
+    music_links: d.music_links ?? null,
     partner1_name: d.partner1_name ?? null,
     partner2_name: d.partner2_name ?? null,
     family_note: d.family_note ?? null,
@@ -158,7 +159,6 @@ const TYPE_FIELD_MESSAGE_KEYS = {
   "Ceremony & reception venues": "invitationTypeFieldVenues",
   Accommodations: "invitationTypeFieldAccommodations",
   "Colors of the day": "invitationTypeFieldColorsOfTheDay",
-  "Our story chapters": "invitationTypeFieldWeddingStory",
   "Celebrant name": "invitationTypeFieldCelebrantName",
   "Age milestone": "invitationTypeFieldAgeMilestone",
   "Party theme": "invitationTypeFieldPartyTheme",
@@ -172,9 +172,20 @@ interface SectionBodyProps {
   event: InvitationPageDraftData["event"];
   invitationType: InvitationType | null;
   updateDraft: (patch: Partial<BuilderDraft>) => void;
+  removedUnsupportedMusicLinks: boolean;
+  onDismissUnsupportedMusicNotice: () => void;
 }
 
-function SectionBody({ id, eventId, draft, event, invitationType, updateDraft }: SectionBodyProps) {
+function SectionBody({
+  id,
+  eventId,
+  draft,
+  event,
+  invitationType,
+  updateDraft,
+  removedUnsupportedMusicLinks,
+  onDismissUnsupportedMusicNotice,
+}: SectionBodyProps) {
   switch (id) {
     case "basics":
       return <BasicsSection draft={draft} event={event} eventId={eventId} updateDraft={updateDraft} />;
@@ -187,7 +198,15 @@ function SectionBody({ id, eventId, draft, event, invitationType, updateDraft }:
     case "gallery":
       return <GallerySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "music":
-      return <MusicSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+      return (
+        <MusicSection
+          eventId={eventId}
+          draft={draft}
+          updateDraft={updateDraft}
+          showUnsupportedLinksNotice={removedUnsupportedMusicLinks}
+          onDismissUnsupportedLinksNotice={onDismissUnsupportedMusicNotice}
+        />
+      );
     case "extras":
       return <ExtrasSection draft={draft} invitationType={invitationType} updateDraft={updateDraft} />;
   }
@@ -212,7 +231,8 @@ function summaryFor(
   draft: BuilderDraft,
   section: SectionId,
   typeSummary: string | null,
-  templateSummary: string | null
+  templateSummary: string | null,
+  musicSummary: string
 ): string | null {
   switch (section) {
     case "type":
@@ -232,7 +252,7 @@ function summaryFor(
     case "gallery":
       return `${draft.gallery?.length ?? 0} / 12 photos`;
     case "music":
-      return draft.music_audio_url ? draft.music_title || "Track set" : "No music";
+      return musicSummary;
     case "extras":
       return "Type-specific fields";
     case "publish":
@@ -265,13 +285,32 @@ export function InvitationPageBuilder({
   const typeSummary = invitationType ? t(TYPE_NAME_MESSAGE_KEYS[invitationType]) : null;
   const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
   const templateSummary = templateNameKey ? t(templateNameKey) : draft.template_id;
+  const musicSummary = summarizeInvitationMusic(
+    draft.music_audio_url,
+    draft.music_title,
+    draft.music_links?.length ?? 0,
+    (count) => t("musicLinkCountSummary", { count })
+  );
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
+  const [showUnsupportedMusicNotice, setShowUnsupportedMusicNotice] = useState(false);
   const [previewViewport, setPreviewViewport] = useState<PreviewViewport>(390);
   const [previewLocale, setPreviewLocale] = useState<"en" | "fr">(draft.locale || "en");
   const [pageStatus, setPageStatus] = useState(initialData.draft.page_status);
   const [publishedAt, setPublishedAt] = useState<string | null>(initialData.publishedAt);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => {
+    if (!initialData.removedUnsupportedMusicLinks) return;
+    const noticeKey = `invitation-unsupported-music:${eventId}`;
+    try {
+      if (window.sessionStorage.getItem(noticeKey)) return;
+      window.sessionStorage.setItem(noticeKey, "shown");
+    } catch {
+      // If storage is unavailable, show the notice for this builder visit.
+    }
+    setShowUnsupportedMusicNotice(true);
+  }, [eventId, initialData.removedUnsupportedMusicLinks]);
 
   // ── Sequenced autosave (single flight, latest-wins, flush on leave) ────
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -533,8 +572,8 @@ export function InvitationPageBuilder({
         </section>
       )}
       {/* Status header (plain row, hairline divider — no card) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-1 pb-3">
-        <h1 className="mr-auto text-base font-black text-zinc-950">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-zinc-200 px-1 pb-3">
+        <h1 className="mr-auto min-w-0 flex-1 basis-48 text-base font-black text-zinc-950 [overflow-wrap:anywhere]">
           {initialData.event.title} — Invitation Page
         </h1>
         {initialData.draft.id && (
@@ -621,16 +660,25 @@ export function InvitationPageBuilder({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[440px_minmax(0,1fr)] max-w-full overflow-x-hidden">
+      <div
+        data-testid="invitation-builder-columns"
+        className="grid min-w-0 max-w-full grid-cols-1 items-start gap-4 xl:h-[calc(100dvh-10rem)] xl:grid-cols-[minmax(0,520px)_minmax(0,640px)] xl:justify-center"
+      >
         {/* Form column — CSS-hidden (never unmounted) when previewing on phones */}
-        <div className={cn("space-y-3", mobileView === "preview" && "hidden lg:block")}>
+        <div
+          data-testid="invitation-builder-form-column"
+          className={cn(
+            "min-w-0 space-y-3 xl:h-full xl:min-h-0 xl:max-h-full xl:overflow-x-hidden xl:overflow-y-auto xl:overscroll-contain xl:pr-3",
+            mobileView === "preview" && "hidden lg:block"
+          )}
+        >
           {SECTION_IDS.map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
               index={i}
               title={SECTION_TITLES[id]}
-              summary={summaryFor(draft, id, typeSummary, templateSummary)}
+              summary={summaryFor(draft, id, typeSummary, templateSummary, musicSummary)}
               open={openSection === id}
               onToggle={toggleSection}
             >
@@ -664,6 +712,8 @@ export function InvitationPageBuilder({
                   event={initialData.event}
                   invitationType={invitationType}
                   updateDraft={updateDraft}
+                  removedUnsupportedMusicLinks={showUnsupportedMusicNotice}
+                  onDismissUnsupportedMusicNotice={() => setShowUnsupportedMusicNotice(false)}
                 />
               )}
               {id === "publish" && (
@@ -689,11 +739,19 @@ export function InvitationPageBuilder({
         </div>
 
         {/* Preview column — CSS-hidden (never unmounted) when editing on phones */}
-        <div className={cn("w-full max-w-full overflow-x-hidden lg:sticky lg:top-4", mobileView === "edit" && "hidden lg:block")}>
+        <div
+          data-testid="invitation-builder-preview-column"
+          className={cn(
+            "w-full min-w-0 max-w-full xl:sticky xl:top-4 xl:w-full xl:max-w-[640px] xl:self-start xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]",
+            mobileView === "edit" && "hidden lg:block"
+          )}
+        >
           <InvitationPreviewPanel
             iframeSrc={`/invitation/builder-preview/${eventId}?embed=1`}
             iframeRef={iframeRef}
             title="Live invitation preview"
+            className="h-full min-h-0"
+            containerClassName="min-h-0 flex-1"
             caption="Preview language only — your editing language is unchanged."
             showLocaleToggle
             locale={previewLocale}

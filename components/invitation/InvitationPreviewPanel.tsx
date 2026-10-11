@@ -133,7 +133,7 @@ export function InvitationPreviewPanel({
     <div
       data-testid="invitation-preview-panel"
       className={cn(
-        "w-full max-w-full overflow-x-hidden rounded-xl border border-zinc-200 bg-white shadow-xs",
+        "flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs",
         className
       )}
     >
@@ -194,7 +194,7 @@ export function InvitationPreviewPanel({
       <div
         ref={containerRef}
         className={cn(
-          "w-full max-w-full overflow-x-hidden bg-zinc-100 p-3 sm:p-4 flex flex-col items-center justify-start min-h-[500px]",
+          "flex w-full min-h-[500px] max-w-full flex-1 flex-col items-center justify-start overflow-x-hidden bg-zinc-100 p-3 sm:p-4",
           containerClassName
         )}
       >

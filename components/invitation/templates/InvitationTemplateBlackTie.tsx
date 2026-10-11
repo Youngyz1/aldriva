@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
 import {
   Calendar,
   Clock,
@@ -11,8 +12,6 @@ import {
   XCircle,
   CalendarPlus,
   Share2,
-  Volume2,
-  VolumeX,
   ChevronDown,
   ExternalLink,
   Car,
@@ -37,6 +36,8 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 
 interface Props {
@@ -168,9 +169,16 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "", share
         fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* ── Optional Background Music Controller ──────────────────────────── */}
-      {data.musicAudioUrl && (
-        <FloatingMusicPlayer audioUrl={data.musicAudioUrl} title={data.musicTitle} />
+      {/* ── One music control: uploaded audio and supported provider embeds
+          play or pause from this pill. ─────────────────────────────────── */}
+      {(data.musicAudioUrl || (data.musicLinks && data.musicLinks.length > 0)) && (
+        <FloatingMusicControl
+          audioUrl={data.musicAudioUrl}
+          title={data.musicTitle}
+          links={data.musicLinks}
+          musicLabel={dict.music}
+          playingLabel={dict.playing}
+        />
       )}
 
       {/* ── Section 1: Hero Composition (Editorial & Framed) ─────────────── */}
@@ -292,34 +300,29 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "", share
 
           <div className="h-px w-20 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent mx-auto my-5" />
 
-          <h2
-            className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            {data.storyHeadline || dict.messageFromHost}
-          </h2>
+          {data.storyHeadline && (
+            <h2
+              className="text-2xl sm:text-3xl font-bold text-white tracking-tight"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {data.storyHeadline}
+            </h2>
+          )}
 
           <div className="mt-5 text-zinc-300 text-sm sm:text-base leading-relaxed space-y-4 font-light max-w-2xl mx-auto">
-            <p className="whitespace-pre-line">
-              {data.storyText ||
-                (locale === "fr"
-                  ? "Nous avons le plaisir de vous inviter à célébrer cet événement exceptionnel à nos côtés. Votre présence rendra cette rencontre inoubliable."
-                  : "We are delighted to invite you to celebrate this special occasion with us. Your presence will make our gathering truly memorable.")}
-            </p>
+            {data.storyText && <p className="whitespace-pre-line">{data.storyText}</p>}
           </div>
 
-          {/* Optional Host Portrait */}
-          {data.storyImage && (
-            <div className="mt-8 relative max-w-[280px] mx-auto aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl border border-amber-500/20">
-              <Image
-                src={data.storyImage}
-                alt="Host portrait"
-                fill
-                sizes="(max-width: 640px) 280px, 320px"
-                className="object-cover"
-              />
-            </div>
-          )}
+          <InvitationStoryMoments
+            items={data.weddingStory}
+            fallbackImage={data.storyImage}
+            className="mt-8 mx-auto max-w-2xl"
+            imageClassName="aspect-[4/5] rounded-2xl border border-amber-500/20 shadow-2xl"
+            itemClassName="border-0 bg-transparent shadow-none"
+            titleClassName="text-white"
+            textClassName="text-zinc-300"
+            imageAlt="Story moment"
+          />
         </div>
       </section>
 
@@ -677,15 +680,16 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "", share
           {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
             <div className="my-5 p-3.5 rounded-2xl bg-white/5 border border-white/10 max-w-[240px] mx-auto text-center">
               <div className="bg-white p-2.5 rounded-xl inline-block shadow-inner">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                    data.ticketInstance.qrCode
-                  )}&color=09090b`}
-                  alt="Entry QR Pass"
-                  width={140}
-                  height={140}
+                {/* Inline SVG avoids the old QRServer image blocked by img-src CSP. */}
+                <ExpandableSvgQr
+                  value={data.ticketInstance.qrCode}
+                  triggerSize={140}
+                  dark="#09090b"
+                  light="#ffffff"
                   className="rounded-lg"
+                  openLabel={dict.qrTapToEnlarge}
+                  title={dict.scanForAdmission}
+                  hint={dict.qrBrightnessHint}
                 />
               </div>
               <p className="mt-1.5 text-[9px] font-mono uppercase tracking-widest text-zinc-400">
@@ -904,75 +908,5 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
       captionClassName="text-xs text-zinc-400"
       lightboxCaptionClassName="text-xs sm:text-sm text-zinc-300 max-w-md text-center"
     />
-  );
-}
-
-// ── Subcomponent: Music Audio Controller ─────────────────────────────────────
-function FloatingMusicPlayer({ audioUrl, title }: { audioUrl: string; title?: string | null }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    function handleVisibility() {
-      if (document.hidden && audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      sessionStorage.setItem("aldriva_invitation_music", "paused");
-    } else {
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          sessionStorage.setItem("aldriva_invitation_music", "playing");
-        })
-        .catch(() => {
-          setIsPlaying(false);
-        });
-    }
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-40">
-      <audio ref={audioRef} src={audioUrl} loop preload="none" />
-      <button
-        type="button"
-        onClick={togglePlay}
-        className={`flex items-center gap-2 px-3 py-2 rounded-full border shadow-2xl backdrop-blur-lg transition-all ${
-          isPlaying
-            ? "bg-amber-500/20 border-amber-400 text-amber-300 shadow-amber-950/50"
-            : "bg-zinc-900/90 border-zinc-700 text-zinc-400 hover:text-zinc-200"
-        }`}
-        aria-label={isPlaying ? "Pause invitation music" : "Play invitation music"}
-      >
-        {isPlaying ? (
-          <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-        ) : (
-          <VolumeX className="w-3.5 h-3.5" />
-        )}
-
-        <span className="text-[11px] font-bold tracking-wider uppercase hidden sm:inline max-w-[120px] truncate">
-          {isPlaying ? (title || "Playing Music") : "Music"}
-        </span>
-
-        {isPlaying && (
-          <span className="flex items-center gap-0.5 h-2.5">
-            <span className="w-0.5 h-2.5 bg-amber-400 animate-bounce" />
-            <span className="w-0.5 h-1.5 bg-amber-400 animate-bounce delay-75" />
-            <span className="w-0.5 h-2.5 bg-amber-400 animate-bounce delay-150" />
-          </span>
-        )}
-      </button>
-    </div>
   );
 }

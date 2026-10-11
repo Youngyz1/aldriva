@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { Search, Mail, Key, ArrowRight, Download, MailCheck, AlertTriangle, Ticket } from "lucide-react";
+import { ExpandableSvgQr, downloadQrPng } from "@/components/cards/ExpandableQr";
 
 type Order = {
   id: string;
@@ -38,40 +39,21 @@ const statusStyle: Record<string, { label: string; classes: string }> = {
 
 function TicketCard({ order }: { order: Order }) {
   const status = statusStyle[order.status] ?? statusStyle.valid;
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [qrGenerated, setQrGenerated] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   const verifyUrl = typeof window !== "undefined"
     ? `${window.location.origin}/verify/${order.qr_code}`
     : `/verify/${order.qr_code}`;
 
-  useEffect(() => {
-    if (!order.qr_code || !canvasRef.current) return;
-
-    import("qrcode").then((QRCode) => {
-      QRCode.toCanvas(
-        canvasRef.current!,
-        verifyUrl,
-        {
-          width: 180,
-          margin: 1,
-          color: { dark: "#18181b", light: "#ffffff" },
-        },
-        (err) => {
-          if (!err) setQrGenerated(true);
-        }
-      );
-    });
-  }, [order.qr_code, verifyUrl]);
-
-  function downloadQR() {
-    if (!canvasRef.current) return;
-    const url = canvasRef.current.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ticket-${order.qr_code.slice(0, 8)}.png`;
-    a.click();
+  async function downloadQR() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadQrPng(verifyUrl, `ticket-${order.qr_code.slice(0, 8)}.png`);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   async function handleResendEmail() {
@@ -129,12 +111,16 @@ function TicketCard({ order }: { order: Order }) {
         <div className="flex flex-col md:flex-row gap-6 items-center">
           {/* QR Code Container */}
           <div className="relative w-36 h-36 flex-shrink-0 flex items-center justify-center bg-zinc-50 border border-zinc-100 rounded-2xl overflow-hidden">
-            {!qrGenerated && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white">
-                <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-            <canvas ref={canvasRef} className="w-32 h-32 rounded-lg" />
+            <ExpandableSvgQr
+              value={verifyUrl}
+              triggerSize={180}
+              dark="#18181b"
+              light="#ffffff"
+              className="rounded-lg"
+              openLabel="Tap to enlarge ticket QR code"
+              title="Ticket QR code"
+              hint="Hold your QR code toward the scanner. Increase your screen brightness if needed."
+            />
           </div>
 
           {/* Ticket Information */}

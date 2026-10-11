@@ -11,18 +11,16 @@
 import React, {
   useState,
   useEffect,
-  useRef,
   useMemo,
 } from "react";
 import Image from "next/image";
+import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
 import { Cormorant_Garamond, Lora } from "next/font/google";
 import {
   CheckCircle2,
   XCircle,
   CalendarPlus,
   Share2,
-  Volume2,
-  VolumeX,
   ExternalLink,
   Check,
   Loader2,
@@ -41,6 +39,8 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
@@ -207,12 +207,15 @@ export function InvitationTemplate1({ data, onRsvp, className = "", shared = fal
         fontFamily: FF_TEXT,
       } as React.CSSProperties}
     >
-      {/* Optional Background Music */}
-      {data.musicAudioUrl && (
-        <FloatingMusicPlayer
+      {/* ── One music control: uploaded audio and supported provider embeds
+          play or pause from this pill. ─────────────────────────────────── */}
+      {(data.musicAudioUrl || (data.musicLinks && data.musicLinks.length > 0)) && (
+        <FloatingMusicControl
           audioUrl={data.musicAudioUrl}
           title={data.musicTitle}
-          dict={dict}
+          links={data.musicLinks}
+          musicLabel={dict.music}
+          playingLabel={dict.playing}
         />
       )}
 
@@ -372,40 +375,37 @@ export function InvitationTemplate1({ data, onRsvp, className = "", shared = fal
 
           <HairlineRule />
 
-          <h2
-            className="mt-8 mb-5"
-            style={{
-              fontFamily: FF_DISPLAY,
-              fontSize: "clamp(1.5rem, 3vw, 2rem)",
-              fontWeight: 600,
-              color: "var(--inv-ink)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {data.storyHeadline || dict.messageFromHost}
-          </h2>
+          {data.storyHeadline && (
+            <h2
+              className="mt-8 mb-5"
+              style={{
+                fontFamily: FF_DISPLAY,
+                fontSize: "clamp(1.5rem, 3vw, 2rem)",
+                fontWeight: 600,
+                color: "var(--inv-ink)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {data.storyHeadline}
+            </h2>
+          )}
 
           <div
             className="text-sm sm:text-base leading-[1.85] max-w-xl mx-auto space-y-4"
             style={{ color: "var(--inv-ink-muted)", fontFamily: FF_TEXT }}
           >
-            <p className="whitespace-pre-line">
-              {data.storyText ||
-                "We are delighted to invite you to celebrate this special occasion with us. Your presence will make our gathering truly memorable."}
-            </p>
+            {data.storyText && <p className="whitespace-pre-line">{data.storyText}</p>}
           </div>
 
-          {data.storyImage && (
-            <div className="mt-14 relative w-full max-w-md mx-auto aspect-[3/4] rounded-none overflow-hidden shadow-sm">
-              <Image
-                src={data.storyImage}
-                alt="Host portrait"
-                fill
-                sizes="(max-width: 640px) 100vw, 448px"
-                className="object-cover"
-              />
-            </div>
-          )}
+          <InvitationStoryMoments
+            items={data.weddingStory}
+            fallbackImage={data.storyImage}
+            className="mt-14 mx-auto max-w-md"
+            imageClassName="aspect-[3/4] rounded-none shadow-sm"
+            itemClassName="border-0 bg-transparent shadow-none"
+            contentClassName="text-center"
+            imageAlt="Story moment"
+          />
         </div>
       </section>
 
@@ -806,7 +806,13 @@ export function InvitationTemplate1({ data, onRsvp, className = "", shared = fal
               <div className="mt-4">
                 <HairlineRule />
                 <div className="mt-4 inline-block">
-                  <CanvasQRCode value={data.ticketInstance.qrCode} size={160} />
+                  <CanvasQRCode
+                    value={data.ticketInstance.qrCode}
+                    size={160}
+                    openLabel={dict.qrTapToEnlarge}
+                    title={dict.presentForAdmission}
+                    hint={dict.qrBrightnessHint}
+                  />
                 </div>
                 <p
                   className="mt-2 text-[9px] tracking-[0.2em] uppercase"
@@ -983,33 +989,28 @@ function HeroFallback({
   );
 }
 
-function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current || !value) return;
-    import("qrcode")
-      .then((QRCode) => {
-        if (!canvasRef.current) return;
-        QRCode.toCanvas(canvasRef.current, value, {
-          width: size,
-          margin: 2,
-          color: {
-            dark: "#1C1A18",
-            light: "#FFFFFF",
-          },
-        }).catch(() => {});
-      })
-      .catch(() => {});
-  }, [value, size]);
-
+function CanvasQRCode({
+  value,
+  size = 160,
+  openLabel,
+  title,
+  hint,
+}: {
+  value: string;
+  size?: number;
+  openLabel: string;
+  title: string;
+  hint: string;
+}) {
   return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={size}
-      aria-label="Entry QR code"
-      style={{ display: "block" }}
+    <ExpandableSvgQr
+      value={value}
+      triggerSize={size}
+      dark="#1C1A18"
+      light="#FFFFFF"
+      openLabel={openLabel}
+      title={title}
+      hint={hint}
     />
   );
 }
@@ -1198,84 +1199,5 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
       captionClassName="text-xs"
       lightboxCaptionClassName="text-xs"
     />
-  );
-}
-
-function FloatingMusicPlayer({
-  audioUrl,
-  title,
-  dict,
-}: {
-  audioUrl: string;
-  title?: string | null;
-  dict: ReturnType<typeof getInvitationDictionary>;
-}) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    function handleVisibility() {
-      if (document.hidden && audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      sessionStorage.setItem("aldriva_invitation_music", "paused");
-    } else {
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          sessionStorage.setItem("aldriva_invitation_music", "playing");
-        })
-        .catch(() => {
-          setIsPlaying(false);
-        });
-    }
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-40">
-      <audio ref={audioRef} src={audioUrl} loop preload="none" />
-      <button
-        type="button"
-        onClick={togglePlay}
-        className="flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg transition-all"
-        style={{
-          background: "var(--inv-white)",
-          borderColor: isPlaying ? "var(--inv-accent)" : "var(--inv-rule)",
-          color: isPlaying ? "var(--inv-accent)" : "var(--inv-ink-muted)",
-        }}
-        aria-label={isPlaying ? "Pause invitation music" : "Play invitation music"}
-      >
-        {isPlaying ? (
-          <Volume2 className="w-3.5 h-3.5" />
-        ) : (
-          <VolumeX className="w-3.5 h-3.5" />
-        )}
-        <span
-          className="text-[11px] uppercase tracking-widest hidden sm:inline max-w-[120px] truncate"
-          style={{ fontFamily: FF_TEXT }}
-        >
-          {isPlaying ? (title || dict.playing) : dict.music}
-        </span>
-        {isPlaying && (
-          <span className="flex items-end gap-0.5 h-3">
-            <span className="w-0.5 h-3 animate-bounce" style={{ background: "var(--inv-accent)" }} />
-            <span className="w-0.5 h-2 animate-bounce" style={{ background: "var(--inv-accent)", animationDelay: "75ms" }} />
-            <span className="w-0.5 h-3 animate-bounce" style={{ background: "var(--inv-accent)", animationDelay: "150ms" }} />
-          </span>
-        )}
-      </button>
-    </div>
   );
 }

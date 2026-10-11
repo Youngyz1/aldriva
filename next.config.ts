@@ -74,6 +74,11 @@ const cspDirectives = [
     "https://js.stripe.com",
     "https://*.js.stripe.com",
     "https://www.googletagmanager.com",
+    // Invitation music pill player SDKs (minimum required: Spotify iFrame
+    // API + its runtime bundle + SoundCloud Widget API loader).
+    "https://open.spotify.com",
+    "https://embed-cdn.spotifycdn.com",
+    "https://w.soundcloud.com",
   ],
   [
     "style-src",
@@ -92,6 +97,7 @@ const cspDirectives = [
     "https://supabase.in",
     "https://*.supabase.co",
     "https://*.supabase.in",
+    "https://images.unsplash.com",
   ],
   [
     "font-src",
@@ -128,6 +134,9 @@ const cspDirectives = [
     "https://www.youtube.com",
     "https://www.youtube-nocookie.com",
     "https://player.vimeo.com",
+    // Invitation pill-controlled provider players only.
+    "https://open.spotify.com",
+    "https://w.soundcloud.com",
     "https://maps.google.com",
     "https://www.google.com",
     "https://*.google.com",

@@ -19,16 +19,16 @@
  * - RSVP: Formal wedding response card styling with canvas QR pass.
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
+import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 import { Great_Vibes, Playfair_Display, Lora } from "next/font/google";
 import {
   CheckCircle2,
   XCircle,
   CalendarPlus,
   Share2,
-  Volume2,
-  VolumeX,
   ExternalLink,
   Check,
   Loader2,
@@ -49,6 +49,8 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
@@ -261,9 +263,16 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
         fontFamily: FF_BODY,
       } as React.CSSProperties}
     >
-      {/* Optional Background Music */}
-      {data.musicAudioUrl && (
-        <FloatingWeddingMusic audioUrl={data.musicAudioUrl} title={data.musicTitle} />
+      {/* ── One music control: uploaded audio and supported provider embeds
+          play or pause from this pill. ─────────────────────────────────── */}
+      {(data.musicAudioUrl || (data.musicLinks && data.musicLinks.length > 0)) && (
+        <FloatingMusicControl
+          audioUrl={data.musicAudioUrl}
+          title={data.musicTitle}
+          links={data.musicLinks}
+          musicLabel={dict.music}
+          playingLabel={dict.playing}
+        />
       )}
 
       {/* ── Section 1: Hero Composition (Arch Photo & Calligraphic Names) ──── */}
@@ -416,27 +425,26 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
 
           <WeddingHairline />
 
-          <h3
-            className="text-xl sm:text-2xl text-(--wed-ink) font-medium mt-6 mb-4"
-            style={{ fontFamily: FF_DISPLAY }}
-          >
-            {data.storyHeadline || "A Message of Welcome"}
-          </h3>
+          {data.storyHeadline && (
+            <h3
+              className="text-xl sm:text-2xl text-(--wed-ink) font-medium mt-6 mb-4"
+              style={{ fontFamily: FF_DISPLAY }}
+            >
+              {data.storyHeadline}
+            </h3>
+          )}
 
           <div
             className="text-sm sm:text-base leading-[1.85] text-(--wed-ink-muted) max-w-xl mx-auto space-y-4"
             style={{ fontFamily: FF_BODY }}
           >
-            <p className="whitespace-pre-line">
-              {data.storyText ||
-                "With grateful hearts, we invite you to share in our joy as we begin this new chapter. Your love and friendship have shaped our lives, and we could not imagine this celebration without you."}
-            </p>
+            {data.storyText && <p className="whitespace-pre-line">{data.storyText}</p>}
           </div>
         </div>
       </section>
 
       {/* ── Section 3: Our Story (Alternating Milestones) ──────────────────── */}
-      {(data.weddingStory && data.weddingStory.length > 0) ? (
+      {((data.weddingStory?.some((item) => Boolean(item.image || item.title?.trim() || item.text?.trim()))) || data.storyImage) ? (
         <section aria-label="Our Story" className="py-16 sm:py-24 px-6 bg-(--wed-bg)">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
@@ -449,58 +457,15 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
               </h2>
             </div>
 
-            <div className="space-y-12">
-              {data.weddingStory.map((storyItem, idx) => {
-                const isEven = idx % 2 === 0;
-                return (
-                  <div
-                    key={idx}
-                    className={`flex flex-col ${
-                      isEven ? "md:flex-row" : "md:flex-row-reverse"
-                    } items-center gap-6 sm:gap-10 py-2`}
-                  >
-                    {storyItem.image && (
-                      <div className="relative w-full md:w-1/2 aspect-[4/3] rounded-xl overflow-hidden shadow-inner shrink-0">
-                        <Image
-                          src={storyItem.image}
-                          alt={storyItem.title || "Story moment"}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 360px"
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 text-center md:text-left space-y-2">
-                      {storyItem.title && (
-                        <h3
-                          className="text-lg sm:text-xl font-medium text-(--wed-ink)"
-                          style={{ fontFamily: FF_DISPLAY }}
-                        >
-                          {storyItem.title}
-                        </h3>
-                      )}
-                      <p
-                        className="text-xs sm:text-sm text-(--wed-ink-muted) leading-relaxed whitespace-pre-line"
-                        style={{ fontFamily: FF_BODY }}
-                      >
-                        {storyItem.text}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      ) : data.storyImage ? (
-        <section aria-label="Couple Portrait" className="py-12 px-6 bg-(--wed-bg)">
-          <div className="max-w-md mx-auto aspect-[4/5] relative rounded-2xl overflow-hidden shadow-lg border-4 border-white">
-            <Image
-              src={data.storyImage}
-              alt="Couple portrait"
-              fill
-              sizes="(max-width: 640px) 100vw, 448px"
-              className="object-cover"
+            <InvitationStoryMoments
+              items={data.weddingStory}
+              fallbackImage={data.storyImage}
+              layout="alternating"
+              className="py-2"
+              imageClassName="rounded-xl shadow-inner"
+              titleClassName="text-lg sm:text-xl font-medium text-(--wed-ink)"
+              textClassName="text-xs sm:text-sm text-(--wed-ink-muted) leading-relaxed"
+              imageAlt="Story moment"
             />
           </div>
         </section>
@@ -639,7 +604,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
                     <div key={cIdx} className="flex flex-col items-center gap-1.5">
                       <div
                         className="w-10 h-10 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
-                        style={{ backgroundColor: color.hex }}
+                        style={{ backgroundColor: normalizeInvitationColorHex(color.hex) ?? "transparent" }}
                         title={color.name || color.hex}
                       />
                       {color.name && (
@@ -883,7 +848,13 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
               <div className="pt-4 border-t border-(--wed-rule)">
                 <div className="p-3 bg-(--wed-bg-alt) rounded-xl inline-block shadow-inner">
-                  <WeddingCanvasQR value={data.ticketInstance.qrCode} size={150} />
+                  <WeddingCanvasQR
+                    value={data.ticketInstance.qrCode}
+                    size={150}
+                    openLabel={dict.qrTapToEnlarge}
+                    title={dict.scanForAdmission}
+                    hint={dict.qrBrightnessHint}
+                  />
                 </div>
                 <p className="mt-2 text-[9px] uppercase tracking-widest text-(--wed-ink-subtle)">
                   {dict.scanForAdmission}
@@ -961,33 +932,28 @@ function WeddingLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function WeddingCanvasQR({ value, size = 150 }: { value: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current || !value) return;
-    import("qrcode")
-      .then((QRCode) => {
-        if (!canvasRef.current) return;
-        QRCode.toCanvas(canvasRef.current, value, {
-          width: size,
-          margin: 1,
-          color: {
-            dark: "#2C2220",
-            light: "#FAF8F5",
-          },
-        }).catch(() => {});
-      })
-      .catch(() => {});
-  }, [value, size]);
-
+function WeddingCanvasQR({
+  value,
+  size = 150,
+  openLabel,
+  title,
+  hint,
+}: {
+  value: string;
+  size?: number;
+  openLabel: string;
+  title: string;
+  hint: string;
+}) {
   return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={size}
-      aria-label="Wedding QR code pass"
-      className="rounded-lg"
+    <ExpandableSvgQr
+      value={value}
+      triggerSize={size}
+      dark="#2C2220"
+      light="#FAF8F5"
+      openLabel={openLabel}
+      title={title}
+      hint={hint}
     />
   );
 }
@@ -1145,73 +1111,5 @@ function WeddingGallery({ images }: { images: InvitationGalleryItem[] }) {
       captionClassName="text-xs text-(--wed-ink-muted)"
       lightboxCaptionClassName="text-xs text-white/80"
     />
-  );
-}
-
-// ── Floating Wedding Music Player ────────────────────────────────────────────
-function FloatingWeddingMusic({ audioUrl, title }: { audioUrl: string; title?: string | null }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    function handleVisibility() {
-      if (document.hidden && audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      sessionStorage.setItem("aldriva_invitation_music", "paused");
-    } else {
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          sessionStorage.setItem("aldriva_invitation_music", "playing");
-        })
-        .catch(() => {
-          setIsPlaying(false);
-        });
-    }
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-40">
-      <audio ref={audioRef} src={audioUrl} loop preload="none" />
-      <button
-        type="button"
-        onClick={togglePlay}
-        className="flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg bg-white transition-all text-xs"
-        style={{
-          borderColor: isPlaying ? "var(--wed-rose)" : "var(--wed-rule)",
-          color: isPlaying ? "var(--wed-rose)" : "var(--wed-ink-muted)",
-        }}
-        aria-label={isPlaying ? "Pause wedding music" : "Play wedding music"}
-      >
-        {isPlaying ? (
-          <Volume2 className="w-3.5 h-3.5 text-(--wed-rose)" />
-        ) : (
-          <VolumeX className="w-3.5 h-3.5" />
-        )}
-        <span className="uppercase tracking-wider hidden sm:inline max-w-[120px] truncate">
-          {isPlaying ? (title || "Wedding Strings") : "Music"}
-        </span>
-        {isPlaying && (
-          <span className="flex items-end gap-0.5 h-3">
-            <span className="w-0.5 h-3 bg-(--wed-rose) animate-bounce" />
-            <span className="w-0.5 h-2 bg-(--wed-rose) animate-bounce delay-75" />
-            <span className="w-0.5 h-3 bg-(--wed-rose) animate-bounce delay-150" />
-          </span>
-        )}
-      </button>
-    </div>
   );
 }

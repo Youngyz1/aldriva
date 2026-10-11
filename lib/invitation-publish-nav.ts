@@ -47,7 +47,7 @@ const PREFIX_SECTION_RULES: { prefix: string; section: BuilderSectionId }[] = [
   { prefix: "registry_note", section: "extras" },
   { prefix: "accommodations", section: "extras" },
   { prefix: "colors_of_the_day", section: "extras" },
-  { prefix: "wedding_story", section: "extras" },
+  { prefix: "wedding_story", section: "story" },
   { prefix: "celebrant_name", section: "extras" },
   { prefix: "age_milestone", section: "extras" },
   { prefix: "theme", section: "extras" },

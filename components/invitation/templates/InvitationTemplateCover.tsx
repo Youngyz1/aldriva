@@ -15,8 +15,9 @@
  * shared mode, HIDE-IF-EMPTY sections vanish from the DOM.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { InvitationPageData } from "@/types/invitation-template";
 import {
@@ -25,6 +26,8 @@ import {
   type InvitationLocale,
 } from "@/lib/invitation-i18n";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 import { cn } from "@/lib/utils";
 
@@ -45,20 +48,28 @@ interface Props {
   previewMode?: "thumbnail";
 }
 
-function CanvasQRCode({ value, size = 160 }: { value: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    import("qrcode")
-      .then((QRCode) => {
-        QRCode.toCanvas(canvasRef.current, value, {
-          width: size,
-          margin: 1,
-        });
-      })
-      .catch(() => {});
-  }, [value, size]);
-  return <canvas ref={canvasRef} aria-label="Entry QR code" />;
+function CanvasQRCode({
+  value,
+  size = 160,
+  openLabel,
+  title,
+  hint,
+}: {
+  value: string;
+  size?: number;
+  openLabel: string;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <ExpandableSvgQr
+      value={value}
+      triggerSize={size}
+      openLabel={openLabel}
+      title={title}
+      hint={hint}
+    />
+  );
 }
 
 export function InvitationTemplateCover({ data, onRsvp, className = "", shared = false, previewMode }: Props) {
@@ -190,19 +201,24 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
       </section>
 
       {/* ── Section 2: story (HIDE-IF-EMPTY beyond the hero excerpt) ────── */}
-      {data.storyHeadline && (
+      {(data.storyHeadline || data.storyText || data.storyImage || data.weddingStory?.some((item) => Boolean(item.image || item.title?.trim() || item.text?.trim()))) && (
         <section id="inv-story" aria-label="Event story" className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-          <h2
-            className="text-xl font-bold text-white"
-            style={{ fontFamily: FF_DISPLAY }}
-          >
-            {data.storyHeadline}
-          </h2>
-          {data.storyImage && (
-            <span className="relative mt-4 block aspect-[16/9] w-full overflow-hidden rounded-xl">
-              <Image src={data.storyImage} alt="" fill sizes="100vw" className="object-cover" />
-            </span>
+          {data.storyHeadline && (
+            <h2
+              className="text-xl font-bold text-white"
+              style={{ fontFamily: FF_DISPLAY }}
+            >
+              {data.storyHeadline}
+            </h2>
           )}
+          {data.storyText && <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-zinc-200">{data.storyText}</p>}
+          <InvitationStoryMoments
+            items={data.weddingStory}
+            fallbackImage={data.storyImage}
+            className="mt-4"
+            imageClassName="aspect-[16/9] rounded-xl"
+            imageAlt="Story moment"
+          />
         </section>
       )}
 
@@ -255,6 +271,18 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
         </section>
       )}
 
+      {/* ── One music control: uploaded audio and supported provider embeds
+          play or pause from this pill. ─────────────────────────────────── */}
+      {(data.musicAudioUrl || (data.musicLinks && data.musicLinks.length > 0)) && (
+        <FloatingMusicControl
+          audioUrl={data.musicAudioUrl}
+          title={data.musicTitle}
+          links={data.musicLinks}
+          musicLabel={dict.music}
+          playingLabel={dict.playing}
+        />
+      )}
+
       {/* ── Section 6: RSVP + entry pass ────────────────────────────────── */}
       <section id="rsvp-section" aria-label="RSVP" className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
         {shared ? (
@@ -295,7 +323,13 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
             )}
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
               <div className="mt-4 flex items-center gap-4 rounded-xl bg-white p-4 text-zinc-900">
-                <CanvasQRCode value={data.ticketInstance.qrCode} size={120} />
+                <CanvasQRCode
+                  value={data.ticketInstance.qrCode}
+                  size={120}
+                  openLabel={dict.qrTapToEnlarge}
+                  title={dict.presentForAdmission}
+                  hint={dict.qrBrightnessHint}
+                />
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-wider text-zinc-500">{dict.presentForAdmission}</p>
                   <p className="mt-1 truncate text-sm font-bold">{data.guest.name}</p>

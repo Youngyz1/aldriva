@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import Image from "next/image";
 import {
   Calendar,
@@ -15,13 +15,13 @@ import {
   Copy,
   Check,
   Ban,
-  Loader2,
   Share2,
   Sparkles,
   ShieldCheck,
   Eye,
 } from "lucide-react";
 import { BRAND } from "@/config/branding";
+import { ExpandableSvgQr, downloadQrPng } from "@/components/cards/ExpandableQr";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Types & Design Tokens
@@ -283,44 +283,22 @@ export function CardQRCode({
   status?: CardStatusType;
   theme?: CardTheme;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const verifyUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/verify/${qrCode}`
       : `/verify/${qrCode}`;
 
-  useEffect(() => {
-    if (!qrCode || !canvasRef.current) return;
-
-    import("qrcode").then((QRCode) => {
-      QRCode.toCanvas(
-        canvasRef.current!,
-        verifyUrl,
-        {
-          width: 200,
-          margin: 1,
-          color: {
-            dark: "#09090b",
-            light: "#ffffff",
-          },
-        },
-        (err) => {
-          if (!err) setLoaded(true);
-        }
-      );
-    });
-  }, [qrCode, verifyUrl]);
-
-  function downloadQR() {
-    if (!canvasRef.current) return;
-    const url = canvasRef.current.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `aldriva-pass-${qrCode.slice(0, 8)}.png`;
-    a.click();
+  async function downloadQR() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadQrPng(verifyUrl, `aldriva-pass-${qrCode.slice(0, 8)}.png`);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function copyPassUrl() {
@@ -339,12 +317,16 @@ export function CardQRCode({
     <div className="flex flex-col items-center py-6">
       {/* QR Container */}
       <div className="relative p-4 bg-white rounded-2xl shadow-xl flex flex-col items-center">
-        {!loaded && (
-          <div className="w-[200px] h-[200px] flex items-center justify-center">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-          </div>
-        )}
-        <canvas ref={canvasRef} className={`rounded-lg ${loaded ? "block" : "hidden"}`} />
+        <ExpandableSvgQr
+          value={verifyUrl}
+          triggerSize={200}
+          dark="#09090b"
+          light="#ffffff"
+          className="rounded-lg"
+          openLabel="Tap to enlarge entry QR code"
+          title="Entry QR code"
+          hint="Hold your QR code toward the scanner. Increase your screen brightness if needed."
+        />
 
         {isCancelled && (
           <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center text-red-400 p-4 text-center">

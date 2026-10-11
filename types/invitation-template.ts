@@ -29,8 +29,7 @@ export interface InvitationScheduleItem {
 }
 
 // ── Photo Gallery Item ───────────────────────────────────────────────────────
-export interface InvitationGalleryItem {
-  /** [REQUIRED in item] Secure image URL */
+export interface InvitationGalleryItem {  /** [REQUIRED in item] Secure image URL */
   url: string;
   /** [HIDE-IF-EMPTY] Accessible alt text */
   alt?: string | null;
@@ -42,6 +41,20 @@ export interface InvitationGalleryItem {
   width?: number;
   /** [HIDE-IF-EMPTY] Optional height for native image aspect ratio calculation */
   height?: number;
+}
+
+// ── External Music Link Item ─────────────────────────────────────────────────
+export interface InvitationMusicLink {
+  /** [REQUIRED in item] Provider key: Spotify or SoundCloud. */
+  provider: "spotify" | "soundcloud";
+  /** [REQUIRED in item] Host-pasted canonical HTTPS URL */
+  url: string;
+  /** [REQUIRED in item] Provider-documented embed URL built from validated identifiers */
+  embedUrl: string;
+  /** Tall player variant (collections) vs compact (single tracks) */
+  tall?: boolean | null;
+  /** [HIDE-IF-EMPTY] Optional host label */
+  label?: string | null;
 }
 
 // ── Accommodation / Travel Recommendation ────────────────────────────────────
@@ -134,7 +147,7 @@ export interface InvitationPageData {
   scrollPrompt?: string | null;
 
   // ── [DEFAULT-WITH-OVERRIDE] Welcome / Story ───────────────────────────────
-  /** Story section headline. Default: "A Message from the Host" */
+  /** Optional story section headline. */
   storyHeadline?: string | null;
   /** Narrative text or welcome letter */
   storyText?: string | null;
@@ -190,6 +203,8 @@ export interface InvitationPageData {
   musicAudioUrl?: string | null;
   /** Track title or descriptor, e.g. "Chamber Strings — Clair de Lune" */
   musicTitle?: string | null;
+  /** External provider players (Spotify / SoundCloud). If empty, section is omitted */
+  musicLinks?: InvitationMusicLink[] | null;
 
   // ── [HIDE-IF-EMPTY] Wedding-Specific Fields ──────────────────────────────
   /** First partner name for wedding invitations (e.g. "Elena") */
@@ -204,8 +219,8 @@ export interface InvitationPageData {
   colorsOfTheDay?: { name?: string; hex: string }[] | null;
   /** Gift registry link or note (e.g. "Your presence is our gift. For those who wish to contribute...") */
   registryNote?: string | null;
-  /** Alternating story milestones (e.g. "How We Met", "The Proposal") */
-  weddingStory?: { title?: string; text: string; image?: string | null }[] | null;
+  /** Ordered story moments with optional image, caption, and text. */
+  weddingStory?: { title?: string | null; text?: string | null; image?: string | null }[] | null;
 
   // ── [HIDE-IF-EMPTY] Birthday-Specific Fields ─────────────────────────────
   /** Celebrant name (e.g. "Maya Rodriguez") */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Camera, Check, Copy, Download, QrCode, RefreshCw, Trash2, X } from "lucide-react";
 import {
@@ -12,6 +12,7 @@ import {
   setMemoryRequireApproval,
   setMemoryUploadsActive,
 } from "@/lib/actions/event-memories";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
 
 export type MemoryPhotoView = {
   id: string;
@@ -29,19 +30,18 @@ export type MemoryPhotoView = {
 type Tab = "pending" | "approved" | "rejected";
 
 function QrPanel({ url }: { url: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    import("qrcode").then((QRCode) => {
-      QRCode.toCanvas(canvasRef.current!, url, { width: 200, margin: 1 });
-    });
-  }, [url]);
 
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-xs sm:flex-row sm:gap-5">
-      <canvas ref={canvasRef} className="h-40 w-40 rounded-lg border border-zinc-200" />
+      <ExpandableSvgQr
+        value={url}
+        triggerSize={160}
+        openLabel="Tap to enlarge memories QR code"
+        title="Memories QR code"
+        hint="Hold your QR code toward the scanner. Increase your screen brightness if needed."
+        className="rounded-lg border border-zinc-200"
+      />
       <div className="min-w-0 flex-1 text-center sm:text-left">
         <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Guest upload link</p>
         <p className="mt-1 break-all text-xs font-semibold text-zinc-700">{url}</p>

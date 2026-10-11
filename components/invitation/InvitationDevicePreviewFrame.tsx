@@ -148,6 +148,7 @@ export function InvitationDevicePreviewFrame({
             src={iframeSrc}
             className="block h-full w-full border-0 bg-white"
             style={{ width: contentWidth, height: contentHeight }}
+            allow="autoplay"
             sandbox="allow-scripts allow-same-origin"
           />
         </div>

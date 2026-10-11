@@ -8,6 +8,8 @@
 
 import { z } from "zod";
 import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
+import { MAX_MUSIC_LINKS, validateMusicLink } from "@/lib/invitation-music-links";
+import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 
 // Helpers for safe URLs
 const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
@@ -42,6 +44,22 @@ export function isValidStorageAudioUrl(url: string | null | undefined): boolean 
 }
 
 // ── Item Schemas ─────────────────────────────────────────────────────────
+
+export const MusicLinkSchema = z
+  .object({
+    provider: z.enum(["spotify", "soundcloud"]),
+    url: z.string().min(1, "Music link URL is required").max(500, "Music link URL is too long"),
+    embedUrl: z.string().min(1, "Embed URL is required").max(500, "Embed URL is too long"),
+    tall: z.boolean().optional().nullable(),
+    label: z.string().max(80, "Music label must be at most 80 characters").optional().nullable(),
+  })
+  .refine(
+    (item) => {
+      const checked = validateMusicLink(item.url);
+      return checked.ok && checked.item.provider === item.provider;
+    },
+    { message: "Only Spotify and SoundCloud links are supported. Upload audio for anything else.", path: ["url"] }
+  );
 
 export const ScheduleItemSchema = z.object({
   time: z.string().min(1, "Time is required").max(20, "Time must be at most 20 characters"),
@@ -88,12 +106,13 @@ export const ColorOfTheDaySchema = z.object({
   name: z.string().max(30, "Color name must be at most 30 characters").optional().nullable(),
   hex: z
     .string()
-    .refine((val) => HEX_COLOR_REGEX.test(val), "Color must be a valid 6-character hex code (e.g. #F4B266)"),
+    .refine((val) => HEX_COLOR_REGEX.test(val), "Color must be a valid 6-character hex code (e.g. #F4B266)")
+    .transform((val) => normalizeInvitationColorHex(val) ?? val),
 });
 
 export const WeddingStoryItemSchema = z.object({
   title: z.string().max(80, "Story title must be at most 80 characters").optional().nullable(),
-  text: z.string().min(1, "Story text is required").max(500, "Story paragraph must be at most 500 characters"),
+  text: z.string().max(500, "Story paragraph must be at most 500 characters").optional().nullable(),
   image: z
     .string()
     .refine((val) => !val || isValidStorageImageUrl(val), "Story image must be from storage")
@@ -144,6 +163,11 @@ export const InvitationPageDraftSchema = z.object({
     .optional()
     .nullable(),
   music_title: z.string().max(100, "Track title must be at most 100 characters").optional().nullable(),
+  music_links: z
+    .array(MusicLinkSchema)
+    .max(MAX_MUSIC_LINKS, `At most ${MAX_MUSIC_LINKS} music links`)
+    .optional()
+    .nullable(),
 
   partner1_name: z.string().max(100, "Partner 1 name must be at most 100 characters").optional().nullable(),
   partner2_name: z.string().max(100, "Partner 2 name must be at most 100 characters").optional().nullable(),

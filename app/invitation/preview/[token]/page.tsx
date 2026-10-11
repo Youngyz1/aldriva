@@ -106,6 +106,7 @@ async function PreviewLoader({ token }: { token: string }) {
     hashtag: draft.hashtag,
     music_audio_url: draft.music_audio_url,
     music_title: draft.music_title,
+    music_links: draft.music_links,
     partner1_name: draft.partner1_name,
     partner2_name: draft.partner2_name,
     family_note: draft.family_note,

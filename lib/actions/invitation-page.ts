@@ -33,6 +33,12 @@ import type {
   InvitationPageDraftData,
 } from "@/lib/types/invitation-page-snapshot";
 import { cleanupOrphanInvitationAudio } from "@/lib/uploadAudio";
+import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
+import {
+  MISSING_MUSIC_LINKS_COLUMN_ERROR,
+  isMissingMusicLinksColumnError,
+  rowHasMusicLinksColumn,
+} from "@/lib/invitation-page-persistence";
 
 export interface SaveDraftResult {
   ok: boolean;
@@ -116,7 +122,8 @@ export async function saveInvitationPageDraft(
       field: i.path.join("."),
       message: i.message,
     }));
-    return { ok: false, error: "Validation failed", errors };
+    const details = errors.map((item) => `${item.field}: ${item.message}`).join(" · ");
+    return { ok: false, error: `Draft validation failed: ${details}`, errors };
   }
 
   const valid = parsed.data;
@@ -160,6 +167,7 @@ export async function saveInvitationPageDraft(
 
     music_audio_url: valid.music_audio_url || null,
     music_title: valid.music_title || null,
+    music_links: valid.music_links || null,
 
     partner1_name: valid.partner1_name || null,
     partner2_name: valid.partner2_name || null,
@@ -188,6 +196,9 @@ export async function saveInvitationPageDraft(
 
   if (upsertError) {
     console.error("[saveInvitationPageDraft]", upsertError);
+    if (isMissingMusicLinksColumnError(upsertError)) {
+      return { ok: false, error: MISSING_MUSIC_LINKS_COLUMN_ERROR };
+    }
     return { ok: false, error: "Failed to save draft. Try again." };
   }
 
@@ -238,11 +249,19 @@ export async function publishInvitationPage(
     .maybeSingle();
 
   if (draftError || !draftRow) {
+    if (draftError && isMissingMusicLinksColumnError(draftError)) {
+      return { ok: false, error: MISSING_MUSIC_LINKS_COLUMN_ERROR };
+    }
     return { ok: false, error: "Draft not found. Please save your invitation page first." };
+  }
+  if (!rowHasMusicLinksColumn(draftRow)) {
+    return { ok: false, error: MISSING_MUSIC_LINKS_COLUMN_ERROR };
   }
 
   // 3. Validate for publishing
-  const validation = validateForPublish(draftRow, event, locale);
+  const publishMusic = filterSupportedMusicLinks(draftRow.music_links);
+  const publishDraft = { ...draftRow, music_links: publishMusic.links };
+  const validation = validateForPublish(publishDraft, event, locale);
   if (!validation.valid) {
     return {
       ok: false,
@@ -281,6 +300,7 @@ export async function publishInvitationPage(
 
     music_audio_url: draftRow.music_audio_url || null,
     music_title: draftRow.music_title || null,
+    music_links: publishMusic.links.length > 0 ? publishMusic.links : null,
 
     partner1_name: draftRow.partner1_name || null,
     partner2_name: draftRow.partner2_name || null,
@@ -444,12 +464,32 @@ export async function getInvitationPageDraft(
   }
   if (draftErr) {
     console.error("[getInvitationPageDraft] Error fetching draft:", draftErr);
+    if (isMissingMusicLinksColumnError(draftErr)) {
+      throw new Error(MISSING_MUSIC_LINKS_COLUMN_ERROR);
+    }
     throw new Error(`Failed to load invitation draft: ${draftErr.message}`);
+  }
+
+  if (draft && !rowHasMusicLinksColumn(draft)) {
+    throw new Error(MISSING_MUSIC_LINKS_COLUMN_ERROR);
   }
 
   if (!event) return null;
 
-  const effectiveDraft: EventInvitationPageRow = (draft as EventInvitationPageRow) || {
+  const rawDraft = (draft as EventInvitationPageRow | null) ?? null;
+  const draftMusic = filterSupportedMusicLinks(rawDraft?.music_links);
+  const publishedMusic = filterSupportedMusicLinks(rawDraft?.published_snapshot?.music_links);
+  const removedUnsupportedMusicLinks =
+    draftMusic.removedUnsupportedProviders || publishedMusic.removedUnsupportedProviders;
+  const effectiveDraft: EventInvitationPageRow = rawDraft
+    ? {
+        ...rawDraft,
+        music_links: draftMusic.links,
+        published_snapshot: rawDraft.published_snapshot
+          ? { ...rawDraft.published_snapshot, music_links: publishedMusic.links }
+          : null,
+      }
+    : {
     id: "",
     event_id: event.id,
     template_id: "gala-editorial",
@@ -478,6 +518,7 @@ export async function getInvitationPageDraft(
     hashtag: null,
     music_audio_url: null,
     music_title: null,
+    music_links: null,
     partner1_name: null,
     partner2_name: null,
     family_note: null,
@@ -495,7 +536,7 @@ export async function getInvitationPageDraft(
     wedding_story: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  };
+      };
 
   const hasUnpublished = hasDraftChanges(
     effectiveDraft,
@@ -508,6 +549,7 @@ export async function getInvitationPageDraft(
     event: event as EventLiveFields,
     hasUnpublishedChanges: hasUnpublished,
     publishedAt: effectiveDraft.published_at,
+    removedUnsupportedMusicLinks,
   };
 }
 
@@ -534,8 +576,11 @@ export async function getPublishedInvitationPage(
 
   if (!data || !data.published_snapshot) return null;
 
+  const publishedSnapshot = data.published_snapshot as InvitationPageSnapshot;
+  const publishedMusic = filterSupportedMusicLinks(publishedSnapshot.music_links);
+
   return {
-    published_snapshot: data.published_snapshot as InvitationPageSnapshot,
+    published_snapshot: { ...publishedSnapshot, music_links: publishedMusic.links },
     page_status: "published",
     locale: (data.locale as InvitationLocale) || "en",
     published_at: (data.published_at as string | null) ?? null,
@@ -586,6 +631,10 @@ export async function getInvitationPagePreviewByToken(
     .eq("event_id", tokenRecord.event_id)
     .maybeSingle();
 
+  if (draft && !rowHasMusicLinksColumn(draft)) {
+    throw new Error(MISSING_MUSIC_LINKS_COLUMN_ERROR);
+  }
+
   const effectiveDraft = (draft as EventInvitationPageRow) || {
     id: "",
     event_id: event.id,
@@ -615,6 +664,7 @@ export async function getInvitationPagePreviewByToken(
     hashtag: null,
     music_audio_url: null,
     music_title: null,
+    music_links: null,
     partner1_name: null,
     partner2_name: null,
     family_note: null,
@@ -634,9 +684,10 @@ export async function getInvitationPagePreviewByToken(
     updated_at: new Date().toISOString(),
   };
 
+  const draftMusic = filterSupportedMusicLinks(effectiveDraft.music_links);
   return {
     valid: true,
-    draft: effectiveDraft,
+    draft: { ...effectiveDraft, music_links: draftMusic.links },
     event: event as EventLiveFields,
     expiresAt: tokenRecord.expires_at,
   };

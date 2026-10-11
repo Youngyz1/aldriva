@@ -89,7 +89,6 @@ export default async function EventInvitationPageDashboardRoute({
         pageStatus={data.draft.page_status}
         hasUnpublishedChanges={data.hasUnpublishedChanges}
         draftLocale={data.draft.locale}
-        rsvpCounts={null}
         shareEnabled={share.ok && (share.enabled ?? false)}
         shareUrl={share.ok ? (share.url ?? null) : null}
       />

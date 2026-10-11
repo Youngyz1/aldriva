@@ -97,6 +97,13 @@ export interface InvitationDictionary {
   scanAtDoor: string;
   presentForAdmission: string;
 
+  // Music links & expandable QR
+  musicLinksTitle: string;
+  musicPlayerLabel: string;
+  musicEmbedUnavailable: string;
+  qrTapToEnlarge: string;
+  qrBrightnessHint: string;
+
   // Feedback messages
   attendanceConfirmed: string;
   responseNoted: string;
@@ -211,6 +218,11 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     scanForAdmission: "Scan for admission at door",
     scanAtDoor: "Scan at Door for Admission",
     presentForAdmission: "Present for admission",
+    musicLinksTitle: "Music",
+    musicPlayerLabel: "Music player",
+    musicEmbedUnavailable: "This player could not load. You can still enjoy the celebration without it.",
+    qrTapToEnlarge: "Tap to enlarge",
+    qrBrightnessHint: "Hold your QR code toward the scanner. Increase your screen brightness if needed.",
 
     attendanceConfirmed: "Your attendance has been confirmed. We look forward to welcoming you.",
     responseNoted: "Your response has been noted. Thank you for letting us know.",
@@ -345,6 +357,11 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     scanForAdmission: "Scannez à l'entrée",
     scanAtDoor: "Scannez à la porte pour entrer",
     presentForAdmission: "Présentez ce pass à l'entrée",
+    musicLinksTitle: "Musique",
+    musicPlayerLabel: "Lecteur de musique",
+    musicEmbedUnavailable: "Ce lecteur n'a pas pu se charger. Vous pouvez profiter de la célébration sans lui.",
+    qrTapToEnlarge: "Toucher pour agrandir",
+    qrBrightnessHint: "Présentez votre QR code au scanner. Augmentez la luminosité de votre écran si besoin.",
 
     attendanceConfirmed: "Votre présence est confirmée. Nous avons hâte de vous accueillir.",
     responseNoted: "Votre réponse a été enregistrée. Merci de nous avoir prévenus.",

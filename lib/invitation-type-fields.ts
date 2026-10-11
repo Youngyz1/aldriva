@@ -57,7 +57,6 @@ export type TypeFieldKey =
   | "venues"
   | "accommodations"
   | "colors_of_the_day"
-  | "wedding_story"
   | "celebrant_name"
   | "age_milestone"
   | "theme"
@@ -72,7 +71,6 @@ export const TYPE_FIELD_LABELS: Record<TypeFieldKey, string> = {
   venues: "Ceremony & reception venues",
   accommodations: "Accommodations",
   colors_of_the_day: "Colors of the day",
-  wedding_story: "Our story chapters",
   celebrant_name: "Celebrant name",
   age_milestone: "Age milestone",
   theme: "Party theme",
@@ -88,7 +86,6 @@ const WEDDING_FIELDS: TypeFieldKey[] = [
   "venues",
   "accommodations",
   "colors_of_the_day",
-  "wedding_story",
 ];
 
 const BIRTHDAY_FIELDS: TypeFieldKey[] = [

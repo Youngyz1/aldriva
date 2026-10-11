@@ -10,10 +10,12 @@
  */
 
 import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { WeddingSubtype, ColorOfTheDayItem } from "@/lib/types/invitation-page-snapshot";
 import type { InvitationAccommodationItem } from "@/types/invitation-template";
 import type { InvitationType } from "@/lib/invitation-type-fields";
+import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 
 interface Props {
   draft: BuilderDraft;
@@ -31,6 +33,7 @@ const WEDDING_SUBTYPES: { value: WeddingSubtype; label: string }[] = [
 ];
 
 export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: Props) {
+  const [hexDrafts, setHexDrafts] = useState<Record<number, string>>({});
   const isWedding = invitationType
     ? invitationType === "wedding"
     : draft.template_id === "wedding-romantic";
@@ -77,6 +80,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
   };
 
   const handleRemoveColor = (index: number) => {
+    setHexDrafts({});
     updateDraft({ colors_of_the_day: colors.filter((_, i) => i !== index) });
   };
 
@@ -276,35 +280,25 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
         </div>
 
         {accommodations.map((acc, i) => (
-          <div key={i} className="flex flex-col gap-2 border-t border-zinc-100 py-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                type="text"
-                maxLength={100}
-                disabled={disabled}
-                placeholder="Hotel Name (e.g. St. Regis)"
-                value={acc.name}
-                onChange={(e) => handleUpdateAccommodation(i, { name: e.target.value })}
-                className="w-full sm:w-1/3 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
-              />
-              <input
-                type="text"
-                maxLength={500}
-                disabled={disabled}
-                placeholder="Booking URL (e.g. https://...)"
-                value={acc.bookingUrl || ""}
-                onChange={(e) => handleUpdateAccommodation(i, { bookingUrl: e.target.value || null })}
-                className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => handleRemoveAccommodation(i)}
-                className="self-end sm:self-center p-1 text-zinc-400 hover:text-red-600 disabled:opacity-50"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+          <div key={i} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-xs">
+            <input
+              type="text"
+              maxLength={100}
+              disabled={disabled}
+              placeholder="Hotel Name (e.g. St. Regis)"
+              value={acc.name}
+              onChange={(e) => handleUpdateAccommodation(i, { name: e.target.value })}
+              className="min-w-0 w-full rounded-lg border border-zinc-200 px-2.5 py-2 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+            />
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => handleRemoveAccommodation(i)}
+              aria-label={`Remove accommodation ${i + 1}`}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+            </button>
             <input
               type="text"
               maxLength={200}
@@ -312,7 +306,17 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
               placeholder="Notes or Promo Code (e.g. Group code GALA26 for 15% discount)"
               value={acc.notes || ""}
               onChange={(e) => handleUpdateAccommodation(i, { notes: e.target.value || null })}
-              className="w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+              className="col-span-2 min-w-0 w-full rounded-lg border border-zinc-200 px-2.5 py-2 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              inputMode="url"
+              maxLength={500}
+              disabled={disabled}
+              placeholder="Booking URL (e.g. https://...)"
+              value={acc.bookingUrl || ""}
+              onChange={(e) => handleUpdateAccommodation(i, { bookingUrl: e.target.value || null })}
+              className="col-span-2 min-w-0 w-full rounded-lg border border-zinc-200 px-2.5 py-2 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
             />
           </div>
         ))}
@@ -337,16 +341,29 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-3">
           {colors.map((c, i) => (
-            <div key={i} className="flex items-center gap-2 border-t border-zinc-100 py-2.5">
-              <input
-                type="color"
-                disabled={disabled}
-                value={c.hex.startsWith("#") ? c.hex : `#${c.hex}`}
-                onChange={(e) => handleUpdateColor(i, { hex: e.target.value })}
-                className="h-8 w-8 cursor-pointer rounded-lg border-0 p-0"
-              />
+            <div key={i} className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-xs">
+              <div
+                className="relative row-span-2 h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-zinc-300 shadow-inner"
+                style={{ backgroundColor: normalizeInvitationColorHex(c.hex) ?? "#FFFFFF" }}
+              >
+                <input
+                  type="color"
+                  disabled={disabled}
+                  aria-label={`Choose color ${c.name || i + 1}`}
+                  value={normalizeInvitationColorHex(c.hex) ?? "#FFFFFF"}
+                  onChange={(e) => {
+                    setHexDrafts((current) => {
+                      const next = { ...current };
+                      delete next[i];
+                      return next;
+                    });
+                    handleUpdateColor(i, { hex: e.target.value.toUpperCase() });
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </div>
               <input
                 type="text"
                 maxLength={30}
@@ -354,14 +371,39 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
                 placeholder="Name (e.g. Dusty Rose)"
                 value={c.name || ""}
                 onChange={(e) => handleUpdateColor(i, { name: e.target.value || undefined })}
-                className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+                aria-label={`Color name ${i + 1}`}
+                className="min-w-0 w-full rounded-lg border border-zinc-200 px-2.5 py-2 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
               />
-              <span className="font-mono text-xs text-zinc-500 uppercase">{c.hex}</span>
+              <input
+                type="text"
+                maxLength={7}
+                disabled={disabled}
+                inputMode="text"
+                value={hexDrafts[i] ?? c.hex}
+                aria-label={`Hex code for ${c.name || `color ${i + 1}`}`}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setHexDrafts((current) => ({ ...current, [i]: value }));
+                  const normalized = normalizeInvitationColorHex(value);
+                  if (normalized) handleUpdateColor(i, { hex: normalized });
+                }}
+                onBlur={() => {
+                  const normalized = normalizeInvitationColorHex(hexDrafts[i] ?? c.hex);
+                  if (normalized) handleUpdateColor(i, { hex: normalized });
+                  setHexDrafts((current) => {
+                    const next = { ...current };
+                    delete next[i];
+                    return next;
+                  });
+                }}
+                className="col-start-2 row-start-2 min-w-0 w-full rounded-lg border border-zinc-200 px-2.5 py-2 font-mono text-xs uppercase text-zinc-900 focus:border-orange-500 focus:outline-none"
+              />
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => handleRemoveColor(i)}
-                className="p-1 text-zinc-400 hover:text-red-600 disabled:opacity-50"
+                aria-label={`Remove color ${i + 1}`}
+                className="col-start-3 row-span-2 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
               >
                 <Trash2 size={14} />
               </button>

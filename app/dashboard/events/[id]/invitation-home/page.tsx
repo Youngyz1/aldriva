@@ -47,7 +47,6 @@ export default async function InvitationHomePage({
       pageStatus={draftData?.draft.page_status ?? "draft"}
       hasUnpublishedChanges={draftData?.hasUnpublishedChanges ?? false}
       draftLocale={draftData?.draft.locale ?? "en"}
-      rsvpCounts={null}
       shareEnabled={share.ok && (share.enabled ?? false)}
       shareUrl={share.ok ? (share.url ?? null) : null}
     />

@@ -18,16 +18,15 @@
  * - RSVP & Pass: VIP Party Pass with party confirmation ("Count Me In! 🎉") and canvas QR pass.
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import {
   CheckCircle2,
   XCircle,
   CalendarPlus,
   Share2,
-  Volume2,
-  VolumeX,
   ExternalLink,
   Check,
   Loader2,
@@ -51,6 +50,8 @@ import {
 import { downloadIcsFile as triggerIcsDownload, generateGoogleCalendarUrl } from "@/lib/event-time";
 import VenueMapClient from "@/components/VenueMapClient";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
+import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 
 // ── Typography ────────────────────────────────────────────────────────────────
@@ -218,9 +219,16 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "", share
         fontFamily: FF_TEXT,
       } as React.CSSProperties}
     >
-      {/* Background Music Player */}
-      {data.musicAudioUrl && (
-        <FloatingBirthdayMusic audioUrl={data.musicAudioUrl} title={data.musicTitle} />
+      {/* ── One music control: uploaded audio and supported provider embeds
+          play or pause from this pill. ─────────────────────────────────── */}
+      {(data.musicAudioUrl || (data.musicLinks && data.musicLinks.length > 0)) && (
+        <FloatingMusicControl
+          audioUrl={data.musicAudioUrl}
+          title={data.musicTitle}
+          links={data.musicLinks}
+          musicLabel={dict.music}
+          playingLabel={dict.playing}
+        />
       )}
 
       {/* ── Section 1: Hero Composition (Tilted Photo & Milestone Badge) ────── */}
@@ -364,33 +372,32 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "", share
           )}
 
           <div className="py-4 text-left space-y-3">
-            <h3
-              className="text-xl font-black text-(--bday-ink) flex items-center gap-2"
-              style={{ fontFamily: FF_DISPLAY }}
-            >
-              <Sparkles className="w-5 h-5 text-(--bday-yellow)" />
-              {data.storyHeadline || dict.messageFromHost}
-            </h3>
-            <p className="text-sm sm:text-base leading-relaxed text-(--bday-ink-muted) whitespace-pre-line">
-              {data.storyText ||
-                (locale === "fr"
-                  ? "Une année de plus et tellement hâte de célébrer avec les meilleures personnes au monde ! Venez prêts à danser et faire la fête. Rendons cette soirée inoubliable !"
-                  : "Another year older and ready to celebrate with the best people in the world! Come ready to dance, drink, and make some noise. Let's make this year unforgettable!")}
-            </p>
+            {data.storyHeadline && (
+              <h3
+                className="text-xl font-black text-(--bday-ink) flex items-center gap-2"
+                style={{ fontFamily: FF_DISPLAY }}
+              >
+                <Sparkles className="w-5 h-5 text-(--bday-yellow)" />
+                {data.storyHeadline}
+              </h3>
+            )}
+            {data.storyText && (
+              <p className="text-sm sm:text-base leading-relaxed text-(--bday-ink-muted) whitespace-pre-line">
+                {data.storyText}
+              </p>
+            )}
           </div>
 
-          {/* Optional Host/Celebrant Photo */}
-          {data.storyImage && (
-            <div className="mt-8 max-w-sm mx-auto aspect-[4/5] relative rounded-3xl overflow-hidden border-4 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] rotate-1">
-              <Image
-                src={data.storyImage}
-                alt="Celebrant portrait"
-                fill
-                sizes="(max-width: 640px) 100vw, 384px"
-                className="object-cover"
-              />
-            </div>
-          )}
+          <InvitationStoryMoments
+            items={data.weddingStory}
+            fallbackImage={data.storyImage}
+            className="mt-8 mx-auto max-w-2xl"
+            imageClassName="aspect-[4/5] rounded-3xl border-4 border-(--bday-ink) shadow-[6px_6px_0px_0px_#141218] rotate-1"
+            itemClassName="border-0 bg-transparent shadow-none"
+            titleClassName="text-(--bday-ink)"
+            textClassName="text-(--bday-ink-muted)"
+            imageAlt="Celebrant story moment"
+          />
         </div>
       </section>
 
@@ -731,7 +738,13 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "", share
             {data.ticketInstance?.qrCode && currentRsvp !== "declined" && (
               <div className="pt-4 border-t-2 border-dashed border-(--bday-ink)">
                 <div className="p-3 bg-(--bday-yellow) rounded-2xl border-2 border-(--bday-ink) inline-block shadow-[3px_3px_0px_0px_#141218]">
-                  <BirthdayCanvasQR value={data.ticketInstance.qrCode} size={150} />
+                  <BirthdayCanvasQR
+                    value={data.ticketInstance.qrCode}
+                    size={150}
+                    openLabel={dict.qrTapToEnlarge}
+                    title={dict.scanAtDoor}
+                    hint={dict.qrBrightnessHint}
+                  />
                 </div>
                 <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-(--bday-ink)">
                   {dict.scanAtDoor}
@@ -786,33 +799,28 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "", share
 
 // ── Micro-components ──────────────────────────────────────────────────────────
 
-function BirthdayCanvasQR({ value, size = 150 }: { value: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current || !value) return;
-    import("qrcode")
-      .then((QRCode) => {
-        if (!canvasRef.current) return;
-        QRCode.toCanvas(canvasRef.current, value, {
-          width: size,
-          margin: 1,
-          color: {
-            dark: "#141218",
-            light: "#FFFFFF",
-          },
-        }).catch(() => {});
-      })
-      .catch(() => {});
-  }, [value, size]);
-
+function BirthdayCanvasQR({
+  value,
+  size = 150,
+  openLabel,
+  title,
+  hint,
+}: {
+  value: string;
+  size?: number;
+  openLabel: string;
+  title: string;
+  hint: string;
+}) {
   return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={size}
-      aria-label="Birthday QR Pass"
-      className="rounded-xl"
+    <ExpandableSvgQr
+      value={value}
+      triggerSize={size}
+      dark="#141218"
+      light="#FFFFFF"
+      openLabel={openLabel}
+      title={title}
+      hint={hint}
     />
   );
 }
@@ -909,69 +917,5 @@ function BirthdayGallery({ images }: { images: InvitationGalleryItem[] }) {
       captionClassName="text-xs font-bold text-(--bday-ink) text-center"
       lightboxCaptionClassName="text-xs text-white/90 max-w-md font-bold text-center"
     />
-  );
-}
-
-// ── Floating Birthday Music Player ───────────────────────────────────────────
-function FloatingBirthdayMusic({ audioUrl, title }: { audioUrl: string; title?: string | null }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    function handleVisibility() {
-      if (document.hidden && audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      sessionStorage.setItem("aldriva_invitation_music", "paused");
-    } else {
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          sessionStorage.setItem("aldriva_invitation_music", "playing");
-        })
-        .catch(() => {
-          setIsPlaying(false);
-        });
-    }
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-40">
-      <audio ref={audioRef} src={audioUrl} loop preload="none" />
-      <button
-        type="button"
-        onClick={togglePlay}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-(--bday-ink) shadow-[3px_3px_0px_0px_#141218] bg-(--bday-yellow) text-(--bday-ink) transition-all text-xs font-black"
-        aria-label={isPlaying ? "Pause party music" : "Play party music"}
-      >
-        {isPlaying ? (
-          <Volume2 className="w-4 h-4 text-(--bday-coral)" />
-        ) : (
-          <VolumeX className="w-4 h-4 text-(--bday-ink)" />
-        )}
-        <span className="uppercase tracking-wider hidden sm:inline max-w-[120px] truncate">
-          {isPlaying ? (title || "Party Beats") : "Music"}
-        </span>
-        {isPlaying && (
-          <span className="flex items-end gap-0.5 h-3">
-            <span className="w-0.5 h-3 bg-(--bday-coral) animate-bounce" />
-            <span className="w-0.5 h-2 bg-(--bday-coral) animate-bounce delay-75" />
-            <span className="w-0.5 h-3 bg-(--bday-coral) animate-bounce delay-150" />
-          </span>
-        )}
-      </button>
-    </div>
   );
 }

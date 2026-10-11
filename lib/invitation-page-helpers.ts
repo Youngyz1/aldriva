@@ -40,6 +40,7 @@ export const INVITATION_PAGE_CONTENT_KEYS: (keyof InvitationPageSnapshot)[] = [
   "hashtag",
   "music_audio_url",
   "music_title",
+  "music_links",
   "partner1_name",
   "partner2_name",
   "family_note",
@@ -54,8 +55,20 @@ export const INVITATION_PAGE_CONTENT_KEYS: (keyof InvitationPageSnapshot)[] = [
   "venues",
   "accommodations",
   "colors_of_the_day",
-  "wedding_story",
 ];
+
+/** Collapsed Music section subtitle, including link-only invitations. */
+export function summarizeInvitationMusic(
+  audioUrl: string | null | undefined,
+  audioTitle: string | null | undefined,
+  linkCount: number,
+  formatLinkCount: (count: number) => string
+): string {
+  const parts: string[] = [];
+  if (audioUrl) parts.push(audioTitle || "Track set");
+  if (linkCount > 0) parts.push(formatLinkCount(linkCount));
+  return parts.join(" · ") || "No music";
+}
 
 /**
  * Returns true if the draft's content fields differ from the published snapshot.

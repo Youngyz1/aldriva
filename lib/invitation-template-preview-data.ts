@@ -23,6 +23,10 @@ const NON_CONTENT_FIELDS = new Set([
   "locale",
 ]);
 
+// A builder draft with an empty story must stay empty in preview. Sample
+// stories made the editor show paragraphs and images that were not saved.
+const STORY_FIELDS = new Set(["storyHeadline", "storyText", "storyImage", "weddingStory"]);
+
 function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === "string") return value.trim().length === 0;
@@ -47,9 +51,13 @@ export function mergeInvitationTemplatePreviewData(
   const sample = SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
   const data: Record<string, unknown> = { ...realData };
   const sampleFields: string[] = [];
+  const hasMusicLink = Array.isArray(data.musicLinks) && data.musicLinks.length > 0;
 
   for (const [key, sampleValue] of Object.entries(sample)) {
-    if (NON_CONTENT_FIELDS.has(key) || isEmpty(sampleValue)) continue;
+    if (NON_CONTENT_FIELDS.has(key) || STORY_FIELDS.has(key) || isEmpty(sampleValue)) continue;
+    // Sample audio would take precedence over a real provider link in the
+    // floating control, making the builder preview appear unable to play it.
+    if (hasMusicLink && (key === "musicAudioUrl" || key === "musicTitle")) continue;
     // Cover intentionally keeps its palette fallback when the organizer has
     // not chosen a hero; sample content must not add a stock photo there.
     if (templateId === "cover" && key === "heroImage") continue;

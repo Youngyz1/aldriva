@@ -18,15 +18,18 @@ import type {
   InvitationGuestData,
   InvitationSeatData,
   InvitationTicketPassData,
+  InvitationMusicLink,
 } from "@/types/invitation-template";
+import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
+import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 
 export type InvitationLocale = "en" | "fr";
 export type InvitationPageStatus = "draft" | "published";
 export type WeddingSubtype = "traditional" | "civil" | "church" | "engagement" | "vow_renewal";
 
 export interface WeddingStoryItem {
-  title?: string;
-  text: string;
+  title?: string | null;
+  text?: string | null;
   image?: string | null;
 }
 
@@ -74,6 +77,7 @@ export interface InvitationPageSnapshot {
   // Music
   music_audio_url?: string | null;
   music_title?: string | null;
+  music_links?: InvitationMusicLink[] | null;
 
   // Wedding Fields
   partner1_name?: string | null;
@@ -134,6 +138,7 @@ export interface EventInvitationPageRow {
 
   music_audio_url: string | null;
   music_title: string | null;
+  music_links: InvitationMusicLink[] | null;
 
   partner1_name: string | null;
   partner2_name: string | null;
@@ -162,6 +167,8 @@ export interface InvitationPageDraftData {
   event: EventLiveFields;
   hasUnpublishedChanges: boolean;
   publishedAt: string | null;
+  /** True when a legacy Apple Music or Audiomack link was filtered on read. */
+  removedUnsupportedMusicLinks?: boolean;
 }
 
 /**
@@ -306,6 +313,7 @@ export function assembleInvitationPageData(
 
     musicAudioUrl: snapshot.music_audio_url ?? undefined,
     musicTitle: snapshot.music_title ?? undefined,
+    musicLinks: filterSupportedMusicLinks(snapshot.music_links).links,
 
     partner1Name: snapshot.partner1_name ?? undefined,
     partner2Name: snapshot.partner2_name ?? undefined,
@@ -322,7 +330,10 @@ export function assembleInvitationPageData(
     gallery: snapshot.gallery ?? undefined,
     venues: snapshot.venues ?? undefined,
     accommodations: snapshot.accommodations ?? undefined,
-    colorsOfTheDay: snapshot.colors_of_the_day ?? undefined,
+    colorsOfTheDay: snapshot.colors_of_the_day?.map((color) => ({
+      ...color,
+      hex: normalizeInvitationColorHex(color.hex) ?? color.hex,
+    })) ?? undefined,
     weddingStory: snapshot.wedding_story ?? undefined,
 
     guest: guestData,

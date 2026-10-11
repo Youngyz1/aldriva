@@ -31,7 +31,6 @@ export function InvitationHomeClient({
   pageStatus,
   hasUnpublishedChanges,
   draftLocale,
-  rsvpCounts,
   shareEnabled,
   shareUrl,
 }: {
@@ -41,7 +40,6 @@ export function InvitationHomeClient({
   pageStatus: string;
   hasUnpublishedChanges: boolean;
   draftLocale: string;
-  rsvpCounts: { accepted: number; declined: number; pending: number } | null;
   shareEnabled: boolean;
   shareUrl: string | null;
 }) {
@@ -80,7 +78,6 @@ export function InvitationHomeClient({
 
   const builderHref = `/dashboard/events/${eventId}/invitation-page`;
   const guestsHref = `/dashboard/events/${eventId}/guests`;
-  const seatingHref = `/dashboard/events/${eventId}/seating`;
 
   return (
     <div className="space-y-6" data-testid="invitation-home">
@@ -162,54 +159,6 @@ export function InvitationHomeClient({
           />
         </section>
       )}
-
-      <section aria-label="Event tools">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Link
-            href={guestsHref}
-            className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50"
-          >
-            <p className="text-sm font-black">Guests</p>
-            {rsvpCounts ? (
-              <p data-testid="rsvp-counts" className="mt-1 text-xs font-semibold text-zinc-500">
-                {rsvpCounts.accepted} accepted · {rsvpCounts.pending} pending · {rsvpCounts.declined} declined
-              </p>
-            ) : (
-              <p className="mt-1 text-xs font-semibold text-zinc-500">Manage the guest list and invitations</p>
-            )}
-          </Link>
-          <Link
-            href={seatingHref}
-            className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50"
-          >
-            <p className="text-sm font-black">Seating</p>
-            <p className="mt-1 text-xs font-semibold text-zinc-500">Assign seats to invited guests</p>
-          </Link>
-          <Link
-            href={`${builderHref}?edit=1`}
-            className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50"
-          >
-            <p className="text-sm font-black">Edit invitation</p>
-            <p className="mt-1 text-xs font-semibold text-zinc-500">Template, form and side preview</p>
-          </Link>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {[
-            ["Team", "team"],
-            ["Operations", "operations"],
-            ["Check-ins", "checkins"],
-            ["Scan", "scan"],
-          ].map(([label, tab]) => (
-            <Link
-              key={tab}
-              href={`/dashboard/events/${eventId}/${tab}`}
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-black text-zinc-700 hover:bg-zinc-50"
-            >
-              {label}
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
