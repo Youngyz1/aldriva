@@ -185,6 +185,13 @@ export const RATE_LIMITS = {
    */
   orderRequestIp: { limit: 15, windowSeconds: 600 },
   orderRequestPhone: { limit: 5, windowSeconds: 600 },
+
+  /**
+   * Phase 3: Online order payment intents. Keyed per-IP by the route, on top
+   * of the order-request buckets checked inside order creation. Bounds card
+   * testing against the intent endpoint specifically.
+   */
+  orderPaymentIntent: { limit: 10, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

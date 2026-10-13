@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { ImageUploader } from "@/components/shared/ImageUploader";
+import { slugify } from "@/lib/slug";
 
 type FormState = {
   name:     string;
@@ -99,11 +100,7 @@ export default function CreateOrganizerPage() {
       // Auto-generate slug from name if the slug hasn't been edited manually yet,
       // or if they are in sync
       if (name === "name") {
-        const generatedSlug = value
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-        updated.slug = generatedSlug;
+        updated.slug = slugify(value);
       }
       return updated;
     });
@@ -150,8 +147,7 @@ export default function CreateOrganizerPage() {
     }
 
     // Auto-generate/clean slug
-    let baseSlug = form.slug.trim() || form.name.trim();
-    baseSlug = baseSlug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    let baseSlug = slugify(form.slug.trim() || form.name.trim());
     if (!baseSlug) baseSlug = "organization";
 
     // Auto-resolve collisions

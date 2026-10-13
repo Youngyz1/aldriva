@@ -24,6 +24,7 @@
  */
 
 import { RESERVED_WEBSITE_SLUGS } from "@/lib/website-nav";
+import { slugify } from "@/lib/slug";
 
 const EVENT_ROUTE_WORDS = new Set([
   "event",
@@ -45,14 +46,7 @@ export const MAX_SLUG_ATTEMPTS = 5;
 const SUFFIX_LENGTH = 4;
 
 export function slugifyEventTitle(title: string): string {
-  const slug = (title ?? "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "event";
+  return slugify(title ?? "") || "event";
 }
 
 export function isReservedEventSlug(slug: string): boolean {

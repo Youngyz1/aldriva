@@ -30,7 +30,7 @@ export type NavigationItem = {
   target?: "_self" | "_blank";
   order: number;
   /** Optional template-first commerce gate; legacy navigation does not set it. */
-  feature?: "ordering" | "delivery" | "pickup" | "reservations";
+  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment";
   children?: NavigationItem[];
 };
 

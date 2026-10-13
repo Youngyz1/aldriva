@@ -317,6 +317,14 @@
   - `"use server"` modules export actions with serializable params only; injectable-client logic lives in plain modules (`lib/order-submit.ts`) that tests import directly.
   - Unknown option ids are data errors (`unknown_option`), never silently dropped; pre-existing table misses are grandfathered by pin (`guests`), never silently ignored.
 
+### DEC-0036: USD-only PaymentIntent flow with webhook-only paid truth
+- **Decision Date**: 2026-10-13
+- **Status**: Implemented in the working tree (Phase 3); migration 173 and data fix NOT applied; Stripe test-mode flow unverified.
+- **Key Tenets**:
+  - PaymentIntent (not Checkout Session) reuses the repo's StripeProvider/PaymentForm drawer flow; the webhook's `payment_intent.succeeded` with `kind="storefront_order"` is the only writer of paid state.
+  - No new payment_status value: pending+unpaid (+`payment_expires_at`) expresses awaiting payment; expiry is a read-time label, never a cron.
+  - Slug generation lowercases before stripping everywhere (JS helper + SQL trigger); existing slugs are immutable without an owner-initiated rename.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

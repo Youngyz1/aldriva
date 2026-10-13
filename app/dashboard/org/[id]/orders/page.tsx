@@ -30,10 +30,15 @@ interface OrderRow {
   status: string;
   payment_method: string;
   payment_status: string;
+  payment_expires_at: string | null;
   scheduled_for: string | null;
   items: unknown;
   created_at: string;
 }
+
+import { resolveOrderPaymentLabel } from "@/lib/order-payment-label";
+
+export { resolveOrderPaymentLabel };
 
 interface OrderItemSnapshot {
   item_id: string;
@@ -64,7 +69,7 @@ export default async function OrdersPage({
   const { data: orders, error } = await admin
     .from("orders")
     .select(
-      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, items, created_at"
+      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, items, created_at"
     )
     .eq("organizer_id", organizerId)
     .order("created_at", { ascending: false })
@@ -138,7 +143,11 @@ export default async function OrdersPage({
                     </Field>
 
                     <Field label={t("payment")}>
-                      <p>{t("toCollect")}</p>
+                      <p>
+                        {order.payment_method === "online" ? t("online") : t("onFulfilment")}
+                        {" · "}
+                        {t(resolveOrderPaymentLabel(order))}
+                      </p>
                       <p className="font-semibold text-zinc-800 mt-0.5">{total}</p>
                     </Field>
 

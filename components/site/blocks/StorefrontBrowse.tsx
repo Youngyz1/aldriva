@@ -23,12 +23,16 @@ import {
   type BrowseOptionGroup,
 } from "@/lib/storefront-browse";
 import { submitOrderRequest } from "@/lib/actions/orders";
+import StripeProvider from "@/components/payments/StripeProvider";
+import PaymentForm from "@/components/payments/PaymentForm";
 
 export interface StorefrontOrderConfig {
   enabled: boolean;
   slug: string;
   currency: string;
   offerings?: string[];
+  /** Online card payment available (USD site + owner ticked + built). */
+  onlinePayment?: boolean;
   isClosed?: boolean;
   closedNotice?: string;
   scheduledFor?: string | null;
@@ -70,6 +74,10 @@ export interface StorefrontBrowseLabels {
   orderNote?: string;
   orderNotePlaceholder?: string;
   paymentOnFulfilment?: string;
+  paymentMethod?: string;
+  payOnline?: string;
+  payingOnline?: string;
+  onlinePaymentNotice?: string;
   placeOrder?: string;
   placingOrder?: string;
   orderSuccessTitle?: string;
@@ -814,6 +822,15 @@ function OrderDrawer({
   const offerings = orderConfig.offerings || ["pickup"];
   const allowsDelivery = offerings.includes("delivery");
   const allowsPickup = offerings.includes("pickup");
+  const canPayOnline = orderConfig.onlinePayment === true;
+
+  // Payment method: fulfilment always available; online only when gated.
+  // Single available method renders without a choice.
+  const [payMethod, setPayMethod] = useState<"fulfilment" | "online">("fulfilment");
+  const [onlineSecret, setOnlineSecret] = useState<string | null>(null);
+  const [onlineOrderNumber, setOnlineOrderNumber] = useState<string | null>(null);
+  const [onlineScheduledFor, setOnlineScheduledFor] = useState<string | null>(null);
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
 
   const [fulfilment, setFulfilment] = useState<"pickup" | "delivery">(
     allowsPickup ? "pickup" : "delivery"
@@ -883,12 +900,56 @@ function OrderDrawer({
       return;
     }
 
+    const payloadItems = cart.map((c) => ({
+      itemId: c.itemId,
+      selectedOptionIds: c.selectedOptionIds,
+      quantity: c.quantity,
+    }));
+    // Idempotency key per submission attempt
+    const idempotencyKey = `cart_${orderConfig.slug}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    // Online card payment: create the unpaid order + PaymentIntent, then
+    // collect the card in-page. The cart clears only after confirmed payment.
+    if (payMethod === "online") {
+      setIsStartingPayment(true);
+      try {
+        const intentRes = await fetch("/api/orders/payment-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: orderConfig.slug,
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
+            customerEmail: customerEmail.trim() || null,
+            fulfilmentType: fulfilment,
+            deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
+            customerNote: customerNote.trim() || null,
+            items: payloadItems,
+            idempotencyKey,
+            hp: honeypot || null,
+          }),
+        });
+        const intentData = await intentRes.json().catch(() => ({}));
+        if (!intentRes.ok || !intentData.clientSecret) {
+          setErrorMessage(intentData.error || "Could not start the card payment. Please try again.");
+          setIsStartingPayment(false);
+          return;
+        }
+        setOnlineOrderNumber(intentData.orderNumber);
+        setOnlineScheduledFor(intentData.scheduledFor ?? null);
+        setOnlineSecret(intentData.clientSecret);
+        setIsStartingPayment(false);
+        return;
+      } catch {
+        setErrorMessage("An unexpected network error occurred. Please try again.");
+        setIsStartingPayment(false);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Idempotency key per submission attempt
-      const idempotencyKey = `cart_${orderConfig.slug}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
       const res = await submitOrderRequest({
         slug: orderConfig.slug,
         customerName: customerName.trim(),
@@ -897,11 +958,7 @@ function OrderDrawer({
         fulfilmentType: fulfilment,
         deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
         customerNote: customerNote.trim() || null,
-        items: cart.map((c) => ({
-          itemId: c.itemId,
-          selectedOptionIds: c.selectedOptionIds,
-          quantity: c.quantity,
-        })),
+        items: payloadItems,
         idempotencyKey,
         hp: honeypot || null,
       });
@@ -927,6 +984,68 @@ function OrderDrawer({
       setIsSubmitting(false);
     }
   };
+
+  // Card-payment step: the unpaid order exists; collect the card. Success
+  // arrives via PaymentForm only after Stripe confirms — that is when the
+  // cart clears (see onOrderSuccess).
+  if (onlineSecret && onlineOrderNumber) {
+    return (
+      <div
+        className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-white shadow-2xl outline-none sm:rounded-2xl"
+        >
+          <div className="flex items-center justify-between border-b border-zinc-100 p-4 sm:p-5">
+            <h2 className="text-base font-bold text-zinc-900">{labels.payOnline || "Pay online"}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between text-sm font-bold text-zinc-900">
+              <span>{labels.total || "Total"}</span>
+              <span className="text-orange-700">{formattedSubtotal}</span>
+            </div>
+            {errorMessage ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
+            <StripeProvider clientSecret={onlineSecret} accentColor="#c2410c">
+              <PaymentForm
+                onSuccess={() => {
+                  onOrderSuccess({
+                    orderNumber: onlineOrderNumber,
+                    scheduledFor: onlineScheduledFor,
+                  });
+                }}
+                onBack={() => {
+                  setOnlineSecret(null);
+                  setOnlineOrderNumber(null);
+                }}
+                submitLabel={`${labels.payOnline || "Pay online"} • ${formattedSubtotal}`}
+                accentColor="#c2410c"
+                hideInputs
+              />
+            </StripeProvider>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1130,6 +1249,42 @@ function OrderDrawer({
               </div>
             </div>
 
+            {/* Payment method (choice only when online payment is available) */}
+            {canPayOnline ? (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-700">{labels.paymentMethod || "Payment method"}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod("fulfilment")}
+                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                      payMethod === "fulfilment"
+                        ? "border-orange-600 bg-orange-50 text-orange-700"
+                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod("online")}
+                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                      payMethod === "online"
+                        ? "border-orange-600 bg-orange-50 text-orange-700"
+                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {labels.payOnline || "Pay online"}
+                  </button>
+                </div>
+                {payMethod === "online" ? (
+                  <p className="text-[11px] text-zinc-500">
+                    {labels.onlinePaymentNotice || "You will pay by card now."}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             {/* Honeypot field (hidden) */}
             <div style={{ display: "none" }} aria-hidden="true">
               <input
@@ -1160,17 +1315,23 @@ function OrderDrawer({
                 <span className="text-orange-700">{formattedSubtotal}</span>
               </div>
               <p className="text-[11px] text-zinc-500">
-                {labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
+                {payMethod === "online"
+                  ? labels.onlinePaymentNotice || "You will pay by card now."
+                  : labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
               </p>
 
               <button
                 type="submit"
-                disabled={isSubmitting || cart.length === 0}
+                disabled={isSubmitting || isStartingPayment || cart.length === 0}
                 className="w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-bold text-white shadow-xs hover:bg-orange-700 disabled:opacity-40 transition"
               >
-                {isSubmitting
-                  ? labels.placingOrder || "Placing order…"
-                  : `${labels.placeOrder || "Place order"} • ${formattedSubtotal}`}
+                {isSubmitting || isStartingPayment
+                  ? payMethod === "online"
+                    ? labels.payingOnline || "Preparing secure payment…"
+                    : labels.placingOrder || "Placing order…"
+                  : payMethod === "online"
+                    ? `${labels.payOnline || "Pay online"} • ${formattedSubtotal}`
+                    : `${labels.placeOrder || "Place order"} • ${formattedSubtotal}`}
               </button>
             </div>
           </form>

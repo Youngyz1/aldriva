@@ -49,6 +49,7 @@ export interface SubmitOrderRequestInput {
 export type SubmitOrderResult =
   | {
       success: true;
+      orderId: string;
       orderNumber: string;
       trackingToken: string;
       scheduledFor: string | null;
@@ -68,6 +69,7 @@ export type SubmitOrderResult =
         | "item_sold_out"
         | "invalid_options"
         | "unknown_option"
+        | "online_unavailable"
         | "no_open_hours"
         | "db_error"
         | "unexpected";
@@ -77,13 +79,24 @@ export type SubmitOrderResult =
 
 export type OrderSubmitClient = ReturnType<typeof createSupabaseAdmin>;
 
+export interface SubmitOrderOptions {
+  /** Stored payment_method. Defaults to "on_fulfilment" (existing flow). */
+  paymentMethod?: "on_fulfilment" | "online";
+  /**
+   * Skip the owner notification (online flow notifies only on webhook-paid).
+   * Defaults to false: pay-on-fulfilment orders notify at creation.
+   */
+  deferNotification?: boolean;
+}
+
 /**
  * Internal order request submission. Takes an explicit Supabase client so
  * tests can inject a mock; the public action supplies the admin client.
  */
 export async function submitOrderRequestWithClient(
   input: SubmitOrderRequestInput,
-  admin: OrderSubmitClient
+  admin: OrderSubmitClient,
+  options?: SubmitOrderOptions
 ): Promise<SubmitOrderResult> {
   try {
     // 1. Honeypot check
@@ -183,16 +196,24 @@ export async function submitOrderRequestWithClient(
     );
 
     const v2Template = getV2TemplateForWebsite(website.metadata);
-    const builtFeatures = v2Template ? getBuiltStorefrontFeatures(v2Template) : { ordering: false, delivery: false, pickup: false, reservations: false };
+    const builtFeatures = v2Template ? getBuiltStorefrontFeatures(v2Template) : { ordering: false, delivery: false, pickup: false, reservations: false, onlinePayment: false };
+
+    const currency = resolveStorefrontCurrency(website.metadata, business?.country ?? null);
 
     const storefrontFeatures = resolveStorefrontFeatures({
       capabilities,
       offerings: Array.isArray(business?.offerings) ? business.offerings : [],
       built: builtFeatures,
+      currency,
     });
 
     if (!storefrontFeatures.ordering) {
       return { success: false, error: "ordering_disabled", message: "Online ordering is not enabled for this business." };
+    }
+
+    const paymentMethod = options?.paymentMethod ?? "on_fulfilment";
+    if (paymentMethod === "online" && !storefrontFeatures.onlinePayment) {
+      return { success: false, error: "online_unavailable", message: "Online payment is not available for this site." };
     }
 
     if (input.fulfilmentType === "delivery" && !storefrontFeatures.delivery) {
@@ -208,7 +229,7 @@ export async function submitOrderRequestWithClient(
     if (idempotencyKey) {
       const { data: existingOrder } = await admin
         .from("orders")
-        .select("order_number, tracking_token, scheduled_for")
+        .select("id, order_number, tracking_token, scheduled_for")
         .eq("organizer_id", organizerId)
         .eq("idempotency_key", idempotencyKey)
         .maybeSingle();
@@ -216,6 +237,7 @@ export async function submitOrderRequestWithClient(
       if (existingOrder) {
         return {
           success: true,
+          orderId: existingOrder.id,
           orderNumber: existingOrder.order_number,
           trackingToken: existingOrder.tracking_token,
           scheduledFor: existingOrder.scheduled_for,
@@ -365,7 +387,6 @@ export async function submitOrderRequestWithClient(
 
     const deliveryFee = 0.0;
     const totalAmount = subtotal + deliveryFee;
-    const currency = resolveStorefrontCurrency(website.metadata, business?.country ?? null);
 
     // 8. Collision-safe human-readable order number generation
     const randomHex = Math.floor(1000 + Math.random() * 9000);
@@ -396,7 +417,7 @@ export async function submitOrderRequestWithClient(
           delivery_fee: deliveryFee,
           total_amount: totalAmount,
           status: "pending",
-          payment_method: "on_fulfilment",
+          payment_method: paymentMethod,
           payment_status: "unpaid",
           scheduled_for: schedule.scheduledFor,
           items: orderItemsSnapshot,
@@ -415,13 +436,14 @@ export async function submitOrderRequestWithClient(
           // Idempotent duplicate: fetch existing
           const { data: existing } = await admin
             .from("orders")
-            .select("order_number, tracking_token, scheduled_for")
+            .select("id, order_number, tracking_token, scheduled_for")
             .eq("organizer_id", organizerId)
             .eq("idempotency_key", idempotencyKey)
             .maybeSingle();
           if (existing) {
             return {
               success: true,
+              orderId: existing.id,
               orderNumber: existing.order_number,
               trackingToken: existing.tracking_token,
               scheduledFor: existing.scheduled_for,
@@ -441,23 +463,28 @@ export async function submitOrderRequestWithClient(
 
     // 9. Dispatch owner notification (in-app bell + email)
     // Non-blocking for caller; errors logged without PII and cannot fail the order.
-    await dispatchOrderNotifications({
-      id: insertedOrder.id,
-      organizer_id: organizerId,
-      order_number: insertedOrder.order_number,
-      customer_name: customerName,
-      customer_phone: cleanPhone,
-      customer_email: customerEmail,
-      fulfilment_type: input.fulfilmentType,
-      delivery_address: deliveryAddress,
-      currency,
-      total_amount: totalAmount,
-      scheduled_for: insertedOrder.scheduled_for,
-      items: orderItemsSnapshot,
-    });
+    // Online orders defer this to the payment webhook: the owner is notified
+    // only when payment succeeds, never on checkout open.
+    if (!options?.deferNotification) {
+      await dispatchOrderNotifications({
+        id: insertedOrder.id,
+        organizer_id: organizerId,
+        order_number: insertedOrder.order_number,
+        customer_name: customerName,
+        customer_phone: cleanPhone,
+        customer_email: customerEmail,
+        fulfilment_type: input.fulfilmentType,
+        delivery_address: deliveryAddress,
+        currency,
+        total_amount: totalAmount,
+        scheduled_for: insertedOrder.scheduled_for,
+        items: orderItemsSnapshot,
+      });
+    }
 
     return {
       success: true,
+      orderId: insertedOrder.id,
       orderNumber: insertedOrder.order_number,
       trackingToken: insertedOrder.tracking_token,
       scheduledFor: insertedOrder.scheduled_for,

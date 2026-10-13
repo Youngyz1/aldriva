@@ -463,6 +463,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       slug: website.slug,
       currency: currency || "USD",
       offerings,
+      onlinePayment: v2Content.resolved.storefrontFeatures.onlinePayment === true,
       isClosed: !schedule.isOpen,
       scheduledFor: schedule.scheduledFor,
       blocked: schedule.blocked,

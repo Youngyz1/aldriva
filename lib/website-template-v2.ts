@@ -82,7 +82,7 @@ export interface TemplateV2NavEntry {
   pageSlug: string | null;
   href: string;
   order: number;
-  feature?: "ordering" | "delivery" | "pickup" | "reservations";
+  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment";
 }
 
 export interface TemplateSection {

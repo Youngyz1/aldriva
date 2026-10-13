@@ -18,6 +18,7 @@ import {
   VIDEO_MAGIC_HEAD_BYTES,
 } from "@/lib/video-validation";
 import RichTextEditor from "@/components/editor/RichTextEditor";
+import { slugify } from "@/lib/slug";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import BeneficiarySelector, {
@@ -46,11 +47,7 @@ type OrganizerProfile = {
 };
 
 function generateSlug(title: string) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
+  return slugify(title);
 }
 
 function money(value: string | number) {

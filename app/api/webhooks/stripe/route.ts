@@ -8,6 +8,7 @@ import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { notifyProductPurchase } from "@/lib/product-notifications";
+import { handleStorefrontOrderPaymentSucceeded } from "@/lib/storefront-order-payments";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
 import { getSiteUrl } from "@/lib/site-url";
@@ -601,6 +602,30 @@ async function handlePaymentIntentSucceeded(
       base: baseUrl(),
     });
 
+    return;
+  }
+
+  // ── Storefront order (Phase 3: guest menu checkout, PaymentIntent flow) ───
+  // The webhook is the ONLY source of truth for paid state. The handler is
+  // idempotent under Stripe retries (only the unpaid -> paid flip notifies)
+  // and matches tenant + amount + currency from the DB order. Failed or
+  // cancelled payments need no action: the order stays unpaid and reads as
+  // awaiting (or expired) in the owner list.
+  if (kind === "storefront_order") {
+    await handleStorefrontOrderPaymentSucceeded(pi, {
+      admin: supabaseAdmin,
+      alert: async (params) => {
+        await alertReconciliationFailure({
+          kind: params.kind,
+          stripePaymentIntentId: params.stripePaymentIntentId,
+          amount: params.amount,
+          currency: params.currency,
+          buyerEmail: params.buyerEmail,
+          rawMetadata: params.rawMetadata as Stripe.Metadata,
+          errorMessage: params.errorMessage,
+        });
+      },
+    });
     return;
   }
 

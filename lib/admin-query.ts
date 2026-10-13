@@ -56,13 +56,9 @@ export function formatAdminMoney(value: number | string | null | undefined) {
   return `$${Number(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-export function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { slugify } from "./slug";
+
+export { slugify };
 
 type AccountInfo = {
   firstName?: string;

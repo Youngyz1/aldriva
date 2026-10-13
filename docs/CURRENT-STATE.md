@@ -1,5 +1,10 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Phase 3 Online card payment + slug fix (2026-10-13)
+
+- **Status: IMPLEMENTED IN WORKING TREE; migration 173 and the USD data-fix script written but NOT applied.** Slug root cause fixed for future rows (SQL trigger + shared JS helper); USD-only PaymentIntent flow with webhook source of truth, idempotent paid flip, and read-time expiry labels. Owner notified only on payment success.
+- **Verification:** website+ 216/216, invitation 351/351, org-nav 96/96; `tsc --noEmit` and ESLint clean. Only known failure is the pre-existing `event-import-removal` fr.json check (fails on clean HEAD). Build, browser review, live migration/RLS, and Stripe test-mode verification not run.
+
 ## Active Worktree Update — Phase 2b-2.2 Ordering hardening (2026-10-13)
 
 - **Status: IMPLEMENTED IN WORKING TREE; migration 172 written but NOT applied.** Notification CHECKs widened to the 44/116/171 union plus code-sent `organizer` (files only: `db/` forward + rollback restoring 171 + identical mirror). Order logic extracted to `lib/order-submit.ts` with client injection; the public action accepts serializable input only. Unknown option ids fail with `unknown_option` and surface a specific cart message. New static table-reference guard (grandfathered `guests` miss in the event overview page). `stage17` pin moved 171 → 172.

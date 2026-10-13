@@ -876,6 +876,7 @@ export function resolveTemplateManifest(
     capabilities,
     offerings: business.offerings,
     built: getBuiltStorefrontFeatures(template),
+    currency: normalizeCurrencyCode(options.currency),
   });
   const ctx: BuildContext = {
     template,

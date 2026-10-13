@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Phase 3 online card payment for orders, slug fix and money helper (2026-10-13; working tree)
+- Slug fix: production "ams-bidjan" came from strip-before-lowercase in `ensure_business_organizer()` (migrations 58/127); future rows fixed in migration 173 (lowercase-first + accent folding), all JS entity generators routed through the hardened `lib/slug.ts` (length cap, fallback). No existing slug rewritten.
+- USD-only online payment: `resolveStorefrontCurrency` chain documented; one-off `db/data_fix_001_*` USD backfill (NOT run, XOF sites excluded); `lib/money.ts` minor/major helper for new payment code only.
+- Migration 173 (NOT applied): `payment_expires_at` + unique `(provider, provider_reference)` partial index on orders; no new status value (pending+unpaid expresses awaiting).
+- `online_payment` owner offering + `onlinePayment` gated feature (capability or live ordering + tick + built + USD); checkout Pay online vs pickup/delivery choice; PaymentIntent + existing Stripe Elements flow; webhook-only paid truth with idempotent flip, tenant/amount/currency match and reconciliation alerts; owner list shows Paid/Awaiting/Expired/To collect with read-time expiry (no cron).
+- **Verification:** website+ 216/216, invitation 351/351 (14 files), org-nav 96/96 (7 files); `tsc`/`eslint` clean. Only known failure: pre-existing `event-import-removal`. Build/browser/live-Stripe not run.
+
 ## [2026-10] — Phase 2b-2.2 ordering hardening (2026-10-13; working tree)
 - Added migration 172 (files only, NOT applied): widens `notifications_type_check`/`notifications_related_type_check` to the union of every value ever allowed (44/116/171) plus code-sent `related_type 'organizer'`; nothing dropped. `db/` forward, rollback twin restoring 171, and byte-identical `supabase/migrations` mirror.
 - Moved order logic to `lib/order-submit.ts` (`submitOrderRequestWithClient(input, admin)`); the `"use server"` action now takes only serializable input and creates the admin client itself. Tests target the internal function.

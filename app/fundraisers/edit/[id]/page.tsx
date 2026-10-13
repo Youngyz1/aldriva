@@ -14,13 +14,14 @@ import BeneficiarySelector, {
 import BeneficiaryInvite from "@/components/fundraisers/BeneficiaryInvite";
 import { validateBeneficiary, resolveBeneficiary } from "@/lib/beneficiary";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
+import { slugify } from "@/lib/slug";
 
 // Fundraiser photos keep their full originals; the detail-page hero
 // (FundraiserMediaSlider) frames them at its own mobile ratio.
 
 
 function generateSlug(title: string) {
-  return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
+  return slugify(title);
 }
 
 type GalleryItem = {

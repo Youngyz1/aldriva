@@ -30,6 +30,7 @@ const restaurantFeatures: BusinessOffering[] = [
   { key: "pickup", labelKey: "pickup", kind: "feature", requiresCapability: "PICKUP" },
   { key: "delivery", labelKey: "delivery", kind: "feature", requiresCapability: "DELIVERY" },
   { key: "online_ordering", labelKey: "online_ordering", kind: "feature", requiresCapability: "ONLINE_ORDERING" },
+  { key: "online_payment", labelKey: "online_payment", kind: "feature", requiresCapability: "ONLINE_PAYMENT" },
   { key: "table_reservations", labelKey: "table_reservations", kind: "feature", requiresCapability: "RESERVATIONS" },
 ];
 

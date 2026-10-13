@@ -3,6 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { isAdmin } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { slugify as slugifyShared } from "@/lib/slug";
 
 type SyncBody = {
   sourceId?: string;
@@ -158,12 +159,7 @@ function findMoneyValue(html: string, names: string[]) {
 }
 
 function slugify(title: string) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+  return slugifyShared(title);
 }
 
 async function fetchGoFundMeFundraiser(source: SourceRow) {

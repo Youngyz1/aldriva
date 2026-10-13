@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
+import { slugify } from "@/lib/slug";
 
 type Organizer = {
   id: string;
@@ -31,12 +32,7 @@ const fundraiserColumns = [
 ];
 
 function generateSlug(title: string) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+  return slugify(title);
 }
 
 function parseCsvLine(line: string) {
