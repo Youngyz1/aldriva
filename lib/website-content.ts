@@ -17,6 +17,7 @@
 import { sanitizeUrl } from "./sanitize-html";
 import { safeImageSrc } from "./image-url";
 import { BLOCK_LIMITS } from "./website-blocks";
+import { isValidWebsiteTime } from "./website-hours";
 
 // ── 1. Key registries ───────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export const OPTIONAL_CONTENT_KEYS = [
   "addons",
   "locations",
   "featured",
+  "enabled_sections",
   "template_extras",
 ] as const;
 
@@ -206,11 +208,13 @@ function normalizeHours(value: unknown): ContentHours | undefined {
       slot.closed = true;
       filled = true;
     } else {
-      const open = clampText(raw.open, 16);
-      const close = clampText(raw.close, 16);
-      if (open) slot.open = open;
-      if (close) slot.close = close;
-      if (open || close) filled = true;
+      const open = raw.open;
+      const close = raw.close;
+      if (isValidWebsiteTime(open) && isValidWebsiteTime(close)) {
+        slot.open = open;
+        slot.close = close;
+        filled = true;
+      }
     }
     if (Object.keys(slot).length > 0) out[day] = slot;
   }
@@ -271,6 +275,22 @@ function normalizeKeyedItems(
     if (out.length >= BLOCK_LIMITS.MAX_ARRAY_ITEMS) break;
   }
   return out.length > 0 ? out : undefined;
+}
+
+const STABLE_SECTION_ID_PATTERN = /^[a-z0-9._-]+$/;
+export const MAX_ENABLED_SECTIONS_KEYS = 20;
+
+export function normalizeEnabledSections(value: unknown): Record<string, boolean> | undefined {
+  if (!isPlainObject(value)) return undefined;
+  const out: Record<string, boolean> = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (FORBIDDEN_KEYS.has(key)) continue;
+    if (typeof val !== "boolean") continue;
+    if (!STABLE_SECTION_ID_PATTERN.test(key)) continue;
+    out[key] = val;
+    if (Object.keys(out).length >= MAX_ENABLED_SECTIONS_KEYS) break;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -367,6 +387,9 @@ export function normalizeContent(input: unknown): ContentDoc {
     if (vehicleIds) featured.vehicle_ids = vehicleIds;
     if (Object.keys(featured).length > 0) out.featured = featured;
   }
+
+  const enabledSections = normalizeEnabledSections(input.enabled_sections);
+  if (enabledSections) out.enabled_sections = enabledSections;
 
   if (isPlainObject(input.template_extras)) {
     const extras: Record<string, unknown> = {};

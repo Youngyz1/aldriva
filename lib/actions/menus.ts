@@ -5,6 +5,11 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { requireTenantContext } from "@/lib/tenant-context";
 import { safeImageSrc } from "@/lib/image-url";
 import { revalidatePath } from "next/cache";
+import {
+  validatePromoPrice,
+  validateOptionGroups,
+  type MenuItemOptionGroup,
+} from "@/lib/menu-pricing";
 
 const NAME_MAX = 80;
 const DESC_MAX = 500;
@@ -169,7 +174,25 @@ export async function deleteMenuSection(sectionId: string, organizerId: string) 
 
 // ── Items ────────────────────────────────────────────────────────────
 
-export async function createMenuItem(sectionId: string, organizerId: string, input: { name: string; description?: string | null; price: number; image_url?: string | null; dietary_tags?: string[]; allergens?: string[]; modifiers?: { name: string; price_delta: number }[]; position?: number; is_active?: boolean; is_featured?: boolean }) {
+export async function createMenuItem(
+  sectionId: string,
+  organizerId: string,
+  input: {
+    name: string;
+    description?: string | null;
+    price: number;
+    promo_price?: number | null;
+    is_sold_out?: boolean;
+    image_url?: string | null;
+    dietary_tags?: string[];
+    allergens?: string[];
+    modifiers?: { name: string; price_delta: number }[];
+    option_groups?: MenuItemOptionGroup[];
+    position?: number;
+    is_active?: boolean;
+    is_featured?: boolean;
+  }
+) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
   } catch {
@@ -181,6 +204,12 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
   if (descErr) return { success: false, error: descErr };
   const priceErr = validatePrice(input.price);
   if (priceErr) return { success: false, error: priceErr };
+
+  if (input.promo_price !== undefined && input.promo_price !== null) {
+    const promoErr = validatePromoPrice(input.promo_price, Number(input.price));
+    if (promoErr) return { success: false, error: promoErr };
+  }
+
   const imgErr = validateImageUrl(input.image_url);
   if (imgErr) return { success: false, error: imgErr };
   const dtErr = validateTags(input.dietary_tags, DIETARY_TAGS, "dietary_tags");
@@ -189,6 +218,11 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
   if (alErr) return { success: false, error: alErr };
   const modErr = validateModifiers(input.modifiers);
   if (modErr) return { success: false, error: modErr };
+
+  if (input.option_groups !== undefined) {
+    const ogErr = validateOptionGroups(input.option_groups);
+    if (ogErr) return { success: false, error: ogErr };
+  }
 
   const admin = createSupabaseAdmin();
   // verify section belongs to organizer (trigger will also enforce)
@@ -211,10 +245,13 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
     name: input.name.trim(),
     description: input.description?.trim() || null,
     price: Number(input.price),
+    promo_price: input.promo_price !== undefined && input.promo_price !== null ? Number(input.promo_price) : null,
+    is_sold_out: input.is_sold_out ?? false,
     image_url: sanitizedImage,
     dietary_tags: input.dietary_tags || [],
     allergens: input.allergens || [],
     modifiers: input.modifiers || [],
+    option_groups: input.option_groups || [],
     position: Number(position),
     is_active: input.is_active ?? true,
     is_featured: input.is_featured ?? false,
@@ -224,7 +261,26 @@ export async function createMenuItem(sectionId: string, organizerId: string, inp
   return { success: true, data };
 }
 
-export async function updateMenuItem(itemId: string, sectionId: string, organizerId: string, input: { name?: string; description?: string | null; price?: number; image_url?: string | null; dietary_tags?: string[]; allergens?: string[]; modifiers?: { name: string; price_delta: number }[]; position?: number; is_active?: boolean; is_featured?: boolean }) {
+export async function updateMenuItem(
+  itemId: string,
+  sectionId: string,
+  organizerId: string,
+  input: {
+    name?: string;
+    description?: string | null;
+    price?: number;
+    promo_price?: number | null;
+    is_sold_out?: boolean;
+    image_url?: string | null;
+    dietary_tags?: string[];
+    allergens?: string[];
+    modifiers?: { name: string; price_delta: number }[];
+    option_groups?: MenuItemOptionGroup[];
+    position?: number;
+    is_active?: boolean;
+    is_featured?: boolean;
+  }
+) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
   } catch {
@@ -247,6 +303,35 @@ export async function updateMenuItem(itemId: string, sectionId: string, organize
     if (e) return { success: false, error: e };
     updates.price = Number(input.price);
   }
+
+  // Validate promo_price against new price or existing price
+  if (input.promo_price !== undefined) {
+    if (input.promo_price === null) {
+      updates.promo_price = null;
+    } else {
+      let basePrice = input.price !== undefined ? Number(input.price) : undefined;
+      if (basePrice === undefined) {
+        const { data: existing } = await admin.from("menu_items").select("price").eq("id", itemId).maybeSingle();
+        basePrice = existing ? Number(existing.price) : 0;
+      }
+      const e = validatePromoPrice(input.promo_price, basePrice);
+      if (e) return { success: false, error: e };
+      updates.promo_price = Number(input.promo_price);
+    }
+  } else if (input.price !== undefined) {
+    // Price changed without promo_price specified: verify existing promo_price is still < new price
+    const { data: existing } = await admin.from("menu_items").select("promo_price").eq("id", itemId).maybeSingle();
+    if (existing?.promo_price !== null && existing?.promo_price !== undefined) {
+      if (Number(existing.promo_price) >= Number(input.price)) {
+        return { success: false, error: "Existing promo price must be strictly less than the new price" };
+      }
+    }
+  }
+
+  if (input.is_sold_out !== undefined) {
+    updates.is_sold_out = Boolean(input.is_sold_out);
+  }
+
   if (input.image_url !== undefined) {
     const e = validateImageUrl(input.image_url);
     if (e) return { success: false, error: e };
@@ -266,6 +351,11 @@ export async function updateMenuItem(itemId: string, sectionId: string, organize
     const e = validateModifiers(input.modifiers);
     if (e) return { success: false, error: e };
     updates.modifiers = input.modifiers;
+  }
+  if (input.option_groups !== undefined) {
+    const e = validateOptionGroups(input.option_groups);
+    if (e) return { success: false, error: e };
+    updates.option_groups = input.option_groups;
   }
   if (input.position !== undefined) {
     const e = validatePosition(input.position);
@@ -335,3 +425,44 @@ export async function reorderMenuItems(sectionId: string, organizerId: string, o
   revalidatePath(`/dashboard/org/${organizerId}/menu`);
   return { success: true };
 }
+
+export async function getFullMenu(organizerId: string) {
+  const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Unauthorized" };
+  try {
+    await requireTenantContext(user.id, organizerId, ["owner", "admin", "manager", "editor", "finance", "viewer"]);
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
+  const admin = createSupabaseAdmin();
+  const { data: sections, error: sErr } = await admin
+    .from("menu_sections")
+    .select("*")
+    .eq("organizer_id", organizerId)
+    .order("position", { ascending: true });
+  if (sErr) return { success: false, error: "Failed to load sections" };
+  const sectionList = sections || [];
+  const sectionIds = sectionList.map((s: any) => s.id);
+  const itemsBySection: Record<string, any[]> = {};
+  if (sectionIds.length > 0) {
+    const { data: items, error: iErr } = await admin
+      .from("menu_items")
+      .select("*")
+      .in("section_id", sectionIds)
+      .order("position", { ascending: true });
+    if (iErr) return { success: false, error: "Failed to load items" };
+    for (const it of (items || []) as any[]) {
+      itemsBySection[it.section_id] = itemsBySection[it.section_id] || [];
+      itemsBySection[it.section_id].push(it);
+    }
+  }
+  return {
+    success: true,
+    data: {
+      sections: sectionList,
+      itemsBySection,
+    },
+  };
+}
+

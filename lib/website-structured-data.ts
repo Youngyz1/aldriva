@@ -6,6 +6,7 @@
  */
 
 import type { ThemeConfig, HeaderConfig, FooterConfig, NavigationItem } from "@/lib/website-nav";
+import { getSiteUrl } from "@/lib/site-url";
 
 export interface TenantWebsite {
   id: string;
@@ -54,6 +55,16 @@ export function getTenantSiteBaseUrl(slug: string): string {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://aldriva.com";
   return `${appUrl}/site/${slug}`;
+}
+
+/**
+ * Returns the live URL for a tenant site used by builder controls (Open site / Copy link).
+ * Uses getSiteUrl() cascade (localhost in dev, preview/staging, production fallback).
+ * Canonical/SEO stays strictly on getTenantSiteBaseUrl.
+ */
+export function getTenantSiteBuilderLiveUrl(slug: string): string {
+  const baseUrl = getSiteUrl().replace(/\/$/, "");
+  return `${baseUrl}/site/${slug}`;
 }
 
 /**

@@ -19,9 +19,10 @@ export type NotificationType =
   | "ticket_purchase"
   | "product_purchase"
   | "product_update"
-  | "product_refund";
+  | "product_refund"
+  | "order_placed";
 
-export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer" | "product";
+export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer" | "product" | "order";
 
 interface NotificationEmail {
   to: string;

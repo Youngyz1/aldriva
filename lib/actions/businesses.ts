@@ -6,6 +6,7 @@ import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
 import { isValidIndustry, getCategoriesForIndustry, isValidBusinessTypeForCategory, isValidBusinessType, CATEGORIES_BY_INDUSTRY, BUSINESS_TYPES_BY_CATEGORY, normalizeIndustry } from "@/lib/business-taxonomy";
 import { screenBusiness } from "@/lib/business-screening";
+import { getBusinessOfferings, validateBusinessOfferings } from "@/lib/business-offerings";
 
 async function getUniqueSlug(name: string, supabase: any, excludeId?: string): Promise<string> {
   let baseSlug = createSlug(name);
@@ -49,6 +50,7 @@ export type BusinessInput = {
   listing_tier: "free" | "one_time" | "subscription";
   seo_title?: string | null;
   seo_description?: string | null;
+  offerings?: string[] | null;
 };
 
 export async function createBusiness(input: BusinessInput) {
@@ -101,6 +103,15 @@ export async function createBusiness(input: BusinessInput) {
     return { success: false, error: "SEO Description cannot exceed 180 characters" };
   }
 
+  const offeringsResult = validateBusinessOfferings(
+    input.offerings ?? [],
+    trimmedBusinessType,
+    trimmedCategory
+  );
+  if (!offeringsResult.valid) {
+    return { success: false, error: offeringsResult.error ?? "Invalid offerings." };
+  }
+
   const slug = await getUniqueSlug(trimmedName, supabase);
 
   // New listings start as pending_review and require admin approval before
@@ -127,6 +138,9 @@ export async function createBusiness(input: BusinessInput) {
       state: input.state || null,
       country: input.country || null,
       listing_tier: input.listing_tier,
+      offerings: offeringsResult.offerings,
+      seo_title: input.seo_title || null,
+      seo_description: input.seo_description || null,
       status: "pending_review",
       is_flagged: false,
     })
@@ -276,7 +290,7 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
   }
 
   // Fetch existing for re-screen comparison (need old status and screened fields)
-  const { data: existingBusiness } = await supabase.from("businesses").select("name, description, website, phone, industry, category, business_type, address, city, state, country, status, owner_id").eq("id", id).eq("owner_id", user.id).maybeSingle();
+  const { data: existingBusiness } = await supabase.from("businesses").select("name, description, website, phone, industry, category, business_type, offerings, address, city, state, country, status, owner_id").eq("id", id).eq("owner_id", user.id).maybeSingle();
 
   const updates: Record<string, any> = {};
 
@@ -338,6 +352,32 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
     } else {
       updates.business_type = null;
     }
+  }
+
+  const effectiveBusinessType = input.business_type !== undefined
+    ? updates.business_type
+    : existingBusiness?.business_type;
+  const effectiveCategory = input.category !== undefined
+    ? updates.category
+    : existingBusiness?.category;
+  const businessClassificationChanged =
+    (input.business_type !== undefined && input.business_type !== existingBusiness?.business_type) ||
+    (input.category !== undefined && input.category !== existingBusiness?.category);
+  if (input.offerings !== undefined) {
+    const offeringsResult = validateBusinessOfferings(
+      input.offerings ?? [],
+      effectiveBusinessType,
+      effectiveCategory
+    );
+    if (!offeringsResult.valid) {
+      return { success: false, error: offeringsResult.error ?? "Invalid offerings." };
+    }
+    updates.offerings = offeringsResult.offerings;
+  } else if (businessClassificationChanged) {
+    const allowed = new Set(getBusinessOfferings(effectiveBusinessType, effectiveCategory).map((offering) => offering.key));
+    updates.offerings = Array.isArray(existingBusiness?.offerings)
+      ? existingBusiness.offerings.filter((offering: unknown): offering is string => typeof offering === "string" && allowed.has(offering))
+      : [];
   }
 
   if (input.seo_title !== undefined) {

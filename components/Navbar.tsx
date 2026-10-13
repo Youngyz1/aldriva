@@ -75,7 +75,9 @@ export default function Navbar() {
 
   // Invitation routes (/invitation/[token], /invitation/preview) are standalone chrome-free experiences
   // Round 4: Memories guest upload pages (/m/[token]) are standalone too.
-  if (pathname?.includes("/invitation") || pathname?.startsWith("/m/")) {
+  // Website editor previews (/website-preview/[orgId]) are standalone too —
+  // they render inside the editor's device iframe and must carry no chrome.
+  if (pathname?.includes("/invitation") || pathname?.startsWith("/m/") || pathname?.startsWith("/website-preview/")) {
     return null;
   }
 

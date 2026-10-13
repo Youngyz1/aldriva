@@ -1,7 +1,9 @@
 "use client";
 
+import { useTranslations } from 'next-intl';
 import MobilePillNav from "@/components/nav/MobilePillNav";
 import { getOrgNavItems } from "./org-nav-items";
+import type { Capability } from "@/lib/business-taxonomy";
 
 /**
  * Fixed bottom tab strip for the org workspace's mobile nav — same pattern as
@@ -15,8 +17,12 @@ import { getOrgNavItems } from "./org-nav-items";
  * Fixed positioning removes it from document flow — the org content wrapper
  * reserves 69px for it (see ./layout.tsx).
  */
-export default function OrgMobileNav({ orgId, hasEvents, hasFundraisers, hasProducts, hasWebsite }: { orgId: string; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean }) {
-  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
+export default function OrgMobileNav({ orgId, hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }: { orgId: string; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; capabilities?: Capability[]; offerings?: readonly string[] | null }) {
+  const t = useTranslations('Organizer');
+  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }).map(item => {
+    const key = item.label.toLowerCase() as any;
+    try { return { ...item, label: t(key) }; } catch { return item; }
+  });
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 sm:px-6 lg:hidden">
       <div className="overflow-x-auto">

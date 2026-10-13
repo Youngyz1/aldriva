@@ -25,6 +25,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { sanitizeArticleHtml, sanitizeUrl } from "@/lib/sanitize-html";
 import { safeImageSrc } from "@/lib/image-url";
 import {
@@ -46,14 +47,22 @@ import {
   isBlockVisible,
 } from "@/lib/website-blocks";
 import { getBackgroundStyle, getContainerClass, getHiddenOnMobileClass, getSpacingClass } from "@/lib/section-helpers";
+import { formatCurrency } from "@/lib/format-locale";
+import type { Locale } from "@/i18n/routing";
+import { normalizeCurrencyCode } from "@/lib/website-blocks";
+import { isOvernightWebsiteInterval } from "@/lib/website-hours";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
+import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
+import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import {
   resolveEventsEmbed,
   resolveProductsEmbed,
   resolveFundraiserEmbed,
   resolveServicesEmbed,
   resolveMenuEmbed,
+  resolveShopPrices,
   ResolvedEventItem,
   ResolvedProductItem,
   ResolvedFundraiserItem,
@@ -118,9 +127,41 @@ function SectionHeading({
   );
 }
 
+type ElementSourceMap = Record<string, TemplateSourceMapEntry>;
+
+function elementPathProps(
+  editMode: boolean | undefined,
+  sourceMap: ElementSourceMap | undefined,
+  elementPath: string
+): { "data-element-path"?: string; "data-sample-content"?: "true" } {
+  const entry = editMode ? sourceMap?.[elementPath] : undefined;
+  return entry
+    ? {
+        "data-element-path": elementPath,
+        ...(entry.sampled ? { "data-sample-content": "true" as const } : {}),
+      }
+    : {};
+}
+
+function hasEditorPlaceholder(
+  editMode: boolean | undefined,
+  sourceMap: ElementSourceMap | undefined,
+  elementPath: string
+): boolean {
+  return Boolean(editMode && sourceMap?.[elementPath]);
+}
+
 // ── 1. Hero Block ────────────────────────────────────────────────────────────
 
-function HeroBlockRenderer({ block }: { block: HeroBlock }) {
+function HeroBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: HeroBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) : "";
   const safeCtaHref = block.ctaHref ? sanitizeUrl(block.ctaHref) : "";
   const safeSecCtaHref = block.secondaryCtaHref ? sanitizeUrl(block.secondaryCtaHref) : "";
@@ -141,37 +182,42 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <div className="flex flex-col items-start gap-6">
               {block.badge && (
-                <span className="inline-flex items-center rounded-full bg-[var(--site-primary-light,#ffedd5)] px-3 py-1 text-xs font-semibold text-[var(--site-primary,#c2410c)]">
+                <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-[var(--site-primary-light,#ffedd5)] px-3 py-1 text-xs font-semibold text-[var(--site-primary,#c2410c)]">
                   {block.badge}
                 </span>
               )}
-              {block.heading && (
-                <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl">
-                  {block.heading}
+              {block.tagline && (
+                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+                  {block.tagline}
+                </p>
+              )}
+              {(block.heading || hasEditorPlaceholder(editMode, sourceMap, "heading")) && (
+                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl">
+                  {block.heading || "Add headline"}
                 </h1>
               )}
               {block.subheading && (
-                <p className="text-lg text-zinc-600 leading-relaxed">
+                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-lg text-zinc-600 leading-relaxed">
                   {block.subheading}
                 </p>
               )}
               {(block.ctaLabel || block.secondaryCtaLabel) && (
                 <div className="flex flex-wrap gap-3 pt-2">
                   {block.ctaLabel && safeCtaHref && (
-                    <a href={safeCtaHref} className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
+                    <a {...elementPathProps(editMode, sourceMap, "ctaLabel")} href={safeCtaHref} className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
                       {block.ctaLabel}
                       <ArrowRight className="h-4 w-4" />
                     </a>
                   )}
                   {block.secondaryCtaLabel && safeSecCtaHref && (
-                    <a href={safeSecCtaHref} className={cn(buttonVariants({ variant: "outline" }))}>
+                    <a {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")} href={safeSecCtaHref} className={cn(buttonVariants({ variant: "outline" }))}>
                       {block.secondaryCtaLabel}
                     </a>
                   )}
                 </div>
               )}
             </div>
-            <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-zinc-100 shadow-sm">
+            <div {...elementPathProps(editMode, sourceMap, "image")} className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-zinc-100 shadow-sm">
               {safeVideoUrl ? (
                 <video
                   src={safeVideoUrl}
@@ -203,7 +249,7 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
   // Variant: Video Background
   if (block.variant === "video_bg" && safeVideoUrl) {
     return (
-      <section className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-6 py-24">
+      <section {...elementPathProps(editMode, sourceMap, "image")} className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-6 py-24">
         <video
           src={safeVideoUrl}
           autoPlay
@@ -215,17 +261,22 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
         <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px]" aria-hidden="true" />
         <div className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-6 ${alignClass}`}>
           {block.badge && (
-            <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
+            <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
               {block.badge}
             </span>
           )}
-          {block.heading && (
-            <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {block.heading}
+          {block.tagline && (
+            <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-white/80">
+              {block.tagline}
+            </p>
+          )}
+          {(block.heading || hasEditorPlaceholder(editMode, sourceMap, "heading")) && (
+            <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+              {block.heading || "Add headline"}
             </h1>
           )}
           {block.subheading && (
-            <p className="max-w-2xl text-lg text-white/90 sm:text-xl leading-relaxed">
+            <p {...elementPathProps(editMode, sourceMap, "subheading")} className="max-w-2xl text-lg text-white/90 sm:text-xl leading-relaxed">
               {block.subheading}
             </p>
           )}
@@ -233,6 +284,7 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
             <div className="flex flex-wrap gap-3 pt-2">
               {block.ctaLabel && safeCtaHref && (
                 <a
+                  {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                   href={safeCtaHref}
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-xs transition hover:bg-zinc-100"
                 >
@@ -242,6 +294,7 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
               )}
               {block.secondaryCtaLabel && safeSecCtaHref && (
                 <a
+                  {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                   href={safeSecCtaHref}
                   className="inline-flex items-center rounded-xl border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
@@ -257,7 +310,8 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
 
   // Variant: Center (Default)
   return (
-    <section
+      <section
+      {...elementPathProps(editMode, sourceMap, "image")}
       className="relative flex min-h-[480px] w-full flex-col justify-center overflow-hidden px-6 py-20"
       style={{
         backgroundColor: block.backgroundColor || "var(--site-primary, #c2410c)",
@@ -277,17 +331,22 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
         className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-6 ${alignClass}`}
       >
         {block.badge && (
-          <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
+          <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
             {block.badge}
           </span>
         )}
-        {block.heading && (
-          <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-            {block.heading}
+        {block.tagline && (
+          <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-white/80">
+            {block.tagline}
+          </p>
+        )}
+        {(block.heading || hasEditorPlaceholder(editMode, sourceMap, "heading")) && (
+          <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+            {block.heading || "Add headline"}
           </h1>
         )}
         {block.subheading && (
-          <p className="max-w-2xl text-lg text-white/90 sm:text-xl leading-relaxed">
+          <p {...elementPathProps(editMode, sourceMap, "subheading")} className="max-w-2xl text-lg text-white/90 sm:text-xl leading-relaxed">
             {block.subheading}
           </p>
         )}
@@ -295,6 +354,7 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
           <div className="flex flex-wrap gap-3 pt-2">
             {block.ctaLabel && safeCtaHref && (
               <a
+                {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                 href={safeCtaHref}
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-xs transition hover:bg-zinc-100"
               >
@@ -304,6 +364,7 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
             )}
             {block.secondaryCtaLabel && safeSecCtaHref && (
               <a
+                {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                 href={safeSecCtaHref}
                 className="inline-flex items-center rounded-xl border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
@@ -319,7 +380,15 @@ function HeroBlockRenderer({ block }: { block: HeroBlock }) {
 
 // ── 2. Features Block ────────────────────────────────────────────────────────
 
-function FeaturesBlockRenderer({ block }: { block: FeaturesBlock }) {
+function FeaturesBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: FeaturesBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   const cols = block.columns ?? 3;
   const colClass =
     cols === 2
@@ -345,9 +414,9 @@ function FeaturesBlockRenderer({ block }: { block: FeaturesBlock }) {
                     {item.icon}
                   </div>
                 )}
-                <h3 className="text-lg font-semibold text-zinc-900">{item.title}</h3>
+                <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="text-lg font-semibold text-zinc-900">{item.title}</h3>
                 {item.description && (
-                  <p className="mt-2 text-sm text-zinc-600 leading-relaxed">
+                  <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 text-sm text-zinc-600 leading-relaxed">
                     {item.description}
                   </p>
                 )}
@@ -371,7 +440,15 @@ function FeaturesBlockRenderer({ block }: { block: FeaturesBlock }) {
 
 // ── 3. About Block ───────────────────────────────────────────────────────────
 
-function AboutBlockRenderer({ block }: { block: AboutBlock }) {
+function AboutBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: AboutBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
 
   return (
@@ -382,7 +459,7 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
         {/* Story Narrative & Mission */}
         <div className={`flex flex-col gap-6 ${safeFounderImage || block.founderName ? "lg:col-span-7" : "lg:col-span-12"}`}>
           {block.story && (
-            <div className="prose prose-zinc max-w-none text-base leading-relaxed text-zinc-700">
+            <div {...elementPathProps(editMode, sourceMap, "story")} className="prose prose-zinc max-w-none text-base leading-relaxed text-zinc-700">
               <p>{block.story}</p>
             </div>
           )}
@@ -403,6 +480,7 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {block.highlights.map((hl, i) => (
                 <div
+                  {...elementPathProps(editMode, sourceMap, "highlights[" + i + "].value")}
                   key={i}
                   className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs text-center"
                 >
@@ -410,7 +488,7 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
                   <div className="text-2xl font-bold text-zinc-900">
                     {hl.value}
                   </div>
-                  <div className="text-xs font-medium text-zinc-500 mt-0.5">
+                  <div {...elementPathProps(editMode, sourceMap, "highlights[" + i + "].label")} className="text-xs font-medium text-zinc-500 mt-0.5">
                     {hl.label}
                   </div>
                 </div>
@@ -427,6 +505,7 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
                 <div className="aspect-4/3 w-full overflow-hidden rounded-lg bg-zinc-100 mb-5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
+                    {...elementPathProps(editMode, sourceMap, "founderImage")}
                     src={safeFounderImage}
                     alt={block.founderName || "Founder"}
                     className="h-full w-full object-cover"
@@ -454,7 +533,15 @@ function AboutBlockRenderer({ block }: { block: AboutBlock }) {
 
 // ── 4. Gallery Block ─────────────────────────────────────────────────────────
 
-function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
+function GalleryBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: GalleryBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   const cols = block.columns ?? 3;
   const layout = block.layout ?? "grid";
 
@@ -481,6 +568,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  {...elementPathProps(editMode, sourceMap, "images[" + i + "].src")}
                   src={safeImgSrc}
                   alt={img.alt ?? ""}
                   className="h-56 w-full object-cover"
@@ -507,6 +595,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  {...elementPathProps(editMode, sourceMap, "images[" + i + "].src")}
                   src={safeImgSrc}
                   alt={img.alt ?? ""}
                   className="w-full object-cover"
@@ -533,6 +622,7 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  {...elementPathProps(editMode, sourceMap, "images[" + i + "].src")}
                   src={safeImgSrc}
                   alt={img.alt ?? ""}
                   className="h-56 w-full object-cover"
@@ -554,7 +644,15 @@ function GalleryBlockRenderer({ block }: { block: GalleryBlock }) {
 
 // ── 5. Testimonials Block ────────────────────────────────────────────────────
 
-function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
+function TestimonialsBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: TestimonialsBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   const layout = block.layout ?? "grid";
 
   return (
@@ -592,7 +690,7 @@ function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
                     ))}
                   </div>
                 )}
-                <p className="text-sm leading-relaxed text-zinc-700">
+                <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].quote")} className="text-sm leading-relaxed text-zinc-700">
                   &ldquo;{t.quote}&rdquo;
                 </p>
               </div>
@@ -612,7 +710,7 @@ function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
                 )}
                 <div>
                   {t.author && (
-                    <cite className="not-italic text-sm font-semibold text-zinc-900 block">
+                    <cite {...elementPathProps(editMode, sourceMap, "items[" + i + "].author")} className="not-italic text-sm font-semibold text-zinc-900 block">
                       {t.author}
                     </cite>
                   )}
@@ -631,7 +729,19 @@ function TestimonialsBlockRenderer({ block }: { block: TestimonialsBlock }) {
 
 // ── 6. Contact Block ─────────────────────────────────────────────────────────
 
-function ContactBlockRenderer({ block }: { block: ContactBlock }) {
+function ContactBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+  nextDayLabel,
+  closedLabel,
+}: {
+  block: ContactBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+  nextDayLabel: string;
+  closedLabel: string;
+}) {
   const safeEmail = block.email ? sanitizeUrl(`mailto:${block.email}`) : "";
   const safePhone = block.phone ? sanitizeUrl(`tel:${block.phone}`) : "";
   const mapSearch = block.mapQuery || block.address;
@@ -657,19 +767,20 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
               {safeEmail ? (
                 <a
                   href={safeEmail}
+                  {...elementPathProps(editMode, sourceMap, "email")}
                   className="mt-1 text-sm font-medium text-zinc-900 hover:text-[var(--site-primary,#c2410c)] hover:underline truncate"
                 >
                   {block.email}
                 </a>
               ) : (
-                <span className="mt-1 text-sm font-medium text-zinc-900 truncate">
+                <span {...elementPathProps(editMode, sourceMap, "email")} className="mt-1 text-sm font-medium text-zinc-900 truncate">
                   {block.email}
                 </span>
               )}
             </div>
           )}
 
-          {block.phone && (
+          {(block.phone || hasEditorPlaceholder(editMode, sourceMap, "phone")) && (
             <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
               <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
                 <Phone className="h-5 w-5" />
@@ -677,22 +788,23 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Phone
               </span>
-              {safePhone ? (
+              {block.phone && safePhone ? (
                 <a
+                  {...elementPathProps(editMode, sourceMap, "phone")}
                   href={safePhone}
                   className="mt-1 text-sm font-medium text-zinc-900 hover:text-[var(--site-primary,#c2410c)] hover:underline truncate"
                 >
                   {block.phone}
                 </a>
               ) : (
-                <span className="mt-1 text-sm font-medium text-zinc-900 truncate">
-                  {block.phone}
+                <span {...elementPathProps(editMode, sourceMap, "phone")} className="mt-1 text-sm font-medium text-zinc-900 truncate">
+                  {block.phone || "Add phone"}
                 </span>
               )}
             </div>
           )}
 
-          {block.address && (
+          {(block.address || hasEditorPlaceholder(editMode, sourceMap, "address")) && (
             <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
               <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
                 <MapPin className="h-5 w-5" />
@@ -700,8 +812,8 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Address
               </span>
-              <p className="mt-1 text-sm font-medium text-zinc-900">
-                {block.address}
+              <p {...elementPathProps(editMode, sourceMap, "address")} className="mt-1 text-sm font-medium text-zinc-900">
+                {block.address || "Add address"}
               </p>
             </div>
           )}
@@ -716,17 +828,18 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
               </span>
               <ul className="mt-2 divide-y divide-zinc-100 text-sm">
                 {block.hoursTable.map((row, index) => (
-                  <li key={index} className="flex items-center justify-between gap-4 py-1.5">
+                  <li {...elementPathProps(editMode, sourceMap, "hoursTable[" + index + "]")} key={index} className="flex items-center justify-between gap-4 py-1.5">
                     <span className="font-medium text-zinc-900">{row.day}</span>
                     <span className="text-zinc-600">
-                      {row.closed ? "Closed" : [row.open, row.close].filter(Boolean).join(" – ") || "–"}
+                      {row.closed ? closedLabel : [row.open, row.close].filter(Boolean).join(" – ") || "–"}
+                      {!row.closed && isOvernightWebsiteInterval(row.open, row.close) ? ` (${nextDayLabel})` : ""}
                     </span>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            block.hours && (
+            (block.hours || hasEditorPlaceholder(editMode, sourceMap, "hours")) && (
               <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
                 <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
                   <Clock className="h-5 w-5" />
@@ -734,8 +847,8 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
                 <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                   Opening Hours
                 </span>
-                <p className="mt-1 text-sm font-medium text-zinc-900">
-                  {block.hours}
+                <p {...elementPathProps(editMode, sourceMap, "hours")} className="mt-1 text-sm font-medium text-zinc-900">
+                  {block.hours || "Add opening hours"}
                 </p>
               </div>
             )
@@ -745,6 +858,7 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
             block.locations.map((location, index) => (
               <div
                 key={index}
+                {...elementPathProps(editMode, sourceMap, "locations[" + index + "].name")}
                 className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2"
               >
                 <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
@@ -754,15 +868,16 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
                   {location.name || "Location"}
                 </span>
                 {location.address && (
-                  <p className="mt-1 text-sm font-medium text-zinc-900">{location.address}</p>
+                  <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].address")} className="mt-1 text-sm font-medium text-zinc-900">{location.address}</p>
                 )}
-                {location.hours && <p className="mt-1 text-sm text-zinc-600">{location.hours}</p>}
+                {location.hours && <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].hours")} className="mt-1 text-sm text-zinc-600">{location.hours}</p>}
               </div>
             ))}
 
           {block.directionsUrl && sanitizeUrl(block.directionsUrl) ? (
             <div className="sm:col-span-2">
               <a
+                {...elementPathProps(editMode, sourceMap, "directionsUrl")}
                 href={sanitizeUrl(block.directionsUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -804,7 +919,15 @@ function ContactBlockRenderer({ block }: { block: ContactBlock }) {
 
 // ── 7. FAQ Block ─────────────────────────────────────────────────────────────
 
-function FaqBlockRenderer({ block }: { block: FaqBlock }) {
+function FaqBlockRenderer({
+  block,
+  editMode,
+  sourceMap,
+}: {
+  block: FaqBlock;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+}) {
   return (
     <section className="w-full py-16">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
@@ -812,12 +935,12 @@ function FaqBlockRenderer({ block }: { block: FaqBlock }) {
         {(block.items ?? []).map((item, i) => (
           <details key={i} className="group py-4 first:pt-0 last:pb-0">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-zinc-900 transition hover:text-[var(--site-primary,#c2410c)]">
-              <span className="text-base">{item.question}</span>
+              <span {...elementPathProps(editMode, sourceMap, "items[" + i + "].question")} className="text-base">{item.question}</span>
               <span className="shrink-0 text-zinc-400 transition group-open:rotate-180">
                 ▾
               </span>
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+            <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].answer")} className="mt-3 text-sm leading-relaxed text-zinc-600">
               {item.answer}
             </p>
           </details>
@@ -974,14 +1097,72 @@ async function ProductsEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
+  currencyLocale,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
+  currencyLocale?: Locale;
 }) {
   const products = tenantId
     ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember))
     : [];
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
+  const t = await getTranslations("Storefront");
+  // Shop prices live in Stripe (products store no local price): resolve once
+  // per render, per-item failures omit the price but keep the card + link.
+  const priceMap = await resolveShopPrices(
+    products.map((product) => ({ id: product.id, stripe_price_id: product.stripe_price_id }))
+  );
+  const browseLabels = {
+    categories: t("categories"),
+    all: t("all"),
+    searchLabel: t("searchLabel"),
+    searchPlaceholder: t("searchPlaceholder"),
+    clearFilters: t("clearFilters"),
+    noResults: t("noProductsMatch"),
+    details: t("details"),
+    close: t("close"),
+    allergens: t("allergens"),
+  };
+  const categoryOrder: string[] = [];
+  const productsByCategory = new Map<string, ResolvedProductItem[]>();
+  for (const product of products) {
+    const key = product.category ?? "";
+    if (!productsByCategory.has(key)) {
+      productsByCategory.set(key, []);
+      categoryOrder.push(key);
+    }
+    productsByCategory.get(key)!.push(product);
+  }
+  const productGroups: BrowseGroup[] = categoryOrder.map((key) => ({
+    id: key === "" ? "uncategorized" : `category-${key}`,
+    title: key === "" ? t("otherCategory") : key,
+    items: (productsByCategory.get(key) ?? []).map((product) => {
+      const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
+      const price = priceMap.get(product.id);
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        image: firstImg || null,
+        priceLabel: price ? formatCurrency(price.amount, price.currency, locale) : null,
+        tags: product.tags,
+        detailRows: [
+          {
+            label: t("stock"),
+            value:
+              product.stock_quantity === null
+                ? t("unlimited")
+                : product.stock_quantity === 0
+                  ? t("outOfStock")
+                  : String(product.stock_quantity),
+          },
+        ],
+        action: { label: t("viewProduct"), href: `/products/${product.slug}` },
+      };
+    }),
+  }));
 
   const layout = block.layout ?? "grid";
 
@@ -993,7 +1174,9 @@ async function ProductsEmbedBlockRenderer({
         <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
           No products available at this time.
         </div>
-      ) : layout === "list" ? (
+      ) : (
+        <StorefrontBrowse groups={productGroups} labels={browseLabels} showGroups={categoryOrder.length > 1}>
+        {layout === "list" ? (
         <div className="flex flex-col gap-4">
           {products.map((product: ResolvedProductItem) => {
             const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
@@ -1101,6 +1284,8 @@ async function ProductsEmbedBlockRenderer({
             );
           })}
         </div>
+        )}
+        </StorefrontBrowse>
       )}
     </section>
   );
@@ -1364,20 +1549,134 @@ async function MenuEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
+  editMode,
+  sourceMap,
+  currency,
+  currencyLocale,
+  orderConfig,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
+  editMode?: boolean;
+  sourceMap?: ElementSourceMap;
+  /** Site price display default; block.currency wins when set. */
+  currency?: string;
+  currencyLocale?: Locale;
+  orderConfig?: StorefrontOrderConfig;
 }) {
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
+  const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
+  const t = await getTranslations("Storefront");
+  const browseLabels = {
+    categories: t("categories"),
+    all: t("all"),
+    searchLabel: t("searchLabel"),
+    searchPlaceholder: t("searchPlaceholder"),
+    clearFilters: t("clearFilters"),
+    noResults: t("noDishesMatch"),
+    details: t("details"),
+    close: t("close"),
+    allergens: t("allergens"),
+    soldOut: t("soldOut"),
+    required: t("required"),
+    optional: t("optional"),
+    options: t("options"),
+    addToOrder: t("addToOrder"),
+    viewOrder: t("viewOrder"),
+    yourOrder: t("yourOrder"),
+    emptyCart: t("emptyCart"),
+    subtotal: t("subtotal"),
+    deliveryFee: t("deliveryFee"),
+    deliveryFeeNotice: t("deliveryFeeNotice"),
+    total: t("total"),
+    fulfilment: t("fulfilment"),
+    pickup: t("pickup"),
+    delivery: t("delivery"),
+    deliveryAddress: t("deliveryAddress"),
+    deliveryAddressPlaceholder: t("deliveryAddressPlaceholder"),
+    customerDetails: t("customerDetails"),
+    fullName: t("fullName"),
+    phone: t("phone"),
+    email: t("email"),
+    orderNote: t("orderNote"),
+    orderNotePlaceholder: t("orderNotePlaceholder"),
+    paymentOnFulfilment: t("paymentOnFulfilment"),
+    placeOrder: t("placeOrder"),
+    placingOrder: t("placingOrder"),
+    orderSuccessTitle: t("orderSuccessTitle"),
+    orderSuccessSubtext: t("orderSuccessSubtext"),
+    orderNumber: t("orderNumber"),
+    scheduledNotice: t("scheduledNotice"),
+    noUpcomingHours: t("noUpcomingHours"),
+    backToMenu: t("backToMenu"),
+  };
+  const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
+  const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
+    id: sec.id,
+    title: sec.name,
+    items: sec.items.map((it) => {
+      const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+      const priceLabel = isPromo
+        ? formatCurrency(Number(it.promo_price), displayCurrency, locale)
+        : formatCurrency(Number(it.price), displayCurrency, locale);
+      const originalPriceLabel = isPromo
+        ? formatCurrency(Number(it.price), displayCurrency, locale)
+        : null;
+      const formattedOptionGroups = (it.option_groups || []).map((og) => ({
+        id: og.id,
+        name: og.name,
+        required: og.required,
+        min: og.min,
+        max: og.max,
+        options: og.options.map((opt) => ({
+          id: opt.id,
+          name: opt.name,
+          priceDelta: Number(opt.price_delta) || 0,
+          priceDeltaLabel: opt.price_delta !== 0
+            ? (opt.price_delta > 0
+                ? `+${formatCurrency(opt.price_delta, displayCurrency, locale)}`
+                : formatCurrency(opt.price_delta, displayCurrency, locale))
+            : undefined,
+        })),
+      }));
+
+      return {
+        id: it.id,
+        name: it.name,
+        description: it.description,
+        image: safeImageSrc(it.image_url) || null,
+        priceLabel,
+        numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
+        originalPriceLabel,
+        isSoldOut: Boolean(it.is_sold_out),
+        tags: it.dietary_tags,
+        detailRows: [
+          ...(it.allergens.length > 0
+            ? [{ label: t("allergens"), value: it.allergens.join(", ") }]
+            : []),
+          ...it.modifiers.map((modifier) => ({
+            label: modifier.name,
+            value: formatCurrency(Number(modifier.price_delta), displayCurrency, locale),
+          })),
+        ],
+        optionGroups: formattedOptionGroups,
+      };
+    }),
+  }));
+  const hasMenuItems = hasBrowseableItems(menuGroups);
   return (
     <section className="w-full py-16">
-      <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} />
-      {sections.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">No menu available at this time.</div>
+      <div {...elementPathProps(editMode, sourceMap, "heading")}>
+        <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} />
+      </div>
+      {!hasMenuItems ? (
+        <p className="py-4 text-center text-sm text-zinc-500">{t("menuComingSoon")}</p>
       ) : (
+        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig}>
         <div className="space-y-8">
-          {sections.map((sec: ResolvedMenuSection) => (
+          {populatedSections.map((sec: ResolvedMenuSection) => (
             <div key={sec.id} className="rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-zinc-900">{sec.name}</h3>
@@ -1390,8 +1689,17 @@ async function MenuEmbedBlockRenderer({
                 ) : (
                   sec.items.map((it) => {
                     const safeImg = safeImageSrc(it.image_url);
+                    const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
                     return (
-                      <div key={it.id} className="flex gap-3 rounded-lg border border-zinc-100 p-3">
+                      <div
+                        key={it.id}
+                        {...elementPathProps(
+                          editMode,
+                          sourceMap,
+                          "selectedItemIds[" + (block.selectedItemIds?.indexOf(it.id) ?? -1) + "]"
+                        )}
+                        className="flex gap-3 rounded-lg border border-zinc-100 p-3"
+                      >
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                           {safeImg ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -1404,6 +1712,7 @@ async function MenuEmbedBlockRenderer({
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-zinc-900">{it.name}</span>
                             {it.is_featured && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Featured</span>}
+                            {it.is_sold_out && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600 border border-zinc-200">{t("soldOut")}</span>}
                             {it.isDraft && <DraftBadge />}
                           </div>
                           {it.description && <p className="text-xs text-zinc-500 line-clamp-1">{it.description}</p>}
@@ -1415,7 +1724,18 @@ async function MenuEmbedBlockRenderer({
                               <span key={a} className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 border border-red-200 capitalize">{a}</span>
                             ))}
                           </div>
-                          <div className="mt-1 text-xs font-semibold">${Number(it.price).toFixed(2)} {it.modifiers.length > 0 && <span className="font-normal text-zinc-500">+ {it.modifiers.length} modifiers</span>}</div>
+                          <div className="mt-1 text-xs font-semibold">
+                            {isPromo ? (
+                              <>
+                                <span className="text-orange-700 font-bold">{formatCurrency(Number(it.promo_price), displayCurrency, locale)}</span>
+                                <span className="ml-1 text-[11px] font-normal text-zinc-400 line-through">{formatCurrency(Number(it.price), displayCurrency, locale)}</span>
+                              </>
+                            ) : (
+                              formatCurrency(Number(it.price), displayCurrency, locale)
+                            )}
+                            {it.modifiers.length > 0 && <span className="font-normal text-zinc-500"> + {it.modifiers.length} modifiers</span>}
+                            {it.option_groups && it.option_groups.length > 0 && <span className="font-normal text-zinc-500"> • {it.option_groups.length} {t("options").toLowerCase()}</span>}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1425,6 +1745,7 @@ async function MenuEmbedBlockRenderer({
             </div>
           ))}
         </div>
+        </StorefrontBrowse>
       )}
     </section>
   );
@@ -1486,7 +1807,15 @@ function CtaBannerBlockRenderer({ block }: { block: CtaBannerBlock }) {
 }
 
 // ── Section Envelope Wrapper (G2 + H1) ───────────────────────────────────────
-function SectionEnvelopeWrapper({ block, children }: { block: Block; children: React.ReactNode }) {
+function SectionEnvelopeWrapper({
+  block,
+  children,
+  blockId,
+}: {
+  block: Block;
+  children: React.ReactNode;
+  blockId?: string;
+}) {
   const raw = block as unknown as Record<string, unknown>;
   const hiddenOnMobile = Boolean(raw.hiddenOnMobile);
   const spacing = raw.spacing as string | undefined;
@@ -1510,7 +1839,7 @@ function SectionEnvelopeWrapper({ block, children }: { block: Block; children: R
 
   if (hasOuter) {
     return (
-      <div className={outerClass} style={wrapperStyle}>
+      <div data-block-id={blockId} className={outerClass} style={wrapperStyle}>
         {hasOverlay && (
           <div
             aria-hidden="true"
@@ -1528,7 +1857,7 @@ function SectionEnvelopeWrapper({ block, children }: { block: Block; children: R
   }
 
   // No outer background/spacing — still constrain content via container so narrow/wide/full take effect
-  return <div className={containerClass}>{children}</div>;
+  return <div data-block-id={blockId} className={containerClass}>{children}</div>;
 }
 
 // ── Main Dispatcher ──────────────────────────────────────────────────────────
@@ -1537,16 +1866,28 @@ export async function BlockRenderer({
   block,
   tenantId,
   isTeamMember,
+  editMode,
+  sourceMap,
+  currency,
+  currencyLocale,
+  orderConfig,
 }: {
   block: unknown;
   tenantId?: string;
   isTeamMember?: boolean;
+  editMode?: boolean;
+  sourceMap?: Record<string, ElementSourceMap>;
+  /** Site price display default for menu blocks without their own currency. */
+  currency?: string;
+  currencyLocale?: Locale;
+  orderConfig?: StorefrontOrderConfig;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
   }
 
   const b = block as Block;
+  const blockSourceMap = b.id ? sourceMap?.[b.id] : undefined;
 
   // G2: hidden sections do not render publicly
   if (!isBlockVisible(b)) return null;
@@ -1554,25 +1895,28 @@ export async function BlockRenderer({
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} />;
+      content = <HeroBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "features":
-      content = <FeaturesBlockRenderer block={b} />;
+      content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "about":
-      content = <AboutBlockRenderer block={b} />;
+      content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "gallery":
-      content = <GalleryBlockRenderer block={b} />;
+      content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "testimonials":
-      content = <TestimonialsBlockRenderer block={b} />;
+      content = <TestimonialsBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "contact":
-      content = <ContactBlockRenderer block={b} />;
+      {
+        const t = await getTranslations("Storefront");
+        content = <ContactBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} nextDayLabel={t("nextDay")} closedLabel={t("closed")} />;
+      }
       break;
     case "faq":
-      content = <FaqBlockRenderer block={b} />;
+      content = <FaqBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "events_embed":
       content = (
@@ -1589,6 +1933,7 @@ export async function BlockRenderer({
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
+          currencyLocale={currencyLocale}
         />
       );
       break;
@@ -1616,6 +1961,11 @@ export async function BlockRenderer({
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
+          editMode={editMode}
+          sourceMap={blockSourceMap}
+          currency={currency}
+          currencyLocale={currencyLocale}
+          orderConfig={orderConfig}
         />
       );
       break;
@@ -1625,6 +1975,8 @@ export async function BlockRenderer({
     case "cta_banner":
       content = <CtaBannerBlockRenderer block={b} />;
       break;
+    case "menu_order":
+      return null;
     default:
       console.warn(
         `[BlockRenderer] Unknown block type: "${(b as { type: string }).type}" — skipping.`
@@ -1632,5 +1984,12 @@ export async function BlockRenderer({
       return null;
   }
 
-  return <SectionEnvelopeWrapper block={b}>{content}</SectionEnvelopeWrapper>;
+  return (
+    <SectionEnvelopeWrapper
+      block={b}
+      blockId={editMode && blockSourceMap ? b.id : undefined}
+    >
+      {content}
+    </SectionEnvelopeWrapper>
+  );
 }

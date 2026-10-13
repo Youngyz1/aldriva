@@ -96,3 +96,37 @@ Build an intuitive, real-time visual page builder inside the tenant dashboard al
 
 ## 12. Next Step
 Phase 5 — Products, Services & Menus (migration 136, planned). Do NOT start until docs sync complete.
+
+## Stage 4B-2a — Template-first form editor (2026-10-11)
+
+**Status: IMPLEMENTED IN WORKING TREE; tests, TypeScript, and lint verified; production build blocked by the Windows sandbox before compilation.** This extension selects a new editor only for valid v2 flagship sites; the existing v1 builder remains available. The v2 editor derives fixed accordion sections from emitted manifest slots, edits one normalized shared content document, previews resolver blocks through a same-origin persistent iframe, and uses the existing version-checked save/publish actions. A v2-only menu-choice action derives the tenant from the website row and checks membership before querying active menu items. Stale draft conflicts pause autosave only for this editor; the default shared invitation queue behavior remains unchanged.
+
+No migration, new table, block type, invitation file, `proxy.ts`, or `package.json` edit is part of this stage. New direct-run tests are `lib/__tests__/website-v2-editor-schema.test.cjs`, `lib/__tests__/website-preview-channel-and-save-queue.test.cjs`, and `lib/security/__tests__/website-v2-menu-choices.test.cjs`. Invitation and website suites passed 573/573 across 81 suites; `tsc --noEmit` passed; ESLint passed with 0 errors and 0 warnings. `npm run build` stopped before compilation because SWC could not canonicalize `jsc.baseUrl(C:\Users\Youngyz\aldriva-staging)` (Windows sandbox access denied, OS error 5). Authenticated browser visual parity remains unverified.
+
+## Stage 4B server-action export compliance fix (2026-10-11)
+
+buildInitialContentFromOrganizer is a pure content-hydration helper, not a server action. It now lives in lib/website-v2-initial-content.ts; lib/actions/website-v2.ts retains async runtime exports and type declarations. The registered website-content-actions suite scans module-level "use server" files under lib/actions and app and guards against synchronous runtime exports. The scan covered 19 modules and found no other violation.
+
+Verification after the correction: website and invitation selections passed 582/582 tests across 81 suites; tsc --noEmit and ESLint passed. npx next build --webpack remained blocked before compilation by the Windows SWC jsc.baseUrl canonicalization error (Access is denied, OS error 5). The import-boundary audit found only intentional server-action references and no Node built-ins or server-only modules in the scanned website client graph.
+
+## Stage 4B-3 — V2 template create flow (2026-10-11)
+
+**Status: IMPLEMENTED IN WORKING TREE; tests, TypeScript, and lint verified; production build blocked before compilation.** The organization create route now uses the v2-only gallery. It selects the organizer-mapped category, filters flagship templates through the shared compatibility helper, keeps the existing website redirect, and disables creation unless the caller has owner/admin/manager access or platform-admin status. The legacy template gallery files remain available but are no longer imported by this route.
+
+Gallery cards render sample-resolved Home blocks through the public `BlockRenderer`, with v2 site chrome and locked theme tokens. Embed blocks receive no tenant ID and therefore show the renderer's empty states. The inert preview has no save path. Create retries reuse a request ID for the same template/category, and the existing server action remains the authorization and compatibility authority.
+
+No database was accessed and no migration, table, block type, invitation file, `proxy.ts`, or `package.json` edit was made. The new direct-run suite is `lib/__tests__/website-v2-create-flow.test.cjs`; the legacy atomic-instantiation and template-library tests were updated for the route's new v2-only contract. The combined website/invitation selection and direct-run v2 suites passed 581/581 across 81 suites; `tsc --noEmit` and ESLint passed (0 errors, 0 warnings). `npm run build` stopped before compilation because SWC could not canonicalize `jsc.baseUrl(C:\Users\Youngyz\aldriva-staging)` (Windows `Access is denied`, OS error 5). Authenticated browser review is unverified.
+
+## Phase 2a — Business offerings, capability gating & hours (2026-10-12; working tree)
+
+The v2 storefront receives linked-business type, category, selected offerings, translated labels, and site timezone as resolver context. A shared capability gate exposes ordering, delivery, pickup, or reservations only when the business type allows it, the owner selected it, and the active template emits the feature. Selected factual offerings reuse the existing `features` block; no commerce or reservation routes or block types were added.
+
+Business offerings are stored as stable-key `text[]`; labels and catalog membership remain application-owned. Migration 169 adds the bounded column without changing row-level RLS and is unapplied. The planned orders migration shifts from 169 to 170. Custom Business types use the generic catalog even when a category such as Restaurant is selected.
+
+The restaurant CTA falls back to localized “View menu” at `/menu` while ordering is unbuilt. The rental CTA remains at `/contact` and uses localized availability-enquiry copy when the owner has not supplied a label. Template descriptions do not promise ordering or date-range booking. Selected fact offerings render only when present.
+
+The contact section retains the full weekly schedule; the shared v2 footer displays one localized current-day line, omits invalid or missing hours, and marks overnight intervals as next day. Time input validation accepts complete 24-hour pairs, and `today_tag` remains optional owner-provided highlight text rather than an open/closed status. Rental location free-text hours remain unchanged.
+
+Website category and storefront context use the earliest linked business by `created_at`. Business creation and editing both validate and persist offerings; the dashboard Reservations module remains hidden until a real route and built feature exist.
+
+**Verification:** focused Phase 2a suites passed 86/86; selected website suites passed 296/296 across 25 test files; invitation suites passed 322/322 across 14 test files; organization/navigation suites passed 47/47 across three files; `npx tsc --noEmit` and ESLint on touched TypeScript and test files passed. Migration 169, production build, live database/RLS behavior, and authenticated browser behavior were not exercised.

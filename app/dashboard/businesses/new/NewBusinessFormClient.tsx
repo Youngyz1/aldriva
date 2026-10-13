@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBusiness } from "@/lib/actions/businesses";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
 import { INDUSTRIES, getCategoriesForIndustry, getBusinessTypesForCategory } from "@/lib/business-taxonomy";
+import { getBusinessOfferings, getDefaultBusinessOfferings } from "@/lib/business-offerings";
+import { getBuiltStorefrontFeaturesFromTemplates, storefrontFeatureForOffering } from "@/lib/storefront-features";
+import { FLAGSHIP_TEMPLATES } from "@/lib/website-template-v2";
 
 interface NewBusinessFormClientProps {
   tenantId: string;
@@ -13,6 +17,8 @@ interface NewBusinessFormClientProps {
 
 export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClientProps) {
   const router = useRouter();
+  const tOfferings = useTranslations("BusinessOfferings");
+  const getOfferingLabel = tOfferings as unknown as (key: string) => string;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -34,7 +40,9 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
     listing_tier: "free" as "free" | "one_time" | "subscription",
     seo_title: "",
     seo_description: "",
+    offerings: [] as string[],
   });
+  const builtFeatures = getBuiltStorefrontFeaturesFromTemplates(FLAGSHIP_TEMPLATES);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +66,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
       listing_tier: form.listing_tier,
       seo_title: form.seo_title || null,
       seo_description: form.seo_description || null,
+      offerings: form.offerings,
     });
 
     if (res.success && res.data) {
@@ -182,7 +191,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
                     const newCat = cats.includes(form.category) ? form.category : cats[0] || "";
                     const types = newCat ? getBusinessTypesForCategory(newCat) : [];
                     const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
-                    setForm({ ...form, industry: ind, category: newCat, business_type: newType });
+                    setForm({ ...form, industry: ind, category: newCat, business_type: newType, offerings: getDefaultBusinessOfferings(ind, newCat, newType) });
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
                 >
@@ -201,7 +210,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
                     const cat = e.target.value;
                     const types = cat ? getBusinessTypesForCategory(cat) : [];
                     const newType = types.includes(form.business_type) ? form.business_type : types[0] || "";
-                    setForm({ ...form, category: cat, business_type: newType });
+                    setForm({ ...form, category: cat, business_type: newType, offerings: getDefaultBusinessOfferings(form.industry, cat, newType) });
                   }}
                   disabled={!form.industry}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
@@ -217,7 +226,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
                 <select
                   required
                   value={form.business_type}
-                  onChange={(e) => setForm({ ...form, business_type: e.target.value })}
+                  onChange={(e) => setForm({ ...form, business_type: e.target.value, offerings: getDefaultBusinessOfferings(form.industry, form.category, e.target.value) })}
                   disabled={!form.category}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
                 >
@@ -325,6 +334,43 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
             </div>
           </div>
         </div>
+
+        {form.business_type && (
+          <section className="space-y-4 border-t border-zinc-200 pt-6" aria-labelledby="business-offerings-heading">
+            <div>
+              <h2 id="business-offerings-heading" className="text-lg font-bold text-slate-900">{tOfferings("title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{tOfferings("help")}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {getBusinessOfferings(form.business_type, form.category).map((offering) => {
+                const feature = storefrontFeatureForOffering(offering.key);
+                const comingSoon = offering.kind === "feature" && (!feature || !builtFeatures[feature]);
+                return (
+                  <label key={offering.key} className="flex min-w-0 items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                    <input
+                      type="checkbox"
+                      checked={form.offerings.includes(offering.key)}
+                      onChange={(event) => {
+                        const checked = event.currentTarget.checked;
+                        setForm((current) => ({
+                          ...current,
+                          offerings: checked
+                            ? [...current.offerings, offering.key]
+                            : current.offerings.filter((key) => key !== offering.key),
+                        }));
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 accent-orange-600"
+                    />
+                    <span className="min-w-0 text-sm font-semibold text-slate-800">
+                      {getOfferingLabel(`labels.${offering.labelKey}`)}
+                      {comingSoon && <span className="mt-1 block text-xs font-medium text-slate-500">{tOfferings("comingSoon")}</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Pricing Tiers Selection */}
         <div className="space-y-4 border-t border-zinc-200 pt-6">

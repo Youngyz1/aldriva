@@ -9,9 +9,10 @@ import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
   ChevronLeft, Globe,
-  LayoutDashboard, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings,
+  LayoutDashboard, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag,
 } from "lucide-react";
 import { getOrgNavItems } from "./org-nav-items";
+import type { Capability } from "@/lib/business-taxonomy";
 
 type Org = {
   id: string;
@@ -23,7 +24,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {
@@ -33,11 +34,11 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
-export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, hasProducts, hasWebsite }: { org: Org; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean }) {
+export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }: { org: Org; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; capabilities?: Capability[]; offerings?: readonly string[] | null }) {
   const pathname = usePathname();
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const rawNavItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
+  const rawNavItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings });
   const navItems = rawNavItems.map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }

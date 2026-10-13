@@ -13,6 +13,9 @@ export default function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
   const isInvitation = pathname?.includes("/invitation");
+  // Website editor previews render inside a small device iframe — give them
+  // the compact corner card, never the full-width bar.
+  const isCompactPreview = isInvitation || pathname?.startsWith("/website-preview/");
 
   useEffect(() => {
     setMounted(true);
@@ -40,7 +43,7 @@ export default function CookieConsent() {
           exit={{ opacity: 0, y: 100 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className={
-            isInvitation
+            isCompactPreview
               ? "fixed bottom-4 left-4 z-50 max-w-sm rounded-2xl border border-zinc-200 bg-white/95 p-4 shadow-2xl backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95"
               : "fixed bottom-0 left-0 right-0 z-50 w-full border-t border-zinc-200 bg-white/95 px-6 py-4 shadow-[0_-8px_30px_rgb(0,0,0,0.08)] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95"
           }
@@ -50,7 +53,7 @@ export default function CookieConsent() {
         >
           <div
             className={
-              isInvitation
+              isCompactPreview
                 ? "flex flex-col gap-3"
                 : "mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
             }

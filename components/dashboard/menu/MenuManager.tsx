@@ -8,9 +8,32 @@ import { deleteMenuSection, deleteMenuItem, reorderMenuSections, reorderMenuItem
 import { useRouter } from "next/navigation";
 import { ChevronUp, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 
-export function MenuManager({ organizerId, sections, itemsBySection, tenantId, canEdit, canDelete }: { organizerId: string; sections: any[]; itemsBySection: Record<string, any[]>; tenantId: string; canEdit: boolean; canDelete: boolean }) {
+export function MenuManager({
+  organizerId,
+  sections,
+  itemsBySection,
+  tenantId,
+  canEdit,
+  canDelete,
+  onSaved,
+  onDeleted,
+  onChanged,
+  defaultSectionName,
+}: {
+  organizerId: string;
+  sections: any[];
+  itemsBySection: Record<string, any[]>;
+  tenantId: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  onSaved?: () => void;
+  onDeleted?: () => void;
+  onChanged?: () => void;
+  defaultSectionName?: string;
+}) {
   const router = useRouter();
   const [showSectionForm, setShowSectionForm] = useState(false);
+  const [showFirstDishForm, setShowFirstDishForm] = useState(false);
   const [editingSection, setEditingSection] = useState<any | null>(null);
   const [deleteSection, setDeleteSection] = useState<any | null>(null);
   const [activeItemSection, setActiveItemSection] = useState<string | null>(null);
@@ -27,7 +50,10 @@ export function MenuManager({ organizerId, sections, itemsBySection, tenantId, c
     const res = await deleteMenuSection(deleteSection.id, organizerId);
     setPending(false);
     if (!res.success) { setError(res.error || "Failed"); return; }
-    setDeleteSection(null); router.refresh();
+    setDeleteSection(null);
+    router.refresh();
+    onDeleted?.();
+    onChanged?.();
   }
   async function handleDeleteItem() {
     if (!deleteItem) return;
@@ -35,14 +61,20 @@ export function MenuManager({ organizerId, sections, itemsBySection, tenantId, c
     const res = await deleteMenuItem(deleteItem.item.id, deleteItem.sectionId, organizerId);
     setPending(false);
     if (!res.success) { setError(res.error || "Failed"); return; }
-    setDeleteItem(null); router.refresh();
+    setDeleteItem(null);
+    router.refresh();
+    onDeleted?.();
+    onChanged?.();
   }
   async function handleMoveSection(idx:number, dir:-1|1) {
     const ids = sortedSections.map(s=>s.id);
     const tmp = ids[idx]; ids[idx]=ids[idx+dir]; ids[idx+dir]=tmp;
     const res = await reorderMenuSections(organizerId, ids);
     if (!res.success) setError(res.error || "Failed to reorder");
-    else router.refresh();
+    else {
+      router.refresh();
+      onChanged?.();
+    }
   }
   async function handleMoveItem(sectionId:string, idx:number, dir:-1|1) {
     const items = [...(itemsBySection[sectionId]||[])].sort((a,b)=>a.position-b.position);
@@ -50,7 +82,10 @@ export function MenuManager({ organizerId, sections, itemsBySection, tenantId, c
     const tmp = ids[idx]; ids[idx]=ids[idx+dir]; ids[idx+dir]=tmp;
     const res = await reorderMenuItems(sectionId, organizerId, ids);
     if (!res.success) setError(res.error || "Failed");
-    else router.refresh();
+    else {
+      router.refresh();
+      onChanged?.();
+    }
   }
 
   return (
@@ -61,11 +96,51 @@ export function MenuManager({ organizerId, sections, itemsBySection, tenantId, c
       </div>
       {showSectionForm && (
         <div className="rounded-xl border p-4 bg-zinc-50">
-          <MenuSectionForm organizerId={organizerId} section={editingSection} onSaved={()=>{setShowSectionForm(false); setEditingSection(null); router.refresh();}} onCancel={()=>{setShowSectionForm(false); setEditingSection(null);}} />
+          <MenuSectionForm
+            organizerId={organizerId}
+            section={editingSection}
+            onSaved={() => {
+              setShowSectionForm(false);
+              setEditingSection(null);
+              router.refresh();
+              onSaved?.();
+              onChanged?.();
+            }}
+            onCancel={() => {
+              setShowSectionForm(false);
+              setEditingSection(null);
+            }}
+          />
         </div>
       )}
       {sortedSections.length===0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-zinc-500">No sections yet.</div>
+        <div className="rounded-xl border border-dashed p-8 text-center space-y-3">
+          <p className="text-sm text-zinc-500">No sections or items yet.</p>
+          {canEdit && !showFirstDishForm && (
+            <div className="flex justify-center gap-2">
+              <Button size="sm" onClick={() => setShowFirstDishForm(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add your first dish
+              </Button>
+            </div>
+          )}
+          {showFirstDishForm && canEdit && (
+            <div className="text-left rounded-lg border p-4 bg-zinc-50 dark:bg-zinc-800">
+              <MenuItemForm
+                organizerId={organizerId}
+                tenantId={tenantId}
+                defaultSectionName={defaultSectionName}
+                onSaved={() => {
+                  setShowFirstDishForm(false);
+                  router.refresh();
+                  onSaved?.();
+                  onChanged?.();
+                }}
+                onCancel={() => setShowFirstDishForm(false)}
+              />
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {sortedSections.map((sec, secIdx)=> {
@@ -93,12 +168,35 @@ export function MenuManager({ organizerId, sections, itemsBySection, tenantId, c
                   </div>
                   {activeItemSection===sec.id && canEdit && (
                     <div className="mb-3 rounded-lg border p-3 bg-zinc-50">
-                      <MenuItemForm sectionId={sec.id} organizerId={organizerId} tenantId={tenantId} onSaved={()=>{setActiveItemSection(null); router.refresh();}} onCancel={()=> setActiveItemSection(null)} />
+                      <MenuItemForm
+                        sectionId={sec.id}
+                        organizerId={organizerId}
+                        tenantId={tenantId}
+                        onSaved={() => {
+                          setActiveItemSection(null);
+                          router.refresh();
+                          onSaved?.();
+                          onChanged?.();
+                        }}
+                        onCancel={() => setActiveItemSection(null)}
+                      />
                     </div>
                   )}
                   {editingItem && editingItem.sectionId===sec.id && canEdit && (
                     <div className="mb-3 rounded-lg border p-3 bg-zinc-50">
-                      <MenuItemForm sectionId={sec.id} organizerId={organizerId} tenantId={tenantId} item={editingItem} onSaved={()=>{setEditingItem(null); router.refresh();}} onCancel={()=> setEditingItem(null)} />
+                      <MenuItemForm
+                        sectionId={sec.id}
+                        organizerId={organizerId}
+                        tenantId={tenantId}
+                        item={editingItem}
+                        onSaved={() => {
+                          setEditingItem(null);
+                          router.refresh();
+                          onSaved?.();
+                          onChanged?.();
+                        }}
+                        onCancel={() => setEditingItem(null)}
+                      />
                     </div>
                   )}
                   {items.length===0 ? <div className="text-xs text-zinc-400">No items.</div> : (

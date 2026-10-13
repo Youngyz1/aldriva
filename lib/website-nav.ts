@@ -29,6 +29,8 @@ export type NavigationItem = {
   page_id?: string | null;
   target?: "_self" | "_blank";
   order: number;
+  /** Optional template-first commerce gate; legacy navigation does not set it. */
+  feature?: "ordering" | "delivery" | "pickup" | "reservations";
   children?: NavigationItem[];
 };
 

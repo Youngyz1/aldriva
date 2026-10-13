@@ -17,6 +17,7 @@
  */
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import Stripe from "stripe";
 import type {
   EventsEmbedBlock,
   ProductsEmbedBlock,
@@ -51,6 +52,9 @@ export interface ResolvedProductItem {
   stock_quantity: number | null;
   status: string;
   isDraft: boolean;
+  category: string | null;
+  tags: string[];
+  stripe_price_id: string | null;
 }
 
 export interface ResolvedFundraiserItem {
@@ -83,10 +87,13 @@ export interface ResolvedMenuItem {
   name: string;
   description: string | null;
   price: number;
+  promo_price?: number | null;
+  is_sold_out?: boolean;
   image_url: string | null;
   dietary_tags: string[];
   allergens: string[];
   modifiers: { name: string; price_delta: number }[];
+  option_groups?: import("@/lib/menu-pricing").MenuItemOptionGroup[];
   is_active: boolean;
   is_featured: boolean;
   isDraft: boolean;
@@ -198,7 +205,7 @@ export async function resolveProductsEmbed(
   let query = supabase
     .from("products")
     .select(
-      "id, name, slug, description, images, price_type, stock_quantity, status"
+      "id, name, slug, description, images, price_type, stock_quantity, status, category, tags, stripe_price_id"
     )
     .in("business_id", businessIds);
 
@@ -230,6 +237,17 @@ export async function resolveProductsEmbed(
       item.stock_quantity != null ? Number(item.stock_quantity) : null,
     status: item.status,
     isDraft: item.status !== "active",
+    category:
+      typeof item.category === "string" && item.category.trim() !== ""
+        ? item.category.trim()
+        : null,
+    tags: Array.isArray(item.tags)
+      ? item.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim() !== "")
+      : [],
+    stripe_price_id:
+      typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
+        ? item.stripe_price_id.trim()
+        : null,
   }));
 }
 
@@ -330,7 +348,7 @@ export async function resolveMenuEmbed(
   const { data: sections, error: secErr } = await sectionQuery;
   if (secErr || !Array.isArray(sections) || sections.length === 0) return [];
   const sectionIds = sections.map((s) => s.id);
-  let itemQuery = supabase.from("menu_items").select("id, section_id, name, description, price, image_url, dietary_tags, allergens, modifiers, is_active, is_featured").in("section_id", sectionIds);
+  let itemQuery = supabase.from("menu_items").select("id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured").in("section_id", sectionIds);
   if (!isTeamMember) itemQuery = itemQuery.eq("is_active", true);
   // Item picks (featured dishes): constrain to the tenant's own sections so
   // crafted ids from other tenants return nothing (DEC-0014). Tenant id comes
@@ -349,10 +367,13 @@ export async function resolveMenuEmbed(
       name: it.name,
       description: it.description ?? null,
       price: Number(it.price),
+      promo_price: it.promo_price != null ? Number(it.promo_price) : null,
+      is_sold_out: Boolean(it.is_sold_out),
       image_url: it.image_url ?? null,
       dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : [],
       allergens: Array.isArray(it.allergens) ? it.allergens : [],
       modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
+      option_groups: Array.isArray(it.option_groups) ? it.option_groups : [],
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
       isDraft: !it.is_active,
@@ -373,4 +394,40 @@ export async function resolveMenuEmbed(
     isDraft: !sec.is_active,
     items: itemsBySection[sec.id] || [],
   }));
+}
+
+/**
+ * Resolves display prices for shop items from Stripe. Products store no local
+ * price (stripe_price_id is the source of truth, migration_116), so grid
+ * prices require one lookup per priced item.
+ *
+ * Per-item try/catch: a failed lookup omits that price while the card still
+ * links to the detail page (which resolves its own price). No key configured
+ * → empty map, never throws. Callers should keep grids small (block limit).
+ */
+export async function resolveShopPrices(
+  items: Array<{ id: string; stripe_price_id: string | null }>
+): Promise<Map<string, { amount: number; currency: string }>> {
+  const out = new Map<string, { amount: number; currency: string }>();
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret) return out;
+  const stripe = new Stripe(secret);
+  await Promise.all(
+    items
+      .filter((item) => typeof item.stripe_price_id === "string" && item.stripe_price_id !== "")
+      .map(async (item) => {
+        try {
+          const price = await stripe.prices.retrieve(item.stripe_price_id as string);
+          if (typeof price.unit_amount === "number") {
+            out.set(item.id, {
+              amount: price.unit_amount / 100,
+              currency: (price.currency || "usd").toUpperCase(),
+            });
+          }
+        } catch {
+          // Omit this price; the card still links to the detail page.
+        }
+      })
+  );
+  return out;
 }

@@ -179,6 +179,12 @@ export const RATE_LIMITS = {
    * stops report-spam while leaving genuine reports unaffected. Fail-open.
    */
   memoryReport: { limit: 10, windowSeconds: 3600 },
+
+  /**
+   * Phase 2b-2: Guest order requests. Keyed per-IP and per-phone.
+   */
+  orderRequestIp: { limit: 15, windowSeconds: 600 },
+  orderRequestPhone: { limit: 5, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

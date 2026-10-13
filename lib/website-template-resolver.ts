@@ -27,6 +27,7 @@ import type {
 import {
   validateBlock,
   normalizeBlocks,
+  normalizeCurrencyCode,
   KNOWN_BLOCK_TYPES,
 } from "./website-blocks";
 import type { ContentDoc, ContentKey } from "./website-content";
@@ -38,6 +39,19 @@ import type {
 import { getFlagshipTemplate } from "./website-template-v2";
 import { FLAGSHIP_SAMPLES } from "./website-template-samples";
 import type { TemplatePagePurpose } from "./website-template-v2";
+import { getCapabilitiesForBusiness } from "./business-taxonomy";
+import { getSelectedFactOfferings } from "./business-offerings";
+import {
+  getBuiltStorefrontFeatures,
+  resolveStorefrontFeatures,
+  type StorefrontFeatureState,
+} from "./storefront-features";
+import { resolveTodayHours, type ResolvedTodayHours } from "./website-hours";
+import {
+  resolvePrimaryAction,
+  type PrimaryActionLabelKey,
+  type ResolvedPrimaryActions,
+} from "./storefront-primary-action";
 
 // ── Result shapes ───────────────────────────────────────────────────────────
 
@@ -68,7 +82,64 @@ export interface OmittedPage {
 export interface ResolvedNavigationItem extends NavigationItem {
   /** Template page slug this entry points at (null for anchor/external). */
   pageSlug: string | null;
+  /** Optional commerce gate; nav appears only when the resolved feature is live. */
+  feature?: keyof StorefrontFeatureState;
 }
+
+export interface TemplateSourceMapEntry {
+  slotId: string;
+  field: ContentKey;
+  itemIndex?: number;
+  subfield?: string;
+  sampled: boolean;
+}
+
+export type BlockSourceMap = Record<string, Record<string, TemplateSourceMapEntry>>;
+
+export interface ChromeSourceMap {
+  menuBar: Record<string, TemplateSourceMapEntry>;
+  footer: Record<string, TemplateSourceMapEntry>;
+}
+
+export interface ChecklistTarget {
+  pageSlug: string;
+  elementPath: string;
+}
+
+export interface TemplateResolutionOptions {
+  /** Samples are rendered only for preview. Defaults to true for existing preview callers. */
+  includeSamples?: boolean;
+  /** Omit editor-only maps in public/publish callers. Defaults to true. */
+  includeSourceMap?: boolean;
+  /** ISO 4217 price display code stamped onto emitted menu_embed blocks. Omit for USD. */
+  currency?: string;
+  /** Linked business context. Only stable selected keys and translated labels are used. */
+  business?: {
+    industry?: string;
+    category?: string;
+    businessType?: string | null;
+    offerings?: readonly string[] | null;
+    offeringLabels?: Record<string, string>;
+  };
+  /** Locale-resolved template copy, supplied by the caller. */
+  viewMenuLabel?: string;
+  rentalContactCta?: string;
+  primaryActionLabels?: Partial<Record<PrimaryActionLabelKey, string>>;
+  offeringsHeading?: string;
+  restaurantCtaBandHeading?: string;
+  rentalCtaBandHeading?: string;
+  /** IANA site timezone for the one-line footer hours display. */
+  timeZone?: string;
+}
+
+const DEFAULT_PRIMARY_ACTION_LABELS: Record<PrimaryActionLabelKey, string> = {
+  orderNow: "Order now",
+  reserveTable: "Reserve a table",
+  bookNow: "Book now",
+  viewMenu: "View menu",
+  contact: "Contact",
+  rentalContactCta: "Ask about availability",
+};
 
 export interface ResolvedTemplate {
   templateId: string;
@@ -76,6 +147,10 @@ export interface ResolvedTemplate {
   pages: ResolvedPage[];
   navigation: ResolvedNavigationItem[];
   sampleFields: string[];
+  /** Render-only editor metadata. Never copied into a block or content document. */
+  sourceMap: BlockSourceMap;
+  chromeSourceMap: ChromeSourceMap;
+  checklistTargets: Record<string, ChecklistTarget>;
   skipped: SkippedSection[];
   /**
    * Pages from the manifest that produced zero renderable blocks (all
@@ -84,6 +159,9 @@ export interface ResolvedTemplate {
    * automatically once their pendingBlock becomes a real block type.
    */
   omittedPages: OmittedPage[];
+  storefrontFeatures: StorefrontFeatureState;
+  primaryAction: ResolvedPrimaryActions;
+  todayHours: ResolvedTodayHours | null;
 }
 
 export interface SwitchPageMapping {
@@ -159,11 +237,12 @@ function takeSlot(
   samples: ContentDoc,
   field: ContentKey,
   slotId: string,
-  sampleFields: string[]
+  sampleFields: string[],
+  includeSamples = true
 ): SlotTake {
   const live = (doc as Record<string, unknown>)[field];
   if (!isEmptyContentValue(live)) return { value: live, sampled: false };
-  const sample = (samples as Record<string, unknown>)[field];
+  const sample = includeSamples ? (samples as Record<string, unknown>)[field] : undefined;
   if (!isEmptyContentValue(sample)) {
     if (!sampleFields.includes(slotId)) sampleFields.push(slotId);
     return { value: sample, sampled: true };
@@ -178,29 +257,259 @@ interface BuildContext {
   doc: Record<string, unknown>;
   samples: ContentDoc;
   sampleFields: string[];
+  includeSamples: boolean;
+  currency?: string;
+  business: NonNullable<TemplateResolutionOptions["business"]>;
+  storefrontFeatures: StorefrontFeatureState;
+  viewMenuLabel: string;
+  rentalContactCta: string;
+  offeringsHeading: string;
+  restaurantCtaBandHeading: string;
+  rentalCtaBandHeading: string;
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
-  return takeSlot(ctx.doc, ctx.samples, field, slotId, ctx.sampleFields).value;
+  return takeSlot(ctx.doc, ctx.samples, field, slotId, ctx.sampleFields, ctx.includeSamples).value;
+}
+
+function effectiveValue(ctx: BuildContext, field: ContentKey): unknown {
+  const live = ctx.doc[field];
+  if (!isEmptyContentValue(live)) return live;
+  return ctx.includeSamples ? ctx.samples[field] : undefined;
+}
+
+function indexedRecords(value: unknown): Array<{ index: number; value: Record<string, unknown> }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) =>
+    typeof item === "object" && item !== null && !Array.isArray(item)
+      ? [{ index, value: item as Record<string, unknown> }]
+      : []
+  );
+}
+
+function indexedStrings(value: unknown): Array<{ index: number; value: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) =>
+    typeof item === "string" && item.trim()
+      ? [{ index, value: item.trim() }]
+      : []
+  );
+}
+
+function stableUuid(seed: string): string {
+  const hashes = [2166136261, 2246822519, 3266489917, 668265263];
+  for (let index = 0; index < seed.length; index += 1) {
+    const code = seed.charCodeAt(index);
+    for (let round = 0; round < hashes.length; round += 1) {
+      hashes[round] = Math.imul(hashes[round] ^ (code + round), 16777619) >>> 0;
+    }
+  }
+  const hex = hashes.map((value) => value.toString(16).padStart(8, "0")).join("").split("");
+  hex[12] = "5";
+  hex[16] = "8";
+  const value = hex.join("");
+  return value.slice(0, 8) + "-" + value.slice(8, 12) + "-" + value.slice(12, 16) +
+    "-" + value.slice(16, 20) + "-" + value.slice(20, 32);
+}
+
+function stabilizeBlockIds(blocks: Block[], templateId: string, pageSlug: string, sectionIds: string[]): Block[] {
+  return blocks.map((block, blockIndex) => {
+    const seed = [templateId, pageSlug, sectionIds[blockIndex] ?? String(blockIndex)].join(":");
+    const stable: Record<string, unknown> = {
+      ...(block as unknown as Record<string, unknown>),
+      id: stableUuid(seed),
+    };
+    for (const key of ["items", "images", "highlights"]) {
+      const values = stable[key];
+      if (Array.isArray(values)) {
+        stable[key] = values.map((item, itemIndex) => ({
+          ...(item as Record<string, unknown>),
+          id: stableUuid(seed + ":" + key + ":" + itemIndex),
+        }));
+      }
+    }
+    return stable as unknown as Block;
+  });
+}
+
+function entryFor(
+  ctx: BuildContext,
+  slotId: string,
+  field: ContentKey,
+  options: { itemIndex?: number; subfield?: string } = {}
+): TemplateSourceMapEntry {
+  const sampled = ctx.includeSamples &&
+    isEmptyContentValue(ctx.doc[field]) &&
+    !isEmptyContentValue(ctx.samples[field]);
+  if (sampled && !ctx.sampleFields.includes(slotId)) ctx.sampleFields.push(slotId);
+  return {
+    slotId,
+    field,
+    ...(options.itemIndex !== undefined ? { itemIndex: options.itemIndex } : {}),
+    ...(options.subfield ? { subfield: options.subfield } : {}),
+    sampled,
+  };
+}
+
+function setEntry(
+  map: Record<string, TemplateSourceMapEntry>,
+  ctx: BuildContext,
+  elementPath: string,
+  slotId: string,
+  field: ContentKey,
+  options: { itemIndex?: number; subfield?: string } = {}
+): void {
+  map[elementPath] = entryFor(ctx, slotId, field, options);
+}
+
+function setChecklistTarget(
+  targets: Record<string, ChecklistTarget>,
+  slotId: string,
+  pageSlug: string,
+  elementPath: string
+): void {
+  if (!targets[slotId]) targets[slotId] = { pageSlug, elementPath };
+}
+
+function sourceEntriesForBlock(
+  ctx: BuildContext,
+  section: TemplateSection,
+  block: Block,
+  pageSlug: string,
+  targets: Record<string, ChecklistTarget>
+): Record<string, TemplateSourceMapEntry> {
+  const entries: Record<string, TemplateSourceMapEntry> = {};
+  const object = block as unknown as Record<string, unknown>;
+  const isValueAvailable = (field: ContentKey) => !isEmptyContentValue(effectiveValue(ctx, field));
+  const add = (
+    path: string,
+    slotId: string,
+    field: ContentKey,
+    shouldMap: boolean,
+    options: { itemIndex?: number; subfield?: string } = {}
+  ) => {
+    if (!shouldMap) return;
+    setEntry(entries, ctx, path, slotId, field, options);
+    setChecklistTarget(targets, slotId, pageSlug, path);
+  };
+
+  if (block.type === "hero") {
+    add("heading", "hero.headline", "hero_headline", Boolean(object.heading) || !isValueAvailable("hero_headline"));
+    add("subheading", "hero.subtext", "hero_subtext", Boolean(object.subheading));
+    add("tagline", "hero.tagline", "tagline", Boolean(object.tagline));
+    add("image", "hero.image", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+    add("ctaLabel", "hero.cta_primary", "primary_cta_label", Boolean(object.ctaLabel));
+    add("secondaryCtaLabel", "hero.cta_secondary", "secondary_cta_label", Boolean(object.secondaryCtaLabel));
+    add("badge", "hero.open_tag", "hours", Boolean(object.badge), { subfield: "today_tag" });
+  } else if (block.type === "features") {
+    const slotId = section.id === "trust" ? "trust.items" : section.id === "how-it-works" ? "steps.items" : "highlights.items";
+    const field: ContentKey = section.id === "trust" ? "trust" : section.id === "how-it-works" ? "steps" : "highlights";
+    const sourceRows = indexedRecords(effectiveValue(ctx, field));
+    let emittedIndex = 0;
+    for (const row of sourceRows) {
+      const title = recordText(row.value, ["title", "label", "name"]);
+      if (!title || emittedIndex >= (block.items?.length ?? 0)) continue;
+      const description = recordText(row.value, ["description", "value", "text"]);
+      add("items[" + emittedIndex + "].title", slotId, field, true, { itemIndex: row.index, subfield: "title" });
+      add("items[" + emittedIndex + "].description", slotId, field, Boolean(description), { itemIndex: row.index, subfield: "description" });
+      emittedIndex += 1;
+    }
+  } else if (block.type === "about") {
+    add("story", "about.text", "about_text", Boolean(object.story));
+    add("founderImage", "about.photo", "about_image", Boolean(object.founderImage));
+    const sourceRows = indexedRecords(effectiveValue(ctx, "stats"));
+    let emittedIndex = 0;
+    for (const row of sourceRows) {
+      const label = recordText(row.value, ["label", "title", "name"]);
+      const value = recordText(row.value, ["value", "description", "text"]);
+      if (!label || !value || emittedIndex >= (block.highlights?.length ?? 0)) continue;
+      add("highlights[" + emittedIndex + "].label", "about.stats", "stats", true, { itemIndex: row.index, subfield: "label" });
+      add("highlights[" + emittedIndex + "].value", "about.stats", "stats", true, { itemIndex: row.index, subfield: "value" });
+      emittedIndex += 1;
+    }
+  } else if (block.type === "gallery") {
+    const sourceRows = indexedStrings(effectiveValue(ctx, "gallery_images")).slice(0, block.images?.length ?? 0);
+    sourceRows.forEach((row, index) => add("images[" + index + "].src", "gallery.photos", "gallery_images", true, { itemIndex: row.index }));
+  } else if (block.type === "testimonials") {
+    const sourceRows = indexedRecords(effectiveValue(ctx, "testimonials"));
+    let emittedIndex = 0;
+    for (const row of sourceRows) {
+      const quote = recordText(row.value, ["quote", "text"]);
+      if (!quote || emittedIndex >= (block.items?.length ?? 0)) continue;
+      add("items[" + emittedIndex + "].quote", "testimonials.items", "testimonials", true, { itemIndex: row.index, subfield: "quote" });
+      const author = recordText(row.value, ["author", "name"]);
+      add("items[" + emittedIndex + "].author", "testimonials.items", "testimonials", Boolean(author), { itemIndex: row.index, subfield: "author" });
+      emittedIndex += 1;
+    }
+  } else if (block.type === "contact") {
+    add("email", "contact.email", "email", Boolean(object.email));
+    add("phone", "location.phone", "phone", Boolean(object.phone) || !isValueAvailable("phone"));
+    add("address", "location.address", "address", Boolean(object.address) || !isValueAvailable("address"));
+    add("directionsUrl", "location.directions", "directions_url", Boolean(object.directionsUrl));
+    add("hours", "hours.table", "hours", (block.hoursTable?.length ?? 0) === 0 && (Boolean(object.hours) || !isValueAvailable("hours")), { subfield: "today_tag" });
+    const hours = asRecord(effectiveValue(ctx, "hours"));
+    const dayKeys = Object.keys(WEEKDAY_LABELS);
+    (block.hoursTable ?? []).forEach((row, index) => {
+      const dayKey = dayKeys.find((key) => WEEKDAY_LABELS[key] === row.day);
+      if (dayKey && asRecord(hours?.[dayKey])) {
+        add("hoursTable[" + index + "]", "hours.table", "hours", true, { subfield: dayKey });
+      }
+    });
+    const locations = indexedRecords(effectiveValue(ctx, "locations"));
+    let locationIndex = 0;
+    for (const row of locations) {
+      const name = recordText(row.value, ["name", "title"]);
+      const address = recordText(row.value, ["address"]);
+      const text = recordText(row.value, ["hours", "text"]);
+      if (!(name || address || text) || locationIndex >= (block.locations?.length ?? 0)) continue;
+      if (name) add("locations[" + locationIndex + "].name", "locations.list", "locations", true, { itemIndex: row.index, subfield: "name" });
+      if (address) add("locations[" + locationIndex + "].address", "locations.list", "locations", true, { itemIndex: row.index, subfield: "address" });
+      if (text) add("locations[" + locationIndex + "].hours", "locations.list", "locations", true, { itemIndex: row.index, subfield: "hours" });
+      locationIndex += 1;
+    }
+  } else if (block.type === "faq") {
+    const sourceRows = indexedRecords(effectiveValue(ctx, "faq"));
+    let emittedIndex = 0;
+    for (const row of sourceRows) {
+      const question = recordText(row.value, ["question", "title"]);
+      const answer = recordText(row.value, ["answer", "text", "description"]);
+      if (!question || !answer || emittedIndex >= (block.items?.length ?? 0)) continue;
+      add("items[" + emittedIndex + "].question", "faq.items", "faq", true, { itemIndex: row.index, subfield: "question" });
+      add("items[" + emittedIndex + "].answer", "faq.items", "faq", true, { itemIndex: row.index, subfield: "answer" });
+      emittedIndex += 1;
+    }
+  } else if (block.type === "menu_embed" && section.id === "menu.featured") {
+    add("heading", "menu.featured", "featured", true, { subfield: "menu_item_ids" });
+    const picks = asRecord(effectiveValue(ctx, "featured"))?.menu_item_ids;
+    if (Array.isArray(picks)) {
+      const ids = picks.flatMap((id, itemIndex) =>
+        typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+          ? [{ id: id.trim(), itemIndex }]
+          : []
+      ).slice(0, block.selectedItemIds?.length ?? 0);
+      ids.forEach((pick, index) => add("selectedItemIds[" + index + "]", "menu.featured", "featured", true, { itemIndex: pick.itemIndex, subfield: "menu_item_ids" }));
+    }
+  }
+
+  return entries;
 }
 
 function buildHero(ctx: BuildContext): Block {
-  const isRestaurant = ctx.template.id === "restaurant-table-flame";
+  const primaryCtaLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary"));
   const hours = asRecord(take(ctx, "hours", "hero.open_tag") ?? take(ctx, "hours", "hours.table"));
   const badge = hours ? asString(hours.today_tag) : undefined;
   return {
     type: "hero",
     variant: "split",
     align: "left",
+    tagline: asString(take(ctx, "tagline", "hero.tagline")),
     heading: asString(take(ctx, "hero_headline", "hero.headline")),
     subheading: asString(take(ctx, "hero_subtext", "hero.subtext")),
     backgroundImage: asString(take(ctx, "hero_image", "hero.image")),
-    ctaLabel: asString(take(ctx, "primary_cta_label", "hero.cta_primary")),
-    ctaHref: isRestaurant ? "/order" : "/book",
-    secondaryCtaLabel:
-      asString(take(ctx, "secondary_cta_label", "hero.cta_secondary")) ??
-      (isRestaurant ? "View Menu" : undefined),
-    secondaryCtaHref: isRestaurant ? "/menu" : undefined,
+    ctaLabel: primaryCtaLabel,
+    ctaHref: ctx.template.header.ctaHref,
+    secondaryCtaLabel: asString(take(ctx, "secondary_cta_label", "hero.cta_secondary")),
+    secondaryCtaHref: undefined,
     ...(badge ? { badge } : {}),
   } as Block;
 }
@@ -234,6 +543,25 @@ function buildFeatures(
   } as Block;
 }
 
+function buildBusinessOfferings(ctx: BuildContext): Block | null {
+  const selectedFacts = getSelectedFactOfferings(
+    ctx.business.offerings,
+    ctx.business.businessType,
+    ctx.business.category
+  );
+  const items = selectedFacts.flatMap((offering) => {
+    const title = ctx.business.offeringLabels?.[offering.key];
+    return title ? [{ title }] : [];
+  });
+  if (items.length === 0) return null;
+  return {
+    type: "features",
+    heading: ctx.offeringsHeading,
+    columns: 3,
+    items,
+  } as Block;
+}
+
 function buildAbout(ctx: BuildContext): Block {
   const stats = asRecordArray(take(ctx, "stats", "about.stats")) ?? [];
   const highlights = stats
@@ -246,6 +574,7 @@ function buildAbout(ctx: BuildContext): Block {
   return {
     type: "about",
     story: asString(take(ctx, "about_text", "about.text")),
+    founderImage: asString(take(ctx, "about_image", "about.photo")),
     ...(highlights.length > 0 ? { highlights } : {}),
   } as Block;
 }
@@ -346,8 +675,9 @@ function buildFaq(ctx: BuildContext): Block {
 }
 
 function buildCtaBand(ctx: BuildContext): Block {
-  const heading =
-    ctx.template.id === "restaurant-table-flame" ? "Hungry? Order now." : "Ready to hit the road?";
+  const heading = ctx.template.id === "restaurant-table-flame"
+    ? ctx.restaurantCtaBandHeading
+    : ctx.rentalCtaBandHeading;
   return {
     type: "cta_banner",
     heading,
@@ -376,6 +706,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     limit,
     layout: "grid",
     ...(selectedItemIds ? { selectedItemIds } : {}),
+    ...(ctx.currency ? { currency: ctx.currency } : {}),
   } as Block;
 }
 
@@ -387,6 +718,7 @@ function buildSectionBlock(
     case "hero":
       return buildHero(ctx);
     case "features": {
+      if (section.id === "business-offerings") return buildBusinessOfferings(ctx);
       if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
       if (section.id === "how-it-works") return buildFeatures(ctx, section, "steps", "steps.items", 3, "How it works");
       return buildFeatures(ctx, section, "highlights", "highlights.items", 3);
@@ -409,9 +741,94 @@ function buildSectionBlock(
       const heading = section.id === "menu.full" ? "Our full menu" : "Featured dishes";
       return buildMenuEmbed(ctx, heading, section.id === "menu.full" ? 12 : 6, section.id !== "menu.full");
     }
+    case "menu_order": {
+      if (!ctx.storefrontFeatures.ordering) return null;
+      return {
+        id: stableUuid(ctx.template.id + ":home:menu_order"),
+        type: "menu_order",
+      };
+    }
     default:
       return null;
   }
+}
+
+type BlockContentChecker = (block: Block) => boolean;
+
+const BLOCK_CONTENT_CHECKERS: Partial<Record<BlockType, BlockContentChecker>> = {
+  gallery: (block) => {
+    const images = (block as { images?: unknown[] }).images;
+    return Array.isArray(images) && images.length > 0;
+  },
+  features: (block) => {
+    const items = (block as { items?: unknown[] }).items;
+    return Array.isArray(items) && items.length > 0;
+  },
+  testimonials: (block) => {
+    const items = (block as { items?: unknown[] }).items;
+    return Array.isArray(items) && items.length > 0;
+  },
+  faq: (block) => {
+    const items = (block as { items?: unknown[] }).items;
+    return Array.isArray(items) && items.length > 0;
+  },
+  about: (block) => {
+    const b = block as { story?: string; founderImage?: string; highlights?: unknown[] };
+    return Boolean(
+      (typeof b.story === "string" && b.story.trim().length > 0) ||
+      (typeof b.founderImage === "string" && b.founderImage.trim().length > 0) ||
+      (Array.isArray(b.highlights) && b.highlights.length > 0)
+    );
+  },
+};
+
+export function hasBlockContent(block: Block): boolean {
+  const checker = BLOCK_CONTENT_CHECKERS[block.type];
+  if (!checker) return true;
+  return checker(block);
+}
+
+function sectionHasLiveSlotContent(
+  doc: Record<string, unknown>,
+  section: TemplateSection,
+  template?: WebsiteTemplateV2
+): boolean {
+  if (!section.slots || section.slots.length === 0) return false;
+  if (template?.editableSlots) {
+    const slotsById = new Map(template.editableSlots.map((s) => [s.slotId, s]));
+    for (const slotId of section.slots) {
+      const slot = slotsById.get(slotId);
+      if (!slot) continue;
+      const val = doc[slot.field];
+      if (!isEmptyContentValue(val)) return true;
+    }
+    return false;
+  }
+  if (section.id === "gallery" || section.block === "gallery") {
+    return !isEmptyContentValue(doc.gallery_images);
+  }
+  return false;
+}
+
+export function isSectionEnabled(
+  section: TemplateSection,
+  doc: Record<string, unknown>,
+  template?: WebsiteTemplateV2
+): boolean {
+  if (!section.optional) return true;
+  const enabledMap = (doc.enabled_sections && typeof doc.enabled_sections === "object"
+    ? doc.enabled_sections
+    : undefined) as Record<string, boolean> | undefined;
+
+  if (enabledMap && typeof enabledMap[section.id] === "boolean") {
+    return enabledMap[section.id];
+  }
+
+  if (section.defaultOff) {
+    return sectionHasLiveSlotContent(doc, section, template);
+  }
+
+  return true;
 }
 
 // ── Resolver ────────────────────────────────────────────────────────────────
@@ -423,13 +840,14 @@ function pageIdFor(templateId: string, slug: string): string {
 export function resolveTemplateContent(
   templateId: string,
   templateVersion: string,
-  contentDoc: ContentDoc
+  contentDoc: ContentDoc,
+  options: TemplateResolutionOptions = {}
 ): ResolvedTemplate {
   const template = getFlagshipTemplate(templateId, templateVersion);
   if (!template) {
     throw new Error(`Unknown flagship template: ${templateId}@${templateVersion}`);
   }
-  return resolveTemplateManifest(template, contentDoc);
+  return resolveTemplateManifest(template, contentDoc, options);
 }
 
 /**
@@ -438,7 +856,8 @@ export function resolveTemplateContent(
  */
 export function resolveTemplateManifest(
   template: WebsiteTemplateV2,
-  contentDoc: ContentDoc
+  contentDoc: ContentDoc,
+  options: TemplateResolutionOptions = {}
 ): ResolvedTemplate {
   // Deep-clone: the input doc is never mutated (pinned by test).
   const doc = JSON.parse(JSON.stringify(contentDoc ?? {})) as Record<string, unknown>;
@@ -447,15 +866,45 @@ export function resolveTemplateManifest(
   const sampleFields: string[] = [];
   const skipped: SkippedSection[] = [];
   const omittedPages: OmittedPage[] = [];
-  const ctx: BuildContext = { template, doc, samples: samples as ContentDoc, sampleFields };
+  const business = options.business ?? {};
+  const capabilities = getCapabilitiesForBusiness(
+    business.industry ?? "",
+    business.category ?? "",
+    business.businessType ?? ""
+  );
+  const storefrontFeatures = resolveStorefrontFeatures({
+    capabilities,
+    offerings: business.offerings,
+    built: getBuiltStorefrontFeatures(template),
+  });
+  const ctx: BuildContext = {
+    template,
+    doc,
+    samples: samples as ContentDoc,
+    sampleFields,
+    includeSamples: options.includeSamples !== false,
+    currency: normalizeCurrencyCode(options.currency),
+    business,
+    storefrontFeatures,
+    viewMenuLabel: options.viewMenuLabel ?? "View menu",
+    rentalContactCta: options.rentalContactCta ?? "Ask about availability",
+    offeringsHeading: options.offeringsHeading ?? "What we offer",
+    restaurantCtaBandHeading: options.restaurantCtaBandHeading ?? "Made for good moments.",
+    rentalCtaBandHeading: options.rentalCtaBandHeading ?? "Ready for your next journey?",
+  };
 
   const pages: ResolvedPage[] = [];
+  const sourceMap: BlockSourceMap = {};
+  const checklistTargets: Record<string, ChecklistTarget> = {};
   for (const page of template.pages) {
     const rawBlocks: Block[] = [];
+    const rawSectionIds: string[] = [];
+    const rawBlockMaps: Array<Record<string, TemplateSourceMapEntry>> = [];
     const pendingNames: string[] = [];
     for (const section of template.sections) {
       if (section.page !== page.purpose) continue;
       if (section.chrome) continue;
+      if (!isSectionEnabled(section, doc, template)) continue;
       if (!section.block) {
         if (section.pendingBlock) {
           skipped.push({
@@ -469,7 +918,14 @@ export function resolveTemplateManifest(
         continue;
       }
       const block = buildSectionBlock(ctx, section);
-      if (block) rawBlocks.push(block);
+      if (block) {
+        if (!ctx.includeSamples && !hasBlockContent(block)) {
+          continue;
+        }
+        rawBlocks.push(block);
+        rawSectionIds.push(section.id);
+        rawBlockMaps.push(sourceEntriesForBlock(ctx, section, block, page.slug, checklistTargets));
+      }
     }
     if (rawBlocks.length === 0) {
       omittedPages.push({
@@ -483,7 +939,7 @@ export function resolveTemplateManifest(
       });
       continue;
     }
-    const blocks = normalizeBlocks(rawBlocks);
+    const blocks = stabilizeBlockIds(normalizeBlocks(rawBlocks), template.id, page.slug, rawSectionIds);
     for (const block of blocks) {
       const result = validateBlock(block);
       if (!result.success) {
@@ -494,6 +950,12 @@ export function resolveTemplateManifest(
         );
       }
     }
+    blocks.forEach((block, index) => {
+      const entries = rawBlockMaps[index];
+      if (entries && Object.keys(entries).length > 0) {
+        sourceMap[block.id ?? stableUuid(template.id + ":" + page.slug + ":" + index)] = entries;
+      }
+    });
     pages.push({
       id: pageIdFor(template.id, page.slug),
       slug: page.slug,
@@ -506,11 +968,61 @@ export function resolveTemplateManifest(
   }
 
   const emittedSlugs = new Set(pages.map((page) => page.slug));
+  const primaryAction = resolvePrimaryAction({
+    industry: business.industry,
+    category: business.category,
+    businessType: business.businessType,
+    features: {
+      offerings: business.offerings,
+      built: getBuiltStorefrontFeatures(template),
+    },
+    builtPages: emittedSlugs,
+  });
+  const actionLabel = primaryAction.primary
+    ? options.primaryActionLabels?.[primaryAction.primary.labelKey] ??
+      (primaryAction.primary.labelKey === "viewMenu" ? options.viewMenuLabel : undefined) ??
+      (primaryAction.primary.labelKey === "rentalContactCta" ? options.rentalContactCta : undefined) ??
+      DEFAULT_PRIMARY_ACTION_LABELS[primaryAction.primary.labelKey]
+    : undefined;
+  for (const page of pages) {
+    if (!page.isHome) continue;
+    const hero = page.blocks.find((block) => block.type === "hero");
+    if (!hero || hero.type !== "hero" || !primaryAction.primary) continue;
+    const actionIsFixedFallback = ["viewMenu", "contact", "rentalContactCta"].includes(primaryAction.primary.labelKey);
+    if (actionLabel && (actionIsFixedFallback || !hero.ctaLabel || sampleFields.includes("hero.cta_primary"))) {
+      hero.ctaLabel = actionLabel;
+    }
+    hero.ctaHref = primaryAction.primary.href;
+    if (primaryAction.secondary) {
+      hero.secondaryCtaLabel = options.primaryActionLabels?.[primaryAction.secondary.labelKey] ??
+        DEFAULT_PRIMARY_ACTION_LABELS[primaryAction.secondary.labelKey];
+      hero.secondaryCtaHref = primaryAction.secondary.href;
+    } else {
+      hero.secondaryCtaHref = undefined;
+    }
+  }
+
+  const navLabels = asRecord(take(ctx, "nav_labels", "nav.labels"));
+  const labelKeyFor = (href: string, pageSlug: string | null): string => {
+    const hashIndex = href.indexOf("#");
+    if (hashIndex >= 0) {
+      const anchor = href.slice(hashIndex + 1).split(/[/?]/)[0];
+      if (anchor === "about") return "about";
+      return anchor;
+    }
+    const path = href.split(/[?#]/)[0].replace(/^\/+|\/+$/g, "");
+    if (pageSlug === "home" || path === "") return "home";
+    if (pageSlug === "contact" || path === "contact") return "contact";
+    if (path === "how-it-works") return "how";
+    return path;
+  };
+  const homeSlug = template.pages.find((page) => page.isHome)?.slug ?? template.pages[0]?.slug ?? "home";
+  const navLabelMap: Record<string, TemplateSourceMapEntry> = {};
   const navigation: ResolvedNavigationItem[] = template.navigation
-    .filter((entry) => !entry.pageSlug || emittedSlugs.has(entry.pageSlug))
+    .filter((entry) => (!entry.pageSlug || emittedSlugs.has(entry.pageSlug)) && (!entry.feature || storefrontFeatures[entry.feature]))
     .map((entry, index) => ({
       id: `${template.id}-nav-${index}`,
-      label: entry.label,
+      label: asString(navLabels?.[labelKeyFor(entry.href, entry.pageSlug)]) ?? entry.label,
       href: entry.href,
       page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
       pageSlug: entry.pageSlug,
@@ -518,14 +1030,72 @@ export function resolveTemplateManifest(
       order: entry.order,
     }));
 
+  navigation.forEach((item, index) => {
+    const labelKey = labelKeyFor(item.href, item.pageSlug);
+    setEntry(navLabelMap, ctx, "navigation[" + index + "].label", "nav.labels", "nav_labels", { subfield: labelKey });
+    setChecklistTarget(checklistTargets, "nav.labels", homeSlug, "navigation[" + index + "].label");
+  });
+
+  const chromeSourceMap: ChromeSourceMap = { menuBar: {}, footer: {} };
+  setEntry(chromeSourceMap.menuBar, ctx, "logo", "nav.logo", "logo_url");
+  setChecklistTarget(checklistTargets, "nav.logo", homeSlug, "logo");
+  setEntry(chromeSourceMap.menuBar, ctx, "ctaLabel", "nav.cta", "primary_cta_label");
+  setChecklistTarget(checklistTargets, "nav.cta", homeSlug, "ctaLabel");
+  Object.assign(chromeSourceMap.menuBar, navLabelMap);
+
+  setEntry(chromeSourceMap.footer, ctx, "businessName", "footer.business", "business_name");
+  setChecklistTarget(checklistTargets, "footer.business", homeSlug, "businessName");
+  if (!isEmptyContentValue(effectiveValue(ctx, "footer_note"))) {
+    setEntry(chromeSourceMap.footer, ctx, "footerNote", "footer.note", "footer_note");
+    setChecklistTarget(checklistTargets, "footer.note", homeSlug, "footerNote");
+  }
+  const socials = asRecord(effectiveValue(ctx, "socials"));
+  for (const network of ["instagram", "facebook", "tiktok", "x"] as const) {
+    if (asString(socials?.[network])) {
+      setEntry(chromeSourceMap.footer, ctx, "socials." + network, "footer.socials", "socials", { subfield: network });
+      setChecklistTarget(checklistTargets, "footer.socials", homeSlug, "socials." + network);
+    }
+  }
+  const footerHours = asRecord(effectiveValue(ctx, "hours"));
+  let footerHasHours = false;
+  for (const day of Object.keys(WEEKDAY_LABELS)) {
+    if (asRecord(footerHours?.[day])) {
+      setEntry(chromeSourceMap.footer, ctx, "hours." + day, "hours.table", "hours", { subfield: day });
+      if (!checklistTargets["hours.table"]) {
+        setChecklistTarget(checklistTargets, "hours.table", homeSlug, "hours." + day);
+      }
+      footerHasHours = true;
+    }
+  }
+  if (!footerHasHours) {
+    setEntry(chromeSourceMap.footer, ctx, "hours", "hours.table", "hours", { subfield: "mon" });
+    setChecklistTarget(checklistTargets, "hours.table", homeSlug, "hours");
+  }
+
+  const sampledSlots = new Set<string>();
+  for (const blockEntries of Object.values(sourceMap)) {
+    for (const entry of Object.values(blockEntries)) if (entry.sampled) sampledSlots.add(entry.slotId);
+  }
+  for (const chromeEntries of [chromeSourceMap.menuBar, chromeSourceMap.footer]) {
+    for (const entry of Object.values(chromeEntries)) if (entry.sampled) sampledSlots.add(entry.slotId);
+  }
+
   return {
     templateId: template.id,
     templateVersion: template.version,
     pages,
     navigation,
-    sampleFields: [...sampleFields],
+    sampleFields: [...sampledSlots],
+    sourceMap: options.includeSourceMap === false ? {} : sourceMap,
+    chromeSourceMap: options.includeSourceMap === false
+      ? { menuBar: {}, footer: {} }
+      : chromeSourceMap,
+    checklistTargets: options.includeSourceMap === false ? {} : checklistTargets,
     skipped,
     omittedPages,
+    storefrontFeatures,
+    primaryAction,
+    todayHours: resolveTodayHours(effectiveValue(ctx, "hours"), options.timeZone),
   };
 }
 

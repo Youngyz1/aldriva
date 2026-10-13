@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { hasEntityAccess, ENTITY_ROLES_ALL } from "@/lib/entity-auth";
 import { isAdmin } from "@/lib/auth";
+import {
+  isValidLocale,
+  getLocaleFromAcceptLanguage,
+  type Locale,
+} from "@/i18n/routing";
 import {
   TenantWebsite,
   WebsitePage,
@@ -17,11 +24,24 @@ import {
 import { resolveThemeTokens, themeTokensToStyle } from "@/lib/website-blocks";
 import {
   getV2TemplateForWebsite,
+  resolveStorefrontCurrency,
   v2ThemeStyle,
 } from "@/lib/website-v2-theme";
+import { normalizeContent, type ContentDoc } from "@/lib/website-content";
+import { getBusinessOfferings } from "@/lib/business-offerings";
+import {
+  resolveTemplateContent,
+  type ResolvedTemplate,
+} from "@/lib/website-template-resolver";
+import { FLAGSHIP_SAMPLES } from "@/lib/website-template-samples";
+import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
+import { resolveOrderSchedule } from "@/lib/website-hours";
+import type { StorefrontOrderConfig } from "@/components/site/blocks/StorefrontBrowse";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
+import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { DraftPreviewBanner } from "@/components/site/DraftPreviewBanner";
 
 interface Props {
@@ -29,6 +49,19 @@ interface Props {
     slug: string;
     page?: string[];
   }>;
+}
+
+interface V2RouteContent {
+  template: WebsiteTemplateV2;
+  content: ContentDoc;
+  samples: ContentDoc;
+  resolved: ResolvedTemplate;
+}
+
+function templateNavigationHref(href: string, siteSlug: string): string {
+  if (href === "/" || href === "") return "/site/" + siteSlug;
+  if (href.startsWith("/")) return "/site/" + siteSlug + href;
+  return href;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +75,9 @@ export async function resolveWebsiteAndPage(
   targetPage: WebsitePage | null;
   navItems: WebsiteNavigation["items"];
   isTeamMember: boolean;
+  v2Content?: V2RouteContent;
+  currency: string;
+  currencyLocale: Locale;
 }> {
   const supabaseAdmin = createSupabaseAdmin();
 
@@ -53,10 +89,46 @@ export async function resolveWebsiteAndPage(
     .maybeSingle();
 
   if (!websiteRow) {
-    return { website: null, targetPage: null, navItems: [], isTeamMember: false };
+    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency: "USD", currencyLocale: "en" };
   }
 
   const website = websiteRow as TenantWebsite;
+
+  // Request locale mirrors i18n/request.ts (cookie → Accept-Language → en).
+  // Guarded: unit tests call this resolver outside a request scope.
+  let currencyLocale: Locale = "en";
+  try {
+    const cookieStore = await cookies();
+    const headerStore = await headers();
+    const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value;
+    currencyLocale =
+      cookieLocale && isValidLocale(cookieLocale)
+        ? cookieLocale
+        : getLocaleFromAcceptLanguage(headerStore.get("accept-language"));
+  } catch {
+    currencyLocale = "en";
+  }
+
+  // Storefront currency: explicit metadata value wins, else the first linked
+  // business's country (CI → XOF), else USD so legacy sites never change.
+  const { data: countryRow } = await supabaseAdmin
+    .from("businesses")
+    .select("country, industry, category, business_type, offerings, created_at")
+    .eq("organizer_id", website.tenant_id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const linkedBusiness = countryRow as {
+    country?: string | null;
+    industry?: string | null;
+    category?: string | null;
+    business_type?: string | null;
+    offerings?: unknown;
+  } | null;
+  const currency = resolveStorefrontCurrency(
+    (website as { metadata?: unknown }).metadata,
+    linkedBusiness?.country ?? null
+  );
 
   // 2. Determine auth & team membership for draft preview
   let isTeamMember = false;
@@ -84,7 +156,7 @@ export async function resolveWebsiteAndPage(
 
   // 3. Access gate for website
   if (website.status !== "published" && !isTeamMember) {
-    return { website: null, targetPage: null, navItems: [], isTeamMember: false };
+    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency, currencyLocale };
   }
 
   // 4. Fetch pages — public visitors and team members fetch from website_pages
@@ -99,6 +171,111 @@ export async function resolveWebsiteAndPage(
   const allPages = (pageRows || []) as unknown as WebsitePage[];
   const publishedPages = allPages.filter((p) => p.status === "published");
   const visiblePages = isTeamMember ? allPages : publishedPages;
+
+  const v2Template = getV2TemplateForWebsite(website.metadata);
+  if (v2Template) {
+    const { data: liveContentRow } = await supabaseAdmin
+      .from("website_content")
+      .select("content")
+      .eq("website_id", website.id)
+      .maybeSingle();
+    let rawContent = liveContentRow?.content ?? {};
+    if (isTeamMember) {
+      const { data: draftContentRow } = await supabaseAdmin
+        .from("website_content_drafts")
+        .select("content")
+        .eq("website_id", website.id)
+        .maybeSingle();
+      if (draftContentRow) rawContent = draftContentRow.content ?? {};
+    }
+    const content = normalizeContent(rawContent);
+    const storeT = await getTranslations("Storefront");
+    const offeringT = await getTranslations("BusinessOfferings");
+    const businessType = linkedBusiness?.business_type ?? null;
+    const businessCategory = linkedBusiness?.category ?? "";
+    const catalog = getBusinessOfferings(businessType, businessCategory);
+    const getOfferingLabel = offeringT as unknown as (key: string) => string;
+    const metadata = website.metadata && typeof website.metadata === "object"
+      ? website.metadata as Record<string, unknown>
+      : {};
+    const businessOfferings = Array.isArray(linkedBusiness?.offerings)
+      ? linkedBusiness.offerings.filter((key): key is string => typeof key === "string")
+      : [];
+    const resolved = resolveTemplateContent(
+      v2Template.id,
+      v2Template.version,
+      content,
+      {
+        includeSamples: false,
+        includeSourceMap: false,
+        currency,
+        business: {
+          industry: linkedBusiness?.industry ?? "",
+          category: businessCategory,
+          businessType,
+          offerings: businessOfferings,
+          offeringLabels: Object.fromEntries(catalog.map((offering) => [offering.key, getOfferingLabel(`labels.${offering.labelKey}`)])),
+        },
+        viewMenuLabel: storeT("viewMenu"),
+        rentalContactCta: storeT("rentalContactCta"),
+        primaryActionLabels: {
+          orderNow: storeT("orderNow"),
+          reserveTable: storeT("reserveTable"),
+          bookNow: storeT("bookNow"),
+          viewMenu: storeT("viewMenu"),
+          contact: storeT("contact"),
+          rentalContactCta: storeT("rentalContactCta"),
+        },
+        offeringsHeading: storeT("whatWeOffer"),
+        restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
+        rentalCtaBandHeading: storeT("rentalBrandMessage"),
+        timeZone: typeof metadata.timezone === "string" ? metadata.timezone : undefined,
+      }
+    );
+    const emittedBySlug = new Map(resolved.pages.map((page) => [page.slug, page]));
+    const visibleV2Pages = visiblePages.filter((page) => emittedBySlug.has(page.slug));
+    const requestedPageSlug = pageSlugArr && pageSlugArr.length > 0 ? pageSlugArr[0] : null;
+    const resolvedTarget = requestedPageSlug
+      ? emittedBySlug.get(requestedPageSlug)
+      : resolved.pages.find((page) => page.isHome) ?? resolved.pages[0];
+    const pageRow = resolvedTarget
+      ? visibleV2Pages.find((page) => page.slug === resolvedTarget.slug)
+      : undefined;
+    const targetPage = pageRow && resolvedTarget
+      ? {
+          ...pageRow,
+          title: resolvedTarget.title,
+          is_home: resolvedTarget.isHome,
+          blocks: resolvedTarget.blocks,
+        } as WebsitePage
+      : null;
+    const visibleV2Slugs = new Set(visibleV2Pages.map((page) => page.slug));
+    const routeNavigation = resolved.navigation
+      .filter((item) => !item.pageSlug || visibleV2Slugs.has(item.pageSlug))
+      .map((item) => ({
+        ...item,
+        href: templateNavigationHref(item.href, website.slug),
+        page_id: item.pageSlug
+          ? visibleV2Pages.find((page) => page.slug === item.pageSlug)?.id ?? null
+          : null,
+      }));
+    const routeResolved = { ...resolved, navigation: routeNavigation };
+
+    return {
+      website,
+      targetPage,
+      navItems: routeNavigation,
+      isTeamMember,
+      currency,
+      currencyLocale,
+      v2Content: {
+        template: v2Template,
+        content,
+        samples: FLAGSHIP_SAMPLES[v2Template.id] ?? {},
+        resolved: routeResolved,
+      },
+    };
+  }
 
   // 5. Determine target page
   let targetPage: WebsitePage | null = null;
@@ -177,6 +354,8 @@ export async function resolveWebsiteAndPage(
     targetPage,
     navItems: normalizedNavItems,
     isTeamMember,
+    currency,
+    currencyLocale,
   };
 }
 
@@ -241,7 +420,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 // ---------------------------------------------------------------------------
 export default async function TenantWebsitePublicPage({ params }: Props) {
   const { slug, page: pageSlugArr } = await params;
-  const { website, targetPage, navItems, isTeamMember } =
+  const { website, targetPage, navItems, isTeamMember, v2Content, currency, currencyLocale } =
     await resolveWebsiteAndPage(slug, pageSlugArr);
 
   if (!website || !targetPage) {
@@ -258,10 +437,9 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     website.theme_config?.primaryColor,
     website.theme_config?.darkMode
   );
-  // Template-first (v2) sites layer their locked look on top of the standard
-  // tokens. Old sites are untouched (getV2TemplateForWebsite returns
-  // undefined). Header/footer chrome stays as-is until the Stage 4C rebuild.
-  const v2Template = getV2TemplateForWebsite(website.metadata);
+  // Template-first sites use locked tokens and v2 chrome. Legacy sites retain
+  // their existing SiteHeader/SiteFooter components.
+  const v2Template = v2Content?.template;
   const themeStyle = {
     ...themeTokensToStyle(tokens),
     ...themeConfigToStyle(website.theme_config),
@@ -270,6 +448,27 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       ? { backgroundColor: v2Template.templateBackground.base }
       : {}),
   };
+
+  let orderConfig: StorefrontOrderConfig | undefined;
+  if (v2Content?.resolved.storefrontFeatures.ordering) {
+    const websiteMeta = (website.metadata && typeof website.metadata === "object" ? website.metadata : {}) as Record<string, unknown>;
+    const timeZone = typeof websiteMeta.timezone === "string" ? websiteMeta.timezone : undefined;
+    const schedule = resolveOrderSchedule(v2Content.content.hours, timeZone);
+    const offerings: string[] = [];
+    if (v2Content.resolved.storefrontFeatures.pickup) offerings.push("pickup");
+    if (v2Content.resolved.storefrontFeatures.delivery) offerings.push("delivery");
+
+    orderConfig = {
+      enabled: true,
+      slug: website.slug,
+      currency: currency || "USD",
+      offerings,
+      isClosed: !schedule.isOpen,
+      scheduledFor: schedule.scheduledFor,
+      blocked: schedule.blocked,
+      blockReason: schedule.message,
+    };
+  }
 
   const blocks = (targetPage.blocks as unknown[]) || [];
 
@@ -303,13 +502,29 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       )}
 
       {/* Branded Site Header */}
-      <SiteHeader
-        siteTitle={website.site_title}
-        siteSlug={website.slug}
-        headerConfig={website.header_config}
-        navItems={navItems}
-        primaryColor={website.theme_config.primaryColor}
-      />
+      {v2Content && v2Template ? (
+        <V2SiteHeader
+          template={v2Template}
+          content={v2Content.content}
+          sampleContent={v2Content.samples}
+          navigation={v2Content.resolved.navigation}
+          siteTitle={website.site_title}
+          siteSlug={website.slug}
+          previewMode={isTeamMember}
+          editMode={isTeamMember}
+          sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
+          storefrontFeatures={v2Content.resolved.storefrontFeatures}
+          primaryAction={v2Content.resolved.primaryAction.primary}
+        />
+      ) : (
+        <SiteHeader
+          siteTitle={website.site_title}
+          siteSlug={website.slug}
+          headerConfig={website.header_config}
+          navItems={navItems}
+          primaryColor={website.theme_config.primaryColor}
+        />
+      )}
 
       {/* Page Body / Block Renderer */}
       <main className="flex-1">
@@ -325,21 +540,42 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
         ) : (
           blocks.map((block, idx) => (
             <BlockRenderer
-              key={idx}
+              key={typeof block === "object" && block !== null && "id" in block ? String(block.id) : idx}
               block={block}
               tenantId={website.tenant_id}
               isTeamMember={isTeamMember}
+              editMode={Boolean(v2Content && isTeamMember)}
+              sourceMap={v2Content?.resolved.sourceMap}
+              currency={currency}
+              currencyLocale={currencyLocale}
+              orderConfig={orderConfig}
             />
           ))
         )}
       </main>
 
       {/* Branded Site Footer */}
-      <SiteFooter
-        siteTitle={website.site_title}
-        footerConfig={website.footer_config}
-        primaryColor={website.theme_config.primaryColor}
-      />
+      {v2Content && v2Template ? (
+        <V2SiteFooter
+          template={v2Template}
+          content={v2Content.content}
+          sampleContent={v2Content.samples}
+          navigation={v2Content.resolved.navigation}
+          siteTitle={website.site_title}
+          siteSlug={website.slug}
+          previewMode={isTeamMember}
+          editMode={isTeamMember}
+          sourceMap={v2Content.resolved.chromeSourceMap.footer}
+          storefrontFeatures={v2Content.resolved.storefrontFeatures}
+          todayHours={v2Content.resolved.todayHours}
+        />
+      ) : (
+        <SiteFooter
+          siteTitle={website.site_title}
+          footerConfig={website.footer_config}
+          primaryColor={website.theme_config.primaryColor}
+        />
+      )}
     </div>
   );
 }

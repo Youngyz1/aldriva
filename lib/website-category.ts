@@ -90,6 +90,7 @@ export function refineWebsiteCategoryFromBusinessCategory(
   if (!businessCategory) return base;
   const normalized = businessCategory.trim().toLowerCase();
   if (["barbershop", "barber", "salon", "beauty", "spa"].includes(normalized)) return "service";
+  if (["vehicle rental", "car rental", "motorcycle rental", "van rental", "truck rental"].includes(normalized)) return "retail";
   if (["retail", "boutique", "fashion", "store", "shop"].includes(normalized)) return "retail";
   if (["restaurant", "cafe", "food", "dining"].includes(normalized)) return "restaurant";
   if (["professional", "consulting", "agency", "legal", "accounting"].includes(normalized)) return "professional";

@@ -34,17 +34,15 @@ import { revalidatePath } from "next/cache";
 import {
   normalizeWebsiteCategory,
   isTemplateCompatibleWithCategory,
-  mapOrgTypeToWebsiteCategory,
+  resolveWebsiteCategoryForOrganizer,
   type WebsiteCategory,
 } from "@/lib/website-category";
 import {
   getFlagshipTemplate,
   type WebsiteTemplateV2,
 } from "@/lib/website-template-v2";
-import {
-  normalizeContent,
-  type ContentDoc,
-} from "@/lib/website-content";
+import type { ContentDoc } from "@/lib/website-content";
+import { buildInitialContentFromOrganizer } from "@/lib/website-v2-initial-content";
 import {
   resolveTemplateContent,
   checkPublishReadiness,
@@ -55,6 +53,7 @@ import {
 } from "@/lib/website-template-resolver";
 import { generateStableId } from "@/lib/website-blocks";
 import { isReservedWebsiteSlug } from "@/lib/website-nav";
+import { getTenantSiteBuilderLiveUrl } from "@/lib/website-structured-data";
 import {
   getContentForBuilder,
   type ContentActionResult,
@@ -82,26 +81,6 @@ interface OrganizerRow {
   website?: string | null;
   contact_email?: string | null;
   org_type?: string | null;
-}
-
-/**
- * Builds the initial content doc from the organizer row, restricted to the
- * existing hydration allowlist (lib/website-hydration.ts
- * ALLOWED_HYDRATION_FIELDS): name -> business_name, bio -> about_text,
- * photo -> logo_url, contact_email -> email. organizers has no phone/address
- * columns (those live on businesses), so those slots start empty and the
- * readiness gate blocks publish until the owner fills them. normalizeContent
- * drops everything else, so no sample keys can ever enter here.
- */
-export function buildInitialContentFromOrganizer(
-  organizer: OrganizerRow
-): ContentDoc {
-  return normalizeContent({
-    business_name: organizer.name,
-    ...(organizer.bio ? { about_text: organizer.bio } : {}),
-    ...(organizer.photo ? { logo_url: organizer.photo } : {}),
-    ...(organizer.contact_email ? { email: organizer.contact_email } : {}),
-  });
 }
 
 export async function createWebsiteFromV2Template(
@@ -154,8 +133,19 @@ export async function createWebsiteFromV2Template(
   }
   const org = organizer as unknown as OrganizerRow;
 
+  const { data: linkedBusiness } = await supabaseAdmin
+    .from("businesses")
+    .select("industry, category, business_type, created_at")
+    .eq("organizer_id", tenant)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
   const requestedCategory = normalizeWebsiteCategory(
-    options?.websiteCategory ?? mapOrgTypeToWebsiteCategory(org.org_type),
+    options?.websiteCategory ?? resolveWebsiteCategoryForOrganizer(
+      org.org_type,
+      linkedBusiness?.category ?? linkedBusiness?.business_type ?? linkedBusiness?.industry
+    ),
     template.category as WebsiteCategory
   );
   if (
@@ -245,6 +235,12 @@ export async function createWebsiteFromV2Template(
     templateId: template.id,
     templateVersion: template.version,
     creationRequestId,
+    // New restaurant sites price in XOF unless the owner changes it later in
+    // Site settings (metadata.storefront.currency). Other templates keep the
+    // USD default; the country fallback upgrades them when relevant.
+    storefront: {
+      currency: template.id === "restaurant-table-flame" ? "XOF" : "USD",
+    },
   };
 
   const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
@@ -364,7 +360,17 @@ export interface V2BuilderState {
   tenantId: string;
   websiteSlug: string;
   siteTitle: string;
+  isPublished: boolean;
+  publicUrl: string;
+  storefront: {
+    industry: string;
+    category: string;
+    businessType: string | null;
+    offerings: string[];
+    timeZone: string;
+  };
   template: { id: string; version: string; name: string };
+  templateManifest: WebsiteTemplateV2;
   contentDraftOrLive: ContentDoc;
   draftVersion: number;
   hasDraft: boolean;
@@ -376,6 +382,96 @@ export interface V2BuilderState {
   previewPages: ResolvedPage[];
   omittedPages: OmittedPage[];
   skipped: SkippedSection[];
+}
+
+export interface V2MenuItemChoice {
+  id: string;
+  name: string;
+  description?: string | null;
+  price?: number | null;
+  imageUrl?: string | null;
+  sectionName: string;
+}
+
+/**
+ * Lists menu choices for a website after deriving its tenant from the stored
+ * website row. Browser-supplied tenant ids and menu item ids are never trusted.
+ */
+export async function getV2MenuItemChoices(
+  websiteId: string
+): Promise<{ success: true; data: V2MenuItemChoice[] } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Unauthorized: Please sign in." };
+  const websiteKey = typeof websiteId === "string" ? websiteId.trim() : "";
+  if (!websiteKey) return { success: false, error: "Website ID is required." };
+
+  const supabaseAdmin = createSupabaseAdmin();
+  const { data: website, error: websiteError } = await supabaseAdmin
+    .from("tenant_websites")
+    .select("id, tenant_id, metadata")
+    .eq("id", websiteKey)
+    .maybeSingle();
+  if (websiteError || !website) return { success: false, error: "Website not found." };
+
+  const metadata = website.metadata && typeof website.metadata === "object"
+    ? website.metadata as Record<string, unknown>
+    : {};
+  const templateId = typeof metadata.templateId === "string" ? metadata.templateId : "";
+  const templateVersion = typeof metadata.templateVersion === "string" ? metadata.templateVersion : undefined;
+  if (!getFlagshipTemplate(templateId, templateVersion)) {
+    return { success: false, error: "Menu choices are only available for v2 websites." };
+  }
+
+  const isSuperAdmin = await isAdmin();
+  if (!isSuperAdmin) {
+    const access = await checkTenantAccess(user.id, website.tenant_id as string, [
+      "owner", "admin", "manager", "editor",
+    ]);
+    if (!access.hasAccess) return { success: false, error: "Forbidden: insufficient website permissions." };
+  }
+
+  const tenantId = website.tenant_id as string;
+  const { data: sections, error: sectionsError } = await supabaseAdmin
+    .from("menu_sections")
+    .select("id, name")
+    .eq("organizer_id", tenantId)
+    .order("position", { ascending: true });
+  if (sectionsError) return { success: false, error: "Failed to load menu sections." };
+  const sectionRows = (sections ?? []) as Array<{ id: string; name: string }>;
+  if (sectionRows.length === 0) return { success: true, data: [] };
+
+  const { data: items, error: itemsError } = await supabaseAdmin
+    .from("menu_items")
+    .select("id, name, description, price, image_url, section_id")
+    .eq("organizer_id", tenantId)
+    .eq("is_active", true)
+    .in("section_id", sectionRows.map((section) => section.id))
+    .order("position", { ascending: true });
+  if (itemsError) return { success: false, error: "Failed to load menu items." };
+
+  const sectionNameById = new Map(sectionRows.map((section) => [section.id, section.name]));
+  return {
+    success: true,
+    data: ((items ?? []) as Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      price?: number | null;
+      image_url?: string | null;
+      section_id: string;
+    }>).flatMap((item) => {
+      const sectionName = sectionNameById.get(item.section_id);
+      if (!sectionName) return [];
+      return [{
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        imageUrl: item.image_url,
+        sectionName,
+      }];
+    }),
+  };
 }
 
 /**
@@ -409,7 +505,27 @@ export async function getBuilderState(
   }
 
   const effective = data.draftContent ?? data.liveContent;
-  const resolved = resolveTemplateContent(template.id, template.version, effective);
+  const supabaseAdmin = createSupabaseAdmin();
+  const { data: linkedBusiness } = await supabaseAdmin
+    .from("businesses")
+    .select("industry, category, business_type, offerings, created_at")
+    .eq("organizer_id", data.tenantId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const storefront = {
+    industry: typeof linkedBusiness?.industry === "string" ? linkedBusiness.industry : "",
+    category: typeof linkedBusiness?.category === "string" ? linkedBusiness.category : "",
+    businessType: typeof linkedBusiness?.business_type === "string" ? linkedBusiness.business_type : null,
+    offerings: Array.isArray(linkedBusiness?.offerings)
+      ? linkedBusiness.offerings.filter((key: unknown): key is string => typeof key === "string")
+      : [],
+    timeZone: typeof metadata.timezone === "string" ? metadata.timezone : "Africa/Abidjan",
+  };
+  const resolved = resolveTemplateContent(template.id, template.version, effective, {
+    business: storefront,
+    timeZone: storefront.timeZone,
+  });
   const readiness = checkPublishReadiness(template.id, template.version, effective);
 
   return {
@@ -419,7 +535,11 @@ export async function getBuilderState(
       tenantId: data.tenantId,
       websiteSlug: data.websiteSlug,
       siteTitle: data.siteTitle,
+      isPublished: data.websiteStatus === "published",
+      publicUrl: getTenantSiteBuilderLiveUrl(data.websiteSlug),
+      storefront,
       template: { id: template.id, version: template.version, name: template.name },
+      templateManifest: template,
       contentDraftOrLive: effective,
       draftVersion: data.version,
       hasDraft: data.hasDraft,

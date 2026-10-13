@@ -30,6 +30,15 @@ import {
   DEFAULT_FOOTER_CONFIG,
 } from "./website-nav";
 
+// ── Order/booking CTA targets (Phase 1 storefront) ──────────────────────────
+//
+// Commerce flows remain omitted until their blocks/pages are implemented.
+// The restaurant CTA points to its emitted Menu page in the meantime.
+/** Restaurant menu target: the emitted Menu page (the order page is pending). */
+export const V2_ORDER_CTA_HREF = "/menu";
+/** Rental "Book a Car" target: nearest emitted page until booking exists. */
+export const V2_BOOK_CTA_HREF = "/contact";
+
 // ── Slot schema ─────────────────────────────────────────────────────────────
 
 export type TemplateSlotKind =
@@ -73,6 +82,7 @@ export interface TemplateV2NavEntry {
   pageSlug: string | null;
   href: string;
   order: number;
+  feature?: "ordering" | "delivery" | "pickup" | "reservations";
 }
 
 export interface TemplateSection {
@@ -92,6 +102,10 @@ export interface TemplateSection {
   locked?: boolean;
   /** Site chrome (menu bar / footer) — not a block, built by the shell. */
   chrome?: boolean;
+  /** Optional section that can be toggled by the owner. */
+  optional?: boolean;
+  /** Defaults to hidden unless explicitly enabled or has existing content. */
+  defaultOff?: boolean;
   /** Human note for template authors (e.g. why featured ids are unbound). */
   note?: string;
 }
@@ -162,7 +176,7 @@ const RESTAURANT_SLOTS: TemplateSlot[] = [
   { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
   { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Order button label", kind: "text" },
   { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Second button label", kind: "text" },
-  { slotId: "hero.open_tag", field: "hours", label: "Open-today tag", kind: "text" },
+  { slotId: "hero.open_tag", field: "hours", label: "Highlight text (optional)", kind: "text" },
   { slotId: "highlights.items", field: "highlights", label: "Highlight items", kind: "items", max: 3 },
   { slotId: "menu.featured", field: "featured", label: "Featured dishes", kind: "pick", max: 6 },
   { slotId: "about.photo", field: "about_image", label: "About photo", kind: "image" },
@@ -183,17 +197,18 @@ const RESTAURANT_SLOTS: TemplateSlot[] = [
 const RESTAURANT_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag"] },
+  { id: "business-offerings", page: "home", block: "features", slots: [] },
   { id: "highlights", page: "home", block: "features", slots: ["highlights.items"] },
   {
     id: "menu.featured", page: "home", block: "menu_embed", slots: ["menu.featured"],
     note: "UUID-shaped featured.menu_item_ids bind as selectedItemIds (tenant-scoped in resolveMenuEmbed); non-UUID ids are dropped.",
   },
-  { id: "menu.order-buttons", page: "home", pendingBlock: "menu_order", note: "Add to Order buttons need the menu_order commerce block (not built)." },
+  { id: "menu.order-buttons", page: "home", block: "menu_order", note: "Add to Order buttons enabled via menu ordering." },
   { id: "about", page: "home", block: "about", slots: ["about.photo", "about.text", "about.stats"] },
-  { id: "gallery", page: "home", block: "gallery", slots: ["gallery.photos"] },
+  { id: "gallery", page: "home", block: "gallery", slots: ["gallery.photos"], optional: true, defaultOff: true },
   { id: "testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"] },
   { id: "hours-location", page: "home", block: "contact", slots: ["hours.table", "location.address", "location.phone", "location.directions"] },
-  { id: "cta-band", page: "home", block: "cta_banner", locked: true, note: 'Locked copy: "Hungry? Order now."' },
+  { id: "cta-band", page: "home", block: "cta_banner", locked: true, note: 'Locked copy: "Made for good moments."' },
   { id: "menu.full", page: "catalog", block: "menu_embed", note: "Full menu shows all sections (no featured filter)." },
   { id: "order.summary", page: "transaction", pendingBlock: "order_summary", note: "Cart-less order summary + pay needs the order_summary commerce block (not built)." },
   { id: "contact.main", page: "contact", block: "contact", slots: ["location.address", "hours.table", "location.phone", "location.directions", "contact.email"] },
@@ -205,13 +220,13 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   id: "restaurant-table-flame",
   version: "1.0.0",
   name: "Table & Flame",
-  description: "Warm restaurant template with menu, ordering, and reservations.",
+  description: "A warm restaurant template for menus, stories, and location details.",
   category: "restaurant",
   style: "warm",
   previewColor: "#c65d3b",
   supportedCategories: ["restaurant"],
   theme: { ...DEFAULT_THEME_CONFIG, theme: "warm", primaryColor: "#c65d3b", fontFamily: "serif" },
-  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Order Now", ctaHref: "/order", sticky: true },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Order Now", ctaHref: V2_ORDER_CTA_HREF, sticky: true },
   footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
   lockedTheme: { primaryColor: "#c65d3b", headingFont: "serif", bodyFont: "sans" },
   lockedLayout: true,
@@ -236,7 +251,7 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   ],
   sections: RESTAURANT_SECTIONS,
   commerce: { order: "food" },
-  tags: ["restaurant", "food", "menu", "ordering"],
+  tags: ["restaurant", "food", "menu"],
 };
 
 // ── Car rental: DriveLine ───────────────────────────────────────────────────
@@ -268,6 +283,7 @@ const RENTAL_SLOTS: TemplateSlot[] = [
 const RENTAL_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.tagline"] },
+  { id: "business-offerings", page: "home", block: "features", slots: [] },
   { id: "hero.booking-bar", page: "home", pendingBlock: "booking_bar", note: "Pickup/return date-range search needs the booking_bar commerce block (not built)." },
   { id: "trust", page: "home", block: "features", slots: ["trust.items"] },
   { id: "fleet.featured", page: "home", pendingBlock: "fleet_cards", note: "No fleet table exists yet; featured.vehicle_ids are stored references only." },
@@ -289,13 +305,13 @@ export const RENTAL_DRIVELINE: WebsiteTemplateV2 = {
   id: "rental-driveline",
   version: "1.0.0",
   name: "DriveLine",
-  description: "Car rental template with fleet showcase and date-range booking.",
+  description: "A car rental template for fleet details, pickup locations, and customer enquiries.",
   category: "retail",
   style: "bold",
   previewColor: "#2563eb",
   supportedCategories: ["retail", "service"],
   theme: { ...DEFAULT_THEME_CONFIG, theme: "bold", primaryColor: "#2563eb", fontFamily: "sans" },
-  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Book a Car", ctaHref: "/book", sticky: true },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Ask about availability", ctaHref: V2_BOOK_CTA_HREF, sticky: true },
   footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
   lockedTheme: { primaryColor: "#2563eb", headingFont: "sans", bodyFont: "sans" },
   lockedLayout: true,

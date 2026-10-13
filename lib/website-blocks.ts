@@ -60,6 +60,7 @@ export interface WithItemId {
 
 export interface HeroBlock extends BaseBlock {
   type: "hero";
+  tagline?: string;
   heading?: string;
   subheading?: string;
   backgroundImage?: string;
@@ -245,13 +246,22 @@ export interface MenuEmbedBlock extends BaseBlock {
   subheading?: string;
   limit?: number; // Clamped 1..12 sections, default 6
   layout?: "grid" | "list";
-  selectedSectionIds?: string[]; // Optional specific section IDs (max 12 UUIDs)
+  selectedSectionIds?: string[]; // Optional specific section IDs (max 12 UUIDs);
   /**
    * Optional specific menu ITEM IDs (max 12 UUIDs). When non-empty, only these
    * items render (grouped under their sections). Unset/empty means "show all",
    * exactly as before — existing blocks never go blank.
    */
   selectedItemIds?: string[];
+  /** ISO 4217 price display code (e.g. XOF). Omit for the USD default. */
+  currency?: string;
+}
+
+/** Normalizes an ISO 4217 currency code; anything else yields undefined. */
+export function normalizeCurrencyCode(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const code = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(code) ? code : undefined;
 }
 
 export type Block =
@@ -268,7 +278,12 @@ export type Block =
   | ServicesEmbedBlock
   | MenuEmbedBlock
   | RichTextBlock
-  | CtaBannerBlock;
+  | CtaBannerBlock
+  | MenuOrderBlock;
+
+export interface MenuOrderBlock extends BaseBlock {
+  type: "menu_order";
+}
 
 export const KNOWN_BLOCK_TYPES = [
   "hero",
@@ -285,6 +300,7 @@ export const KNOWN_BLOCK_TYPES = [
   "menu_embed",
   "rich_text",
   "cta_banner",
+  "menu_order",
 ] as const;
 
 export type BlockType = (typeof KNOWN_BLOCK_TYPES)[number];
@@ -596,6 +612,12 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
 
   switch (type) {
     case "hero": {
+      const tagline = validateStringField(
+        obj.tagline,
+        "tagline",
+        BLOCK_LIMITS.LABEL_MAX_LENGTH,
+        issues
+      );
       const heading = validateStringField(
         obj.heading,
         "heading",
@@ -663,6 +685,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         data: {
           type: "hero",
           ...envelope,
+          ...(tagline ? { tagline } : {}),
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
           ...(backgroundImage ? { backgroundImage } : {}),
@@ -1527,8 +1550,12 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         const validId = validateUuidField(id, `selectedItemIds[${idx}]`, issues);
         if (validId) selectedItemIds.push(validId);
       });
+      const currency = normalizeCurrencyCode(obj.currency);
+      if (typeof obj.currency === "string" && obj.currency.trim() !== "" && !currency) {
+        issues.push({ path: "currency", message: "currency must be a 3-letter code (e.g. XOF)" });
+      }
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}) } };
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}) } };
     }
 
     case "cta_banner": {
@@ -1574,6 +1601,23 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(ctaLabel ? { ctaLabel } : {}),
           ...(ctaHref ? { ctaHref } : {}),
           variant,
+        },
+      };
+    }
+
+    case "menu_order": {
+      if (issues.length > 0) {
+        return {
+          success: false,
+          error: "Validation failed for menu_order block.",
+          issues,
+        };
+      }
+      return {
+        success: true,
+        data: {
+          type: "menu_order",
+          ...envelope,
         },
       };
     }
@@ -1657,6 +1701,7 @@ export function parseBlock(raw: unknown): Block | null {
       return {
         type: "hero",
         ...envelope,
+        tagline: typeof obj.tagline === "string" ? obj.tagline.trim().slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) || undefined : undefined,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         backgroundImage: typeof obj.backgroundImage === "string" ? safeImageSrc(obj.backgroundImage) || undefined : undefined,
@@ -1892,6 +1937,7 @@ export function parseBlock(raw: unknown): Block | null {
         selectedItemIds: Array.isArray(obj.selectedItemIds)
           ? obj.selectedItemIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
           : undefined,
+        currency: normalizeCurrencyCode(obj.currency),
       };
 
     case "cta_banner":
@@ -1903,6 +1949,12 @@ export function parseBlock(raw: unknown): Block | null {
         ctaLabel: typeof obj.ctaLabel === "string" ? obj.ctaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,
         ctaHref: sanitizeUrl(obj.ctaHref) || undefined,
         variant: obj.variant === "dark" || obj.variant === "light" ? obj.variant : "brand",
+      };
+
+    case "menu_order":
+      return {
+        type: "menu_order",
+        ...envelope,
       };
 
     default:

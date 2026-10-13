@@ -106,6 +106,7 @@ export const BLOCK_EDIT_SCHEMA: Record<BlockType, Record<string, EditFieldDef>> 
     "heading": { type: "text", label: "Heading" },
     "subheading": { type: "textarea", label: "Subheading" },
   },
+  menu_order: {},
 };
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);

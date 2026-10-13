@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from 'next-intl';
 import { ChevronLeft } from "lucide-react";
 import { MobileHamburgerButton, MobileDrawer } from "@/components/nav/MobileDrawer";
 import SidebarNavList from "@/components/nav/SidebarNavList";
 import { getOrgNavItems } from "./org-nav-items";
 import type { NavGroup } from "@/components/nav/nav-active";
+import type { Capability } from "@/lib/business-taxonomy";
 
 export default function OrgMobileHeader({
   org,
@@ -13,16 +15,28 @@ export default function OrgMobileHeader({
   hasFundraisers,
   hasProducts,
   hasWebsite,
+  hasMenuRows,
+  hasServiceRows,
+  capabilities,
+  offerings,
 }: {
   org: { id: string; name: string };
   hasEvents?: boolean;
   hasFundraisers?: boolean;
   hasProducts?: boolean;
   hasWebsite?: boolean;
+  hasMenuRows?: boolean;
+  hasServiceRows?: boolean;
+  capabilities?: Capability[];
+  offerings?: readonly string[] | null;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite });
+  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }).map(item => {
+    const key = item.label.toLowerCase() as any;
+    try { return { ...item, label: t(key) }; } catch { return item; }
+  });
   const groups: NavGroup[] = [{ items: navItems }];
 
   return (

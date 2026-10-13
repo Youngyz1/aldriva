@@ -118,6 +118,7 @@ export type Database = {
           listing_tier: string
           logo: string | null
           name: string
+          offerings: string[]
           owner_id: string
           phone: string | null
           seo_description: string | null
@@ -146,6 +147,7 @@ export type Database = {
           listing_tier?: string
           logo?: string | null
           name: string
+          offerings?: string[]
           owner_id: string
           phone?: string | null
           seo_description?: string | null
@@ -174,6 +176,7 @@ export type Database = {
           listing_tier?: string
           logo?: string | null
           name?: string
+          offerings?: string[]
           owner_id?: string
           phone?: string | null
           seo_description?: string | null

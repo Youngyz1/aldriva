@@ -7,6 +7,8 @@
 
 import type { Capability } from "./business-taxonomy";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
+import { FLAGSHIP_TEMPLATES } from "./website-template-v2";
+import { getBuiltStorefrontFeaturesFromTemplates, resolveStorefrontFeatures } from "./storefront-features";
 
 export type BusinessModule = {
   key: string;
@@ -15,6 +17,7 @@ export type BusinessModule = {
   icon: string;
   requiredCapabilities: Capability[];
   description: string;
+  routeExists?: boolean;
 };
 
 // Capability to module mapping — one dashboard, filtered by capabilities.
@@ -35,6 +38,7 @@ export const BUSINESS_MODULES: readonly BusinessModule[] = [
     icon: "Store",
     requiredCapabilities: ["ORDERS", "ONLINE_ORDERING"],
     description: "Orders and fulfillment",
+    routeExists: false,
   },
   {
     key: "reservations",
@@ -43,6 +47,7 @@ export const BUSINESS_MODULES: readonly BusinessModule[] = [
     icon: "CalendarCheck",
     requiredCapabilities: ["RESERVATIONS", "TABLES"],
     description: "Tables and reservations",
+    routeExists: false,
   },
   {
     key: "bookings",
@@ -136,16 +141,22 @@ export const BUSINESS_MODULES: readonly BusinessModule[] = [
 
 export function getModulesForCapabilities(caps: readonly Capability[]): BusinessModule[] {
   const set = new Set(caps as string[]);
-  return BUSINESS_MODULES.filter((m) => m.requiredCapabilities.some((c) => set.has(c)));
+  return BUSINESS_MODULES.filter((m) => m.routeExists !== false && m.requiredCapabilities.some((c) => set.has(c)));
 }
 
 export function getModulesForBusiness(
   industry: string,
   category: string,
-  businessType: string | null | undefined
+  businessType: string | null | undefined,
+  offerings: readonly string[] | null | undefined = []
 ): BusinessModule[] {
   const caps = getCapabilitiesForBusiness(industry, category, businessType ?? "");
-  return getModulesForCapabilities(caps);
+  const storefront = resolveStorefrontFeatures({
+    capabilities: caps,
+    offerings,
+    built: getBuiltStorefrontFeaturesFromTemplates(FLAGSHIP_TEMPLATES),
+  });
+  return getModulesForCapabilities(caps).filter((module) => module.key !== "reservations" || storefront.reservations);
 }
 
 export function hasModuleCapability(caps: readonly Capability[], moduleKey: string): boolean {

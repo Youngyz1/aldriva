@@ -9,10 +9,10 @@ export default async function BusinessLayout({ children, params }: { children: R
   const auth = await assertCanManageBusiness(id);
   if (!auth.ok) return notFound();
   const admin = createSupabaseAdmin();
-  const { data: b } = await admin.from("businesses").select("id, name, industry, category, business_type").eq("id", id).maybeSingle();
+  const { data: b } = await admin.from("businesses").select("id, name, industry, category, business_type, offerings").eq("id", id).maybeSingle();
   if (!b) return notFound();
   const base = `/dashboard/businesses/${id}`;
-  const capabilityModules = getModulesForBusiness(b.industry, b.category, b.business_type);
+  const capabilityModules = getModulesForBusiness(b.industry, b.category, b.business_type, b.offerings);
   const capabilityKeys = new Set(capabilityModules.map((m) => m.key));
   // map module key to nav item - keep existing routes where they exist, others are capability gated but may not have pages yet
   const maybeItem = (key: string, label: string, icon: string) =>

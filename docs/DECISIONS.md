@@ -263,6 +263,60 @@
   - Persistence follow-up (2026-10-11): a real builder save/reload on the configured staging project verified `music_links` round-trip and a Spotify `?si=` URL. Link-only preview data now suppresses sample audio so the guest pill targets the real provider; Chrome confirmed the Spotify playback event. The collapsed summary reports the link count. Migration 167 adds a nullable JSONB column only; application validation owns shape/provider/limit rules.
   - UI and story follow-up (2026-10-11): the desktop builder uses a 480–520px form track and 640px preview track, with one independently scrolling form and a sticky preview. Palette input rows normalize saved hex values before template rendering. Story chapters use the existing `wedding_story` JSONB field (up to four entries), render image/caption/text in every template with failed images hidden, and no schema migration is required. Apple Music and Audiomack were removed from current provider support; legacy records are read-filtered and surfaced to the host once.
 
+### DEC-0030: V2 website editor uses a form-first shared-content preview
+- **Decision Date**: 2026-10-11
+- **Status**: Implemented in the working tree; tests, TypeScript, and lint verified. Production build could not start because Windows sandbox access denied SWC path canonicalization; authenticated browser parity remains unverified.
+- **Key Tenets**:
+  - The v2 editor derives fixed form sections from the flagship template manifest and the pages/blocks the resolver emits. It does not expose block insertion, ordering, layout, or color controls; the v1 builder stays available for non-v2 sites. **Amended (Phase 2a.2 / DEC-0033)**: While owners never insert arbitrary blocks or reorder layouts, owners may toggle template-declared optional sections (e.g. restaurant gallery) via an explicit 'Show on site' toggle in the section editor.
+  - Preview content is sent to a persistent same-origin iframe over a validated message channel. The frame resolves sample content only for rendering; `saveContentDraft` receives the normalized real `ContentDoc` maintained by the editor.
+  - Tenant menu choices are loaded from `websiteId`: the action reads the website row, checks the derived tenant with `checkTenantAccess`, and scopes both menu section and item queries to that tenant. Browser-provided tenant IDs and item records are not authoritative.
+  - The shared draft-save queue pauses on `STALE_DRAFT` only when the website editor opts in. Its existing default behavior is preserved for invitation callers; resolving a conflict requires an explicit reload.
+
+### DEC-0031: V2 website creation uses a category-filtered flagship gallery
+- **Decision Date**: 2026-10-11
+- **Status**: Implemented in the working tree; tests, TypeScript, and lint verified. Production build was blocked before compilation by Windows SWC path canonicalization (`Access is denied`, OS error 5); authenticated browser review remains unverified.
+- **Key Tenets**:
+  - The organization create route offers only v2 flagship templates, filters them through `isTemplateCompatibleWithCategory`, and defaults to the organizer's mapped website category. The existing site redirect remains in place; the legacy gallery and blank-site flow are not deleted.
+  - Gallery cards use resolver sample content and the public block renderer, with v2 chrome and locked theme variables. Embed renderers receive no tenant ID and show their empty states; preview content is never submitted to a save action.
+  - The client sends only the route organizer ID, selected template ID, selected category, and retry-stable creation request ID. The existing server action remains authoritative for access and category compatibility.
+
+### DEC-0032: Storefront features require capability, selection, and implementation
+- **Decision Date**: 2026-10-12
+- **Status**: Implemented in the working tree; migration 169 is unapplied; test, TypeScript, and lint verification passed. Browser and live database behavior remain unverified.
+- **Key Tenets**:
+  - A storefront feature is available only when the linked business type allows it, the owner selected the stable offering key, and the active template manifest actually emits the feature. `lib/storefront-features.ts` centralizes this rule for website navigation/CTAs and business dashboard modules.
+  - `businesses.offerings` is a `text[]` of stable keys rather than JSONB because it stores only a bounded set of unique catalog keys; labels and capability definitions remain code-owned and translated. Migration 169 is additive and leaves row-level RLS unchanged. Existing empty arrays do not enable feature-kind offerings.
+  - Selected factual offerings reuse the existing `features` block. Hours remain weekly content in the contact section, while the shared v2 footer shows only today’s localized interval; the editor’s `today_tag` stays owner-provided optional highlight copy.
+  - Custom Business overrides category fallback and always receives the generic catalog. The rental CTA points to Contact and uses availability-enquiry wording while no booking flow exists.
+  - The earliest linked business by `created_at` provides deterministic website category/storefront context when an organizer has multiple businesses.
+
+### DEC-0033: Template optional sections, honest public rendering, and save diagnostics
+- **Decision Date**: 2026-10-12
+- **Status**: Implemented in the working tree (Phase 2a.2); tests, TypeScript, and lint verified.
+- **Key Tenets**:
+  - **Optional sections amendment**: The principle that "users never add, move, or remove blocks" is amended: template authors may declare specific sections as `optional` (and optionally `defaultOff`). Owners may toggle template-declared optional sections on or off via `content.enabled_sections[section_id]`, but cannot add arbitrary blocks, reorder layout, or change slot structure.
+  - **Resolution order**: Explicit user boolean (`enabled_sections[id] === true/false`) always wins. If unset and the section is `defaultOff`, it resolves to enabled only if live slot content already exists in the document (e.g., gallery has at least one uploaded image), otherwise disabled. Non-optional sections remain unaffected.
+  - **Honest public rendering**: The published public route (`/site/[slug]`) strictly renders `includeSamples: false` and `includeSourceMap: false` for all viewers, including authenticated owners and team members. Organizers only see sample content and badges in the builder preview iframe. On published output, any non-chrome block with zero renderable items (empty gallery, 0 features, 0 testimonials, 0 faq items) is omitted automatically.
+  - **Live link base URL**: Builder preview and public links derive their origin from `getTenantSiteBuilderLiveUrl` (using the `getSiteUrl()` cascade supporting localhost in dev and staging URLs), whereas canonical and JSON-LD structured data remain anchored to the production base URL via `getTenantSiteBaseUrl`.
+  - **Save diagnostics**: Draft autosaves return stable machine-readable error codes (`unauthorized`, `forbidden`, `not_v2`, `too_large`, `db_error`, `unexpected`, `STALE_DRAFT`) with sanitized server logs (website ID and code only, never document payload). Stale draft saves against missing draft rows reject with `STALE_DRAFT` rather than resurrecting stale versions.
+
+### DEC-0034: Ordering is offering-gated, viewer-excluded, and resolver-proved
+- **Decision Date**: 2026-10-13
+- **Status**: Implemented in the working tree (Phase 2b-2.1); ESLint/TypeScript and touched suites verified. Live DB/browser verification outstanding.
+- **Key Tenets**:
+  - There is no `websites` table: order submission resolves slugs via `tenant_websites` (`tenant_id` carried on the same row) and `website_content.website_id` references `tenant_websites(id)`. The migration 171 `website_id` references `public.tenant_websites(id)`.
+  - Org Orders read access is owner/admin/manager/editor/finance only (no viewer), matching the migration 171 SELECT policy; the page reads via the admin client behind that explicit `checkTenantAccess` guard.
+  - Business Orders stays hidden (`routeExists: false`, same as Reservations) until a real route ships; the existing `app/dashboard/businesses/[id]/orders` stub does not count. Org Orders renders only when the shared `resolveStorefrontFeatures` reports `ordering` (capability + owner `online_ordering` selection + built `menu_order`); menu rows alone never enable it.
+  - Pure validators live outside `"use server"` modules so server-action files export only async functions and types.
+
+### DEC-0035: Notification CHECKs widen by union; order internals stay off the action boundary
+- **Decision Date**: 2026-10-13
+- **Status**: Implemented in the working tree (Phase 2b-2.2); migration 172 NOT applied.
+- **Key Tenets**:
+  - Notification CHECKs only ever widen: 172 is the union of all values migrations 44/116/171 allowed plus code-sent `related_type 'organizer'`; its rollback restores 171 exactly.
+  - `"use server"` modules export actions with serializable params only; injectable-client logic lives in plain modules (`lib/order-submit.ts`) that tests import directly.
+  - Unknown option ids are data errors (`unknown_option`), never silently dropped; pre-existing table misses are grandfathered by pin (`guests`), never silently ignored.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

@@ -41,8 +41,19 @@ export interface ContentActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-  /** Machine-readable stale-write signal (409-style); clients should reload. */
-  code?: "STALE_DRAFT" | "NO_DRAFT" | "NOT_READY";
+  code?:
+    | "STALE_DRAFT"
+    | "NO_DRAFT"
+    | "NOT_READY"
+    | "V2_ONLY"
+    | "unauthorized"
+    | "forbidden"
+    | "not_found"
+    | "not_v2"
+    | "too_large"
+    | "db_error"
+    | "unexpected"
+    | (string & {});
 }
 
 interface ResolvedWebsiteContext {
@@ -50,6 +61,7 @@ interface ResolvedWebsiteContext {
   tenantId: string;
   websiteSlug: string;
   siteTitle: string;
+  websiteStatus: string;
   metadata: Record<string, unknown>;
   userRole: EntityRole | null;
   canPublish: boolean;
@@ -57,7 +69,7 @@ interface ResolvedWebsiteContext {
 
 type AuthResult =
   | { ok: true; ctx: ResolvedWebsiteContext }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
 
 async function resolveAndAuthorizeWebsite(
   websiteId: string,
@@ -65,18 +77,18 @@ async function resolveAndAuthorizeWebsite(
 ): Promise<AuthResult> {
   const user = await getCurrentUser();
   if (!user) {
-    return { ok: false, error: "Unauthorized: Please sign in." };
+    return { ok: false, code: "unauthorized", error: "Unauthorized: Please sign in." };
   }
 
   const supabaseAdmin = createSupabaseAdmin();
   const { data: websiteRow, error: websiteErr } = await supabaseAdmin
     .from("tenant_websites")
-    .select("id, tenant_id, slug, site_title, metadata")
+    .select("id, tenant_id, slug, site_title, metadata, status")
     .eq("id", websiteId)
     .maybeSingle();
 
   if (websiteErr || !websiteRow) {
-    return { ok: false, error: "Website not found." };
+    return { ok: false, code: "not_found", error: "Website not found." };
   }
 
   const tenantId = websiteRow.tenant_id as string;
@@ -86,7 +98,7 @@ async function resolveAndAuthorizeWebsite(
   if (!isSuperAdmin) {
     const access = await checkTenantAccess(user.id, tenantId, allowedRoles);
     if (!access.hasAccess) {
-      return { ok: false, error: "Forbidden: Insufficient permissions for this website." };
+      return { ok: false, code: "forbidden", error: "Forbidden: Insufficient permissions for this website." };
     }
     userRole = access.role;
   }
@@ -103,6 +115,7 @@ async function resolveAndAuthorizeWebsite(
       tenantId,
       websiteSlug: websiteRow.slug as string,
       siteTitle: websiteRow.site_title as string,
+      websiteStatus: typeof websiteRow.status === "string" ? websiteRow.status : "draft",
       metadata: (websiteRow.metadata ?? {}) as Record<string, unknown>,
       userRole,
       canPublish,
@@ -129,7 +142,9 @@ export async function saveContentDraft(
     ...ENTITY_ROLES_CONTENT_WRITE,
   ]);
   if (!auth.ok) {
-    return { success: false, error: auth.error };
+    const code = auth.code ?? "unauthorized";
+    console.error(`[saveContentDraft] Auth failed for website ${websiteId}: code=${code}`);
+    return { success: false, code, error: auth.error };
   }
   const ctx = auth.ctx;
 
@@ -140,8 +155,10 @@ export async function saveContentDraft(
   const saveTemplateId =
     typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
   if (!saveTemplateId || !getFlagshipTemplate(saveTemplateId)) {
+    console.error(`[saveContentDraft] Not v2 website ${websiteId}: code=not_v2`);
     return {
       success: false,
+      code: "not_v2",
       error: "Content drafts are only available for template-first (v2) websites.",
     };
   }
@@ -151,10 +168,12 @@ export async function saveContentDraft(
   try {
     serialized = JSON.stringify(normalized);
   } catch {
-    return { success: false, error: "Content could not be serialized." };
+    console.error(`[saveContentDraft] Serialization error for website ${ctx.websiteId}: code=unexpected`);
+    return { success: false, code: "unexpected", error: "Content could not be serialized." };
   }
   if (serialized.length > MAX_CONTENT_DOC_CHARS) {
-    return { success: false, error: "Content exceeds the maximum document size." };
+    console.error(`[saveContentDraft] Content too large for website ${ctx.websiteId}: code=too_large`);
+    return { success: false, code: "too_large", error: "Content exceeds the maximum document size." };
   }
 
   try {
@@ -172,12 +191,14 @@ export async function saveContentDraft(
       .eq("website_id", ctx.websiteId)
       .maybeSingle();
 
+    const currentVersion = typeof existing?.version === "number" ? existing.version : 0;
     if (
       typeof expectedVersion === "number" &&
-      existing &&
-      typeof existing.version === "number" &&
-      existing.version !== expectedVersion
+      expectedVersion !== currentVersion
     ) {
+      console.error(
+        `[saveContentDraft] Version mismatch for website ${ctx.websiteId}: expected=${expectedVersion}, current=${currentVersion}, code=STALE_DRAFT`
+      );
       return {
         success: false,
         code: "STALE_DRAFT",
@@ -201,8 +222,8 @@ export async function saveContentDraft(
       .maybeSingle();
 
     if (upsertErr) {
-      console.error("[saveContentDraft] Database upsert failed:", upsertErr);
-      return { success: false, error: "Failed to save content draft. Please try again." };
+      console.error(`[saveContentDraft] Database upsert failed for website ${ctx.websiteId}: code=db_error`, upsertErr);
+      return { success: false, code: "db_error", error: "Failed to save content draft. Please try again." };
     }
 
     return {
@@ -214,8 +235,8 @@ export async function saveContentDraft(
       },
     };
   } catch (err: unknown) {
-    console.error("[saveContentDraft] Unexpected error:", err);
-    return { success: false, error: "Failed to save content draft. Please try again." };
+    console.error(`[saveContentDraft] Unexpected error for website ${ctx.websiteId}: code=unexpected`, err);
+    return { success: false, code: "unexpected", error: "Failed to save content draft. Please try again." };
   }
 }
 
@@ -224,6 +245,7 @@ export interface ContentBuilderData {
   tenantId: string;
   websiteSlug: string;
   siteTitle: string;
+  websiteStatus: string;
   metadata: Record<string, unknown>;
   liveContent: ContentDoc;
   draftContent: ContentDoc | null;
@@ -279,6 +301,7 @@ export async function getContentForBuilder(
         tenantId: ctx.tenantId,
         websiteSlug: ctx.websiteSlug,
         siteTitle: ctx.siteTitle,
+        websiteStatus: ctx.websiteStatus,
         metadata: ctx.metadata,
         liveContent,
         draftContent,
@@ -321,6 +344,23 @@ export async function publishContentDraft(
   }
   const ctx = auth.ctx;
 
+  const templateId =
+    typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
+  const templateVersion =
+    typeof ctx.metadata.templateVersion === "string"
+      ? ctx.metadata.templateVersion
+      : undefined;
+  const flagship = templateId
+    ? getFlagshipTemplate(templateId, templateVersion)
+    : undefined;
+  if (!flagship) {
+    return {
+      success: false,
+      code: "V2_ONLY",
+      error: "Publishing content drafts is only supported for valid v2 flagship template websites.",
+    };
+  }
+
   if (pageBlocks !== undefined && pageBlocks !== null) {
     if (!Array.isArray(pageBlocks)) {
       return { success: false, error: "pageBlocks must be an array." };
@@ -343,17 +383,8 @@ export async function publishContentDraft(
   try {
     const supabaseAdmin = createSupabaseAdmin();
 
-    // Publish-readiness gate (v2 flagship templates only): refuse to publish
-    // when required slots have no real content, so samples never ship as
-    // ordinary content. Websites on the 6 old templates (or with no template
-    // id in metadata) skip the gate entirely.
-    const templateId =
-      typeof ctx.metadata.templateId === "string" ? ctx.metadata.templateId : undefined;
-    const flagship = templateId ? getFlagshipTemplate(templateId) : undefined;
-    const templateVersion =
-      typeof ctx.metadata.templateVersion === "string"
-        ? ctx.metadata.templateVersion
-        : (flagship?.version ?? "1.0.0");
+    // The v2-only guard above makes the readiness gate mandatory here. Samples
+    // remain render-only; publication materializes only real draft content.
     const { data: gateDraft } = await supabaseAdmin
       .from("website_content_drafts")
       .select("content, version")
@@ -380,7 +411,7 @@ export async function publishContentDraft(
     if (flagship && gateDraft) {
       const readiness = checkPublishReadiness(
         templateId as string,
-        templateVersion,
+        templateVersion ?? flagship.version,
         normalizeContent(gateDraft.content ?? {})
       );
       if (!readiness.ready) {
@@ -409,8 +440,9 @@ export async function publishContentDraft(
     if (flagship && gateDraft) {
       v2Resolved = resolveTemplateContent(
         templateId as string,
-        templateVersion,
-        normalizeContent(gateDraft.content ?? {})
+        templateVersion ?? flagship.version,
+        normalizeContent(gateDraft.content ?? {}),
+        { includeSamples: false, includeSourceMap: false }
       );
       const homeSlug =
         v2Resolved.pages.find((page) => page.isHome)?.slug ?? "home";

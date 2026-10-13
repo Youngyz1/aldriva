@@ -7,6 +7,9 @@ import {
   getBuilderEmbedOptions,
 } from "@/lib/actions/website-builder";
 import WebsiteBuilderClient from "@/components/dashboard/website/builder/WebsiteBuilderClient";
+import { getBuilderState, getV2MenuItemChoices } from "@/lib/actions/website-v2";
+import { getV2TemplateForWebsite } from "@/lib/website-v2-theme";
+import { V2WebsiteEditor } from "@/components/dashboard/website/v2/V2WebsiteEditor";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -45,8 +48,27 @@ export default async function WebsiteBuilderPage({
   const website = siteRes.data?.website;
   const pages = siteRes.data?.pages || [];
 
-  if (!website || pages.length === 0) {
+  if (!website) {
     // If website has not been created yet, redirect to the overview setup page
+    redirect(`/dashboard/org/${tenantId}/website`);
+  }
+
+  // Template-first sites use the shared-content editor even before their first
+  // publish, when there may be no emitted website_pages rows yet.
+  const v2Template = getV2TemplateForWebsite(website.metadata);
+  if (v2Template) {
+    const [builderState, menuChoices] = await Promise.all([
+      getBuilderState(website.id),
+      v2Template.id === "restaurant-table-flame"
+        ? getV2MenuItemChoices(website.id)
+        : Promise.resolve({ success: true as const, data: [] }),
+    ]);
+    if (!builderState.success || !builderState.data) return notFound();
+    return <V2WebsiteEditor initialState={builderState.data} menuItems={menuChoices.success ? menuChoices.data : []} />;
+  }
+
+  if (pages.length === 0) {
+    // Preserve the legacy setup redirect for older sites.
     redirect(`/dashboard/org/${tenantId}/website`);
   }
 
