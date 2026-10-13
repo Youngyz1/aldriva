@@ -310,10 +310,10 @@ export function StorefrontBrowse({
         </div>
       </div>
 
-      {engaged ? (
-        visible.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-200 py-12 text-center text-sm text-zinc-500">
-            <p>{labels.noResults}</p>
+      {visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-200 py-12 text-center text-sm text-zinc-500">
+          <p>{labels.noResults}</p>
+          {engaged ? (
             <button
               type="button"
               onClick={reset}
@@ -321,73 +321,71 @@ export function StorefrontBrowse({
             >
               {labels.clearFilters}
             </button>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {visible.map((group) => (
-              <section key={group.id} aria-labelledby={`group-title-${group.id}`} className="space-y-3">
-                <h3 id={`group-title-${group.id}`} className="text-base font-bold text-zinc-900">
-                  {group.title}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      aria-label={`${item.name}`}
-                      onClick={(event) => openSheet(item.id, event.currentTarget)}
-                      className={`group flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-xs transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
-                        item.isSoldOut ? "opacity-60" : ""
-                      }`}
-                    >
-                      {item.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                      ) : null}
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="block truncate text-sm font-semibold text-zinc-900 group-hover:text-orange-600">
-                            {item.name}
-                          </span>
-                          {item.isSoldOut && labels.soldOut ? (
-                            <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.2 text-[10px] font-bold text-zinc-600 border border-zinc-200">
-                              {labels.soldOut}
-                            </span>
-                          ) : null}
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {visible.map((group) => (
+            <section key={group.id} aria-labelledby={`group-title-${group.id}`} className="space-y-3">
+              <h3 id={`group-title-${group.id}`} className="text-base font-bold text-zinc-900">
+                {group.title}
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={`${item.name}`}
+                    onClick={(event) => openSheet(item.id, event.currentTarget)}
+                    className={`group flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-xs transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
+                      item.isSoldOut ? "opacity-60" : ""
+                    }`}
+                  >
+                    {item.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                    ) : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="block truncate text-sm font-semibold text-zinc-900 group-hover:text-orange-600">
+                          {item.name}
                         </span>
-                        {item.description ? (
-                          <span className="mt-0.5 line-clamp-2 block text-xs text-zinc-500">
-                            {item.description}
+                        {item.isSoldOut && labels.soldOut ? (
+                          <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.2 text-[10px] font-bold text-zinc-600 border border-zinc-200">
+                            {labels.soldOut}
                           </span>
                         ) : null}
-                        <span className="mt-1 flex items-baseline gap-1.5">
-                          {item.priceLabel ? (
-                            <span
-                              className={
-                                item.originalPriceLabel
-                                  ? "text-xs font-bold text-orange-700"
-                                  : "text-xs font-bold text-zinc-900"
-                              }
-                            >
-                              {item.priceLabel}
-                            </span>
-                          ) : null}
-                          {item.originalPriceLabel ? (
-                            <span className="text-[11px] font-normal text-zinc-400 line-through">
-                              {item.originalPriceLabel}
-                            </span>
-                          ) : null}
-                        </span>
                       </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )
-      ) : (
-        children
+                      {item.description ? (
+                        <span className="mt-0.5 line-clamp-2 block text-xs text-zinc-500">
+                          {item.description}
+                        </span>
+                      ) : null}
+                      <span className="mt-1 flex items-baseline gap-1.5">
+                        {item.priceLabel ? (
+                          <span
+                            className={
+                              item.originalPriceLabel
+                                ? "text-xs font-bold text-orange-700"
+                                : "text-xs font-bold text-zinc-900"
+                            }
+                          >
+                            {item.priceLabel}
+                          </span>
+                        ) : null}
+                        {item.originalPriceLabel ? (
+                          <span className="text-[11px] font-normal text-zinc-400 line-through">
+                            {item.originalPriceLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
 
       {selected ? (

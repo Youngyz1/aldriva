@@ -3,6 +3,11 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Phase 3.1 menu interaction fix (2026-10-13; working tree)
+- Root cause: the client menu grid rendered only after a search/chip tap, so default-view dish cards were dead static markup and clicks did nothing on every site. The grid is now interactive right after mount (static markup remains the pre-mount/no-JS output). Gating unchanged: unticked sites browse and open dishes with no ordering UI.
+- Added real render coverage (react-dom/server for legacy/full/undefined-config shapes; jsdom client render proving buttons exist pre-engagement, a click opens the sheet, and throwing localStorage never breaks the menu).
+- **Verification:** website+ 220/220, invitation 351/351 (14 files), org-nav 96/96 (7 files); `tsc`/`eslint` clean. Only known failure: pre-existing `event-import-removal`. Browser hand-check pending.
+
 ## [2026-10] — Phase 3 online card payment for orders, slug fix and money helper (2026-10-13; working tree)
 - Slug fix: production "ams-bidjan" came from strip-before-lowercase in `ensure_business_organizer()` (migrations 58/127); future rows fixed in migration 173 (lowercase-first + accent folding), all JS entity generators routed through the hardened `lib/slug.ts` (length cap, fallback). No existing slug rewritten.
 - USD-only online payment: `resolveStorefrontCurrency` chain documented; one-off `db/data_fix_001_*` USD backfill (NOT run, XOF sites excluded); `lib/money.ts` minor/major helper for new payment code only.

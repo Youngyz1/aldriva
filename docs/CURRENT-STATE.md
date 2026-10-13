@@ -1,5 +1,10 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Phase 3.1 Menu interaction fix (2026-10-13)
+
+- **Status: IMPLEMENTED IN WORKING TREE.** Default-view dish cards were dead static markup (grid gated behind search/chip engagement); the mounted grid is now always interactive. Builder preview stays display-only by design. Gating rules intact.
+- **Verification:** website+ 220/220, invitation 351/351, org-nav 96/96; `tsc --noEmit` and ESLint clean. Only known failure is the pre-existing `event-import-removal` fr.json check (fails on clean HEAD). Browser hand-check pending (restart dev, hard refresh, click a dish, tick offerings, republish, order as guest).
+
 ## Active Worktree Update — Phase 3 Online card payment + slug fix (2026-10-13)
 
 - **Status: IMPLEMENTED IN WORKING TREE; migration 173 and the USD data-fix script written but NOT applied.** Slug root cause fixed for future rows (SQL trigger + shared JS helper); USD-only PaymentIntent flow with webhook source of truth, idempotent paid flip, and read-time expiry labels. Owner notified only on payment success.
