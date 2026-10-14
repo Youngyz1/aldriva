@@ -134,6 +134,41 @@ export function isSeatPurchasable(seat: {
 }
 
 /**
+ * Clock-skew margin for normalizing expired holds in API responses.
+ * A hold counts as expired only when `reserved_until` is null or more than
+ * this far in the past (server time), so in-flight holds are never
+ * misread as free by a fast client clock.
+ */
+export const EXPIRED_HOLD_MARGIN_MS = 60 * 1000;
+
+/**
+ * Normalize one seat row for public availability responses (used by
+ * `GET /api/seats`, beside the `effective_price` enrichment). Rows with
+ * `status='reserved'` whose hold is missing or past the margin read as
+ * `available`; the raw value is preserved in `status_raw` and
+ * `reserved_until` is untouched. Active holds (including inside the margin),
+ * `sold`, `unavailable`, and invitation-held rows are unchanged. Pure:
+ * no I/O, server time passed in for testability. The hold RPC remains the
+ * commit authority — this only changes what buyers see.
+ */
+export function normalizeSeatAvailability<
+  T extends {
+    status: string;
+    reserved_until?: string | null;
+    assigned_invitation_id?: string | null;
+  },
+>(seat: T, now: number = Date.now()): T & { status_raw: string } {
+  const raw = seat.status;
+  const expired =
+    seat.reserved_until == null ||
+    now - Date.parse(seat.reserved_until) > EXPIRED_HOLD_MARGIN_MS;
+  if (raw === "reserved" && seat.assigned_invitation_id == null && expired) {
+    return { ...seat, status: "available", status_raw: raw };
+  }
+  return { ...seat, status_raw: raw };
+}
+
+/**
  * Parses a cleared-or-typed numeric count from a controlled number input
  * into seating form state (`number | ""`).
  *

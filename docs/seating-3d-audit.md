@@ -370,6 +370,11 @@ Setup (staging only): seated event with ≥2 available seats (S1 target, S2 cont
 - Holds are now `{id, holdUntil}` (`HoldEntry`); `parseHeldEntries` drops expired + legacy string arrays without throwing; adapter honors timestamped entries only while live; `allLiveHolds` gates the 409-skip, which now alerts "Your seats are still on hold — continuing to payment." instead of silently skipping.
 - Branch proof: detached worktree at the branch tip ran `npm ci` + `tsc` + seating suite + eslint clean (see P2.2 report), then the worktree was removed.
 
+## P2.3 record (expired-hold normalization in GET /api/seats)
+
+- `normalizeSeatAvailability` (`lib/seating.ts`, pure, server-time injectable): `reserved` + (`reserved_until` null or >60 s past) + no invitation → `status:'available'` with `status_raw` preserved and `reserved_until` untouched. Active holds, margin holds, sold, unavailable, guest-held unchanged. Wired into the existing enrichment map in `GET /api/seats` beside `effective_price` — additive (`+status_raw`); the sole code consumer is the `TicketCheckout` mount fetch feeding both pickers. RPC stays the authority; no migration.
+- Adapter's own 30 s grace is NOT redundant: it covers the organizer seating-GET path and any direct adapter caller that bypasses `/api/seats` (dev preview fixtures); the two margins compose safely (GET 60 s feeds adapter 30 s — the stricter display wins per layer). Left as is per scope.
+
 ## Open questions for me
 
 ## Separate tickets (logged, not fixed here)

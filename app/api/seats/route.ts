@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   resolveEffectiveSeatPrice,
+  normalizeSeatAvailability,
   SectionDefinition,
   TicketTypeSummary,
 } from "@/lib/seating";
@@ -51,7 +52,11 @@ export async function GET(req: NextRequest) {
   const sectionsList = (layout.sections as unknown as SectionDefinition[]) || [];
   const ticketTypesList = (ticketTypes as unknown as TicketTypeSummary[]) || [];
 
-  // Compute effective price for each seat
+  // Compute effective price for each seat, and normalize expired holds to
+  // "available" (raw status preserved in status_raw; reserved_until kept).
+  // The hold RPC remains the commit authority; this only aligns what both
+  // pickers display.
+  const now = Date.now();
   const enrichedSeats = (seats || []).map((s) => {
     const effectivePrice = resolveEffectiveSeatPrice(
       s,
@@ -61,7 +66,7 @@ export async function GET(req: NextRequest) {
     );
 
     return {
-      ...s,
+      ...normalizeSeatAvailability(s, now),
       effective_price: effectivePrice,
     };
   });
