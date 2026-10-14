@@ -364,6 +364,12 @@ Setup (staging only): seated event with ≥2 available seats (S1 target, S2 cont
 - Vanished storefront tsc errors: `components/dashboard/orders/OrderCard.tsx` never existed in HEAD (whole dir untracked other-work); line 5 now imports real `formatCurrency` instead of non-exported `Locale`. The 8 errors were transient working-tree states, evolved past by parallel edits — no base fix, nothing committed about them, files untouched here.
 - SeatMap-branch equivalence: HEAD~1 inline handler vs extracted `applySeatSelection` — identical derivation (`setSelectedSeats` + tier-count loop + `setSelectedQuantities`); the only addition is the `setMyHeldIds` sessionStorage mirror.
 
+## P2.2 record (timestamped holds, safe 409-skip)
+
+- `myHeldIds` was written at selection time (pre-hold) — quoted at `applySeatSelection`; now written ONLY after a successful hold (`rememberHolds` in `preparePayment` and the crypto path, using the API's `reservedUntil` or now+5 min). `create-payment-intent` does NOT reject others' active holds (`:145-151`: held seats pass), so the old skip was unsafe for stale ids.
+- Holds are now `{id, holdUntil}` (`HoldEntry`); `parseHeldEntries` drops expired + legacy string arrays without throwing; adapter honors timestamped entries only while live; `allLiveHolds` gates the 409-skip, which now alerts "Your seats are still on hold — continuing to payment." instead of silently skipping.
+- Branch proof: detached worktree at the branch tip ran `npm ci` + `tsc` + seating suite + eslint clean (see P2.2 report), then the worktree was removed.
+
 ## Open questions for me
 
 ## Separate tickets (logged, not fixed here)

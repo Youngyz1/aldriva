@@ -6,7 +6,8 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { StripeProvider, PaymentForm, OrderSummary } from "@/components/payments";
 import type { SeatData } from "@/components/SeatMap";
-import { adaptPlan, shouldUse3DPicker, PICKER_MAX_SEATS } from "@/lib/seating-adapter";
+import { adaptPlan, shouldUse3DPicker, PICKER_MAX_SEATS, parseHeldEntries, allLiveHolds } from "@/lib/seating-adapter";
+import type { HoldEntry } from "@/lib/seating-adapter";
 import type { VenueSeat } from "@/components/ui/venue-seat-picker-3d";
 
 const SeatMap = dynamic(() => import("@/components/SeatMap"), { ssr: false });
@@ -19,12 +20,14 @@ const VenueSeatPicker3D = dynamic(
 // means every buyer gets the existing 2D SeatMap.
 const SEATING_3D_ENABLED = process.env.NEXT_PUBLIC_SEATING_3D_PICKER === "1";
 
-function loadMyHeldIds(eventId: string): string[] {
+// P2.2: ids are remembered ONLY after a successful hold, with the hold's
+// expiry. Expired entries are dropped on load; the legacy bare string-array
+// format is ignored (liveness unknowable) without throwing.
+function loadMyHeldIds(eventId: string): HoldEntry[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.sessionStorage.getItem(`seating-my-held:${eventId}`);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    return parseHeldEntries(raw ? JSON.parse(raw) : [], Date.now());
   } catch {
     return [];
   }
@@ -91,17 +94,28 @@ export default function TicketCheckout({
   const [loadingSeats, setLoadingSeats] = useState(true);
   const [seatMapAvailable, setSeatMapAvailable] = useState(false);
 
-  // P2: ids this buyer selected, persisted per event for the tab session so a
-  // returning buyer sees their own holds as selected rather than Reserved.
-  // Display-only: checkout still revalidates every seat server-side.
-  const [myHeldIds, setMyHeldIds] = useState<string[]>(() => loadMyHeldIds(event.id));
-  useEffect(() => {
+  // P2.2: holds this buyer placed, persisted per event for the tab session so
+  // a returning buyer sees their own holds as selected rather than Reserved.
+  // Written ONLY after a successful hold (see preparePayment / crypto below),
+  // never at selection time. Display-only: checkout revalidates server-side.
+  const [myHeldIds, setMyHeldIds] = useState<HoldEntry[]>(() => loadMyHeldIds(event.id));
+
+  function persistHolds(entries: HoldEntry[]) {
+    setMyHeldIds(entries);
     try {
-      window.sessionStorage.setItem(`seating-my-held:${event.id}`, JSON.stringify(myHeldIds));
+      window.sessionStorage.setItem(`seating-my-held:${event.id}`, JSON.stringify(entries));
     } catch {
-      /* storage unavailable — selection still works for this mount */
+      /* storage unavailable — holds still work for this mount */
     }
-  }, [event.id, myHeldIds]);
+  }
+
+  // Record a successful hold: holdUntil comes from the API's reservedUntil;
+  // falls back to now + 5 min (the RPC default) when absent or unparsable.
+  function rememberHolds(ids: string[], reservedUntil: string | null) {
+    const parsed = reservedUntil ? Date.parse(reservedUntil) : NaN;
+    const holdUntil = Number.isFinite(parsed) ? parsed : Date.now() + 5 * 60 * 1000;
+    persistHolds(ids.map((id) => ({ id, holdUntil })));
+  }
 
   // Buyer info (collected inside PaymentForm via PaymentElement)
   const [buyerName, setBuyerName] = useState("");
@@ -205,9 +219,9 @@ export default function TicketCheckout({
 
   // Shared selection derivation: SeatMap and the 3D picker feed the exact
   // same state (selectedSeats → summary, preparePayment, crypto, free).
+  // Holds are NOT recorded here — only a successful hold writes myHeldIds.
   function applySeatSelection(selected: SeatData[]) {
     setSelectedSeats(selected);
-    setMyHeldIds(selected.map((s) => s.id));
     const counts: Record<string, number> = {};
     for (const s of selected) {
       const tid = s.ticket_type_id || primaryTicket?.id || tickets[0]?.id;
@@ -284,19 +298,27 @@ export default function TicketCheckout({
         const unavailable: string[] = Array.isArray(data.unavailableIds)
           ? data.unavailableIds.filter((v: unknown): v is string => typeof v === "string")
           : [];
-        const mine = new Set(myHeldIds);
-        const allMine = unavailable.length > 0 && unavailable.every((id) => mine.has(id));
-        if (!allMine) {
+        // Skip only when EVERY contested seat has a live hold entry from this
+        // buyer (their own hold is still active, so the re-hold 409s). The
+        // server revalidates authoritatively at intent creation below.
+        if (allLiveHolds(unavailable, myHeldIds, Date.now())) {
+          alert("Your seats are still on hold — continuing to payment.");
+        } else {
           alert(data.error || "Some seats are no longer available. Please re-select.");
           setPreparingPayment(false);
           setStep("seats");
           return;
         }
-        // All contested seats are ones this buyer already holds (their hold
-        // is still active, so the atomic re-hold 409s by design). The hold is
-        // already in place — continue to intent creation, where the server
-        // revalidates every seat authoritatively (sold/invitation seats still
-        // fail there with a specific error). No RPC change.
+      } else {
+        const holdData: unknown = await res.json().catch(() => null);
+        const reservedUntil =
+          holdData && typeof holdData === "object" && "reservedUntil" in holdData
+            ? (holdData as { reservedUntil?: unknown }).reservedUntil
+            : null;
+        rememberHolds(
+          selectedSeats.map((s) => s.id),
+          typeof reservedUntil === "string" ? reservedUntil : null
+        );
       }
     }
 
@@ -372,6 +394,15 @@ export default function TicketCheckout({
           setStep("seats");
           return;
         }
+        const holdData: unknown = await res.json().catch(() => null);
+        const reservedUntil =
+          holdData && typeof holdData === "object" && "reservedUntil" in holdData
+            ? (holdData as { reservedUntil?: unknown }).reservedUntil
+            : null;
+        rememberHolds(
+          selectedSeats.map((s) => s.id),
+          typeof reservedUntil === "string" ? reservedUntil : null
+        );
       }
 
       const items = Object.entries(selectedQuantities)
