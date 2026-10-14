@@ -67,20 +67,90 @@ export function adaptSeatCategory(seat: {
 export const EXPIRED_GRACE_MS = 30 * 1000;
 
 export interface AdaptOptions {
-  /** Seat ids the current buyer selected (own holds). Display-only. */
-  myHeldIds?: ReadonlySet<string> | readonly string[];
+  /**
+   * Seat ids the current buyer selected (own holds). Entries with a
+   * `holdUntil` timestamp are honored only while live (`now < holdUntil`);
+   * bare ids / Sets (legacy callers, tests) are treated as live.
+   * Display-only: checkout still revalidates server-side.
+   */
+  myHeldIds?: ReadonlySet<string> | readonly (string | HoldEntry)[];
   /** Client clock ms. Defaults to Date.now(); injectable for tests. */
   now?: number;
 }
 
-function isMyHeld(id: string, held?: ReadonlySet<string> | readonly string[]): boolean {
+/** A remembered hold: seat id + the hold's expiry as epoch ms. */
+export interface HoldEntry {
+  id: string;
+  holdUntil: number;
+}
+
+/**
+ * Parse persisted holds (e.g. sessionStorage). Accepts `{id, holdUntil}`
+ * entries that are still live; drops expired entries and the legacy bare
+ * string-array format (no timestamp → liveness unknowable → safe-side drop).
+ * Never throws on garbage input.
+ */
+export function parseHeldEntries(raw: unknown, now?: number): HoldEntry[] {
+  const t = now ?? Date.now();
+  try {
+    if (!Array.isArray(raw)) return [];
+    const out: HoldEntry[] = [];
+    for (const e of raw) {
+      if (
+        e != null &&
+        typeof e === "object" &&
+        typeof (e as HoldEntry).id === "string" &&
+        typeof (e as HoldEntry).holdUntil === "number" &&
+        Number.isFinite((e as HoldEntry).holdUntil) &&
+        (e as HoldEntry).holdUntil > t
+      ) {
+        out.push({ id: (e as HoldEntry).id, holdUntil: (e as HoldEntry).holdUntil });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** True when every id has a live entry. Used for the 409-skip decision. */
+export function allLiveHolds(
+  ids: readonly string[],
+  entries: readonly HoldEntry[] | undefined,
+  now?: number
+): boolean {
+  if (ids.length === 0) return false;
+  const t = now ?? Date.now();
+  const live = new Set(
+    (entries ?? [])
+      .filter((e) => e && typeof e.holdUntil === "number" && e.holdUntil > t)
+      .map((e) => e.id)
+  );
+  return ids.every((id) => live.has(id));
+}
+
+function isMyHeld(
+  id: string,
+  held: ReadonlySet<string> | readonly (string | HoldEntry)[] | undefined,
+  now: number
+): boolean {
   if (id == null || held == null) return false;
   // Duck-type: Set has .has, arrays have .includes. No instanceof narrowing
   // (ReadonlySet is an interface; tsc cannot exclude it via instanceof).
   if (typeof (held as ReadonlySet<string>).has === "function") {
     return (held as ReadonlySet<string>).has(id);
   }
-  return (held as readonly string[]).includes(id);
+  if (!Array.isArray(held)) return false;
+  return (held as readonly (string | HoldEntry)[]).some((e) => {
+    if (typeof e === "string") return e === id; // legacy/test callers: no timestamp, treated live
+    return (
+      e != null &&
+      typeof e === "object" &&
+      (e as HoldEntry).id === id &&
+      typeof (e as HoldEntry).holdUntil === "number" &&
+      now < (e as HoldEntry).holdUntil
+    );
+  });
 }
 
 function holdExpired(reservedUntil: string | null | undefined, now: number): boolean {
@@ -104,7 +174,7 @@ export function adaptSeatStatus(
   if (seat.status === "reserved" && !held && holdExpired(seat.reserved_until, opts?.now ?? Date.now())) {
     return "available";
   }
-  const mine = seat.id != null && isMyHeld(seat.id, opts?.myHeldIds);
+  const mine = seat.id != null && isMyHeld(seat.id, opts?.myHeldIds, opts?.now ?? Date.now());
   if (mine && seat.status !== "sold" && seat.status !== "unavailable" && !held) {
     return "available";
   }
