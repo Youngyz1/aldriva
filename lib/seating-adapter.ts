@@ -51,23 +51,77 @@ export function adaptSeatCategory(seat: {
 /**
  * The picker union is `available | reserved | sold`. Locked-collapse rule:
  * - `available` passes through only when the seat is NOT invitation-held.
- * - `reserved` passes through (including expired holds — safe side: an
- *   expired hold may already be re-held by someone else; the hold RPC is the
- *   arbiter at checkout, and the UI must not sell what it cannot verify).
- * - Everything else locks as `sold`: `sold`, `unavailable`, and
- *   invitation-held seats (`assigned_invitation_id` set, regardless of
- *   status). These render with the locked glyph/cursor and `toggleSeat`
- *   rejects them, so the collapse is observably "cannot select".
+ * - A seat in `myHeldIds` (the buyer's own selection, persisted in
+ *   sessionStorage) maps to `available` unless it is sold, unavailable, or
+ *   invitation-held — a returning buyer sees their seats as selected, not
+ *   Reserved. Display-only: checkout still revalidates server-side.
+ * - `reserved` with no usable hold (missing, past, or within EXPIRED_GRACE_MS
+ *   after `reserved_until`) maps to `available`: the hold RPC lets a new hold
+ *   take such a seat atomically, so showing it locked would lie. The 30 s
+ *   grace covers client-clock skew until the server timestamp exists.
+ * - Active `reserved` maps to `reserved` with label "On hold".
+ * - Everything else locks as `sold`: `sold`, `unavailable` (label
+ *   "Unavailable"), and invitation-held seats (label "Held for a guest").
+ *   These render locked and `toggleSeat` rejects them.
  */
-export function adaptSeatStatus(seat: {
-  status: string;
-  assigned_invitation_id?: string | null;
-}): PickerSeatStatus {
-  if (seat.status === "available" && !seat.assigned_invitation_id) {
+export const EXPIRED_GRACE_MS = 30 * 1000;
+
+export interface AdaptOptions {
+  /** Seat ids the current buyer selected (own holds). Display-only. */
+  myHeldIds?: ReadonlySet<string> | readonly string[];
+  /** Client clock ms. Defaults to Date.now(); injectable for tests. */
+  now?: number;
+}
+
+function isMyHeld(id: string, held?: ReadonlySet<string> | readonly string[]): boolean {
+  if (id == null || held == null) return false;
+  // Duck-type: Set has .has, arrays have .includes. No instanceof narrowing
+  // (ReadonlySet is an interface; tsc cannot exclude it via instanceof).
+  if (typeof (held as ReadonlySet<string>).has === "function") {
+    return (held as ReadonlySet<string>).has(id);
+  }
+  return (held as readonly string[]).includes(id);
+}
+
+function holdExpired(reservedUntil: string | null | undefined, now: number): boolean {
+  if (reservedUntil == null) return true;
+  const expiry = Date.parse(reservedUntil);
+  if (Number.isNaN(expiry)) return true;
+  return now - expiry > EXPIRED_GRACE_MS;
+}
+
+export function adaptSeatStatus(
+  seat: {
+    id?: string;
+    status: string;
+    reserved_until?: string | null;
+    assigned_invitation_id?: string | null;
+  },
+  opts?: AdaptOptions
+): PickerSeatStatus {
+  const held = seat.assigned_invitation_id != null;
+  if (seat.status === "available" && !held) return "available";
+  if (seat.status === "reserved" && !held && holdExpired(seat.reserved_until, opts?.now ?? Date.now())) {
+    return "available";
+  }
+  const mine = seat.id != null && isMyHeld(seat.id, opts?.myHeldIds);
+  if (mine && seat.status !== "sold" && seat.status !== "unavailable" && !held) {
     return "available";
   }
   if (seat.status === "reserved") return "reserved";
   return "sold";
+}
+
+/** Tooltip status word. Undefined → the picker capitalizes `status`. */
+export function adaptStatusLabel(seat: {
+  status: string;
+  reserved_until?: string | null;
+  assigned_invitation_id?: string | null;
+}): string | undefined {
+  if (seat.assigned_invitation_id != null) return "Held for a guest";
+  if (seat.status === "unavailable") return "Unavailable";
+  if (seat.status === "reserved") return "On hold";
+  return undefined;
 }
 
 /** Human label matching the existing `SeatMap` tooltip convention. */
@@ -86,7 +140,8 @@ export function adaptSeatLabel(seat: {
 
 export function adaptSeat(
   seat: SeatGeometry,
-  tableIdByNumber: Map<string, string>
+  tableIdByNumber: Map<string, string>,
+  opts?: AdaptOptions
 ): VenueSeat {
   const w =
     typeof seat.width === "number" && Number.isFinite(seat.width)
@@ -103,7 +158,8 @@ export function adaptSeat(
     y: seat.y + h / 2,
     label: adaptSeatLabel(seat),
     number: seat.seat_number,
-    status: adaptSeatStatus(seat),
+    status: adaptSeatStatus(seat, opts),
+    statusLabel: adaptStatusLabel(seat),
     category: adaptSeatCategory(seat),
     // Enriched server-side (`effective_price`); undefined hides the price.
     price: seat.effective_price ?? undefined,
@@ -118,14 +174,19 @@ function centreOf(o: VenueObject): { x: number; y: number } {
   return { x: o.x + o.width / 2, y: o.y + o.height / 2 };
 }
 
-export function adaptTable(o: VenueObject): VenueTable {
+export function adaptTable(o: VenueObject, chairCount?: number): VenueTable {
   const c = centreOf(o);
+  const capacity =
+    typeof o.table_capacity === "number" && Number.isFinite(o.table_capacity)
+      ? o.table_capacity
+      : chairCount;
   if (o.table_shape === "rect") {
     return {
       id: o.id,
       x: c.x,
       y: c.y,
       label: o.label ?? o.name,
+      capacity,
       width: o.width,
       height: o.height,
     };
@@ -135,6 +196,7 @@ export function adaptTable(o: VenueObject): VenueTable {
     x: c.x,
     y: c.y,
     label: o.label ?? o.name,
+    capacity,
     radius: Math.min(o.width, o.height) / 2,
   };
 }
@@ -172,21 +234,50 @@ export function adaptGaZone(o: VenueObject): VenueGaZone {
  * `table_number` string match (no table-UUID FK exists on `seats`); a seat
  * whose number matches no table object gets `tableId: undefined`.
  */
-export function adaptPlan(layout: FullVenueLayout): VenuePlan {
+export function adaptPlan(layout: FullVenueLayout, opts?: AdaptOptions): VenuePlan {
   const objects = layout.venue_objects ?? [];
+  const seats = layout.seats ?? [];
   const tableIdByNumber = new Map<string, string>();
+  const chairsByNumber = new Map<string, number>();
   for (const o of objects) {
     if (o.type === "table" && o.table_number != null) {
       tableIdByNumber.set(o.table_number, o.id);
     }
   }
+  for (const s of seats) {
+    if (s.table_number != null) {
+      chairsByNumber.set(s.table_number, (chairsByNumber.get(s.table_number) ?? 0) + 1);
+    }
+  }
   return {
-    seats: (layout.seats ?? []).map((s) => adaptSeat(s, tableIdByNumber)),
-    tables: objects.filter((o) => o.type === "table").map(adaptTable),
+    seats: seats.map((s) => adaptSeat(s, tableIdByNumber, opts)),
+    tables: objects
+      .filter((o) => o.type === "table")
+      .map((o) =>
+        adaptTable(o, o.table_number != null ? chairsByNumber.get(o.table_number) : undefined)
+      ),
     stages: objects.filter((o) => o.type === "stage").map(adaptStage),
     gaZones: objects.filter((o) => o.type === "ga_area").map(adaptGaZone),
     labels: objects
       .filter((o) => o.type === "label")
       .map((o) => ({ x: o.x, y: o.y, text: o.label ?? o.name })),
   };
+}
+
+/**
+ * Booking-flow picker gate (P2). Render VenueSeatPicker3D only when ALL hold;
+ * otherwise the existing 2D SeatMap renders unchanged (flag off, no plan,
+ * oversized plan, or adapter failure).
+ */
+export const PICKER_MAX_SEATS = 2500;
+
+export function shouldUse3DPicker(input: {
+  flagOn: boolean;
+  hasPlan: boolean;
+  seatCount: number;
+  adapterOk: boolean;
+}): boolean {
+  return (
+    input.flagOn && input.hasPlan && input.seatCount <= PICKER_MAX_SEATS && input.adapterOk
+  );
 }

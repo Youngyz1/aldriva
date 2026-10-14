@@ -36,6 +36,11 @@ export interface VenueSeat {
   /** Shown inside the seat when zoomed in. Defaults to `label`. */
   number?: string | number
   status: SeatStatus
+  /**
+   * Overrides the status word in the tooltip (e.g. "Held for a guest").
+   * Display-only: selection gating still uses `status`.
+   */
+  statusLabel?: string
   category?: SeatCategory
   price?: number
   tableId?: string
@@ -46,6 +51,8 @@ export interface VenueTable {
   x: number
   y: number
   label: string
+  /** Physical chair count (organizer's table capacity). Shown in the table tooltip. */
+  capacity?: number
   /** Round table when provided */
   radius?: number
   /** Rectangular table when `radius` is omitted */
@@ -689,7 +696,9 @@ export function VenueSeatPicker3D({
       sel ? "selected" : s.status !== "available" ? s.status : (s.category ?? "standard")
 
     const statusText = (s: VenueSeat) =>
-      cfg.current.selected.has(s.id) ? "Selected" : s.status[0].toUpperCase() + s.status.slice(1)
+      cfg.current.selected.has(s.id)
+        ? "Selected"
+        : (s.statusLabel ?? (s.status[0].toUpperCase() + s.status.slice(1)))
 
     const draw = () => {
       if (!W || !H) return
@@ -845,6 +854,14 @@ export function VenueSeatPicker3D({
           ctx.lineWidth = 1.2
           ctx.stroke()
           ctx.setLineDash([])
+          // Tap feedback: ring the table while its info tooltip is pinned.
+          if (idx === activeIdx) {
+            ctx.beginPath()
+            ctx.ellipse(cxp, yTop, rx + 3, ry + 3, 0, 0, Math.PI * 2)
+            ctx.strokeStyle = rgba(P2.hover, 0.7)
+            ctx.lineWidth = 2
+            ctx.stroke()
+          }
           if (rx >= 16) {
             ctx.font = `600 ${clamp(rx * 0.26, 9, 14)}px ${fontFamily}`
             ctx.fillStyle = rgb(P2.tableLine)
@@ -925,7 +942,9 @@ export function VenueSeatPicker3D({
           detail = [CATEGORY_NAME[sd.category ?? "standard"], sd.price != null ? f.format(sd.price) : "", statusText(sd)].filter(Boolean).join(" · ")
         } else if (it.kind === 1 || it.sub === 2) {
           const list = tableSeats.get(it.id) ?? []
-          detail = list.length ? `${list.length} seats · ${list.filter((x) => x.status === "available").length} available` : "Table"
+          const cap = cfg.current.venue.tables?.[it.ref]?.capacity ?? list.length
+          const avail = list.filter((x) => x.status === "available").length
+          detail = list.length ? `${cap} seats · ${avail} available` : "Table"
         } else if (it.sub === 1) {
           const z = cfg.current.venue.gaZones?.[it.ref]
           if (z) detail = [z.price != null ? f.format(z.price) : "", `${z.available} of ${z.capacity} left`].filter(Boolean).join(" · ")
@@ -1125,7 +1144,8 @@ export function VenueSeatPicker3D({
         refreshActive()
       }
       const seatHit = i >= 0 && items[i].kind === 0
-      canvas.style.cursor = seatHit ? (items[i].seat?.status === "available" || cfg.current.selected.has(items[i].id) ? "pointer" : "not-allowed") : "grab"
+      const tableHit = i >= 0 && (items[i].kind === 1 || items[i].sub === 2)
+      canvas.style.cursor = seatHit ? (items[i].seat?.status === "available" || cfg.current.selected.has(items[i].id) ? "pointer" : "not-allowed") : tableHit ? "pointer" : "grab"
     }
 
     const onUp = (ev: PointerEvent) => {

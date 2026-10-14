@@ -348,6 +348,14 @@ Setup (staging only): seated event with ≥2 available seats (S1 target, S2 cont
 5. Refund (documents current gap): refund A's instance via `refund_ticket_instance`. Expect TODAY: instance `refunded`, order cascade skips `used`, seat REMAINS `sold` (stranded — P4 fix). Record the stranded row as the P4 migration's acceptance fixture.
 6. Free-event control: free seated event, buyer takes S1. Expect TODAY: `ticket_orders` row, NO `ticket_instances` row, S1 `sold` (known parity gap §3c/§12.4 — assert it stays visible until fixed).
 
+## P2 implementation record (flagged swap; flag OFF by default)
+
+- Component (`components/ui/venue-seat-picker-3d.tsx`): `VenueSeat.statusLabel?` (tooltip uses `statusLabel ?? statusText`; gating untouched); `VenueTable.capacity?`; table tooltip now `"<capacity> seats · <available> available"`; tap feedback ring on the active table + `pointer` cursor on table hover. Correction to the P1 defect-4 claim: round tables were already hittable at full ellipse size (draw sets `it.rx/ry`); the real gap was missing capacity text and no tap feedback, both fixed here.
+- Adapter (`lib/seating-adapter.ts`): `AdaptOptions { myHeldIds?, now? }`; `EXPIRED_GRACE_MS = 30_000`; expired/null/unparsable holds → `available` (RPC stays the authority; 409 → takeaway notice); `myHeldIds` → `available` unless sold/unavailable/invitation-held; labels "Held for a guest" / "Unavailable" / "On hold"; table capacity prefers `venue_objects.table_capacity`, falls back to chair count; `PICKER_MAX_SEATS = 2500` + `shouldUse3DPicker({flagOn, hasPlan, seatCount, adapterOk})`.
+- Booking flow (`app/events/[slug]/TicketCheckout.tsx` only): `NEXT_PUBLIC_SEATING_3D_PICKER === "1"` flag (unset → SeatMap); `myHeldIds` state persisted per event in sessionStorage (SSR-guarded, display-only); `pickerPlan` memo with try/catch → null fallback; gate = flag && plan && ≤2500 && adapterOk; picker gets `selectedIds` (controlled), `onSelectionChange` back-mapped to `SeatData` through the existing `applySeatSelection` (same `selectedSeats` → summary → `preparePayment`/`POST /api/seats` → crypto/free paths), `onCheckout` → `goToReview()`. Holds still happen at checkout only. `SeatMap` branch is byte-identical in behavior (handler extracted, same derivation).
+- Tests: 6 new adapter cases (myHeldIds, expired+grace, labels, table capacity, empty plan, gate incl. 2500/2501 boundary); flag-off path covered at decision level by `shouldUse3DPicker` (no jsdom in this repo — a DOM render test is out of scope for the node:test harness).
+- Constraints kept: no migrations, no RPC/webhook changes, no hold-on-selection, GA still read-only, SeatMap untouched.
+
 ## Open questions for me
 
 ## Separate tickets (logged, not fixed here)

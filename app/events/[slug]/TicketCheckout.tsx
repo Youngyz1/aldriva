@@ -1,13 +1,34 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { StripeProvider, PaymentForm, OrderSummary } from "@/components/payments";
 import type { SeatData } from "@/components/SeatMap";
+import { adaptPlan, shouldUse3DPicker, PICKER_MAX_SEATS } from "@/lib/seating-adapter";
+import type { VenueSeat } from "@/components/ui/venue-seat-picker-3d";
 
 const SeatMap = dynamic(() => import("@/components/SeatMap"), { ssr: false });
+const VenueSeatPicker3D = dynamic(
+  () => import("@/components/ui/venue-seat-picker-3d").then((m) => m.VenueSeatPicker3D),
+  { ssr: false }
+);
+
+// P2: 3D picker flag. OFF by default (unset env → false). No NEXT_PUBLIC value
+// means every buyer gets the existing 2D SeatMap.
+const SEATING_3D_ENABLED = process.env.NEXT_PUBLIC_SEATING_3D_PICKER === "1";
+
+function loadMyHeldIds(eventId: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(`seating-my-held:${eventId}`);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +91,18 @@ export default function TicketCheckout({
   const [loadingSeats, setLoadingSeats] = useState(true);
   const [seatMapAvailable, setSeatMapAvailable] = useState(false);
 
+  // P2: ids this buyer selected, persisted per event for the tab session so a
+  // returning buyer sees their own holds as selected rather than Reserved.
+  // Display-only: checkout still revalidates every seat server-side.
+  const [myHeldIds, setMyHeldIds] = useState<string[]>(() => loadMyHeldIds(event.id));
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(`seating-my-held:${event.id}`, JSON.stringify(myHeldIds));
+    } catch {
+      /* storage unavailable — selection still works for this mount */
+    }
+  }, [event.id, myHeldIds]);
+
   // Buyer info (collected inside PaymentForm via PaymentElement)
   const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
@@ -106,6 +139,46 @@ export default function TicketCheckout({
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
+  // P2: 3D picker plan. Null on any adapter error → SeatMap fallback.
+  // Rebuilt when seats, layout, or my holds change (e.g. poll refresh).
+  const pickerPlan = useMemo(() => {
+    if (!venueLayout || allSeats.length === 0) return null;
+    try {
+      return adaptPlan(
+        {
+          id: venueLayout.id,
+          event_id: event.id,
+          name: venueLayout.name,
+          canvas_width: venueLayout.canvas_width ?? 1200,
+          canvas_height: venueLayout.canvas_height ?? 800,
+          version: 1,
+          is_published: true,
+          published_at: null,
+          sections: venueLayout.sections,
+          venue_objects: venueLayout.venue_objects ?? [],
+          seats: allSeats.map((s) => ({
+            ...s,
+            event_id: event.id,
+            layout_id: venueLayout.id,
+          })),
+        } as never,
+        { myHeldIds }
+      );
+    } catch {
+      return null;
+    }
+  }, [venueLayout, allSeats, myHeldIds, event.id]);
+
+  // P2 gate: ALL must hold or the existing 2D SeatMap renders unchanged.
+  const use3DPicker = shouldUse3DPicker({
+    flagOn: SEATING_3D_ENABLED,
+    hasPlan: venueLayout != null && allSeats.length > 0,
+    seatCount: allSeats.length,
+    adapterOk: pickerPlan != null,
+  }) && allSeats.length <= PICKER_MAX_SEATS;
+
+  // Shared selection derivation (SeatMap and 3D picker feed the same state).
+  // Defined below, after primaryTicket (closure over render scope).
   function formatPrice(price: number) {
     return price === 0
       ? "Free"
@@ -129,6 +202,19 @@ export default function TicketCheckout({
 
   const totalQuantity = Object.values(selectedQuantities).reduce((sum, q) => sum + q, 0);
   const primaryTicket = tickets.find((t) => (selectedQuantities[t.id] || 0) > 0) || tickets[0] || null;
+
+  // Shared selection derivation: SeatMap and the 3D picker feed the exact
+  // same state (selectedSeats → summary, preparePayment, crypto, free).
+  function applySeatSelection(selected: SeatData[]) {
+    setSelectedSeats(selected);
+    setMyHeldIds(selected.map((s) => s.id));
+    const counts: Record<string, number> = {};
+    for (const s of selected) {
+      const tid = s.ticket_type_id || primaryTicket?.id || tickets[0]?.id;
+      if (tid) counts[tid] = (counts[tid] || 0) + 1;
+    }
+    setSelectedQuantities(counts);
+  }
 
   const effectivePrice =
     selectedSeats.length > 0
@@ -725,25 +811,36 @@ export default function TicketCheckout({
                       <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                   ) : venueLayout ? (
-                    <SeatMap
-                      seats={allSeats}
-                      sections={venueLayout.sections}
-                      venueObjects={venueLayout.venue_objects || []}
-                      canvasWidth={venueLayout.canvas_width || 1000}
-                      canvasHeight={venueLayout.canvas_height || 700}
-                      ticketTypes={tickets as any}
-                      basePrice={primaryTicket?.price ?? lowestPrice ?? 0}
-                      maxSelectable={10}
-                      onSelectionChange={(selected) => {
-                        setSelectedSeats(selected);
-                        const counts: Record<string, number> = {};
-                        for (const s of selected) {
-                          const tid = s.ticket_type_id || primaryTicket?.id || tickets[0]?.id;
-                          if (tid) counts[tid] = (counts[tid] || 0) + 1;
-                        }
-                        setSelectedQuantities(counts);
-                      }}
-                    />
+                    use3DPicker && pickerPlan ? (
+                      <VenueSeatPicker3D
+                        venue={pickerPlan}
+                        seatRadius={13}
+                        maxSeats={10}
+                        currency="USD"
+                        selectedIds={selectedSeats.map((s) => s.id)}
+                        onSelectionChange={(picked: VenueSeat[]) => {
+                          const byId = new Map(allSeats.map((s) => [s.id, s]));
+                          applySeatSelection(
+                            picked
+                              .map((p) => byId.get(p.id))
+                              .filter((s): s is SeatData => s != null)
+                          );
+                        }}
+                        onCheckout={() => goToReview()}
+                      />
+                    ) : (
+                      <SeatMap
+                        seats={allSeats}
+                        sections={venueLayout.sections}
+                        venueObjects={venueLayout.venue_objects || []}
+                        canvasWidth={venueLayout.canvas_width || 1000}
+                        canvasHeight={venueLayout.canvas_height || 700}
+                        ticketTypes={tickets as any}
+                        basePrice={primaryTicket?.price ?? lowestPrice ?? 0}
+                        maxSelectable={10}
+                        onSelectionChange={applySeatSelection}
+                      />
+                    )
                   ) : null}
 
                   <div className="flex gap-3 mt-4">
