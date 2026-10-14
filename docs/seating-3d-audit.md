@@ -375,6 +375,11 @@ Setup (staging only): seated event with ≥2 available seats (S1 target, S2 cont
 - `normalizeSeatAvailability` (`lib/seating.ts`, pure, server-time injectable): `reserved` + (`reserved_until` null or >60 s past) + no invitation → `status:'available'` with `status_raw` preserved and `reserved_until` untouched. Active holds, margin holds, sold, unavailable, guest-held unchanged. Wired into the existing enrichment map in `GET /api/seats` beside `effective_price` — additive (`+status_raw`); the sole code consumer is the `TicketCheckout` mount fetch feeding both pickers. RPC stays the authority; no migration.
 - Adapter's own 30 s grace is NOT redundant: it covers the organizer seating-GET path and any direct adapter caller that bypasses `/api/seats` (dev preview fixtures); the two margins compose safely (GET 60 s feeds adapter 30 s — the stricter display wins per layer). Left as is per scope.
 
+## P3.1 record (hold-liveness skew margin)
+
+- `HOLD_SKEW_MARGIN_MS = 30_000`: timestamped entries live only while `now < holdUntil − 30 s`, in `isMyHeld`, `allLiveHolds`, `parseHeldEntries`. Fast clocks can't stretch holds; slow clocks fail safe to server-read status with RPC arbitration on retry.
+- Session-branch finding (read-only): sole `/api/checkout` caller is `handleFreeTicket` (`TicketCheckout.tsx:522`); the paid session branch is reachable only if the server total comes out >0 mid-flow, and its `.eq("status","available")` reserve silently no-ops on expired-hold rows while the Path-C webhook still completes the sale (no `SEAT_ALREADY_ASSIGNED` guard on Path C — double-sell would need manual refund). Proposed fix (not implemented): re-hold via RPC before session creation, 409 before charging.
+
 ## Open questions for me
 
 ## Separate tickets (logged, not fixed here)
