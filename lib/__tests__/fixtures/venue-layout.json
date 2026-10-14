@@ -1,0 +1,98 @@
+{
+  "layout": {
+    "id": "5e014d1d-63b0-4550-80d0-dcb7911dc9fb",
+    "name": "Main Hall",
+    "canvas_width": 1200,
+    "canvas_height": 800,
+    "sections": [
+      {
+        "x": 80,
+        "y": 150,
+        "name": "Regular",
+        "rows": 10,
+        "seatsPerRow": 10,
+        "default_price": 70,
+        "ticket_type_id": null
+      },
+      {
+        "x": 80,
+        "y": 558,
+        "name": "VIP",
+        "default_price": 500,
+        "ticket_type_id": null
+      }
+    ],
+    "venue_objects": [
+      {
+        "id": "table-shape-1-80-558",
+        "type": "table",
+        "name": "Gold 1",
+        "x": 80,
+        "y": 558,
+        "width": 100,
+        "height": 100,
+        "label": "Gold 1",
+        "table_number": "1",
+        "table_name": "Gold 1",
+        "table_capacity": 5,
+        "table_shape": "round"
+      },
+      {
+        "id": "table-shape-2-280-558",
+        "type": "table",
+        "name": "Gold 2",
+        "x": 280,
+        "y": 558,
+        "width": 100,
+        "height": 100,
+        "label": "Gold 2",
+        "table_number": "2",
+        "table_name": "Gold 2",
+        "table_capacity": 5,
+        "table_shape": "round"
+      },
+      {
+        "id": "table-shape-3-480-558",
+        "type": "table",
+        "name": "Gold 3",
+        "x": 480,
+        "y": 558,
+        "width": 100,
+        "height": 100,
+        "label": "Gold 3",
+        "table_number": "3",
+        "table_name": "Gold 3",
+        "table_capacity": 5,
+        "table_shape": "round"
+      },
+      {
+        "id": "table-shape-4-680-558",
+        "type": "table",
+        "name": "Gold 4",
+        "x": 680,
+        "y": 558,
+        "width": 100,
+        "height": 100,
+        "label": "Gold 4",
+        "table_number": "4",
+        "table_name": "Gold 4",
+        "table_capacity": 5,
+        "table_shape": "round"
+      },
+      {
+        "id": "table-shape-5-880-558",
+        "type": "table",
+        "name": "Gold 5",
+        "x": 880,
+        "y": 558,
+        "width": 100,
+        "height": 100,
+        "label": "Gold 5",
+        "table_number": "5",
+        "table_name": "Gold 5",
+        "table_capacity": 5,
+        "table_shape": "round"
+      }
+    ]
+  }
+}
