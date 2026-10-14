@@ -356,6 +356,14 @@ Setup (staging only): seated event with ≥2 available seats (S1 target, S2 cont
 - Tests: 6 new adapter cases (myHeldIds, expired+grace, labels, table capacity, empty plan, gate incl. 2500/2501 boundary); flag-off path covered at decision level by `shouldUse3DPicker` (no jsdom in this repo — a DOM render test is out of scope for the node:test harness).
 - Constraints kept: no migrations, no RPC/webhook changes, no hold-on-selection, GA still read-only, SeatMap untouched.
 
+## P2.1 record (own-hold 409 fix, dynamic-import confirm, stress mode)
+
+- 409 self-dead-end: a buyer re-holding their own active holds gets 409 by design (`reserve_seats_atomic` rejects `reserved && reserved_until > NOW()`; `app/api/seats/route.ts` returns 409 + `unavailableIds`), and `preparePayment` bounced them to the seats step with "no longer available" — retrying looped until expiry. UI/flow-only fix in `preparePayment`: when every unavailable id is in `myHeldIds`, skip the failure and continue to intent creation, where the server revalidates authoritatively (sold/invitation seats still fail there). No RPC change.
+- Dynamic import confirmed: `VenueSeatPicker3D` is `dynamic(..., { ssr: false })` (`TicketCheckout.tsx:13-15`) — flag-off visitors never load it. No fix needed.
+- Stress mode (dev preview only): `?seats=N` (cap 5000) generates deterministic grid seats in memory (`app/dev/seating-preview/stress.ts`), bannered SYNTHETIC STRESS DATA, nothing written; page-rAF p50/p95 readout over a rolling ~5 s window (main-thread proxy, labeled as such). Test: clamp + generator→`adaptPlan` count.
+- Vanished storefront tsc errors: `components/dashboard/orders/OrderCard.tsx` never existed in HEAD (whole dir untracked other-work); line 5 now imports real `formatCurrency` instead of non-exported `Locale`. The 8 errors were transient working-tree states, evolved past by parallel edits — no base fix, nothing committed about them, files untouched here.
+- SeatMap-branch equivalence: HEAD~1 inline handler vs extracted `applySeatSelection` — identical derivation (`setSelectedSeats` + tier-count loop + `setSelectedQuantities`); the only addition is the `setMyHeldIds` sessionStorage mirror.
+
 ## Open questions for me
 
 ## Separate tickets (logged, not fixed here)

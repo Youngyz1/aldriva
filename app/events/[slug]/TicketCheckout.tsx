@@ -281,10 +281,22 @@ export default function TicketCheckout({
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Some seats are no longer available. Please re-select.");
-        setPreparingPayment(false);
-        setStep("seats");
-        return;
+        const unavailable: string[] = Array.isArray(data.unavailableIds)
+          ? data.unavailableIds.filter((v: unknown): v is string => typeof v === "string")
+          : [];
+        const mine = new Set(myHeldIds);
+        const allMine = unavailable.length > 0 && unavailable.every((id) => mine.has(id));
+        if (!allMine) {
+          alert(data.error || "Some seats are no longer available. Please re-select.");
+          setPreparingPayment(false);
+          setStep("seats");
+          return;
+        }
+        // All contested seats are ones this buyer already holds (their hold
+        // is still active, so the atomic re-hold 409s by design). The hold is
+        // already in place — continue to intent creation, where the server
+        // revalidates every seat authoritatively (sold/invitation seats still
+        // fail there with a specific error). No RPC change.
       }
     }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { adaptPlan } from "@/lib/seating-adapter";
+import { clampStressCount, generateStressSeats } from "./stress";
 import type { FullVenueLayout, SeatGeometry } from "@/lib/seating";
 
 const VenueSeatPicker3D = dynamic(
@@ -28,6 +29,35 @@ function applySyntheticTaken(seats: SeatGeometry[]): SeatGeometry[] {
   });
 }
 
+// Page-rAF frame-time stats (rolling ~5 s window). This measures the page's
+// own rAF cadence as a main-thread-jank proxy while orbiting — not the picker
+// engine's internals. Preview-only.
+function useFrameStats(active: boolean) {
+  const [stats, setStats] = useState<{ p50: number; p95: number; n: number } | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const deltas: number[] = [];
+    let raf = 0;
+    let last = performance.now();
+    let lastReport = last;
+    const loop = (now: number) => {
+      deltas.push(now - last);
+      last = now;
+      if (deltas.length > 300) deltas.splice(0, deltas.length - 300);
+      if (now - lastReport > 1000) {
+        lastReport = now;
+        const sorted = [...deltas].sort((a, b) => a - b);
+        const q = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+        setStats({ p50: q(0.5), p95: q(0.95), n: sorted.length });
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [active]);
+  return stats;
+}
+
 export default function PreviewClient({
   layout,
   seats,
@@ -36,13 +66,36 @@ export default function PreviewClient({
   seats: SeatGeometry[];
 }) {
   const [synthetic, setSynthetic] = useState(true);
+  // Stress mode (?seats=N, capped at 5000): generated seats replace the
+  // fixture in memory. Read post-mount to avoid SSR/hydration mismatch.
+  const [stressCount, setStressCount] = useState<number | null>(null);
+  useEffect(() => {
+    setStressCount(clampStressCount(new URLSearchParams(window.location.search).get("seats")));
+  }, []);
+  const frameStats = useFrameStats(stressCount != null);
+  const sourceSeats = useMemo(
+    () => (stressCount != null ? generateStressSeats(stressCount) : seats),
+    [stressCount, seats]
+  );
+  const sourceLayout = useMemo<FullVenueLayout>(
+    () =>
+      stressCount != null
+        ? {
+            ...layout,
+            name: `${layout.name} (stress)`,
+            sections: [{ name: "Stress" }],
+            venue_objects: [],
+          }
+        : layout,
+    [stressCount, layout]
+  );
   const plan = useMemo(
     () =>
       adaptPlan({
-        ...layout,
-        seats: synthetic ? applySyntheticTaken(seats) : seats,
+        ...sourceLayout,
+        seats: synthetic && stressCount == null ? applySyntheticTaken(sourceSeats) : sourceSeats,
       } as FullVenueLayout),
-    [layout, seats, synthetic]
+    [sourceLayout, sourceSeats, synthetic, stressCount]
   );
 
   return (
@@ -56,6 +109,21 @@ export default function PreviewClient({
           Real staging fixture ({seats.length} seats) → adapter → picker. demo off,
           seatRadius 13.
         </p>
+        {stressCount != null && (
+          <p
+            role="status"
+            className="rounded-md bg-purple-50 px-2.5 py-1.5 text-xs font-bold text-purple-800"
+          >
+            SYNTHETIC STRESS DATA — {stressCount} generated seats in memory only;
+            nothing written to disk. Append ?seats=N (cap 5000) to change the count.
+            {frameStats && (
+              <>
+                {" "}Frame times (page rAF, rolling ~5 s): p50 {frameStats.p50.toFixed(1)} ms ·
+                p95 {frameStats.p95.toFixed(1)} ms (n={frameStats.n}).
+              </>
+            )}
+          </p>
+        )}
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
