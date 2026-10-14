@@ -13,7 +13,12 @@ export default async function NewWebsitePage({ params }: { params: Promise<{ id:
 
   const supabase = createSupabaseAdmin();
   const { data: org } = await supabase.from("organizers").select("id, name, slug, status, org_type").eq("id", id).maybeSingle();
-  if (!org) return notFound();
+  if (!org) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[website/new] notFound: no organizer row for id=${id}`);
+    }
+    return notFound();
+  }
   const { data: linkedBusiness } = await supabase
     .from("businesses")
     .select("industry, category, business_type, created_at")

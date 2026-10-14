@@ -17,6 +17,7 @@ export default function OrgMobileHeader({
   hasWebsite,
   hasMenuRows,
   hasServiceRows,
+  hasReservationRows,
   capabilities,
   offerings,
 }: {
@@ -27,13 +28,14 @@ export default function OrgMobileHeader({
   hasWebsite?: boolean;
   hasMenuRows?: boolean;
   hasServiceRows?: boolean;
+  hasReservationRows?: boolean;
   capabilities?: Capability[];
   offerings?: readonly string[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }).map(item => {
+  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }).map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }
   });

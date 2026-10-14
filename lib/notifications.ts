@@ -20,9 +20,10 @@ export type NotificationType =
   | "product_purchase"
   | "product_update"
   | "product_refund"
-  | "order_placed";
+  | "order_placed"
+  | "reservation_placed";
 
-export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer" | "product" | "order";
+export type NotificationRelatedType = "fundraiser" | "comment" | "event" | "profile" | "organizer" | "product" | "order" | "reservation";
 
 interface NotificationEmail {
   to: string;

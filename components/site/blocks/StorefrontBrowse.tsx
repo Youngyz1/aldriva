@@ -38,6 +38,10 @@ export interface StorefrontOrderConfig {
   scheduledFor?: string | null;
   blocked?: boolean;
   blockReason?: string;
+  /** Flat delivery fee in the site currency (0 = free). Computed server-side; displayed in cart. */
+  deliveryFee?: number;
+  /** Subtotal threshold above which delivery is free (null = no free threshold). */
+  freeDeliveryAbove?: number | null;
 }
 
 export interface StorefrontBrowseLabels {
@@ -61,6 +65,8 @@ export interface StorefrontBrowseLabels {
   subtotal?: string;
   deliveryFee?: string;
   deliveryFeeNotice?: string;
+  freeDelivery?: string;
+  freeDeliveryProgress?: string;
   total?: string;
   fulfilment?: string;
   pickup?: string;
@@ -86,6 +92,13 @@ export interface StorefrontBrowseLabels {
   scheduledNotice?: string;
   noUpcomingHours?: string;
   backToMenu?: string;
+  asap?: string;
+  scheduleForLater?: string;
+  chooseDate?: string;
+  chooseTime?: string;
+  trackOrder?: string;
+  copyTrackingLink?: string;
+  trackingLinkCopied?: string;
 }
 
 export interface CartItem {
@@ -155,7 +168,19 @@ export function StorefrontBrowse({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{
     orderNumber: string;
+    trackingToken?: string | null;
     scheduledFor?: string | null;
+    subtotal?: number | null;
+    deliveryFee?: number | null;
+    total?: number | null;
+    fulfilmentType?: string | null;
+    currency?: string | null;
+  } | null>(null);
+  const [activeOrder, setActiveOrder] = useState<{
+    token: string;
+    orderNumber: string;
+    scheduledFor?: string | null;
+    savedAt?: number;
   } | null>(null);
 
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -166,6 +191,17 @@ export function StorefrontBrowse({
     setMounted(true);
     if (orderConfig?.enabled && orderConfig.slug) {
       setCart(loadCart(orderConfig.slug));
+      try {
+        const raw = localStorage.getItem(`aldriva_active_order_${orderConfig.slug}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token && parsed?.orderNumber && Date.now() - (parsed.savedAt || 0) < 86400000) {
+            setActiveOrder(parsed);
+          }
+        }
+      } catch {
+        // Storage unavailable (private browsing)
+      }
     }
   }, [orderConfig?.enabled, orderConfig?.slug]);
 
@@ -248,6 +284,41 @@ export function StorefrontBrowse({
 
   return (
     <>
+      {/* Active order persistent banner */}
+      {activeOrder && !orderSuccess && orderConfig?.slug ? (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50/90 px-4 py-2.5 text-xs text-orange-950 shadow-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-2 w-2 rounded-full bg-orange-600 shrink-0 animate-pulse" />
+            <span className="truncate">
+              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <a
+              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
+              className="font-bold text-orange-700 underline hover:text-orange-900 transition-colors"
+            >
+              {labels.trackOrder || "Track order"} →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveOrder(null);
+                try {
+                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="text-zinc-400 hover:text-zinc-600 text-xs px-1"
+              aria-label="Dismiss active order banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {showGroups && groups.length > 1 ? (
         <div
           className="sticky top-16 z-30 -mx-1 bg-white/95 py-2 backdrop-blur md:top-20"
@@ -337,7 +408,7 @@ export function StorefrontBrowse({
                     type="button"
                     aria-label={`${item.name}`}
                     onClick={(event) => openSheet(item.id, event.currentTarget)}
-                    className={`group flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-xs transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
+                    className={`group flex min-h-11 items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-xs transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
                       item.isSoldOut ? "opacity-60" : ""
                     }`}
                   >
@@ -460,13 +531,25 @@ export function StorefrontBrowse({
       ) : null}
 
       {/* Confirmation Modal */}
-      {orderSuccess ? (
+      {orderSuccess && orderConfig?.slug ? (
         <OrderConfirmationModal
           orderNumber={orderSuccess.orderNumber}
+          trackingToken={orderSuccess.trackingToken}
+          slug={orderConfig.slug}
           scheduledFor={orderSuccess.scheduledFor}
+          subtotal={orderSuccess.subtotal}
+          deliveryFee={orderSuccess.deliveryFee}
+          total={orderSuccess.total}
+          fulfilmentType={orderSuccess.fulfilmentType}
+          currency={orderSuccess.currency ?? orderConfig.currency}
           labels={labels}
           onClose={() => setOrderSuccess(null)}
         />
+      ) : null}
+
+      {/* Bottom padding to prevent floating cart bar from covering last content */}
+      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div className="h-24" aria-hidden="true" />
       ) : null}
     </>
   );
@@ -812,7 +895,7 @@ function OrderDrawer({
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
-  onOrderSuccess: (result: { orderNumber: string; scheduledFor?: string | null }) => void;
+  onOrderSuccess: (result: { orderNumber: string; trackingToken?: string | null; scheduledFor?: string | null; subtotal?: number | null; deliveryFee?: number | null; total?: number | null; fulfilmentType?: string | null; currency?: string | null }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const itemsMap = new Map(allItems.map((it) => [it.id, it]));
@@ -827,8 +910,14 @@ function OrderDrawer({
   const [payMethod, setPayMethod] = useState<"fulfilment" | "online">("fulfilment");
   const [onlineSecret, setOnlineSecret] = useState<string | null>(null);
   const [onlineOrderNumber, setOnlineOrderNumber] = useState<string | null>(null);
+  const [onlineTrackingToken, setOnlineTrackingToken] = useState<string | null>(null);
   const [onlineScheduledFor, setOnlineScheduledFor] = useState<string | null>(null);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
+
+  const [timingChoice, setTimingChoice] = useState<"asap" | "scheduled">(
+    orderConfig.isClosed ? "scheduled" : "asap"
+  );
+  const [customScheduleTime, setCustomScheduleTime] = useState<string>("");
 
   const [fulfilment, setFulfilment] = useState<"pickup" | "delivery">(
     allowsPickup ? "pickup" : "delivery"
@@ -877,7 +966,23 @@ function OrderDrawer({
     return sum + (base + deltas) * line.quantity;
   }, 0);
 
+  // Delivery fee preview (client-side only; server recomputes authoritatively on submit)
+  const rawDeliveryFee = orderConfig.deliveryFee ?? 0;
+  const freeAbove = orderConfig.freeDeliveryAbove ?? null;
+  const displayDeliveryFee =
+    fulfilment === "delivery"
+      ? freeAbove !== null && subtotal >= freeAbove
+        ? 0
+        : rawDeliveryFee
+      : 0;
+  const grandTotal = subtotal + displayDeliveryFee;
+
   const formattedSubtotal = `${orderConfig.currency} ${subtotal.toFixed(2)}`;
+  const formattedDeliveryFee =
+    displayDeliveryFee === 0
+      ? orderConfig.currency + " 0.00"
+      : `${orderConfig.currency} ${displayDeliveryFee.toFixed(2)}`;
+  const formattedTotal = `${orderConfig.currency} ${grandTotal.toFixed(2)}`;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -897,6 +1002,12 @@ function OrderDrawer({
       setErrorMessage(labels.deliveryAddress ? `Please enter a valid ${labels.deliveryAddress.toLowerCase()}` : "Please enter a delivery address.");
       return;
     }
+
+    const scheduledForPayload = orderConfig.isClosed
+      ? (orderConfig.scheduledFor ?? null)
+      : timingChoice === "scheduled" && customScheduleTime
+      ? new Date(customScheduleTime).toISOString()
+      : null;
 
     const payloadItems = cart.map((c) => ({
       itemId: c.itemId,
@@ -925,6 +1036,7 @@ function OrderDrawer({
             items: payloadItems,
             idempotencyKey,
             hp: honeypot || null,
+            scheduledFor: scheduledForPayload,
           }),
         });
         const intentData = await intentRes.json().catch(() => ({}));
@@ -934,6 +1046,7 @@ function OrderDrawer({
           return;
         }
         setOnlineOrderNumber(intentData.orderNumber);
+        setOnlineTrackingToken(intentData.trackingToken ?? null);
         setOnlineScheduledFor(intentData.scheduledFor ?? null);
         setOnlineSecret(intentData.clientSecret);
         setIsStartingPayment(false);
@@ -959,6 +1072,7 @@ function OrderDrawer({
         items: payloadItems,
         idempotencyKey,
         hp: honeypot || null,
+        scheduledFor: scheduledForPayload,
       });
 
       if (!res.success) {
@@ -975,7 +1089,13 @@ function OrderDrawer({
 
       onOrderSuccess({
         orderNumber: res.orderNumber,
+        trackingToken: res.trackingToken,
         scheduledFor: res.scheduledFor,
+        subtotal,
+        deliveryFee: displayDeliveryFee,
+        total: grandTotal,
+        fulfilmentType: fulfilment,
+        currency: orderConfig.currency,
       });
     } catch {
       setErrorMessage("An unexpected network error occurred. Please try again.");
@@ -1015,7 +1135,7 @@ function OrderDrawer({
           <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between text-sm font-bold text-zinc-900">
               <span>{labels.total || "Total"}</span>
-              <span className="text-orange-700">{formattedSubtotal}</span>
+              <span className="text-orange-700">{formattedTotal}</span>
             </div>
             {errorMessage ? (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
@@ -1027,14 +1147,20 @@ function OrderDrawer({
                 onSuccess={() => {
                   onOrderSuccess({
                     orderNumber: onlineOrderNumber,
+                    trackingToken: onlineTrackingToken,
                     scheduledFor: onlineScheduledFor,
+                    subtotal,
+                    deliveryFee: displayDeliveryFee,
+                    total: grandTotal,
+                    fulfilmentType: fulfilment,
+                    currency: orderConfig.currency,
                   });
                 }}
                 onBack={() => {
                   setOnlineSecret(null);
                   setOnlineOrderNumber(null);
                 }}
-                submitLabel={`${labels.payOnline || "Pay online"} • ${formattedSubtotal}`}
+                submitLabel={`${labels.payOnline || "Pay online"} • ${formattedTotal}`}
                 accentColor="#c2410c"
                 hideInputs
               />
@@ -1203,10 +1329,84 @@ function OrderDrawer({
                   className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
                 <p className="text-[11px] text-zinc-500">
-                  {labels.deliveryFeeNotice || "Restaurant confirms delivery fee upon receipt"}
+                  {rawDeliveryFee > 0
+                    ? freeAbove !== null && subtotal >= freeAbove
+                      ? labels.freeDelivery || "Free delivery on this order 🎉"
+                      : `${labels.deliveryFee || "Delivery fee"}: ${formattedDeliveryFee}`
+                    : labels.freeDelivery || "Free delivery"}
                 </p>
+                {fulfilment === "delivery" &&
+                freeAbove !== null &&
+                rawDeliveryFee > 0 &&
+                subtotal < freeAbove ? (
+                  <p className="text-[11px] font-medium text-orange-700">
+                    {(labels.freeDeliveryProgress || "Add {amount} more for free delivery").replace(
+                      "{amount}",
+                      `${orderConfig.currency} ${(freeAbove - subtotal).toFixed(2)}`
+                    )}
+                  </p>
+                ) : null}
               </div>
             ) : null}
+
+            {/* Timing selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-700">Timing</label>
+              {orderConfig.isClosed ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 text-xs text-amber-900">
+                  <p className="font-semibold">{labels.scheduledNotice || "The restaurant is closed. Your order will be prepared for reopening."}</p>
+                  {orderConfig.scheduledFor ? (
+                    <p className="mt-1 text-amber-800">
+                      Reopening slot: {new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTimingChoice("asap")}
+                      className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                        timingChoice === "asap"
+                          ? "border-orange-600 bg-orange-50 text-orange-700"
+                          : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {labels.asap || "As soon as possible"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimingChoice("scheduled")}
+                      className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                        timingChoice === "scheduled"
+                          ? "border-orange-600 bg-orange-50 text-orange-700"
+                          : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {labels.scheduleForLater || "Schedule for later"}
+                    </button>
+                  </div>
+
+                  {timingChoice === "scheduled" ? (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-zinc-600">
+                        {labels.chooseDate || "Date & Time"} *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required={timingChoice === "scheduled"}
+                        value={customScheduleTime}
+                        onChange={(e) => setCustomScheduleTime(e.target.value)}
+                        min={new Date(Date.now() + 30 * 60_000).toISOString().slice(0, 16)}
+                        max={new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 16)}
+                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
 
             {/* Customer Details */}
             <div className="space-y-2">
@@ -1308,9 +1508,32 @@ function OrderDrawer({
                 <span>{labels.subtotal || "Subtotal"}</span>
                 <span>{formattedSubtotal}</span>
               </div>
+              {fulfilment === "delivery" ? (
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+                  <span>{labels.deliveryFee || "Delivery fee"}</span>
+                  <span>
+                    {displayDeliveryFee === 0 ? (
+                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                    ) : (
+                      formattedDeliveryFee
+                    )}
+                  </span>
+                </div>
+              ) : null}
+              {fulfilment === "delivery" &&
+              freeAbove !== null &&
+              rawDeliveryFee > 0 &&
+              subtotal < freeAbove ? (
+                <p className="text-[11px] font-medium text-orange-700">
+                  {(labels.freeDeliveryProgress || "Add {amount} more for free delivery").replace(
+                    "{amount}",
+                    `${orderConfig.currency} ${(freeAbove - subtotal).toFixed(2)}`
+                  )}
+                </p>
+              ) : null}
               <div className="flex items-center justify-between text-sm font-bold text-zinc-900">
                 <span>{labels.total || "Total"}</span>
-                <span className="text-orange-700">{formattedSubtotal}</span>
+                <span className="text-orange-700">{formattedTotal}</span>
               </div>
               <p className="text-[11px] text-zinc-500">
                 {payMethod === "online"
@@ -1328,10 +1551,11 @@ function OrderDrawer({
                     ? labels.payingOnline || "Preparing secure payment…"
                     : labels.placingOrder || "Placing order…"
                   : payMethod === "online"
-                    ? `${labels.payOnline || "Pay online"} • ${formattedSubtotal}`
-                    : `${labels.placeOrder || "Place order"} • ${formattedSubtotal}`}
+                    ? `${labels.payOnline || "Pay online"} • ${formattedTotal}`
+                    : `${labels.placeOrder || "Place order"} • ${formattedTotal}`}
               </button>
             </div>
+
           </form>
         </div>
       </div>
@@ -1341,15 +1565,58 @@ function OrderDrawer({
 
 function OrderConfirmationModal({
   orderNumber,
+  trackingToken,
+  slug,
   scheduledFor,
+  subtotal,
+  deliveryFee,
+  total,
+  fulfilmentType,
+  currency,
   labels,
   onClose,
 }: {
   orderNumber: string;
+  trackingToken?: string | null;
+  slug: string;
   scheduledFor?: string | null;
+  subtotal?: number | null;
+  deliveryFee?: number | null;
+  total?: number | null;
+  fulfilmentType?: string | null;
+  currency?: string | null;
   labels: StorefrontBrowseLabels;
   onClose: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (trackingToken && slug && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          `aldriva_active_order_${slug}`,
+          JSON.stringify({
+            token: trackingToken,
+            orderNumber,
+            scheduledFor: scheduledFor ?? null,
+            savedAt: Date.now(),
+          })
+        );
+      } catch {
+        // Storage unavailable (private browsing)
+      }
+    }
+  }, [trackingToken, slug, orderNumber, scheduledFor]);
+
+  const handleCopyLink = () => {
+    if (typeof window === "undefined" || !trackingToken) return;
+    const url = `${window.location.origin}/site/${slug}/orders/${trackingToken}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl space-y-4">
@@ -1372,12 +1639,60 @@ function OrderConfirmationModal({
             {labels.orderNumber || "Order number"}
           </p>
           <p className="text-base font-extrabold text-orange-700 mt-0.5">{orderNumber}</p>
+          {typeof subtotal === "number" && typeof total === "number" ? (
+            <div className="mt-2 space-y-1 text-xs text-zinc-600">
+              <div className="flex items-center justify-between">
+                <span>{labels.subtotal || "Subtotal"}</span>
+                <span className="tabular-nums">
+                  {currency} {subtotal.toFixed(2)}
+                </span>
+              </div>
+              {fulfilmentType === "delivery" ? (
+                <div className="flex items-center justify-between">
+                  <span>{labels.deliveryFee || "Delivery fee"}</span>
+                  <span className="tabular-nums">
+                    {(deliveryFee ?? 0) === 0 ? (
+                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                    ) : (
+                      `${currency} ${(deliveryFee ?? 0).toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between pt-1 border-t border-zinc-200 text-sm font-bold text-zinc-900">
+                <span>{labels.total || "Total"}</span>
+                <span className="tabular-nums">
+                  {currency} {total.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ) : null}
           {scheduledFor ? (
             <p className="mt-2 text-xs text-zinc-600">
               Scheduled for: {new Date(scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           ) : null}
         </div>
+
+        {trackingToken ? (
+          <div className="space-y-2">
+            <a
+              href={`/site/${slug}/orders/${trackingToken}`}
+              className="w-full flex items-center justify-center rounded-xl bg-orange-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition"
+            >
+              {labels.trackOrder || "Track my order"}
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="w-full rounded-xl border border-zinc-200 bg-white py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition"
+            >
+              {copied
+                ? labels.trackingLinkCopied || "Link copied!"
+                : labels.copyTrackingLink || "Copy tracking link"}
+            </button>
+          </div>
+        ) : null}
 
         <button
           type="button"

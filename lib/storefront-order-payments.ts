@@ -24,6 +24,7 @@ export interface CreateOnlineOrderPaymentResult {
   success: boolean;
   orderId?: string;
   orderNumber?: string;
+  trackingToken?: string;
   clientSecret?: string;
   paymentIntentId?: string;
   scheduledFor?: string | null;
@@ -40,6 +41,7 @@ export interface CreateOnlineOrderPaymentResult {
     | "item_sold_out"
     | "invalid_options"
     | "unknown_option"
+    | "invalid_schedule"
     | "online_unavailable"
     | "no_open_hours"
     | "db_error"
@@ -129,6 +131,7 @@ export async function createOnlineOrderPayment(
     success: true,
     orderId: order.id,
     orderNumber: order.order_number,
+    trackingToken: created.trackingToken,
     clientSecret: intent.client_secret,
     paymentIntentId: intent.id,
     scheduledFor: created.scheduledFor,
@@ -264,6 +267,8 @@ export async function handleStorefrontOrderPaymentSucceeded(
     fulfilment_type: order["fulfilment_type"] as "pickup" | "delivery",
     delivery_address: (order["delivery_address"] as string | null) ?? null,
     currency,
+    subtotal: Number(order["subtotal"] ?? 0),
+    delivery_fee: Number(order["delivery_fee"] ?? 0),
     total_amount: Number(order["total_amount"]),
     scheduled_for: (order["scheduled_for"] as string | null) ?? null,
     items,

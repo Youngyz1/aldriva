@@ -101,6 +101,7 @@ export function V2WebsitePreviewClient({
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const [content, setContent] = useState<ContentDoc>(() => normalizeContent(initialContent));
   const [currentMenuItems, setCurrentMenuItems] = useState<V2MenuItemChoice[]>(menuItems);
+  const [currentOfferings, setCurrentOfferings] = useState<string[]>(business.offerings ?? []);
   const [pageSlug, setPageSlug] = useState(initialPageSlug);
   const catalog = getBusinessOfferings(business.businessType, business.category);
   const getOfferingLabel = offeringT as unknown as (key: string) => string;
@@ -109,7 +110,7 @@ export function V2WebsitePreviewClient({
     includeSamples: true,
     includeSourceMap: true,
     currency: displayCurrency,
-    business: { ...business, offeringLabels },
+    business: { ...business, offerings: currentOfferings, offeringLabels },
     viewMenuLabel: storeT("viewMenu"),
     rentalContactCta: storeT("rentalContactCta"),
     primaryActionLabels: {
@@ -124,7 +125,7 @@ export function V2WebsitePreviewClient({
     restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
     rentalCtaBandHeading: storeT("rentalBrandMessage"),
     timeZone: business.timeZone,
-  }), [business, content, displayCurrency, offeringLabels, storeT, template.id, template.version]);
+  }), [business, content, currentOfferings, displayCurrency, offeringLabels, storeT, template.id, template.version]);
   const page = resolved.pages.find((candidate) => candidate.slug === pageSlug) ?? resolved.pages.find((candidate) => candidate.isHome) ?? resolved.pages[0];
   const templateForPage = getFlagshipTemplate(template.id, template.version) ?? template;
   const sampleContent = FLAGSHIP_SAMPLES[template.id] as ContentDoc | undefined;
@@ -151,6 +152,12 @@ export function V2WebsitePreviewClient({
       if (message.kind === "update_menu_items") {
         if (message.websiteId === websiteId) {
           setCurrentMenuItems(message.menuItems);
+        }
+        return;
+      }
+      if (message.kind === "update_offerings") {
+        if (message.websiteId === websiteId) {
+          setCurrentOfferings(message.offerings);
         }
         return;
       }

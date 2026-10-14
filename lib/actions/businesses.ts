@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { isValidIndustry, getCategoriesForIndustry, isValidBusinessTypeForCategory, isValidBusinessType, CATEGORIES_BY_INDUSTRY, BUSINESS_TYPES_BY_CATEGORY, normalizeIndustry } from "@/lib/business-taxonomy";
 import { screenBusiness } from "@/lib/business-screening";
 import { getBusinessOfferings, validateBusinessOfferings } from "@/lib/business-offerings";
+import { isAdmin } from "@/lib/auth";
+import { checkTenantAccess, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 
 async function getUniqueSlug(name: string, supabase: any, excludeId?: string): Promise<string> {
   let baseSlug = createSlug(name);
@@ -289,8 +291,29 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
     return { success: false, error: "Unauthorized" };
   }
 
+  const admin = createSupabaseAdmin();
   // Fetch existing for re-screen comparison (need old status and screened fields)
-  const { data: existingBusiness } = await supabase.from("businesses").select("name, description, website, phone, industry, category, business_type, offerings, address, city, state, country, status, owner_id").eq("id", id).eq("owner_id", user.id).maybeSingle();
+  const { data: existingBusiness } = await admin
+    .from("businesses")
+    .select("name, description, website, phone, industry, category, business_type, offerings, address, city, state, country, status, owner_id, organizer_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existingBusiness) {
+    return { success: false, error: "Business not found." };
+  }
+
+  const isOwner = existingBusiness.owner_id === user.id;
+  const isSuperAdmin = await isAdmin();
+  let hasEntityManage = false;
+  if (!isOwner && !isSuperAdmin && existingBusiness.organizer_id) {
+    const access = await checkTenantAccess(user.id, existingBusiness.organizer_id, ENTITY_ROLES_MANAGE);
+    hasEntityManage = access.hasAccess;
+  }
+
+  if (!isOwner && !isSuperAdmin && !hasEntityManage) {
+    return { success: false, error: "Unauthorized" };
+  }
 
   const updates: Record<string, any> = {};
 
@@ -404,11 +427,10 @@ export async function updateBusiness(id: string, input: Partial<BusinessInput>) 
   if (input.country !== undefined) updates.country = input.country || null;
   if (input.listing_tier !== undefined) updates.listing_tier = input.listing_tier;
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("businesses")
     .update(updates)
     .eq("id", id)
-    .eq("owner_id", user.id)
     .select("id, slug")
     .single();
 

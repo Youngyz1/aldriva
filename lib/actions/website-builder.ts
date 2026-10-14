@@ -20,6 +20,8 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { checkTenantAccess, EntityRole, ENTITY_ROLES_ALL } from "@/lib/entity-auth";
 import { validateBlock, Block, normalizeBlocks } from "@/lib/website-blocks";
 import { revalidatePath } from "next/cache";
+import { getOrgApproval } from "@/lib/server-approval";
+import { canPublish as canPublishApproval } from "@/lib/business-approval";
 
 export interface WebsiteActionResult<T = unknown> {
   success: boolean;
@@ -339,6 +341,22 @@ export async function publishPageDraft(
   }
 
   const ctx = auth.ctx;
+
+  // 2. Business approval gate: block publish while business is pending/rejected/archived.
+  // Saving drafts is always allowed — this gate only applies to the publish action.
+  const approvalState = await getOrgApproval(ctx.tenantId);
+  if (!canPublishApproval(approvalState)) {
+    const messages: Record<string, string> = {
+      pending: "Your site cannot be published until your business is approved.",
+      rejected: "Your business application was not approved. Publishing is unavailable.",
+      archived: "This business is archived. Publishing is unavailable.",
+    };
+    return {
+      success: false,
+      error: messages[approvalState] ?? "Publishing is not available for this business.",
+    };
+  }
+
   const supabaseAdmin = createSupabaseAdmin();
 
   // 2. Fetch working draft

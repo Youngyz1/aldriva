@@ -192,6 +192,31 @@ export const RATE_LIMITS = {
    * testing against the intent endpoint specifically.
    */
   orderPaymentIntent: { limit: 10, windowSeconds: 600 },
+
+  /**
+   * Phase 4b+4c: Customer order tracking page reads. Anonymous per-IP bucket,
+   * 60/10-min leaves 30s auto-refresh ample room while bounding token probing.
+   */
+  orderTrackingView: { limit: 60, windowSeconds: 600 },
+
+  /**
+   * Phase 7: Guest table-reservation requests. Keyed per-IP and per-phone.
+   * Tighter than orders: a real guest retries a couple of times at most.
+   */
+  reservationRequestIp: { limit: 5, windowSeconds: 3600 },
+  reservationRequestPhone: { limit: 3, windowSeconds: 86400 },
+
+  /**
+   * Phase 7: Customer reservation tracking page reads. Anonymous per-IP
+   * bucket, same posture as orderTrackingView (30s auto-refresh).
+   */
+  reservationTrackingView: { limit: 60, windowSeconds: 600 },
+
+  /**
+   * Phase 7: Guest cancellation of their own reservation (token-authed).
+   * Keyed per-IP AND per-token by callers. Fail-open.
+   */
+  reservationCustomerCancel: { limit: 10, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

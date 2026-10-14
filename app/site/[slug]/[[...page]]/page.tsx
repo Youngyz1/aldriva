@@ -37,6 +37,9 @@ import { FLAGSHIP_SAMPLES } from "@/lib/website-template-samples";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import { resolveOrderSchedule } from "@/lib/website-hours";
 import type { StorefrontOrderConfig } from "@/components/site/blocks/StorefrontBrowse";
+import type { StorefrontReservationConfig } from "@/components/site/blocks/ReservationForm";
+import { extractDeliverySettings } from "@/lib/delivery-settings";
+import { extractReservationSettings } from "@/lib/reservation-settings";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -458,6 +461,8 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     if (v2Content.resolved.storefrontFeatures.pickup) offerings.push("pickup");
     if (v2Content.resolved.storefrontFeatures.delivery) offerings.push("delivery");
 
+    const deliverySettings = extractDeliverySettings(website.metadata);
+
     orderConfig = {
       enabled: true,
       slug: website.slug,
@@ -468,6 +473,26 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       scheduledFor: schedule.scheduledFor,
       blocked: schedule.blocked,
       blockReason: schedule.message,
+      deliveryFee: deliverySettings.fee,
+      freeDeliveryAbove: deliverySettings.free_above,
+    };
+  }
+
+  let reservationConfig: StorefrontReservationConfig | undefined;
+  if (v2Content?.resolved.storefrontFeatures.reservations) {
+    const websiteMeta = (website.metadata && typeof website.metadata === "object" ? website.metadata : {}) as Record<string, unknown>;
+    const timeZone = typeof websiteMeta.timezone === "string" && websiteMeta.timezone.trim()
+      ? websiteMeta.timezone.trim()
+      : "Africa/Abidjan";
+    const reservationSettings = extractReservationSettings(website.metadata);
+    // Render follows the feature gate (like ordering); the submit action
+    // re-checks approval, settings, and slots authoritatively.
+    reservationConfig = {
+      enabled: true,
+      slug: website.slug,
+      settings: reservationSettings,
+      timeZone,
+      hours: v2Content.content.hours ?? null,
     };
   }
 
@@ -550,6 +575,8 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               currency={currency}
               currencyLocale={currencyLocale}
               orderConfig={orderConfig}
+              reservationConfig={reservationConfig}
+              siteSlug={website.slug}
             />
           ))
         )}

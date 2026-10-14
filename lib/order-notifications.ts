@@ -1,7 +1,7 @@
-import "server-only";
 import { createNotification } from "@/lib/notifications";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
+import { Resend } from "resend";
 
 export type OrderNotificationChannel = "bell" | "email" | "whatsapp";
 
@@ -15,8 +15,12 @@ export interface OrderNotificationPayload {
   fulfilment_type: "pickup" | "delivery";
   delivery_address?: string | null;
   currency: string;
+  subtotal?: number | null;
+  delivery_fee?: number | null;
   total_amount: number;
   scheduled_for?: string | null;
+  website_slug?: string;
+  tracking_token?: string;
   items: Array<{
     name: string;
     quantity: number;
@@ -71,6 +75,17 @@ export async function dispatchOrderNotifications(
     const formattedTotal = `${order.currency} ${Number(order.total_amount).toFixed(2)}`;
     const fulfilmentText = order.fulfilment_type === "delivery" ? "Delivery" : "Pickup";
     const body = `${order.customer_name} placed an order (${fulfilmentText}) for ${formattedTotal}.`;
+    const showFeeBreakdown =
+      order.fulfilment_type === "delivery" &&
+      typeof order.subtotal === "number" &&
+      typeof order.delivery_fee === "number";
+    const formattedSubtotal = showFeeBreakdown
+      ? `${order.currency} ${Number(order.subtotal).toFixed(2)}`
+      : null;
+    const formattedFee =
+      showFeeBreakdown && Number(order.delivery_fee) > 0
+        ? `${order.currency} ${Number(order.delivery_fee).toFixed(2)}`
+        : null;
 
     // 1. In-app bell notification
     if (channels.includes("bell")) {
@@ -138,6 +153,7 @@ export async function dispatchOrderNotifications(
                 ${itemsHtml}
               </tbody>
               <tfoot>
+                ${showFeeBreakdown ? `<tr><td style="padding-top: 8px; font-size: 14px; color: #52525b;">Subtotal</td><td style="padding-top: 8px; font-size: 14px; text-align: right;">${formattedSubtotal}</td></tr><tr><td style="font-size: 14px; color: #52525b;">Delivery fee</td><td style="font-size: 14px; text-align: right;">${formattedFee ?? "Free"}</td></tr>` : ""}
                 <tr>
                   <td style="padding-top: 12px; font-weight: 700; font-size: 16px;">Total to collect</td>
                   <td style="padding-top: 12px; font-weight: 700; font-size: 16px; text-align: right; color: #c2410c;">${formattedTotal}</td>
@@ -175,6 +191,37 @@ export async function dispatchOrderNotifications(
       }
     }
 
+    // 2.5 Customer placement confirmation email
+    if (order.customer_email && order.website_slug && order.tracking_token && process.env.RESEND_API_KEY) {
+      try {
+        const trackingUrl = `${BRAND.website}/site/${order.website_slug}/orders/${order.tracking_token}`;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const customerHtml = `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #18181b;">
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Order received #${escapeHtml(order.order_number)}</h2>
+            <p style="color: #52525b; font-size: 14px; margin-top: 0;">Thank you for your order! We have received your order request and will update you shortly.</p>
+            <div style="margin: 20px 0;">
+              <a href="${trackingUrl}" style="display: inline-block; background-color: #c2410c; color: #ffffff; text-decoration: none; font-weight: 600; padding: 10px 20px; border-radius: 8px; font-size: 14px;">
+                Track your order
+              </a>
+            </div>
+            <p style="color: #71717a; font-size: 12px;">Total: ${escapeHtml(formattedTotal)} (${order.fulfilment_type === "delivery" ? "Delivery" : "Pickup"})${showFeeBreakdown ? ` — Subtotal ${escapeHtml(formattedSubtotal ?? "")}, Delivery fee ${escapeHtml(formattedFee ?? "Free")}` : ""}</p>
+          </div>
+        `;
+        await resend.emails.send({
+          from: `${BRAND.name} <${BRAND.contactEmail}>`,
+          to: order.customer_email,
+          subject: `[${BRAND.name}] Order confirmation #${order.order_number}`,
+          html: customerHtml,
+        });
+      } catch (custErr) {
+        console.error(
+          "[order-notifications] Customer confirmation email failed: code=customer_email_failed",
+          custErr instanceof Error ? custErr.name : "unknown"
+        );
+      }
+    }
+
     // 3. WhatsApp channel (future pluggable extension point)
     if (channels.includes("whatsapp")) {
       // Reserved for Phase 3+
@@ -186,6 +233,111 @@ export async function dispatchOrderNotifications(
     );
   }
 }
+
+export interface CustomerStatusNotificationInput {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  status: "accepted" | "ready" | "out_for_delivery" | "delivered" | "cancelled" | string;
+  fulfilmentType: "pickup" | "delivery";
+  currency: string;
+  totalAmount: number;
+  trackingToken: string;
+  websiteSlug: string;
+  estimatedReadyAt?: string | null;
+  cancellationReason?: string | null;
+  cancellationNote?: string | null;
+  riderName?: string | null;
+  riderPhone?: string | null;
+  timeZone?: string;
+}
+
+export async function dispatchCustomerOrderStatusEmail(
+  input: CustomerStatusNotificationInput
+): Promise<void> {
+  if (!input.customerEmail || !process.env.RESEND_API_KEY) return;
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const trackingUrl = `${BRAND.website}/site/${input.websiteSlug}/orders/${input.trackingToken}`;
+    let subject = `[${BRAND.name}] Order #${input.orderNumber} update`;
+    let heading = `Order #${input.orderNumber} update`;
+    let body = "";
+
+    if (input.status === "accepted") {
+      subject = `[${BRAND.name}] Order #${input.orderNumber} accepted`;
+      heading = `Your order #${input.orderNumber} has been accepted!`;
+      let timeText = "";
+      if (input.estimatedReadyAt) {
+        try {
+          const formattedReady = new Date(input.estimatedReadyAt).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: input.timeZone || "UTC",
+          });
+          timeText = `<p style="font-weight: 600; color: #c2410c;">Estimated ready time: ${escapeHtml(formattedReady)}</p>`;
+        } catch {
+          // fallback
+        }
+      }
+      body = `<p>Great news! The business has accepted your order and is preparing it.</p>${timeText}`;
+    } else if (input.status === "ready") {
+      const isDelivery = input.fulfilmentType === "delivery";
+      subject = `[${BRAND.name}] Order #${input.orderNumber} is ${isDelivery ? "ready for delivery" : "ready"}`;
+      heading = isDelivery ? `Your order is ready!` : `Your order is ready for pickup!`;
+      body = isDelivery
+        ? `<p>Your order is freshly prepared and will be handed to a rider shortly for delivery.</p>`
+        : `<p>Your order is freshly prepared and ready for you to pick up.</p>`;
+    } else if (input.status === "out_for_delivery") {
+      subject = `[${BRAND.name}] Order #${input.orderNumber} is on the way!`;
+      heading = `Your order is out for delivery!`;
+      const riderLine = input.riderName
+        ? `<p style="margin-top: 8px;"><strong>Rider:</strong> ${escapeHtml(input.riderName)}${input.riderPhone ? ` · <a href="tel:${escapeHtml(input.riderPhone)}" style="color: #c2410c;">${escapeHtml(input.riderPhone)}</a>` : ""}</p>`
+        : "";
+      body = `<p>Your order has been handed to the courier and is on its way to you.</p>${riderLine}`;
+    } else if (input.status === "delivered") {
+      subject = `[${BRAND.name}] Order #${input.orderNumber} delivered`;
+      heading = `Your order has been delivered!`;
+      body = `<p>Your order has arrived. Thank you for ordering with us!</p>`;
+    } else if (input.status === "cancelled") {
+      subject = `[${BRAND.name}] Order #${input.orderNumber} cancelled`;
+      heading = `Order #${input.orderNumber} cancelled`;
+      const reasonMap: Record<string, string> = {
+        out_of_stock: "Items out of stock",
+        kitchen_closed: "Kitchen closed",
+        cannot_deliver_there: "Unable to deliver to your address",
+        other: "Other reason",
+      };
+      const reasonLabel = (input.cancellationReason && reasonMap[input.cancellationReason]) || "Order could not be fulfilled";
+      body = `<p>Unfortunately, your order could not be accepted: <strong>${escapeHtml(reasonLabel)}</strong>.</p>${input.cancellationNote ? `<p style="color: #71717a;">${escapeHtml(input.cancellationNote)}</p>` : ""}`;
+    }
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #18181b;">
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">${escapeHtml(heading)}</h2>
+        <div style="font-size: 14px; color: #52525b; margin: 16px 0;">${body}</div>
+        <div style="margin: 24px 0;">
+          <a href="${trackingUrl}" style="display: inline-block; background-color: #c2410c; color: #ffffff; text-decoration: none; font-weight: 600; padding: 10px 20px; border-radius: 8px; font-size: 14px;">
+            View order status
+          </a>
+        </div>
+      </div>
+    `;
+
+    await resend.emails.send({
+      from: `${BRAND.name} <${BRAND.contactEmail}>`,
+      to: input.customerEmail,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error(
+      "[order-notifications] Status email dispatch failed: code=status_email_failed",
+      err instanceof Error ? err.name : "unknown"
+    );
+  }
+}
+
 
 function escapeHtml(str: string): string {
   return str

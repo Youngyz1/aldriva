@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
+import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import {
   resolveEventsEmbed,
@@ -1554,6 +1555,7 @@ async function MenuEmbedBlockRenderer({
   currency,
   currencyLocale,
   orderConfig,
+  siteSlug,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
@@ -1564,6 +1566,7 @@ async function MenuEmbedBlockRenderer({
   currency?: string;
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
+  siteSlug?: string;
 }) {
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
@@ -1590,6 +1593,8 @@ async function MenuEmbedBlockRenderer({
     subtotal: t("subtotal"),
     deliveryFee: t("deliveryFee"),
     deliveryFeeNotice: t("deliveryFeeNotice"),
+    freeDelivery: t("freeDelivery"),
+    freeDeliveryProgress: t("freeDeliveryProgress"),
     total: t("total"),
     fulfilment: t("fulfilment"),
     pickup: t("pickup"),
@@ -1615,6 +1620,13 @@ async function MenuEmbedBlockRenderer({
     scheduledNotice: t("scheduledNotice"),
     noUpcomingHours: t("noUpcomingHours"),
     backToMenu: t("backToMenu"),
+    asap: t("asap"),
+    scheduleForLater: t("scheduleForLater"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    trackOrder: t("trackOrder"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
   };
   const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
   const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
@@ -1751,6 +1763,69 @@ async function MenuEmbedBlockRenderer({
         </div>
         </StorefrontBrowse>
       )}
+      {siteSlug && !block.selectedItemIds?.length && hasMenuItems ? (
+        <div className="mt-8 text-center">
+          <a
+            href={`/site/${encodeURIComponent(siteSlug)}/menu`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 transition-colors"
+          >
+            {t("viewFullMenu")}
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </a>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// ── 12b. Reservation Form Block (Live Data) ──────────────────────────────────
+
+async function ReservationFormBlockRenderer({
+  reservationConfig,
+  siteSlug,
+}: {
+  reservationConfig?: StorefrontReservationConfig;
+  siteSlug?: string;
+}) {
+  const t = await getTranslations("Storefront");
+  if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
+    return (
+      <section className="w-full py-16">
+        <p className="py-4 text-center text-sm text-zinc-500">{t("requestNotAvailable")}</p>
+      </section>
+    );
+  }
+  const labels: ReservationFormLabels = {
+    title: t("reservationTitle"),
+    subtext: t("reservationSubtext"),
+    fullName: t("fullName"),
+    phone: t("phone"),
+    email: t("email"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    partySize: t("partySize"),
+    specialRequest: t("specialRequest"),
+    requestTable: t("requestTable"),
+    requestingTable: t("requestingTable"),
+    requestReceived: t("requestReceived"),
+    requestReceivedSubtext: t("requestReceivedSubtext"),
+    requestReference: t("requestReference"),
+    trackRequest: t("trackRequest"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
+    backToSite: t("backToSite"),
+    noSlots: t("noSlots"),
+    closedThatDay: t("closedThatDay"),
+    checkDetails: t("reservationCheckDetails"),
+    requestNotAvailable: t("requestNotAvailable"),
+    rateLimited: t("reservationRateLimited"),
+    tooManyOpenRequests: t("reservationTooManyOpen"),
+    invalidPartySize: t("reservationInvalidParty"),
+    requestFailed: t("reservationFailed"),
+  };
+  return (
+    <section className="w-full py-16">
+      <ReservationRequestForm config={reservationConfig} labels={labels} siteSlug={siteSlug ?? reservationConfig.slug} />
     </section>
   );
 }
@@ -1875,6 +1950,8 @@ export async function BlockRenderer({
   currency,
   currencyLocale,
   orderConfig,
+  reservationConfig,
+  siteSlug,
 }: {
   block: unknown;
   tenantId?: string;
@@ -1885,6 +1962,8 @@ export async function BlockRenderer({
   currency?: string;
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
+  reservationConfig?: StorefrontReservationConfig;
+  siteSlug?: string;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -1970,6 +2049,7 @@ export async function BlockRenderer({
           currency={currency}
           currencyLocale={currencyLocale}
           orderConfig={orderConfig}
+          siteSlug={siteSlug}
         />
       );
       break;
@@ -1981,6 +2061,14 @@ export async function BlockRenderer({
       break;
     case "menu_order":
       return null;
+    case "reservation_form":
+      content = (
+        <ReservationFormBlockRenderer
+          reservationConfig={reservationConfig}
+          siteSlug={siteSlug}
+        />
+      );
+      break;
     default:
       console.warn(
         `[BlockRenderer] Unknown block type: "${(b as { type: string }).type}" — skipping.`

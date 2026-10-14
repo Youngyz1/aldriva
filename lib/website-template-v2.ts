@@ -66,7 +66,7 @@ export interface TemplateSlot {
 
 // ── Page purposes + sections ────────────────────────────────────────────────
 
-export type TemplatePagePurpose = "home" | "catalog" | "transaction" | "contact";
+export type TemplatePagePurpose = "home" | "catalog" | "transaction" | "booking" | "contact";
 
 export interface TemplateV2Page {
   slug: string;
@@ -199,9 +199,13 @@ const RESTAURANT_SECTIONS: TemplateSection[] = [
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag"] },
   { id: "business-offerings", page: "home", block: "features", slots: [] },
   { id: "highlights", page: "home", block: "features", slots: ["highlights.items"] },
+  { id: "menu.browse", page: "home", block: "menu_embed",
+    note: "Full menu browse on home — shows all active items grouped by category with chips and search. No selectedItemIds filter.",
+  },
   {
     id: "menu.featured", page: "home", block: "menu_embed", slots: ["menu.featured"],
-    note: "UUID-shaped featured.menu_item_ids bind as selectedItemIds (tenant-scoped in resolveMenuEmbed); non-UUID ids are dropped.",
+    optional: true, defaultOff: true,
+    note: "Popular dishes strip — optional, shows only owner-picked items. Hidden by default until picks are set.",
   },
   { id: "menu.order-buttons", page: "home", block: "menu_order", note: "Add to Order buttons enabled via menu ordering." },
   { id: "about", page: "home", block: "about", slots: ["about.photo", "about.text", "about.stats"] },
@@ -211,6 +215,7 @@ const RESTAURANT_SECTIONS: TemplateSection[] = [
   { id: "cta-band", page: "home", block: "cta_banner", locked: true, note: 'Locked copy: "Made for good moments."' },
   { id: "menu.full", page: "catalog", block: "menu_embed", note: "Full menu shows all sections (no featured filter)." },
   { id: "order.summary", page: "transaction", pendingBlock: "order_summary", note: "Cart-less order summary + pay needs the order_summary commerce block (not built)." },
+  { id: "reservation.book", page: "booking", block: "reservation_form", note: "Table request form — emitted only when reservations resolve live (ticked + capability + built)." },
   { id: "contact.main", page: "contact", block: "contact", slots: ["location.address", "hours.table", "location.phone", "location.directions", "contact.email"] },
   { id: "contact.form", page: "contact", pendingBlock: "contact_form", note: "Message form needs the contact_form block (not built)." },
   { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note", "hours.table"] },
@@ -242,12 +247,14 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
     { slug: "menu", title: "Menu", isHome: false, sortOrder: 1, purpose: "catalog" },
     { slug: "order", title: "Order", isHome: false, sortOrder: 2, purpose: "transaction" },
     { slug: "contact", title: "Contact", isHome: false, sortOrder: 3, purpose: "contact" },
+    { slug: "reservations", title: "Reservations", isHome: false, sortOrder: 4, purpose: "booking" },
   ],
   navigation: [
     { label: "Home", pageSlug: "home", href: "/", order: 0 },
     { label: "Menu", pageSlug: "menu", href: "/menu", order: 1 },
-    { label: "About", pageSlug: "home", href: "/#about", order: 2 },
-    { label: "Contact", pageSlug: "contact", href: "/contact", order: 3 },
+    { label: "Reservations", pageSlug: "reservations", href: "/reservations", order: 2, feature: "reservations" },
+    { label: "About", pageSlug: "home", href: "/#about", order: 3 },
+    { label: "Contact", pageSlug: "contact", href: "/contact", order: 4 },
   ],
   sections: RESTAURANT_SECTIONS,
   commerce: { order: "food" },

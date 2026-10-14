@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
       items,
       idempotencyKey,
       hp,
+      scheduledFor,
     } = body ?? {};
 
     const admin = createSupabaseAdmin();
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
         items: Array.isArray(items) ? items : [],
         idempotencyKey: idempotencyKey ?? null,
         hp: hp ?? null,
+        scheduledFor: scheduledFor ?? null,
       },
       { admin, stripe }
     );
@@ -90,6 +92,7 @@ export async function POST(req: NextRequest) {
       paymentIntentId: result.paymentIntentId,
       orderId: result.orderId,
       orderNumber: result.orderNumber,
+      trackingToken: result.trackingToken,
       scheduledFor: result.scheduledFor,
     });
   } catch (err) {

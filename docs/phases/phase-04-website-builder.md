@@ -130,3 +130,25 @@ The contact section retains the full weekly schedule; the shared v2 footer displ
 Website category and storefront context use the earliest linked business by `created_at`. Business creation and editing both validate and persist offerings; the dashboard Reservations module remains hidden until a real route and built feature exist.
 
 **Verification:** focused Phase 2a suites passed 86/86; selected website suites passed 296/296 across 25 test files; invitation suites passed 322/322 across 14 test files; organization/navigation suites passed 47/47 across three files; `npx tsc --noEmit` and ESLint on touched TypeScript and test files passed. Migration 169, production build, live database/RLS behavior, and authenticated browser behavior were not exercised.
+
+## Phase 4 Addendum — "Ordering & payments" panel in website builder + fulfilment rule (2026-10-13)
+
+### Scope & Architectural Integration
+Added an "Ordering & payments" panel to the V2 Website Editor (`V2WebsiteEditor.tsx`). The panel is category-agnostic and surfaces the feature-kind offerings supported by the linked business's catalog (`online_ordering`, `pickup`, `delivery`, `online_payment`).
+
+- **Panel Definition**: [`components/dashboard/website/v2/OrderingPaymentsPanel.tsx:35`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/website/v2/OrderingPaymentsPanel.tsx#L35)
+- **Panel Mounting**: [`components/dashboard/website/v2/V2WebsiteEditor.tsx:327`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/website/v2/V2WebsiteEditor.tsx#L327)
+- **Shared Component Confirmation**: The Edit Business form ([`app/dashboard/businesses/[id]/edit/EditBusinessFormClient.tsx:350`](file:///c:/Users/Youngyz/aldriva-staging/app/dashboard/businesses/%5Bid%5D/edit/EditBusinessFormClient.tsx#L350)) and the Website Builder panel ([`components/dashboard/website/v2/OrderingPaymentsPanel.tsx:149`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/website/v2/OrderingPaymentsPanel.tsx#L149)) share the exact same component: [`components/dashboard/businesses/OfferingsFulfilmentWarning.tsx`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/businesses/OfferingsFulfilmentWarning.tsx). They also share the underlying helper `isFulfilmentMissing()` in [`lib/storefront-features.ts:56`](file:///c:/Users/Youngyz/aldriva-staging/lib/storefront-features.ts#L56) and write through the identical validated server action `updateBusiness()` in [`lib/actions/businesses.ts:286`](file:///c:/Users/Youngyz/aldriva-staging/lib/actions/businesses.ts#L286) with `validateBusinessOfferings()` in [`lib/business-offerings.ts:105`](file:///c:/Users/Youngyz/aldriva-staging/lib/business-offerings.ts#L105). No duplicate forms, tables, or columns were introduced.
+
+### Key Rules & Behavior
+1. **Immediate Live Updates**: Changes in the panel persist immediately via `updateBusiness` (no draft/publish cycle). Both EN and FR banners explicitly inform the user.
+2. **Preview Channel Synchronization**: Toggling an offering posts an `"update_offerings"` message across the iframe preview bridge (`website-preview-channel.ts`), immediately refreshing the live feature resolution in `V2WebsitePreviewClient.tsx`.
+3. **Display-Only Preview Notice**: When ordering is live, an amber notice banner is rendered near the preview: *"Ordering works on your live site, not in this preview"* (EN/FR parity via `Storefront.previewOrderingNotice`).
+4. **Live Status Lines & Feature Filtering**: Every toggle displays live status via `resolveStorefrontFeatures` / `computeFeatureStatus`: either "Live" or "Needs setup — <reason>" (reasons: `no_fulfilment`, `no_active_dish`, `currency_not_supported`, `feature_not_built`). Toggles for features not built in the active template are suppressed completely.
+5. **Fulfilment Rule**: `resolveStorefrontFeatures` resolves `ordering: false` unless at least one of `pickup`, `delivery`, or `delivery_to_customer` is ticked. `OfferingsFulfilmentWarning` alerts the owner in both the builder and the business edit form when ordering is ticked without fulfilment.
+6. **Role Gating & Multi-Business**: Owner, admin, and manager roles can toggle offerings; editors and viewers see a read-only panel with disabled toggles. Multiple linked businesses resolve via the earliest `created_at` rule, and the panel explicitly displays the active business name.
+
+### Verification
+- **Automated Tests**: New suite `lib/__tests__/phase4-ordering-payments-panel.test.cjs` (8 hermetic tests covering validated writes, unknown key rejection, role gating, status reasons, fulfilment rule, EN/FR parity, unbuilt template suppression, and SSR render). Registered in `package.json`.
+- **Full Suite**: 2068/2068 tests passing across 186 suites (`npm test --script-shell=pwsh`).
+- **TypeScript & Lint**: `tsc --noEmit` clean, ESLint clean.

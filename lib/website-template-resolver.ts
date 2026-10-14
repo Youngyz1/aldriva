@@ -738,14 +738,22 @@ function buildSectionBlock(
     case "cta_banner":
       return buildCtaBand(ctx);
     case "menu_embed": {
-      const heading = section.id === "menu.full" ? "Our full menu" : "Featured dishes";
-      return buildMenuEmbed(ctx, heading, section.id === "menu.full" ? 12 : 6, section.id !== "menu.full");
+      if (section.id === "menu.full") return buildMenuEmbed(ctx, "Our full menu", 200, false);
+      if (section.id === "menu.browse") return buildMenuEmbed(ctx, "Our Menu", 200, false);
+      return buildMenuEmbed(ctx, "Featured dishes", 6, true); // menu.featured — picks only
     }
     case "menu_order": {
       if (!ctx.storefrontFeatures.ordering) return null;
       return {
         id: stableUuid(ctx.template.id + ":home:menu_order"),
         type: "menu_order",
+      };
+    }
+    case "reservation_form": {
+      if (!ctx.storefrontFeatures.reservations) return null;
+      return {
+        id: stableUuid(ctx.template.id + ":reservations:reservation_form"),
+        type: "reservation_form",
       };
     }
     default:

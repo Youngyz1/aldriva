@@ -34,11 +34,11 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
-export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }: { org: Org; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; capabilities?: Capability[]; offerings?: readonly string[] | null }) {
+export default function OrgDashboardSidebar({ org, hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }: { org: Org; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasReservationRows?: boolean; capabilities?: Capability[]; offerings?: readonly string[] | null }) {
   const pathname = usePathname();
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const rawNavItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings });
+  const rawNavItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings });
   const navItems = rawNavItems.map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }

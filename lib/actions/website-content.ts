@@ -36,6 +36,8 @@ import {
 import { getFlagshipTemplate } from "@/lib/website-template-v2";
 import { generateStableId } from "@/lib/website-blocks";
 import { revalidatePath } from "next/cache";
+import { getOrgApproval } from "@/lib/server-approval";
+import { canPublish as canPublishApproval } from "@/lib/business-approval";
 
 export interface ContentActionResult<T = unknown> {
   success: boolean;
@@ -358,6 +360,22 @@ export async function publishContentDraft(
       success: false,
       code: "V2_ONLY",
       error: "Publishing content drafts is only supported for valid v2 flagship template websites.",
+    };
+  }
+
+  // Business approval gate: block publish while business is pending/rejected/archived.
+  // Saving content drafts is always allowed — this gate only applies to publish.
+  const approvalState = await getOrgApproval(ctx.tenantId);
+  if (!canPublishApproval(approvalState)) {
+    const messages: Record<string, string> = {
+      pending: "Your site cannot be published until your business is approved.",
+      rejected: "Your business application was not approved. Publishing is unavailable.",
+      archived: "This business is archived. Publishing is unavailable.",
+    };
+    return {
+      success: false,
+      code: "forbidden",
+      error: messages[approvalState] ?? "Publishing is not available for this business.",
     };
   }
 

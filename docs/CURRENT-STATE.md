@@ -1,5 +1,35 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Phase 4.1: Unverified business 404 fix + approval gating (2026-10-13)
+
+- **Status: IMPLEMENTED IN WORKING TREE.** Fixed bare 404s for Menu and Website links from the business shell, added business approval gating for publish and public orders.
+- **Root cause fixed:** `app/dashboard/businesses/[id]/layout.tsx` now fetches `organizer_id`. Nav items for `menu` and `website` now redirect to `/dashboard/org/<organizer_id>/menu` and `/dashboard/org/<organizer_id>/website/new` — the only pages that exist. No new page files created.
+- **Approval gate — pure predicate:** `lib/business-approval.ts` — pure, I/O-free. `getApprovalState(statusArray[])` → `"approved" | "pending" | "rejected" | "archived" | "none"`. `canPublish(state)` and `canTakeOrders(state)` are true for `"approved"` and `"none"` (direct organizer flow).
+- **Approval gate — server helper:** `lib/server-approval.ts` — `getOrgApproval(organizerId)` queries `businesses.status` once, returns `ApprovalState`. Used by all gates.
+- **Publish gating:** `publishPageDraft` ([`lib/actions/website-builder.ts`](file:///c:/Users/Youngyz/aldriva-staging/lib/actions/website-builder.ts)) and `publishContentDraft` ([`lib/actions/website-content.ts`](file:///c:/Users/Youngyz/aldriva-staging/lib/actions/website-content.ts)) both reject with a specific EN message when `canPublish(state) === false`. Saving drafts is **not** blocked.
+- **Order gating:** `submitOrderRequestWithClient` ([`lib/order-submit.ts`](file:///c:/Users/Youngyz/aldriva-staging/lib/order-submit.ts)) rejects `ordering_disabled` with neutral message ("Ordering is not available yet.") that does not leak internal business status. Applied after `storefrontFeatures.ordering` check, before payment method check.
+- **Approval banner:** `OrgApprovalBanner.tsx` renders a localized amber/red/zinc banner for pending/rejected/archived states. Rendered `null` for approved/none. Sidebar continues showing Menu and Website for all states — gating is via banner + server enforcement, not nav hiding.
+- **Org layout:** fetches `businesses.status` alongside existing columns. Derives `approvalState` via `getApprovalState`. Renders `<OrgApprovalBanner>` in the main content area.
+- **Admin approval revalidation:** `app/api/admin/businesses/[id]/route.ts` now calls `revalidatePath("/dashboard/org", "layout")` after approve/reject so the org dashboard reflects the new state on the next request.
+- **Dev-mode logging:** `console.warn` before every `notFound()` in org layout, website/new page, and business shell layout — naming the cause without logging PII.
+- **EN/FR strings:** `BusinessApproval` namespace added to both `messages/en.json` and `messages/fr.json` with 12 keys covering pending/rejected/archived banners, publish-blocked, orders-unavailable, and no-organizer state.
+- **Tests:** `lib/__tests__/phase4-1-business-approval.test.cjs` — 36 tests: predicate matrix (all 5 states × canPublish + canTakeOrders), message leakage checks, nav routing, sidebar visibility, EN/FR parity, source-level gate presence in all 3 gated files, revalidatePath, dev logging. Registered in `package.json`.
+- **Updated pre-existing test:** `lib/__tests__/org-dashboard-modules.test.cjs` line 307 updated to match new `"..., status"` column in the business query.
+- **Verification:** new approval tests 36/36 ✓; targeted suite (phase4+, org-dashboard-modules, business-offerings, website-builder, website-content, order) 257/257 ✓; ESLint exit 0 ✓; `tsc --noEmit` exit 0 ✓. No commit, push, or migration changes.
+- **Not done (outside scope):** already-published sites whose business becomes non-active — code paths identified (3: website proxy doesn't check status; public page renders; builder page doesn't gate). No action taken per "report only" requirement.
+
+## Active Worktree Update — Phase 4 Addendum: "Ordering & payments" panel in website builder (2026-10-13)
+
+- **Status: IMPLEMENTED IN WORKING TREE.** Added an "Ordering & payments" accordion panel to the v2 website editor (category-agnostic). Toggles online_ordering, pickup, delivery, online_payment — reads/writes via the existing `updateBusiness` path in `lib/actions/businesses.ts`. No new column, no new table.
+- **Fulfilment rule:** `resolveStorefrontFeatures` now enforces that `ordering` is `false` unless at least one of pickup/delivery/delivery_to_customer is ticked. Panel and Edit-business form both show a warning when online_ordering is on with no fulfilment method. Existing sites with offerings unset are unchanged.
+- **Live updates:** changes write immediately (no draft/publish cycle) and are communicated to the builder preview via `"update_offerings"` postMessage. An amber "Ordering works on your live site, not in this preview" banner appears when ordering is live.
+- **Role gating:** owner/admin/manager can toggle; editor/viewer see read-only. Multiple linked businesses use earliest-by-created_at rule (same as website category derivation); panel says which business is shown.
+- **Status lines:** each toggle shows "Live" or "Needs setup — <reason>" computed by `computeFeatureStatus`. Toggles for features not built in the active template are suppressed.
+- **Panel location:** [`components/dashboard/website/v2/OrderingPaymentsPanel.tsx`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/website/v2/OrderingPaymentsPanel.tsx); mounted in [`V2WebsiteEditor.tsx`](file:///c:/Users/Youngyz/aldriva-staging/components/dashboard/website/v2/V2WebsiteEditor.tsx). The panel calls `updateBusiness` directly — no duplicate form logic; shared with the Edit-business form via the same server action and `validateBusinessOfferings`.
+- **Tests:** `lib/__tests__/phase4-ordering-payments-panel.test.cjs` (8 tests: toggle writes, unknown key rejection, role gating, status reasons, fulfilment rule, EN/FR parity, unbuilt template suppression, render). Registered in `package.json`.
+- **Pre-existing fix:** `event-import-removal.test.cjs` pattern tightened from `/import/i` (too broad — caught French "Importez") to event-import-specific patterns. `org-dashboard-modules.ts` Orders nav check simplified to direct `offerings.includes("online_ordering")` (nav access ≠ storefront live state).
+- **Verification:** ESLint clean, `tsc --noEmit` clean. Full `npm test --script-shell=pwsh` → 2069/2069 passing (pending confirmation of final run). Build and browser review not run.
+
 ## Active Worktree Update — Phase 3.1 Menu interaction fix (2026-10-13)
 
 - **Status: IMPLEMENTED IN WORKING TREE.** Default-view dish cards were dead static markup (grid gated behind search/chip engagement); the mounted grid is now always interactive. Builder preview stays display-only by design. Gating rules intact.

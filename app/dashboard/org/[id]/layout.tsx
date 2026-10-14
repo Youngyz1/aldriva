@@ -9,9 +9,11 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCapabilitiesForBusinesses } from "@/lib/org-dashboard-modules";
+import { getApprovalState } from "@/lib/business-approval";
 import { getOrgNavItems } from "./org-nav-items";
 import OrgDashboardSidebar from "./OrgDashboardSidebar";
 import OrgMobileHeader from "./OrgMobileHeader";
+import OrgApprovalBanner from "./OrgApprovalBanner";
 
 export default async function OrgDashboardLayout({
   children,
@@ -32,7 +34,12 @@ export default async function OrgDashboardLayout({
     .is("deleted_at", null)
     .maybeSingle();
 
-  if (!org) return notFound();
+  if (!org) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[org-layout] notFound: no organizer row for id=${id}`);
+    }
+    return notFound();
+  }
 
   // Tenant access: owner or delegated via entity_members
   const { checkTenantAccess } = await import("@/lib/entity-auth");
@@ -56,6 +63,7 @@ export default async function OrgDashboardLayout({
     { data: businessRows },
     { count: menuSectionCount },
     { count: serviceCount },
+    { count: reservationCount },
   ] = await Promise.all([
     supabase.from("events").select("id", { count: "exact", head: true }).eq("organizer_id", id),
     supabase.from("fundraisers").select("id", { count: "exact", head: true }).eq("organizer_id", id).is("deleted_at", null),
@@ -64,9 +72,12 @@ export default async function OrgDashboardLayout({
       ? supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", orgUserId)
       : Promise.resolve({ count: 0 }),
     supabase.from("tenant_websites").select("id").eq("tenant_id", id).maybeSingle(),
-    supabase.from("businesses").select("id, industry, category, business_type, offerings").eq("organizer_id", id),
+    supabase.from("businesses").select("id, industry, category, business_type, offerings, status").eq("organizer_id", id),
     supabase.from("menu_sections").select("id", { count: "exact", head: true }).eq("organizer_id", id),
     supabase.from("services").select("id", { count: "exact", head: true }).eq("organizer_id", id),
+    // Missing migration 176 => error => null count => hidden unless gated
+    // otherwise; never crashes the layout.
+    supabase.from("reservations").select("id", { count: "exact", head: true }).eq("organizer_id", id),
   ]);
   const hasEvents = (eventCount ?? 0) > 0;
   const hasFundraisers = (fundraiserCount ?? 0) > 0;
@@ -74,6 +85,7 @@ export default async function OrgDashboardLayout({
   const hasWebsite = (businessCount ?? 0) > 0 || !!websiteRow;
   const hasMenuRows = (menuSectionCount ?? 0) > 0;
   const hasServiceRows = (serviceCount ?? 0) > 0;
+  const hasReservationRows = (reservationCount ?? 0) > 0;
 
   // Capability-driven nav: union across every linked business (an org with
   // several businesses sees each type's items). No linked business → the
@@ -103,9 +115,18 @@ export default async function OrgDashboardLayout({
     hasWebsite,
     hasMenuRows,
     hasServiceRows,
+    hasReservationRows,
     capabilities,
     offerings,
   };
+
+  // Derive approval state from linked business statuses (gate for publish/orders).
+  // Sidebar keeps showing Menu/Website while pending — only the banner changes.
+  const approvalState = getApprovalState(
+    (Array.isArray(businessRows) ? businessRows : []).map(
+      (row) => (row as { status?: string | null }).status ?? ""
+    )
+  );
 
   // One-time dev check (never in production): list what this org would lose
   // versus today's always-show Services/Menu, so test data can be reviewed
@@ -130,11 +151,12 @@ export default async function OrgDashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-zinc-100">
-      <OrgDashboardSidebar org={org} hasEvents={hasEvents} hasFundraisers={hasFundraisers} hasProducts={hasProducts} hasWebsite={hasWebsite} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} capabilities={capabilities} offerings={offerings} />
+      <OrgDashboardSidebar org={org} hasEvents={hasEvents} hasFundraisers={hasFundraisers} hasProducts={hasProducts} hasWebsite={hasWebsite} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} hasReservationRows={hasReservationRows} capabilities={capabilities} offerings={offerings} />
 
       {/* Main content area */}
       <main className="min-w-0 flex-1">
-        <OrgMobileHeader org={org} hasEvents={hasEvents} hasFundraisers={hasFundraisers} hasProducts={hasProducts} hasWebsite={hasWebsite} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} capabilities={capabilities} offerings={offerings} />
+        <OrgMobileHeader org={org} hasEvents={hasEvents} hasFundraisers={hasFundraisers} hasProducts={hasProducts} hasWebsite={hasWebsite} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} hasReservationRows={hasReservationRows} capabilities={capabilities} offerings={offerings} />
+        <OrgApprovalBanner approvalState={approvalState} />
         <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8 lg:pb-6">
           {children}
         </div>

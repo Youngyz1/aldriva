@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/admin-data";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(
   req: NextRequest,
@@ -73,6 +74,10 @@ export async function PATCH(
     } catch (e) {
       console.error("[admin/businesses/[id]] moderation event insert failed", e);
     }
+    // Revalidate the organizer's dashboard so the approval banner updates immediately.
+    // We don't know the organizer_id here without another query, so revalidate the
+    // entire org dashboard layout segment — Next.js will re-fetch on next request.
+    revalidatePath("/dashboard/org", "layout");
     return NextResponse.json({ success: true });
   }
 

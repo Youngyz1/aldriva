@@ -72,7 +72,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
   { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary"] },
   { id: "highlights", title: "Highlights", slotIds: ["highlights.items"] },
   { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items"] },
-  { id: "menu", title: "Menu picks", slotIds: ["menu.featured"] },
+  { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured"] },
   { id: "about", title: "About", slotIds: ["about.photo", "about.text", "about.stats"] },
   { id: "gallery", title: "Gallery", slotIds: ["gallery.photos"] },
   { id: "testimonials", title: "Testimonials", slotIds: ["testimonials.items"] },

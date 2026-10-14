@@ -23,21 +23,17 @@
  *
  * Orders/Reservations/Fleet/Bookings are reserved: defined with their
  * capabilities but `routeExists: false`, so they never render until the
- * pages exist under `app/dashboard/org/[id]/`.
+ * pages exist under `app/dashboard/org/[id]/`. (Reservations shipped in
+ * Phase 7; fleet/bookings remain reserved.)
  */
 
 import type { Capability } from "./business-taxonomy";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
-import { FLAGSHIP_TEMPLATES } from "./website-template-v2";
-import {
-  getBuiltStorefrontFeaturesFromTemplates,
-  resolveStorefrontFeatures,
-} from "./storefront-features";
 
 export type OrgNavVisibility =
   | { kind: "always" }
   | { kind: "count"; flag: "events" | "fundraisers" | "products" | "website" }
-  | { kind: "capability"; capabilities: Capability[]; existence: "menuRows" | "serviceRows" };
+  | { kind: "capability"; capabilities: Capability[]; existence: "menuRows" | "serviceRows" | "reservationRows" };
 
 export interface OrgNavModule {
   /** Stable id; also the `Organizer` i18n key and English fallback lowercased. */
@@ -59,7 +55,7 @@ export const ORG_NAV_MODULES: readonly OrgNavModule[] = [
   { key: "services", label: "Services", hrefSuffix: "services", icon: "Briefcase", visibility: { kind: "capability", capabilities: ["SERVICES"], existence: "serviceRows" }, routeExists: true },
   { key: "menu", label: "Menu", hrefSuffix: "menu", icon: "Utensils", visibility: { kind: "capability", capabilities: ["MENU"], existence: "menuRows" }, routeExists: true },
   { key: "orders", label: "Orders", hrefSuffix: "orders", icon: "Store", visibility: { kind: "capability", capabilities: ["ORDERS", "ONLINE_ORDERING"], existence: "menuRows" }, routeExists: true },
-  { key: "reservations", label: "Reservations", hrefSuffix: "reservations", icon: "CalendarCheck", visibility: { kind: "capability", capabilities: ["RESERVATIONS", "TABLES"], existence: "menuRows" }, routeExists: false },
+  { key: "reservations", label: "Reservations", hrefSuffix: "reservations", icon: "CalendarCheck", visibility: { kind: "capability", capabilities: ["RESERVATIONS", "TABLES"], existence: "reservationRows" }, routeExists: true },
   { key: "fleet", label: "Fleet", hrefSuffix: "fleet", icon: "Car", visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "menuRows" }, routeExists: false },
   { key: "bookings", label: "Bookings", hrefSuffix: "bookings", icon: "CalendarDays", visibility: { kind: "capability", capabilities: ["BOOKINGS", "APPOINTMENTS"], existence: "serviceRows" }, routeExists: false },
   { key: "reviews", label: "Reviews", hrefSuffix: "reviews", icon: "Star", visibility: { kind: "always" }, routeExists: true },
@@ -74,6 +70,8 @@ export interface OrgNavSignalCounts {
   hasWebsite?: boolean;
   hasMenuRows?: boolean;
   hasServiceRows?: boolean;
+  /** True when at least one reservation row exists (never hide data entry UI). */
+  hasReservationRows?: boolean;
   /** Union of owner-selected stable offering keys across linked businesses. */
   offerings?: readonly string[] | null;
 }
@@ -91,21 +89,28 @@ function isModuleVisible(
     if (visibility.flag === "products") return counts.hasProducts !== false;
     return counts.hasWebsite !== false;
   }
-  // Orders requires the owner's online_ordering offering to resolve true via
-  // the shared storefront resolver (capability + selection + built template),
-  // not capability alone. Menu rows alone never enable ordering.
+  // Orders nav item shows whenever the owner has selected the online_ordering
+  // offering — managers need dashboard access to manage orders even before the
+  // storefront is fully live (e.g. fulfilment method not yet configured).
+  // The storefront fulfilment rule only affects what customers see; nav access
+  // is gated on the offering selection alone (capability still required below).
   if (module.key === "orders") {
-    const ordering = resolveStorefrontFeatures({
-      capabilities: [...capabilities],
-      offerings: counts.offerings ?? [],
-      built: getBuiltStorefrontFeaturesFromTemplates(FLAGSHIP_TEMPLATES),
-    }).ordering;
-    if (!ordering) return false;
+    const hasOrderingOffering = (counts.offerings ?? []).includes("online_ordering");
+    if (!hasOrderingOffering) return false;
+  }
+  // Reservations shows when the owner ticked table_reservations (capability
+  // still required below) — managers need access even before the storefront
+  // is fully live. Existing rows always win so owners never lose data access.
+  if (module.key === "reservations") {
+    if (counts.hasReservationRows === true) return true;
+    const hasReservationOffering = (counts.offerings ?? []).includes("table_reservations");
+    if (!hasReservationOffering) return false;
   }
   // Capability-gated: capability match OR existing rows (rows always win —
   // hiding the only catalog-entry UI would strand owner data).
   if (visibility.existence === "menuRows" && counts.hasMenuRows === true) return true;
   if (visibility.existence === "serviceRows" && counts.hasServiceRows === true) return true;
+  if (visibility.existence === "reservationRows" && counts.hasReservationRows === true) return true;
   return visibility.capabilities.some((capability) => capabilities.has(capability));
 }
 
@@ -118,7 +123,7 @@ export function getOrgNavModules(
   return ORG_NAV_MODULES.filter((module) => module.routeExists && isModuleVisible(module, set, counts));
 }
 
-/** Reserved items (orders/reservations/fleet/bookings): defined, never rendered yet. */
+/** Reserved items (fleet/bookings): defined, never rendered yet. */
 export function getReservedOrgNavModules(): OrgNavModule[] {
   return ORG_NAV_MODULES.filter((module) => !module.routeExists);
 }

@@ -54,6 +54,7 @@ import {
 import { generateStableId } from "@/lib/website-blocks";
 import { isReservedWebsiteSlug } from "@/lib/website-nav";
 import { getTenantSiteBuilderLiveUrl } from "@/lib/website-structured-data";
+import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
 import {
   getContentForBuilder,
   type ContentActionResult,
@@ -363,11 +364,15 @@ export interface V2BuilderState {
   isPublished: boolean;
   publicUrl: string;
   storefront: {
+    businessId: string | null;
+    businessName: string | null;
     industry: string;
     category: string;
     businessType: string | null;
     offerings: string[];
     timeZone: string;
+    country: string | null;
+    currency: string;
   };
   template: { id: string; version: string; name: string };
   templateManifest: WebsiteTemplateV2;
@@ -508,12 +513,15 @@ export async function getBuilderState(
   const supabaseAdmin = createSupabaseAdmin();
   const { data: linkedBusiness } = await supabaseAdmin
     .from("businesses")
-    .select("industry, category, business_type, offerings, created_at")
+    .select("id, name, industry, category, business_type, offerings, country, created_at")
     .eq("organizer_id", data.tenantId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
+  const storefrontCurrency = resolveStorefrontCurrency(metadata, linkedBusiness?.country ?? null);
   const storefront = {
+    businessId: typeof linkedBusiness?.id === "string" ? linkedBusiness.id : null,
+    businessName: typeof linkedBusiness?.name === "string" ? linkedBusiness.name : null,
     industry: typeof linkedBusiness?.industry === "string" ? linkedBusiness.industry : "",
     category: typeof linkedBusiness?.category === "string" ? linkedBusiness.category : "",
     businessType: typeof linkedBusiness?.business_type === "string" ? linkedBusiness.business_type : null,
@@ -521,6 +529,8 @@ export async function getBuilderState(
       ? linkedBusiness.offerings.filter((key: unknown): key is string => typeof key === "string")
       : [],
     timeZone: typeof metadata.timezone === "string" ? metadata.timezone : "Africa/Abidjan",
+    country: typeof linkedBusiness?.country === "string" ? linkedBusiness.country : null,
+    currency: storefrontCurrency,
   };
   const resolved = resolveTemplateContent(template.id, template.version, effective, {
     business: storefront,
