@@ -66,6 +66,15 @@ export function adaptSeatCategory(seat: {
  */
 export const EXPIRED_GRACE_MS = 30 * 1000;
 
+/**
+ * Clock-skew margin for honoring remembered holds. A timestamped entry
+ * counts as live only while `now < holdUntil - HOLD_SKEW_MARGIN_MS`: a fast
+ * client clock must never stretch a hold past its server-side expiry, and a
+ * slow clock merely drops the entry early (display falls back to the
+ * server-read status; the RPC arbitrates on retry).
+ */
+export const HOLD_SKEW_MARGIN_MS = 30 * 1000;
+
 export interface AdaptOptions {
   /**
    * Seat ids the current buyer selected (own holds). Entries with a
@@ -102,7 +111,7 @@ export function parseHeldEntries(raw: unknown, now?: number): HoldEntry[] {
         typeof (e as HoldEntry).id === "string" &&
         typeof (e as HoldEntry).holdUntil === "number" &&
         Number.isFinite((e as HoldEntry).holdUntil) &&
-        (e as HoldEntry).holdUntil > t
+        t < (e as HoldEntry).holdUntil - HOLD_SKEW_MARGIN_MS
       ) {
         out.push({ id: (e as HoldEntry).id, holdUntil: (e as HoldEntry).holdUntil });
       }
@@ -123,7 +132,9 @@ export function allLiveHolds(
   const t = now ?? Date.now();
   const live = new Set(
     (entries ?? [])
-      .filter((e) => e && typeof e.holdUntil === "number" && e.holdUntil > t)
+      .filter(
+        (e) => e && typeof e.holdUntil === "number" && t < e.holdUntil - HOLD_SKEW_MARGIN_MS
+      )
       .map((e) => e.id)
   );
   return ids.every((id) => live.has(id));
@@ -148,7 +159,7 @@ function isMyHeld(
       typeof e === "object" &&
       (e as HoldEntry).id === id &&
       typeof (e as HoldEntry).holdUntil === "number" &&
-      now < (e as HoldEntry).holdUntil
+      now < (e as HoldEntry).holdUntil - HOLD_SKEW_MARGIN_MS
     );
   });
 }
