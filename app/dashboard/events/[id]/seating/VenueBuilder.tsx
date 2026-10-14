@@ -62,6 +62,7 @@ import {
   sectionBottomEdge,
   nextTableNumber,
 } from "@/lib/seating";
+import { collectContentBounds, computeFitTransform } from "./fit-view";
 
 interface Props {
   eventId: string;
@@ -184,6 +185,7 @@ export default function VenueBuilder({
       // Prevent parent window/page from scrolling when pointer is over the canvas
       e.preventDefault();
       e.stopPropagation();
+      userMovedView.current = true;
 
       if (e.ctrlKey || e.metaKey) {
         // Zoom on Ctrl/Cmd + Wheel or pinch
@@ -530,6 +532,7 @@ export default function VenueBuilder({
       const midX = (pts[0].x + pts[1].x) / 2;
       const midY = (pts[0].y + pts[1].y) / 2;
       const p = pinch.current;
+      userMovedView.current = true;
       setScale(
         Math.min(
           2.5,
@@ -564,6 +567,7 @@ export default function VenueBuilder({
       const dx = e.clientX - lastPan.current.x;
       const dy = e.clientY - lastPan.current.y;
       lastPan.current = { x: e.clientX, y: e.clientY };
+      userMovedView.current = true;
       setPan((p) => ({
         x: p.x + dx,
         y: p.y + dy,
@@ -973,62 +977,45 @@ export default function VenueBuilder({
 
   // Fit the whole content bounds into view. Read-only w.r.t. layout data;
   // only sets view scale/pan. Used for narrow-screen initial framing and the
-  // mobile "Fit to bounds" menu action.
+  // Fit button. Math lives in ./fit-view.ts (pure, unit-tested).
   const fitViewToContent = () => {
     const el = canvasRef.current;
     if (!el) return;
-    const pad = 24;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    seats.forEach((s) => {
-      const w = s.width || 26;
-      const h = s.height || 26;
-      minX = Math.min(minX, s.x);
-      minY = Math.min(minY, s.y);
-      maxX = Math.max(maxX, s.x + w);
-      maxY = Math.max(maxY, s.y + h);
+    const bounds = collectContentBounds(seats, venueObjects);
+    const { scale: nextScale, pan: nextPan } = computeFitTransform(bounds, {
+      width: el.clientWidth,
+      height: el.clientHeight,
     });
-    venueObjects.forEach((o) => {
-      minX = Math.min(minX, o.x);
-      minY = Math.min(minY, o.y);
-      maxX = Math.max(maxX, o.x + o.width);
-      maxY = Math.max(maxY, o.y + o.height);
-    });
-    if (!isFinite(minX)) {
-      setScale(1);
-      setPan({ x: 0, y: 0 });
-      return;
-    }
-    const bw = Math.max(maxX - minX + pad * 2, 100);
-    const bh = Math.max(maxY - minY + pad * 2, 100);
-    const sc = Math.min(
-      1.5,
-      Math.max(0.25, Math.min(el.clientWidth / bw, el.clientHeight / bh))
-    );
-    const nextScale = Number(sc.toFixed(2));
     setScale(nextScale);
-    setPan({
-      x: (el.clientWidth - bw * nextScale) / 2 - (minX - pad) * nextScale,
-      y: (el.clientHeight - bh * nextScale) / 2 - (minY - pad) * nextScale,
-    });
+    setPan(nextPan);
   };
 
   // Narrow screens start fitted so labels/content are reachable, not cut off.
   // Desktop keeps the legacy 1:1 top-left framing untouched.
-  const didInitialFit = useRef(false);
+  // B1: the mount-time fit used to run once on (usually still-empty) seats and
+  // latch, leaving real seats in a 1:1 framing on phones. It now waits for the
+  // first non-empty seats and never fires after a manual pan/zoom.
+  const fittedAfterLoad = useRef(false);
+  // Set on every manual view change (wheel, pinch, drag-pan, zoom buttons).
+  const userMovedView = useRef(false);
   useEffect(() => {
-    if (didInitialFit.current) return;
-    didInitialFit.current = true;
+    if (fittedAfterLoad.current) return;
     if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches
+      typeof window === "undefined" ||
+      !window.matchMedia("(max-width: 767px)").matches
     ) {
-      fitViewToContent();
+      fittedAfterLoad.current = true;
+      return;
     }
+    if (seats.length === 0) return; // data not here yet — wait, don't latch
+    if (userMovedView.current) {
+      fittedAfterLoad.current = true;
+      return;
+    }
+    fitViewToContent();
+    fittedAfterLoad.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [seats.length]);
 
   // Inspector body shared verbatim by the desktop floating overlay and the
   // mobile drawer (Stage 2). Moved as-is; both hosts render the same JSX.
@@ -1496,7 +1483,10 @@ export default function VenueBuilder({
             <div className="hidden md:flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-0.5">
               <button
                 type="button"
-                onClick={() => setScale((s) => Math.min(2.5, Number((s + 0.2).toFixed(2))))}
+                onClick={() => {
+                  userMovedView.current = true;
+                  setScale((s) => Math.min(2.5, Number((s + 0.2).toFixed(2))));
+                }}
                 title="Zoom In"
                 className="rounded-lg p-1 text-zinc-600 hover:bg-white hover:shadow-2xs"
               >
@@ -1507,7 +1497,10 @@ export default function VenueBuilder({
               </span>
               <button
                 type="button"
-                onClick={() => setScale((s) => Math.max(0.4, Number((s - 0.2).toFixed(2))))}
+                onClick={() => {
+                  userMovedView.current = true;
+                  setScale((s) => Math.max(0.4, Number((s - 0.2).toFixed(2))));
+                }}
                 title="Zoom Out"
                 className="rounded-lg p-1 text-zinc-600 hover:bg-white hover:shadow-2xs"
               >
@@ -1516,6 +1509,7 @@ export default function VenueBuilder({
               <button
                 type="button"
                 onClick={() => {
+                  userMovedView.current = true;
                   setScale(1);
                   setPan({ x: 0, y: 0 });
                 }}
@@ -1525,6 +1519,20 @@ export default function VenueBuilder({
                 <RotateCcw size={13} />
               </button>
             </div>
+
+            {/* Fit to content (all screen sizes; mobile has no other fit control) */}
+            <button
+              type="button"
+              onClick={() => {
+                fittedAfterLoad.current = true;
+                fitViewToContent();
+              }}
+              title="Fit to content"
+              aria-label="Fit to content"
+              className="rounded-xl border border-zinc-200 bg-white p-2 md:p-1.5 text-zinc-600 hover:bg-zinc-50 transition-all"
+            >
+              <Maximize2 size={13} />
+            </button>
 
             {/* Snap toggle */}
             <button
