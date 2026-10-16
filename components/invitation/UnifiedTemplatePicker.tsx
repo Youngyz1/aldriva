@@ -14,7 +14,9 @@ import {
 } from "@/lib/unified-invitation-templates";
 import { setUnifiedInvitationTemplate } from "@/lib/actions/unified-invitation-template";
 import { extrasForTemplate, TYPE_FIELD_LABELS, type InvitationType } from "@/lib/invitation-type-fields";
-import { getTemplateById, INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
+import { INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
+import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/InvitationBlocksLayoutClient";
 import { InvitationCardRenderer, type InvitationCardData } from "@/components/invitation/InvitationCardRenderer";
 import type { InvitationTemplate } from "@/lib/invitation-types";
 import {
@@ -27,6 +29,7 @@ const PAGE_SWATCH: Record<string, { bg: string; ink: string; accent: string }> =
   "gala-editorial": { bg: "#F8F5F0", ink: "#1C1A18", accent: "#7A5C3A" },
   "black-tie": { bg: "#09090B", ink: "#FFFFFF", accent: "#FBBF24" },
   "wedding-romantic": { bg: "#FAF8F5", ink: "#2C2220", accent: "#A37068" },
+  "romantic-envelope": { bg: "#E6DEC9", ink: "#292524", accent: "#8A4D42" },
   "birthday-bold": { bg: "#FFFDF7", ink: "#141218", accent: "#FF5E5B" },
   cover: { bg: "#101014", ink: "#FFFFFF", accent: "#C2410C" },
 };
@@ -88,7 +91,6 @@ function ScaledPageFrame({
   onReady,
   placeholderLabel,
   decorative = false,
-  thumbnail = false,
 }: {
   pageId: string;
   data: ReturnType<typeof buildInvitationTemplatePreviewData>;
@@ -97,12 +99,11 @@ function ScaledPageFrame({
   onReady?: () => void;
   placeholderLabel: string;
   decorative?: boolean;
-  thumbnail?: boolean;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [frameWidth, setFrameWidth] = useState(320);
-  const TemplateComponent = getTemplateById(pageId).component;
+  const pageLayout = useMemo(() => legacyInvitationTemplateToLayout(pageId), [pageId]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -163,7 +164,7 @@ function ScaledPageFrame({
           className={cn("absolute left-0 top-0 origin-top-left", decorative && "pointer-events-none")}
           style={{ width: 390, transform: `scale(${scale})` }}
         >
-          <TemplateComponent data={data.data} previewMode={thumbnail ? "thumbnail" : undefined} />
+          <InvitationBlocksLayoutClient layout={pageLayout} data={data.data} />
         </div>
       )}
     </div>
@@ -219,7 +220,6 @@ function PagePairTile({
           onReady={() => setPageReady(true)}
           placeholderLabel={pagePlaceholder}
           decorative
-          thumbnail
         />
         {selected && <Check size={16} className="pointer-events-none absolute right-2 top-2 text-orange-800" aria-hidden="true" />}
       </div>

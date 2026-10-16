@@ -13,7 +13,7 @@
 
 export const PREVIEW_MESSAGE_SOURCE = "aldriva-invitation-preview";
 
-export type PreviewMessageKind = "draft" | "scroll-to" | "ready";
+export type PreviewMessageKind = "draft" | "scroll-to" | "block-select" | "ready";
 
 export interface PreviewDraftMessage {
   source: typeof PREVIEW_MESSAGE_SOURCE;
@@ -34,12 +34,19 @@ export interface PreviewScrollMessage {
   sectionId: string;
 }
 
+export interface PreviewBlockSelectMessage {
+  source: typeof PREVIEW_MESSAGE_SOURCE;
+  kind: "block-select";
+  blockId: string;
+  blockType: string;
+}
+
 export interface PreviewReadyMessage {
   source: typeof PREVIEW_MESSAGE_SOURCE;
   kind: "ready";
 }
 
-export type PreviewMessage = PreviewDraftMessage | PreviewScrollMessage | PreviewReadyMessage;
+export type PreviewMessage = PreviewDraftMessage | PreviewScrollMessage | PreviewBlockSelectMessage | PreviewReadyMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -68,6 +75,11 @@ export function isPreviewMessage(data: unknown): data is PreviewMessage {
       );
     case "scroll-to":
       return typeof data.sectionId === "string" && data.sectionId.length > 0;
+    case "block-select":
+      return (
+        typeof data.blockId === "string" && data.blockId.length > 0 && data.blockId.length <= 120 &&
+        typeof data.blockType === "string" && data.blockType.length > 0 && data.blockType.length <= 80
+      );
     case "ready":
       return true;
     default:

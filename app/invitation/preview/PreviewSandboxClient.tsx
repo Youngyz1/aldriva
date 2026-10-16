@@ -19,8 +19,9 @@ import {
   INVITATION_CATEGORIES,
   INVITATION_TEMPLATES,
   TemplateCategory,
-  getTemplateById,
 } from "@/components/invitation/templates/registry";
+import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/InvitationBlocksLayoutClient";
 import { InvitationPageData } from "@/types/invitation-template";
 import { InvitationLocale } from "@/lib/invitation-i18n";
 import {
@@ -259,7 +260,10 @@ export default function PreviewSandboxClient() {
   const [locale, setLocale] = useState<InvitationLocale>("en");
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
-  const currentTemplate = useMemo(() => getTemplateById(templateId), [templateId]);
+  const currentTemplate = useMemo(
+    () => INVITATION_TEMPLATES.find((template) => template.id === templateId) ?? INVITATION_TEMPLATES[0],
+    [templateId]
+  );
   const activeCategory = currentTemplate.category;
 
   const currentCategoryTemplates = useMemo(
@@ -280,7 +284,7 @@ export default function PreviewSandboxClient() {
     [scenarioData, guestType, locale]
   );
 
-  const TemplateComponent = currentTemplate.component;
+  const previewLayout = useMemo(() => legacyInvitationTemplateToLayout(templateId), [templateId]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
@@ -574,11 +578,11 @@ export default function PreviewSandboxClient() {
       <main className="w-full flex-1 flex justify-center bg-zinc-950 overflow-x-hidden">
         {viewport === "mobile" ? (
           <div className="my-6 max-w-[390px] w-full min-h-[844px] border-4 border-zinc-800 rounded-[44px] overflow-hidden shadow-2xl bg-white">
-            <TemplateComponent data={finalPageData} />
+            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} />
           </div>
         ) : (
           <div className="w-full">
-            <TemplateComponent data={finalPageData} />
+            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} />
           </div>
         )}
       </main>

@@ -10,6 +10,7 @@ import { z } from "zod";
 import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
 import { MAX_MUSIC_LINKS, validateMusicLink } from "@/lib/invitation-music-links";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
+import { PageBlocksLayoutSchema } from "@/lib/page-composition";
 
 // Helpers for safe URLs
 const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
@@ -125,6 +126,7 @@ export const WeddingStoryItemSchema = z.object({
 export const InvitationPageDraftSchema = z.object({
   template_id: z.string().min(1, "Template ID is required").default("gala-editorial"),
   locale: z.enum(["en", "fr"]).default("en"),
+  blocks_layout: PageBlocksLayoutSchema.optional().nullable(),
 
   display_title: z.string().max(120, "Display title must be at most 120 characters").optional().nullable(),
   eyebrow: z.string().max(80, "Eyebrow must be at most 80 characters").optional().nullable(),

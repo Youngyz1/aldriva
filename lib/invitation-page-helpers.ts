@@ -19,6 +19,7 @@ import type {
 export const INVITATION_PAGE_CONTENT_KEYS: (keyof InvitationPageSnapshot)[] = [
   "template_id",
   "locale",
+  "blocks_layout",
   "display_title",
   "eyebrow",
   "host_names",

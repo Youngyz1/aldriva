@@ -15,8 +15,9 @@
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { getTemplateById } from "@/components/invitation/templates/registry";
 import { buildInvitationTemplatePreviewData } from "@/lib/invitation-template-preview-data";
+import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/InvitationBlocksLayoutClient";
 import {
   isPreviewMessage,
   isSameOriginMessage,
@@ -56,12 +57,14 @@ function TemplateRender({
   templateId,
   data,
   sampleLabel,
+  blocksLayout,
 }: {
   templateId: string;
   data: ReturnType<typeof buildInvitationTemplatePreviewData>;
   sampleLabel: string;
+  blocksLayout?: unknown;
 }) {
-  const TemplateComponent = getTemplateById(templateId).component;
+  const layout = legacyInvitationTemplateToLayout(templateId, blocksLayout);
   return (
     <>
       {data.sampleFields.length > 0 && (
@@ -69,7 +72,7 @@ function TemplateRender({
           {sampleLabel}
         </span>
       )}
-      <TemplateComponent data={data.data} />
+      <InvitationBlocksLayoutClient layout={layout} data={data.data} mode="preview" isEditMode />
     </>
   );
 }
@@ -115,6 +118,8 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
       templateId,
       savedTemplateId,
       candidatePreview: payload?.candidatePreview === true && savedTemplateId !== templateId,
+      activeLayout: legacyInvitationTemplateToLayout(templateId, draft.blocks_layout),
+      savedLayout: legacyInvitationTemplateToLayout(savedTemplateId, draft.blocks_layout),
       active,
       saved,
     };
@@ -125,6 +130,7 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
       templateId={pageData.templateId}
       data={pageData.active}
       sampleLabel={t("invitationPreviewSampleLabel")}
+      blocksLayout={pageData.activeLayout}
     />
   );
   const previewRender = pageData.candidatePreview ? (
@@ -139,6 +145,7 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
             templateId={pageData.savedTemplateId}
             data={pageData.saved}
             sampleLabel={t("invitationPreviewSampleLabel")}
+            blocksLayout={pageData.savedLayout}
           />
         </>
       }

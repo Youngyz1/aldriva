@@ -9,6 +9,66 @@
 
 export type InvitationLocale = "en" | "fr";
 
+const INVITATION_SYSTEM_COPY_FR: Record<string, string> = {
+  "you're invited!!": "VOUS ÊTES INVITÉ(E) !!",
+  "you're invited": "Vous êtes invité(e)",
+  "click the seal to open the envelope": "CLIQUEZ SUR LE SCEAU POUR OUVRIR L'ENVELOPPE",
+  "open the seal to reveal your invitation": "Ouvrir le sceau pour découvrir votre invitation",
+  "countdown to the celebration": "Compte à rebours jusqu'à la célébration",
+  "countdown timer": "Compte à rebours",
+  "counting the days until we say i do": "Nous comptons les jours jusqu'à notre mariage",
+  "the holy matrimony of": "Le Saint Mariage de",
+  "celebrate with us": "Célébrez avec nous",
+  "accept entry": "Confirmer ma présence",
+  rsvp: "Répondre à l'invitation",
+  itinerary: "Programme de l'événement",
+  schedule: "Programme de l'événement",
+  "venue location": "Lieu de réception",
+  "venue map": "Carte du lieu de réception",
+  "open in google maps": "Ouvrir dans Google Maps",
+  venue: "Lieu de réception",
+  "event details": "Détails de l'événement",
+  gallery: "Galerie",
+  locations: "Lieux",
+  "recommended stays": "Hébergements recommandés",
+  "colors of the day": "Couleurs du jour",
+  "event story": "Histoire de l'événement",
+  "story moment": "Moment de notre histoire",
+  "event gallery photo": "Photo de la galerie de l'événement",
+  "booking information": "Informations de réservation",
+  "date tba": "Date à confirmer",
+  "time tba": "Heure à confirmer",
+  "honored guest": "Invité(e) d'honneur",
+  "assigned seating": "Placement attribué",
+  when: "Quand",
+  address: "Adresse",
+  "parking & arrival": "Parking et arrivée",
+  "dress code": "Code vestimentaire",
+  "attire notes": "Précisions sur la tenue",
+  "additional information": "Informations complémentaires",
+  registry: "Liste de cadeaux",
+  "gift note": "Message concernant les cadeaux",
+  hashtag: "Mot-clic",
+  celebration: "Célébration",
+  "contact us": "Nous contacter",
+  name: "Nom",
+  email: "E-mail",
+  message: "Message",
+  "send message": "Envoyer le message",
+  "thank you. your message has been sent.": "Merci. Votre message a été envoyé.",
+  "we could not send your message. please try again.": "Nous n'avons pas pu envoyer votre message. Veuillez réessayer.",
+  "rsvp controls are available from your personal invitation link.": "Les commandes de réponse sont disponibles depuis votre lien d'invitation personnel.",
+  "responses are disabled in preview.": "Les réponses sont désactivées dans l'aperçu.",
+  "this form is shown in preview.": "Ce formulaire est affiché dans l'aperçu.",
+};
+
+/** Translates exact builder-owned labels while preserving organizer-authored copy. */
+export function localizeInvitationSystemCopy(value: string, locale: InvitationLocale = "en"): string {
+  if (locale !== "fr") return value;
+  const key = value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+  return INVITATION_SYSTEM_COPY_FR[key] ?? value;
+}
+
 export interface InvitationDictionary {
   // Common
   youAreInvited: string;
@@ -289,7 +349,7 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
 
     messageFromHost: "Un message de l'hôte",
     orderOfEvents: "Déroulement de l'événement",
-    itineraryAndProgram: "Programme & Itinéraire",
+    itineraryAndProgram: "Programme de l'événement",
     locationAndTravel: "Lieu & Accès",
     venueAndDirections: "Lieu & Itinéraire",
     venues: "Lieux",
@@ -341,7 +401,7 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     willYouJoinUs: "Serez-vous parmi nous ?",
     willYouCelebrate: "Serez-vous des nôtres pour célébrer ?",
     areYouComing: "Venez-vous faire la fête ?",
-    accept: "Accepter l'invitation",
+    accept: "Confirmer ma présence",
     decline: "Ne peut pas venir",
     attending: "Présent(e)",
     declined: "Décliné(e)",
@@ -428,7 +488,11 @@ export function formatLocalizedEventDate(
   locale: InvitationLocale = "en",
   timezone?: string | null
 ): { dateDisplay: string; timeDisplay: string } {
-  if (!dateIso) return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
+  if (!dateIso) {
+    return locale === "fr"
+      ? { dateDisplay: "Date à confirmer", timeDisplay: "Heure à confirmer" }
+      : { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
+  }
 
   try {
     const d = new Date(dateIso);
@@ -458,6 +522,8 @@ export function formatLocalizedEventDate(
       timeDisplay: tzAbbr ? `${timeStr} ${tzAbbr}` : timeStr,
     };
   } catch {
-    return { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
+    return locale === "fr"
+      ? { dateDisplay: "Date à confirmer", timeDisplay: "Heure à confirmer" }
+      : { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
   }
 }

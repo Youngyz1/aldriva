@@ -34,6 +34,7 @@ import type {
 } from "@/lib/types/invitation-page-snapshot";
 import { cleanupOrphanInvitationAudio } from "@/lib/uploadAudio";
 import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
+import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import {
   MISSING_MUSIC_LINKS_COLUMN_ERROR,
   isMissingMusicLinksColumnError,
@@ -141,6 +142,7 @@ export async function saveInvitationPageDraft(
     event_id: eventId,
     template_id: valid.template_id,
     locale: valid.locale,
+    blocks_layout: valid.blocks_layout ?? null,
 
     display_title: valid.display_title || null,
     eyebrow: valid.eyebrow || null,
@@ -274,6 +276,7 @@ export async function publishInvitationPage(
   const snapshot: InvitationPageSnapshot = {
     template_id: draftRow.template_id,
     locale: locale,
+    blocks_layout: null,
 
     display_title: draftRow.display_title || null,
     eyebrow: draftRow.eyebrow || null,
@@ -284,8 +287,14 @@ export async function publishInvitationPage(
 
     hero_image_url: draftRow.hero_image_url || null,
     hero_image_alt: draftRow.hero_image_alt || null,
-    hero_image_focus_x: draftRow.hero_image_focus_x ?? 50,
-    hero_image_focus_y: draftRow.hero_image_focus_y ?? 50,
+    hero_image_focus_x:
+      typeof draftRow.hero_image_focus_x === "number" && Number.isFinite(draftRow.hero_image_focus_x)
+        ? draftRow.hero_image_focus_x
+        : 50,
+    hero_image_focus_y:
+      typeof draftRow.hero_image_focus_y === "number" && Number.isFinite(draftRow.hero_image_focus_y)
+        ? draftRow.hero_image_focus_y
+        : 50,
     scroll_prompt: draftRow.scroll_prompt || null,
 
     venue_name: draftRow.venue_name || null,
@@ -320,6 +329,11 @@ export async function publishInvitationPage(
     colors_of_the_day: draftRow.colors_of_the_day || null,
     wedding_story: draftRow.wedding_story || null,
   };
+
+  snapshot.blocks_layout = legacyInvitationTemplateToLayout(
+    snapshot.template_id,
+    (draftRow as Record<string, unknown>).blocks_layout
+  );
 
   const nowIso = new Date().toISOString();
 

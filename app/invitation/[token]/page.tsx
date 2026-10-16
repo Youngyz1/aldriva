@@ -10,6 +10,9 @@ import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import { getSiteUrl } from "@/lib/site-url";
 import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
+import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
+import type { PageActionPayload, PageActionHandler } from "@/lib/page-actions";
+import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
 
 export async function generateMetadata({
   params,
@@ -96,8 +99,8 @@ export default async function PublicInvitationPage({
  * remains statically cacheable.
  *
  * BRANCH LOGIC:
- * 1. If the event has a *published* invitation_page → render the new custom page
- *    template via the Invitation Template Registry. Unknown template_id → card fallback.
+ * 1. If the event has a *published* invitation_page → render its canonical blocks
+ *    (legacy template IDs are converted by the compatibility adapter).
  * 2. If no published page (or page unpublished) → render the existing invitation card
  *    unchanged. Old invitations without any page always land here.
  */
@@ -117,76 +120,73 @@ async function InvitationLoader({ token }: { token: string }) {
   const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
 
   if (publishedPage) {
-    const { getTemplateById } = await import("@/components/invitation/templates/registry");
-    const registryEntry = getTemplateById(publishedPage.published_snapshot.template_id);
+    // Assemble live data layers into the InvitationPageData contract.
+    const guestRecord = {
+      guest_name: invitation.guest_name,
+      guest_title: invitation.guest_title,
+      organization: invitation.organization,
+      rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
+      rsvp_at: invitation.rsvp_at,
+      token: invitation.token,
+      is_vip: seat?.is_vip ?? false,
+    };
 
-    if (registryEntry) {
-      // Assemble live data layers into the InvitationPageData contract.
-      const guestRecord = {
-        guest_name: invitation.guest_name,
-        guest_title: invitation.guest_title,
-        organization: invitation.organization,
-        rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
-        rsvp_at: invitation.rsvp_at,
-        token: invitation.token,
-        is_vip: seat?.is_vip ?? false,
-      };
+    const seatRecord = seat
+      ? {
+          section: seat.section,
+          row_label: seat.row_label,
+          seat_number: seat.seat_number,
+          table_number: seat.table_number,
+          table_name: seat.table_name,
+          is_vip: Boolean(seat.is_vip),
+        }
+      : null;
 
-      const seatRecord = seat
-        ? {
-            section: seat.section,
-            row_label: seat.row_label,
-            seat_number: seat.seat_number,
-            table_number: seat.table_number,
-            table_name: seat.table_name,
-            is_vip: Boolean(seat.is_vip),
-          }
-        : null;
+    const ticketRecord = ticketInstance
+      ? {
+          qr_code: ticketInstance.qr_code,
+          status: ticketInstance.status,
+          checked_in_at: ticketInstance.checked_in_at,
+        }
+      : null;
 
-      const ticketRecord = ticketInstance
-        ? {
-            qr_code: ticketInstance.qr_code,
-            status: ticketInstance.status,
-            checked_in_at: ticketInstance.checked_in_at,
-          }
-        : null;
+    const liveEvent = {
+      id: event.id,
+      title: event.title || "Exclusive Event",
+      slug: event.slug || "",
+      event_date: event.event_date || "",
+      end_date: event.end_date || null,
+      venue: event.venue || null,
+      street_address: null as string | null, // not selected in getInvitationByToken
+      city: event.city || null,
+      latitude: null as number | null,
+      longitude: null as number | null,
+    };
 
-      const liveEvent = {
-        id: event.id,
-        title: event.title || "Exclusive Event",
-        slug: event.slug || "",
-        event_date: event.event_date || "",
-        end_date: event.end_date || null,
-        venue: event.venue || null,
-        street_address: null as string | null, // not selected in getInvitationByToken
-        city: event.city || null,
-        latitude: null as number | null,
-        longitude: null as number | null,
-      };
+    const pageData = assembleInvitationPageData(
+      publishedPage.published_snapshot,
+      liveEvent,
+      guestRecord,
+      ticketRecord,
+      seatRecord
+    );
 
-      const pageData = assembleInvitationPageData(
-        publishedPage.published_snapshot,
-        liveEvent,
-        guestRecord,
-        ticketRecord,
-        seatRecord
-      );
-
-      const TemplateComponent = registryEntry.component;
-
-      // RSVP handler — delegates to the existing RSVP API.
-      async function handleRsvp(response: "accepted" | "declined") {
-        "use server";
-        const { rsvpInvitation } = await import("@/lib/invitations");
-        await rsvpInvitation({ token, response });
-      }
-
-      return <TemplateComponent data={pageData} onRsvp={handleRsvp} />;
+    async function handlePageAction(payload: PageActionPayload) {
+      "use server";
+      if (payload.actionType !== "RSVP_SUBMISSION") throw new Error("Unsupported invitation action.");
+      const { rsvpInvitation } = await import("@/lib/invitations");
+      await rsvpInvitation({ token, response: payload.response });
     }
 
-    // Unknown template_id — log and fall through to card fallback.
-    console.error(
-      `[InvitationLoader] Unknown template_id "${publishedPage.published_snapshot.template_id}" for event ${event?.id}. Falling back to card.`
+    const onAction: PageActionHandler = handlePageAction;
+    return (
+      <UniversalPageRenderer
+        kind="invitation"
+        layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+        data={pageData}
+        onAction={onAction}
+        mode="live"
+      />
     );
   }
 

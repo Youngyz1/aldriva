@@ -28,6 +28,8 @@ import Link from "next/link";
 import { Eye, Clock, MailX } from "lucide-react";
 import { getInvitationPagePreviewByToken } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
+import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
+import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
 import { BRAND } from "@/config/branding";
 import type { InvitationPageData } from "@/types/invitation-template";
 
@@ -85,6 +87,7 @@ async function PreviewLoader({ token }: { token: string }) {
   const draftAsSnapshot = {
     template_id: draft.template_id,
     locale: draft.locale,
+    blocks_layout: draft.blocks_layout ?? null,
     display_title: draft.display_title,
     eyebrow: draft.eyebrow,
     host_names: draft.host_names,
@@ -148,20 +151,16 @@ async function PreviewLoader({ token }: { token: string }) {
     null
   );
 
-  // Resolve template from registry
-  const { getTemplateById } = await import("@/components/invitation/templates/registry");
-  const registryEntry = getTemplateById(draft.template_id);
-  const TemplateComponent = registryEntry.component;
-
   return (
     <>
       {/* Preview Banner — shown above the template, not part of it */}
       <PreviewBanner expiresAt={result.expiresAt} locale={draft.locale} />
-      {/*
-        onRsvp is intentionally omitted so the template disables its RSVP buttons.
-        No RSVP writes are possible from the preview route.
-      */}
-      <TemplateComponent data={pageData} />
+      <UniversalPageRenderer
+        kind="invitation"
+        layout={legacyInvitationSnapshotToLayout(draftAsSnapshot)}
+        data={pageData}
+        mode="preview"
+      />
     </>
   );
 }

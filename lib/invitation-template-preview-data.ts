@@ -9,6 +9,7 @@ import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-pr
 
 const SAMPLE_DATA_BY_TEMPLATE: Record<string, InvitationPageData> = {
   "wedding-romantic": WEDDING_INVITATION_SAMPLE_DATA,
+  "romantic-envelope": WEDDING_INVITATION_SAMPLE_DATA,
   "birthday-bold": BIRTHDAY_INVITATION_SAMPLE_DATA,
   "gala-editorial": FULL_INVITATION_SAMPLE_DATA,
   "black-tie": FULL_INVITATION_SAMPLE_DATA,

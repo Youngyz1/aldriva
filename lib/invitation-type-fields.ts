@@ -44,6 +44,7 @@ export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
   "gala-editorial": "gala_corporate",
   "black-tie": "gala_corporate",
   "wedding-romantic": "wedding",
+  "romantic-envelope": "wedding",
   "birthday-bold": "birthday",
   cover: "universal",
 };

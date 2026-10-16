@@ -5,6 +5,8 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
+import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
+import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
 import { SharedUnavailable } from "./SharedUnavailable";
 
 export const metadata: Metadata = {
@@ -89,15 +91,6 @@ export default async function SharedInvitationPage({
   const publishedPage = await getPublishedInvitationPage(ev.id as string);
   if (!publishedPage) return <SharedUnavailable />;
 
-  const { getTemplateById } = await import("@/components/invitation/templates/registry");
-  const registryEntry = getTemplateById(publishedPage.published_snapshot.template_id);
-  if (!registryEntry) {
-    console.error(
-      `[SharedInvitationPage] Unknown template_id "${publishedPage.published_snapshot.template_id}" for event ${ev.id}.`
-    );
-    return <SharedUnavailable />;
-  }
-
   const pageData = assembleInvitationPageData(
     publishedPage.published_snapshot,
     {
@@ -123,6 +116,13 @@ export default async function SharedInvitationPage({
     return <SharedUnavailable />;
   }
 
-  const TemplateComponent = registryEntry.component;
-  return <TemplateComponent data={pageData} shared />;
+  return (
+    <UniversalPageRenderer
+      kind="invitation"
+      layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+      data={pageData}
+      shared
+      mode="shared"
+    />
+  );
 }

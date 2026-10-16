@@ -20,6 +20,7 @@ import type {
   InvitationTicketPassData,
   InvitationMusicLink,
 } from "@/types/invitation-template";
+import type { PageBlocksLayout } from "@/lib/page-composition";
 import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 
@@ -46,6 +47,8 @@ export interface ColorOfTheDayItem {
 export interface InvitationPageSnapshot {
   template_id: string;
   locale: InvitationLocale;
+  /** Canonical block layout. Missing on legacy snapshots; resolved by adapter. */
+  blocks_layout?: PageBlocksLayout | null;
 
   // Overrides & Host Narrative
   display_title?: string | null;
@@ -112,6 +115,7 @@ export interface EventInvitationPageRow {
   page_status: InvitationPageStatus;
   published_at: string | null;
   published_snapshot: InvitationPageSnapshot | null;
+  blocks_layout?: PageBlocksLayout | null;
 
   display_title: string | null;
   eyebrow: string | null;
@@ -300,8 +304,15 @@ export function assembleInvitationPageData(
     heroImage: snapshot.hero_image_url ?? undefined,
     heroImageAlt: snapshot.hero_image_alt ?? undefined,
     heroImageFocus:
-      typeof snapshot.hero_image_focus_x === "number" && typeof snapshot.hero_image_focus_y === "number"
-        ? { x: snapshot.hero_image_focus_x, y: snapshot.hero_image_focus_y }
+      snapshot.hero_image_url
+        ? {
+            x: typeof snapshot.hero_image_focus_x === "number" && Number.isFinite(snapshot.hero_image_focus_x)
+              ? snapshot.hero_image_focus_x
+              : 50,
+            y: typeof snapshot.hero_image_focus_y === "number" && Number.isFinite(snapshot.hero_image_focus_y)
+              ? snapshot.hero_image_focus_y
+              : 50,
+          }
         : undefined,
     scrollPrompt: snapshot.scroll_prompt ?? undefined,
 

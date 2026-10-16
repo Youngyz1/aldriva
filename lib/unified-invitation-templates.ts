@@ -48,6 +48,17 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
     blurb: "Gold-on-ink formality on the card, romantic blush page.",
   },
   {
+    id: "romantic-envelope@1.0.0",
+    baseId: "romantic-envelope",
+    name: "Romantic Envelope",
+    nameKey: "unifiedRomanticEnvelopeName",
+    categoryLabel: "Wedding & Formal",
+    occasion: "wedding",
+    cardSlug: "royal-elegance",
+    pageId: "romantic-envelope",
+    blurb: "A cinematic envelope reveal followed by the wedding invitation page.",
+  },
+  {
     id: "festive-gold-noir@1.0.0",
     baseId: "festive-gold-noir",
     name: "Confetti",
@@ -96,6 +107,7 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
 /** Translation keys used on user-facing picker, banner, and readiness surfaces. */
 export const UNIFIED_TEMPLATE_NAME_KEYS = {
   "royal-elegance": "unifiedRoyalEleganceName",
+  "romantic-envelope": "unifiedRomanticEnvelopeName",
   "festive-gold-noir": "unifiedFestiveGoldNoirName",
   "grand-gala-noir": "unifiedGrandGalaNoirName",
   "modern-executive": "unifiedModernExecutiveName",

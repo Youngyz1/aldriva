@@ -32,6 +32,7 @@ import {
   type InvitationType,
 } from "@/lib/invitation-type-fields";
 import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
+import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import {
   isPreviewMessage,
   isSameOriginMessage,
@@ -46,6 +47,7 @@ import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
 import { MusicSection } from "./sections/MusicSection";
 import { ExtrasSection } from "./sections/ExtrasSection";
+import { DesignSection } from "./sections/DesignSection";
 import { PublishSection } from "./sections/PublishSection";
 import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
 import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
@@ -63,6 +65,7 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
   return {
     template_id: d.template_id ?? "gala-editorial",
     locale: d.locale ?? "en",
+    blocks_layout: d.blocks_layout ?? null,
     display_title: d.display_title ?? null,
     eyebrow: d.eyebrow ?? null,
     host_names: d.host_names ?? null,
@@ -116,6 +119,7 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
 const SECTION_IDS = [
   "type",
   "template",
+  "design",
   "basics",
   "hero",
   "story",
@@ -131,6 +135,7 @@ type SectionId = (typeof SECTION_IDS)[number];
 const SECTION_TITLES: Record<SectionId, string> = {
   type: "Type of invitation",
   template: "Template",
+  design: "Design / Aesthetics",
   basics: "Basics",
   hero: "Hero",
   story: "Story",
@@ -187,6 +192,8 @@ function SectionBody({
   onDismissUnsupportedMusicNotice,
 }: SectionBodyProps) {
   switch (id) {
+    case "design":
+      return <DesignSection draft={draft} updateDraft={updateDraft} />;
     case "basics":
       return <BasicsSection draft={draft} event={event} eventId={eventId} updateDraft={updateDraft} />;
     case "hero":
@@ -239,6 +246,8 @@ function summaryFor(
       return typeSummary;
     case "template":
       return templateSummary ?? draft.template_id;
+    case "design":
+      return "Palette, typography & text size";
     case "basics":
       return [draft.display_title || "Untitled", draft.timezone || "No timezone"].join(" · ");
     case "hero":
@@ -409,6 +418,24 @@ export function InvitationPageBuilder({
       // if it was posted before the frame's listener attached.
       if (e.data.kind === "ready" && latestPayloadRef.current) {
         postToPreview(latestPayloadRef.current);
+      } else if (e.data.kind === "block-select") {
+        const sectionForBlock: Record<string, SectionId> = {
+          hero: "hero",
+          story: "story",
+          details: "details",
+          schedule: "details",
+          gallery: "gallery",
+          music: "music",
+          action_portal: "publish",
+        };
+        const sectionId = sectionForBlock[e.data.blockType];
+        if (!sectionId) return;
+        setOpenSection(sectionId);
+        requestAnimationFrame(() => {
+          const header = document.getElementById(`inv-section-header-${sectionId}`);
+          header?.scrollIntoView({ behavior: "smooth", block: "start" });
+          header?.focus({ preventScroll: true });
+        });
       }
     }
     window.addEventListener("message", onMessage);
@@ -454,7 +481,7 @@ export function InvitationPageBuilder({
     setInvitationType(pendingTypeChange.type);
     // Confirmation is the type save point; until now only the iframe used
     // the candidate page. Values remain on the draft while visibility changes.
-    updateDraft({ template_id: pendingTypeChange.pageId });
+    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: null });
     setCandidatePreviewTemplateId(null);
     setPendingTypeChange(null);
     setOpenSection(null);
@@ -463,10 +490,18 @@ export function InvitationPageBuilder({
 
   const handleUnifiedTemplateApplied = useCallback((pageId: string) => {
     setInvitationType(invitationTypeForTemplate(pageId));
-    if (draft.template_id === pageId) return;
-    skipTemplateAutosaveRef.current = pageId;
-    setDraft((current) => ({ ...current, template_id: pageId }));
-  }, [draft.template_id]);
+    if (pageId !== "romantic-envelope") {
+      if (draft.template_id === pageId) return;
+      skipTemplateAutosaveRef.current = pageId;
+      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: null }));
+      return;
+    }
+
+    const blocksLayout = legacyInvitationTemplateToLayout(pageId, draft.blocks_layout);
+    if (draft.template_id === pageId && JSON.stringify(draft.blocks_layout) === JSON.stringify(blocksLayout)) return;
+    if (draft.template_id !== pageId) skipTemplateAutosaveRef.current = pageId;
+    setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: blocksLayout }));
+  }, [draft.blocks_layout, draft.template_id]);
 
   const pendingTypeLabel = pendingTypeChange
     ? pendingTypeChange.type === "wedding"
