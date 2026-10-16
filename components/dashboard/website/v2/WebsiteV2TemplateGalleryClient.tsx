@@ -135,14 +135,18 @@ export function WebsiteV2TemplateGalleryClient({
         <div className="grid gap-5 lg:grid-cols-2">
           {visibleCards.map((card) => {
             const busy = pendingTemplateId === card.id;
+            const cardName = card.id === "food-order" ? publicT("foodOrderTemplateName") : card.name;
+            const cardDescription = card.id === "food-order"
+              ? publicT("foodOrderTemplateDescription")
+              : card.description;
             return (
               <article key={card.id} className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
                 <V2TemplateGalleryPreviewFrame>{card.preview}</V2TemplateGalleryPreviewFrame>
                 <div className="space-y-3 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="text-base font-semibold text-zinc-900">{card.name}</h3>
-                      <p className="mt-1 text-sm leading-5 text-zinc-600">{card.description}</p>
+                      <h3 className="text-base font-semibold text-zinc-900">{cardName}</h3>
+                      <p className="mt-1 text-sm leading-5 text-zinc-600">{cardDescription}</p>
                     </div>
                     <Badge variant="outline" size="sm" className="shrink-0 capitalize">
                       {categoryModel.recommendedTemplateIds.includes(card.id)

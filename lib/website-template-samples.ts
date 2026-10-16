@@ -135,7 +135,34 @@ export const RENTAL_SAMPLES: ContentDoc = {
   footer_note: "Drive safe.",
 };
 
+// ── Category-neutral food ordering: Food Order ──────────────────────────────
+
+export const FOOD_ORDER_SAMPLES: ContentDoc = {
+  business_name: "Your business",
+  tagline: "A thoughtful place to begin",
+  hero_headline: "Find something that fits the moment",
+  hero_subtext: "Explore what is available, learn about the people behind it, and choose a next step that works for you.",
+  primary_cta_label: "Explore options",
+  secondary_cta_label: "Get in touch",
+  steps: [
+    { title: "Explore", description: "Look through the options this business offers." },
+    { title: "Choose", description: "Share what you are interested in." },
+    { title: "Confirm", description: "The business will confirm the details with you." },
+  ],
+  about_text: "Learn about the people, ideas, and care behind this business.",
+  testimonials: [],
+  nav_labels: {
+    home: "Home",
+    menu: "Explore",
+    order: "Order",
+    reservations: "Reservations",
+    about: "About",
+    contact: "Contact",
+  },
+};
+
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {
   "restaurant-table-flame": RESTAURANT_SAMPLES,
   "rental-driveline": RENTAL_SAMPLES,
+  "food-order": FOOD_ORDER_SAMPLES,
 };

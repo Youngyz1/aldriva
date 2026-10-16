@@ -17,6 +17,7 @@ import { getBusinessOfferings } from "@/lib/business-offerings";
 import { getBuilderCommerceCapability } from "@/lib/website-commerce-registry";
 import { Switch } from "@/components/ui/switch";
 import { OrderingPaymentsPanel } from "./OrderingPaymentsPanel";
+import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy } from "@/lib/website-v2-template-preview";
 
 interface V2WebsiteEditorProps {
   initialState: V2BuilderState;
@@ -25,6 +26,7 @@ interface V2WebsiteEditorProps {
 
 export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProps) {
   const storeT = useTranslations("Storefront");
+  const publicT = useTranslations("PublicSite") as unknown as (key: string, values?: Record<string, string>) => string;
   const offeringT = useTranslations("BusinessOfferings");
   const websiteId = initialState.websiteId;
   const template = initialState.templateManifest;
@@ -56,6 +58,35 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
   // one is visible. At xl and above both show side by side.
   const [mobileView, setMobileView] = useState<"form" | "preview">("form");
 
+  const foodOrderCopy = useMemo(
+    () => template.id === "food-order" ? getFoodOrderLocalizedCopy(publicT) : undefined,
+    [publicT, template.id]
+  );
+  const foodOrderSampleContent = useMemo(() => {
+    if (!foodOrderCopy) return undefined;
+    const businessName = typeof content.business_name === "string" && content.business_name.trim()
+      ? content.business_name
+      : publicT("foodOrderPreviewFallbackBusiness");
+    const businessLogo = typeof content.logo_url === "string" ? content.logo_url : null;
+    return createNeutralGallerySampleContent(template.id, businessName, businessLogo, {
+      tagline: publicT("previewTagline"),
+      headline: publicT("previewHeadline", { business: "{business}" }),
+      subtext: publicT("previewSubtext"),
+      about: publicT("previewAbout"),
+      featureTitle: publicT("previewFeatureTitle"),
+      featureDescription: publicT("previewFeatureDescription"),
+      callToAction: publicT("previewExplore"),
+      home: publicT("home"),
+      catalog: publicT("catalog"),
+      aboutNav: publicT("about"),
+      contact: publicT("contact"),
+      process: publicT("process"),
+      faq: publicT("faq"),
+      pricing: publicT("pricing"),
+      foodOrder: foodOrderCopy.sample,
+    });
+  }, [content.business_name, content.logo_url, foodOrderCopy, publicT, template.id]);
+
   const business = useMemo(() => ({
     ...initialState.storefront,
     offerings: storefrontOfferings,
@@ -86,9 +117,11 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
       offeringsHeading: storeT("whatWeOffer"),
       restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
       rentalCtaBandHeading: storeT("rentalBrandMessage"),
+      foodOrderCopy: foodOrderCopy?.resolver,
+      sampleContentOverride: foodOrderSampleContent,
       timeZone: business.timeZone,
     }),
-    [business, content, initialState.websiteSlug, offeringLabels, storeT, template.id, template.version]
+    [business, content, foodOrderCopy, foodOrderSampleContent, initialState.websiteSlug, offeringLabels, storeT, template.id, template.version]
   );
   const readiness = useMemo(() => checkPublishReadiness(template.id, template.version, content), [content, template.id, template.version]);
   const sections = useMemo(
@@ -338,7 +371,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
               return <section key={section.id} className="px-3 py-1">
                 <button type="button" aria-expanded={open} onClick={() => setOpenSectionId(open ? "" : section.id)} className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{index + 1}</span>
-                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{section.title}</span><span className="block truncate text-xs text-zinc-500">{section.summary}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{section.titleKey ? publicT(section.titleKey) : section.title}</span><span className="block truncate text-xs text-zinc-500">{section.id === "template" && template.id === "food-order" ? publicT("foodOrderTemplateName") : section.summary}</span></span>
                   {section.missingSlotIds.length > 0 ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 dark:bg-rose-950/50 dark:text-rose-200">{section.missingSlotIds.length} missing</span> : null}
                   <span aria-hidden="true" className="text-zinc-400">{open ? "−" : "+"}</span>
                 </button>
@@ -361,7 +394,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
                       />
                     </div>
                   ) : null}
-                  {section.readOnly ? <div className="flex items-center justify-between rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800"><span>{template.name}</span><button type="button" disabled className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-semibold opacity-50 dark:border-zinc-700">Change template</button></div> : section.controls.map(renderControl)}
+                  {section.readOnly ? <div className="flex items-center justify-between rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800"><span>{template.id === "food-order" ? publicT("foodOrderTemplateName") : template.name}</span><button type="button" disabled className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-semibold opacity-50 dark:border-zinc-700">Change template</button></div> : section.controls.map(renderControl)}
                 </div> : null}
               </section>;
             })}

@@ -352,12 +352,109 @@ export const RENTAL_DRIVELINE: WebsiteTemplateV2 = {
   tags: ["rental", "cars", "fleet", "booking"],
 };
 
+// ── Category-neutral food ordering: Food Order ──────────────────────────────
+
+const FOOD_ORDER_SLOTS: TemplateSlot[] = [
+  { slotId: "nav.logo", field: "logo_url", label: "Logo", kind: "image" },
+  { slotId: "nav.labels", field: "nav_labels", label: "Menu bar labels", kind: "text" },
+  { slotId: "nav.cta", field: "primary_cta_label", label: "Primary action button", kind: "text" },
+  { slotId: "hero.image", field: "hero_image", label: "Hero image", kind: "image" },
+  { slotId: "hero.headline", field: "hero_headline", label: "Headline", kind: "text", required: true },
+  { slotId: "hero.subtext", field: "hero_subtext", label: "Introduction", kind: "textarea" },
+  { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
+  { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Primary action label", kind: "text" },
+  { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Secondary action label", kind: "text" },
+  { slotId: "steps.items", field: "steps", label: "Order steps", kind: "items", max: 3 },
+  { slotId: "about.text", field: "about_text", label: "About text", kind: "textarea" },
+  { slotId: "about.photo", field: "about_image", label: "About image", kind: "image" },
+  { slotId: "testimonials.items", field: "testimonials", label: "Testimonials", kind: "items", max: 3 },
+  { slotId: "hours.table", field: "hours", label: "Opening hours", kind: "hours" },
+  { slotId: "location.address", field: "address", label: "Address", kind: "text" },
+  { slotId: "location.phone", field: "phone", label: "Phone", kind: "text" },
+  { slotId: "location.directions", field: "directions_url", label: "Directions link", kind: "url" },
+  { slotId: "contact.email", field: "email", label: "Email", kind: "text" },
+  { slotId: "footer.business", field: "business_name", label: "Business name", kind: "text", required: true },
+  { slotId: "footer.socials", field: "socials", label: "Social links", kind: "socials" },
+  { slotId: "footer.note", field: "footer_note", label: "Footer note", kind: "text" },
+];
+
+const FOOD_ORDER_SECTIONS: TemplateSection[] = [
+  { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
+  { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary"] },
+  { id: "how-it-works", page: "home", block: "features", slots: ["steps.items"] },
+  {
+    id: "menu.browse", page: "home", block: "menu_embed",
+    note: "Live catalog with the existing search and category filters; omitted when no menu or product data is available.",
+  },
+  { id: "menu.order", page: "home", block: "menu_order", note: "Ordering controls are emitted only when ordering is live for the site." },
+  { id: "cta-band", page: "home", block: "cta_banner", locked: true, note: "Locked, neutral special-offer band; no discount or fulfillment promise." },
+  { id: "about", page: "home", block: "about", slots: ["about.photo", "about.text"] },
+  { id: "testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"], optional: true },
+  { id: "menu.full", page: "catalog", block: "menu_embed", note: "Live catalog page; omitted when no relevant catalog data exists." },
+  { id: "order.summary", page: "transaction", block: "menu_embed", note: "Ordering page; emitted only when ordering is live and catalog data exists." },
+  { id: "reservation.book", page: "booking", block: "reservation_form", note: "Emitted only when reservations resolve live." },
+  { id: "contact.main", page: "contact", block: "contact", slots: ["hours.table", "location.address", "location.phone", "location.directions", "contact.email"] },
+  { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note", "hours.table"] },
+];
+
+export const FOOD_ORDER_TEMPLATE: WebsiteTemplateV2 = {
+  id: "food-order",
+  version: "1.0.0",
+  name: "Food Order",
+  description: "A flexible storefront for exploring a business, its catalog, and the next step.",
+  category: "restaurant",
+  style: "warm",
+  previewColor: "var(--ps-accent)",
+  // This is a recommendation only. The V2 create action accepts every gallery template for every category.
+  supportedCategories: ["restaurant"],
+  theme: { ...DEFAULT_THEME_CONFIG, theme: "warm", primaryColor: "var(--ps-accent)", fontFamily: "sans" },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Explore", ctaHref: "", sticky: true },
+  footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
+  lockedTheme: { primaryColor: "var(--ps-accent)", headingFont: "sans", bodyFont: "sans" },
+  defaultAccentId: "mustard",
+  lockedLayout: true,
+  templateBackground: {
+    base: "var(--ps-cream)",
+    texture: "none",
+    bands: [
+      { zone: "hero", color: "var(--ps-accent-light)" },
+      { zone: "footer", color: "var(--ps-neutral)" },
+    ],
+  },
+  editableSlots: FOOD_ORDER_SLOTS,
+  lockedBlocks: ["cta-band", "footer"],
+  pages: [
+    { slug: "home", title: "Home", isHome: true, sortOrder: 0, purpose: "home" },
+    { slug: "menu", title: "Menu", isHome: false, sortOrder: 1, purpose: "catalog" },
+    { slug: "order", title: "Order", isHome: false, sortOrder: 2, purpose: "transaction" },
+    { slug: "contact", title: "Contact", isHome: false, sortOrder: 3, purpose: "contact" },
+    { slug: "reservations", title: "Reservations", isHome: false, sortOrder: 4, purpose: "booking" },
+  ],
+  navigation: [
+    { label: "Home", pageSlug: "home", order: 0 },
+    { label: "Menu", pageSlug: "menu", order: 1 },
+    { label: "Order", pageSlug: "order", order: 2, feature: "ordering" },
+    { label: "Reservations", pageSlug: "reservations", order: 3, feature: "reservations" },
+    { label: "About", pageSlug: "home", anchor: "about", order: 4 },
+    { label: "Contact", pageSlug: "contact", order: 5 },
+  ],
+  sections: FOOD_ORDER_SECTIONS,
+  commerce: { order: "food" },
+  tags: ["food", "ordering", "catalog"],
+};
+
 // ── Flagship registry ───────────────────────────────────────────────────────
 
 export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   RESTAURANT_TABLE_FLAME,
   RENTAL_DRIVELINE,
+  FOOD_ORDER_TEMPLATE,
 ];
+
+/** Templates shown when creating a new V2 site. Legacy manifests remain resolvable. */
+export const NEW_SITE_GALLERY_TEMPLATES: WebsiteTemplateV2[] = FLAGSHIP_TEMPLATES.filter(
+  (template) => !template.legacy
+);
 
 export function getFlagshipTemplate(id: string, version?: string): WebsiteTemplateV2 | undefined {
   return FLAGSHIP_TEMPLATES.find((t) => t.id === id && (!version || t.version === version));

@@ -170,6 +170,17 @@ export interface TemplateResolutionOptions {
   offeringsHeading?: string;
   restaurantCtaBandHeading?: string;
   rentalCtaBandHeading?: string;
+  /** Locale-resolved copy used only by the category-neutral food-order template. */
+  foodOrderCopy?: {
+    stepsHeading?: string;
+    popularItemsHeading?: string;
+    menuPageHeading?: string;
+    orderPageHeading?: string;
+    offerHeading?: string;
+    offerSubheading?: string;
+    contactHeading?: string;
+    navigationLabels?: Record<string, string>;
+  };
   /** IANA site timezone for the one-line footer hours display. */
   timeZone?: string;
 }
@@ -312,6 +323,7 @@ interface BuildContext {
   offeringsHeading: string;
   restaurantCtaBandHeading: string;
   rentalCtaBandHeading: string;
+  foodOrderCopy?: TemplateResolutionOptions["foodOrderCopy"];
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -721,12 +733,18 @@ function buildFaq(ctx: BuildContext): Block {
 }
 
 function buildCtaBand(ctx: BuildContext): Block {
-  const heading = ctx.template.id === "restaurant-table-flame"
-    ? ctx.restaurantCtaBandHeading
-    : ctx.rentalCtaBandHeading;
+  const isFoodOrder = ctx.template.id === "food-order";
+  const heading = isFoodOrder
+    ? ctx.foodOrderCopy?.offerHeading ?? "A little something special"
+    : ctx.template.id === "restaurant-table-flame"
+      ? ctx.restaurantCtaBandHeading
+      : ctx.rentalCtaBandHeading;
   return {
     type: "cta_banner",
     heading,
+    ...(isFoodOrder && ctx.foodOrderCopy?.offerSubheading
+      ? { subheading: ctx.foodOrderCopy.offerSubheading }
+      : {}),
     variant: "brand",
   } as Block;
 }
@@ -766,7 +784,12 @@ function buildSectionBlock(
     case "features": {
       if (section.id === "business-offerings") return buildBusinessOfferings(ctx);
       if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
-      if (section.id === "how-it-works") return buildFeatures(ctx, section, "steps", "steps.items", 3, "How it works");
+      if (section.id === "how-it-works") {
+        const heading = ctx.template.id === "food-order"
+          ? ctx.foodOrderCopy?.stepsHeading ?? "Order steps"
+          : "How it works";
+        return buildFeatures(ctx, section, "steps", "steps.items", 3, heading);
+      }
       return buildFeatures(ctx, section, "highlights", "highlights.items", 3);
     }
     case "about":
@@ -776,7 +799,9 @@ function buildSectionBlock(
     case "testimonials":
       return buildTestimonials(ctx);
     case "contact": {
-      const heading = section.id === "locations" ? "Pickup locations" : "Visit us";
+      const heading = ctx.template.id === "food-order"
+        ? ctx.foodOrderCopy?.contactHeading ?? "Contact"
+        : section.id === "locations" ? "Pickup locations" : "Visit us";
       return buildContact(ctx, heading);
     }
     case "faq":
@@ -790,17 +815,27 @@ function buildSectionBlock(
         return {
           type: "products_embed",
           heading: section.id === "menu.full" || section.id === "menu.browse"
-            ? ctx.catalogLabels.products
+            ? (ctx.template.id === "food-order" && section.id === "menu.browse"
+              ? ctx.foodOrderCopy?.popularItemsHeading ?? "Popular items"
+              : ctx.catalogLabels.products)
             : ctx.catalogLabels.featuredProducts,
-          limit: section.id === "menu.featured" ? 6 : 200,
+          limit: section.id === "menu.featured" || (ctx.template.id === "food-order" && section.id === "menu.browse") ? 6 : 200,
           layout: "grid",
         } as Block;
       }
+      if (section.id === "menu.full" && ctx.template.id === "food-order") {
+        return buildMenuEmbed(ctx, ctx.foodOrderCopy?.menuPageHeading ?? "Browse the menu", 200, false);
+      }
       if (section.id === "menu.full") return buildMenuEmbed(ctx, "Our full menu", 200, false);
+      if (section.id === "menu.browse" && ctx.template.id === "food-order") {
+        return buildMenuEmbed(ctx, ctx.foodOrderCopy?.popularItemsHeading ?? "Popular items", 6, false);
+      }
       if (section.id === "menu.browse") return buildMenuEmbed(ctx, "Our Menu", 200, false);
       if (section.id === "order.summary") {
         return ctx.storefrontFeatures.ordering
-          ? buildMenuEmbed(ctx, "Start your order", 200, false)
+          ? buildMenuEmbed(ctx, ctx.template.id === "food-order"
+            ? ctx.foodOrderCopy?.orderPageHeading ?? "Start an order"
+            : "Start your order", 200, false)
           : null;
       }
       return buildMenuEmbed(ctx, "Featured dishes", 6, true); // menu.featured — picks only
@@ -974,6 +1009,7 @@ export function resolveTemplateManifest(
     offeringsHeading: options.offeringsHeading ?? "What we offer",
     restaurantCtaBandHeading: options.restaurantCtaBandHeading ?? "Made for good moments.",
     rentalCtaBandHeading: options.rentalCtaBandHeading ?? "Ready for your next journey?",
+    foodOrderCopy: options.foodOrderCopy,
   };
 
   const pages: ResolvedPage[] = [];
@@ -1119,7 +1155,9 @@ export function resolveTemplateManifest(
     )
     .map((entry, index) => ({
       id: `${template.id}-nav-${index}`,
-      label: asString(navLabels?.[labelKeyFor(entry)]) ?? entry.label,
+      label: asString(navLabels?.[labelKeyFor(entry)]) ??
+        (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+        entry.label,
       href: entry.pageSlug
         ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
         : resolveSiteHref(siteSlug, entry.href ?? ""),

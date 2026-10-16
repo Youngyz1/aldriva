@@ -3,9 +3,9 @@ import { getTranslations } from "next-intl/server";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
-import { FLAGSHIP_TEMPLATES } from "@/lib/website-template-v2";
+import { NEW_SITE_GALLERY_TEMPLATES } from "@/lib/website-template-v2";
 import { getV2GalleryCategories } from "@/lib/website-v2-create-flow";
-import { createNeutralGallerySampleContent, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
+import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
 import type { WebsiteCategory } from "@/lib/website-category";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
 import { WebsiteV2TemplateGalleryClient } from "./WebsiteV2TemplateGalleryClient";
@@ -29,7 +29,10 @@ async function V2TemplateCardPreview({
 }) {
   const storeT = await getTranslations("Storefront");
   const publicT = await getTranslations("PublicSite");
-  const template = FLAGSHIP_TEMPLATES.find((candidate) => candidate.id === templateId);
+  const template = NEW_SITE_GALLERY_TEMPLATES.find((candidate) => candidate.id === templateId);
+  const foodOrderCopy = templateId === "food-order"
+    ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string)
+    : undefined;
   const sampleContent = createNeutralGallerySampleContent(templateId, businessName, businessLogo, {
     tagline: publicT("previewTagline"),
     headline: publicT("previewHeadline", { business: "{business}" }),
@@ -45,6 +48,7 @@ async function V2TemplateCardPreview({
     process: publicT("process"),
     faq: publicT("faq"),
     pricing: publicT("pricing"),
+    ...(foodOrderCopy ? { foodOrder: foodOrderCopy.sample } : {}),
   });
   const preview = resolveV2TemplateGalleryPreview(templateId, {
     siteSlug: `template-preview-${templateId}`,
@@ -64,6 +68,7 @@ async function V2TemplateCardPreview({
     offeringsHeading: storeT("whatWeOffer"),
     restaurantCtaBandHeading: publicT("previewBrandMessage"),
     rentalCtaBandHeading: publicT("previewBrandMessage"),
+    foodOrderCopy: foodOrderCopy?.resolver,
   });
   if (!template || !preview) return null;
 
@@ -118,7 +123,7 @@ export async function WebsiteV2TemplateGallery({
     category: WebsiteCategory;
     supportedCategories: WebsiteCategory[];
     preview: ReactNode;
-  }> = FLAGSHIP_TEMPLATES.map((template) => ({
+  }> = NEW_SITE_GALLERY_TEMPLATES.map((template) => ({
     id: template.id,
     name: template.name,
     description: template.description,

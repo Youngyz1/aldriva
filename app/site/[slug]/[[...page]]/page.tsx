@@ -31,6 +31,7 @@ import { normalizeContent, type ContentDoc } from "@/lib/website-content";
 import { getBusinessOfferings } from "@/lib/business-offerings";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
+import { getFoodOrderLocalizedCopy } from "@/lib/website-v2-template-preview";
 import {
   resolveTemplateContent,
   selectTemplateRoutePage,
@@ -195,6 +196,7 @@ export async function resolveWebsiteAndPage(
     }
     const content = normalizeContent(rawContent);
     const storeT = await getTranslations("Storefront");
+    const publicT = await getTranslations("PublicSite");
     const offeringT = await getTranslations("BusinessOfferings");
     const businessType = linkedBusiness?.business_type ?? null;
     const businessCategory = linkedBusiness?.category ?? "";
@@ -245,6 +247,9 @@ export async function resolveWebsiteAndPage(
         offeringsHeading: storeT("whatWeOffer"),
         restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
         rentalCtaBandHeading: storeT("rentalBrandMessage"),
+        foodOrderCopy: v2Template.id === "food-order"
+          ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
+          : undefined,
       }
     );
     const requestedPageSlug = pageSlugArr && pageSlugArr.length > 0 ? pageSlugArr[0] : null;

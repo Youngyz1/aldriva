@@ -1,5 +1,5 @@
 import { WEBSITE_CATEGORIES, type WebsiteCategory } from "./website-category";
-import { FLAGSHIP_TEMPLATES } from "./website-template-v2";
+import { NEW_SITE_GALLERY_TEMPLATES } from "./website-template-v2";
 
 export interface V2TemplateCreateOptions {
   websiteCategory: WebsiteCategory;
@@ -17,7 +17,7 @@ export function getV2GalleryCategories(): readonly WebsiteCategory[] {
 }
 
 export function getV2GalleryCategoryModel(category: WebsiteCategory) {
-  const templates = FLAGSHIP_TEMPLATES;
+  const templates = NEW_SITE_GALLERY_TEMPLATES;
   return {
     categories: WEBSITE_CATEGORIES,
     templates,

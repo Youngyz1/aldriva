@@ -7,6 +7,7 @@ export type WebsiteEditorFieldKind = TemplateSlot["kind"] | "nav-labels";
 export interface WebsiteItemFieldSchema {
   key: string;
   label: string;
+  labelKey?: string;
   kind: "text" | "textarea" | "image";
   aliases?: string[];
 }
@@ -16,6 +17,7 @@ export interface WebsiteEditorControl {
   slotIds: string[];
   field: ContentKey;
   label: string;
+  labelKey?: string;
   kind: WebsiteEditorFieldKind;
   max?: number;
   required: boolean;
@@ -25,6 +27,7 @@ export interface WebsiteEditorControl {
 export interface WebsiteEditorSection {
   id: string;
   title: string;
+  titleKey?: string;
   summary: string;
   controls: WebsiteEditorControl[];
   missingSlotIds: string[];
@@ -65,6 +68,47 @@ const ITEM_FIELDS: Record<string, WebsiteItemFieldSchema[]> = {
     { key: "address", label: "Address", kind: "text" },
     { key: "hours", label: "Hours note", kind: "text" },
   ],
+};
+
+const FOOD_ORDER_SECTION_TITLE_KEYS: Record<string, string> = {
+  business: "foodOrderEditorBusiness",
+  hero: "foodOrderEditorHero",
+  "trust-steps": "foodOrderEditorSteps",
+  about: "foodOrderEditorAbout",
+  testimonials: "foodOrderEditorTestimonials",
+  "hours-location": "foodOrderEditorContact",
+  contact: "foodOrderEditorContact",
+  footer: "foodOrderEditorFooter",
+};
+
+const FOOD_ORDER_CONTROL_LABEL_KEYS: Record<string, string> = {
+  "nav.logo": "foodOrderSlotLogo",
+  "nav.labels": "foodOrderSlotNavigation",
+  "nav.cta": "foodOrderSlotPrimaryAction",
+  "hero.image": "foodOrderSlotHeroImage",
+  "hero.headline": "foodOrderSlotHeadline",
+  "hero.subtext": "foodOrderSlotIntroduction",
+  "hero.tagline": "foodOrderSlotTagline",
+  "hero.cta_secondary": "foodOrderSlotSecondaryAction",
+  "steps.items": "foodOrderSlotSteps",
+  "about.photo": "foodOrderSlotAboutImage",
+  "about.text": "foodOrderSlotAboutText",
+  "testimonials.items": "foodOrderSlotTestimonials",
+  "hours.table": "foodOrderSlotHours",
+  "location.address": "foodOrderSlotAddress",
+  "location.phone": "foodOrderSlotPhone",
+  "location.directions": "foodOrderSlotDirections",
+  "contact.email": "foodOrderSlotEmail",
+  "footer.business": "foodOrderSlotBusinessName",
+  "footer.socials": "foodOrderSlotSocialLinks",
+  "footer.note": "foodOrderSlotFooterNote",
+};
+
+const FOOD_ORDER_ITEM_FIELD_LABEL_KEYS: Record<string, Record<string, string>> = {
+  "steps.items": {
+    title: "foodOrderStepTitleLabel",
+    description: "foodOrderStepDescriptionLabel",
+  },
 };
 
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
@@ -187,10 +231,20 @@ export function buildWebsiteEditorSections(
         slotIds: availableIds,
         field: slot.field,
         label: slot.field === "hours" ? "Opening hours" : slot.label,
+        ...(template.id === "food-order" && FOOD_ORDER_CONTROL_LABEL_KEYS[requestedId]
+          ? { labelKey: FOOD_ORDER_CONTROL_LABEL_KEYS[requestedId] }
+          : {}),
         kind: slot.field === "nav_labels" ? "nav-labels" : slot.kind,
         max: slot.max,
         required: availableIds.some((id) => byId.get(id)?.required),
-        ...(ITEM_FIELDS[requestedId] ? { itemFields: ITEM_FIELDS[requestedId] } : {}),
+        ...(ITEM_FIELDS[requestedId] ? {
+          itemFields: ITEM_FIELDS[requestedId].map((itemField) => ({
+            ...itemField,
+            ...(template.id === "food-order" && FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId]?.[itemField.key]
+              ? { labelKey: FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId][itemField.key] }
+              : {}),
+          })),
+        } : {}),
       });
     }
     if (controls.length === 0) continue;
@@ -204,6 +258,9 @@ export function buildWebsiteEditorSections(
     sections.push({
       id: group.id,
       title: group.title,
+      ...(template.id === "food-order" && FOOD_ORDER_SECTION_TITLE_KEYS[group.id]
+        ? { titleKey: FOOD_ORDER_SECTION_TITLE_KEYS[group.id] }
+        : {}),
       summary: summarize(group.title, controls, content),
       controls,
       missingSlotIds: [...new Set(missingSlotIds)],

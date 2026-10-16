@@ -3,6 +3,51 @@ import { FLAGSHIP_SAMPLES } from "./website-template-samples";
 import { normalizeContent, type ContentDoc } from "./website-content";
 import { resolveTemplateContent, type TemplateResolutionOptions } from "./website-template-resolver";
 
+export interface FoodOrderLocalizedCopy {
+  sample: NonNullable<NeutralGallerySampleCopy["foodOrder"]>;
+  resolver: NonNullable<TemplateResolutionOptions["foodOrderCopy"]>;
+}
+
+/** Resolves the Food Order-only copy through the active EN/FR message catalog. */
+export function getFoodOrderLocalizedCopy(
+  translate: (key: string, values?: Record<string, string>) => string
+): FoodOrderLocalizedCopy {
+  const navigationLabels = {
+    home: translate("home"),
+    menu: translate("catalog"),
+    order: translate("foodOrderNavOrder"),
+    reservations: translate("foodOrderNavReservations"),
+    about: translate("about"),
+    contact: translate("contact"),
+  };
+  return {
+    sample: {
+      tagline: translate("foodOrderSampleTagline"),
+      headline: translate("foodOrderSampleHeadline", { business: "{business}" }),
+      subtext: translate("foodOrderSampleSubtext"),
+      about: translate("foodOrderSampleAbout", { business: "{business}" }),
+      primaryAction: translate("foodOrderSamplePrimaryAction"),
+      secondaryAction: translate("foodOrderSampleSecondaryAction"),
+      steps: [
+        { title: translate("foodOrderSampleStepOneTitle"), description: translate("foodOrderSampleStepOneDescription") },
+        { title: translate("foodOrderSampleStepTwoTitle"), description: translate("foodOrderSampleStepTwoDescription") },
+        { title: translate("foodOrderSampleStepThreeTitle"), description: translate("foodOrderSampleStepThreeDescription") },
+      ],
+      navigationLabels,
+    },
+    resolver: {
+      stepsHeading: translate("foodOrderStepsHeading"),
+      popularItemsHeading: translate("foodOrderPopularItemsHeading"),
+      menuPageHeading: translate("foodOrderMenuPageHeading"),
+      orderPageHeading: translate("foodOrderOrderPageHeading"),
+      offerHeading: translate("foodOrderOfferHeading"),
+      offerSubheading: translate("foodOrderOfferSubheading"),
+      contactHeading: translate("foodOrderContactHeading"),
+      navigationLabels,
+    },
+  };
+}
+
 export interface NeutralGallerySampleCopy {
   tagline: string;
   headline: string;
@@ -18,6 +63,16 @@ export interface NeutralGallerySampleCopy {
   process: string;
   faq: string;
   pricing: string;
+  foodOrder?: {
+    tagline: string;
+    headline: string;
+    subtext: string;
+    about: string;
+    primaryAction: string;
+    secondaryAction: string;
+    steps: Array<{ title: string; description: string }>;
+    navigationLabels: Record<string, string>;
+  };
 }
 
 /** Neutral, render-only preview text tied to the owner identity, with no stock imagery or fake contact data. */
@@ -27,7 +82,7 @@ export function createNeutralGallerySampleContent(
   logoUrl: string | null | undefined,
   copy: NeutralGallerySampleCopy
 ): ContentDoc {
-  const shared = {
+  const shared: Partial<ContentDoc> = {
     business_name: businessName,
     ...(logoUrl ? { logo_url: logoUrl } : {}),
     tagline: copy.tagline,
@@ -64,7 +119,21 @@ export function createNeutralGallerySampleContent(
       contact: copy.contact,
     },
   };
-  return normalizeContent(shared as Partial<ContentDoc>);
+  if (templateId === "food-order" && copy.foodOrder) {
+    shared.tagline = copy.foodOrder.tagline;
+    shared.hero_headline = copy.foodOrder.headline.replace("{business}", businessName);
+    shared.hero_subtext = copy.foodOrder.subtext;
+    shared.about_text = copy.foodOrder.about;
+    shared.primary_cta_label = copy.foodOrder.primaryAction;
+    shared.secondary_cta_label = copy.foodOrder.secondaryAction;
+    shared.steps = copy.foodOrder.steps;
+    shared.nav_labels = {
+      ...((shared.nav_labels ?? {}) as Record<string, string>),
+      ...copy.foodOrder.navigationLabels,
+    };
+    shared.about_text = copy.foodOrder.about.replace("{business}", businessName);
+  }
+  return normalizeContent(shared);
 }
 
 export interface V2TemplateGalleryPreviewData {
@@ -78,7 +147,7 @@ export interface V2TemplateGalleryPreviewData {
 /** Render-only preview data. It contains no save payload or persisted sample fields. */
 export function resolveV2TemplateGalleryPreview(
   templateId: string,
-  copy: Pick<TemplateResolutionOptions, "siteSlug" | "business" | "viewMenuLabel" | "rentalContactCta" | "primaryActionLabels" | "offeringsHeading" | "restaurantCtaBandHeading" | "rentalCtaBandHeading" | "timeZone"> & { sampleContentOverride?: ContentDoc } = {}
+  copy: Pick<TemplateResolutionOptions, "siteSlug" | "business" | "viewMenuLabel" | "rentalContactCta" | "primaryActionLabels" | "offeringsHeading" | "restaurantCtaBandHeading" | "rentalCtaBandHeading" | "foodOrderCopy" | "timeZone"> & { sampleContentOverride?: ContentDoc } = {}
 ): V2TemplateGalleryPreviewData | undefined {
   const template = getFlagshipTemplate(templateId);
   if (!template) return undefined;

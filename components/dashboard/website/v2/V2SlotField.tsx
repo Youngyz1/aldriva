@@ -52,6 +52,7 @@ export function V2SlotField({
 }: V2SlotFieldProps) {
   const [urlDraft, setUrlDraft] = useState<string | null>(null);
   const tStorefront = useTranslations("Storefront");
+  const tPublicSite = useTranslations("PublicSite") as unknown as (key: string, values?: Record<string, string | number>) => string;
   const showSample = sampled && (value === undefined || value === null || value === "");
   const maxText = control.field === "primary_cta_label"
     ? BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH
@@ -74,7 +75,7 @@ export function V2SlotField({
   const label = (
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-        {control.label}{control.required ? <span className="ml-1 text-rose-600">*</span> : null}
+        {control.labelKey ? tPublicSite(control.labelKey) : control.label}{control.required ? <span className="ml-1 text-rose-600">*</span> : null}
       </span>
       {sampled ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Sample</span> : null}
     </div>
@@ -166,7 +167,7 @@ export function V2SlotField({
             const row = record(item);
             return (
               <div key={`item-${index}`} className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-                <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-300"><span>Item {index + 1}</span><button type="button" className="text-rose-600" onClick={() => onChange((value as unknown[]).filter((_, itemIndex) => itemIndex !== index))}>Clear item</button></div>
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-300"><span>{template.id === "food-order" ? tPublicSite("foodOrderEditorItem", { number: index + 1 }) : `Item ${index + 1}`}</span><button type="button" className="text-rose-600" onClick={() => onChange((value as unknown[]).filter((_, itemIndex) => itemIndex !== index))}>{template.id === "food-order" ? tPublicSite("foodOrderEditorClearItem") : "Clear item"}</button></div>
                 {(control.itemFields ?? []).map((itemField) => {
                   const rawItemValue = [itemField.key, ...(itemField.aliases ?? [])]
                     .map((key) => row[key])
@@ -177,14 +178,15 @@ export function V2SlotField({
                     : itemField.key === "question"
                       ? BLOCK_LIMITS.HEADING_MAX_LENGTH
                       : BLOCK_LIMITS.LABEL_MAX_LENGTH;
-                  return <label key={itemField.key} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{itemField.label}{itemField.kind === "textarea" ? <><textarea className={`${inputClass} mt-1 min-h-20`} value={itemValue} maxLength={max} onChange={(event) => updateItemField(index, itemField.key, event.currentTarget.value, itemField.aliases)} /><Counter current={itemValue.length} max={max} /></> : itemField.kind === "image" ? <MediaUploadField label={itemField.label} value={itemValue} tenantId={tenantId} folderSubpath="website" onChange={(url) => updateItemField(index, itemField.key, url, itemField.aliases)} /> : <><input className={`${inputClass} mt-1`} value={itemValue} maxLength={max} onChange={(event) => updateItemField(index, itemField.key, event.currentTarget.value, itemField.aliases)} /><Counter current={itemValue.length} max={max} /></>}</label>;
+                  const itemFieldLabel = itemField.labelKey ? tPublicSite(itemField.labelKey) : itemField.label;
+                  return <label key={itemField.key} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{itemFieldLabel}{itemField.kind === "textarea" ? <><textarea className={`${inputClass} mt-1 min-h-20`} value={itemValue} maxLength={max} onChange={(event) => updateItemField(index, itemField.key, event.currentTarget.value, itemField.aliases)} /><Counter current={itemValue.length} max={max} /></> : itemField.kind === "image" ? <MediaUploadField label={itemFieldLabel} value={itemValue} tenantId={tenantId} folderSubpath="website" onChange={(url) => updateItemField(index, itemField.key, url, itemField.aliases)} /> : <><input className={`${inputClass} mt-1`} value={itemValue} maxLength={max} onChange={(event) => updateItemField(index, itemField.key, event.currentTarget.value, itemField.aliases)} /><Counter current={itemValue.length} max={max} /></>}</label>;
                 })}
               </div>
             );
           })}
           <p className="text-right text-[11px] text-zinc-500">{Array.isArray(value) ? value.length : 0}/{control.max ?? BLOCK_LIMITS.MAX_ARRAY_ITEMS}</p>
-          {(Array.isArray(value) ? value.length : 0) < (control.max ?? BLOCK_LIMITS.MAX_ARRAY_ITEMS) ? <button type="button" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800" onClick={() => onChange([...(Array.isArray(value) ? value : []), {}])}>Add item</button> : null}
-          {Array.isArray(value) && value.length > 0 ? <button type="button" className="ml-2 text-xs font-medium text-rose-600" onClick={() => onChange([])}>Clear all</button> : null}
+          {(Array.isArray(value) ? value.length : 0) < (control.max ?? BLOCK_LIMITS.MAX_ARRAY_ITEMS) ? <button type="button" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800" onClick={() => onChange([...(Array.isArray(value) ? value : []), {}])}>{template.id === "food-order" ? tPublicSite("foodOrderEditorAddStep") : "Add item"}</button> : null}
+          {Array.isArray(value) && value.length > 0 ? <button type="button" className="ml-2 text-xs font-medium text-rose-600" onClick={() => onChange([])}>{template.id === "food-order" ? tPublicSite("foodOrderEditorClearSteps") : "Clear all"}</button> : null}
         </div>
       ) : null}
 
