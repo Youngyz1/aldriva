@@ -25,6 +25,7 @@ const iconMap: Record<string, typeof Calendar> = {
   businesses: Store,
   articles: Newspaper,
   products: ShoppingBag,
+  orders: ShoppingBag,
 };
 
 export function MyThingsView({

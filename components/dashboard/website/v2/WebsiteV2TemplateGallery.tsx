@@ -5,24 +5,51 @@ import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { FLAGSHIP_TEMPLATES } from "@/lib/website-template-v2";
 import { getV2GalleryCategories } from "@/lib/website-v2-create-flow";
-import { resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
+import { createNeutralGallerySampleContent, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
 import type { WebsiteCategory } from "@/lib/website-category";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
 import { WebsiteV2TemplateGalleryClient } from "./WebsiteV2TemplateGalleryClient";
 
 interface WebsiteV2TemplateGalleryProps {
   organizerId: string;
+  businessName: string;
+  businessLogo: string | null;
   initialCategory: WebsiteCategory;
   canCreate: boolean;
 }
 
-async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
+async function V2TemplateCardPreview({
+  templateId,
+  businessName,
+  businessLogo,
+}: {
+  templateId: string;
+  businessName: string;
+  businessLogo: string | null;
+}) {
   const storeT = await getTranslations("Storefront");
+  const publicT = await getTranslations("PublicSite");
   const template = FLAGSHIP_TEMPLATES.find((candidate) => candidate.id === templateId);
+  const sampleContent = createNeutralGallerySampleContent(templateId, businessName, businessLogo, {
+    tagline: publicT("previewTagline"),
+    headline: publicT("previewHeadline", { business: "{business}" }),
+    subtext: publicT("previewSubtext"),
+    about: publicT("previewAbout"),
+    featureTitle: publicT("previewFeatureTitle"),
+    featureDescription: publicT("previewFeatureDescription"),
+    callToAction: publicT("previewExplore"),
+    home: publicT("home"),
+    catalog: publicT("catalog"),
+    aboutNav: publicT("about"),
+    contact: publicT("contact"),
+    process: publicT("process"),
+    faq: publicT("faq"),
+    pricing: publicT("pricing"),
+  });
   const preview = resolveV2TemplateGalleryPreview(templateId, {
-    business: templateId === "rental-driveline"
-      ? { industry: "Automotive & Transportation", category: "Vehicle Rental", businessType: "Car Rental" }
-      : { industry: "Food & Beverage", category: "Restaurant", businessType: "Full-Service Restaurant" },
+    siteSlug: `template-preview-${templateId}`,
+    business: {},
+    sampleContentOverride: sampleContent,
     viewMenuLabel: storeT("viewMenu"),
     rentalContactCta: storeT("rentalContactCta"),
     primaryActionLabels: {
@@ -30,12 +57,13 @@ async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
       reserveTable: storeT("reserveTable"),
       bookNow: storeT("bookNow"),
       viewMenu: storeT("viewMenu"),
+      viewProducts: storeT("viewProducts"),
       contact: storeT("contact"),
       rentalContactCta: storeT("rentalContactCta"),
     },
     offeringsHeading: storeT("whatWeOffer"),
-    restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
-    rentalCtaBandHeading: storeT("rentalBrandMessage"),
+    restaurantCtaBandHeading: publicT("previewBrandMessage"),
+    rentalCtaBandHeading: publicT("previewBrandMessage"),
   });
   if (!template || !preview) return null;
 
@@ -44,13 +72,13 @@ async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
 
   const style = v2ThemeStyle(template) as CSSProperties;
   return (
-    <div style={style} className="min-h-full bg-white font-sans text-zinc-900">
+    <div style={style} className="public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]">
       <V2SiteHeader
         template={template}
         content={preview.content}
         sampleContent={preview.sampleContent}
         navigation={preview.resolved.navigation}
-        siteTitle={template.name}
+        siteTitle={businessName}
         siteSlug={`template-preview-${template.id}`}
         previewMode
         storefrontFeatures={preview.resolved.storefrontFeatures}
@@ -58,7 +86,7 @@ async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
       />
       <main>
         {home.blocks.map((block, index) => (
-          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} />
+          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks />
         ))}
       </main>
       <V2SiteFooter
@@ -66,7 +94,7 @@ async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
         content={preview.content}
         sampleContent={preview.sampleContent}
         navigation={preview.resolved.navigation}
-        siteTitle={template.name}
+        siteTitle={businessName}
         siteSlug={`template-preview-${template.id}`}
         previewMode
         storefrontFeatures={preview.resolved.storefrontFeatures}
@@ -78,6 +106,8 @@ async function V2TemplateCardPreview({ templateId }: { templateId: string }) {
 
 export async function WebsiteV2TemplateGallery({
   organizerId,
+  businessName,
+  businessLogo,
   initialCategory,
   canCreate,
 }: WebsiteV2TemplateGalleryProps) {
@@ -94,7 +124,7 @@ export async function WebsiteV2TemplateGallery({
     description: template.description,
     category: template.category,
     supportedCategories: template.supportedCategories,
-    preview: <V2TemplateCardPreview templateId={template.id} />,
+    preview: <V2TemplateCardPreview templateId={template.id} businessName={businessName} businessLogo={businessLogo} />,
   }));
 
   return (

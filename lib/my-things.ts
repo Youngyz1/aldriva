@@ -103,23 +103,110 @@ export async function getMyThingsData(
       .limit(10),
   ]);
 
+  const orgIds = (ctx.organizers ?? []).map((o) => o.id);
+  const pendingCountByOrg: Record<string, number> = {};
+
+  if (orgIds.length > 0) {
+    try {
+      const { data: pendingRows } = await supabaseAdmin
+        .from("orders")
+        .select("organizer_id")
+        .in("organizer_id", orgIds)
+        .eq("status", "pending");
+
+      if (pendingRows) {
+        for (const row of pendingRows) {
+          pendingCountByOrg[row.organizer_id] = (pendingCountByOrg[row.organizer_id] || 0) + 1;
+        }
+      }
+    } catch {
+      // Non-fatal if orders query fails
+    }
+
+    // Phase 7: pending table requests share the same per-org badge through
+    // one grouped query (never per-org). Missing migration 176 fails here
+    // and the badge simply counts orders.
+    try {
+      const { data: pendingReservations } = await supabaseAdmin
+        .from("reservations")
+        .select("organizer_id")
+        .in("organizer_id", orgIds)
+        .eq("status", "pending");
+
+      if (pendingReservations) {
+        for (const row of pendingReservations) {
+          pendingCountByOrg[row.organizer_id] = (pendingCountByOrg[row.organizer_id] || 0) + 1;
+        }
+      }
+    } catch {
+      // Non-fatal if reservations query fails
+    }
+  }
+
+  // Customer orders placed by this user (email match on guest orders)
+  let customerOrdersRes: { data: unknown[] | null } = { data: [] };
+  if (user.email) {
+    try {
+      const res = await supabaseAdmin
+        .from("orders")
+        .select("id, order_number, total_amount, currency, status, created_at, tracking_token, website_id, tenant_websites(slug)")
+        .ilike("customer_email", user.email)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      customerOrdersRes = { data: res.data ?? [] };
+    } catch {
+      customerOrdersRes = { data: [] };
+    }
+  }
+
   const organizersSection: MyThingsSection = {
     key: "organizers",
     label: "My Organizers",
     listHref: "/dashboard/organizations",
     createHref: "/create-organizer",
     createLabel: "New Organizer",
-    items: (ctx.organizers ?? []).map((o) => ({
-      id: o.id,
-      title: o.name,
-      slug: o.slug ?? undefined,
-      status: o.status ?? undefined,
-      created_at: (o as { created_at?: string }).created_at ?? new Date().toISOString(),
-      href: `/dashboard/org/${o.id}/overview`,
-    })),
+    items: (ctx.organizers ?? []).map((o) => {
+      const pendingCount = pendingCountByOrg[o.id] || 0;
+      return {
+        id: o.id,
+        title: o.name,
+        slug: o.slug ?? undefined,
+        status: o.status ?? undefined,
+        subtitle: pendingCount > 0 ? `⚡ ${pendingCount} pending request${pendingCount > 1 ? "s" : ""}` : undefined,
+        created_at: (o as { created_at?: string }).created_at ?? new Date().toISOString(),
+        href: `/dashboard/org/${o.id}/overview`,
+      };
+    }),
   };
 
   const personalSections: MyThingsSection[] = [
+    {
+      key: "orders",
+      label: "My Orders",
+      listHref: "#",
+      items: ((customerOrdersRes.data as unknown[]) ?? []).map((r: unknown) => {
+        const x = r as {
+          id: string;
+          order_number: string;
+          total_amount: number;
+          currency: string;
+          status: string;
+          created_at: string;
+          tracking_token: string;
+          tenant_websites?: { slug?: string } | null;
+        };
+        const siteSlug = x.tenant_websites?.slug || "";
+        const href = siteSlug && x.tracking_token ? `/site/${siteSlug}/orders/${x.tracking_token}` : "#";
+        return {
+          id: x.id,
+          title: `Order #${x.order_number}`,
+          subtitle: `${x.total_amount} ${x.currency}`,
+          status: x.status,
+          created_at: x.created_at,
+          href,
+        };
+      }),
+    },
     {
       key: "tickets",
       label: "My Tickets",

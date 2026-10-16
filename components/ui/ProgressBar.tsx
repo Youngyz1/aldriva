@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatMoney as formatSharedMoney } from "@/lib/money";
 
 export type ProgressBarProps = {
   percentage?: number;
@@ -11,14 +12,11 @@ export type ProgressBarProps = {
   className?: string;
   animated?: boolean;
   variant?: "default" | "green";
+  currency?: string;
 };
 
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
+function formatMoney(amount: number, currency = "USD"): string {
+  return formatSharedMoney(Math.round(amount), currency);
 }
 
 export default function ProgressBar({
@@ -30,6 +28,7 @@ export default function ProgressBar({
   className = "",
   animated = true,
   variant = "default",
+  currency = "USD",
 }: ProgressBarProps) {
   const targetPct = (() => {
     if (percentage !== undefined && percentage !== null) {
@@ -69,7 +68,7 @@ export default function ProgressBar({
         <div className="flex items-center justify-between gap-2 mb-1.5 text-xs font-bold text-zinc-700">
           <span className="truncate">
             {raised !== undefined && goal !== undefined
-              ? `${formatMoney(raised)} raised of ${formatMoney(goal)}`
+              ? `${formatMoney(raised, currency)} raised of ${formatMoney(goal, currency)}`
               : `${targetPct}% funded`}
           </span>
           <span className="shrink-0 text-zinc-950 font-black">{targetPct}%</span>

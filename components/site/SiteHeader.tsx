@@ -38,14 +38,14 @@ export function SiteHeader({
 
   return (
     <header
-      className={`${headerClass} w-full border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80`}
+      className={`${headerClass} w-full border-b border-[var(--ps-border)]/80 bg-[var(--ps-surface)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--ps-surface)]/80`}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:px-[var(--ps-space-6)]">
         {/* Logo / site title */}
         {headerConfig.showLogo && (
           <Link
             href={baseUrl}
-            className="shrink-0 text-lg font-bold text-zinc-900 hover:text-zinc-700"
+            className="shrink-0 text-lg font-bold text-[var(--ps-text)] hover:text-[var(--ps-muted)]"
             style={{ color: primaryColor }}
           >
             {siteTitle}
@@ -54,7 +54,7 @@ export function SiteHeader({
 
         {/* Desktop navigation */}
         {headerConfig.showNav && navItems.length > 0 && (
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Site navigation">
+          <nav className="hidden items-center gap-[var(--ps-space-1)] lg:flex" aria-label="Site navigation">
             {navItems.map((item) => {
               const safeHref = sanitizeUrl(item.href, baseUrl);
               return (
@@ -63,13 +63,13 @@ export function SiteHeader({
                     href={safeHref}
                     target={item.target ?? "_self"}
                     rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
-                    className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900"
+                    className="rounded-lg px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-sm font-medium text-[var(--ps-muted)] transition hover:bg-[var(--ps-neutral)] hover:text-[var(--ps-text)]"
                   >
                     {item.label}
                   </Link>
                   {/* Dropdown for children (rendered as a simple list; Phase 3 adds animation) */}
                   {item.children && item.children.length > 0 && (
-                    <div className="absolute left-0 top-full hidden min-w-[160px] flex-col rounded-xl border border-zinc-200 bg-white py-1 shadow-md group-hover:flex">
+                    <div className="absolute left-0 top-full hidden min-w-[160px] flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] py-[var(--ps-space-1)] shadow-md group-hover:flex">
                       {item.children.map((child) => {
                         const safeChildHref = sanitizeUrl(child.href, baseUrl);
                         return (
@@ -78,7 +78,7 @@ export function SiteHeader({
                             href={safeChildHref}
                             target={child.target ?? "_self"}
                             rel={child.target === "_blank" ? "noopener noreferrer" : undefined}
-                            className="px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+                            className="px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                           >
                             {child.label}
                           </Link>
@@ -96,7 +96,7 @@ export function SiteHeader({
         {headerConfig.showCta && headerConfig.ctaLabel && safeCtaHref && (
           <a
             href={safeCtaHref}
-            className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:opacity-90"
+            className="ps-button shrink-0 text-sm font-semibold text-white shadow-xs transition hover:opacity-90"
             style={{ backgroundColor: primaryColor }}
           >
             {headerConfig.ctaLabel}

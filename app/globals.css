@@ -161,6 +161,122 @@
   }
 }
 
+/* Public-site foundation: intentionally scoped so these values cannot reach
+   dashboard, admin, or root-page UI. Per-template accent values are supplied
+   as inline variables by lib/website-v2-theme.ts. */
+.public-site {
+  --ps-text: #22201c;
+  --ps-muted: #625f58;
+  --ps-surface: #ffffff;
+  --ps-cream: #fbf8f0;
+  --ps-neutral: #f3f1ec;
+  --ps-border: #dedbd3;
+  --ps-accent: var(--site-primary, var(--brand-700));
+  --ps-accent-hover: var(--site-primary-hover, var(--ps-accent));
+  --ps-accent-light: var(--site-primary-light, var(--brand-100));
+  --ps-accent-foreground: var(--site-primary-foreground, #ffffff);
+  --ps-success: #166534;
+  --ps-error: #b42318;
+  --ps-font-body: var(--font-sans), Arial, Helvetica, sans-serif;
+  --ps-font-heading: var(--v2-heading-font, var(--ps-font-body));
+  --ps-h1: clamp(2.5rem, 5vw, 3rem);
+  --ps-h2: 2rem;
+  --ps-h3: 1.5rem;
+  --ps-h4: 1.25rem;
+  --ps-body: 1rem;
+  --ps-small: 0.875rem;
+  --ps-caption: 0.75rem;
+  --ps-weight-body: 400;
+  --ps-weight-medium: 500;
+  --ps-weight-emphasis: 600;
+  --ps-weight-heading: 700;
+  --ps-space-1: 0.25rem;
+  --ps-space-2: 0.5rem;
+  --ps-space-3: 0.75rem;
+  --ps-space-4: 1rem;
+  --ps-space-6: 1.5rem;
+  --ps-space-8: 2rem;
+  --ps-space-12: 3rem;
+  --ps-space-16: 4rem;
+  --ps-radius-sm: 0.25rem;
+  --ps-radius-md: 0.5rem;
+  --ps-radius-lg: 0.75rem;
+  --ps-radius-xl: 1rem;
+  --ps-card-radius: 0.5rem;
+  --ps-card-border: 1px solid var(--ps-border);
+  --ps-card-shadow: 0 1px 3px rgb(34 32 28 / 0.08);
+  --ps-button-height: 2.75rem;
+  --ps-button-x: 1rem;
+  --ps-button-radius: 0.5rem;
+  --primary: var(--ps-accent);
+  --primary-foreground: var(--ps-accent-foreground);
+  --ring: var(--ps-accent-hover);
+  color: var(--ps-text);
+  font-family: var(--ps-font-body);
+  font-weight: var(--ps-weight-body);
+}
+
+.public-site h1,
+.public-site h2,
+.public-site h3,
+.public-site h4 {
+  font-family: var(--ps-font-heading);
+  font-weight: var(--ps-weight-heading);
+}
+
+.public-site h1 { font-size: var(--ps-h1); }
+.public-site .text-base { font-size: var(--ps-body); }
+.public-site .text-sm { font-size: var(--ps-small); }
+.public-site .text-xs { font-size: var(--ps-caption); }
+.public-site .font-normal { font-weight: var(--ps-weight-body); }
+.public-site .font-medium { font-weight: var(--ps-weight-medium); }
+.public-site .font-semibold { font-weight: var(--ps-weight-emphasis); }
+.public-site .font-bold,
+.public-site .font-extrabold,
+.public-site .font-black { font-weight: var(--ps-weight-heading); }
+.public-site h2 { font-size: var(--ps-h2); }
+.public-site h3 { font-size: var(--ps-h3); }
+.public-site h4 { font-size: var(--ps-h4); }
+
+.public-site .ps-section { padding-block: var(--ps-space-12); }
+.public-site .ps-section-spacious { padding-block: var(--ps-space-16); }
+.public-site .rounded,
+.public-site .rounded-sm { border-radius: var(--ps-radius-sm); }
+.public-site .rounded-md,
+.public-site .rounded-lg { border-radius: var(--ps-radius-md); }
+.public-site .rounded-xl { border-radius: var(--ps-radius-lg); }
+.public-site .rounded-2xl { border-radius: var(--ps-radius-xl); }
+.public-site .rounded-2xl.border,
+.public-site .rounded-xl.border,
+.public-site .rounded-lg.border {
+  border-radius: var(--ps-card-radius);
+  border-width: 1px;
+  border-color: var(--ps-border);
+}
+.public-site .shadow-xs { box-shadow: var(--ps-card-shadow); }
+.public-site .ps-card {
+  border: var(--ps-card-border);
+  border-radius: var(--ps-card-radius);
+  background: var(--ps-surface);
+  box-shadow: var(--ps-card-shadow);
+}
+.public-site .ps-button {
+  height: var(--ps-button-height);
+  min-height: var(--ps-button-height);
+  border-radius: var(--ps-button-radius);
+  padding-inline: var(--ps-button-x);
+  font: var(--ps-weight-emphasis) var(--ps-small)/1.25 var(--ps-font-body);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.public-site .ps-button:focus-visible {
+  outline: 2px solid var(--ps-accent-hover);
+  outline-offset: 2px;
+}
+.public-site .ps-button-primary { background: var(--ps-accent); color: var(--ps-accent-foreground); }
+.public-site .ps-button-primary:hover { background: var(--ps-accent-hover); }
+.public-site .ps-button-secondary { border: 1px solid var(--ps-border); background: transparent; color: var(--ps-text); }
+.public-site .ps-button-secondary:hover { background: var(--ps-neutral); }
+
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;

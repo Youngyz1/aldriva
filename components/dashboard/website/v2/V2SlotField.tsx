@@ -245,8 +245,9 @@ export function V2SlotField({
       {control.kind === "nav-labels" ? (() => {
         const labels = record(value);
         const entries = template.navigation.map((entry) => {
-          const hash = entry.href.indexOf("#");
-          const key = hash >= 0 ? entry.href.slice(hash + 1).split(/[/?]/)[0] || "home" : entry.pageSlug ?? "home";
+          const key = entry.anchor === "how-it-works"
+            ? "how"
+            : entry.anchor ?? entry.pageSlug ?? entry.href ?? "home";
           const initial = typeof labels[key] === "string" ? labels[key] as string : entry.label;
           return { key, initial };
         });

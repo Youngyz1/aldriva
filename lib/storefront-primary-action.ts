@@ -3,12 +3,14 @@ import {
   resolveStorefrontFeatures,
   type StorefrontFeatureState,
 } from "./storefront-features";
+import { getSitePageHref } from "./site-paths";
 
 export type PrimaryActionLabelKey =
   | "orderNow"
   | "reserveTable"
   | "bookNow"
   | "viewMenu"
+  | "viewProducts"
   | "contact"
   | "rentalContactCta";
 
@@ -18,16 +20,22 @@ export interface StorefrontAction {
 }
 
 export interface ResolvePrimaryActionInput {
+  siteSlug?: string;
   industry?: string | null;
   category?: string | null;
   businessType?: string | null;
   features: {
     offerings?: readonly string[] | null;
+    capabilities?: readonly string[];
     built: StorefrontFeatureState;
     /** Booking support is reserved for a future, independently gated flow. */
     bookings?: { selected: boolean; built: boolean };
+    reservationsApproved?: boolean;
   };
   builtPages: readonly string[] | ReadonlySet<string>;
+  /** Restrict links to materialized rows on public routes and previews. */
+  availablePages?: readonly string[] | ReadonlySet<string>;
+  catalogAdapter?: "menu" | "products";
 }
 
 export interface ResolvedPrimaryActions {
@@ -64,8 +72,8 @@ function getBusinessKind(businessType?: string | null, category?: string | null)
   return category ? PRIMARY_ACTION_KIND_BY_CATEGORY[category] ?? "general" : "general";
 }
 
-function getPageHref(slugs: Set<string>, slug: string): string | undefined {
-  return slugs.has(slug) ? `/${slug}` : undefined;
+function getPageHref(slugs: Set<string>, siteSlug: string, slug: string): string | undefined {
+  return slugs.has(slug) ? getSitePageHref(siteSlug, slug) : undefined;
 }
 
 /**
@@ -76,18 +84,22 @@ export function resolvePrimaryAction({
   industry,
   category,
   businessType,
+  siteSlug = "preview",
   features,
   builtPages,
+  availablePages,
+  catalogAdapter,
 }: ResolvePrimaryActionInput): ResolvedPrimaryActions {
   const capabilities = getCapabilitiesForBusiness(industry ?? "", category ?? "", businessType ?? "");
   const storefront = resolveStorefrontFeatures({
-    capabilities,
+    capabilities: features.capabilities ?? capabilities,
     offerings: features.offerings,
     built: features.built,
+    reservationsApproved: features.reservationsApproved,
   });
-  const pages = new Set(builtPages);
+  const pages = new Set(availablePages ?? builtPages);
   const kind = getBusinessKind(businessType, category);
-  const contact = getPageHref(pages, "contact");
+  const contact = getPageHref(pages, siteSlug, "contact");
   const contactAction = contact
     ? { labelKey: kind === "rental" ? "rentalContactCta" as const : "contact" as const, href: contact }
     : undefined;
@@ -98,7 +110,7 @@ export function resolvePrimaryAction({
     (capabilities.includes("BOOKINGS") || capabilities.includes("RESERVATIONS"))
   );
   const candidates: Array<{ live: boolean; page: string; action: PrimaryActionLabelKey }> = [
-    { live: storefront.ordering, page: "menu", action: "orderNow" },
+    { live: storefront.ordering, page: pages.has("order") ? "order" : "menu", action: "orderNow" },
     { live: storefront.reservations, page: "reservations", action: "reserveTable" },
     { live: bookingsLive, page: "booking", action: "bookNow" },
   ];
@@ -106,14 +118,14 @@ export function resolvePrimaryAction({
 
   const preferred = liveCandidates[0];
   if (preferred) {
-    const href = getPageHref(pages, preferred.page);
+    const href = getPageHref(pages, siteSlug, preferred.page);
     if (!href) return { ...(contactAction ? { primary: contactAction } : {}) };
     const primary = { labelKey: preferred.action, href };
     const secondaryCandidate = liveCandidates
       .slice(1)
       .map((candidate) => ({
         labelKey: candidate.action,
-        href: getPageHref(pages, candidate.page),
+        href: getPageHref(pages, siteSlug, candidate.page),
       }))
       .find((candidate) => candidate.href && candidate.href !== primary.href);
     return {
@@ -124,7 +136,12 @@ export function resolvePrimaryAction({
     };
   }
 
-  const menu = getPageHref(pages, "menu");
-  if (menu) return { primary: { labelKey: "viewMenu", href: menu } };
+  const catalog = getPageHref(pages, siteSlug, "menu");
+  if (catalog && catalogAdapter === "menu") {
+    return { primary: { labelKey: "viewMenu", href: catalog } };
+  }
+  if (catalog && catalogAdapter === "products") {
+    return { primary: { labelKey: "viewProducts", href: catalog } };
+  }
   return contactAction ? { primary: contactAction } : {};
 }

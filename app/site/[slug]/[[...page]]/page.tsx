@@ -29,14 +29,23 @@ import {
 } from "@/lib/website-v2-theme";
 import { normalizeContent, type ContentDoc } from "@/lib/website-content";
 import { getBusinessOfferings } from "@/lib/business-offerings";
+import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
+import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import {
   resolveTemplateContent,
+  selectTemplateRoutePage,
   type ResolvedTemplate,
 } from "@/lib/website-template-resolver";
 import { FLAGSHIP_SAMPLES } from "@/lib/website-template-samples";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import { resolveOrderSchedule } from "@/lib/website-hours";
 import type { StorefrontOrderConfig } from "@/components/site/blocks/StorefrontBrowse";
+import type { StorefrontReservationConfig } from "@/components/site/blocks/ReservationForm";
+import { extractDeliverySettings } from "@/lib/delivery-settings";
+import { extractReservationSettings } from "@/lib/reservation-settings";
+import { getOrgApproval } from "@/lib/server-approval";
+import { canTakeOrders } from "@/lib/business-approval";
+import { resolveSiteHref } from "@/lib/site-paths";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -56,12 +65,7 @@ interface V2RouteContent {
   content: ContentDoc;
   samples: ContentDoc;
   resolved: ResolvedTemplate;
-}
-
-function templateNavigationHref(href: string, siteSlug: string): string {
-  if (href === "/" || href === "") return "/site/" + siteSlug;
-  if (href.startsWith("/")) return "/site/" + siteSlug + href;
-  return href;
+  availablePageSlugs: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -113,12 +117,13 @@ export async function resolveWebsiteAndPage(
   // business's country (CI → XOF), else USD so legacy sites never change.
   const { data: countryRow } = await supabaseAdmin
     .from("businesses")
-    .select("country, industry, category, business_type, offerings, created_at")
+    .select("id, country, industry, category, business_type, offerings, created_at")
     .eq("organizer_id", website.tenant_id)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   const linkedBusiness = countryRow as {
+    id?: string | null;
     country?: string | null;
     industry?: string | null;
     category?: string | null;
@@ -198,24 +203,34 @@ export async function resolveWebsiteAndPage(
     const metadata = website.metadata && typeof website.metadata === "object"
       ? website.metadata as Record<string, unknown>
       : {};
-    const businessOfferings = Array.isArray(linkedBusiness?.offerings)
-      ? linkedBusiness.offerings.filter((key): key is string => typeof key === "string")
-      : [];
+    const siteResolverInputs = buildWebsiteTemplateResolverInputs({
+      siteSlug: website.slug,
+      currency,
+      metadata,
+      linkedBusiness,
+    });
+    const catalogAvailability = await getWebsiteCatalogAvailability(
+      supabaseAdmin,
+      website.tenant_id,
+      linkedBusiness?.id
+    );
+    const reservationsApproved = canTakeOrders(await getOrgApproval(website.tenant_id));
     const resolved = resolveTemplateContent(
       v2Template.id,
       v2Template.version,
       content,
       {
+        ...siteResolverInputs,
+        catalogAvailability,
+        catalogLabels: { products: storeT("products"), featuredProducts: storeT("featuredProducts") },
         includeSamples: false,
         includeSourceMap: false,
-        currency,
+        availablePageSlugs: visiblePages.map((page) => page.slug),
         business: {
-          industry: linkedBusiness?.industry ?? "",
-          category: businessCategory,
-          businessType,
-          offerings: businessOfferings,
+          ...siteResolverInputs.business,
           offeringLabels: Object.fromEntries(catalog.map((offering) => [offering.key, getOfferingLabel(`labels.${offering.labelKey}`)])),
         },
+        reservationsApproved,
         viewMenuLabel: storeT("viewMenu"),
         rentalContactCta: storeT("rentalContactCta"),
         primaryActionLabels: {
@@ -223,30 +238,24 @@ export async function resolveWebsiteAndPage(
           reserveTable: storeT("reserveTable"),
           bookNow: storeT("bookNow"),
           viewMenu: storeT("viewMenu"),
+          viewProducts: storeT("viewProducts"),
           contact: storeT("contact"),
           rentalContactCta: storeT("rentalContactCta"),
         },
         offeringsHeading: storeT("whatWeOffer"),
         restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
         rentalCtaBandHeading: storeT("rentalBrandMessage"),
-        timeZone: typeof metadata.timezone === "string" ? metadata.timezone : undefined,
       }
     );
-    const emittedBySlug = new Map(resolved.pages.map((page) => [page.slug, page]));
-    const visibleV2Pages = visiblePages.filter((page) => emittedBySlug.has(page.slug));
     const requestedPageSlug = pageSlugArr && pageSlugArr.length > 0 ? pageSlugArr[0] : null;
-    const resolvedTarget = requestedPageSlug
-      ? emittedBySlug.get(requestedPageSlug)
-      : resolved.pages.find((page) => page.isHome) ?? resolved.pages[0];
-    const pageRow = resolvedTarget
-      ? visibleV2Pages.find((page) => page.slug === resolvedTarget.slug)
-      : undefined;
-    const targetPage = pageRow && resolvedTarget
+    const routeSelection = selectTemplateRoutePage(resolved.pages, visiblePages, requestedPageSlug);
+    const visibleV2Pages = routeSelection.pages;
+    const targetPage = routeSelection.target
       ? {
-          ...pageRow,
-          title: resolvedTarget.title,
-          is_home: resolvedTarget.isHome,
-          blocks: resolvedTarget.blocks,
+          ...routeSelection.target.row,
+          title: routeSelection.target.page.title,
+          is_home: routeSelection.target.page.isHome,
+          blocks: routeSelection.target.page.blocks,
         } as WebsitePage
       : null;
     const visibleV2Slugs = new Set(visibleV2Pages.map((page) => page.slug));
@@ -254,7 +263,7 @@ export async function resolveWebsiteAndPage(
       .filter((item) => !item.pageSlug || visibleV2Slugs.has(item.pageSlug))
       .map((item) => ({
         ...item,
-        href: templateNavigationHref(item.href, website.slug),
+        href: resolveSiteHref(website.slug, item.href),
         page_id: item.pageSlug
           ? visibleV2Pages.find((page) => page.slug === item.pageSlug)?.id ?? null
           : null,
@@ -273,6 +282,7 @@ export async function resolveWebsiteAndPage(
         content,
         samples: FLAGSHIP_SAMPLES[v2Template.id] ?? {},
         resolved: routeResolved,
+        availablePageSlugs: routeSelection.availablePageSlugs,
       },
     };
   }
@@ -443,7 +453,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
   const themeStyle = {
     ...themeTokensToStyle(tokens),
     ...themeConfigToStyle(website.theme_config),
-    ...(v2Template ? v2ThemeStyle(v2Template) : {}),
+    ...(v2Template ? v2ThemeStyle(v2Template, website.metadata) : {}),
     ...(v2Template
       ? { backgroundColor: v2Template.templateBackground.base }
       : {}),
@@ -458,6 +468,8 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     if (v2Content.resolved.storefrontFeatures.pickup) offerings.push("pickup");
     if (v2Content.resolved.storefrontFeatures.delivery) offerings.push("delivery");
 
+    const deliverySettings = extractDeliverySettings(website.metadata);
+
     orderConfig = {
       enabled: true,
       slug: website.slug,
@@ -468,6 +480,26 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       scheduledFor: schedule.scheduledFor,
       blocked: schedule.blocked,
       blockReason: schedule.message,
+      deliveryFee: deliverySettings.fee,
+      freeDeliveryAbove: deliverySettings.free_above,
+    };
+  }
+
+  let reservationConfig: StorefrontReservationConfig | undefined;
+  if (v2Content?.resolved.storefrontFeatures.reservations) {
+    const websiteMeta = (website.metadata && typeof website.metadata === "object" ? website.metadata : {}) as Record<string, unknown>;
+    const timeZone = typeof websiteMeta.timezone === "string" && websiteMeta.timezone.trim()
+      ? websiteMeta.timezone.trim()
+      : "Africa/Abidjan";
+    const reservationSettings = extractReservationSettings(website.metadata);
+    // Render follows the feature gate (like ordering); the submit action
+    // re-checks approval, settings, and slots authoritatively.
+    reservationConfig = {
+      enabled: true,
+      slug: website.slug,
+      settings: reservationSettings,
+      timeZone,
+      hours: v2Content.content.hours ?? null,
     };
   }
 
@@ -476,7 +508,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
   return (
     <div
       style={themeStyle}
-      className={`min-h-screen flex flex-col bg-white text-zinc-900 ${
+      className={`public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${
         website.theme_config?.darkMode ? "dark" : ""
       }`}
     >
@@ -516,6 +548,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
           sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
           storefrontFeatures={v2Content.resolved.storefrontFeatures}
           primaryAction={v2Content.resolved.primaryAction.primary}
+          availablePageSlugs={v2Content.availablePageSlugs}
         />
       ) : (
         <SiteHeader
@@ -530,11 +563,11 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       {/* Page Body / Block Renderer */}
       <main className="flex-1">
         {blocks.length === 0 ? (
-          <div className="mx-auto max-w-4xl px-6 py-20 text-center text-zinc-500">
-            <h2 className="text-xl font-semibold text-zinc-800">
+          <div className="mx-auto max-w-4xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center text-[var(--ps-muted)]">
+            <h2 className="text-xl font-semibold text-[var(--ps-text)]">
               {targetPage.title}
             </h2>
-            <p className="mt-2 text-sm">
+            <p className="mt-[var(--ps-space-2)] text-sm">
               This page has no content blocks yet. Add blocks in the Organization Dashboard.
             </p>
           </div>
@@ -546,10 +579,16 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               tenantId={website.tenant_id}
               isTeamMember={isTeamMember}
               editMode={Boolean(v2Content && isTeamMember)}
+              scopeInternalLinks={Boolean(v2Content)}
               sourceMap={v2Content?.resolved.sourceMap}
               currency={currency}
               currencyLocale={currencyLocale}
               orderConfig={orderConfig}
+              reservationConfig={reservationConfig}
+              siteSlug={website.slug}
+              accentColor={v2Template
+                ? v2ThemeStyle(v2Template, website.metadata)["--ps-accent"]
+                : (typeof website.theme_config?.primaryColor === "string" ? website.theme_config.primaryColor : undefined)}
             />
           ))
         )}
@@ -568,6 +607,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
           editMode={isTeamMember}
           sourceMap={v2Content.resolved.chromeSourceMap.footer}
           storefrontFeatures={v2Content.resolved.storefrontFeatures}
+          availablePageSlugs={v2Content.availablePageSlugs}
           todayHours={v2Content.resolved.todayHours}
         />
       ) : (

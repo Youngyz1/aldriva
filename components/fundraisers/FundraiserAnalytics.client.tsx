@@ -2,7 +2,9 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { BarChart3, Eye, MousePointerClick, Share2, TrendingUp } from "lucide-react";
-import type { DailyDonation } from "@/lib/fundraiser-dashboard";
+import type { CumulativeDayPoint } from "@/lib/fundraiser-dashboard";
+import { computeWeekChange } from "@/lib/fundraiser-dashboard";
+import { formatMoney } from "@/lib/money";
 
 const MiniAreaChart = dynamic(() => import("./MiniAreaChart"), { ssr: false, loading: () => <div className="h-36 w-full animate-pulse rounded bg-zinc-100" /> });
 
@@ -15,21 +17,13 @@ const TABS: Array<{ id: TabId; label: string; tracked: boolean }> = [
   { id: "shares", label: "Shares", tracked: false },
 ];
 
-function computeWeekChange(points: { date: string; value: number }[]): number | null {
-  if (points.length < 8) return null;
-  const lastWeek = points.slice(-7);
-  const prevWeek = points.slice(-14, -7);
-  const lastTotal = lastWeek.reduce((s, d) => s + d.value, 0);
-  const prevTotal = prevWeek.reduce((s, d) => s + d.value, 0);
-  if (prevTotal <= 0) return null;
-  return Math.round(((lastTotal - prevTotal) / prevTotal) * 100);
-}
-
-export default function FundraiserAnalytics({ dailyDonations }: { dailyDonations: DailyDonation[] }) {
+export default function FundraiserAnalytics({ dailyDonations, currency = "USD" }: { dailyDonations: CumulativeDayPoint[]; currency?: string }) {
   const [tab, setTab] = useState<TabId>("donations");
-  const hasData = dailyDonations.length > 0;
+  const hasData = dailyDonations.length > 0 && dailyDonations.some((d) => d.count > 0);
+  // "Donations" tab plots the cumulative raised-over-time line (never slopes
+  // down between gifts); "Average Gift" uses the per-day gift size.
   const donationPoints = useMemo(() => dailyDonations.map((d) => ({ date: d.date, value: d.amount })), [dailyDonations]);
-  const avgGiftPoints = useMemo(() => dailyDonations.map((d) => ({ date: d.date, value: d.count > 0 ? Math.round(d.amount / d.count) : 0 })), [dailyDonations]);
+  const avgGiftPoints = useMemo(() => dailyDonations.map((d) => ({ date: d.date, value: d.count > 0 ? Math.round(d.dayAmount / d.count) : 0 })), [dailyDonations]);
   const activePoints = tab === "avg_gift" ? avgGiftPoints : donationPoints;
   const weekChange = useMemo(() => computeWeekChange(activePoints), [activePoints]);
   const activeTab = TABS.find((t) => t.id === tab)!;
@@ -73,7 +67,7 @@ export default function FundraiserAnalytics({ dailyDonations }: { dailyDonations
             <p className="max-w-xs text-xs text-zinc-500">We&apos;ll surface this chart as soon as this data is being collected.</p>
           </div>
         ) : hasData ? (
-          <MiniAreaChart data={activePoints} gradientId={`analytics-${tab}`} valueFormatter={(v) => `$${v.toLocaleString()}`} />
+          <MiniAreaChart data={activePoints} gradientId={`analytics-${tab}`} valueFormatter={(v) => formatMoney(v, currency)} currency={currency} />
         ) : (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <BarChart3 className="h-8 w-8 text-zinc-300" />

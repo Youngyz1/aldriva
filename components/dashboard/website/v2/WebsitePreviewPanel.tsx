@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ContentDoc } from "@/lib/website-content";
 import { isSameOriginWebsitePreviewMessage, isWebsitePreviewMessage, WEBSITE_PREVIEW_MESSAGE_SOURCE } from "@/lib/website-preview-channel";
 import type { V2BuilderState, V2MenuItemChoice } from "@/lib/actions/website-v2";
@@ -16,6 +17,8 @@ interface WebsitePreviewPanelProps {
   onSelectPage: (slug: string) => void;
   menuItems?: V2MenuItemChoice[];
   onOpenMenuEditor?: () => void;
+  offerings?: string[];
+  isOrderingLive?: boolean;
 }
 
 export function WebsitePreviewPanel({
@@ -28,7 +31,10 @@ export function WebsitePreviewPanel({
   onSelectPage,
   menuItems,
   onOpenMenuEditor,
+  offerings,
+  isOrderingLive,
 }: WebsitePreviewPanelProps) {
+  const storeT = useTranslations("Storefront");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"mobile" | "desktop">("desktop");
@@ -99,6 +105,16 @@ export function WebsitePreviewPanel({
   }, [menuItems, ready, websiteId]);
 
   useEffect(() => {
+    if (!ready || !offerings) return;
+    iframeRef.current?.contentWindow?.postMessage({
+      source: WEBSITE_PREVIEW_MESSAGE_SOURCE,
+      kind: "update_offerings",
+      websiteId,
+      offerings,
+    }, window.location.origin);
+  }, [offerings, ready, websiteId]);
+
+  useEffect(() => {
     if (!ready) return;
     const timer = window.setTimeout(sendDraft, 140);
     return () => window.clearTimeout(timer);
@@ -116,6 +132,15 @@ export function WebsitePreviewPanel({
           {(["desktop", "mobile"] as const).map((nextMode) => <button key={nextMode} type="button" aria-pressed={mode === nextMode} onClick={() => setMode(nextMode)} className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${mode === nextMode ? "bg-white text-zinc-900 shadow-xs dark:bg-zinc-700 dark:text-white" : "text-zinc-500 dark:text-zinc-400"}`}>{nextMode}</button>)}
         </div>
       </div>
+      {isOrderingLive ? (
+        <div
+          role="note"
+          data-testid="preview-ordering-notice"
+          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {storeT("previewOrderingNotice")}
+        </div>
+      ) : null}
       <div ref={containerRef} className="flex min-h-0 flex-1 items-start justify-center overflow-auto px-2 py-4 sm:items-center">
         <WebsiteDevicePreviewFrame
           mode={mode}

@@ -45,13 +45,21 @@ export interface WebsitePreviewUpdateMenuItemsMessage {
   }>;
 }
 
+export interface WebsitePreviewUpdateOfferingsMessage {
+  source: typeof WEBSITE_PREVIEW_MESSAGE_SOURCE;
+  kind: "update_offerings";
+  websiteId: string;
+  offerings: string[];
+}
+
 export type WebsitePreviewMessage =
   | WebsitePreviewReadyMessage
   | WebsitePreviewHelloMessage
   | WebsitePreviewDraftMessage
   | WebsitePreviewPageMessage
   | WebsitePreviewOpenMenuEditorMessage
-  | WebsitePreviewUpdateMenuItemsMessage;
+  | WebsitePreviewUpdateMenuItemsMessage
+  | WebsitePreviewUpdateOfferingsMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,6 +82,10 @@ export function isWebsitePreviewMessage(data: unknown): data is WebsitePreviewMe
   if (data.kind === "update_menu_items") {
     return typeof data.websiteId === "string" && data.websiteId.length > 0 &&
       Array.isArray(data.menuItems);
+  }
+  if (data.kind === "update_offerings") {
+    return typeof data.websiteId === "string" && data.websiteId.length > 0 &&
+      Array.isArray(data.offerings);
   }
   return false;
 }

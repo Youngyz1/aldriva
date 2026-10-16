@@ -10,10 +10,9 @@ import {
   computeProjectedFinishDate,
   buildRecommendedAction,
   buildFundraiserInsights,
-  buildDailyDonations,
-  formatCurrency,
-  isSameUtcDay,
+  getFundraiserDonationStats,
 } from "@/lib/fundraiser-dashboard";
+import { formatMoney } from "@/lib/money";
 import FundraisingProgressRing from "@/components/ui/FundraisingProgressRing";
 import FundraiserAnalytics from "@/components/fundraisers/FundraiserAnalytics.client";
 import FundraiserQuickActions from "@/components/fundraisers/FundraiserQuickActions.client";
@@ -73,7 +72,6 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
   const category = String(f.category ?? "General");
   const statusRaw = String(f.status ?? "published");
   const goal = Number((f as { goal?: unknown }).goal ?? (f as { goal_amount?: unknown }).goal_amount ?? (f as { goalAmount?: unknown }).goalAmount ?? 0);
-  const raised = Number((f as { raised_amount?: unknown }).raised_amount ?? (f as { raised?: unknown }).raised ?? 0);
   const createdAt = String(f.created_at ?? new Date().toISOString());
   const organizerId = (f.organizer_id as string | null) ?? null;
   const organizerName = (f.organizer as string | null) ?? null;
@@ -86,20 +84,15 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
   }
   const beneficiary = resolveBeneficiary(beneficiaryRaw, orgName);
 
-  // — donations scoped to this fundraiser only (succeeded only for stats)
-  type DonRow = { id: string; donor_name: string | null; amount: number | string | null; created_at: string | null; status?: string | null; fundraiser_id: string };
-  let rawDonations: DonRow[] = [];
-  try {
-    const { data } = await admin.from("donations").select("id, donor_name, amount, created_at, fundraiser_id, status").eq("fundraiser_id", id).order("created_at", { ascending: false }).limit(500);
-    rawDonations = (data ?? []) as DonRow[];
-  } catch {
-    const { data } = await admin.from("donations").select("id, donor_name, amount, created_at, fundraiser_id").eq("fundraiser_id", id).order("created_at", { ascending: false }).limit(500);
-    rawDonations = (data ?? []) as DonRow[];
-  }
-  // only succeeded counts toward raised/average if status exists
-  const succeeded = rawDonations.filter((d) => !("status" in d) || d.status == null || d.status === "succeeded");
-  // if no succeeded but there are donations, fall back to all (defensive)
-  const donationsForStats = succeeded.length > 0 ? succeeded : rawDonations;
+  // — donations scoped to this fundraiser: ONE shared stats computer.
+  // Only completed/succeeded gifts count; guest gifts merge by email, true
+  // anonymous gifts stay separate, totals stay per-currency (never summed).
+  const stats = await getFundraiserDonationStats(admin, id);
+  const rawDonations = stats.rows;
+  const donationsForStats = stats.rows;
+  const multiCurrency = stats.totalsPerCurrency.length > 1;
+  const cfaQualifier = multiCurrency && stats.totalsPerCurrency.some((t) => t.currency === "XOF") && stats.totalsPerCurrency.some((t) => t.currency === "XAF");
+  const fmtPrimary = (v: number) => formatMoney(v, stats.primaryCurrency, "en-US", { cfaQualifier });
 
   // — updates
   let rawUpdates: { id: string; title: string | null; created_at: string | null; fundraiser_id: string }[] = [];
@@ -119,31 +112,31 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
     } catch {}
   }
 
-  // — derived metrics (mirrors event-platform/app/dashboard/page.tsx)
-  const now = new Date();
+  // — derived metrics from the shared stats (primary = largest currency).
+  // Goal has no currency column; pacing math uses the primary total.
+  const statsRaised = stats.totalsPerCurrency[0]?.total ?? 0;
   const daysElapsed = Math.max(1, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000));
-  const avgDaily = Math.round(raised / daysElapsed);
+  const avgDaily = Math.round(statsRaised / daysElapsed);
   const daysRemaining = 30; // no end_date column — honest default
-  const dailyPaceRequired = daysRemaining > 0 ? Math.round((goal - raised) / daysRemaining) : undefined;
-  const pct = calculateFundraisingPercentage(raised, goal);
-  const remaining = Math.max(0, goal - raised);
-  const status = statusRaw === "paused" ? "paused" as const : inferStatus(raised, goal, null);
+  const dailyPaceRequired = daysRemaining > 0 ? Math.round((goal - statsRaised) / daysRemaining) : undefined;
+  const pct = calculateFundraisingPercentage(statsRaised, goal);
+  const remaining = Math.max(0, goal - statsRaised);
+  const status = statusRaw === "paused" ? "paused" as const : inferStatus(statsRaised, goal, null);
   const healthScore = computeHealthScore(status, dailyPaceRequired, avgDaily);
-  const projectedFinishDate = computeProjectedFinishDate(raised, goal, avgDaily);
+  const projectedFinishDate = computeProjectedFinishDate(statsRaised, goal, avgDaily);
   const recommended = buildRecommendedAction(status);
 
-  const donorCount = new Set(donationsForStats.map((d) => (d.donor_name === "Anonymous" ? d.id : d.donor_name ?? d.id))).size;
-  const averageDonation = donationsForStats.length > 0 ? Math.round(raised / donationsForStats.length) : 0;
-  const todayDonations = donationsForStats.filter((d) => isSameUtcDay(new Date(d.created_at ?? 0), now));
-  const todayAmount = todayDonations.reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  const todayCount = todayDonations.length;
-  const hasDonations = raised > 0 || donationsForStats.length > 0;
+  const donorCount = stats.donorCount;
+  const averageDonation = stats.averageDonation;
+  const todayAmount = stats.todayAmount;
+  const todayCount = stats.todayCount;
+  const hasDonations = statsRaised > 0 || stats.donationCount > 0;
 
   const lastUpdateDate = rawUpdates[0]?.created_at ?? null;
   const updateCount = rawUpdates.length;
   const insights = buildFundraiserInsights({
     status,
-    raised,
+    raised: statsRaised,
     goal,
     dailyPaceRequired,
     averageDailyRaised: avgDaily,
@@ -154,12 +147,12 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
     donations: donationsForStats.map((d) => ({ amount: Number(d.amount ?? 0), timestamp: d.created_at ?? new Date().toISOString() })),
   });
 
-  const dailyDonations = buildDailyDonations(donationsForStats.map((d) => ({ amount: Number(d.amount ?? 0), timestamp: d.created_at ?? new Date().toISOString() })));
+  const dailyDonations = stats.dailySeries;
 
   // recent lists
   const recentDonations = donationsForStats.slice(0, 5);
   const activities = [
-    ...rawDonations.slice(0, 5).map((d) => ({ id: `don-${d.id}`, title: "Donation received", desc: `${d.donor_name === "Anonymous" ? "Anonymous" : d.donor_name ?? "Someone"} donated $${Number(d.amount ?? 0).toLocaleString()}`, ts: d.created_at ?? new Date().toISOString() })),
+    ...rawDonations.slice(0, 5).map((d) => ({ id: `don-${d.id}`, title: "Donation received", desc: `${d.donor_name === "Anonymous" ? "Anonymous" : d.donor_name ?? "Someone"} donated ${formatMoney(Number(d.amount ?? 0), d.currency ?? stats.primaryCurrency)}`, ts: d.created_at ?? new Date().toISOString() })),
     ...rawUpdates.slice(0, 3).map((u) => ({ id: `upd-${u.id}`, title: "Update posted", desc: `"${u.title ?? "Campaign update"}" was published`, ts: u.created_at ?? new Date().toISOString() })),
   ]
     .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
@@ -197,19 +190,28 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
         </div>
         <div className="mt-5 space-y-2">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl font-extrabold tabular-nums text-zinc-900">{formatCurrency(raised)}</span>
+            <span className="text-2xl font-extrabold tabular-nums text-zinc-900">{fmtPrimary(statsRaised)}</span>
             <span className="text-sm text-zinc-500">
-              of <span className="font-semibold text-zinc-700">{formatCurrency(goal)}</span> goal
+              of <span className="font-semibold text-zinc-700">{fmtPrimary(goal)}</span> goal
             </span>
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-100" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct}% funded`}>
             <div className="h-full rounded-full bg-brand-700 transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
+          {multiCurrency ? (
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+              {stats.totalsPerCurrency.map((t) => (
+                <li key={t.currency} className="text-xs font-semibold tabular-nums text-zinc-600">
+                  {formatMoney(t.total, t.currency, "en-US", { cfaQualifier })} <span className="font-medium text-zinc-400">· {t.count} {t.count === 1 ? "gift" : "gifts"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="flex flex-col gap-0.5 rounded-lg bg-zinc-50 px-3 py-2.5">
             <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Raised</dt>
-            <dd className="truncate text-sm font-bold tabular-nums text-brand-700">{formatCurrency(raised)}</dd>
+            <dd className="truncate text-sm font-bold tabular-nums text-brand-700">{fmtPrimary(statsRaised)}</dd>
           </div>
           <div className="flex flex-col gap-0.5 rounded-lg bg-zinc-50 px-3 py-2.5">
             <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Funded</dt>
@@ -222,7 +224,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
           </div>
           <div className="flex flex-col gap-0.5 rounded-lg bg-zinc-50 px-3 py-2.5">
             <dt className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Avg / Day</dt>
-            <dd className="truncate text-sm font-bold tabular-nums text-zinc-900">{formatCurrency(avgDaily)}/day</dd>
+            <dd className="truncate text-sm font-bold tabular-nums text-zinc-900">{fmtPrimary(avgDaily)}/day</dd>
           </div>
         </dl>
       </div>
@@ -235,7 +237,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
         </div>
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center">
           <div className="mx-auto shrink-0 sm:mx-0">
-            <FundraisingProgressRing raised={raised} goal={goal || 1} size={112} strokeWidth={9} showDetails />
+            <FundraisingProgressRing raised={statsRaised} goal={goal || 1} size={112} strokeWidth={9} showDetails currency={stats.primaryCurrency} />
           </div>
           <div className="grid flex-1 grid-cols-2 gap-4">
             <div className="flex flex-col gap-0.5">
@@ -248,11 +250,11 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-xs font-medium text-zinc-400">Current Pace</span>
-              <span className="truncate text-sm font-bold tabular-nums text-zinc-900">{formatCurrency(avgDaily)}/day</span>
+              <span className="truncate text-sm font-bold tabular-nums text-zinc-900">{fmtPrimary(avgDaily)}/day</span>
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-xs font-medium text-zinc-400">Required Pace</span>
-              <span className="truncate text-sm font-bold tabular-nums text-zinc-900">{dailyPaceRequired ? `${formatCurrency(dailyPaceRequired)}/day` : "—"}</span>
+              <span className="truncate text-sm font-bold tabular-nums text-zinc-900">{dailyPaceRequired ? `${fmtPrimary(dailyPaceRequired)}/day` : "—"}</span>
             </div>
           </div>
         </div>
@@ -288,7 +290,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
               <span className="text-sm font-medium text-zinc-500">Amount Raised</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50"><Wallet className="h-4 w-4 text-brand-700" /></div>
             </div>
-            <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{formatCurrency(raised)}</span>
+            <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{fmtPrimary(statsRaised)}</span>
           </div>
           <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5">
             <div className="flex items-start justify-between gap-2">
@@ -296,7 +298,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50"><Heart className="h-4 w-4 text-brand-700" /></div>
             </div>
             <div className="flex flex-col gap-0.5">
-              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{formatCurrency(todayAmount)}</span>
+              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{fmtPrimary(todayAmount)}</span>
               <span className="text-xs text-zinc-400">{todayCount} {todayCount === 1 ? "gift" : "gifts"} today</span>
             </div>
           </div>
@@ -315,7 +317,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
               <span className="text-sm font-medium text-zinc-500">Average Donation</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50"><Receipt className="h-4 w-4 text-sky-600" /></div>
             </div>
-            <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{formatCurrency(averageDonation)}</span>
+            <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{fmtPrimary(averageDonation)}</span>
           </div>
         </div>
         <div>
@@ -326,14 +328,14 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
                 <span className="text-sm font-medium text-zinc-500">Goal</span>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50"><Target className="h-4 w-4 text-indigo-600" /></div>
               </div>
-              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{formatCurrency(goal)}</span>
+              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{fmtPrimary(goal)}</span>
             </div>
             <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-sm font-medium text-zinc-500">Remaining</span>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50"><PiggyBank className="h-4 w-4 text-amber-600" /></div>
               </div>
-              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{formatCurrency(remaining)}</span>
+              <span className="text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">{fmtPrimary(remaining)}</span>
             </div>
             <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-5">
               <div className="flex items-start justify-between gap-2">
@@ -401,7 +403,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
           )}
         </div>
         <div className="space-y-6 lg:col-start-1 lg:row-start-1">
-          <FundraiserAnalytics dailyDonations={dailyDonations} />
+          <FundraiserAnalytics dailyDonations={dailyDonations} currency={stats.primaryCurrency} />
           <div className="rounded-xl border border-zinc-200 bg-white">
             <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-zinc-900">Recent Donations</h2>
@@ -412,7 +414,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
                 <Heart className="h-8 w-8 text-zinc-300" />
                 <p className="text-sm font-semibold text-zinc-900">No donations yet</p>
                 <p className="text-xs text-zinc-500">When someone donates, they&apos;ll appear here.</p>
-                <p className="text-xs font-semibold text-brand-700">{formatCurrency(0)} today</p>
+                <p className="text-xs font-semibold text-brand-700">{fmtPrimary(0)} today</p>
               </div>
             ) : (
               <ul className="divide-y divide-zinc-100">
@@ -422,7 +424,7 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
                       <p className="truncate text-sm font-semibold text-zinc-900">{d.donor_name ?? "Anonymous"}</p>
                       <p className="text-xs text-zinc-500">{d.created_at ? new Date(d.created_at).toLocaleDateString() : ""}</p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-zinc-900">${Number(d.amount ?? 0).toLocaleString()}</span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-zinc-900">{formatMoney(Number(d.amount ?? 0), (d as { currency?: string | null }).currency ?? stats.primaryCurrency)}</span>
                   </li>
                 ))}
               </ul>

@@ -7,16 +7,41 @@ import { getModulesForBusiness } from "@/lib/business-dashboard-modules";
 export default async function BusinessLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await assertCanManageBusiness(id);
-  if (!auth.ok) return notFound();
+  if (!auth.ok) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[business-layout] notFound: auth failed for business ${id}`);
+    }
+    return notFound();
+  }
   const admin = createSupabaseAdmin();
-  const { data: b } = await admin.from("businesses").select("id, name, industry, category, business_type, offerings").eq("id", id).maybeSingle();
-  if (!b) return notFound();
+  const { data: b } = await admin
+    .from("businesses")
+    .select("id, name, industry, category, business_type, offerings, organizer_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!b) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[business-layout] notFound: no business row for id=${id}`);
+    }
+    return notFound();
+  }
+
   const base = `/dashboard/businesses/${id}`;
+  const orgBase = b.organizer_id ? `/dashboard/org/${b.organizer_id}` : null;
   const capabilityModules = getModulesForBusiness(b.industry, b.category, b.business_type, b.offerings);
   const capabilityKeys = new Set(capabilityModules.map((m) => m.key));
-  // map module key to nav item - keep existing routes where they exist, others are capability gated but may not have pages yet
-  const maybeItem = (key: string, label: string, icon: string) =>
-    capabilityKeys.has(key) ? { label, href: `${base}/${key}`, icon } : null;
+
+  // For items that live in the org workspace (menu, website), redirect to the
+  // org route when an organizer_id is available. Items with no existing page
+  // file and no org fallback are omitted (routeExists: false pattern).
+  const maybeItem = (key: string, label: string, icon: string): { label: string; href: string; icon: string } | null => {
+    if (!capabilityKeys.has(key)) return null;
+    // Menu and Website live under the org workspace, not the business shell.
+    if (key === "menu" && orgBase) return { label, href: `${orgBase}/menu`, icon };
+    if (key === "website" && orgBase) return { label, href: `${orgBase}/website/new`, icon };
+    return { label, href: `${base}/${key}`, icon };
+  };
+
   const dynamicItems = [
     maybeItem("products", "Products", "ShoppingBag"),
     maybeItem("menu", "Menu", "Utensils"),
@@ -34,7 +59,6 @@ export default async function BusinessLayout({ children, params }: { children: R
     maybeItem("analytics", "Analytics", "BarChart2"),
   ].filter(Boolean) as { label: string; href: string; icon: string }[];
 
-  // Fallback: if taxonomy yields no modules (e.g. Custom Business with minimal caps), ensure at least Products/Reviews if present
   // Always include Overview and Settings regardless of capabilities
   const navGroups = [
     {

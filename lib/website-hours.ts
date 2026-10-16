@@ -1,4 +1,18 @@
 export const DEFAULT_WEBSITE_TIME_ZONE = "Africa/Abidjan";
+
+/**
+ * Dashboard badge state for opening hours. Live hours drive everything;
+ * draft-only hours mean the owner saved hours (Settings or builder) that the
+ * website and dashboard cannot see yet — shown as "saved, not published"
+ * instead of "not configured".
+ */
+export type HoursBadgeState = "live" | "saved-unpublished" | "none";
+
+export function hoursBadgeState(liveHours: unknown, draftHours: unknown): HoursBadgeState {
+  if (liveHours != null) return "live";
+  if (draftHours != null) return "saved-unpublished";
+  return "none";
+}
 export const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 export type WeekdayKey = (typeof WEEKDAY_KEYS)[number];
 
@@ -171,3 +185,129 @@ function formatTargetIso(baseDate: Date, dayOffset: number, timeStr: string, tim
   return `${datePart}T${timeStr}:00.000Z`;
 }
 
+export interface ScheduleValidationResult {
+  valid: boolean;
+  scheduledFor?: string;
+  error?: "invalid_format" | "lead_time_too_short" | "horizon_exceeded" | "outside_opening_hours";
+  message?: string;
+}
+
+const PREVIOUS_DAY_MAP: Record<WeekdayKey, WeekdayKey> = {
+  mon: "sun",
+  tue: "mon",
+  wed: "tue",
+  thu: "wed",
+  fri: "thu",
+  sat: "fri",
+  sun: "sat",
+};
+
+export function validateScheduledOrderTime(
+  requestedIso: unknown,
+  hoursValue: unknown,
+  timeZone = DEFAULT_WEBSITE_TIME_ZONE,
+  minLeadTimeMin = 30,
+  maxHorizonDays = 7,
+  now = new Date()
+): ScheduleValidationResult {
+  if (typeof requestedIso !== "string" || !requestedIso.trim()) {
+    return { valid: false, error: "invalid_format", message: "Please specify a valid schedule time." };
+  }
+
+  const targetDate = new Date(requestedIso);
+  if (isNaN(targetDate.getTime())) {
+    return { valid: false, error: "invalid_format", message: "Invalid date format." };
+  }
+
+  const nowMs = now.getTime();
+  const targetMs = targetDate.getTime();
+  const minLeadMs = minLeadTimeMin * 60 * 1000;
+  const maxHorizonMs = maxHorizonDays * 86400000;
+
+  if (targetMs < nowMs + minLeadMs) {
+    return {
+      valid: false,
+      error: "lead_time_too_short",
+      message: `Orders must be scheduled at least ${minLeadTimeMin} minutes in advance.`,
+    };
+  }
+
+  if (targetMs > nowMs + maxHorizonMs) {
+    return {
+      valid: false,
+      error: "horizon_exceeded",
+      message: `Orders cannot be scheduled more than ${maxHorizonDays} days in advance.`,
+    };
+  }
+
+  const hours = record(hoursValue);
+  if (!hours) {
+    return { valid: true, scheduledFor: targetDate.toISOString() };
+  }
+
+  const hasAnyDayConfigured = WEEKDAY_KEYS.some((day) => {
+    const row = record(hours[day]);
+    return row && (row.closed === true || (isValidWebsiteTime(row.open) && isValidWebsiteTime(row.close)));
+  });
+  if (!hasAnyDayConfigured) {
+    return { valid: true, scheduledFor: targetDate.toISOString() };
+  }
+
+  let dayFormatter: Intl.DateTimeFormat;
+  let timeFormatter: Intl.DateTimeFormat;
+  try {
+    dayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone });
+    timeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone });
+  } catch {
+    dayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: DEFAULT_WEBSITE_TIME_ZONE });
+    timeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: DEFAULT_WEBSITE_TIME_ZONE });
+  }
+
+  const targetDayName = dayFormatter.format(targetDate).toLowerCase();
+  const targetDayKey = SHORT_DAY_TO_KEY[targetDayName];
+  const targetTime = timeFormatter.format(targetDate);
+
+  if (!targetDayKey) {
+    return { valid: false, error: "outside_opening_hours", message: "Selected time is outside business opening hours." };
+  }
+
+  const dayRow = record(hours[targetDayKey]);
+  let isOpen = false;
+
+  // 1. Check current day interval
+  if (dayRow && dayRow.closed !== true && isValidWebsiteTime(dayRow.open) && isValidWebsiteTime(dayRow.close)) {
+    const isOvernight = isOvernightWebsiteInterval(dayRow.open, dayRow.close);
+    if (isOvernight) {
+      if (targetTime >= dayRow.open || targetTime < dayRow.close) {
+        isOpen = true;
+      }
+    } else {
+      if (targetTime >= dayRow.open && targetTime < dayRow.close) {
+        isOpen = true;
+      }
+    }
+  }
+
+  // 2. Check previous day overnight spillover (e.g. Fri 18:00-02:00 spilling into Sat morning)
+  if (!isOpen) {
+    const prevDayKey = PREVIOUS_DAY_MAP[targetDayKey];
+    const prevDayRow = record(hours[prevDayKey]);
+    if (
+      prevDayRow &&
+      prevDayRow.closed !== true &&
+      isValidWebsiteTime(prevDayRow.open) &&
+      isValidWebsiteTime(prevDayRow.close) &&
+      isOvernightWebsiteInterval(prevDayRow.open, prevDayRow.close)
+    ) {
+      if (targetTime < prevDayRow.close) {
+        isOpen = true;
+      }
+    }
+  }
+
+  if (!isOpen) {
+    return { valid: false, error: "outside_opening_hours", message: "Selected time is outside business opening hours." };
+  }
+
+  return { valid: true, scheduledFor: targetDate.toISOString() };
+}

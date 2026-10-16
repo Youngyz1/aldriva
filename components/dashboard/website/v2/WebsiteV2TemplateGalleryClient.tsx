@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createWebsiteFromV2Template } from "@/lib/actions/website-v2";
@@ -44,6 +45,7 @@ export function WebsiteV2TemplateGalleryClient({
   canCreate,
 }: WebsiteV2TemplateGalleryClientProps) {
   const router = useRouter();
+  const publicT = useTranslations("PublicSite");
   const [category, setCategory] = useState<WebsiteCategory>(initialCategory);
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -107,8 +109,8 @@ export function WebsiteV2TemplateGalleryClient({
   return (
     <section className="space-y-5" aria-label="Choose a website template">
       <div>
-        <h2 className="text-sm font-semibold text-zinc-900">Choose your business category</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Templates are designed for specific business types.</p>
+        <h2 className="text-sm font-semibold text-zinc-900">{publicT("chooseCategory")}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{publicT("categoryRecommendationOnly")}</p>
         <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Business category">
           {categories.map((option) => (
             <button
@@ -143,17 +145,11 @@ export function WebsiteV2TemplateGalleryClient({
                       <p className="mt-1 text-sm leading-5 text-zinc-600">{card.description}</p>
                     </div>
                     <Badge variant="outline" size="sm" className="shrink-0 capitalize">
-                      {WEBSITE_CATEGORY_LABELS[card.category]}
+                      {categoryModel.recommendedTemplateIds.includes(card.id)
+                        ? publicT("recommendedFor", { category: WEBSITE_CATEGORY_LABELS[category] })
+                        : publicT("anyCategory")}
                     </Badge>
                   </div>
-                  {card.supportedCategories.length > 1 ? (
-                    <p className="text-xs text-zinc-500">
-                      Also available for {card.supportedCategories
-                        .filter((item) => item !== card.category)
-                        .map((item) => WEBSITE_CATEGORY_LABELS[item])
-                        .join(", ")}
-                    </p>
-                  ) : null}
                   {errors[card.id] ? (
                     <p role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
                       {errors[card.id]}

@@ -14,12 +14,9 @@ import {
 } from "lucide-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
 import type { DonationRow, DonationMetrics } from "./page";
+import { formatMoney } from "@/lib/money";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -56,18 +53,24 @@ function methodLabel(paymentIntentId: string | null): string {
 // ── Metrics strip ─────────────────────────────────────────────────────────────
 
 function MetricsStrip({ metrics }: { metrics: DonationMetrics }) {
+  const cfaQualifier =
+    metrics.totalsPerCurrency.length > 1 &&
+    metrics.totalsPerCurrency.some((t) => t.currency === "XOF") &&
+    metrics.totalsPerCurrency.some((t) => t.currency === "XAF");
+  const money = (v: number) => formatMoney(v, metrics.primaryCurrency, "en-US", { cfaQualifier });
   const cards = [
     { label: "Total Donations", value: metrics.total.toLocaleString(), sub: "transactions" },
-    { label: "Total Raised", value: formatCurrency(metrics.totalAmount), sub: "succeeded" },
-    { label: "Average Donation", value: formatCurrency(metrics.avgAmount), sub: "per donation" },
+    { label: "Total Raised", value: money(metrics.totalAmount), sub: metrics.totalsPerCurrency.length > 1 ? "across currencies" : metrics.primaryCurrency },
+    { label: "Average Donation", value: money(metrics.avgAmount), sub: "per donation" },
     {
       label: "Today",
-      value: formatCurrency(metrics.todayAmount),
+      value: money(metrics.todayAmount),
       sub: `${metrics.todayCount} ${metrics.todayCount === 1 ? "gift" : "gifts"} today`,
     },
   ];
 
   return (
+    <div className="space-y-3">
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {cards.map((c) => (
         <div key={c.label} className="flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white px-4 py-3">
@@ -77,6 +80,16 @@ function MetricsStrip({ metrics }: { metrics: DonationMetrics }) {
         </div>
       ))}
     </dl>
+    {metrics.totalsPerCurrency.length > 1 ? (
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl border border-zinc-200 bg-white px-4 py-2.5">
+        {metrics.totalsPerCurrency.map((t) => (
+          <li key={t.currency} className="text-xs font-semibold tabular-nums text-zinc-700">
+            {formatMoney(t.total, t.currency, "en-US", { cfaQualifier })} <span className="font-medium text-zinc-400">· {t.count} {t.count === 1 ? "gift" : "gifts"}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null}
+    </div>
   );
 }
 
@@ -144,7 +157,7 @@ function DonationDetailSheet({
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <dt className="text-sm text-zinc-500">Amount</dt>
             <dd className="text-sm font-bold tabular-nums text-zinc-900">
-              {formatCurrency(donation.amount)}
+              {formatMoney(donation.amount, donation.currency)}
             </dd>
           </div>
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
@@ -437,7 +450,7 @@ export default function DonationsClient({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-bold tabular-nums text-zinc-900">
-                        {formatCurrency(d.amount)}
+                        {formatMoney(d.amount, d.currency)}
                       </td>
                       <td className="px-4 py-3 text-zinc-600">{formatDate(d.created_at)}</td>
                       <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
@@ -470,7 +483,7 @@ export default function DonationsClient({
                         ) : d.donor_name}
                       </p>
                       <p className="mt-0.5 text-xs text-zinc-500">
-                        <span className="font-semibold tabular-nums text-zinc-700">{formatCurrency(d.amount)}</span>
+                        <span className="font-semibold tabular-nums text-zinc-700">{formatMoney(d.amount, d.currency)}</span>
                         {" · "}
                         <StatusBadge status={d.status} />
                         {" · "}

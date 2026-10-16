@@ -12,11 +12,16 @@ export default async function NewWebsitePage({ params }: { params: Promise<{ id:
   if (!user) redirect("/login");
 
   const supabase = createSupabaseAdmin();
-  const { data: org } = await supabase.from("organizers").select("id, name, slug, status, org_type").eq("id", id).maybeSingle();
-  if (!org) return notFound();
+  const { data: org } = await supabase.from("organizers").select("id, name, slug, photo, status, org_type").eq("id", id).maybeSingle();
+  if (!org) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[website/new] notFound: no organizer row for id=${id}`);
+    }
+    return notFound();
+  }
   const { data: linkedBusiness } = await supabase
     .from("businesses")
-    .select("industry, category, business_type, created_at")
+    .select("name, logo, industry, category, business_type, created_at")
     .eq("organizer_id", id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -37,6 +42,16 @@ export default async function NewWebsitePage({ params }: { params: Promise<{ id:
     <NewWebsiteClient
       orgId={id}
       orgName={org.name}
+      previewBusinessName={
+        typeof linkedBusiness?.name === "string" && linkedBusiness.name.trim()
+          ? linkedBusiness.name.trim()
+          : org.name
+      }
+      previewBusinessLogo={
+        typeof linkedBusiness?.logo === "string" && linkedBusiness.logo.trim()
+          ? linkedBusiness.logo.trim()
+          : null
+      }
       initialCategory={resolveWebsiteCategoryForOrganizer(
         org.org_type,
         linkedBusiness?.category ?? linkedBusiness?.business_type ?? linkedBusiness?.industry

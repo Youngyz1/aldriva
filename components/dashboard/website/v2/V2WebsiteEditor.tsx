@@ -16,6 +16,7 @@ import { V2MenuDrawer } from "./V2MenuDrawer";
 import { getBusinessOfferings } from "@/lib/business-offerings";
 import { getBuilderCommerceCapability } from "@/lib/website-commerce-registry";
 import { Switch } from "@/components/ui/switch";
+import { OrderingPaymentsPanel } from "./OrderingPaymentsPanel";
 
 interface V2WebsiteEditorProps {
   initialState: V2BuilderState;
@@ -42,6 +43,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
   }, { pauseOnStaleDraft: true }), [websiteId, versionState]);
 
   const [content, setContent] = useState<ContentDoc>(initialState.contentDraftOrLive);
+  const [storefrontOfferings, setStorefrontOfferings] = useState<string[]>(initialState.storefront.offerings ?? []);
   const [currentMenuItems, setCurrentMenuItems] = useState<V2MenuItemChoice[]>(menuItems);
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
   const [queueState, setQueueState] = useState(queue.getState());
@@ -54,7 +56,10 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
   // one is visible. At xl and above both show side by side.
   const [mobileView, setMobileView] = useState<"form" | "preview">("form");
 
-  const business = initialState.storefront;
+  const business = useMemo(() => ({
+    ...initialState.storefront,
+    offerings: storefrontOfferings,
+  }), [initialState.storefront, storefrontOfferings]);
   const catalog = getBusinessOfferings(business.businessType, business.category);
   const getOfferingLabel = offeringT as unknown as (key: string) => string;
   const offeringLabels = useMemo(
@@ -65,6 +70,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
     () => resolveTemplateContent(template.id, template.version, content, {
       includeSamples: true,
       includeSourceMap: true,
+      siteSlug: initialState.websiteSlug,
       business: { ...business, offeringLabels },
       viewMenuLabel: storeT("viewMenu"),
       rentalContactCta: storeT("rentalContactCta"),
@@ -73,6 +79,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
         reserveTable: storeT("reserveTable"),
         bookNow: storeT("bookNow"),
         viewMenu: storeT("viewMenu"),
+        viewProducts: storeT("viewProducts"),
         contact: storeT("contact"),
         rentalContactCta: storeT("rentalContactCta"),
       },
@@ -81,7 +88,7 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
       rentalCtaBandHeading: storeT("rentalBrandMessage"),
       timeZone: business.timeZone,
     }),
-    [business, content, offeringLabels, storeT, template.id, template.version]
+    [business, content, initialState.websiteSlug, offeringLabels, storeT, template.id, template.version]
   );
   const readiness = useMemo(() => checkPublishReadiness(template.id, template.version, content), [content, template.id, template.version]);
   const sections = useMemo(
@@ -94,6 +101,19 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
   }, [readiness.missingRequired, sections]);
   const sampleSlots = resolved.sampleFields;
   const editable = initialState.userRole === null || ["owner", "admin", "manager", "editor"].includes(initialState.userRole);
+  const canManageOfferings = initialState.userRole === null || ["owner", "admin", "manager"].includes(initialState.userRole);
+
+  const panelBusiness = useMemo(() => {
+    if (!business.businessId) return null;
+    return {
+      id: business.businessId,
+      name: business.businessName ?? "Business",
+      businessType: business.businessType,
+      category: business.category,
+      offerings: storefrontOfferings,
+      currency: business.currency,
+    };
+  }, [business, storefrontOfferings]);
 
   const commerceCapability = getBuilderCommerceCapability(template.category ?? business.category);
   const canManageCommerce = commerceCapability?.kind === "menu" && (initialState.userRole === null || ["owner", "admin", "manager", "editor"].includes(initialState.userRole));
@@ -273,7 +293,23 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
           {queueState.status === "failed" && !queueState.paused ? <button type="button" onClick={() => queue.retry()} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:text-amber-100">Retry save</button> : null}
           <button type="button" onClick={() => void handleDiscard()} disabled={!editable} className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-zinc-700">Discard</button>
           <button type="button" onClick={() => setChecklistOpen(true)} className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold dark:border-zinc-700">Publish checklist{checklistMissing.length ? ` · ${checklistMissing.length}` : ""}</button>
-          <button type="button" onClick={() => void handlePublish()} disabled={!initialState.canPublish || !readiness.ready || publishing || queueState.paused} className="rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-45">{publishing ? "Publishing…" : "Publish"}</button>
+          <button
+            type="button"
+            onClick={() => void handlePublish()}
+            disabled={!initialState.canPublish || !readiness.ready || publishing || queueState.paused}
+            title={
+              !initialState.canPublish
+                ? "Only an owner, admin, or manager can publish this website."
+                : queueState.paused
+                  ? "Draft conflict — reload the latest version before publishing."
+                  : !readiness.ready && checklistMissing.length > 0
+                    ? `${checklistMissing.length} required field${checklistMissing.length === 1 ? "" : "s"} missing: ${checklistMissing.map((item) => item.label).join(", ")}. Open \"Publish checklist\" for details.`
+                    : undefined
+            }
+            className="rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {publishing ? "Publishing…" : "Publish"}
+          </button>
         </div>
       </header>
 
@@ -329,6 +365,16 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
                 </div> : null}
               </section>;
             })}
+            <OrderingPaymentsPanel
+              business={panelBusiness}
+              template={template}
+              canManage={canManageOfferings}
+              hasActiveDish={currentMenuItems.length > 0}
+              onOfferingsChange={setStorefrontOfferings}
+              open={openSectionId === "ordering_payments"}
+              onToggleOpen={() => setOpenSectionId((current) => current === "ordering_payments" ? "" : "ordering_payments")}
+              index={sections.length + 1}
+            />
           </div>
         </section>
         <div className={`${mobileView === "form" ? "hidden xl:block" : ""} w-full min-w-0 max-w-full xl:sticky xl:top-[4.5rem] xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-10rem)] xl:self-start`}>
@@ -342,6 +388,8 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
           onSelectPage={setSelectedPageSlug}
           menuItems={currentMenuItems}
           onOpenMenuEditor={canManageCommerce ? () => setMenuDrawerOpen(true) : undefined}
+          offerings={storefrontOfferings}
+          isOrderingLive={resolved.storefrontFeatures.ordering}
         />
         </div>
       </div>

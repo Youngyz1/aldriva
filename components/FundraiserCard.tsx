@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { safeImageSrc } from "@/lib/image-url";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
+import { formatMoney } from "@/lib/money";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 type FundraiserCardProps = {
@@ -28,6 +29,7 @@ type FundraiserCardProps = {
    *  beneficiary is the organizer and the line carries no new information. */
   beneficiaryType?: string | null;
   variant?: "default" | "green";
+  currency?: string;
 };
 
 export default function FundraiserCard({
@@ -44,6 +46,7 @@ export default function FundraiserCard({
   beneficiaryName,
   beneficiaryType,
   variant = "default",
+  currency = "USD",
 }: FundraiserCardProps) {
   const [imgError, setImgError] = useState(false);
   const progress = calculateFundraisingPercentage(raised, goal);
@@ -111,7 +114,7 @@ export default function FundraiserCard({
           <div className="mt-3">
             <div className="flex items-baseline justify-between gap-2 mb-1.5">
               <p className="text-sm font-semibold text-zinc-600 truncate">
-                <span className="font-black text-zinc-950">${raised.toLocaleString()}</span> raised of ${goal.toLocaleString()}
+                <span className="font-black text-zinc-950">{formatMoney(raised, currency)}</span> raised of {formatMoney(goal, currency)}
               </p>
               <span
                 className={cn(
@@ -122,7 +125,7 @@ export default function FundraiserCard({
                 {progress}%
               </span>
             </div>
-            <ProgressBar percentage={progress} height={8} variant={variant} />
+            <ProgressBar percentage={progress} height={8} variant={variant} currency={currency} />
             {donorCount !== undefined && donorCount > 0 && (
               <div className="mt-2 flex items-center justify-end text-xs font-semibold text-zinc-500">
                 <span className="inline-flex items-center gap-1">

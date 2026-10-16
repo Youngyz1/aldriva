@@ -15,7 +15,7 @@ import { getCapabilitiesForBusiness } from "@/lib/business-taxonomy";
 import { getBuiltStorefrontFeatures, resolveStorefrontFeatures } from "@/lib/storefront-features";
 import { getV2TemplateForWebsite, resolveStorefrontCurrency } from "@/lib/website-v2-theme";
 import { normalizeContent } from "@/lib/website-content";
-import { resolveOrderSchedule } from "@/lib/website-hours";
+import { resolveOrderSchedule, validateScheduledOrderTime } from "@/lib/website-hours";
 import {
   computeLineTotal,
   effectiveUnitPrice,
@@ -26,6 +26,9 @@ import {
 } from "@/lib/menu-pricing";
 import { dispatchOrderNotifications } from "@/lib/order-notifications";
 import { isValidPhoneNumber, normalizePhone } from "@/lib/order-phone";
+import { getOrgApproval } from "@/lib/server-approval";
+import { canTakeOrders } from "@/lib/business-approval";
+import { extractDeliverySettings, computeOrderDeliveryFee } from "@/lib/delivery-settings";
 
 export interface OrderItemInput {
   itemId: string;
@@ -44,6 +47,7 @@ export interface SubmitOrderRequestInput {
   items: OrderItemInput[];
   idempotencyKey?: string | null;
   hp?: string | null;
+  scheduledFor?: string | null;
 }
 
 export type SubmitOrderResult =
@@ -71,11 +75,13 @@ export type SubmitOrderResult =
         | "unknown_option"
         | "online_unavailable"
         | "no_open_hours"
+        | "invalid_schedule"
         | "db_error"
         | "unexpected";
       message?: string;
       itemId?: string;
     };
+
 
 export type OrderSubmitClient = ReturnType<typeof createSupabaseAdmin>;
 
@@ -211,6 +217,14 @@ export async function submitOrderRequestWithClient(
       return { success: false, error: "ordering_disabled", message: "Online ordering is not enabled for this business." };
     }
 
+    // Business approval gate: customers cannot submit orders while the linked
+    // business is pending_review, rejected, or archived.
+    // Message is intentionally neutral — never reveals internal business status to customers.
+    const orgApproval = await getOrgApproval(organizerId);
+    if (!canTakeOrders(orgApproval)) {
+      return { success: false, error: "ordering_disabled", message: "Ordering is not available yet." };
+    }
+
     const paymentMethod = options?.paymentMethod ?? "on_fulfilment";
     if (paymentMethod === "online" && !storefrontFeatures.onlinePayment) {
       return { success: false, error: "online_unavailable", message: "Online payment is not available for this site." };
@@ -245,7 +259,7 @@ export async function submitOrderRequestWithClient(
       }
     }
 
-    // 6. Schedule check (closed restaurant calculation)
+    // 6. Schedule check (closed restaurant calculation & customer requested slot)
     const { data: contentRow } = await admin
       .from("website_content")
       .select("content")
@@ -264,6 +278,22 @@ export async function submitOrderRequestWithClient(
         message: schedule.message || "Ordering is currently unavailable as no open hours are scheduled within the next 7 days.",
       };
     }
+
+    let finalScheduledFor: string | null = null;
+    if (input.scheduledFor) {
+      const scheduleValidation = validateScheduledOrderTime(input.scheduledFor, contentDoc.hours, timeZone);
+      if (!scheduleValidation.valid) {
+        return {
+          success: false,
+          error: "invalid_schedule",
+          message: scheduleValidation.message || "Selected schedule time is invalid or outside business opening hours.",
+        };
+      }
+      finalScheduledFor = scheduleValidation.scheduledFor!;
+    } else {
+      finalScheduledFor = schedule.scheduledFor;
+    }
+
 
     // 7. Authoritative price and option calculation (NEVER trust client prices)
     const itemIds = Array.from(new Set(input.items.map((i) => i.itemId)));
@@ -385,7 +415,8 @@ export async function submitOrderRequestWithClient(
       });
     }
 
-    const deliveryFee = 0.0;
+    const deliverySettings = extractDeliverySettings(website.metadata);
+    const deliveryFee = computeOrderDeliveryFee(input.fulfilmentType, subtotal, deliverySettings);
     const totalAmount = subtotal + deliveryFee;
 
     // 8. Collision-safe human-readable order number generation
@@ -419,7 +450,7 @@ export async function submitOrderRequestWithClient(
           status: "pending",
           payment_method: paymentMethod,
           payment_status: "unpaid",
-          scheduled_for: schedule.scheduledFor,
+          scheduled_for: finalScheduledFor,
           items: orderItemsSnapshot,
           idempotency_key: idempotencyKey,
         })
@@ -476,8 +507,12 @@ export async function submitOrderRequestWithClient(
         fulfilment_type: input.fulfilmentType,
         delivery_address: deliveryAddress,
         currency,
+        subtotal,
+        delivery_fee: deliveryFee,
         total_amount: totalAmount,
         scheduled_for: insertedOrder.scheduled_for,
+        website_slug: input.slug,
+        tracking_token: insertedOrder.tracking_token,
         items: orderItemsSnapshot,
       });
     }

@@ -13,11 +13,12 @@ import {
 } from "lucide-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
 import type { DonorRecord, DonorMetrics, DonorDonation } from "./page";
+import { formatMoney } from "@/lib/money";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+function donorCurrency(d: DonorRecord): string {
+  return d.totalsPerCurrency[0]?.currency ?? "USD";
 }
 
 function formatDate(iso: string): string {
@@ -44,11 +45,12 @@ function DonorAvatar({ name, isAnonymous }: { name: string; isAnonymous: boolean
 function MetricsStrip({ metrics }: { metrics: DonorMetrics }) {
   const cards = [
     { label: "Total Donors", value: metrics.totalDonors.toLocaleString(), sub: "unique supporters" },
-    { label: "Total Given", value: formatCurrency(metrics.totalGiven), sub: "from all donors" },
-    { label: "Avg Donor Value", value: formatCurrency(metrics.avgDonorValue), sub: "per donor" },
+    { label: "Total Given", value: formatMoney(metrics.totalGiven, metrics.primaryCurrency), sub: "from all donors" },
+    { label: "Avg Donor Value", value: formatMoney(metrics.avgDonorValue, metrics.primaryCurrency), sub: "per donor" },
     { label: "Repeat Donors", value: metrics.repeatDonors.toLocaleString(), sub: "gave more than once" },
   ];
   return (
+    <div className="space-y-3">
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {cards.map((c) => (
         <div key={c.label} className="flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white px-4 py-3">
@@ -58,6 +60,16 @@ function MetricsStrip({ metrics }: { metrics: DonorMetrics }) {
         </div>
       ))}
     </dl>
+    {metrics.totalsPerCurrency.length > 1 ? (
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl border border-zinc-200 bg-white px-4 py-2.5">
+        {metrics.totalsPerCurrency.map((t) => (
+          <li key={t.currency} className="text-xs font-semibold tabular-nums text-zinc-700">
+            {formatMoney(t.total, t.currency)} <span className="font-medium text-zinc-400">· {t.count} {t.count === 1 ? "gift" : "gifts"}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null}
+    </div>
   );
 }
 
@@ -110,9 +122,9 @@ function DonorDetailSheet({
         {/* Aggregated stats */}
         <dl className="mb-5 grid grid-cols-2 gap-3">
           {[
-            { label: "Total Given", value: formatCurrency(donor.totalGiven) },
+            { label: "Total Given", value: formatMoney(donor.totalGiven, donorCurrency(donor)) },
             { label: "Donations", value: donor.donationCount.toString() },
-            { label: "Avg Gift", value: formatCurrency(donor.avgGift) },
+            { label: "Avg Gift", value: formatMoney(donor.avgGift, donorCurrency(donor)) },
             { label: "Repeat Donor", value: donor.isRepeat ? "Yes" : "No" },
           ].map((item) => (
             <div key={item.label} className="rounded-lg bg-zinc-50 px-3 py-2.5">
@@ -132,7 +144,7 @@ function DonorDetailSheet({
           {donor.donations.map((d: DonorDonation) => (
             <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <span className="text-xs text-zinc-500">{formatDate(d.created_at)}</span>
-              <span className="text-sm font-bold tabular-nums text-zinc-900">{formatCurrency(d.amount)}</span>
+              <span className="text-sm font-bold tabular-nums text-zinc-900">{formatMoney(d.amount, d.currency)}</span>
             </li>
           ))}
         </ul>
@@ -390,10 +402,10 @@ export default function DonorsClient({
                         {d.donationCount}
                       </td>
                       <td className="px-4 py-3 text-right font-bold tabular-nums text-zinc-900">
-                        {formatCurrency(d.totalGiven)}
+                        {formatMoney(d.totalGiven, donorCurrency(d))}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-zinc-600">
-                        {formatCurrency(d.avgGift)}
+                        {formatMoney(d.avgGift, donorCurrency(d))}
                       </td>
                       <td className="px-4 py-3 text-zinc-600">{formatDate(d.lastDonation)}</td>
                       <td className="px-4 py-3 text-right">
@@ -425,9 +437,9 @@ export default function DonorsClient({
                         </p>
                         <p className="text-xs text-zinc-500">
                           {d.donationCount} {d.donationCount === 1 ? "donation" : "donations"} ·{" "}
-                          <span className="font-semibold tabular-nums text-zinc-700">{formatCurrency(d.totalGiven)}</span>
+                          <span className="font-semibold tabular-nums text-zinc-700">{formatMoney(d.totalGiven, donorCurrency(d))}</span>
                           {" "} total ·{" "}
-                          <span className="tabular-nums">{formatCurrency(d.avgGift)}</span> avg
+                          <span className="tabular-nums">{formatMoney(d.avgGift, donorCurrency(d))}</span> avg
                         </p>
                         <p className="mt-0.5 text-[11px] text-zinc-400">
                           Last: {formatDate(d.lastDonation)}

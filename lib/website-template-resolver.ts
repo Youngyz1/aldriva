@@ -40,6 +40,7 @@ import { getFlagshipTemplate } from "./website-template-v2";
 import { FLAGSHIP_SAMPLES } from "./website-template-samples";
 import type { TemplatePagePurpose } from "./website-template-v2";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
+import type { Capability } from "./business-taxonomy";
 import { getSelectedFactOfferings } from "./business-offerings";
 import {
   getBuiltStorefrontFeatures,
@@ -47,6 +48,12 @@ import {
   type StorefrontFeatureState,
 } from "./storefront-features";
 import { resolveTodayHours, type ResolvedTodayHours } from "./website-hours";
+import { getSitePageHref, resolveSiteHref } from "./site-paths";
+import {
+  resolveWebsiteCatalogAdapter,
+  type WebsiteCatalogAvailability,
+  type WebsiteCatalogAdapter,
+} from "./website-catalog-adapter";
 import {
   resolvePrimaryAction,
   type PrimaryActionLabelKey,
@@ -63,6 +70,28 @@ export interface ResolvedPage {
   sortOrder: number;
   purpose: TemplatePagePurpose;
   blocks: Block[];
+}
+
+export function selectTemplateRoutePage<TPageRow extends { slug: string }>(
+  resolvedPages: readonly ResolvedPage[],
+  pageRows: readonly TPageRow[],
+  requestedSlug?: string | null
+): {
+  pages: TPageRow[];
+  availablePageSlugs: string[];
+  target: { row: TPageRow; page: ResolvedPage } | null;
+} {
+  const emittedBySlug = new Map(resolvedPages.map((page) => [page.slug, page]));
+  const pages = pageRows.filter((row) => emittedBySlug.has(row.slug));
+  const resolvedTarget = requestedSlug
+    ? emittedBySlug.get(requestedSlug)
+    : resolvedPages.find((page) => page.isHome) ?? resolvedPages[0];
+  const row = resolvedTarget ? pages.find((page) => page.slug === resolvedTarget.slug) : undefined;
+  return {
+    pages,
+    availablePageSlugs: pages.map((page) => page.slug),
+    target: row && resolvedTarget ? { row, page: resolvedTarget } : null,
+  };
 }
 
 export interface SkippedSection {
@@ -82,6 +111,7 @@ export interface OmittedPage {
 export interface ResolvedNavigationItem extends NavigationItem {
   /** Template page slug this entry points at (null for anchor/external). */
   pageSlug: string | null;
+  anchor?: string;
   /** Optional commerce gate; nav appears only when the resolved feature is live. */
   feature?: keyof StorefrontFeatureState;
 }
@@ -107,6 +137,10 @@ export interface ChecklistTarget {
 }
 
 export interface TemplateResolutionOptions {
+  /** Tenant slug used to scope every internal page link. */
+  siteSlug?: string;
+  /** Public reservations are disabled until the linked business is approved. */
+  reservationsApproved?: boolean;
   /** Samples are rendered only for preview. Defaults to true for existing preview callers. */
   includeSamples?: boolean;
   /** Omit editor-only maps in public/publish callers. Defaults to true. */
@@ -120,7 +154,15 @@ export interface TemplateResolutionOptions {
     businessType?: string | null;
     offerings?: readonly string[] | null;
     offeringLabels?: Record<string, string>;
+    capabilities?: readonly Capability[];
   };
+  /** Live records used to resolve a manifest catalog slot; omitted by sample previews. */
+  catalogAvailability?: WebsiteCatalogAvailability;
+  /** Render-only sample override for owner-specific gallery previews. */
+  sampleContentOverride?: ContentDoc;
+  catalogLabels?: { products: string; featuredProducts: string };
+  /** Existing page rows that may be linked at runtime; omitted during publish. */
+  availablePageSlugs?: readonly string[] | ReadonlySet<string>;
   /** Locale-resolved template copy, supplied by the caller. */
   viewMenuLabel?: string;
   rentalContactCta?: string;
@@ -137,6 +179,7 @@ const DEFAULT_PRIMARY_ACTION_LABELS: Record<PrimaryActionLabelKey, string> = {
   reserveTable: "Reserve a table",
   bookNow: "Book now",
   viewMenu: "View menu",
+  viewProducts: "Browse products",
   contact: "Contact",
   rentalContactCta: "Ask about availability",
 };
@@ -260,6 +303,9 @@ interface BuildContext {
   includeSamples: boolean;
   currency?: string;
   business: NonNullable<TemplateResolutionOptions["business"]>;
+  catalogAdapter?: WebsiteCatalogAdapter;
+  catalogAvailability?: WebsiteCatalogAvailability;
+  catalogLabels: { products: string; featuredProducts: string };
   storefrontFeatures: StorefrontFeatureState;
   viewMenuLabel: string;
   rentalContactCta: string;
@@ -738,14 +784,40 @@ function buildSectionBlock(
     case "cta_banner":
       return buildCtaBand(ctx);
     case "menu_embed": {
-      const heading = section.id === "menu.full" ? "Our full menu" : "Featured dishes";
-      return buildMenuEmbed(ctx, heading, section.id === "menu.full" ? 12 : 6, section.id !== "menu.full");
+      if (ctx.catalogAvailability && !ctx.catalogAdapter) return null;
+      if (ctx.catalogAdapter === "products") {
+        if (section.id === "order.summary") return null;
+        return {
+          type: "products_embed",
+          heading: section.id === "menu.full" || section.id === "menu.browse"
+            ? ctx.catalogLabels.products
+            : ctx.catalogLabels.featuredProducts,
+          limit: section.id === "menu.featured" ? 6 : 200,
+          layout: "grid",
+        } as Block;
+      }
+      if (section.id === "menu.full") return buildMenuEmbed(ctx, "Our full menu", 200, false);
+      if (section.id === "menu.browse") return buildMenuEmbed(ctx, "Our Menu", 200, false);
+      if (section.id === "order.summary") {
+        return ctx.storefrontFeatures.ordering
+          ? buildMenuEmbed(ctx, "Start your order", 200, false)
+          : null;
+      }
+      return buildMenuEmbed(ctx, "Featured dishes", 6, true); // menu.featured — picks only
     }
     case "menu_order": {
+      if (ctx.catalogAvailability && ctx.catalogAdapter !== "menu") return null;
       if (!ctx.storefrontFeatures.ordering) return null;
       return {
         id: stableUuid(ctx.template.id + ":home:menu_order"),
         type: "menu_order",
+      };
+    }
+    case "reservation_form": {
+      if (!ctx.storefrontFeatures.reservations) return null;
+      return {
+        id: stableUuid(ctx.template.id + ":reservations:reservation_form"),
+        type: "reservation_form",
       };
     }
     default:
@@ -861,22 +933,29 @@ export function resolveTemplateManifest(
 ): ResolvedTemplate {
   // Deep-clone: the input doc is never mutated (pinned by test).
   const doc = JSON.parse(JSON.stringify(contentDoc ?? {})) as Record<string, unknown>;
-  const samples = (FLAGSHIP_SAMPLES[template.id] ?? {}) as unknown as Record<string, unknown>;
+  const samples = (options.sampleContentOverride ?? FLAGSHIP_SAMPLES[template.id] ?? {}) as unknown as Record<string, unknown>;
 
   const sampleFields: string[] = [];
   const skipped: SkippedSection[] = [];
   const omittedPages: OmittedPage[] = [];
   const business = options.business ?? {};
+  const siteSlug = options.siteSlug ?? template.id;
   const capabilities = getCapabilitiesForBusiness(
     business.industry ?? "",
     business.category ?? "",
     business.businessType ?? ""
   );
+  const resolvedCapabilities = business.capabilities ?? capabilities;
+  const catalogAdapter = options.catalogAvailability
+    ? resolveWebsiteCatalogAdapter(options.catalogAvailability, business)
+    : undefined;
   const storefrontFeatures = resolveStorefrontFeatures({
-    capabilities,
+    capabilities: resolvedCapabilities,
     offerings: business.offerings,
     built: getBuiltStorefrontFeatures(template),
     currency: normalizeCurrencyCode(options.currency),
+    hasActiveDish: options.catalogAvailability ? catalogAdapter === "menu" : undefined,
+    reservationsApproved: options.reservationsApproved,
   });
   const ctx: BuildContext = {
     template,
@@ -886,6 +965,9 @@ export function resolveTemplateManifest(
     includeSamples: options.includeSamples !== false,
     currency: normalizeCurrencyCode(options.currency),
     business,
+    catalogAdapter,
+    catalogAvailability: options.catalogAvailability,
+    catalogLabels: options.catalogLabels ?? { products: "Products", featuredProducts: "Featured products" },
     storefrontFeatures,
     viewMenuLabel: options.viewMenuLabel ?? "View menu",
     rentalContactCta: options.rentalContactCta ?? "Ask about availability",
@@ -969,15 +1051,30 @@ export function resolveTemplateManifest(
   }
 
   const emittedSlugs = new Set(pages.map((page) => page.slug));
+  const availablePageSlugs = options.availablePageSlugs
+    ? new Set(options.availablePageSlugs)
+    : undefined;
+  const homePage = pages.find((page) => page.isHome);
+  const emittedAnchors = new Set<string>();
+  for (const block of homePage?.blocks ?? []) {
+    if (block.type === "about") emittedAnchors.add("about");
+    if (block.type === "features" && block.heading === "How it works") emittedAnchors.add("how-it-works");
+    if (block.type === "faq" && (block.items?.length ?? 0) > 0) emittedAnchors.add("faq");
+  }
   const primaryAction = resolvePrimaryAction({
+    siteSlug,
     industry: business.industry,
     category: business.category,
     businessType: business.businessType,
     features: {
       offerings: business.offerings,
+      capabilities: resolvedCapabilities,
       built: getBuiltStorefrontFeatures(template),
+      reservationsApproved: options.reservationsApproved,
     },
     builtPages: emittedSlugs,
+    availablePages: options.availablePageSlugs,
+    catalogAdapter,
   });
   const actionLabel = primaryAction.primary
     ? options.primaryActionLabels?.[primaryAction.primary.labelKey] ??
@@ -1004,35 +1101,37 @@ export function resolveTemplateManifest(
   }
 
   const navLabels = asRecord(take(ctx, "nav_labels", "nav.labels"));
-  const labelKeyFor = (href: string, pageSlug: string | null): string => {
-    const hashIndex = href.indexOf("#");
-    if (hashIndex >= 0) {
-      const anchor = href.slice(hashIndex + 1).split(/[/?]/)[0];
-      if (anchor === "about") return "about";
-      return anchor;
-    }
-    const path = href.split(/[?#]/)[0].replace(/^\/+|\/+$/g, "");
-    if (pageSlug === "home" || path === "") return "home";
-    if (pageSlug === "contact" || path === "contact") return "contact";
-    if (path === "how-it-works") return "how";
-    return path;
+  const labelKeyFor = (entry: { pageSlug: string | null; anchor?: string; href?: string }): string => {
+    if (entry.anchor === "how-it-works") return "how";
+    if (entry.anchor) return entry.anchor;
+    if (entry.pageSlug === "home") return "home";
+    if (entry.pageSlug) return entry.pageSlug;
+    return entry.href ?? "";
   };
   const homeSlug = template.pages.find((page) => page.isHome)?.slug ?? template.pages[0]?.slug ?? "home";
   const navLabelMap: Record<string, TemplateSourceMapEntry> = {};
   const navigation: ResolvedNavigationItem[] = template.navigation
-    .filter((entry) => (!entry.pageSlug || emittedSlugs.has(entry.pageSlug)) && (!entry.feature || storefrontFeatures[entry.feature]))
+    .filter((entry) =>
+      (!entry.pageSlug || emittedSlugs.has(entry.pageSlug)) &&
+      (!entry.pageSlug || !availablePageSlugs || availablePageSlugs.has(entry.pageSlug)) &&
+      (!entry.anchor || emittedAnchors.has(entry.anchor)) &&
+      (!entry.feature || storefrontFeatures[entry.feature])
+    )
     .map((entry, index) => ({
       id: `${template.id}-nav-${index}`,
-      label: asString(navLabels?.[labelKeyFor(entry.href, entry.pageSlug)]) ?? entry.label,
-      href: entry.href,
+      label: asString(navLabels?.[labelKeyFor(entry)]) ?? entry.label,
+      href: entry.pageSlug
+        ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
+        : resolveSiteHref(siteSlug, entry.href ?? ""),
       page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
       pageSlug: entry.pageSlug,
+      ...(entry.anchor ? { anchor: entry.anchor } : {}),
       target: "_self" as const,
       order: entry.order,
     }));
 
   navigation.forEach((item, index) => {
-    const labelKey = labelKeyFor(item.href, item.pageSlug);
+    const labelKey = labelKeyFor(item);
     setEntry(navLabelMap, ctx, "navigation[" + index + "].label", "nav.labels", "nav_labels", { subfield: labelKey });
     setChecklistTarget(checklistTargets, "nav.labels", homeSlug, "navigation[" + index + "].label");
   });

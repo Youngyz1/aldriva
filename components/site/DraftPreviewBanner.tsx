@@ -21,8 +21,8 @@ export function DraftPreviewBanner({ status, isPageDraft }: DraftPreviewBannerPr
   if (!label) return null;
 
   return (
-    <div className="sticky top-0 z-[60] flex items-center justify-between border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-900 shadow-xs">
-      <div className="flex items-center gap-2">
+    <div className="sticky top-0 z-[60] flex items-center justify-between border-b border-amber-300 bg-amber-50 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold text-amber-900 shadow-xs">
+      <div className="flex items-center gap-[var(--ps-space-2)]">
         <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
         <span>{label}</span>
       </div>

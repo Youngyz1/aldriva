@@ -20,15 +20,15 @@ export function SiteFooter({ siteTitle, footerConfig, primaryColor }: SiteFooter
     : `© ${year} ${siteTitle}. All rights reserved.`;
 
   return (
-    <footer className="w-full border-t border-zinc-200 bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-10 md:px-6">
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
+    <footer className="w-full border-t border-[var(--ps-border)] bg-[var(--ps-surface)]">
+      <div className="mx-auto max-w-6xl px-[var(--ps-space-4)] py-[var(--ps-space-12)] md:px-[var(--ps-space-6)]">
+        <div className="flex flex-col items-center gap-[var(--ps-space-4)] text-center sm:flex-row sm:justify-between sm:text-left">
           {/* Copyright */}
-          <p className="text-sm text-zinc-500">{copyright}</p>
+          <p className="text-sm text-[var(--ps-muted)]">{copyright}</p>
 
           {/* Custom links */}
           {footerConfig.customLinks && footerConfig.customLinks.length > 0 && (
-            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 sm:justify-end">
+            <nav className="flex flex-wrap justify-center gap-x-[var(--ps-space-6)] gap-y-[var(--ps-space-2)] sm:justify-end">
               {footerConfig.customLinks.map((link, i) => {
                 const safeLinkHref = sanitizeUrl(link.href);
                 if (!safeLinkHref) return null;
@@ -36,7 +36,7 @@ export function SiteFooter({ siteTitle, footerConfig, primaryColor }: SiteFooter
                   <a
                     key={i}
                     href={safeLinkHref}
-                    className="text-sm text-zinc-500 hover:text-zinc-900 transition"
+                    className="text-sm text-[var(--ps-muted)] hover:text-[var(--ps-text)] transition"
                   >
                     {link.label}
                   </a>
@@ -49,12 +49,12 @@ export function SiteFooter({ siteTitle, footerConfig, primaryColor }: SiteFooter
 
         {/* Powered by Aldriva */}
         {footerConfig.showPoweredBy && (
-          <div className="mt-6 text-center">
+          <div className="mt-[var(--ps-space-6)] text-center">
             <a
               href="https://aldriva.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-zinc-400 hover:text-zinc-600 transition"
+              className="text-xs text-[var(--ps-muted)] hover:text-[var(--ps-muted)] transition"
               style={{ "--hover-color": primaryColor } as React.CSSProperties}
             >
               Powered by Aldriva

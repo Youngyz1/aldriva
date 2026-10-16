@@ -195,7 +195,18 @@ function normalizeFaq(value: unknown): ContentFaqItem[] | undefined {
   return out.length > 0 ? out : undefined;
 }
 
-function normalizeHours(value: unknown): ContentHours | undefined {
+/**
+ * Gates the organizer Settings "Opening hours / Time zone" section: visible
+ * only when the org has a business or a website to operate.
+ */
+export function shouldShowOperationalSettings(flags: {
+  hasBusiness: boolean;
+  hasWebsite: boolean;
+}): boolean {
+  return flags.hasBusiness === true || flags.hasWebsite === true;
+}
+
+export function normalizeHours(value: unknown): ContentHours | undefined {
   if (!isPlainObject(value)) return undefined;
   const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
   const out: ContentHours = {};

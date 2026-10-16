@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { COUNTED_DONATION_STATUSES } from "@/lib/fundraiser-dashboard";
 
 export async function GET(
   req: NextRequest,
@@ -16,9 +17,9 @@ export async function GET(
   // enumerate donor identities by fundraiser.
   const { data: donations, error } = await supabaseAdmin
     .from("donations")
-    .select("id, donor_name, amount, created_at, user_id")
+    .select("id, donor_name, amount, currency, created_at, user_id")
     .eq("fundraiser_id", id)
-    .in("status", ["succeeded", "completed"])
+    .in("status", [...COUNTED_DONATION_STATUSES])
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
     .range(offset, offset + limit - 1);
@@ -46,6 +47,7 @@ export async function GET(
     id: d.id,
     donor_name: d.donor_name,
     amount: d.amount,
+    currency: (d as { currency?: string | null }).currency ?? null,
     created_at: d.created_at,
     profile: d.user_id ? profileMap[d.user_id] ?? null : null,
   }));

@@ -27,6 +27,7 @@ import React from "react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { sanitizeArticleHtml, sanitizeUrl } from "@/lib/sanitize-html";
+import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
 import {
   Block,
@@ -47,7 +48,7 @@ import {
   isBlockVisible,
 } from "@/lib/website-blocks";
 import { getBackgroundStyle, getContainerClass, getHiddenOnMobileClass, getSpacingClass } from "@/lib/section-helpers";
-import { formatCurrency } from "@/lib/format-locale";
+import { formatMoney as formatCurrency } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
 import { isOvernightWebsiteInterval } from "@/lib/website-hours";
@@ -55,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
+import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import {
   resolveEventsEmbed,
@@ -86,7 +88,7 @@ import {
 
 function DraftBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 border border-amber-300">
+    <span className="inline-flex items-center gap-[var(--ps-space-1)] rounded-full bg-amber-100 px-[var(--ps-space-3)] py-[var(--ps-space-1)] text-xs font-semibold text-amber-800 border border-amber-300">
       <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
       Draft Preview
     </span>
@@ -112,14 +114,14 @@ function SectionHeading({
         : "text-center items-center";
 
   return (
-    <div className={`mb-12 flex flex-col ${alignClasses}`}>
+    <div className={`mb-[var(--ps-space-12)] flex flex-col ${alignClasses}`}>
       {heading && (
-        <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h2 className="text-3xl font-bold tracking-tight text-[var(--ps-text)] sm:text-4xl">
           {heading}
         </h2>
       )}
       {subheading && (
-        <p className="mt-3 max-w-2xl text-lg text-zinc-600 leading-relaxed">
+        <p className="mt-[var(--ps-space-3)] max-w-2xl text-lg text-[var(--ps-muted)] leading-relaxed">
           {subheading}
         </p>
       )}
@@ -153,18 +155,26 @@ function hasEditorPlaceholder(
 
 // ── 1. Hero Block ────────────────────────────────────────────────────────────
 
-function HeroBlockRenderer({
+export function HeroBlockRenderer({
   block,
+  siteSlug,
+  scopeInternalLinks,
   editMode,
   sourceMap,
 }: {
   block: HeroBlock;
+  siteSlug?: string;
+  scopeInternalLinks?: boolean;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
 }) {
   const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) : "";
-  const safeCtaHref = block.ctaHref ? sanitizeUrl(block.ctaHref) : "";
-  const safeSecCtaHref = block.secondaryCtaHref ? sanitizeUrl(block.secondaryCtaHref) : "";
+  const safeCtaHref = block.ctaHref
+    ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
+    : "";
+  const safeSecCtaHref = block.secondaryCtaHref
+    ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.secondaryCtaHref) : block.secondaryCtaHref)
+    : "";
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
 
   const alignClass =
@@ -176,48 +186,49 @@ function HeroBlockRenderer({
 
   // Variant: Split (2-column layout)
   if (block.variant === "split") {
+    const hasMedia = Boolean(safeBgImage || safeVideoUrl);
     return (
-      <section className="relative w-full overflow-hidden bg-white py-16 md:py-24 border-b border-zinc-100">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-            <div className="flex flex-col items-start gap-6">
+      <section className={`ps-section-spacious relative w-full overflow-hidden ${hasMedia ? "bg-[var(--ps-surface)]" : "bg-[var(--ps-accent-light)]"} py-[var(--ps-space-16)] md:py-[var(--ps-space-16)] border-b border-[var(--ps-border)]`}>
+        <div className="mx-auto max-w-6xl px-[var(--ps-space-6)]">
+          <div className={`grid grid-cols-1 items-center gap-[var(--ps-space-12)] ${hasMedia ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
+            <div className={`flex max-w-4xl flex-col items-start gap-[var(--ps-space-6)] ${hasMedia ? "" : "mx-auto"}`}>
               {block.badge && (
-                <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-[var(--site-primary-light,#ffedd5)] px-3 py-1 text-xs font-semibold text-[var(--site-primary,#c2410c)]">
+                <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-[var(--ps-accent-light)] px-[var(--ps-space-3)] py-[var(--ps-space-1)] text-xs font-semibold text-[var(--ps-accent-hover)]">
                   {block.badge}
                 </span>
               )}
               {block.tagline && (
-                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-[var(--ps-muted)]">
                   {block.tagline}
                 </p>
               )}
               {(block.heading || hasEditorPlaceholder(editMode, sourceMap, "heading")) && (
-                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl">
+                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold tracking-tight text-[var(--ps-text)] sm:text-5xl lg:text-6xl">
                   {block.heading || "Add headline"}
                 </h1>
               )}
               {block.subheading && (
-                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-lg text-zinc-600 leading-relaxed">
+                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-lg text-[var(--ps-muted)] leading-relaxed">
                   {block.subheading}
                 </p>
               )}
               {(block.ctaLabel || block.secondaryCtaLabel) && (
-                <div className="flex flex-wrap gap-3 pt-2">
+                <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-2)]">
                   {block.ctaLabel && safeCtaHref && (
-                    <a {...elementPathProps(editMode, sourceMap, "ctaLabel")} href={safeCtaHref} className={cn(buttonVariants({ variant: "default" }), "gap-2")}>
+                    <a {...elementPathProps(editMode, sourceMap, "ctaLabel")} href={safeCtaHref} className={cn(buttonVariants({ variant: "default" }), "ps-button ps-button-primary gap-[var(--ps-space-2)] text-[var(--ps-accent-foreground)]")}>
                       {block.ctaLabel}
                       <ArrowRight className="h-4 w-4" />
                     </a>
                   )}
                   {block.secondaryCtaLabel && safeSecCtaHref && (
-                    <a {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")} href={safeSecCtaHref} className={cn(buttonVariants({ variant: "outline" }))}>
+                    <a {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")} href={safeSecCtaHref} className={cn(buttonVariants({ variant: "outline" }), "ps-button ps-button-secondary")}>
                       {block.secondaryCtaLabel}
                     </a>
                   )}
                 </div>
               )}
             </div>
-            <div {...elementPathProps(editMode, sourceMap, "image")} className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-zinc-100 shadow-sm">
+            {hasMedia ? <div {...elementPathProps(editMode, sourceMap, "image")} className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-[var(--ps-neutral)] shadow-sm">
               {safeVideoUrl ? (
                 <video
                   src={safeVideoUrl}
@@ -234,12 +245,8 @@ function HeroBlockRenderer({
                   alt={block.heading || "Hero"}
                   className="h-full w-full object-cover"
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
-                  <span className="text-sm font-medium">Hero Media</span>
-                </div>
-              )}
-            </div>
+              ) : null}
+            </div> : null}
           </div>
         </div>
       </section>
@@ -249,7 +256,7 @@ function HeroBlockRenderer({
   // Variant: Video Background
   if (block.variant === "video_bg" && safeVideoUrl) {
     return (
-      <section {...elementPathProps(editMode, sourceMap, "image")} className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-6 py-24">
+      <section {...elementPathProps(editMode, sourceMap, "image")} className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)] py-[var(--ps-space-16)]">
         <video
           src={safeVideoUrl}
           autoPlay
@@ -259,9 +266,9 @@ function HeroBlockRenderer({
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px]" aria-hidden="true" />
-        <div className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-6 ${alignClass}`}>
+        <div className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-[var(--ps-space-6)] ${alignClass}`}>
           {block.badge && (
-            <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
+            <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-[var(--ps-surface)]/20 px-[var(--ps-space-3)] py-[var(--ps-space-1)] text-xs font-semibold text-white backdrop-blur-xs">
               {block.badge}
             </span>
           )}
@@ -281,12 +288,12 @@ function HeroBlockRenderer({
             </p>
           )}
           {(block.ctaLabel || block.secondaryCtaLabel) && (
-            <div className="flex flex-wrap gap-3 pt-2">
+            <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-2)]">
               {block.ctaLabel && safeCtaHref && (
                 <a
                   {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                   href={safeCtaHref}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-xs transition hover:bg-zinc-100"
+                  className="inline-flex items-center gap-[var(--ps-space-2)] rounded-xl bg-[var(--ps-surface)] px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-[var(--ps-text)] shadow-xs transition hover:bg-[var(--ps-neutral)]"
                 >
                   {block.ctaLabel}
                   <ArrowRight className="h-4 w-4" />
@@ -296,7 +303,7 @@ function HeroBlockRenderer({
                 <a
                   {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                   href={safeSecCtaHref}
-                  className="inline-flex items-center rounded-xl border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  className="inline-flex items-center rounded-xl border border-white/60 px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-white transition hover:bg-[var(--ps-surface)]/10"
                 >
                   {block.secondaryCtaLabel}
                 </a>
@@ -309,12 +316,15 @@ function HeroBlockRenderer({
   }
 
   // Variant: Center (Default)
+  const hasHeroImage = Boolean(safeBgImage);
   return (
       <section
       {...elementPathProps(editMode, sourceMap, "image")}
-      className="relative flex min-h-[480px] w-full flex-col justify-center overflow-hidden px-6 py-20"
+      className="ps-section-spacious relative flex min-h-[480px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)] py-[var(--ps-space-16)]"
       style={{
-        backgroundColor: block.backgroundColor || "var(--site-primary, #c2410c)",
+        backgroundColor: hasHeroImage
+          ? (block.backgroundColor || "var(--ps-text)")
+          : "var(--ps-accent-light)",
         ...(safeBgImage
           ? {
               backgroundImage: `url(${safeBgImage})`,
@@ -328,35 +338,35 @@ function HeroBlockRenderer({
         <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
       )}
       <div
-        className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-6 ${alignClass}`}
+        className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-[var(--ps-space-6)] ${alignClass}`}
       >
         {block.badge && (
-          <span {...elementPathProps(editMode, sourceMap, "badge")} className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
+          <span {...elementPathProps(editMode, sourceMap, "badge")} className={`inline-flex items-center rounded-full px-[var(--ps-space-3)] py-[var(--ps-space-1)] text-xs font-semibold backdrop-blur-xs ${hasHeroImage ? "bg-[var(--ps-surface)]/20 text-white" : "bg-[var(--ps-surface)] text-[var(--ps-accent-hover)]"}`}>
             {block.badge}
           </span>
         )}
         {block.tagline && (
-          <p {...elementPathProps(editMode, sourceMap, "tagline")} className="text-sm font-medium uppercase tracking-wide text-white/80">
+          <p {...elementPathProps(editMode, sourceMap, "tagline")} className={`text-sm font-medium uppercase tracking-wide ${hasHeroImage ? "text-white/80" : "text-[var(--ps-muted)]"}`}>
             {block.tagline}
           </p>
         )}
         {(block.heading || hasEditorPlaceholder(editMode, sourceMap, "heading")) && (
-          <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+          <h1 {...elementPathProps(editMode, sourceMap, "heading")} className={`text-4xl font-bold leading-tight ${hasHeroImage ? "text-white" : "text-[var(--ps-text)]"} sm:text-5xl lg:text-6xl`}>
             {block.heading || "Add headline"}
           </h1>
         )}
         {block.subheading && (
-          <p {...elementPathProps(editMode, sourceMap, "subheading")} className="max-w-2xl text-lg text-white/90 sm:text-xl leading-relaxed">
+          <p {...elementPathProps(editMode, sourceMap, "subheading")} className={`max-w-2xl text-lg sm:text-xl leading-relaxed ${hasHeroImage ? "text-white/90" : "text-[var(--ps-muted)]"}`}>
             {block.subheading}
           </p>
         )}
         {(block.ctaLabel || block.secondaryCtaLabel) && (
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-2)]">
             {block.ctaLabel && safeCtaHref && (
               <a
                 {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                 href={safeCtaHref}
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-xs transition hover:bg-zinc-100"
+                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
               >
                 {block.ctaLabel}
                 <ArrowRight className="h-4 w-4" />
@@ -366,7 +376,7 @@ function HeroBlockRenderer({
               <a
                 {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                 href={safeSecCtaHref}
-                className="inline-flex items-center rounded-xl border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="ps-button inline-flex items-center border border-white/60 text-sm font-semibold text-white transition hover:bg-[var(--ps-surface)]/10"
               >
                 {block.secondaryCtaLabel}
               </a>
@@ -398,25 +408,25 @@ function FeaturesBlockRenderer({
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="w-full py-16">
+    <section id={block.heading === "How it works" ? "how-it-works" : undefined} className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
-      <div className={`grid grid-cols-1 gap-6 ${colClass}`}>
+      <div className={`grid grid-cols-1 gap-[var(--ps-space-6)] ${colClass}`}>
         {(block.items ?? []).map((item, i) => {
           const safeItemHref = item.href ? sanitizeUrl(item.href) : "";
           return (
             <div
               key={i}
-              className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-6 shadow-xs transition hover:shadow-sm"
+              className="flex flex-col justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs transition hover:shadow-sm"
             >
               <div>
                 {item.icon && (
-                  <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-lg text-[var(--site-primary,#c2410c)] font-semibold">
+                  <div className="mb-[var(--ps-space-4)] inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-lg text-[var(--ps-accent-hover)] font-semibold">
                     {item.icon}
                   </div>
                 )}
-                <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="text-lg font-semibold text-zinc-900">{item.title}</h3>
+                <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="text-lg font-semibold text-[var(--ps-text)]">{item.title}</h3>
                 {item.description && (
-                  <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 text-sm text-zinc-600 leading-relaxed">
+                  <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)] leading-relaxed">
                     {item.description}
                   </p>
                 )}
@@ -424,7 +434,7 @@ function FeaturesBlockRenderer({
               {safeItemHref && (
                 <a
                   href={safeItemHref}
-                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--site-primary,#c2410c)] hover:underline"
+                  className="mt-[var(--ps-space-4)] inline-flex items-center gap-[var(--ps-space-2)] text-sm font-medium text-[var(--ps-accent-hover)] hover:underline"
                 >
                   Learn more
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -452,24 +462,24 @@ function AboutBlockRenderer({
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
 
   return (
-    <section className="w-full py-16">
+    <section id="about" className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 items-start">
+      <div className="grid grid-cols-1 gap-[var(--ps-space-12)] lg:grid-cols-12 items-start">
         {/* Story Narrative & Mission */}
-        <div className={`flex flex-col gap-6 ${safeFounderImage || block.founderName ? "lg:col-span-7" : "lg:col-span-12"}`}>
+        <div className={`flex flex-col gap-[var(--ps-space-6)] ${safeFounderImage || block.founderName ? "lg:col-span-7" : "lg:col-span-12"}`}>
           {block.story && (
-            <div {...elementPathProps(editMode, sourceMap, "story")} className="prose prose-zinc max-w-none text-base leading-relaxed text-zinc-700">
+            <div {...elementPathProps(editMode, sourceMap, "story")} className="prose prose-zinc max-w-none text-base leading-relaxed text-[var(--ps-muted)]">
               <p>{block.story}</p>
             </div>
           )}
 
           {block.mission && (
-            <div className="rounded-xl border-l-4 border-[var(--site-primary,#c2410c)] bg-zinc-50 p-6 shadow-xs">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--site-primary,#c2410c)]">
+            <div className="rounded-xl border-l-4 border-[var(--ps-accent)] bg-[var(--ps-neutral)] p-[var(--ps-space-6)] shadow-xs">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--ps-accent-hover)]">
                 Our Mission
               </span>
-              <p className="mt-2 text-base italic text-zinc-800 leading-relaxed">
+              <p className="mt-[var(--ps-space-2)] text-base italic text-[var(--ps-text)] leading-relaxed">
                 &ldquo;{block.mission}&rdquo;
               </p>
             </div>
@@ -477,18 +487,18 @@ function AboutBlockRenderer({
 
           {/* Metric Highlights Grid */}
           {block.highlights && block.highlights.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="mt-[var(--ps-space-4)] grid grid-cols-2 gap-[var(--ps-space-4)] sm:grid-cols-3">
               {block.highlights.map((hl, i) => (
                 <div
                   {...elementPathProps(editMode, sourceMap, "highlights[" + i + "].value")}
                   key={i}
-                  className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs text-center"
+                  className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-4)] shadow-xs text-center"
                 >
-                  {hl.icon && <div className="text-xl mb-1">{hl.icon}</div>}
-                  <div className="text-2xl font-bold text-zinc-900">
+                  {hl.icon && <div className="text-xl mb-[var(--ps-space-1)]">{hl.icon}</div>}
+                  <div className="text-2xl font-bold text-[var(--ps-text)]">
                     {hl.value}
                   </div>
-                  <div {...elementPathProps(editMode, sourceMap, "highlights[" + i + "].label")} className="text-xs font-medium text-zinc-500 mt-0.5">
+                  <div {...elementPathProps(editMode, sourceMap, "highlights[" + i + "].label")} className="text-xs font-medium text-[var(--ps-muted)] mt-[var(--ps-space-1)]">
                     {hl.label}
                   </div>
                 </div>
@@ -500,9 +510,9 @@ function AboutBlockRenderer({
         {/* Founder Bio Card */}
         {(safeFounderImage || block.founderName) && (
           <div className="lg:col-span-5">
-            <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
+            <div className="flex flex-col overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
               {safeFounderImage && (
-                <div className="aspect-4/3 w-full overflow-hidden rounded-lg bg-zinc-100 mb-5">
+                <div className="aspect-4/3 w-full overflow-hidden rounded-lg bg-[var(--ps-neutral)] mb-[var(--ps-space-6)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     {...elementPathProps(editMode, sourceMap, "founderImage")}
@@ -514,12 +524,12 @@ function AboutBlockRenderer({
                 </div>
               )}
               {block.founderName && (
-                <h3 className="text-lg font-bold text-zinc-900">
+                <h3 className="text-lg font-bold text-[var(--ps-text)]">
                   {block.founderName}
                 </h3>
               )}
               {block.founderRole && (
-                <p className="text-sm font-medium text-[var(--site-primary,#c2410c)]">
+                <p className="text-sm font-medium text-[var(--ps-accent-hover)]">
                   {block.founderRole}
                 </p>
               )}
@@ -553,18 +563,18 @@ function GalleryBlockRenderer({
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       {layout === "carousel" ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
+        <div className="flex gap-[var(--ps-space-4)] overflow-x-auto pb-[var(--ps-space-4)] snap-x snap-mandatory scrollbar-thin">
           {(block.images ?? []).map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
                 key={i}
-                className="w-72 shrink-0 snap-start overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-xs sm:w-80"
+                className="w-72 shrink-0 snap-start overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] shadow-xs sm:w-80"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -575,7 +585,7 @@ function GalleryBlockRenderer({
                   loading="lazy"
                 />
                 {img.caption && (
-                  <figcaption className="px-3 py-2 text-center text-xs text-zinc-500">
+                  <figcaption className="px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-center text-xs text-[var(--ps-muted)]">
                     {img.caption}
                   </figcaption>
                 )}
@@ -584,14 +594,14 @@ function GalleryBlockRenderer({
           })}
         </div>
       ) : layout === "masonry" ? (
-        <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+        <div className="columns-1 gap-[var(--ps-space-4)] sm:columns-2 lg:columns-3">
           {(block.images ?? []).map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
                 key={i}
-                className="mb-4 break-inside-avoid overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-xs"
+                className="mb-[var(--ps-space-4)] break-inside-avoid overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] shadow-xs"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -602,7 +612,7 @@ function GalleryBlockRenderer({
                   loading="lazy"
                 />
                 {img.caption && (
-                  <figcaption className="px-3 py-2 text-center text-xs text-zinc-500">
+                  <figcaption className="px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-center text-xs text-[var(--ps-muted)]">
                     {img.caption}
                   </figcaption>
                 )}
@@ -611,14 +621,14 @@ function GalleryBlockRenderer({
           })}
         </div>
       ) : (
-        <div className={`grid grid-cols-1 gap-4 ${colClass}`}>
+        <div className={`grid grid-cols-1 gap-[var(--ps-space-4)] ${colClass}`}>
           {(block.images ?? []).map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
                 key={i}
-                className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-xs"
+                className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] shadow-xs"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -629,7 +639,7 @@ function GalleryBlockRenderer({
                   loading="lazy"
                 />
                 {img.caption && (
-                  <figcaption className="px-3 py-2 text-center text-xs text-zinc-500">
+                  <figcaption className="px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-center text-xs text-[var(--ps-muted)]">
                     {img.caption}
                   </figcaption>
                 )}
@@ -656,14 +666,14 @@ function TestimonialsBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       <div
         className={
           layout === "carousel"
-            ? "flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory"
-            : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            ? "flex gap-[var(--ps-space-6)] overflow-x-auto pb-[var(--ps-space-4)] snap-x snap-mandatory"
+            : "grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3"
         }
       >
         {(block.items ?? []).map((t, i) => {
@@ -673,49 +683,49 @@ function TestimonialsBlockRenderer({
           return (
             <blockquote
               key={i}
-              className={`flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-6 shadow-xs ${
+              className={`flex flex-col justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs ${
                 layout === "carousel" ? "w-80 shrink-0 snap-start" : ""
               }`}
             >
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-[var(--ps-space-3)]">
                 {rating > 0 && (
-                  <div className="flex items-center gap-1 text-amber-400">
+                  <div className="flex items-center gap-[var(--ps-space-1)] text-amber-400">
                     {Array.from({ length: 5 }).map((_, idx) => (
                       <Star
                         key={idx}
                         className={`h-4 w-4 ${
-                          idx < rating ? "fill-amber-400 text-amber-400" : "text-zinc-200"
+                          idx < rating ? "fill-amber-400 text-amber-400" : "text-[var(--ps-muted)]"
                         }`}
                       />
                     ))}
                   </div>
                 )}
-                <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].quote")} className="text-sm leading-relaxed text-zinc-700">
+                <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].quote")} className="text-sm leading-relaxed text-[var(--ps-muted)]">
                   &ldquo;{t.quote}&rdquo;
                 </p>
               </div>
-              <footer className="mt-5 flex items-center gap-3 border-t border-zinc-100 pt-4">
+              <footer className="mt-[var(--ps-space-6)] flex items-center gap-[var(--ps-space-3)] border-t border-[var(--ps-border)] pt-[var(--ps-space-4)]">
                 {safeAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={safeAvatar}
                     alt={t.author ?? ""}
-                    className="h-10 w-10 rounded-full object-cover border border-zinc-200"
+                    className="h-10 w-10 rounded-full object-cover border border-[var(--ps-border)]"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ps-neutral)] text-sm font-semibold text-[var(--ps-muted)]">
                     {t.author ? t.author.charAt(0).toUpperCase() : "★"}
                   </div>
                 )}
                 <div>
                   {t.author && (
-                    <cite {...elementPathProps(editMode, sourceMap, "items[" + i + "].author")} className="not-italic text-sm font-semibold text-zinc-900 block">
+                    <cite {...elementPathProps(editMode, sourceMap, "items[" + i + "].author")} className="not-italic text-sm font-semibold text-[var(--ps-text)] block">
                       {t.author}
                     </cite>
                   )}
                   {t.role && (
-                    <span className="text-xs text-zinc-500 block">{t.role}</span>
+                    <span className="text-xs text-[var(--ps-muted)] block">{t.role}</span>
                   )}
                 </div>
               </footer>
@@ -750,30 +760,30 @@ function ContactBlockRenderer({
     : "";
 
   return (
-    <section className="w-full py-16">
+    <section id="contact" className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 items-start">
+      <div className="grid grid-cols-1 gap-[var(--ps-space-8)] md:grid-cols-2 items-start">
         {/* Contact Info Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-[var(--ps-space-4)] sm:grid-cols-2">
           {block.email && (
-            <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+            <div className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
+              <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                 <Mail className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                 Email
               </span>
               {safeEmail ? (
                 <a
                   href={safeEmail}
                   {...elementPathProps(editMode, sourceMap, "email")}
-                  className="mt-1 text-sm font-medium text-zinc-900 hover:text-[var(--site-primary,#c2410c)] hover:underline truncate"
+                  className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)] hover:text-[var(--ps-accent-hover)] hover:underline truncate"
                 >
                   {block.email}
                 </a>
               ) : (
-                <span {...elementPathProps(editMode, sourceMap, "email")} className="mt-1 text-sm font-medium text-zinc-900 truncate">
+                <span {...elementPathProps(editMode, sourceMap, "email")} className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)] truncate">
                   {block.email}
                 </span>
               )}
@@ -781,23 +791,23 @@ function ContactBlockRenderer({
           )}
 
           {(block.phone || hasEditorPlaceholder(editMode, sourceMap, "phone")) && (
-            <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+            <div className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
+              <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                 <Phone className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                 Phone
               </span>
               {block.phone && safePhone ? (
                 <a
                   {...elementPathProps(editMode, sourceMap, "phone")}
                   href={safePhone}
-                  className="mt-1 text-sm font-medium text-zinc-900 hover:text-[var(--site-primary,#c2410c)] hover:underline truncate"
+                  className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)] hover:text-[var(--ps-accent-hover)] hover:underline truncate"
                 >
                   {block.phone}
                 </a>
               ) : (
-                <span {...elementPathProps(editMode, sourceMap, "phone")} className="mt-1 text-sm font-medium text-zinc-900 truncate">
+                <span {...elementPathProps(editMode, sourceMap, "phone")} className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)] truncate">
                   {block.phone || "Add phone"}
                 </span>
               )}
@@ -805,32 +815,32 @@ function ContactBlockRenderer({
           )}
 
           {(block.address || hasEditorPlaceholder(editMode, sourceMap, "address")) && (
-            <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+            <div className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs sm:col-span-2">
+              <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                 <MapPin className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                 Address
               </span>
-              <p {...elementPathProps(editMode, sourceMap, "address")} className="mt-1 text-sm font-medium text-zinc-900">
+              <p {...elementPathProps(editMode, sourceMap, "address")} className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)]">
                 {block.address || "Add address"}
               </p>
             </div>
           )}
 
           {block.hoursTable && block.hoursTable.length > 0 ? (
-            <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+            <div className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs sm:col-span-2">
+              <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                 <Clock className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                 Opening Hours
               </span>
-              <ul className="mt-2 divide-y divide-zinc-100 text-sm">
+              <ul className="mt-[var(--ps-space-2)] divide-y divide-[var(--ps-border)] text-sm">
                 {block.hoursTable.map((row, index) => (
-                  <li {...elementPathProps(editMode, sourceMap, "hoursTable[" + index + "]")} key={index} className="flex items-center justify-between gap-4 py-1.5">
-                    <span className="font-medium text-zinc-900">{row.day}</span>
-                    <span className="text-zinc-600">
+                  <li {...elementPathProps(editMode, sourceMap, "hoursTable[" + index + "]")} key={index} className="flex items-center justify-between gap-[var(--ps-space-4)] py-[var(--ps-space-2)]">
+                    <span className="font-medium text-[var(--ps-text)]">{row.day}</span>
+                    <span className="text-[var(--ps-muted)]">
                       {row.closed ? closedLabel : [row.open, row.close].filter(Boolean).join(" – ") || "–"}
                       {!row.closed && isOvernightWebsiteInterval(row.open, row.close) ? ` (${nextDayLabel})` : ""}
                     </span>
@@ -840,14 +850,14 @@ function ContactBlockRenderer({
             </div>
           ) : (
             (block.hours || hasEditorPlaceholder(editMode, sourceMap, "hours")) && (
-              <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2">
-                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+              <div className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs sm:col-span-2">
+                <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                   <Clock className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                   Opening Hours
                 </span>
-                <p {...elementPathProps(editMode, sourceMap, "hours")} className="mt-1 text-sm font-medium text-zinc-900">
+                <p {...elementPathProps(editMode, sourceMap, "hours")} className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)]">
                   {block.hours || "Add opening hours"}
                 </p>
               </div>
@@ -859,18 +869,18 @@ function ContactBlockRenderer({
               <div
                 key={index}
                 {...elementPathProps(editMode, sourceMap, "locations[" + index + "].name")}
-                className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:col-span-2"
+                className="flex flex-col rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs sm:col-span-2"
               >
-                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--site-primary-light,#ffedd5)] text-[var(--site-primary,#c2410c)]">
+                <div className="mb-[var(--ps-space-3)] inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]">
                   <MapPin className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ps-muted)]">
                   {location.name || "Location"}
                 </span>
                 {location.address && (
-                  <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].address")} className="mt-1 text-sm font-medium text-zinc-900">{location.address}</p>
+                  <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].address")} className="mt-[var(--ps-space-1)] text-sm font-medium text-[var(--ps-text)]">{location.address}</p>
                 )}
-                {location.hours && <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].hours")} className="mt-1 text-sm text-zinc-600">{location.hours}</p>}
+                {location.hours && <p {...elementPathProps(editMode, sourceMap, "locations[" + index + "].hours")} className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">{location.hours}</p>}
               </div>
             ))}
 
@@ -881,7 +891,7 @@ function ContactBlockRenderer({
                 href={sanitizeUrl(block.directionsUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--site-primary,#c2410c)] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:opacity-90"
+                className="ps-button ps-button-primary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
               >
                 Get Directions
               </a>
@@ -890,21 +900,21 @@ function ContactBlockRenderer({
         </div>
 
         {/* Map Preview or Direction Link */}
-        <div className="flex h-full min-h-[260px] flex-col justify-center rounded-xl border border-zinc-200 bg-zinc-50 p-6 text-center shadow-xs">
-          <MapPin className="mx-auto h-8 w-8 text-[var(--site-primary,#c2410c)]" />
-          <h4 className="mt-3 text-base font-semibold text-zinc-900">
+        <div className="flex h-full min-h-[260px] flex-col justify-center rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] p-[var(--ps-space-6)] text-center shadow-xs">
+          <MapPin className="mx-auto h-8 w-8 text-[var(--ps-accent-hover)]" />
+          <h4 className="mt-[var(--ps-space-3)] text-base font-semibold text-[var(--ps-text)]">
             Find Us on the Map
           </h4>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">
             {block.address || block.mapQuery || "Visit our physical location."}
           </p>
           {safeMapLink && (
-            <div className="mt-5">
+            <div className="mt-[var(--ps-space-6)]">
               <a
                 href={safeMapLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 border border-zinc-200 shadow-xs transition hover:bg-zinc-100"
+                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
               >
                 Open in Google Maps
                 <ExternalLink className="h-4 w-4" />
@@ -929,18 +939,18 @@ function FaqBlockRenderer({
   sourceMap?: ElementSourceMap;
 }) {
   return (
-    <section className="w-full py-16">
+    <section id="faq" className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
-      <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
+      <div className="divide-y divide-[var(--ps-border)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
         {(block.items ?? []).map((item, i) => (
-          <details key={i} className="group py-4 first:pt-0 last:pb-0">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-zinc-900 transition hover:text-[var(--site-primary,#c2410c)]">
+          <details key={i} className="group py-[var(--ps-space-4)] first:pt-0 last:pb-0">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-[var(--ps-space-4)] font-semibold text-[var(--ps-text)] transition hover:text-[var(--ps-accent-hover)]">
               <span {...elementPathProps(editMode, sourceMap, "items[" + i + "].question")} className="text-base">{item.question}</span>
-              <span className="shrink-0 text-zinc-400 transition group-open:rotate-180">
+              <span className="shrink-0 text-[var(--ps-muted)] transition group-open:rotate-180">
                 ▾
               </span>
             </summary>
-            <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].answer")} className="mt-3 text-sm leading-relaxed text-zinc-600">
+            <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].answer")} className="mt-[var(--ps-space-3)] text-sm leading-relaxed text-[var(--ps-muted)]">
               {item.answer}
             </p>
           </details>
@@ -968,27 +978,27 @@ async function EventsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading || "Upcoming Events"} subheading={block.subheading} />
 
       {events.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">
           No events scheduled at this time.
         </div>
       ) : layout === "list" ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-[var(--ps-space-4)]">
           {events.map((event: ResolvedEventItem) => (
             <div
               key={event.id}
-              className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs transition hover:shadow-sm"
+              className="flex flex-col gap-[var(--ps-space-4)] sm:flex-row sm:items-center justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs transition hover:shadow-sm"
             >
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-zinc-900">{event.title}</h3>
+              <div className="flex flex-col gap-[var(--ps-space-1)]">
+                <div className="flex items-center gap-[var(--ps-space-2)]">
+                  <h3 className="text-base font-bold text-[var(--ps-text)]">{event.title}</h3>
                   {event.isDraft && <DraftBadge />}
                 </div>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 mt-1">
-                  <span className="inline-flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-[var(--ps-space-4)] text-xs text-[var(--ps-muted)] mt-[var(--ps-space-1)]">
+                  <span className="inline-flex items-center gap-[var(--ps-space-1)]">
                     <Calendar className="h-3.5 w-3.5" />
                     {new Date(event.event_date).toLocaleDateString(undefined, {
                       month: "short",
@@ -997,22 +1007,22 @@ async function EventsEmbedBlockRenderer({
                     })}
                   </span>
                   {(event.venue_name || event.city) && (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-[var(--ps-space-1)]">
                       <MapPin className="h-3.5 w-3.5" />
                       {[event.venue_name, event.city].filter(Boolean).join(", ")}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-zinc-900">
+              <div className="flex items-center gap-[var(--ps-space-3)]">
+                <span className="text-sm font-semibold text-[var(--ps-text)]">
                   {event.ticket_price_min != null && event.ticket_price_min > 0
                     ? `${event.currency} $${event.ticket_price_min.toFixed(2)}`
                     : "Free"}
                 </span>
                 <Link
                   href={`/events/${event.slug}`}
-                  className="inline-flex items-center gap-1 rounded-lg bg-[var(--site-primary,#c2410c)] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[var(--site-primary-hover,#9a3412)]"
+                  className="ps-button ps-button-primary inline-flex items-center gap-[var(--ps-space-1)] text-xs font-semibold shadow-xs transition"
                 >
                   View Details
                 </Link>
@@ -1021,15 +1031,15 @@ async function EventsEmbedBlockRenderer({
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event: ResolvedEventItem) => {
             const safeCover = event.cover_image ? safeImageSrc(event.cover_image) : "";
             return (
               <div
                 key={event.id}
-                className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:shadow-sm"
+                className="flex flex-col overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs transition hover:shadow-sm"
               >
-                <div className="relative aspect-16/9 w-full bg-zinc-100">
+                <div className="relative aspect-16/9 w-full bg-[var(--ps-neutral)]">
                   {safeCover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1039,7 +1049,7 @@ async function EventsEmbedBlockRenderer({
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
+                    <div className="flex h-full w-full items-center justify-center bg-[var(--ps-neutral)] text-[var(--ps-muted)]">
                       <Calendar className="h-8 w-8" />
                     </div>
                   )}
@@ -1049,9 +1059,9 @@ async function EventsEmbedBlockRenderer({
                     </div>
                   )}
                 </div>
-                <div className="flex flex-1 flex-col justify-between p-5">
+                <div className="flex flex-1 flex-col justify-between p-[var(--ps-space-6)]">
                   <div>
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--site-primary,#c2410c)] mb-1">
+                    <div className="flex items-center gap-[var(--ps-space-2)] text-xs font-medium text-[var(--ps-accent-hover)] mb-[var(--ps-space-1)]">
                       <Calendar className="h-3.5 w-3.5" />
                       {new Date(event.event_date).toLocaleDateString(undefined, {
                         month: "short",
@@ -1059,24 +1069,24 @@ async function EventsEmbedBlockRenderer({
                         year: "numeric",
                       })}
                     </div>
-                    <h3 className="text-base font-bold text-zinc-900 line-clamp-1">
+                    <h3 className="text-base font-bold text-[var(--ps-text)] line-clamp-1">
                       {event.title}
                     </h3>
                     {(event.venue_name || event.city) && (
-                      <p className="mt-1 text-xs text-zinc-500 line-clamp-1">
+                      <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-1">
                         {[event.venue_name, event.city].filter(Boolean).join(", ")}
                       </p>
                     )}
                   </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3">
-                    <span className="text-sm font-semibold text-zinc-900">
+                  <div className="mt-[var(--ps-space-4)] flex items-center justify-between border-t border-[var(--ps-border)] pt-[var(--ps-space-3)]">
+                    <span className="text-sm font-semibold text-[var(--ps-text)]">
                       {event.ticket_price_min != null && event.ticket_price_min > 0
                         ? `${event.currency} $${event.ticket_price_min.toFixed(2)}`
                         : "Free"}
                     </span>
                     <Link
                       href={`/events/${event.slug}`}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--site-primary,#c2410c)] hover:underline"
+                      className="inline-flex items-center gap-[var(--ps-space-1)] text-xs font-semibold text-[var(--ps-accent-hover)] hover:underline"
                     >
                       View Event →
                     </Link>
@@ -1098,11 +1108,13 @@ async function ProductsEmbedBlockRenderer({
   tenantId,
   isTeamMember,
   currencyLocale,
+  accentColor,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
   currencyLocale?: Locale;
+  accentColor?: string;
 }) {
   const products = tenantId
     ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember))
@@ -1167,26 +1179,26 @@ async function ProductsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading || "Featured Products"} subheading={block.subheading} />
 
       {products.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">
           No products available at this time.
         </div>
       ) : (
-        <StorefrontBrowse groups={productGroups} labels={browseLabels} showGroups={categoryOrder.length > 1}>
+        <StorefrontBrowse groups={productGroups} labels={browseLabels} showGroups={categoryOrder.length > 1} accentColor={accentColor}>
         {layout === "list" ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-[var(--ps-space-4)]">
           {products.map((product: ResolvedProductItem) => {
             const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
             return (
               <div
                 key={product.id}
-                className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs transition hover:shadow-sm"
+                className="flex flex-col gap-[var(--ps-space-4)] sm:flex-row sm:items-center justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs transition hover:shadow-sm"
               >
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                <div className="flex items-center gap-[var(--ps-space-4)]">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
                     {firstImg ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1196,30 +1208,30 @@ async function ProductsEmbedBlockRenderer({
                         loading="lazy"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                      <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]">
                         <Tag className="h-5 w-5" />
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-zinc-900">{product.name}</h3>
+                    <div className="flex items-center gap-[var(--ps-space-2)]">
+                      <h3 className="text-base font-bold text-[var(--ps-text)]">{product.name}</h3>
                       {product.isDraft && <DraftBadge />}
                     </div>
                     {product.description && (
-                      <p className="mt-0.5 text-xs text-zinc-500 line-clamp-1">
+                      <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-1">
                         {product.description}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-semibold capitalize text-zinc-700">
+                <div className="flex items-center gap-[var(--ps-space-4)]">
+                  <span className="text-sm font-semibold capitalize text-[var(--ps-muted)]">
                     {product.price_type}
                   </span>
                   <Link
                     href={`/products/${product.slug}`}
-                    className="inline-flex items-center gap-1 rounded-lg bg-[var(--site-primary,#c2410c)] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[var(--site-primary-hover,#9a3412)]"
+                    className="ps-button ps-button-primary inline-flex items-center gap-[var(--ps-space-1)] text-xs font-semibold shadow-xs transition"
                   >
                     View Product
                   </Link>
@@ -1229,15 +1241,15 @@ async function ProductsEmbedBlockRenderer({
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product: ResolvedProductItem) => {
             const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
             return (
               <div
                 key={product.id}
-                className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:shadow-sm"
+                className="flex flex-col overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs transition hover:shadow-sm"
               >
-                <div className="relative aspect-4/3 w-full bg-zinc-100">
+                <div className="relative aspect-4/3 w-full bg-[var(--ps-neutral)]">
                   {firstImg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1247,7 +1259,7 @@ async function ProductsEmbedBlockRenderer({
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                    <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]">
                       <Tag className="h-8 w-8" />
                     </div>
                   )}
@@ -1257,24 +1269,24 @@ async function ProductsEmbedBlockRenderer({
                     </div>
                   )}
                 </div>
-                <div className="flex flex-1 flex-col justify-between p-5">
+                <div className="flex flex-1 flex-col justify-between p-[var(--ps-space-6)]">
                   <div>
-                    <h3 className="text-base font-bold text-zinc-900 line-clamp-1">
+                    <h3 className="text-base font-bold text-[var(--ps-text)] line-clamp-1">
                       {product.name}
                     </h3>
                     {product.description && (
-                      <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
+                      <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-2">
                         {product.description}
                       </p>
                     )}
                   </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3">
-                    <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  <div className="mt-[var(--ps-space-4)] flex items-center justify-between border-t border-[var(--ps-border)] pt-[var(--ps-space-3)]">
+                    <span className="text-xs font-medium uppercase tracking-wider text-[var(--ps-muted)]">
                       {product.price_type}
                     </span>
                     <Link
                       href={`/products/${product.slug}`}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--site-primary,#c2410c)] hover:underline"
+                      className="inline-flex items-center gap-[var(--ps-space-1)] text-xs font-semibold text-[var(--ps-accent-hover)] hover:underline"
                     >
                       Learn More →
                     </Link>
@@ -1310,9 +1322,9 @@ async function FundraiserEmbedBlockRenderer({
 
   if (fundraisers.length === 0) {
     return (
-      <section className="w-full py-16">
+      <section className="w-full py-[var(--ps-space-16)]">
         <SectionHeading heading={block.heading || "Fundraising Campaigns"} subheading={block.subheading} />
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">
           No active fundraisers at this time.
         </div>
       </section>
@@ -1329,11 +1341,11 @@ async function FundraiserEmbedBlockRenderer({
     );
 
     return (
-      <section className="w-full py-16">
+      <section className="w-full py-[var(--ps-space-16)]">
         <SectionHeading heading={block.heading} subheading={block.subheading} />
-        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs lg:grid lg:grid-cols-12 items-center">
+        <div className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs lg:grid lg:grid-cols-12 items-center">
           {safeImage && (
-            <div className="relative aspect-16/9 w-full bg-zinc-100 lg:col-span-5 lg:h-full">
+            <div className="relative aspect-16/9 w-full bg-[var(--ps-neutral)] lg:col-span-5 lg:h-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={safeImage}
@@ -1343,43 +1355,43 @@ async function FundraiserEmbedBlockRenderer({
               />
             </div>
           )}
-          <div className={`p-8 lg:p-10 ${safeImage ? "lg:col-span-7" : "lg:col-span-12"}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-[var(--site-primary,#c2410c)]">
+          <div className={`p-[var(--ps-space-8)] lg:p-[var(--ps-space-12)] ${safeImage ? "lg:col-span-7" : "lg:col-span-12"}`}>
+            <div className="flex items-center gap-[var(--ps-space-2)] mb-[var(--ps-space-3)]">
+              <span className="inline-flex items-center gap-[var(--ps-space-1)] text-xs font-bold uppercase tracking-wider text-[var(--ps-accent-hover)]">
                 <Heart className="h-3.5 w-3.5 fill-current" />
                 Featured Cause
               </span>
               {featured.isDraft && <DraftBadge />}
             </div>
-            <h3 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
+            <h3 className="text-2xl font-bold text-[var(--ps-text)] sm:text-3xl">
               {featured.title}
             </h3>
 
             {/* Progress bar */}
-            <div className="mt-6">
-              <div className="flex justify-between text-sm font-semibold mb-2">
-                <span className="text-zinc-900">
+            <div className="mt-[var(--ps-space-6)]">
+              <div className="flex justify-between text-sm font-semibold mb-[var(--ps-space-2)]">
+                <span className="text-[var(--ps-text)]">
                   ${featured.raised.toLocaleString()} {featured.currency} raised
                 </span>
-                <span className="text-zinc-500">
+                <span className="text-[var(--ps-muted)]">
                   Goal: ${featured.goal_amount.toLocaleString()}
                 </span>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--ps-neutral)]">
                 <div
-                  className="h-full rounded-full bg-[var(--site-primary,#c2410c)] transition-all duration-500"
+                  className="h-full rounded-full bg-[var(--ps-accent)] transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
-              <div className="mt-1.5 text-right text-xs font-semibold text-[var(--site-primary,#c2410c)]">
+              <div className="mt-[var(--ps-space-2)] text-right text-xs font-semibold text-[var(--ps-accent-hover)]">
                 {progressPercent}% funded
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-[var(--ps-space-8)]">
               <Link
                 href={`/fundraisers/${featured.slug}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--site-primary,#c2410c)] px-6 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-[var(--site-primary-hover,#9a3412)]"
+                className="ps-button ps-button-primary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
               >
                 Donate Now
                 <ArrowRight className="h-4 w-4" />
@@ -1393,9 +1405,9 @@ async function FundraiserEmbedBlockRenderer({
 
   // Layout: Grid / Cards
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading || "Active Campaigns"} subheading={block.subheading} />
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
         {fundraisers.map((f: ResolvedFundraiserItem) => {
           const safeImage = f.image_url ? safeImageSrc(f.image_url) : "";
           const progressPercent = Math.min(
@@ -1406,9 +1418,9 @@ async function FundraiserEmbedBlockRenderer({
           return (
             <div
               key={f.id}
-              className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:shadow-sm"
+              className="flex flex-col overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs transition hover:shadow-sm"
             >
-              <div className="relative aspect-16/9 w-full bg-zinc-100">
+              <div className="relative aspect-16/9 w-full bg-[var(--ps-neutral)]">
                 {safeImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -1418,7 +1430,7 @@ async function FundraiserEmbedBlockRenderer({
                     loading="lazy"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                  <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]">
                     <Heart className="h-8 w-8" />
                   </div>
                 )}
@@ -1428,32 +1440,32 @@ async function FundraiserEmbedBlockRenderer({
                   </div>
                 )}
               </div>
-              <div className="flex flex-1 flex-col justify-between p-5">
+              <div className="flex flex-1 flex-col justify-between p-[var(--ps-space-6)]">
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 line-clamp-1">
+                  <h3 className="text-base font-bold text-[var(--ps-text)] line-clamp-1">
                     {f.title}
                   </h3>
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-zinc-900">
+                  <div className="mt-[var(--ps-space-4)]">
+                    <div className="flex justify-between text-xs font-semibold mb-[var(--ps-space-1)]">
+                      <span className="text-[var(--ps-text)]">
                         ${f.raised.toLocaleString()}
                       </span>
-                      <span className="text-zinc-500">
+                      <span className="text-[var(--ps-muted)]">
                         ${f.goal_amount.toLocaleString()}
                       </span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ps-neutral)]">
                       <div
-                        className="h-full rounded-full bg-[var(--site-primary,#c2410c)]"
+                        className="h-full rounded-full bg-[var(--ps-accent)]"
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
                   </div>
                 </div>
-                <div className="mt-5 border-t border-zinc-100 pt-3">
+                <div className="mt-[var(--ps-space-6)] border-t border-[var(--ps-border)] pt-[var(--ps-space-3)]">
                   <Link
                     href={`/fundraisers/${f.slug}`}
-                    className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--site-primary,#c2410c)] py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[var(--site-primary-hover,#9a3412)]"
+                    className="ps-button ps-button-primary inline-flex w-full items-center justify-center text-xs font-semibold shadow-xs transition"
                   >
                     Support Campaign
                   </Link>
@@ -1481,57 +1493,57 @@ async function ServicesEmbedBlockRenderer({
   const services = tenantId ? await resolveServicesEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const layout = block.layout ?? "grid";
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <SectionHeading heading={block.heading || "Our Services"} subheading={block.subheading} />
       {services.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">No services available at this time.</div>
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">No services available at this time.</div>
       ) : layout === "list" ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-[var(--ps-space-4)]">
           {services.map((svc: ResolvedServiceItem) => {
             const safeImg = svc.image_url ? safeImageSrc(svc.image_url) : "";
             return (
-              <div key={svc.id} className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+              <div key={svc.id} className="flex flex-col gap-[var(--ps-space-4)] sm:flex-row sm:items-center justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
+                <div className="flex items-center gap-[var(--ps-space-4)]">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
                     {safeImg ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={safeImg} alt={svc.title} className="h-full w-full object-cover" loading="lazy" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-zinc-400"><Tag className="h-5 w-5" /></div>
+                      <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-5 w-5" /></div>
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2"><h3 className="text-base font-bold text-zinc-900">{svc.title}</h3>{svc.isDraft && <DraftBadge />}</div>
-                    {svc.description && <p className="mt-0.5 text-xs text-zinc-500 line-clamp-1">{svc.description}</p>}
-                    {svc.duration_minutes && <p className="text-xs text-zinc-400">{svc.duration_minutes} min</p>}
+                    <div className="flex items-center gap-[var(--ps-space-2)]"><h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>{svc.isDraft && <DraftBadge />}</div>
+                    {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-1">{svc.description}</p>}
+                    {svc.duration_minutes && <p className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</p>}
                   </div>
                 </div>
-                {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="text-sm font-semibold text-zinc-900">${svc.price.toFixed(2)}</div>
+                {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="text-sm font-semibold text-[var(--ps-text)]">${svc.price.toFixed(2)}</div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
           {services.map((svc: ResolvedServiceItem) => {
             const safeImg = svc.image_url ? safeImageSrc(svc.image_url) : "";
             return (
-              <div key={svc.id} className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
-                <div className="relative aspect-4/3 w-full bg-zinc-100">
+              <div key={svc.id} className="flex flex-col overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs">
+                <div className="relative aspect-4/3 w-full bg-[var(--ps-neutral)]">
                   {safeImg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={safeImg} alt={svc.title} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-zinc-400"><Tag className="h-8 w-8" /></div>
+                    <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-8 w-8" /></div>
                   )}
                   {svc.isDraft && <div className="absolute top-3 left-3"><DraftBadge /></div>}
                 </div>
-                <div className="p-5">
-                  <h3 className="text-base font-bold text-zinc-900">{svc.title}</h3>
-                  {svc.description && <p className="mt-1 text-xs text-zinc-500 line-clamp-2">{svc.description}</p>}
-                  <div className="mt-3 flex items-center justify-between">
+                <div className="p-[var(--ps-space-6)]">
+                  <h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>
+                  {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-2">{svc.description}</p>}
+                  <div className="mt-[var(--ps-space-3)] flex items-center justify-between">
                     <span className="text-sm font-bold">${svc.price.toFixed(2)}</span>
-                    {svc.duration_minutes && <span className="text-xs text-zinc-500">{svc.duration_minutes} min</span>}
+                    {svc.duration_minutes && <span className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</span>}
                   </div>
                 </div>
               </div>
@@ -1554,6 +1566,8 @@ async function MenuEmbedBlockRenderer({
   currency,
   currencyLocale,
   orderConfig,
+  siteSlug,
+  accentColor,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
@@ -1564,6 +1578,8 @@ async function MenuEmbedBlockRenderer({
   currency?: string;
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
+  siteSlug?: string;
+  accentColor?: string;
 }) {
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
@@ -1590,6 +1606,8 @@ async function MenuEmbedBlockRenderer({
     subtotal: t("subtotal"),
     deliveryFee: t("deliveryFee"),
     deliveryFeeNotice: t("deliveryFeeNotice"),
+    freeDelivery: t("freeDelivery"),
+    freeDeliveryProgress: t("freeDeliveryProgress"),
     total: t("total"),
     fulfilment: t("fulfilment"),
     pickup: t("pickup"),
@@ -1615,6 +1633,13 @@ async function MenuEmbedBlockRenderer({
     scheduledNotice: t("scheduledNotice"),
     noUpcomingHours: t("noUpcomingHours"),
     backToMenu: t("backToMenu"),
+    asap: t("asap"),
+    scheduleForLater: t("scheduleForLater"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    trackOrder: t("trackOrder"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
   };
   const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
   const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
@@ -1671,25 +1696,25 @@ async function MenuEmbedBlockRenderer({
   }));
   const hasMenuItems = hasBrowseableItems(menuGroups);
   return (
-    <section className="w-full py-16">
+    <section className="w-full py-[var(--ps-space-16)]">
       <div {...elementPathProps(editMode, sourceMap, "heading")}>
         <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} />
       </div>
       {!hasMenuItems ? (
-        <p className="py-4 text-center text-sm text-zinc-500">{t("menuComingSoon")}</p>
+        <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("menuComingSoon")}</p>
       ) : (
-        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig}>
-        <div className="space-y-8">
+        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig} accentColor={accentColor}>
+        <div className="space-y-[var(--ps-space-8)]">
           {populatedSections.map((sec: ResolvedMenuSection) => (
-            <div key={sec.id} className="rounded-xl border border-zinc-200 bg-white p-6 shadow-xs">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-zinc-900">{sec.name}</h3>
+            <div key={sec.id} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
+              <div className="flex items-center gap-[var(--ps-space-2)]">
+                <h3 className="text-lg font-bold text-[var(--ps-text)]">{sec.name}</h3>
                 {sec.isDraft && <DraftBadge />}
               </div>
-              {sec.description && <p className="mt-1 text-sm text-zinc-500">{sec.description}</p>}
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {sec.description && <p className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">{sec.description}</p>}
+              <div className="mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2">
                 {sec.items.length === 0 ? (
-                  <div className="text-xs text-zinc-400">No items in this section.</div>
+                  <div className="text-xs text-[var(--ps-muted)]">No items in this section.</div>
                 ) : (
                   sec.items.map((it) => {
                     const safeImg = safeImageSrc(it.image_url);
@@ -1702,43 +1727,43 @@ async function MenuEmbedBlockRenderer({
                           sourceMap,
                           "selectedItemIds[" + (block.selectedItemIds?.indexOf(it.id) ?? -1) + "]"
                         )}
-                        className="flex gap-3 rounded-lg border border-zinc-100 p-3"
+                        className="flex gap-[var(--ps-space-3)] rounded-lg border border-[var(--ps-border)] p-[var(--ps-space-3)]"
                       >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
                           {safeImg ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-zinc-300"><Tag className="h-4 w-4" /></div>
+                            <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-4 w-4" /></div>
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-zinc-900">{it.name}</span>
-                            {it.is_featured && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Featured</span>}
-                            {it.is_sold_out && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600 border border-zinc-200">{t("soldOut")}</span>}
+                          <div className="flex items-center gap-[var(--ps-space-2)]">
+                            <span className="text-sm font-semibold text-[var(--ps-text)]">{it.name}</span>
+                            {it.is_featured && <span className="rounded-full bg-amber-100 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-amber-700">Featured</span>}
+                            {it.is_sold_out && <span className="rounded-full bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">{t("soldOut")}</span>}
                             {it.isDraft && <DraftBadge />}
                           </div>
-                          {it.description && <p className="text-xs text-zinc-500 line-clamp-1">{it.description}</p>}
-                          <div className="mt-1 flex flex-wrap gap-1">
+                          {it.description && <p className="text-xs text-[var(--ps-muted)] line-clamp-1">{it.description}</p>}
+                          <div className="mt-[var(--ps-space-1)] flex flex-wrap gap-[var(--ps-space-1)]">
                             {it.dietary_tags.map((t) => (
-                              <span key={t} className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200 capitalize">{t.replace("_"," ")}</span>
+                              <span key={t} className="rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium text-emerald-700 border border-emerald-200 capitalize">{t.replace("_"," ")}</span>
                             ))}
                             {it.allergens.map((a) => (
-                              <span key={a} className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 border border-red-200 capitalize">{a}</span>
+                              <span key={a} className="rounded-full bg-red-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium text-red-700 border border-red-200 capitalize">{a}</span>
                             ))}
                           </div>
-                          <div className="mt-1 text-xs font-semibold">
+                          <div className="mt-[var(--ps-space-1)] text-xs font-semibold">
                             {isPromo ? (
                               <>
-                                <span className="text-orange-700 font-bold">{formatCurrency(Number(it.promo_price), displayCurrency, locale)}</span>
-                                <span className="ml-1 text-[11px] font-normal text-zinc-400 line-through">{formatCurrency(Number(it.price), displayCurrency, locale)}</span>
+                                <span className="text-[var(--ps-accent-hover)] font-bold">{formatCurrency(Number(it.promo_price), displayCurrency, locale)}</span>
+                                <span className="ml-[var(--ps-space-1)] text-xs font-normal text-[var(--ps-muted)] line-through">{formatCurrency(Number(it.price), displayCurrency, locale)}</span>
                               </>
                             ) : (
                               formatCurrency(Number(it.price), displayCurrency, locale)
                             )}
-                            {it.modifiers.length > 0 && <span className="font-normal text-zinc-500"> + {it.modifiers.length} modifiers</span>}
-                            {it.option_groups && it.option_groups.length > 0 && <span className="font-normal text-zinc-500"> • {it.option_groups.length} {t("options").toLowerCase()}</span>}
+                            {it.modifiers.length > 0 && <span className="font-normal text-[var(--ps-muted)]"> + {it.modifiers.length} modifiers</span>}
+                            {it.option_groups && it.option_groups.length > 0 && <span className="font-normal text-[var(--ps-muted)]"> • {it.option_groups.length} {t("options").toLowerCase()}</span>}
                           </div>
                         </div>
                       </div>
@@ -1751,6 +1776,69 @@ async function MenuEmbedBlockRenderer({
         </div>
         </StorefrontBrowse>
       )}
+      {siteSlug && !block.selectedItemIds?.length && hasMenuItems ? (
+        <div className="mt-[var(--ps-space-8)] text-center">
+          <a
+            href={`/site/${encodeURIComponent(siteSlug)}/menu`}
+            className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
+          >
+            {t("viewFullMenu")}
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </a>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// ── 12b. Reservation Form Block (Live Data) ──────────────────────────────────
+
+async function ReservationFormBlockRenderer({
+  reservationConfig,
+  siteSlug,
+}: {
+  reservationConfig?: StorefrontReservationConfig;
+  siteSlug?: string;
+}) {
+  const t = await getTranslations("Storefront");
+  if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
+    return (
+      <section className="w-full py-[var(--ps-space-16)]">
+        <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("requestNotAvailable")}</p>
+      </section>
+    );
+  }
+  const labels: ReservationFormLabels = {
+    title: t("reservationTitle"),
+    subtext: t("reservationSubtext"),
+    fullName: t("fullName"),
+    phone: t("phone"),
+    email: t("email"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    partySize: t("partySize"),
+    specialRequest: t("specialRequest"),
+    requestTable: t("requestTable"),
+    requestingTable: t("requestingTable"),
+    requestReceived: t("requestReceived"),
+    requestReceivedSubtext: t("requestReceivedSubtext"),
+    requestReference: t("requestReference"),
+    trackRequest: t("trackRequest"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
+    backToSite: t("backToSite"),
+    noSlots: t("noSlots"),
+    closedThatDay: t("closedThatDay"),
+    checkDetails: t("reservationCheckDetails"),
+    requestNotAvailable: t("requestNotAvailable"),
+    rateLimited: t("reservationRateLimited"),
+    tooManyOpenRequests: t("reservationTooManyOpen"),
+    invalidPartySize: t("reservationInvalidParty"),
+    requestFailed: t("reservationFailed"),
+  };
+  return (
+    <section className="w-full py-[var(--ps-space-16)]">
+      <ReservationRequestForm config={reservationConfig} labels={labels} siteSlug={siteSlug ?? reservationConfig.slug} />
     </section>
   );
 }
@@ -1760,9 +1848,9 @@ async function MenuEmbedBlockRenderer({
 function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
   const safeHtml = sanitizeArticleHtml(block.html);
   return (
-    <section className="mx-auto w-full max-w-3xl px-6 py-12">
+    <section className="mx-auto w-full max-w-3xl px-[var(--ps-space-6)] py-[var(--ps-space-12)]">
       <div
-        className="prose prose-zinc max-w-none prose-headings:font-bold prose-a:text-[var(--site-primary,#c2410c)]"
+        className="prose prose-zinc max-w-none prose-headings:font-bold prose-a:text-[var(--ps-accent-hover)]"
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     </section>
@@ -1771,22 +1859,24 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-function CtaBannerBlockRenderer({ block }: { block: CtaBannerBlock }) {
+function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean }) {
   const variantClasses =
     block.variant === "dark"
-      ? "bg-zinc-900 text-white"
+      ? "bg-[var(--ps-text)] text-white"
       : block.variant === "light"
-        ? "bg-zinc-50 text-zinc-900 border border-zinc-200"
+        ? "bg-[var(--ps-neutral)] text-[var(--ps-text)] border border-[var(--ps-border)]"
         : "text-white";
 
-  const safeCtaHref = block.ctaHref ? sanitizeUrl(block.ctaHref) : "";
+  const safeCtaHref = block.ctaHref
+    ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
+    : "";
 
   return (
     <section
-      className={`w-full px-6 py-16 text-center ${variantClasses}`}
+      className={`w-full px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center ${variantClasses}`}
       style={
         block.variant !== "dark" && block.variant !== "light"
-          ? { backgroundColor: "var(--site-primary, #c2410c)" }
+          ? { backgroundColor: "var(--ps-accent)" }
           : {}
       }
     >
@@ -1795,12 +1885,12 @@ function CtaBannerBlockRenderer({ block }: { block: CtaBannerBlock }) {
           <h2 className="text-3xl font-bold">{block.heading}</h2>
         )}
         {block.subheading && (
-          <p className="mt-3 text-lg opacity-90">{block.subheading}</p>
+          <p className="mt-[var(--ps-space-3)] text-lg opacity-90">{block.subheading}</p>
         )}
         {block.ctaLabel && safeCtaHref && (
           <a
             href={safeCtaHref}
-            className="mt-8 inline-flex items-center rounded-xl bg-white px-8 py-3 text-sm font-semibold text-zinc-900 shadow-xs transition hover:bg-zinc-100"
+            className="ps-button ps-button-secondary mt-[var(--ps-space-8)] inline-flex items-center text-sm font-semibold shadow-xs transition"
           >
             {block.ctaLabel}
           </a>
@@ -1875,6 +1965,10 @@ export async function BlockRenderer({
   currency,
   currencyLocale,
   orderConfig,
+  reservationConfig,
+  siteSlug,
+  scopeInternalLinks,
+  accentColor,
 }: {
   block: unknown;
   tenantId?: string;
@@ -1885,6 +1979,10 @@ export async function BlockRenderer({
   currency?: string;
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
+  reservationConfig?: StorefrontReservationConfig;
+  siteSlug?: string;
+  scopeInternalLinks?: boolean;
+  accentColor?: string;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -1899,7 +1997,7 @@ export async function BlockRenderer({
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} />;
       break;
     case "features":
       content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
@@ -1938,6 +2036,7 @@ export async function BlockRenderer({
           tenantId={tenantId}
           isTeamMember={isTeamMember}
           currencyLocale={currencyLocale}
+          accentColor={accentColor}
         />
       );
       break;
@@ -1970,6 +2069,8 @@ export async function BlockRenderer({
           currency={currency}
           currencyLocale={currencyLocale}
           orderConfig={orderConfig}
+          siteSlug={siteSlug}
+          accentColor={accentColor}
         />
       );
       break;
@@ -1977,10 +2078,18 @@ export async function BlockRenderer({
       content = <RichTextBlockRenderer block={b} />;
       break;
     case "cta_banner":
-      content = <CtaBannerBlockRenderer block={b} />;
+      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} />;
       break;
     case "menu_order":
       return null;
+    case "reservation_form":
+      content = (
+        <ReservationFormBlockRenderer
+          reservationConfig={reservationConfig}
+          siteSlug={siteSlug}
+        />
+      );
+      break;
     default:
       console.warn(
         `[BlockRenderer] Unknown block type: "${(b as { type: string }).type}" — skipping.`

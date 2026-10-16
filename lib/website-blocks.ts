@@ -279,10 +279,15 @@ export type Block =
   | MenuEmbedBlock
   | RichTextBlock
   | CtaBannerBlock
-  | MenuOrderBlock;
+  | MenuOrderBlock
+  | ReservationFormBlock;
 
 export interface MenuOrderBlock extends BaseBlock {
   type: "menu_order";
+}
+
+export interface ReservationFormBlock extends BaseBlock {
+  type: "reservation_form";
 }
 
 export const KNOWN_BLOCK_TYPES = [
@@ -301,6 +306,7 @@ export const KNOWN_BLOCK_TYPES = [
   "rich_text",
   "cta_banner",
   "menu_order",
+  "reservation_form",
 ] as const;
 
 export type BlockType = (typeof KNOWN_BLOCK_TYPES)[number];
@@ -1622,6 +1628,23 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       };
     }
 
+    case "reservation_form": {
+      if (issues.length > 0) {
+        return {
+          success: false,
+          error: "Validation failed for reservation_form block.",
+          issues,
+        };
+      }
+      return {
+        success: true,
+        data: {
+          type: "reservation_form",
+          ...envelope,
+        },
+      };
+    }
+
     default:
       return {
         success: false,
@@ -1954,6 +1977,12 @@ export function parseBlock(raw: unknown): Block | null {
     case "menu_order":
       return {
         type: "menu_order",
+        ...envelope,
+      };
+
+    case "reservation_form":
+      return {
+        type: "reservation_form",
         ...envelope,
       };
 

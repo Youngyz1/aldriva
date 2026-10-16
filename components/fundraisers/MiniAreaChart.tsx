@@ -1,5 +1,6 @@
 "use client";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { formatMoney } from "@/lib/money";
 export interface ChartPoint { date: string; value: number; }
 function CustomTooltip({ active, payload, label, valueFormatter }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; valueFormatter?: (value: number) => string; }) {
   if (!active || !payload?.length || !valueFormatter) return null;
@@ -10,7 +11,7 @@ function CustomTooltip({ active, payload, label, valueFormatter }: { active?: bo
     </div>
   );
 }
-export default function MiniAreaChart({ data, color = "#c2410c", gradientId, valueFormatter }: { data: ChartPoint[]; color?: string; gradientId: string; valueFormatter: (value: number) => string; }) {
+export default function MiniAreaChart({ data, color = "#c2410c", gradientId, valueFormatter, currency = "USD" }: { data: ChartPoint[]; color?: string; gradientId: string; valueFormatter: (value: number) => string; currency?: string }) {
   return (
     <div className="h-36 w-full overflow-hidden">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={144} initialDimension={{ width: -1, height: 144 }}>
@@ -23,7 +24,7 @@ export default function MiniAreaChart({ data, color = "#c2410c", gradientId, val
           </defs>
           <CartesianGrid stroke="#f5f5f5" strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} interval={3} />
-          <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`)} />
+          <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} tickFormatter={(v) => formatMoney(Math.round(Number(v)), currency)} />
           <Tooltip content={<CustomTooltip valueFormatter={valueFormatter} />} />
           <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 4, fill: color, strokeWidth: 2, stroke: "#fff" }} />
         </AreaChart>

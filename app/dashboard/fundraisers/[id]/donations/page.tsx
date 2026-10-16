@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { assertCanManageFundraiser } from "@/lib/entity-authz";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { isSameUtcDay } from "@/lib/fundraiser-dashboard";
+import { getFundraiserDonationStats, type CurrencyTotal } from "@/lib/fundraiser-dashboard";
 import DonationsClient from "./DonationsClient";
 
 export type DonationRow = {
@@ -22,6 +22,8 @@ export type DonationMetrics = {
   avgAmount: number;
   todayAmount: number;
   todayCount: number;
+  primaryCurrency: string;
+  totalsPerCurrency: CurrencyTotal[];
 };
 
 const PAGE_SIZE = 25;
@@ -59,35 +61,20 @@ export default async function FundraiserDonationsPage({
   const pageNum = Math.max(1, parseInt(sp.page ?? "1") || 1);
   const from = (pageNum - 1) * PAGE_SIZE;
 
-  // ── Summary metrics: all succeeded donations (un-paginated) ──────────────
-  let metricsRows: { amount: string | number; created_at: string }[] = [];
-  try {
-    const { data } = await admin
-      .from("donations")
-      .select("amount, created_at")
-      .eq("fundraiser_id", id)
-      .or("status.eq.succeeded,status.is.null");
-    metricsRows = (data ?? []) as typeof metricsRows;
-  } catch {
-    // defensive: try without status filter
-    try {
-      const { data } = await admin
-        .from("donations")
-        .select("amount, created_at")
-        .eq("fundraiser_id", id);
-      metricsRows = (data ?? []) as typeof metricsRows;
-    } catch {}
-  }
+  // ── Summary metrics from the ONE shared stats computer ────────────────
+  // (completed/succeeded only — the same rows the overview counts).
+  const stats = await getFundraiserDonationStats(admin, id);
+  const primaryTotal = stats.totalsPerCurrency[0]?.total ?? 0;
 
-  const now = new Date();
-  const total = metricsRows.length;
-  const totalAmount = metricsRows.reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  const avgAmount = total > 0 ? Math.round(totalAmount / total) : 0;
-  const todayRows = metricsRows.filter((d) => isSameUtcDay(new Date(d.created_at ?? 0), now));
-  const todayAmount = todayRows.reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  const todayCount = todayRows.length;
-
-  const metrics: DonationMetrics = { total, totalAmount, avgAmount, todayAmount, todayCount };
+  const metrics: DonationMetrics = {
+    total: stats.donationCount,
+    totalAmount: primaryTotal,
+    avgAmount: stats.averageDonation,
+    todayAmount: stats.todayAmount,
+    todayCount: stats.todayCount,
+    primaryCurrency: stats.primaryCurrency,
+    totalsPerCurrency: stats.totalsPerCurrency,
+  };
 
   // ── Paginated donation query ──────────────────────────────────────────────
   let donationQuery = admin

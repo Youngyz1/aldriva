@@ -10,6 +10,7 @@ import { INDUSTRIES, getCategoriesForIndustry, getBusinessTypesForCategory } fro
 import { getBusinessOfferings } from "@/lib/business-offerings";
 import { getBuiltStorefrontFeaturesFromTemplates, storefrontFeatureForOffering } from "@/lib/storefront-features";
 import { FLAGSHIP_TEMPLATES } from "@/lib/website-template-v2";
+import { OfferingsFulfilmentWarning } from "@/components/dashboard/businesses/OfferingsFulfilmentWarning";
 
 type Business = {
   id: string;
@@ -346,6 +347,7 @@ export default function EditBusinessFormClient({
             <h2 id="business-offerings-heading" className="text-lg font-bold text-slate-900">{tOfferings("title")}</h2>
             <p className="mt-1 text-sm text-slate-500">{tOfferings("help")}</p>
           </div>
+          <OfferingsFulfilmentWarning offerings={form.offerings} />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {getBusinessOfferings(form.business_type, form.category).map((offering) => {
               const feature = storefrontFeatureForOffering(offering.key);

@@ -2,10 +2,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Heart, Plus } from "lucide-react";
-
-function money(v: number | string | null) {
-  return `$${Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
+import { formatMoney as money } from "@/lib/money";
 
 export default async function OrgFundraisersPage({
   params,

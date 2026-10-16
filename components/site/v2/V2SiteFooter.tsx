@@ -1,8 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { MouseEvent } from "react";
 import type { ContentDoc } from "@/lib/website-content";
 import { sanitizeUrl } from "@/lib/sanitize-html";
+import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
@@ -19,7 +21,9 @@ interface V2SiteFooterProps {
   editMode?: boolean;
   sourceMap?: Record<string, TemplateSourceMapEntry>;
   storefrontFeatures?: StorefrontFeatureState;
+  availablePageSlugs?: readonly string[] | ReadonlySet<string>;
   todayHours?: ResolvedTodayHours | null;
+  onPageNavigate?: (pageSlug: string) => void;
 }
 
 function valueFor(
@@ -58,7 +62,9 @@ export function V2SiteFooter({
   editMode,
   sourceMap,
   storefrontFeatures,
+  availablePageSlugs,
   todayHours,
+  onPageNavigate,
 }: V2SiteFooterProps) {
   const tStorefront = useTranslations("Storefront");
   const businessNameValue = valueFor(content, sampleContent, "business_name", previewMode);
@@ -91,24 +97,35 @@ export function V2SiteFooter({
         return href ? [{ network, href }] : [];
       })
     : [];
-  const visibleNavigation = navigation.filter((item) => !item.feature || storefrontFeatures?.[item.feature]);
+  const availablePages = availablePageSlugs ? new Set(availablePageSlugs) : undefined;
+  const visibleNavigation = navigation.filter((item) =>
+    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
+  );
   const hoursLine = todayHours?.closed
     ? tStorefront("closed")
     : todayHours?.open && todayHours.close
       ? `${todayHours.open}–${todayHours.close}${todayHours.overnight ? ` (${tStorefront("nextDay")})` : ""}`
       : undefined;
+  const navigatePreview = (event: MouseEvent<HTMLAnchorElement>, href: string, pageSlug?: string | null) => {
+    const targetPageSlug = pageSlug ?? getSitePageSlug(siteSlug, href);
+    if (!onPageNavigate || !targetPageSlug) return;
+    event.preventDefault();
+    onPageNavigate(targetPageSlug);
+  };
 
   return (
     <footer
-      className="mt-auto border-t border-black/10"
-      style={{ backgroundColor, color: foregroundColor, fontFamily: "var(--v2-heading-font)" }}
+      className="mt-auto border-t border-[var(--ps-border)]/10"
+      style={{ backgroundColor, color: foregroundColor, fontFamily: "var(--ps-font-body)" }}
     >
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-3 md:px-8">
-        <div className="space-y-3">
+      <div className="mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:grid-cols-3 md:px-[var(--ps-space-8)]">
+        <div className="space-y-[var(--ps-space-3)]">
           <a
-            href={sanitizeUrl("/site/" + encodeURIComponent(siteSlug))}
+            href={sanitizeUrl(getSitePageHref(siteSlug, "home"))}
             {...editablePath(editMode, sourceMap, "businessName")}
             className="inline-block text-lg font-semibold"
+            onClick={(event) => navigatePreview(event, getSitePageHref(siteSlug, "home"), "home")}
           >
             {businessName}
           </a>
@@ -124,33 +141,29 @@ export function V2SiteFooter({
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-[var(--ps-space-3)]">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Explore</h2>
-          <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-4 gap-y-2">
+          <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-[var(--ps-space-4)] gap-y-[var(--ps-space-2)]">
             {visibleNavigation.map((item, index) => {
-              const href = sanitizeUrl(item.href);
-              const key = item.href.includes("#")
-                ? (() => {
-                    const anchor = item.href.slice(item.href.indexOf("#") + 1).split(/[/?]/)[0];
-                    return anchor === "how-it-works" ? "how" : anchor;
-                  })()
-                : item.pageSlug === "home"
-                  ? "home"
-                  : item.pageSlug === "contact"
-                    ? "contact"
-                    : item.href.replace(/^\/+|\/+$/g, "");
+              const scopedHref = item.pageSlug
+                ? getSitePageHref(siteSlug, item.pageSlug, item.anchor)
+                : resolveSiteHref(siteSlug, item.href);
+              const href = sanitizeUrl(scopedHref);
+              const key = item.anchor === "how-it-works"
+                ? "how"
+                : item.anchor ?? (item.pageSlug === "home" ? "home" : item.pageSlug ?? item.href.replace(/^\/+|\/+$/g, ""));
               const labelValue = labels[key] || (previewMode ? sampleLabels[key] : undefined);
               const label = typeof labelValue === "string" && labelValue.trim() ? labelValue.trim() : item.label;
               const path = "navigation[" + index + "].label";
               return href ? (
-                <a key={item.id} {...editablePath(editMode, sourceMap, path)} href={href} className="text-sm opacity-80 hover:opacity-100">
+                <a key={item.id} {...editablePath(editMode, sourceMap, path)} href={href} onClick={(event) => navigatePreview(event, href, item.pageSlug)} className="text-sm opacity-80 hover:opacity-100">
                   {label}
                 </a>
               ) : null;
             })}
           </nav>
           {safeSocials.length > 0 && (
-            <div className="flex flex-wrap gap-3 pt-1">
+            <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
               {safeSocials.map(({ network, href }) => (
                 <a
                   key={network}
@@ -168,7 +181,7 @@ export function V2SiteFooter({
         </div>
 
         {(hoursLine || (editMode && sourceMap?.hours)) && (
-          <div className="space-y-3">
+          <div className="space-y-[var(--ps-space-3)]">
             <h2 className="text-sm font-semibold uppercase tracking-wide">{tStorefront("hours")}</h2>
             {hoursLine ? (
               <p {...editablePath(editMode, sourceMap, todayHours ? "hours." + todayHours.day : "hours")} className="text-sm opacity-85">

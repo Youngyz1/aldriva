@@ -115,6 +115,7 @@ export default async function WebsiteV2PreviewRoute({
       initialPageSlug={homePage.slug}
       menuItems={menuItems}
       emittedPages={state.data.previewPages}
+      accentId={state.data.accentId}
       currency={currency}
       currencyLocale={currencyLocale}
       business={state.data.storefront}

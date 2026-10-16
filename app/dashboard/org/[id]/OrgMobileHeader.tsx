@@ -8,32 +8,31 @@ import SidebarNavList from "@/components/nav/SidebarNavList";
 import { getOrgNavItems } from "./org-nav-items";
 import type { NavGroup } from "@/components/nav/nav-active";
 import type { Capability } from "@/lib/business-taxonomy";
+import type { OrganizerDashboardTypeFlags } from "@/lib/organizer-dashboard-classifier";
 
 export default function OrgMobileHeader({
   org,
-  hasEvents,
-  hasFundraisers,
+  organizerTypes,
   hasProducts,
-  hasWebsite,
   hasMenuRows,
   hasServiceRows,
+  hasReservationRows,
   capabilities,
   offerings,
 }: {
   org: { id: string; name: string };
-  hasEvents?: boolean;
-  hasFundraisers?: boolean;
+  organizerTypes: OrganizerDashboardTypeFlags;
   hasProducts?: boolean;
-  hasWebsite?: boolean;
   hasMenuRows?: boolean;
   hasServiceRows?: boolean;
+  hasReservationRows?: boolean;
   capabilities?: Capability[];
   offerings?: readonly string[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const navItems = getOrgNavItems(base, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }).map(item => {
+  const navItems = getOrgNavItems(base, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities: capabilities ?? [], offerings }).map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }
   });

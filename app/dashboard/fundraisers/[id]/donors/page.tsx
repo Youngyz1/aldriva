@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { assertCanManageFundraiser } from "@/lib/entity-authz";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import {
+  getFundraiserDonationStats,
+  type CurrencyTotal,
+  type StatsDonorRecord,
+} from "@/lib/fundraiser-dashboard";
 import DonorsClient from "./DonorsClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -8,6 +13,7 @@ import DonorsClient from "./DonorsClient";
 export type DonorDonation = {
   id: string;
   amount: number;
+  currency: string;
   status: string | null;
   created_at: string;
 };
@@ -17,7 +23,8 @@ export type DonorRecord = {
   displayName: string;   // donor_name or 'Anonymous'
   isAnonymous: boolean;
   donationCount: number;
-  totalGiven: number;    // sum of succeeded amounts
+  totalGiven: number;    // sum of primary-currency gifts
+  totalsPerCurrency: CurrencyTotal[];
   avgGift: number;
   firstDonation: string;
   lastDonation: string;
@@ -30,65 +37,34 @@ export type DonorMetrics = {
   totalGiven: number;
   avgDonorValue: number;
   repeatDonors: number;
+  primaryCurrency: string;
+  totalsPerCurrency: CurrencyTotal[];
 };
 
-// ── Donor aggregation (server-side) ──────────────────────────────────────────
-
-type RawDonation = {
-  id: string;
-  donor_name: string | null;
-  donor_email: string | null;
-  user_id: string | null;
-  amount: number | string;
-  status: string | null;
-  created_at: string;
-};
-
-function buildGroupKey(d: RawDonation): string {
-  if (d.user_id) return `user:${d.user_id}`;
-  if (d.donor_name === "Anonymous" || !d.donor_name) return `anon:${d.id}`;
-  return `named:${(d.donor_name ?? "").toLowerCase()}::${(d.donor_email ?? "").toLowerCase()}`;
-}
-
-export function aggregateDonors(rawDonations: RawDonation[]): DonorRecord[] {
-  const map = new Map<string, DonorRecord>();
-
-  for (const d of rawDonations) {
-    const key = buildGroupKey(d);
-    const amount = Number(d.amount ?? 0);
-    const existing = map.get(key);
-
-    if (!existing) {
-      map.set(key, {
-        key,
-        displayName: d.donor_name === "Anonymous" || !d.donor_name ? "Anonymous" : d.donor_name,
-        isAnonymous: d.donor_name === "Anonymous" || !d.donor_name,
-        donationCount: 1,
-        totalGiven: amount,
-        avgGift: amount,
-        firstDonation: d.created_at,
-        lastDonation: d.created_at,
-        isRepeat: false,
-        donations: [{ id: d.id, amount, status: d.status, created_at: d.created_at }],
-      });
-    } else {
-      existing.donationCount += 1;
-      existing.totalGiven += amount;
-      existing.donations.push({ id: d.id, amount, status: d.status, created_at: d.created_at });
-      if (d.created_at < existing.firstDonation) existing.firstDonation = d.created_at;
-      if (d.created_at > existing.lastDonation) existing.lastDonation = d.created_at;
-    }
-  }
-
-  // Finalize averages and repeat flag
-  for (const rec of map.values()) {
-    rec.avgGift = rec.donationCount > 0 ? Math.round(rec.totalGiven / rec.donationCount) : 0;
-    rec.isRepeat = rec.donationCount > 1;
-    // Sort this donor's own donations newest-first for the detail view
-    rec.donations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-
-  return Array.from(map.values());
+// ── Donor aggregation now lives in the shared stats computer ───────────────
+// (lib/fundraiser-dashboard.ts): one rule — user_id, else normalized email,
+// else normalized name, else per-row anonymous. Kept here as a thin adapter
+// so donor rows carry the page's display shape.
+function toDonorRecord(rec: StatsDonorRecord): DonorRecord {
+  return {
+    key: rec.key,
+    displayName: rec.displayName,
+    isAnonymous: rec.isAnonymous,
+    donationCount: rec.donationCount,
+    totalGiven: rec.totalGiven,
+    totalsPerCurrency: rec.totalsPerCurrency,
+    avgGift: rec.avgGift,
+    firstDonation: rec.firstDonation,
+    lastDonation: rec.lastDonation,
+    isRepeat: rec.isRepeat,
+    donations: rec.donations.map((d) => ({
+      id: d.id,
+      amount: d.amount,
+      currency: d.currency,
+      status: d.status,
+      created_at: d.created_at,
+    })),
+  };
 }
 
 // ── Sort ─────────────────────────────────────────────────────────────────────
@@ -133,20 +109,13 @@ export default async function FundraiserDonorsPage({
     .maybeSingle();
   if (!fundraiser) return notFound();
 
-  // Fetch all donations for this fundraiser (needed for full aggregation)
+  // Fetch + aggregate through the ONE shared stats computer (completed /
+  // succeeded only — the same rows the overview and donations pages count).
   // Limit 2000 as practical bound — large fundraisers should use an RPC in future
-  const { data: rawData } = await admin
-    .from("donations")
-    .select("id, donor_name, donor_email, user_id, amount, status, created_at")
-    .eq("fundraiser_id", id)
-    .or("status.eq.succeeded,status.is.null")
-    .order("created_at", { ascending: false })
-    .limit(2000);
+  const stats = await getFundraiserDonationStats(admin, id);
 
-  const rawDonations = (rawData ?? []) as RawDonation[];
-
-  // Aggregate into donor records (server-side)
-  let allDonors = aggregateDonors(rawDonations);
+  // Aggregate into donor records (server-side, shared grouping rule)
+  let allDonors = stats.donorRecords.map(toDonorRecord);
 
   // Parse searchParams
   const sp = await searchParams;
@@ -163,14 +132,20 @@ export default async function FundraiserDonorsPage({
   // Apply sort
   allDonors = sortDonors(allDonors, sort);
 
-  // Summary metrics (from full un-filtered donor list for the fundraiser)
-  const allDonorsForMetrics = aggregateDonors(rawDonations);
-  const totalDonors = allDonorsForMetrics.length;
-  const totalGiven = allDonorsForMetrics.reduce((s, d) => s + d.totalGiven, 0);
+  // Summary metrics (from the shared stats for the fundraiser)
+  const totalDonors = stats.donorCount;
+  const totalGiven = stats.totalsPerCurrency[0]?.total ?? 0;
   const avgDonorValue = totalDonors > 0 ? Math.round(totalGiven / totalDonors) : 0;
-  const repeatDonors = allDonorsForMetrics.filter((d) => d.isRepeat).length;
+  const repeatDonors = stats.donorRecords.filter((d) => d.isRepeat).length;
 
-  const metrics: DonorMetrics = { totalDonors, totalGiven, avgDonorValue, repeatDonors };
+  const metrics: DonorMetrics = {
+    totalDonors,
+    totalGiven,
+    avgDonorValue,
+    repeatDonors,
+    primaryCurrency: stats.primaryCurrency,
+    totalsPerCurrency: stats.totalsPerCurrency,
+  };
 
   // Paginate AFTER aggregation + search + sort
   const totalCount = allDonors.length;

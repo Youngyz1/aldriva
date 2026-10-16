@@ -10,6 +10,7 @@ import {
   Globe, Mail, AlertTriangle, Check, ArrowRight, ShieldCheck, Loader2
 } from "lucide-react";
 import { ImageUploader } from "@/components/shared/ImageUploader";
+import { OperationalSettingsSection } from "@/components/dashboard/org/OperationalSettingsSection";
 
 type OrgForm = {
   name: string;
@@ -565,6 +566,8 @@ export default function OrgSettingsPage() {
             ))}
           </div>
         </section>
+
+        {orgId ? <OperationalSettingsSection organizerId={orgId} /> : null}
 
         <button
           type="submit"

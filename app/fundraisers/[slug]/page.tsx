@@ -20,6 +20,7 @@ import StarRating from "@/components/StarRating";
 import { safeImageSrc } from "@/lib/image-url";
 import { jsonLdScriptValue } from "@/lib/structured-data";
 import { money } from "@/lib/format";
+import { COUNTED_DONATION_STATUSES } from "@/lib/fundraiser-dashboard";
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 import DonorList from "@/components/DonorList";
 import RelatedFundraiserCarousel from "@/components/RelatedFundraiserCarousel";
@@ -100,6 +101,7 @@ type DonationRow = {
   id: string;
   donor_name: string | null;
   amount: number | string | null;
+  currency?: string | null;
   created_at: string;
   user_id: string | null;
 };
@@ -261,11 +263,11 @@ export default async function FundraiserPage({
       .order("created_at", { ascending: false }),
     supabaseAdmin
       .from("donations")
-      .select("id, donor_name, amount, created_at, user_id", {
+      .select("id, donor_name, amount, currency, created_at, user_id", {
         count: "exact",
       })
       .eq("fundraiser_id", fundraiser.id)
-      .in("status", ["succeeded", "completed"])
+      .in("status", [...COUNTED_DONATION_STATUSES])
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .limit(5),

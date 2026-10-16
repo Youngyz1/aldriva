@@ -1,8 +1,4 @@
-import {
-  isTemplateCompatibleWithCategory,
-  WEBSITE_CATEGORIES,
-  type WebsiteCategory,
-} from "./website-category";
+import { WEBSITE_CATEGORIES, type WebsiteCategory } from "./website-category";
 import { FLAGSHIP_TEMPLATES } from "./website-template-v2";
 
 export interface V2TemplateCreateOptions {
@@ -15,19 +11,20 @@ export interface V2CreationAttempt {
   requestId: string;
 }
 
-/** The create gallery intentionally offers no "All" category. */
+/** Category selects a recommendation badge; it never filters the gallery. */
 export function getV2GalleryCategories(): readonly WebsiteCategory[] {
   return WEBSITE_CATEGORIES;
 }
 
 export function getV2GalleryCategoryModel(category: WebsiteCategory) {
-  const templates = FLAGSHIP_TEMPLATES.filter((template) =>
-    isTemplateCompatibleWithCategory(template, category)
-  );
+  const templates = FLAGSHIP_TEMPLATES;
   return {
     categories: WEBSITE_CATEGORIES,
     templates,
-    empty: templates.length === 0,
+    empty: false,
+    recommendedTemplateIds: templates
+      .filter((template) => template.supportedCategories.includes(category))
+      .map((template) => template.id),
   };
 }
 
@@ -64,9 +61,6 @@ export function mapV2TemplateCreateError(error: string | undefined): string {
   if (!message) return "Failed to create website from template. Please try again.";
   if (message.startsWith("Website already exists")) {
     return "A website already exists for this organization. Open the existing website overview.";
-  }
-  if (message.startsWith("Incompatible category:")) {
-    return "This template is not available for the selected category.";
   }
   if (message.startsWith("Forbidden:")) {
     return "Only an organization owner, admin, or manager can create a website.";

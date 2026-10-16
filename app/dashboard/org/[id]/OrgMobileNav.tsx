@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import MobilePillNav from "@/components/nav/MobilePillNav";
 import { getOrgNavItems } from "./org-nav-items";
 import type { Capability } from "@/lib/business-taxonomy";
+import type { OrganizerDashboardTypeFlags } from "@/lib/organizer-dashboard-classifier";
 
 /**
  * Fixed bottom tab strip for the org workspace's mobile nav — same pattern as
@@ -17,9 +18,9 @@ import type { Capability } from "@/lib/business-taxonomy";
  * Fixed positioning removes it from document flow — the org content wrapper
  * reserves 69px for it (see ./layout.tsx).
  */
-export default function OrgMobileNav({ orgId, hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }: { orgId: string; hasEvents?: boolean; hasFundraisers?: boolean; hasProducts?: boolean; hasWebsite?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; capabilities?: Capability[]; offerings?: readonly string[] | null }) {
+export default function OrgMobileNav({ orgId, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }: { orgId: string; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasReservationRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null }) {
   const t = useTranslations('Organizer');
-  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`, { hasEvents, hasFundraisers, hasProducts, hasWebsite, hasMenuRows, hasServiceRows, capabilities, offerings }).map(item => {
+  const navItems = getOrgNavItems(`/dashboard/org/${orgId}`, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }).map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }
   });

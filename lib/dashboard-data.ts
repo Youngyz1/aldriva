@@ -4,6 +4,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/dashboard-context';
+import { COUNTED_DONATION_STATUSES } from '@/lib/fundraiser-dashboard';
 import {
   getDateRangeStart,
   slugify,
@@ -743,7 +744,7 @@ export async function queryDashboardDonations(params: {
       );
     }
 
-    const succeeded = rows.filter((r) => r.status === 'succeeded' || r.status === 'completed');
+    const succeeded = rows.filter((r) => (COUNTED_DONATION_STATUSES as readonly string[]).includes(r.status));
     const amounts = succeeded.map((r) => r.amount);
     const stats: DashboardDonationStats = {
       total_raised: amounts.reduce((s, n) => s + n, 0),
@@ -820,7 +821,7 @@ export async function queryDashboardDonations(params: {
     );
   }
 
-  const succeeded = rows.filter((r) => r.status === 'succeeded' || r.status === 'completed');
+  const succeeded = rows.filter((r) => (COUNTED_DONATION_STATUSES as readonly string[]).includes(r.status));
   const amounts = succeeded.map((r) => r.amount);
   const stats: DashboardDonationStats = {
     total_raised: amounts.reduce((s, n) => s + n, 0),

@@ -30,12 +30,26 @@ import {
   type ContentDoc,
 } from "@/lib/website-content";
 import {
+  getOperationalSettingsWithClient,
+  saveOperationalHoursWithClient,
+  saveSiteTimezoneWithClient,
+  type OperationalSettingsData,
+  type SaveOperationalHoursInput,
+  type SaveSiteTimezoneInput,
+} from "@/lib/operational-settings";
+import {
   checkPublishReadiness,
   resolveTemplateContent,
 } from "@/lib/website-template-resolver";
 import { getFlagshipTemplate } from "@/lib/website-template-v2";
 import { generateStableId } from "@/lib/website-blocks";
 import { revalidatePath } from "next/cache";
+import { getOrgApproval } from "@/lib/server-approval";
+import { canPublish as canPublishApproval } from "@/lib/business-approval";
+import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
+import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
+import { getTranslations } from "next-intl/server";
 
 export interface ContentActionResult<T = unknown> {
   success: boolean;
@@ -361,6 +375,22 @@ export async function publishContentDraft(
     };
   }
 
+  // Business approval gate: block publish while business is pending/rejected/archived.
+  // Saving content drafts is always allowed — this gate only applies to publish.
+  const approvalState = await getOrgApproval(ctx.tenantId);
+  if (!canPublishApproval(approvalState)) {
+    const messages: Record<string, string> = {
+      pending: "Your site cannot be published until your business is approved.",
+      rejected: "Your business application was not approved. Publishing is unavailable.",
+      archived: "This business is archived. Publishing is unavailable.",
+    };
+    return {
+      success: false,
+      code: "forbidden",
+      error: messages[approvalState] ?? "Publishing is not available for this business.",
+    };
+  }
+
   if (pageBlocks !== undefined && pageBlocks !== null) {
     if (!Array.isArray(pageBlocks)) {
       return { success: false, error: "pageBlocks must be an array." };
@@ -438,11 +468,41 @@ export async function publishContentDraft(
       | ReturnType<typeof resolveTemplateContent>
       | null = null;
     if (flagship && gateDraft) {
+      const { data: linkedBusiness, error: businessErr } = await supabaseAdmin
+        .from("businesses")
+        .select("id, country, industry, category, business_type, offerings, created_at")
+        .eq("organizer_id", ctx.tenantId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (businessErr) {
+        console.error("[publishContentDraft] Failed to load linked business:", businessErr);
+        return { success: false, error: "Failed to publish content. Please try again." };
+      }
+      const currency = resolveStorefrontCurrency(ctx.metadata, linkedBusiness?.country ?? null);
+      const siteResolverInputs = buildWebsiteTemplateResolverInputs({
+        siteSlug: ctx.websiteSlug,
+        currency,
+        metadata: ctx.metadata,
+        linkedBusiness,
+      });
+      const catalogAvailability = await getWebsiteCatalogAvailability(
+        supabaseAdmin,
+        ctx.tenantId,
+        linkedBusiness?.id
+      );
+      const storeT = await getTranslations("Storefront");
       v2Resolved = resolveTemplateContent(
         templateId as string,
         templateVersion ?? flagship.version,
         normalizeContent(gateDraft.content ?? {}),
-        { includeSamples: false, includeSourceMap: false }
+        {
+          ...siteResolverInputs,
+          catalogAvailability,
+          catalogLabels: { products: storeT("products"), featuredProducts: storeT("featuredProducts") },
+          includeSamples: false,
+          includeSourceMap: false,
+        }
       );
       const homeSlug =
         v2Resolved.pages.find((page) => page.isHome)?.slug ?? "home";
@@ -552,7 +612,8 @@ export async function publishContentDraft(
         return {
           success: false,
           code: "NO_DRAFT",
-          error: "There is no content draft to publish.",
+          error:
+            "There is no content draft to publish — your live site already includes everything saved, including any hours set in Settings. Edit the site to create a new draft.",
         };
       }
       console.error("[publishContentDraft] RPC failed:", rpcErr);
@@ -675,4 +736,100 @@ export async function discardContentDraft(
     console.error("[discardContentDraft] Unexpected error:", err);
     return { success: false, error: "Failed to discard content draft. Please try again." };
   }
+}
+
+// ── Organizer Settings: operational hours + site timezone ────────────────────
+// Persistence cores live in lib/operational-settings.ts (testable, no auth);
+// these wrappers add auth + revalidation only. Re-exported types keep
+// existing import sites working.
+
+export type {
+  OperationalSettingsData,
+  SaveOperationalHoursInput,
+  SaveSiteTimezoneInput,
+} from "@/lib/operational-settings";
+
+/**
+ * Reads operational settings for the organizer Settings page. Any role with
+ * tenant access may read (the page itself is owner-gated by its own RLS).
+ */
+export async function getOperationalSettings(
+  organizerId: string
+): Promise<ContentActionResult<OperationalSettingsData>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, code: "unauthorized", error: "Please sign in." };
+  const access = await checkTenantAccess(user.id, organizerId, [
+    "owner",
+    "admin",
+    "manager",
+    "editor",
+    "finance",
+    "viewer",
+  ]);
+  if (!access.hasAccess) {
+    return { success: false, code: "forbidden", error: "No access to this organization." };
+  }
+  return getOperationalSettingsWithClient(organizerId, createSupabaseAdmin());
+}
+
+/**
+ * Saves opening hours from organizer Settings. Manage roles only. Merges the
+ * hours key into the live document AND the existing draft (hours key only),
+ * then verifies the value reads back before reporting success.
+ */
+export async function saveOperationalHours(
+  input: SaveOperationalHoursInput
+): Promise<ContentActionResult<{ hoursSource: "live"; hasDraftHours: boolean }>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, code: "unauthorized", error: "Please sign in." };
+  const access = await checkTenantAccess(user.id, input.organizerId, [...ENTITY_ROLES_MANAGE]);
+  if (!access.hasAccess) {
+    return { success: false, code: "forbidden", error: "Only owners, admins, and managers can update hours." };
+  }
+  const result = await saveOperationalHoursWithClient(input, createSupabaseAdmin());
+  if (!result.success) {
+    console.error(`[saveOperationalHours] code=${result.code} for org ${input.organizerId}: ${result.error}`);
+    // Fixed client strings per code (never echo lib internals — P1 F-08).
+    const message =
+      result.code === "validation_error"
+        ? "Opening hours are invalid."
+        : result.code === "not_found"
+          ? "Create your website first to set opening hours."
+          : "Failed to save opening hours.";
+    return { success: false, code: result.code, error: message };
+  }
+  revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
+  return result;
+}
+
+/**
+ * Stores the owner's timezone choice in tenant_websites.metadata.timezone
+ * (jsonb, no migration). Manage roles only; must be a valid IANA zone.
+ * Every Today/order/reservation reader already prefers this value.
+ */
+export async function saveSiteTimezone(
+  input: SaveSiteTimezoneInput
+): Promise<ContentActionResult<{ timezone: string }>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, code: "unauthorized", error: "Please sign in." };
+  const access = await checkTenantAccess(user.id, input.organizerId, [...ENTITY_ROLES_MANAGE]);
+  if (!access.hasAccess) {
+    return { success: false, code: "forbidden", error: "Only owners, admins, and managers can change the time zone." };
+  }
+  const result = await saveSiteTimezoneWithClient(input, createSupabaseAdmin());
+  if (!result.success) {
+    console.error(`[saveSiteTimezone] code=${result.code} for org ${input.organizerId}: ${result.error}`);
+    // Fixed client strings per code (never echo lib internals — P1 F-08).
+    const message =
+      result.code === "validation_error"
+        ? "Time zone must be a valid IANA identifier."
+        : result.code === "not_found"
+          ? "Create your website first to set the time zone."
+          : "Failed to save the time zone.";
+    return { success: false, code: result.code, error: message };
+  }
+  revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
+  return result;
 }

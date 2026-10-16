@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { formatMoney as formatSharedMoney } from "@/lib/money";
 
 export type FundraisingProgressRingProps = {
   raised?: number;
@@ -14,14 +15,11 @@ export type FundraisingProgressRingProps = {
   textColor?: string;
   trackColor?: string;
   progressColor?: string;
+  currency?: string;
 };
 
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
+function formatMoney(amount: number, currency = "USD"): string {
+  return formatSharedMoney(Math.round(amount), currency);
 }
 
 function getMilestoneGlow(pct: number): { containerClass: string; svgStyle: React.CSSProperties } {
@@ -75,6 +73,7 @@ export default function FundraisingProgressRing({
   textColor,
   trackColor = "#154D40",
   progressColor,
+  currency = "USD",
 }: FundraisingProgressRingProps) {
   const reactId = useId();
   const gradientId = `fundraising-gradient-${reactId.replace(/:/g, "-")}`;
@@ -142,7 +141,7 @@ export default function FundraisingProgressRing({
 
   // Accessible description
   const ariaText = raised !== undefined && goal !== undefined
-    ? `Fundraising progress: ${displayedPct}% (${formatMoney(raised)} of ${formatMoney(goal)} reached)`
+    ? `Fundraising progress: ${displayedPct}% (${formatMoney(raised, currency)} of ${formatMoney(goal, currency)} reached)`
     : `Fundraising progress: ${displayedPct}% reached`;
 
   return (
@@ -219,7 +218,7 @@ export default function FundraisingProgressRing({
               className="font-semibold text-zinc-500 leading-tight mt-1.5 truncate max-w-[90%]"
               style={{ fontSize: Math.max(10, Math.round(size * 0.062)) }}
             >
-              {formatMoney(raised)} of {formatMoney(goal)}
+              {formatMoney(raised, currency)} of {formatMoney(goal, currency)}
             </span>
           )}
         </div>

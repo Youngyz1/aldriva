@@ -255,3 +255,30 @@ export function getOtherCategory(industry: string): string {
   const cats = getCategoriesForIndustry(industry);
   return cats.includes("Other") ? "Other" : cats[0] ?? "Other";
 }
+
+/**
+ * Overview-resolver capability vocabulary bridge.
+ *
+ * The taxonomy emits UPPERCASE capabilities (`MENU`, `SERVICES`, ...), while
+ * the overview resolver (`lib/overview-resolver.ts`) checks lowercase
+ * `can_have_*` names. This single case-insensitive mapping bridges the two
+ * vocabularies in ONE place — callers must not scatter `toLowerCase` calls.
+ * Already-lowercase `can_have_*` values pass through unchanged, so existing
+ * fixtures keep working identically.
+ */
+export const OVERVIEW_CAPABILITY_ALIASES: Record<string, string> = {
+  menu: "can_have_menu",
+  products: "can_have_products",
+  services: "can_have_services",
+  vehicles: "can_have_vehicles",
+  vehicle_rental: "can_have_vehicles",
+};
+
+export function toOverviewCapabilitySet(capabilities: readonly string[]): Set<string> {
+  const out = new Set<string>();
+  for (const capability of capabilities) {
+    const key = capability.trim().toLowerCase();
+    out.add(OVERVIEW_CAPABILITY_ALIASES[key] ?? key);
+  }
+  return out;
+}

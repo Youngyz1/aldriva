@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { safeImageSrc } from "@/lib/image-url";
 import { sanitizeUrl } from "@/lib/sanitize-html";
+import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { ContentDoc } from "@/lib/website-content";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
@@ -23,6 +24,8 @@ interface V2SiteHeaderProps {
   sourceMap?: Record<string, TemplateSourceMapEntry>;
   storefrontFeatures?: StorefrontFeatureState;
   primaryAction?: StorefrontAction;
+  availablePageSlugs?: readonly string[] | ReadonlySet<string>;
+  onPageNavigate?: (pageSlug: string) => void;
 }
 
 function nonEmpty(value: unknown): boolean {
@@ -61,6 +64,8 @@ export function V2SiteHeader({
   sourceMap,
   storefrontFeatures,
   primaryAction,
+  availablePageSlugs,
+  onPageNavigate,
 }: V2SiteHeaderProps) {
   const tStorefront = useTranslations("Storefront");
   const [isScrolled, setIsScrolled] = useState(false);
@@ -85,16 +90,27 @@ export function V2SiteHeader({
     : liveCtaLabel || (!sampledCta ? textValue(content, sampleContent, "primary_cta_label", previewMode) : undefined) ||
       actionLabel || (editMode && sourceMap?.ctaLabel ? "Add call to action" : undefined);
   const ctaPath = primaryAction?.href;
-  const ctaHref = ctaPath
-    ? sanitizeUrl("/site/" + encodeURIComponent(siteSlug) + ctaPath)
+  const ctaTargetSlug = ctaPath ? getSitePageSlug(siteSlug, ctaPath) : undefined;
+  const availablePages = availablePageSlugs ? new Set(availablePageSlugs) : undefined;
+  const ctaTargetAvailable = !availablePages || !ctaTargetSlug || availablePages.has(ctaTargetSlug);
+  const ctaHref = ctaPath && ctaTargetAvailable
+    ? sanitizeUrl(resolveSiteHref(siteSlug, ctaPath))
     : undefined;
+  const navigatePreview = (event: MouseEvent<HTMLAnchorElement>, href: string, pageSlug?: string | null) => {
+    const targetPageSlug = pageSlug ?? getSitePageSlug(siteSlug, href);
+    if (!onPageNavigate || !targetPageSlug) return;
+    event.preventDefault();
+    onPageNavigate(targetPageSlug);
+    setMenuOpen(false);
+  };
   const heroBand = template.templateBackground.bands.find((band) => band.zone === "hero");
   const transparent = !isScrolled && !menuOpen;
-  const foreground = transparent && heroBand ? "#ffffff" : "#18181b";
+  const hasHeroImage = Boolean(content.hero_image || sampleContent?.hero_image);
+  const foreground = transparent && heroBand && hasHeroImage ? "#ffffff" : "var(--ps-text)";
   const headerStyle: CSSProperties = {
     color: foreground,
     backgroundColor: transparent ? "transparent" : template.templateBackground.base,
-    fontFamily: "var(--v2-heading-font)",
+    fontFamily: "var(--ps-font-body)",
   };
   const labels = content.nav_labels && typeof content.nav_labels === "object"
     ? content.nav_labels as Record<string, unknown>
@@ -103,24 +119,23 @@ export function V2SiteHeader({
     ? sampleContent.nav_labels as Record<string, unknown>
     : {};
 
-  const visibleNavigation = navigation.filter((item) => !item.feature || storefrontFeatures?.[item.feature]);
+  const visibleNavigation = navigation.filter((item) =>
+    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
+  );
   const renderNavigation = (mobile: boolean) => (
     <nav
       aria-label={mobile ? "Mobile site navigation" : "Site navigation"}
-      className={mobile ? "flex flex-col gap-1 py-3" : "hidden items-center gap-6 md:flex"}
+      className={mobile ? "flex flex-col gap-[var(--ps-space-1)] py-[var(--ps-space-3)]" : "hidden items-center gap-[var(--ps-space-6)] md:flex"}
     >
       {visibleNavigation.map((item, index) => {
-        const href = sanitizeUrl(item.href);
-        const key = item.href.includes("#")
-          ? (() => {
-              const anchor = item.href.slice(item.href.indexOf("#") + 1).split(/[/?]/)[0];
-              return anchor === "how-it-works" ? "how" : anchor;
-            })()
-          : item.pageSlug === "home"
-            ? "home"
-            : item.pageSlug === "contact"
-              ? "contact"
-              : item.href.replace(/^\/+|\/+$/g, "");
+        const scopedHref = item.pageSlug
+          ? getSitePageHref(siteSlug, item.pageSlug, item.anchor)
+          : resolveSiteHref(siteSlug, item.href);
+        const href = sanitizeUrl(scopedHref);
+        const key = item.anchor === "how-it-works"
+          ? "how"
+          : item.anchor ?? (item.pageSlug === "home" ? "home" : item.pageSlug ?? item.href.replace(/^\/+|\/+$/g, ""));
         const labelValue = labels[key] || (previewMode ? sampleLabels[key] : undefined);
         const label = typeof labelValue === "string" && labelValue.trim() ? labelValue.trim() : item.label;
         const path = "navigation[" + index + "].label";
@@ -129,9 +144,12 @@ export function V2SiteHeader({
             key={item.id}
             {...editablePath(editMode, sourceMap, path)}
             href={href}
-            onClick={() => setMenuOpen(false)}
+            onClick={(event) => {
+              navigatePreview(event, href, item.pageSlug);
+              setMenuOpen(false);
+            }}
             className={mobile
-              ? "rounded-lg px-3 py-2 text-sm font-medium hover:bg-black/5"
+              ? "rounded-lg px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-sm font-medium hover:bg-black/5"
               : "text-sm font-medium hover:opacity-70"}
           >
             {label}
@@ -146,9 +164,12 @@ export function V2SiteHeader({
         <a
           {...editablePath(editMode, sourceMap, "ctaLabel")}
           href={ctaHref}
-          className="mt-2 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
-          style={{ backgroundColor: template.lockedTheme.primaryColor }}
-          onClick={() => setMenuOpen(false)}
+          className="ps-button ps-button-primary mt-[var(--ps-space-2)] inline-flex min-h-11 items-center justify-center text-[var(--ps-accent-foreground)]"
+          style={{ backgroundColor: "var(--ps-accent)" }}
+          onClick={(event) => {
+            navigatePreview(event, ctaHref);
+            setMenuOpen(false);
+          }}
         >
           {ctaLabel}
         </a>
@@ -158,16 +179,17 @@ export function V2SiteHeader({
 
   return (
     <header
-      className={(template.header.sticky ? "sticky top-0 z-50 -mb-16 md:-mb-20 " : "relative z-20 ") +
-        "border-b border-black/5 transition-colors duration-200"}
+      className={(template.header.sticky ? "sticky top-0 z-50 -mb-[var(--ps-space-16)] md:-mb-[calc(var(--ps-space-16)_+_var(--ps-space-4))] " : "relative z-20 ") +
+        "border-b border-[var(--ps-border)]/5 transition-colors duration-200"}
       style={headerStyle}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:h-20 md:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:h-20 md:px-[var(--ps-space-8)]">
         <a
           {...editablePath(editMode, sourceMap, "logo")}
-          href={sanitizeUrl("/site/" + encodeURIComponent(siteSlug))}
+          href={sanitizeUrl(getSitePageHref(siteSlug, "home"))}
           aria-label={businessName}
-          className="flex min-w-0 items-center gap-3 font-semibold"
+          className="flex min-w-0 items-center gap-[var(--ps-space-3)] font-semibold"
+          onClick={(event) => navigatePreview(event, getSitePageHref(siteSlug, "home"), "home")}
         >
           {logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -177,14 +199,15 @@ export function V2SiteHeader({
           )}
         </a>
 
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-[var(--ps-space-6)] md:flex">
           {renderNavigation(false)}
           {ctaLabel && ctaHref && (
             <a
               {...editablePath(editMode, sourceMap, "ctaLabel")}
               href={ctaHref}
-              className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white shadow-xs transition-opacity hover:opacity-90"
-              style={{ backgroundColor: template.lockedTheme.primaryColor }}
+              className="ps-button ps-button-primary inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90"
+              style={{ backgroundColor: "var(--ps-accent)" }}
+              onClick={(event) => navigatePreview(event, ctaHref)}
             >
               {ctaLabel}
             </a>
@@ -202,7 +225,7 @@ export function V2SiteHeader({
         </button>
       </div>
       {menuOpen && (
-        <div className="border-t border-black/10 px-4 pb-4 md:hidden">
+        <div className="border-t border-[var(--ps-border)]/10 px-[var(--ps-space-4)] pb-[var(--ps-space-4)] md:hidden">
           {renderNavigation(true)}
         </div>
       )}

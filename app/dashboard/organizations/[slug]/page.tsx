@@ -1,11 +1,24 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-// /dashboard/organizations/[slug] → redirect to overview
+// /dashboard/organizations/[slug] → redirect directly to canonical /dashboard/org/[id]/overview
 export default async function OrgDashboardRoot({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  redirect(`/dashboard/organizations/${slug}/overview`);
+  const supabase = createSupabaseAdmin();
+
+  const { data: org } = await supabase
+    .from("organizers")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!org) {
+    return notFound();
+  }
+
+  redirect(`/dashboard/org/${org.id}/overview`);
 }

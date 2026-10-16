@@ -5,6 +5,8 @@ import type { WebsiteCategory } from "@/lib/website-category";
 interface NewWebsiteClientProps {
   orgId: string;
   orgName: string;
+  previewBusinessName: string;
+  previewBusinessLogo: string | null;
   initialCategory: WebsiteCategory;
   canCreate: boolean;
 }
@@ -13,6 +15,8 @@ interface NewWebsiteClientProps {
 export default function NewWebsiteClient({
   orgId,
   orgName,
+  previewBusinessName,
+  previewBusinessLogo,
   initialCategory,
   canCreate,
 }: NewWebsiteClientProps) {
@@ -25,6 +29,8 @@ export default function NewWebsiteClient({
       />
       <WebsiteV2TemplateGallery
         organizerId={orgId}
+        businessName={previewBusinessName}
+        businessLogo={previewBusinessLogo}
         initialCategory={initialCategory}
         canCreate={canCreate}
       />

@@ -16,6 +16,7 @@ type Donation = {
   id: string;
   donor_name: string | null;
   amount: number | string | null;
+  currency?: string | null;
   created_at: string;
   // `user_id` is never sent to the client (public wall needs `profile` only).
   // Kept optional so older server payloads still type-check.
@@ -23,8 +24,10 @@ type Donation = {
   profile: DonorProfile;
 };
 
-function money(value: string | number) {
-  return `$${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+import { formatMoney } from "@/lib/money";
+
+function money(value: string | number, currency?: string | null) {
+  return formatMoney(value, currency ?? "USD");
 }
 
 function timeAgo(value: string) {
@@ -131,7 +134,7 @@ export default function DonorList({
                   </button>
                 )}
                 <p className="text-xs text-zinc-500">
-                  {money(amount)} · {timeAgo(donation.created_at)}
+                  {money(amount, donation.currency)} · {timeAgo(donation.created_at)}
                 </p>
               </div>
             </li>

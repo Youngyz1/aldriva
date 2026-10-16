@@ -38,6 +38,10 @@ export interface StorefrontOrderConfig {
   scheduledFor?: string | null;
   blocked?: boolean;
   blockReason?: string;
+  /** Flat delivery fee in the site currency (0 = free). Computed server-side; displayed in cart. */
+  deliveryFee?: number;
+  /** Subtotal threshold above which delivery is free (null = no free threshold). */
+  freeDeliveryAbove?: number | null;
 }
 
 export interface StorefrontBrowseLabels {
@@ -61,6 +65,8 @@ export interface StorefrontBrowseLabels {
   subtotal?: string;
   deliveryFee?: string;
   deliveryFeeNotice?: string;
+  freeDelivery?: string;
+  freeDeliveryProgress?: string;
   total?: string;
   fulfilment?: string;
   pickup?: string;
@@ -86,6 +92,13 @@ export interface StorefrontBrowseLabels {
   scheduledNotice?: string;
   noUpcomingHours?: string;
   backToMenu?: string;
+  asap?: string;
+  scheduleForLater?: string;
+  chooseDate?: string;
+  chooseTime?: string;
+  trackOrder?: string;
+  copyTrackingLink?: string;
+  trackingLinkCopied?: string;
 }
 
 export interface CartItem {
@@ -101,6 +114,7 @@ interface StorefrontBrowseProps {
   showGroups: boolean;
   emptyHint?: string;
   orderConfig?: StorefrontOrderConfig;
+  accentColor?: string;
   children: React.ReactNode;
 }
 
@@ -145,6 +159,7 @@ export function StorefrontBrowse({
   labels,
   showGroups,
   orderConfig,
+  accentColor,
   children,
 }: StorefrontBrowseProps) {
   const [mounted, setMounted] = useState(false);
@@ -155,7 +170,19 @@ export function StorefrontBrowse({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{
     orderNumber: string;
+    trackingToken?: string | null;
     scheduledFor?: string | null;
+    subtotal?: number | null;
+    deliveryFee?: number | null;
+    total?: number | null;
+    fulfilmentType?: string | null;
+    currency?: string | null;
+  } | null>(null);
+  const [activeOrder, setActiveOrder] = useState<{
+    token: string;
+    orderNumber: string;
+    scheduledFor?: string | null;
+    savedAt?: number;
   } | null>(null);
 
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -166,6 +193,17 @@ export function StorefrontBrowse({
     setMounted(true);
     if (orderConfig?.enabled && orderConfig.slug) {
       setCart(loadCart(orderConfig.slug));
+      try {
+        const raw = localStorage.getItem(`aldriva_active_order_${orderConfig.slug}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token && parsed?.orderNumber && Date.now() - (parsed.savedAt || 0) < 86400000) {
+            setActiveOrder(parsed);
+          }
+        }
+      } catch {
+        // Storage unavailable (private browsing)
+      }
     }
   }, [orderConfig?.enabled, orderConfig?.slug]);
 
@@ -248,14 +286,49 @@ export function StorefrontBrowse({
 
   return (
     <>
+      {/* Active order persistent banner */}
+      {activeOrder && !orderSuccess && orderConfig?.slug ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
+          <div className="flex items-center gap-[var(--ps-space-2)] min-w-0">
+            <span className="h-2 w-2 rounded-full bg-[var(--ps-accent)] shrink-0 animate-pulse" />
+            <span className="truncate">
+              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-[var(--ps-space-3)] shrink-0">
+            <a
+              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
+              className="font-bold text-[var(--ps-accent-hover)] underline hover:text-[var(--ps-accent-hover)] transition-colors"
+            >
+              {labels.trackOrder || "Track order"} →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveOrder(null);
+                try {
+                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="text-[var(--ps-muted)] hover:text-[var(--ps-muted)] text-xs px-[var(--ps-space-1)]"
+              aria-label="Dismiss active order banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {showGroups && groups.length > 1 ? (
         <div
-          className="sticky top-16 z-30 -mx-1 bg-white/95 py-2 backdrop-blur md:top-20"
+          className="sticky top-16 z-30 -mx-[var(--ps-space-1)] bg-[var(--ps-surface)]/95 py-[var(--ps-space-2)] backdrop-blur md:top-20"
           role="group"
           aria-label={labels.categories}
           id={chipsId}
         >
-          <div className="flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
             {[BROWSE_ALL_GROUP, ...groups.map((group) => group.id)].map((groupId) => {
               const active = activeGroup === groupId;
               const title =
@@ -268,10 +341,10 @@ export function StorefrontBrowse({
                   type="button"
                   aria-pressed={active}
                   onClick={() => setActiveGroup(groupId)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
                     active
-                      ? "border-orange-600 bg-orange-600 text-white shadow-xs"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                      ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
+                      : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
                   }`}
                 >
                   {title}
@@ -282,7 +355,7 @@ export function StorefrontBrowse({
         </div>
       ) : null}
 
-      <div className="my-4">
+      <div className="my-[var(--ps-space-4)]">
         <label htmlFor={searchId} className="sr-only">
           {labels.searchLabel}
         </label>
@@ -293,14 +366,14 @@ export function StorefrontBrowse({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={labels.searchPlaceholder}
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+            className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery("")}
               aria-label={labels.clearFilters}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 hover:text-zinc-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -311,33 +384,33 @@ export function StorefrontBrowse({
       </div>
 
       {visible.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 py-12 text-center text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] py-[var(--ps-space-12)] text-center text-sm text-[var(--ps-muted)]">
           <p>{labels.noResults}</p>
           {engaged ? (
             <button
               type="button"
               onClick={reset}
-              className="mt-3 text-xs font-semibold text-orange-600 hover:text-orange-700 underline"
+              className="mt-[var(--ps-space-3)] text-xs font-semibold text-[var(--ps-accent-hover)] hover:text-[var(--ps-accent-hover)] underline"
             >
               {labels.clearFilters}
             </button>
           ) : null}
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-[var(--ps-space-8)]">
           {visible.map((group) => (
-            <section key={group.id} aria-labelledby={`group-title-${group.id}`} className="space-y-3">
-              <h3 id={`group-title-${group.id}`} className="text-base font-bold text-zinc-900">
+            <section key={group.id} aria-labelledby={`group-title-${group.id}`} className="space-y-[var(--ps-space-3)]">
+              <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
                 {group.title}
               </h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3">
                 {group.items.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     aria-label={`${item.name}`}
                     onClick={(event) => openSheet(item.id, event.currentTarget)}
-                    className={`group flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-xs transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
+                    className={`group flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
                       item.isSoldOut ? "opacity-60" : ""
                     }`}
                   >
@@ -346,35 +419,35 @@ export function StorefrontBrowse({
                       <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
                     ) : null}
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="block truncate text-sm font-semibold text-zinc-900 group-hover:text-orange-600">
+                      <span className="flex items-center gap-[var(--ps-space-2)]">
+                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">
                           {item.name}
                         </span>
                         {item.isSoldOut && labels.soldOut ? (
-                          <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.2 text-[10px] font-bold text-zinc-600 border border-zinc-200">
+                          <span className="shrink-0 rounded bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">
                             {labels.soldOut}
                           </span>
                         ) : null}
                       </span>
                       {item.description ? (
-                        <span className="mt-0.5 line-clamp-2 block text-xs text-zinc-500">
+                        <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">
                           {item.description}
                         </span>
                       ) : null}
-                      <span className="mt-1 flex items-baseline gap-1.5">
+                      <span className="mt-[var(--ps-space-1)] flex items-baseline gap-[var(--ps-space-2)]">
                         {item.priceLabel ? (
                           <span
                             className={
                               item.originalPriceLabel
-                                ? "text-xs font-bold text-orange-700"
-                                : "text-xs font-bold text-zinc-900"
+                                ? "text-xs font-bold text-[var(--ps-accent-hover)]"
+                                : "text-xs font-bold text-[var(--ps-text)]"
                             }
                           >
                             {item.priceLabel}
                           </span>
                         ) : null}
                         {item.originalPriceLabel ? (
-                          <span className="text-[11px] font-normal text-zinc-400 line-through">
+                          <span className="text-xs font-normal text-[var(--ps-muted)] line-through">
                             {item.originalPriceLabel}
                           </span>
                         ) : null}
@@ -413,9 +486,9 @@ export function StorefrontBrowse({
       {/* Floating cart bar */}
       {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-900 p-4 text-white shadow-xl">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-600 text-xs font-bold">
+          <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] text-white shadow-xl">
+            <div className="flex items-center gap-[var(--ps-space-3)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ps-accent)] text-xs font-bold">
                 {totalCartCount}
               </span>
               <div className="text-sm font-semibold">
@@ -425,7 +498,7 @@ export function StorefrontBrowse({
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 transition"
+              className="ps-button ps-button-primary rounded-xl text-xs font-bold transition"
             >
               {labels.viewOrder || "View order"}
             </button>
@@ -440,6 +513,7 @@ export function StorefrontBrowse({
           orderConfig={orderConfig}
           allItems={allItems}
           labels={labels}
+          accentColor={accentColor}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={(index, qty) => {
             if (qty <= 0) {
@@ -460,13 +534,25 @@ export function StorefrontBrowse({
       ) : null}
 
       {/* Confirmation Modal */}
-      {orderSuccess ? (
+      {orderSuccess && orderConfig?.slug ? (
         <OrderConfirmationModal
           orderNumber={orderSuccess.orderNumber}
+          trackingToken={orderSuccess.trackingToken}
+          slug={orderConfig.slug}
           scheduledFor={orderSuccess.scheduledFor}
+          subtotal={orderSuccess.subtotal}
+          deliveryFee={orderSuccess.deliveryFee}
+          total={orderSuccess.total}
+          fulfilmentType={orderSuccess.fulfilmentType}
+          currency={orderSuccess.currency ?? orderConfig.currency}
           labels={labels}
           onClose={() => setOrderSuccess(null)}
         />
+      ) : null}
+
+      {/* Bottom padding to prevent floating cart bar from covering last content */}
+      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div className="h-24" aria-hidden="true" />
       ) : null}
     </>
   );
@@ -592,7 +678,7 @@ function ItemDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -603,39 +689,39 @@ function ItemDetailSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl outline-none sm:rounded-2xl"
+        className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-[var(--ps-surface)] shadow-xl outline-none sm:rounded-2xl"
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="" className="aspect-[16/9] w-full rounded-t-2xl object-cover" />
         ) : null}
-        <div className="space-y-3 p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-[var(--ps-space-3)] p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]">
+          <div className="flex items-start justify-between gap-[var(--ps-space-3)]">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 id={titleId} className="text-lg font-bold text-zinc-900">
+              <div className="flex flex-wrap items-center gap-[var(--ps-space-2)]">
+                <h2 id={titleId} className="text-lg font-bold text-[var(--ps-text)]">
                   {title}
                 </h2>
                 {isSoldOut && labels.soldOut ? (
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-600 border border-zinc-200">
+                  <span className="rounded-full bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">
                     {labels.soldOut}
                   </span>
                 ) : null}
               </div>
-              <div className="mt-1 flex flex-wrap items-baseline gap-2">
+              <div className="mt-[var(--ps-space-1)] flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
                 {priceLabel ? (
                   <p
                     className={
                       originalPriceLabel
-                        ? "text-base font-bold text-orange-700"
-                        : "text-base font-bold text-zinc-900"
+                        ? "text-base font-bold text-[var(--ps-accent-hover)]"
+                        : "text-base font-bold text-[var(--ps-text)]"
                     }
                   >
                     {priceLabel}
                   </p>
                 ) : null}
                 {originalPriceLabel ? (
-                  <span className="text-sm font-normal text-zinc-400 line-through">
+                  <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
                     {originalPriceLabel}
                   </span>
                 ) : null}
@@ -645,18 +731,18 @@ function ItemDetailSheet({
               type="button"
               onClick={onClose}
               aria-label={closeLabel}
-              className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="shrink-0 rounded-lg border border-[var(--ps-border)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
             >
               {closeLabel}
             </button>
           </div>
-          {description ? <p className="text-sm leading-6 text-zinc-600">{description}</p> : null}
+          {description ? <p className="text-sm leading-6 text-[var(--ps-muted)]">{description}</p> : null}
           {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-[var(--ps-space-2)]">
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium capitalize text-emerald-700"
+                  className="rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700"
                 >
                   {tag.replace("_", " ")}
                 </span>
@@ -666,54 +752,54 @@ function ItemDetailSheet({
 
           {/* Option groups */}
           {optionGroups && optionGroups.length > 0 ? (
-            <div className="space-y-2.5 pt-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <div className="space-y-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
                 {labels.options || "Options"}
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-[var(--ps-space-3)]">
                 {optionGroups.map((group) => {
                   const currentSelected = selectedOptions[group.id] || [];
                   const isSingle = group.max === 1;
 
                   return (
-                    <div key={group.id} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3">
+                    <div key={group.id} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/70 p-[var(--ps-space-3)]">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-zinc-900">{group.name}</span>
+                        <span className="text-xs font-semibold text-[var(--ps-text)]">{group.name}</span>
                         <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          className={`rounded-full px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium ${
                             group.required
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-zinc-200/80 text-zinc-600"
+                              ? "bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                              : "bg-[var(--ps-neutral)]/80 text-[var(--ps-muted)]"
                           }`}
                         >
                           {group.required ? labels.required || "Required" : labels.optional || "Optional"}
                         </span>
                       </div>
-                      <div className="mt-2.5 space-y-2">
+                      <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
                         {group.options.map((opt) => {
                           const isChecked = currentSelected.includes(opt.id);
 
                           return (
                             <label
                               key={opt.id}
-                              className={`flex items-center justify-between text-xs p-2 rounded-lg border transition cursor-pointer ${
+                              className={`flex items-center justify-between text-xs p-[var(--ps-space-2)] rounded-lg border transition cursor-pointer ${
                                 isChecked
-                                  ? "border-orange-500 bg-orange-50/50 text-zinc-900"
-                                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                                  ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)]/50 text-[var(--ps-text)]"
+                                  : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)]"
                               }`}
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-[var(--ps-space-2)]">
                                 <input
                                   type={isSingle ? "radio" : "checkbox"}
                                   name={`group-${group.id}`}
                                   checked={isChecked}
                                   onChange={() => handleOptionToggle(group.id, opt.id, group.max)}
-                                  className="text-orange-600 focus:ring-orange-500"
+                                  className="text-[var(--ps-accent-hover)] focus:ring-[var(--ps-accent-hover)]"
                                 />
                                 <span>{opt.name}</span>
                               </div>
                               {opt.priceDeltaLabel ? (
-                                <span className="font-medium text-zinc-500">{opt.priceDeltaLabel}</span>
+                                <span className="font-medium text-[var(--ps-muted)]">{opt.priceDeltaLabel}</span>
                               ) : null}
                             </label>
                           );
@@ -727,11 +813,11 @@ function ItemDetailSheet({
           ) : null}
 
           {detailRows.length > 0 ? (
-            <dl className="divide-y divide-zinc-100 rounded-xl border border-zinc-100">
+            <dl className="divide-y divide-[var(--ps-border)] rounded-xl border border-[var(--ps-border)]">
               {detailRows.map((row, index) => (
-                <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-3 px-3 py-2">
-                  <dt className="text-xs font-semibold text-zinc-500">{row.label}</dt>
-                  <dd className="text-right text-xs font-medium text-zinc-800">{row.value}</dd>
+                <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] px-[var(--ps-space-3)] py-[var(--ps-space-2)]">
+                  <dt className="text-xs font-semibold text-[var(--ps-muted)]">{row.label}</dt>
+                  <dd className="text-right text-xs font-medium text-[var(--ps-text)]">{row.value}</dd>
                 </div>
               ))}
             </dl>
@@ -739,25 +825,25 @@ function ItemDetailSheet({
 
           {/* Ordering controls: quantity + Add to order */}
           {orderConfig?.enabled ? (
-            <div className="pt-2 border-t border-zinc-100 space-y-3">
+            <div className="pt-[var(--ps-space-2)] border-t border-[var(--ps-border)] space-y-[var(--ps-space-3)]">
               {!isSoldOut ? (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-zinc-700">Quantity</span>
-                  <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-50 p-1">
+                <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
+                  <span className="text-xs font-semibold text-[var(--ps-muted)]">Quantity</span>
+                  <div className="flex items-center rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] p-[var(--ps-space-1)]">
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="h-7 w-7 rounded-lg bg-white flex items-center justify-center text-zinc-700 shadow-xs hover:bg-zinc-100 disabled:opacity-40"
+                      className="h-7 w-7 rounded-lg bg-[var(--ps-surface)] flex items-center justify-center text-[var(--ps-muted)] shadow-xs hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                     >
                       -
                     </button>
-                    <span className="w-8 text-center text-xs font-bold text-zinc-900">{quantity}</span>
+                    <span className="w-8 text-center text-xs font-bold text-[var(--ps-text)]">{quantity}</span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.min(99, q + 1))}
                       disabled={quantity >= 99}
-                      className="h-7 w-7 rounded-lg bg-white flex items-center justify-center text-zinc-700 shadow-xs hover:bg-zinc-100 disabled:opacity-40"
+                      className="h-7 w-7 rounded-lg bg-[var(--ps-surface)] flex items-center justify-center text-[var(--ps-muted)] shadow-xs hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                     >
                       +
                     </button>
@@ -774,7 +860,7 @@ function ItemDetailSheet({
                     onAddToOrder(itemId, allSelected, quantity);
                   }
                 }}
-                className="w-full rounded-xl bg-orange-600 px-4 py-3 text-center text-sm font-bold text-white shadow-xs hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 {isSoldOut
                   ? labels.soldOut || "Sold out"
@@ -784,7 +870,7 @@ function ItemDetailSheet({
           ) : action ? (
             <a
               href={action.href}
-              className="block rounded-xl bg-zinc-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="block rounded-xl bg-[var(--ps-text)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-semibold text-white hover:bg-[var(--ps-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
             >
               {action.label}
             </a>
@@ -800,6 +886,7 @@ function OrderDrawer({
   orderConfig,
   allItems,
   labels,
+  accentColor,
   onClose,
   onUpdateQuantity,
   onRemoveItem,
@@ -809,10 +896,11 @@ function OrderDrawer({
   orderConfig: StorefrontOrderConfig;
   allItems: BrowseItem[];
   labels: StorefrontBrowseLabels;
+  accentColor?: string;
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
-  onOrderSuccess: (result: { orderNumber: string; scheduledFor?: string | null }) => void;
+  onOrderSuccess: (result: { orderNumber: string; trackingToken?: string | null; scheduledFor?: string | null; subtotal?: number | null; deliveryFee?: number | null; total?: number | null; fulfilmentType?: string | null; currency?: string | null }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const itemsMap = new Map(allItems.map((it) => [it.id, it]));
@@ -827,8 +915,14 @@ function OrderDrawer({
   const [payMethod, setPayMethod] = useState<"fulfilment" | "online">("fulfilment");
   const [onlineSecret, setOnlineSecret] = useState<string | null>(null);
   const [onlineOrderNumber, setOnlineOrderNumber] = useState<string | null>(null);
+  const [onlineTrackingToken, setOnlineTrackingToken] = useState<string | null>(null);
   const [onlineScheduledFor, setOnlineScheduledFor] = useState<string | null>(null);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
+
+  const [timingChoice, setTimingChoice] = useState<"asap" | "scheduled">(
+    orderConfig.isClosed ? "scheduled" : "asap"
+  );
+  const [customScheduleTime, setCustomScheduleTime] = useState<string>("");
 
   const [fulfilment, setFulfilment] = useState<"pickup" | "delivery">(
     allowsPickup ? "pickup" : "delivery"
@@ -877,7 +971,23 @@ function OrderDrawer({
     return sum + (base + deltas) * line.quantity;
   }, 0);
 
+  // Delivery fee preview (client-side only; server recomputes authoritatively on submit)
+  const rawDeliveryFee = orderConfig.deliveryFee ?? 0;
+  const freeAbove = orderConfig.freeDeliveryAbove ?? null;
+  const displayDeliveryFee =
+    fulfilment === "delivery"
+      ? freeAbove !== null && subtotal >= freeAbove
+        ? 0
+        : rawDeliveryFee
+      : 0;
+  const grandTotal = subtotal + displayDeliveryFee;
+
   const formattedSubtotal = `${orderConfig.currency} ${subtotal.toFixed(2)}`;
+  const formattedDeliveryFee =
+    displayDeliveryFee === 0
+      ? orderConfig.currency + " 0.00"
+      : `${orderConfig.currency} ${displayDeliveryFee.toFixed(2)}`;
+  const formattedTotal = `${orderConfig.currency} ${grandTotal.toFixed(2)}`;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -897,6 +1007,12 @@ function OrderDrawer({
       setErrorMessage(labels.deliveryAddress ? `Please enter a valid ${labels.deliveryAddress.toLowerCase()}` : "Please enter a delivery address.");
       return;
     }
+
+    const scheduledForPayload = orderConfig.isClosed
+      ? (orderConfig.scheduledFor ?? null)
+      : timingChoice === "scheduled" && customScheduleTime
+      ? new Date(customScheduleTime).toISOString()
+      : null;
 
     const payloadItems = cart.map((c) => ({
       itemId: c.itemId,
@@ -925,6 +1041,7 @@ function OrderDrawer({
             items: payloadItems,
             idempotencyKey,
             hp: honeypot || null,
+            scheduledFor: scheduledForPayload,
           }),
         });
         const intentData = await intentRes.json().catch(() => ({}));
@@ -934,6 +1051,7 @@ function OrderDrawer({
           return;
         }
         setOnlineOrderNumber(intentData.orderNumber);
+        setOnlineTrackingToken(intentData.trackingToken ?? null);
         setOnlineScheduledFor(intentData.scheduledFor ?? null);
         setOnlineSecret(intentData.clientSecret);
         setIsStartingPayment(false);
@@ -959,6 +1077,7 @@ function OrderDrawer({
         items: payloadItems,
         idempotencyKey,
         hp: honeypot || null,
+        scheduledFor: scheduledForPayload,
       });
 
       if (!res.success) {
@@ -975,7 +1094,13 @@ function OrderDrawer({
 
       onOrderSuccess({
         orderNumber: res.orderNumber,
+        trackingToken: res.trackingToken,
         scheduledFor: res.scheduledFor,
+        subtotal,
+        deliveryFee: displayDeliveryFee,
+        total: grandTotal,
+        fulfilmentType: fulfilment,
+        currency: orderConfig.currency,
       });
     } catch {
       setErrorMessage("An unexpected network error occurred. Please try again.");
@@ -989,7 +1114,7 @@ function OrderDrawer({
   if (onlineSecret && onlineOrderNumber) {
     return (
       <div
-        className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+        className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -998,44 +1123,50 @@ function OrderDrawer({
           ref={panelRef}
           role="dialog"
           aria-modal="true"
-          className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-white shadow-2xl outline-none sm:rounded-2xl"
+          className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl outline-none sm:rounded-2xl"
         >
-          <div className="flex items-center justify-between border-b border-zinc-100 p-4 sm:p-5">
-            <h2 className="text-base font-bold text-zinc-900">{labels.payOnline || "Pay online"}</h2>
+          <div className="flex items-center justify-between border-b border-[var(--ps-border)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)]">
+            <h2 className="text-base font-bold text-[var(--ps-text)]">{labels.payOnline || "Pay online"}</h2>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+              className="rounded-lg p-[var(--ps-space-2)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] hover:text-[var(--ps-muted)]"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between text-sm font-bold text-zinc-900">
+          <div className="overflow-y-auto p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] space-y-[var(--ps-space-4)]">
+            <div className="flex items-center justify-between text-sm font-bold text-[var(--ps-text)]">
               <span>{labels.total || "Total"}</span>
-              <span className="text-orange-700">{formattedSubtotal}</span>
+              <span className="text-[var(--ps-accent-hover)]">{formattedTotal}</span>
             </div>
             {errorMessage ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700">
                 {errorMessage}
               </div>
             ) : null}
-            <StripeProvider clientSecret={onlineSecret} accentColor="#c2410c">
+            <StripeProvider clientSecret={onlineSecret} {...(accentColor ? { accentColor } : {})}>
               <PaymentForm
                 onSuccess={() => {
                   onOrderSuccess({
                     orderNumber: onlineOrderNumber,
+                    trackingToken: onlineTrackingToken,
                     scheduledFor: onlineScheduledFor,
+                    subtotal,
+                    deliveryFee: displayDeliveryFee,
+                    total: grandTotal,
+                    fulfilmentType: fulfilment,
+                    currency: orderConfig.currency,
                   });
                 }}
                 onBack={() => {
                   setOnlineSecret(null);
                   setOnlineOrderNumber(null);
                 }}
-                submitLabel={`${labels.payOnline || "Pay online"} • ${formattedSubtotal}`}
-                accentColor="#c2410c"
+                submitLabel={`${labels.payOnline || "Pay online"} • ${formattedTotal}`}
+                {...(accentColor ? { accentColor } : {})}
                 hideInputs
               />
             </StripeProvider>
@@ -1047,7 +1178,7 @@ function OrderDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1056,15 +1187,15 @@ function OrderDrawer({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-white shadow-2xl outline-none sm:rounded-2xl"
+        className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl outline-none sm:rounded-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 p-4 sm:p-5">
-          <h2 className="text-base font-bold text-zinc-900">{labels.yourOrder || "Your order"}</h2>
+        <div className="flex items-center justify-between border-b border-[var(--ps-border)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)]">
+          <h2 className="text-base font-bold text-[var(--ps-text)]">{labels.yourOrder || "Your order"}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+            className="rounded-lg p-[var(--ps-space-2)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] hover:text-[var(--ps-muted)]"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1073,17 +1204,17 @@ function OrderDrawer({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="overflow-y-auto p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] space-y-[var(--ps-space-6)]">
           {/* Closed Restaurant Notice */}
           {orderConfig.isClosed ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              <div className="font-bold flex items-center gap-1.5">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-[var(--ps-space-3)] text-xs text-amber-900">
+              <div className="font-bold flex items-center gap-[var(--ps-space-2)]">
                 <svg className="h-4 w-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>Notice: Restaurant Closed</span>
               </div>
-              <p className="mt-1 text-amber-800">
+              <p className="mt-[var(--ps-space-1)] text-amber-800">
                 {orderConfig.scheduledFor
                   ? `Your order will be accepted and prepared for reopening on ${new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}.`
                   : labels.scheduledNotice || "The restaurant is currently closed. Your order will be prepared for reopening."}
@@ -1092,7 +1223,7 @@ function OrderDrawer({
           ) : null}
 
           {/* Cart items list */}
-          <div className="space-y-3">
+          <div className="space-y-[var(--ps-space-3)]">
             {cart.map((line, index) => {
               const it = itemsMap.get(line.itemId);
               if (!it) return null;
@@ -1112,30 +1243,30 @@ function OrderDrawer({
               const itemTotal = (base + deltas) * line.quantity;
 
               return (
-                <div key={`${line.itemId}-${index}`} className="flex items-start justify-between gap-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-3">
+                <div key={`${line.itemId}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-zinc-900">{it.name}</p>
+                    <p className="text-xs font-bold text-[var(--ps-text)]">{it.name}</p>
                     {chosenOptionNames.length > 0 ? (
-                      <p className="text-[11px] text-zinc-500 mt-0.5">{chosenOptionNames.join(", ")}</p>
+                      <p className="text-xs text-[var(--ps-muted)] mt-[var(--ps-space-1)]">{chosenOptionNames.join(", ")}</p>
                     ) : null}
-                    <p className="text-xs font-semibold text-orange-700 mt-1">
+                    <p className="text-xs font-semibold text-[var(--ps-accent-hover)] mt-[var(--ps-space-1)]">
                       {orderConfig.currency} {itemTotal.toFixed(2)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center rounded-lg border border-zinc-200 bg-white p-0.5 shadow-xs">
+                  <div className="flex items-center gap-[var(--ps-space-2)]">
+                    <div className="flex items-center rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-1)] shadow-xs">
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(index, line.quantity - 1)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-zinc-700 hover:bg-zinc-100"
+                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                       >
                         -
                       </button>
-                      <span className="w-6 text-center text-xs font-bold text-zinc-900">{line.quantity}</span>
+                      <span className="w-6 text-center text-xs font-bold text-[var(--ps-text)]">{line.quantity}</span>
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(index, line.quantity + 1)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-zinc-700 hover:bg-zinc-100"
+                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                       >
                         +
                       </button>
@@ -1143,7 +1274,7 @@ function OrderDrawer({
                     <button
                       type="button"
                       onClick={() => onRemoveItem(index)}
-                      className="text-zinc-400 hover:text-red-500 p-1"
+                      className="text-[var(--ps-muted)] hover:text-red-500 p-[var(--ps-space-1)]"
                       aria-label="Remove item"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1156,19 +1287,19 @@ function OrderDrawer({
             })}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmit} className="space-y-[var(--ps-space-4)] pt-[var(--ps-space-2)]">
             {/* Fulfilment selector */}
             {allowsDelivery && allowsPickup ? (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700">{labels.fulfilment || "Fulfilment"}</label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-[var(--ps-space-2)]">
+                <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.fulfilment || "Fulfilment"}</label>
+                <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
                     type="button"
                     onClick={() => setFulfilment("pickup")}
-                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                    className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
                       fulfilment === "pickup"
-                        ? "border-orange-600 bg-orange-50 text-orange-700"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                        ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                        : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                     }`}
                   >
                     {labels.pickup || "Pickup"}
@@ -1176,10 +1307,10 @@ function OrderDrawer({
                   <button
                     type="button"
                     onClick={() => setFulfilment("delivery")}
-                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                    className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
                       fulfilment === "delivery"
-                        ? "border-orange-600 bg-orange-50 text-orange-700"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                        ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                        : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                     }`}
                   >
                     {labels.delivery || "Delivery"}
@@ -1190,8 +1321,8 @@ function OrderDrawer({
 
             {/* Delivery address */}
             {fulfilment === "delivery" ? (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-zinc-700">
+              <div className="space-y-[var(--ps-space-1)]">
+                <label className="text-xs font-bold text-[var(--ps-muted)]">
                   {labels.deliveryAddress || "Delivery address"} *
                 </label>
                 <input
@@ -1200,27 +1331,101 @@ function OrderDrawer({
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                   placeholder={labels.deliveryAddressPlaceholder || "Street address, apartment, city"}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
-                <p className="text-[11px] text-zinc-500">
-                  {labels.deliveryFeeNotice || "Restaurant confirms delivery fee upon receipt"}
+                <p className="text-xs text-[var(--ps-muted)]">
+                  {rawDeliveryFee > 0
+                    ? freeAbove !== null && subtotal >= freeAbove
+                      ? labels.freeDelivery || "Free delivery on this order 🎉"
+                      : `${labels.deliveryFee || "Delivery fee"}: ${formattedDeliveryFee}`
+                    : labels.freeDelivery || "Free delivery"}
                 </p>
+                {fulfilment === "delivery" &&
+                freeAbove !== null &&
+                rawDeliveryFee > 0 &&
+                subtotal < freeAbove ? (
+                  <p className="text-xs font-medium text-[var(--ps-accent-hover)]">
+                    {(labels.freeDeliveryProgress || "Add {amount} more for free delivery").replace(
+                      "{amount}",
+                      `${orderConfig.currency} ${(freeAbove - subtotal).toFixed(2)}`
+                    )}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
+            {/* Timing selection */}
+            <div className="space-y-[var(--ps-space-2)]">
+              <label className="text-xs font-bold text-[var(--ps-muted)]">Timing</label>
+              {orderConfig.isClosed ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-[var(--ps-space-3)] text-xs text-amber-900">
+                  <p className="font-semibold">{labels.scheduledNotice || "The restaurant is closed. Your order will be prepared for reopening."}</p>
+                  {orderConfig.scheduledFor ? (
+                    <p className="mt-[var(--ps-space-1)] text-amber-800">
+                      Reopening slot: {new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-[var(--ps-space-2)]">
+                  <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
+                    <button
+                      type="button"
+                      onClick={() => setTimingChoice("asap")}
+                      className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
+                        timingChoice === "asap"
+                          ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                          : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
+                      }`}
+                    >
+                      {labels.asap || "As soon as possible"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimingChoice("scheduled")}
+                      className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
+                        timingChoice === "scheduled"
+                          ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                          : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
+                      }`}
+                    >
+                      {labels.scheduleForLater || "Schedule for later"}
+                    </button>
+                  </div>
+
+                  {timingChoice === "scheduled" ? (
+                    <div className="space-y-[var(--ps-space-1)]">
+                      <label className="text-xs font-semibold text-[var(--ps-muted)]">
+                        {labels.chooseDate || "Date & Time"} *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required={timingChoice === "scheduled"}
+                        value={customScheduleTime}
+                        onChange={(e) => setCustomScheduleTime(e.target.value)}
+                        min={new Date(Date.now() + 30 * 60_000).toISOString().slice(0, 16)}
+                        max={new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 16)}
+                        className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
             {/* Customer Details */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-zinc-700">
+            <div className="space-y-[var(--ps-space-2)]">
+              <span className="text-xs font-bold text-[var(--ps-muted)]">
                 {labels.customerDetails || "Your details"}
               </span>
-              <div className="space-y-2">
+              <div className="space-y-[var(--ps-space-2)]">
                 <input
                   type="text"
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder={`${labels.fullName || "Full name"} *`}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
                 <input
                   type="tel"
@@ -1228,37 +1433,37 @@ function OrderDrawer({
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   placeholder={`${labels.phone || "Phone number"} (e.g. +225 07000000) *`}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
                 <input
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder={labels.email || "Email (optional)"}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
                 <textarea
                   rows={2}
                   value={customerNote}
                   onChange={(e) => setCustomerNote(e.target.value)}
                   placeholder={labels.orderNotePlaceholder || "Special requests, allergies…"}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs shadow-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
               </div>
             </div>
 
             {/* Payment method (choice only when online payment is available) */}
             {canPayOnline ? (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700">{labels.paymentMethod || "Payment method"}</label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-[var(--ps-space-2)]">
+                <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.paymentMethod || "Payment method"}</label>
+                <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
                     type="button"
                     onClick={() => setPayMethod("fulfilment")}
-                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                    className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
                       payMethod === "fulfilment"
-                        ? "border-orange-600 bg-orange-50 text-orange-700"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                        ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                        : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                     }`}
                   >
                     {labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
@@ -1266,17 +1471,17 @@ function OrderDrawer({
                   <button
                     type="button"
                     onClick={() => setPayMethod("online")}
-                    className={`rounded-xl border py-2 px-3 text-xs font-bold transition ${
+                    className={`rounded-xl border py-[var(--ps-space-2)] px-[var(--ps-space-3)] text-xs font-bold transition ${
                       payMethod === "online"
-                        ? "border-orange-600 bg-orange-50 text-orange-700"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                        ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
+                        : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
                     }`}
                   >
                     {labels.payOnline || "Pay online"}
                   </button>
                 </div>
                 {payMethod === "online" ? (
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-xs text-[var(--ps-muted)]">
                     {labels.onlinePaymentNotice || "You will pay by card now."}
                   </p>
                 ) : null}
@@ -1297,22 +1502,45 @@ function OrderDrawer({
 
             {/* Error Message */}
             {errorMessage ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700">
                 {errorMessage}
               </div>
             ) : null}
 
             {/* Total and Submit */}
-            <div className="border-t border-zinc-100 pt-3 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+            <div className="border-t border-[var(--ps-border)] pt-[var(--ps-space-3)] space-y-[var(--ps-space-3)]">
+              <div className="flex items-center justify-between text-xs font-semibold text-[var(--ps-muted)]">
                 <span>{labels.subtotal || "Subtotal"}</span>
                 <span>{formattedSubtotal}</span>
               </div>
-              <div className="flex items-center justify-between text-sm font-bold text-zinc-900">
+              {fulfilment === "delivery" ? (
+                <div className="flex items-center justify-between text-xs font-semibold text-[var(--ps-muted)]">
+                  <span>{labels.deliveryFee || "Delivery fee"}</span>
+                  <span>
+                    {displayDeliveryFee === 0 ? (
+                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                    ) : (
+                      formattedDeliveryFee
+                    )}
+                  </span>
+                </div>
+              ) : null}
+              {fulfilment === "delivery" &&
+              freeAbove !== null &&
+              rawDeliveryFee > 0 &&
+              subtotal < freeAbove ? (
+                <p className="text-xs font-medium text-[var(--ps-accent-hover)]">
+                  {(labels.freeDeliveryProgress || "Add {amount} more for free delivery").replace(
+                    "{amount}",
+                    `${orderConfig.currency} ${(freeAbove - subtotal).toFixed(2)}`
+                  )}
+                </p>
+              ) : null}
+              <div className="flex items-center justify-between text-sm font-bold text-[var(--ps-text)]">
                 <span>{labels.total || "Total"}</span>
-                <span className="text-orange-700">{formattedSubtotal}</span>
+                <span className="text-[var(--ps-accent-hover)]">{formattedTotal}</span>
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-[var(--ps-muted)]">
                 {payMethod === "online"
                   ? labels.onlinePaymentNotice || "You will pay by card now."
                   : labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
@@ -1321,17 +1549,18 @@ function OrderDrawer({
               <button
                 type="submit"
                 disabled={isSubmitting || isStartingPayment || cart.length === 0}
-                className="w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-bold text-white shadow-xs hover:bg-orange-700 disabled:opacity-40 transition"
+          className="ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 transition"
               >
                 {isSubmitting || isStartingPayment
                   ? payMethod === "online"
                     ? labels.payingOnline || "Preparing secure payment…"
                     : labels.placingOrder || "Placing order…"
                   : payMethod === "online"
-                    ? `${labels.payOnline || "Pay online"} • ${formattedSubtotal}`
-                    : `${labels.placeOrder || "Place order"} • ${formattedSubtotal}`}
+                    ? `${labels.payOnline || "Pay online"} • ${formattedTotal}`
+                    : `${labels.placeOrder || "Place order"} • ${formattedTotal}`}
               </button>
             </div>
+
           </form>
         </div>
       </div>
@@ -1341,48 +1570,139 @@ function OrderDrawer({
 
 function OrderConfirmationModal({
   orderNumber,
+  trackingToken,
+  slug,
   scheduledFor,
+  subtotal,
+  deliveryFee,
+  total,
+  fulfilmentType,
+  currency,
   labels,
   onClose,
 }: {
   orderNumber: string;
+  trackingToken?: string | null;
+  slug: string;
   scheduledFor?: string | null;
+  subtotal?: number | null;
+  deliveryFee?: number | null;
+  total?: number | null;
+  fulfilmentType?: string | null;
+  currency?: string | null;
   labels: StorefrontBrowseLabels;
   onClose: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (trackingToken && slug && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          `aldriva_active_order_${slug}`,
+          JSON.stringify({
+            token: trackingToken,
+            orderNumber,
+            scheduledFor: scheduledFor ?? null,
+            savedAt: Date.now(),
+          })
+        );
+      } catch {
+        // Storage unavailable (private browsing)
+      }
+    }
+  }, [trackingToken, slug, orderNumber, scheduledFor]);
+
+  const handleCopyLink = () => {
+    if (typeof window === "undefined" || !trackingToken) return;
+    const url = `${window.location.origin}/site/${slug}/orders/${trackingToken}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-[var(--ps-space-4)]">
+      <div className="w-full max-w-sm rounded-2xl bg-[var(--ps-surface)] p-[var(--ps-space-6)] text-center shadow-2xl space-y-[var(--ps-space-4)]">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
           <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <div>
-          <h3 className="text-lg font-bold text-zinc-900">
+          <h3 className="text-lg font-bold text-[var(--ps-text)]">
             {labels.orderSuccessTitle || "Order requested!"}
           </h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)]">
             {labels.orderSuccessSubtext || "We have received your order request."}
           </p>
         </div>
 
-        <div className="rounded-xl bg-zinc-50 p-3.5 border border-zinc-100">
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+        <div className="rounded-xl bg-[var(--ps-neutral)] p-[var(--ps-space-4)] border border-[var(--ps-border)]">
+          <p className="text-xs font-semibold text-[var(--ps-muted)] uppercase tracking-wider">
             {labels.orderNumber || "Order number"}
           </p>
-          <p className="text-base font-extrabold text-orange-700 mt-0.5">{orderNumber}</p>
+          <p className="text-base font-extrabold text-[var(--ps-accent-hover)] mt-[var(--ps-space-1)]">{orderNumber}</p>
+          {typeof subtotal === "number" && typeof total === "number" ? (
+            <div className="mt-[var(--ps-space-2)] space-y-[var(--ps-space-1)] text-xs text-[var(--ps-muted)]">
+              <div className="flex items-center justify-between">
+                <span>{labels.subtotal || "Subtotal"}</span>
+                <span className="tabular-nums">
+                  {currency} {subtotal.toFixed(2)}
+                </span>
+              </div>
+              {fulfilmentType === "delivery" ? (
+                <div className="flex items-center justify-between">
+                  <span>{labels.deliveryFee || "Delivery fee"}</span>
+                  <span className="tabular-nums">
+                    {(deliveryFee ?? 0) === 0 ? (
+                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                    ) : (
+                      `${currency} ${(deliveryFee ?? 0).toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between pt-[var(--ps-space-1)] border-t border-[var(--ps-border)] text-sm font-bold text-[var(--ps-text)]">
+                <span>{labels.total || "Total"}</span>
+                <span className="tabular-nums">
+                  {currency} {total.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ) : null}
           {scheduledFor ? (
-            <p className="mt-2 text-xs text-zinc-600">
+            <p className="mt-[var(--ps-space-2)] text-xs text-[var(--ps-muted)]">
               Scheduled for: {new Date(scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           ) : null}
         </div>
 
+        {trackingToken ? (
+          <div className="space-y-[var(--ps-space-2)]">
+            <a
+              href={`/site/${slug}/orders/${trackingToken}`}
+        className="ps-button ps-button-primary w-full flex items-center justify-center text-xs font-bold shadow-xs transition"
+            >
+              {labels.trackOrder || "Track my order"}
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] transition"
+            >
+              {copied
+                ? labels.trackingLinkCopied || "Link copied!"
+                : labels.copyTrackingLink || "Copy tracking link"}
+            </button>
+          </div>
+        ) : null}
+
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-xl bg-zinc-900 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition"
+          className="w-full rounded-xl bg-[var(--ps-text)] py-[var(--ps-space-3)] text-xs font-bold text-white hover:bg-[var(--ps-muted)] transition"
         >
           {labels.backToMenu || "Back to menu"}
         </button>

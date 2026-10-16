@@ -7,8 +7,8 @@
  * - createWebsiteFromV2Template: owner/admin/manager only (same
  *   checkTenantAccess + isAdmin bypass family as lib/actions/website-content.ts;
  *   ids from the client are verified server-side, never trusted). Validates the
- *   template id against the v2 flagship registry, checks organizer-category
- *   compatibility, builds the initial content doc from the organizer through
+ *   template id against the v2 flagship registry without using organizer
+ *   category as a compatibility gate, builds the initial content doc through
  *   the hydration allowlist, resolves pages + navigation with the pure
  *   resolver, and persists website + pages + nav atomically through the
  *   existing create_website_from_template RPC (migration 131, reused as-is —
@@ -33,7 +33,6 @@ import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
 import {
   normalizeWebsiteCategory,
-  isTemplateCompatibleWithCategory,
   resolveWebsiteCategoryForOrganizer,
   type WebsiteCategory,
 } from "@/lib/website-category";
@@ -54,6 +53,7 @@ import {
 import { generateStableId } from "@/lib/website-blocks";
 import { isReservedWebsiteSlug } from "@/lib/website-nav";
 import { getTenantSiteBuilderLiveUrl } from "@/lib/website-structured-data";
+import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
 import {
   getContentForBuilder,
   type ContentActionResult,
@@ -148,18 +148,6 @@ export async function createWebsiteFromV2Template(
     ),
     template.category as WebsiteCategory
   );
-  if (
-    !isTemplateCompatibleWithCategory(
-      template,
-      requestedCategory as WebsiteCategory
-    )
-  ) {
-    return {
-      success: false,
-      error: `Incompatible category: template ${template.id} is not compatible with ${requestedCategory}`,
-    };
-  }
-
   const siteTitle = options?.siteTitle?.trim() || org.name;
   let siteSlug = options?.slug?.trim() ? createSlug(options.slug!) : org.slug;
   if (isReservedWebsiteSlug(siteSlug)) {
@@ -191,7 +179,8 @@ export async function createWebsiteFromV2Template(
   const resolved = resolveTemplateContent(
     template.id,
     template.version,
-    initialContent
+    initialContent,
+    { siteSlug }
   );
   if (resolved.pages.length === 0) {
     return {
@@ -234,6 +223,7 @@ export async function createWebsiteFromV2Template(
     websiteCategory: requestedCategory,
     templateId: template.id,
     templateVersion: template.version,
+    brand: { accentId: template.defaultAccentId ?? "terracotta" },
     creationRequestId,
     // New restaurant sites price in XOF unless the owner changes it later in
     // Site settings (metadata.storefront.currency). Other templates keep the
@@ -362,12 +352,17 @@ export interface V2BuilderState {
   siteTitle: string;
   isPublished: boolean;
   publicUrl: string;
+  accentId?: string;
   storefront: {
+    businessId: string | null;
+    businessName: string | null;
     industry: string;
     category: string;
     businessType: string | null;
     offerings: string[];
     timeZone: string;
+    country: string | null;
+    currency: string;
   };
   template: { id: string; version: string; name: string };
   templateManifest: WebsiteTemplateV2;
@@ -508,12 +503,15 @@ export async function getBuilderState(
   const supabaseAdmin = createSupabaseAdmin();
   const { data: linkedBusiness } = await supabaseAdmin
     .from("businesses")
-    .select("industry, category, business_type, offerings, created_at")
+    .select("id, name, industry, category, business_type, offerings, country, created_at")
     .eq("organizer_id", data.tenantId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
+  const storefrontCurrency = resolveStorefrontCurrency(metadata, linkedBusiness?.country ?? null);
   const storefront = {
+    businessId: typeof linkedBusiness?.id === "string" ? linkedBusiness.id : null,
+    businessName: typeof linkedBusiness?.name === "string" ? linkedBusiness.name : null,
     industry: typeof linkedBusiness?.industry === "string" ? linkedBusiness.industry : "",
     category: typeof linkedBusiness?.category === "string" ? linkedBusiness.category : "",
     businessType: typeof linkedBusiness?.business_type === "string" ? linkedBusiness.business_type : null,
@@ -521,8 +519,11 @@ export async function getBuilderState(
       ? linkedBusiness.offerings.filter((key: unknown): key is string => typeof key === "string")
       : [],
     timeZone: typeof metadata.timezone === "string" ? metadata.timezone : "Africa/Abidjan",
+    country: typeof linkedBusiness?.country === "string" ? linkedBusiness.country : null,
+    currency: storefrontCurrency,
   };
   const resolved = resolveTemplateContent(template.id, template.version, effective, {
+    siteSlug: data.websiteSlug,
     business: storefront,
     timeZone: storefront.timeZone,
   });
@@ -537,6 +538,9 @@ export async function getBuilderState(
       siteTitle: data.siteTitle,
       isPublished: data.websiteStatus === "published",
       publicUrl: getTenantSiteBuilderLiveUrl(data.websiteSlug),
+      accentId: metadata.brand && typeof metadata.brand === "object" && !Array.isArray(metadata.brand) && typeof (metadata.brand as Record<string, unknown>).accentId === "string"
+        ? (metadata.brand as Record<string, string>).accentId
+        : undefined,
       storefront,
       template: { id: template.id, version: template.version, name: template.name },
       templateManifest: template,
