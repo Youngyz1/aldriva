@@ -31,7 +31,7 @@ import { normalizeContent, type ContentDoc } from "@/lib/website-content";
 import { getBusinessOfferings } from "@/lib/business-offerings";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
-import { getFoodOrderLocalizedCopy } from "@/lib/website-v2-template-preview";
+import { getFoodOrderLocalizedCopy, getStoreLocalizedCopy } from "@/lib/website-v2-template-preview";
 import {
   resolveTemplateContent,
   selectTemplateRoutePage,
@@ -241,6 +241,7 @@ export async function resolveWebsiteAndPage(
           bookNow: storeT("bookNow"),
           viewMenu: storeT("viewMenu"),
           viewProducts: storeT("viewProducts"),
+          shopNow: storeT("shopNow"),
           contact: storeT("contact"),
           rentalContactCta: storeT("rentalContactCta"),
         },
@@ -249,6 +250,9 @@ export async function resolveWebsiteAndPage(
         rentalCtaBandHeading: storeT("rentalBrandMessage"),
         foodOrderCopy: v2Template.id === "food-order"
           ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
+          : undefined,
+        storeCopy: v2Template.id === "store"
+          ? getStoreLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
           : undefined,
       }
     );

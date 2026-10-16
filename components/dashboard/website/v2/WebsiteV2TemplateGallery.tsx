@@ -5,7 +5,7 @@ import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { NEW_SITE_GALLERY_TEMPLATES } from "@/lib/website-template-v2";
 import { getV2GalleryCategories } from "@/lib/website-v2-create-flow";
-import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
+import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreLocalizedCopy, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
 import type { WebsiteCategory } from "@/lib/website-category";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
 import { WebsiteV2TemplateGalleryClient } from "./WebsiteV2TemplateGalleryClient";
@@ -33,6 +33,9 @@ async function V2TemplateCardPreview({
   const foodOrderCopy = templateId === "food-order"
     ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string)
     : undefined;
+  const storeCopy = templateId === "store"
+    ? getStoreLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string)
+    : undefined;
   const sampleContent = createNeutralGallerySampleContent(templateId, businessName, businessLogo, {
     tagline: publicT("previewTagline"),
     headline: publicT("previewHeadline", { business: "{business}" }),
@@ -49,6 +52,7 @@ async function V2TemplateCardPreview({
     faq: publicT("faq"),
     pricing: publicT("pricing"),
     ...(foodOrderCopy ? { foodOrder: foodOrderCopy.sample } : {}),
+    ...(storeCopy ? { store: storeCopy.sample } : {}),
   });
   const preview = resolveV2TemplateGalleryPreview(templateId, {
     siteSlug: `template-preview-${templateId}`,
@@ -62,6 +66,7 @@ async function V2TemplateCardPreview({
       bookNow: storeT("bookNow"),
       viewMenu: storeT("viewMenu"),
       viewProducts: storeT("viewProducts"),
+      shopNow: storeT("shopNow"),
       contact: storeT("contact"),
       rentalContactCta: storeT("rentalContactCta"),
     },
@@ -69,6 +74,7 @@ async function V2TemplateCardPreview({
     restaurantCtaBandHeading: publicT("previewBrandMessage"),
     rentalCtaBandHeading: publicT("previewBrandMessage"),
     foodOrderCopy: foodOrderCopy?.resolver,
+    storeCopy: storeCopy?.resolver,
   });
   if (!template || !preview) return null;
 

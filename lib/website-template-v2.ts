@@ -48,6 +48,8 @@ export interface TemplateSlot {
   slotId: string;
   /** Shared content field key — must exist in the content key registry. */
   field: ContentKey;
+  /** Optional key inside `template_extras` for a template-specific text slot. */
+  extraKey?: string;
   /** Human label for the click-to-edit inspector. */
   label: string;
   kind: TemplateSlotKind;
@@ -443,12 +445,97 @@ export const FOOD_ORDER_TEMPLATE: WebsiteTemplateV2 = {
   tags: ["food", "ordering", "catalog"],
 };
 
+// ── Category-neutral retail: Store ──────────────────────────────────────────
+
+const STORE_SLOTS: TemplateSlot[] = [
+  { slotId: "nav.logo", field: "logo_url", label: "Logo", kind: "image" },
+  { slotId: "nav.labels", field: "nav_labels", label: "Navigation labels", kind: "text" },
+  { slotId: "hero.image", field: "hero_image", label: "Hero image", kind: "image" },
+  { slotId: "hero.headline", field: "hero_headline", label: "Headline", kind: "text", required: true },
+  { slotId: "hero.subtext", field: "hero_subtext", label: "Introduction", kind: "textarea" },
+  { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
+  { slotId: "trust.copy", field: "template_extras", extraKey: "storeTrustText", label: "Trust strip text", kind: "textarea" },
+  { slotId: "testimonials.items", field: "testimonials", label: "Testimonials", kind: "items", max: 3 },
+  {
+    slotId: "product.fulfilment-note",
+    field: "template_extras",
+    extraKey: "storeHowToReceive",
+    label: "How you receive your order",
+    kind: "textarea",
+  },
+  { slotId: "contact.address", field: "address", label: "Address", kind: "text" },
+  { slotId: "contact.phone", field: "phone", label: "Phone", kind: "text" },
+  { slotId: "contact.email", field: "email", label: "Email", kind: "text" },
+  { slotId: "contact.directions", field: "directions_url", label: "Directions link", kind: "url" },
+  { slotId: "footer.business", field: "business_name", label: "Business name", kind: "text", required: true },
+  { slotId: "footer.socials", field: "socials", label: "Social links", kind: "socials" },
+  { slotId: "footer.note", field: "footer_note", label: "Footer note", kind: "text" },
+];
+
+const STORE_SECTIONS: TemplateSection[] = [
+  { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels"] },
+  { id: "store.hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline"] },
+  {
+    id: "store.home.products",
+    page: "home",
+    block: "products_embed",
+    note: "Live products and owner categories; the category tiles are hidden unless at least two real categories exist.",
+  },
+  { id: "store.trust", page: "home", block: "features", slots: ["trust.copy"], optional: true },
+  { id: "store.product-settings", page: "home", chrome: true, slots: ["product.fulfilment-note"] },
+  { id: "store.testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"], optional: true },
+  { id: "store.shop.products", page: "catalog", block: "products_embed", note: "Searchable, category-filtered shop; product links remain inside this site." },
+  { id: "store.contact", page: "contact", block: "contact", slots: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
+  { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note"] },
+];
+
+export const STORE_TEMPLATE: WebsiteTemplateV2 = {
+  id: "store",
+  version: "1.0.0",
+  name: "Store",
+  description: "A flexible storefront for browsing a business's products.",
+  category: "retail",
+  style: "warm",
+  previewColor: "var(--ps-accent)",
+  supportedCategories: ["retail"],
+  theme: { ...DEFAULT_THEME_CONFIG, theme: "warm", primaryColor: "var(--ps-accent)", fontFamily: "sans" },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Shop now", ctaHref: "", sticky: true },
+  footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
+  lockedTheme: { primaryColor: "var(--ps-accent)", headingFont: "sans", bodyFont: "sans" },
+  defaultAccentId: "warm-gold",
+  lockedLayout: true,
+  templateBackground: {
+    base: "var(--ps-cream)",
+    texture: "none",
+    bands: [
+      { zone: "hero", color: "var(--ps-accent-light)" },
+      { zone: "footer", color: "var(--ps-neutral)" },
+    ],
+  },
+  editableSlots: STORE_SLOTS,
+  lockedBlocks: ["footer"],
+  pages: [
+    { slug: "home", title: "Home", isHome: true, sortOrder: 0, purpose: "home" },
+    { slug: "shop", title: "Shop", isHome: false, sortOrder: 1, purpose: "catalog" },
+    { slug: "contact", title: "Contact", isHome: false, sortOrder: 2, purpose: "contact" },
+  ],
+  navigation: [
+    { label: "Home", pageSlug: "home", order: 0 },
+    { label: "Shop", pageSlug: "shop", order: 1 },
+    { label: "Contact", pageSlug: "contact", order: 2 },
+  ],
+  sections: STORE_SECTIONS,
+  commerce: { buy: true },
+  tags: ["store", "retail", "products"],
+};
+
 // ── Flagship registry ───────────────────────────────────────────────────────
 
 export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   RESTAURANT_TABLE_FLAME,
   RENTAL_DRIVELINE,
   FOOD_ORDER_TEMPLATE,
+  STORE_TEMPLATE,
 ];
 
 /** Templates shown when creating a new V2 site. Legacy manifests remain resolvable. */

@@ -12,12 +12,13 @@
  *  1. Tenant isolation: tenantId is NEVER accepted from untrusted block JSON;
  *     it is injected strictly by server-side page context (tenant_websites.tenant_id).
  *  2. Publication gating: Public visitors (isTeamMember = false) ONLY see published/active records.
- *  3. Bounded queries: Row limit is clamped between 1 and 12 (default 6) and passed to .limit().
+ *  3. Bounded queries: ordinary embeds clamp to 1..12 (default 6); the Store template's public product browse is capped at 200.
  *  4. Minimal projection: Internal fields (Stripe keys, attendee lists, buyer emails, notes) are excluded.
  */
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
+import { fromMinorUnits } from "@/lib/money";
 import type {
   EventsEmbedBlock,
   ProductsEmbedBlock,
@@ -187,7 +188,9 @@ export async function resolveProductsEmbed(
   if (!tenantId || typeof tenantId !== "string") return [];
 
   const supabase = client ?? createSupabaseAdmin();
-  const limit = clampLimit(block.limit);
+  const limit = block.allowLargeCatalog
+    ? Math.min(200, Math.max(1, Math.floor(typeof block.limit === "number" && Number.isFinite(block.limit) ? block.limit : EMBED_LIMIT_DEFAULT)))
+    : clampLimit(block.limit);
 
   // Step 1: Resolve business ID(s) strictly linked to this organizer entity
   const { data: businesses, error: bizError } = await supabase
@@ -209,9 +212,12 @@ export async function resolveProductsEmbed(
     )
     .in("business_id", businessIds);
 
-  // Status gate: public visitors only see active products
+  // Public Store listings retain sold-out products for their detail state;
+  // legacy product embeds continue to show active products only.
   if (!isTeamMember) {
-    query = query.eq("status", "active");
+    query = block.siteLocalProductDetails
+      ? query.in("status", ["active", "out_of_stock"])
+      : query.eq("status", "active");
   }
 
   // Selected product IDs filter if specified
@@ -418,9 +424,9 @@ export async function resolveShopPrices(
       .map(async (item) => {
         try {
           const price = await stripe.prices.retrieve(item.stripe_price_id as string);
-          if (typeof price.unit_amount === "number") {
+          if (price.active && typeof price.unit_amount === "number") {
             out.set(item.id, {
-              amount: price.unit_amount / 100,
+              amount: fromMinorUnits(price.unit_amount, price.currency || "usd"),
               currency: (price.currency || "usd").toUpperCase(),
             });
           }

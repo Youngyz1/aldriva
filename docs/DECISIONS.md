@@ -339,6 +339,16 @@
   - Gallery samples use the linked owner's identity and neutral EN/FR wording, and are isolated from saved owner content and published rendering.
   - This stage does not create the food/store templates. Compare, Blog, wishlist, reviews, account login, and newsletter remain deferred; payment methods must remain live-gated.
 
+### DEC-0038: Store template reuses tenant products and the existing gated checkout
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented in the working tree (PSD Stage 3); browser and live Stripe verification remain open.
+- **Key Tenets**:
+  - Store is a code-owned V2 template with Home, Shop, Contact, and site-local product details. Its public product lookup is scoped through `businesses.organizer_id = tenant_websites.tenant_id`, and only active or sold-out product rows are detail-visible; inactive, deleted, and foreign-tenant products resolve to 404.
+  - Shop content and navigation require at least one active product. Category controls require at least two real product categories. Gallery products are render-only neutral cards without invented categories, photos, or prices.
+  - Buy now reuses `/api/checkout/product`; it is rendered only for an active in-stock product when the existing online-payment feature gate is live, Stripe supplies a price, and the Stripe currency matches the site currency. The form transmits quantity, buyer name, and buyer email only.
+  - Owner trust and fulfilment copy use bounded `template_extras`; empty values stay hidden. Testimonials require owner-supplied text. This stage adds no block type, table, column, migration, or fulfilment guarantee.
+  - Existing checkout success/cancel URLs remain platform `/products` routes; updating them to return to a tenant site requires a separate checkout integration change.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

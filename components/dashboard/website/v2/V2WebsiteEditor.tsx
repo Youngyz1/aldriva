@@ -17,7 +17,7 @@ import { getBusinessOfferings } from "@/lib/business-offerings";
 import { getBuilderCommerceCapability } from "@/lib/website-commerce-registry";
 import { Switch } from "@/components/ui/switch";
 import { OrderingPaymentsPanel } from "./OrderingPaymentsPanel";
-import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy } from "@/lib/website-v2-template-preview";
+import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreLocalizedCopy } from "@/lib/website-v2-template-preview";
 
 interface V2WebsiteEditorProps {
   initialState: V2BuilderState;
@@ -62,11 +62,15 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
     () => template.id === "food-order" ? getFoodOrderLocalizedCopy(publicT) : undefined,
     [publicT, template.id]
   );
+  const storeCopy = useMemo(
+    () => template.id === "store" ? getStoreLocalizedCopy(publicT) : undefined,
+    [publicT, template.id]
+  );
   const foodOrderSampleContent = useMemo(() => {
-    if (!foodOrderCopy) return undefined;
+    if (!foodOrderCopy && !storeCopy) return undefined;
     const businessName = typeof content.business_name === "string" && content.business_name.trim()
       ? content.business_name
-      : publicT("foodOrderPreviewFallbackBusiness");
+      : template.id === "store" ? publicT("storePreviewFallbackBusiness") : publicT("foodOrderPreviewFallbackBusiness");
     const businessLogo = typeof content.logo_url === "string" ? content.logo_url : null;
     return createNeutralGallerySampleContent(template.id, businessName, businessLogo, {
       tagline: publicT("previewTagline"),
@@ -83,9 +87,10 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
       process: publicT("process"),
       faq: publicT("faq"),
       pricing: publicT("pricing"),
-      foodOrder: foodOrderCopy.sample,
+      ...(foodOrderCopy ? { foodOrder: foodOrderCopy.sample } : {}),
+      ...(storeCopy ? { store: storeCopy.sample } : {}),
     });
-  }, [content.business_name, content.logo_url, foodOrderCopy, publicT, template.id]);
+  }, [content.business_name, content.logo_url, foodOrderCopy, publicT, storeCopy, template.id]);
 
   const business = useMemo(() => ({
     ...initialState.storefront,
@@ -118,10 +123,11 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
       restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
       rentalCtaBandHeading: storeT("rentalBrandMessage"),
       foodOrderCopy: foodOrderCopy?.resolver,
+      storeCopy: storeCopy?.resolver,
       sampleContentOverride: foodOrderSampleContent,
       timeZone: business.timeZone,
     }),
-    [business, content, foodOrderCopy, foodOrderSampleContent, initialState.websiteSlug, offeringLabels, storeT, template.id, template.version]
+    [business, content, foodOrderCopy, foodOrderSampleContent, initialState.websiteSlug, offeringLabels, storeCopy, storeT, template.id, template.version]
   );
   const readiness = useMemo(() => checkPublishReadiness(template.id, template.version, content), [content, template.id, template.version]);
   const sections = useMemo(
@@ -301,11 +307,20 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
   }
 
   function renderControl(control: (typeof sections)[number]["controls"][number]) {
+    const extras = content.template_extras && typeof content.template_extras === "object"
+      ? content.template_extras as Record<string, unknown>
+      : {};
+    const value = control.extraKey ? extras[control.extraKey] ?? "" : content[control.field];
     return <div key={control.id} data-slot-control-id={control.id} className="pt-4 first:pt-0">
       <V2SlotField
         control={control}
-        value={content[control.field]}
-        onChange={(value) => updateContent(control.field, value)}
+        value={value}
+        onChange={(nextValue) => updateContent(
+          control.field,
+          control.extraKey
+            ? { ...extras, [control.extraKey]: nextValue }
+            : nextValue
+        )}
         tenantId={initialState.tenantId}
         template={template}
         menuItems={currentMenuItems}

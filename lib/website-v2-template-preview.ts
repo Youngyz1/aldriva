@@ -8,6 +8,11 @@ export interface FoodOrderLocalizedCopy {
   resolver: NonNullable<TemplateResolutionOptions["foodOrderCopy"]>;
 }
 
+export interface StoreLocalizedCopy {
+  sample: NonNullable<NeutralGallerySampleCopy["store"]>;
+  resolver: NonNullable<TemplateResolutionOptions["storeCopy"]>;
+}
+
 /** Resolves the Food Order-only copy through the active EN/FR message catalog. */
 export function getFoodOrderLocalizedCopy(
   translate: (key: string, values?: Record<string, string>) => string
@@ -48,6 +53,34 @@ export function getFoodOrderLocalizedCopy(
   };
 }
 
+/** Resolves Store preview and resolver copy through the active EN/FR catalog. */
+export function getStoreLocalizedCopy(
+  translate: (key: string, values?: Record<string, string>) => string
+): StoreLocalizedCopy {
+  const navigationLabels = {
+    home: translate("home"),
+    shop: translate("storeNavShop"),
+    contact: translate("contact"),
+  };
+  return {
+    sample: {
+      tagline: translate("storeSampleTagline"),
+      headline: translate("storeSampleHeadline", { business: "{business}" }),
+      subtext: translate("storeSampleSubtext"),
+      primaryAction: translate("storeShopNow"),
+      trustText: `${translate("storeSampleTrustTitle")} ${translate("storeSampleTrustDescription")}`,
+      navigationLabels,
+    },
+    resolver: {
+      homeProductsHeading: translate("storeHomeProductsHeading"),
+      shopHeading: translate("storeShopHeading"),
+      trustHeading: translate("storeTrustHeading"),
+      trustItemHeading: translate("storeTrustItemHeading"),
+      navigationLabels,
+    },
+  };
+}
+
 export interface NeutralGallerySampleCopy {
   tagline: string;
   headline: string;
@@ -71,6 +104,14 @@ export interface NeutralGallerySampleCopy {
     primaryAction: string;
     secondaryAction: string;
     steps: Array<{ title: string; description: string }>;
+    navigationLabels: Record<string, string>;
+  };
+  store?: {
+    tagline: string;
+    headline: string;
+    subtext: string;
+    primaryAction: string;
+    trustText: string;
     navigationLabels: Record<string, string>;
   };
 }
@@ -133,6 +174,14 @@ export function createNeutralGallerySampleContent(
     };
     shared.about_text = copy.foodOrder.about.replace("{business}", businessName);
   }
+  if (templateId === "store" && copy.store) {
+    shared.tagline = copy.store.tagline;
+    shared.hero_headline = copy.store.headline.replace("{business}", businessName);
+    shared.hero_subtext = copy.store.subtext;
+    shared.primary_cta_label = copy.store.primaryAction;
+    shared.template_extras = { storeTrustText: copy.store.trustText };
+    shared.nav_labels = copy.store.navigationLabels;
+  }
   return normalizeContent(shared);
 }
 
@@ -147,7 +196,7 @@ export interface V2TemplateGalleryPreviewData {
 /** Render-only preview data. It contains no save payload or persisted sample fields. */
 export function resolveV2TemplateGalleryPreview(
   templateId: string,
-  copy: Pick<TemplateResolutionOptions, "siteSlug" | "business" | "viewMenuLabel" | "rentalContactCta" | "primaryActionLabels" | "offeringsHeading" | "restaurantCtaBandHeading" | "rentalCtaBandHeading" | "foodOrderCopy" | "timeZone"> & { sampleContentOverride?: ContentDoc } = {}
+  copy: Pick<TemplateResolutionOptions, "siteSlug" | "business" | "viewMenuLabel" | "rentalContactCta" | "primaryActionLabels" | "offeringsHeading" | "restaurantCtaBandHeading" | "rentalCtaBandHeading" | "foodOrderCopy" | "storeCopy" | "timeZone"> & { sampleContentOverride?: ContentDoc } = {}
 ): V2TemplateGalleryPreviewData | undefined {
   const template = getFlagshipTemplate(templateId);
   if (!template) return undefined;

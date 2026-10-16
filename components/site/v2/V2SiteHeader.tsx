@@ -83,7 +83,7 @@ export function V2SiteHeader({
   const businessName = textValue(content, sampleContent, "business_name", previewMode) || siteTitle;
   const liveCtaLabel = textValue(content, undefined, "primary_cta_label", false);
   const actionLabel = primaryAction ? tStorefront(primaryAction.labelKey) : undefined;
-  const fixedFallback = primaryAction && ["viewMenu", "contact", "rentalContactCta"].includes(primaryAction.labelKey);
+  const fixedFallback = primaryAction && ["viewMenu", "viewProducts", "shopNow", "contact", "rentalContactCta"].includes(primaryAction.labelKey);
   const sampledCta = Boolean(previewMode && sourceMap?.ctaLabel?.sampled);
   const ctaLabel = fixedFallback
     ? actionLabel

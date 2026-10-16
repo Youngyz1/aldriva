@@ -203,6 +203,28 @@ export interface ProductsEmbedBlock extends BaseBlock {
   layout?: "grid" | "list";
   showDrafts?: boolean; // Only visible to authenticated team members
   selectedProductIds?: string[]; // Optional specific product ID subset (max 12 UUIDs)
+  /** Store-template-only browse behavior; absent on existing blocks. */
+  categoryTiles?: boolean;
+  siteLocalProductDetails?: boolean;
+  allowLargeCatalog?: boolean;
+  browsePageSize?: number;
+  /** Render-only gallery/editor preview data; public resolvers omit this field. */
+  previewProducts?: StorefrontProductPreviewItem[];
+}
+
+export interface StorefrontProductPreviewItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  images: string[];
+  price_type: string;
+  stock_quantity: number | null;
+  status: string;
+  isDraft: boolean;
+  category: string | null;
+  tags: string[];
+  stripe_price_id: string | null;
 }
 
 export interface FundraiserEmbedBlock extends BaseBlock {

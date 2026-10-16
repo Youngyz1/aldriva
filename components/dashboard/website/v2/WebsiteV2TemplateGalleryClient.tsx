@@ -135,10 +135,10 @@ export function WebsiteV2TemplateGalleryClient({
         <div className="grid gap-5 lg:grid-cols-2">
           {visibleCards.map((card) => {
             const busy = pendingTemplateId === card.id;
-            const cardName = card.id === "food-order" ? publicT("foodOrderTemplateName") : card.name;
+            const cardName = card.id === "food-order" ? publicT("foodOrderTemplateName") : card.id === "store" ? publicT("storeTemplateName") : card.name;
             const cardDescription = card.id === "food-order"
               ? publicT("foodOrderTemplateDescription")
-              : card.description;
+              : card.id === "store" ? publicT("storeTemplateDescription") : card.description;
             return (
               <article key={card.id} className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
                 <V2TemplateGalleryPreviewFrame>{card.preview}</V2TemplateGalleryPreviewFrame>

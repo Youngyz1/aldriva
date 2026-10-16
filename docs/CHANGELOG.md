@@ -3,6 +3,14 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Public Site Design System (PSD), Stage 3 Store template (2026-10-16; working tree)
+
+- Added Store v1.0 to the new V2 gallery after Food Order; its `warm-gold` manifest default remains overridable through the existing public accent metadata. Legacy templates remain resolvable.
+- Added Store Home, Shop, Contact, and tenant-scoped product detail rendering under `/site/{slug}/products/{productSlug}`. Empty active catalogs omit Store Shop navigation/page content. The shared browse search/filter UI displays real product categories only, and Store product cards link to the local detail route.
+- Product details show a safe optional image, owner copy, `formatMoney` price display, and stock state. Buy now is gated by the existing online-payment feature state, product status/stock, Stripe price retrieval, and exact site/Stripe currency match; the fallback links to Contact. The existing product-checkout API is reused with only name, email, and quantity fields.
+- Added owner-editable trust and fulfilment text through bounded `template_extras`; testimonials remain owner-supplied and hidden empty. Added neutral EN/FR gallery examples with no fabricated prices, photos, or categories. No new block type or schema migration was introduced.
+- **Verification:** focused suites 95/95; full registered list 2,293/2,293 (184 existing test paths, 10 batches; five absent seating/venue paths excluded); `npx tsc --noEmit` and touched TS/TSX ESLint passed. No owner browser QA, live database check, or Stripe test-mode checkout was run. Existing checkout success/cancel URLs still point to platform `/products` routes.
+
 ## [2026-10] — Public Site Design System (PSD), Stage 1 Foundation (2026-10-15; working tree)
 
 - Added a `.public-site` scoped token layer for typography, spacing, radii, colors, cards, buttons, and focus states without changing `:root`, global body typography, or Tailwind base. Migrated shared public blocks, storefront/order/reservation views, and site headers/footers to the shared roles and Plus Jakarta Sans. Template heading fonts now flow into block headings.

@@ -37,7 +37,7 @@ import type {
   TemplateSection,
 } from "./website-template-v2";
 import { getFlagshipTemplate } from "./website-template-v2";
-import { FLAGSHIP_SAMPLES } from "./website-template-samples";
+import { FLAGSHIP_SAMPLES, STORE_PREVIEW_PRODUCTS } from "./website-template-samples";
 import type { TemplatePagePurpose } from "./website-template-v2";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import type { Capability } from "./business-taxonomy";
@@ -181,6 +181,14 @@ export interface TemplateResolutionOptions {
     contactHeading?: string;
     navigationLabels?: Record<string, string>;
   };
+  /** Locale-resolved headings/navigation used only by the Store template. */
+  storeCopy?: {
+    homeProductsHeading?: string;
+    shopHeading?: string;
+    trustHeading?: string;
+    trustItemHeading?: string;
+    navigationLabels?: Record<string, string>;
+  };
   /** IANA site timezone for the one-line footer hours display. */
   timeZone?: string;
 }
@@ -191,6 +199,7 @@ const DEFAULT_PRIMARY_ACTION_LABELS: Record<PrimaryActionLabelKey, string> = {
   bookNow: "Book now",
   viewMenu: "View menu",
   viewProducts: "Browse products",
+  shopNow: "Shop now",
   contact: "Contact",
   rentalContactCta: "Ask about availability",
 };
@@ -324,6 +333,7 @@ interface BuildContext {
   restaurantCtaBandHeading: string;
   rentalCtaBandHeading: string;
   foodOrderCopy?: TemplateResolutionOptions["foodOrderCopy"];
+  storeCopy?: TemplateResolutionOptions["storeCopy"];
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -460,8 +470,13 @@ function sourceEntriesForBlock(
     add("secondaryCtaLabel", "hero.cta_secondary", "secondary_cta_label", Boolean(object.secondaryCtaLabel));
     add("badge", "hero.open_tag", "hours", Boolean(object.badge), { subfield: "today_tag" });
   } else if (block.type === "features") {
-    const slotId = section.id === "trust" ? "trust.items" : section.id === "how-it-works" ? "steps.items" : "highlights.items";
-    const field: ContentKey = section.id === "trust" ? "trust" : section.id === "how-it-works" ? "steps" : "highlights";
+    const slotId = section.id === "trust" ? "trust.items" : section.id === "store.trust" ? "trust.copy" : section.id === "how-it-works" ? "steps.items" : "highlights.items";
+    const field: ContentKey = section.id === "trust" ? "trust" : section.id === "store.trust" ? "template_extras" : section.id === "how-it-works" ? "steps" : "highlights";
+    if (section.id === "store.trust") {
+      const extras = asRecord(effectiveValue(ctx, "template_extras"));
+      add("items[0].description", slotId, field, Boolean(asString(extras?.storeTrustText)), { subfield: "storeTrustText" });
+      return entries;
+    }
     const sourceRows = indexedRecords(effectiveValue(ctx, field));
     let emittedIndex = 0;
     for (const row of sourceRows) {
@@ -783,6 +798,17 @@ function buildSectionBlock(
       return buildHero(ctx);
     case "features": {
       if (section.id === "business-offerings") return buildBusinessOfferings(ctx);
+      if (section.id === "store.trust") {
+        const extras = asRecord(effectiveValue(ctx, "template_extras"));
+        const text = asString(extras?.storeTrustText);
+        if (!text) return null;
+        return {
+          type: "features",
+          heading: ctx.storeCopy?.trustHeading ?? "About this store",
+          columns: 2,
+          items: [{ title: ctx.storeCopy?.trustItemHeading ?? "A note from this business", description: text }],
+        } as Block;
+      }
       if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
       if (section.id === "how-it-works") {
         const heading = ctx.template.id === "food-order"
@@ -839,6 +865,24 @@ function buildSectionBlock(
           : null;
       }
       return buildMenuEmbed(ctx, "Featured dishes", 6, true); // menu.featured — picks only
+    }
+    case "products_embed": {
+      if (ctx.template.id !== "store") return null;
+      if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
+      const home = section.id === "store.home.products";
+      return {
+        type: "products_embed",
+        heading: home
+          ? ctx.storeCopy?.homeProductsHeading ?? "Featured products"
+          : ctx.storeCopy?.shopHeading ?? "Shop all products",
+        limit: 200,
+        layout: "grid",
+        categoryTiles: true,
+        siteLocalProductDetails: true,
+        allowLargeCatalog: true,
+        browsePageSize: home ? 6 : 12,
+        ...(!ctx.catalogAvailability && ctx.includeSamples ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
+      } as Block;
     }
     case "menu_order": {
       if (ctx.catalogAvailability && ctx.catalogAdapter !== "menu") return null;
@@ -906,7 +950,10 @@ function sectionHasLiveSlotContent(
     for (const slotId of section.slots) {
       const slot = slotsById.get(slotId);
       if (!slot) continue;
-      const val = doc[slot.field];
+      const fieldValue = doc[slot.field];
+      const val = slot.extraKey && fieldValue && typeof fieldValue === "object" && !Array.isArray(fieldValue)
+        ? (fieldValue as Record<string, unknown>)[slot.extraKey]
+        : fieldValue;
       if (!isEmptyContentValue(val)) return true;
     }
     return false;
@@ -981,9 +1028,13 @@ export function resolveTemplateManifest(
     business.businessType ?? ""
   );
   const resolvedCapabilities = business.capabilities ?? capabilities;
-  const catalogAdapter = options.catalogAvailability
-    ? resolveWebsiteCatalogAdapter(options.catalogAvailability, business)
-    : undefined;
+  const catalogAdapter = template.id === "store"
+    ? options.catalogAvailability
+      ? options.catalogAvailability.products ? "products" : undefined
+      : options.includeSamples !== false ? "products" : undefined
+    : options.catalogAvailability
+      ? resolveWebsiteCatalogAdapter(options.catalogAvailability, business)
+      : undefined;
   const storefrontFeatures = resolveStorefrontFeatures({
     capabilities: resolvedCapabilities,
     offerings: business.offerings,
@@ -1010,6 +1061,7 @@ export function resolveTemplateManifest(
     restaurantCtaBandHeading: options.restaurantCtaBandHeading ?? "Made for good moments.",
     rentalCtaBandHeading: options.rentalCtaBandHeading ?? "Ready for your next journey?",
     foodOrderCopy: options.foodOrderCopy,
+    storeCopy: options.storeCopy,
   };
 
   const pages: ResolvedPage[] = [];
@@ -1111,9 +1163,11 @@ export function resolveTemplateManifest(
     builtPages: emittedSlugs,
     availablePages: options.availablePageSlugs,
     catalogAdapter,
+    ...(template.id === "store" ? { catalogPageSlug: "shop", catalogActionLabelKey: "shopNow" } : {}),
   });
   const actionLabel = primaryAction.primary
     ? options.primaryActionLabels?.[primaryAction.primary.labelKey] ??
+      (template.id === "store" && primaryAction.primary.labelKey === "shopNow" ? options.storeCopy?.navigationLabels?.shop : undefined) ??
       (primaryAction.primary.labelKey === "viewMenu" ? options.viewMenuLabel : undefined) ??
       (primaryAction.primary.labelKey === "rentalContactCta" ? options.rentalContactCta : undefined) ??
       DEFAULT_PRIMARY_ACTION_LABELS[primaryAction.primary.labelKey]
@@ -1122,7 +1176,7 @@ export function resolveTemplateManifest(
     if (!page.isHome) continue;
     const hero = page.blocks.find((block) => block.type === "hero");
     if (!hero || hero.type !== "hero" || !primaryAction.primary) continue;
-    const actionIsFixedFallback = ["viewMenu", "contact", "rentalContactCta"].includes(primaryAction.primary.labelKey);
+    const actionIsFixedFallback = ["viewMenu", "viewProducts", "shopNow", "contact", "rentalContactCta"].includes(primaryAction.primary.labelKey);
     if (actionLabel && (actionIsFixedFallback || !hero.ctaLabel || sampleFields.includes("hero.cta_primary"))) {
       hero.ctaLabel = actionLabel;
     }
@@ -1157,6 +1211,7 @@ export function resolveTemplateManifest(
       id: `${template.id}-nav-${index}`,
       label: asString(navLabels?.[labelKeyFor(entry)]) ??
         (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+        (template.id === "store" ? options.storeCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
         entry.label,
       href: entry.pageSlug
         ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)

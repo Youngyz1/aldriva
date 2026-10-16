@@ -11,6 +11,7 @@ export type PrimaryActionLabelKey =
   | "bookNow"
   | "viewMenu"
   | "viewProducts"
+  | "shopNow"
   | "contact"
   | "rentalContactCta";
 
@@ -36,6 +37,9 @@ export interface ResolvePrimaryActionInput {
   /** Restrict links to materialized rows on public routes and previews. */
   availablePages?: readonly string[] | ReadonlySet<string>;
   catalogAdapter?: "menu" | "products";
+  /** Store templates use a separate Shop page and CTA label. */
+  catalogPageSlug?: string;
+  catalogActionLabelKey?: "viewMenu" | "viewProducts" | "shopNow";
 }
 
 export interface ResolvedPrimaryActions {
@@ -89,6 +93,8 @@ export function resolvePrimaryAction({
   builtPages,
   availablePages,
   catalogAdapter,
+  catalogPageSlug = "menu",
+  catalogActionLabelKey,
 }: ResolvePrimaryActionInput): ResolvedPrimaryActions {
   const capabilities = getCapabilitiesForBusiness(industry ?? "", category ?? "", businessType ?? "");
   const storefront = resolveStorefrontFeatures({
@@ -110,9 +116,9 @@ export function resolvePrimaryAction({
     (capabilities.includes("BOOKINGS") || capabilities.includes("RESERVATIONS"))
   );
   const candidates: Array<{ live: boolean; page: string; action: PrimaryActionLabelKey }> = [
-    { live: storefront.ordering, page: pages.has("order") ? "order" : "menu", action: "orderNow" },
-    { live: storefront.reservations, page: "reservations", action: "reserveTable" },
-    { live: bookingsLive, page: "booking", action: "bookNow" },
+    { live: catalogPageSlug === "menu" && storefront.ordering, page: pages.has("order") ? "order" : "menu", action: "orderNow" },
+    { live: catalogPageSlug === "menu" && storefront.reservations, page: "reservations", action: "reserveTable" },
+    { live: catalogPageSlug === "menu" && bookingsLive, page: "booking", action: "bookNow" },
   ];
   const liveCandidates = candidates.filter((candidate) => candidate.live);
 
@@ -136,12 +142,12 @@ export function resolvePrimaryAction({
     };
   }
 
-  const catalog = getPageHref(pages, siteSlug, "menu");
+  const catalog = getPageHref(pages, siteSlug, catalogPageSlug);
   if (catalog && catalogAdapter === "menu") {
     return { primary: { labelKey: "viewMenu", href: catalog } };
   }
   if (catalog && catalogAdapter === "products") {
-    return { primary: { labelKey: "viewProducts", href: catalog } };
+    return { primary: { labelKey: catalogActionLabelKey ?? "viewProducts", href: catalog } };
   }
   return contactAction ? { primary: contactAction } : {};
 }

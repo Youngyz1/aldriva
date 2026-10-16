@@ -1,5 +1,14 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — PSD Stage 3: Store template (2026-10-16; working tree)
+
+- **Status: IMPLEMENTED IN WORKING TREE.** Added the Store v1.0 template after Food Order in the V2 gallery. Legacy templates remain in the resolver registry. The Store default is warm gold and continues to honor a saved public accent override.
+- **Public experience:** Home, Shop, Contact, and tenant-local `/site/{slug}/products/{productSlug}` detail pages. Active products are resolved through businesses linked to the website tenant; inactive/deleted/foreign-tenant product slugs return 404. Shop navigation and product blocks are omitted when the active product catalog is empty. Category controls appear only when at least two real product categories are present. Store browse uses the existing search/filter UI and bounded load-more behavior.
+- **Product and checkout:** Details show available product copy, a safe optional image, formatted Stripe price when available, and in-stock/low-stock/sold-out status. Buy now requires the existing online-payment feature gate, an active in-stock product, a retrievable Stripe price, and a price currency equal to the site's supported currency. Otherwise the page links to Contact. The existing product checkout endpoint receives only product id, quantity, buyer name, and buyer email; it remains responsible for its existing checkout redirects.
+- **Owner content and samples:** Trust copy and an optional fulfilment note use existing bounded `template_extras`; both stay hidden when empty. Testimonials remain owner-supplied and are omitted when empty. Gallery/editor examples contain no fabricated images, categories, or prices. New Store UI and sample copy have EN/FR parity.
+- **Verification:** focused Store/public-site batch passed **95/95**; full registered list passed **2,293/2,293** across 184 existing paths, in 10 batches. Exactly five missing seating/venue registrations were excluded. `npx tsc --noEmit` and ESLint on changed TS/TSX files exited 0. `git diff --check` exited 0 with the existing CRLF warning for `lib/website-template-samples.ts`.
+- No migration or database write was performed. Owner desktop/mobile browser QA and live test-mode Stripe checkout were not performed. The existing checkout endpoint currently sends success/cancel redirects to platform `/products` routes rather than back into this site; site-local browse and detail pages are verified in code/tests, while the return experience remains an integration limitation.
+
 ## Active Worktree Update — Public Site Design System (PSD), Stage 1 Foundation (2026-10-15; working tree)
 
 - **Status: PARTIALLY COMPLETE.** Shared public styling, category-neutral V2 creation, the live catalog adapter, gallery sample isolation, and automated verification are implemented in the working tree. Authenticated browser review and live tenant/database checks remain open.

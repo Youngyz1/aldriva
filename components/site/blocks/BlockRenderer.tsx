@@ -40,6 +40,7 @@ import {
   FaqBlock,
   EventsEmbedBlock,
   ProductsEmbedBlock,
+  StorefrontProductPreviewItem,
   FundraiserEmbedBlock,
   ServicesEmbedBlock,
   MenuEmbedBlock,
@@ -58,6 +59,7 @@ import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
+import { getStoreProductStockState } from "@/lib/store-product-detail";
 import {
   resolveEventsEmbed,
   resolveProductsEmbed,
@@ -1109,23 +1111,26 @@ async function ProductsEmbedBlockRenderer({
   isTeamMember,
   currencyLocale,
   accentColor,
+  siteSlug,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
   currencyLocale?: Locale;
   accentColor?: string;
+  siteSlug?: string;
 }) {
-  const products = tenantId
-    ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember))
-    : [];
+  const isStore = block.siteLocalProductDetails === true;
+  const products: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
+    ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember) && !isStore)
+    : block.previewProducts ?? [];
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
   // Shop prices live in Stripe (products store no local price): resolve once
   // per render, per-item failures omit the price but keep the card + link.
-  const priceMap = await resolveShopPrices(
+  const priceMap = tenantId ? await resolveShopPrices(
     products.map((product) => ({ id: product.id, stripe_price_id: product.stripe_price_id }))
-  );
+  ) : new Map<string, { amount: number; currency: string }>();
   const browseLabels = {
     categories: t("categories"),
     all: t("all"),
@@ -1153,6 +1158,19 @@ async function ProductsEmbedBlockRenderer({
     items: (productsByCategory.get(key) ?? []).map((product) => {
       const firstImg = product.images?.[0] ? safeImageSrc(product.images[0]) : "";
       const price = priceMap.get(product.id);
+      const stockState = getStoreProductStockState(product.status, product.stock_quantity);
+      const storeStockLabel = stockState === "sold_out"
+        ? t("storeSoldOut")
+        : stockState === "low_stock"
+          ? t("storeLowStock")
+          : t("storeInStock");
+      const stockLabel = isStore
+        ? storeStockLabel
+        : product.stock_quantity === null
+          ? t("unlimited")
+          : product.stock_quantity === 0
+            ? t("outOfStock")
+            : String(product.stock_quantity);
       return {
         id: product.id,
         name: product.name,
@@ -1164,17 +1182,56 @@ async function ProductsEmbedBlockRenderer({
           {
             label: t("stock"),
             value:
-              product.stock_quantity === null
-                ? t("unlimited")
-                : product.stock_quantity === 0
-                  ? t("outOfStock")
-                  : String(product.stock_quantity),
+            stockLabel,
           },
         ],
-        action: { label: t("viewProduct"), href: `/products/${product.slug}` },
+        ...(product.slug
+          ? {
+              action: {
+                label: t("viewProduct"),
+                href: block.siteLocalProductDetails && siteSlug
+                  ? `/site/${encodeURIComponent(siteSlug)}/products/${encodeURIComponent(product.slug)}`
+                  : `/products/${product.slug}`,
+              },
+            }
+          : {}),
       };
     }),
   }));
+
+  if (isStore) {
+    if (products.length === 0) return null;
+    const realCategoryCount = productGroups.filter((group) => group.id !== "uncategorized").length;
+    const staticItems = productGroups.flatMap((group) => group.items.map((item) => ({ group, item }))).slice(0, block.browsePageSize ?? 12);
+    return (
+      <section className="w-full py-[var(--ps-space-16)]">
+        <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
+        <StorefrontBrowse
+          groups={productGroups}
+          labels={{ ...browseLabels, loadMore: t("storeLoadMore") }}
+          showGroups={Boolean(block.categoryTiles && realCategoryCount >= 2)}
+          categoryTiles={Boolean(block.categoryTiles)}
+          itemMode="links"
+          pageSize={block.browsePageSize ?? 12}
+          accentColor={accentColor}
+        >
+          <div className="grid grid-cols-1 gap-[var(--ps-space-4)] sm:grid-cols-2 lg:grid-cols-3">
+            {staticItems.map(({ group, item }) => (
+              <div key={`${group.id}-${item.id}`} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-4)]">
+                {item.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image} alt="" className="mb-[var(--ps-space-3)] aspect-4/3 w-full rounded-lg object-cover" />
+                ) : null}
+                {item.action ? <Link href={item.action.href} className="font-semibold text-[var(--ps-text)] hover:underline">{item.name}</Link> : <h3 className="font-semibold text-[var(--ps-text)]">{item.name}</h3>}
+                {item.description ? <p className="mt-1 line-clamp-2 text-sm text-[var(--ps-muted)]">{item.description}</p> : null}
+                {item.priceLabel ? <p className="mt-2 text-sm font-semibold text-[var(--ps-text)]">{item.priceLabel}</p> : null}
+              </div>
+            ))}
+          </div>
+        </StorefrontBrowse>
+      </section>
+    );
+  }
 
   const layout = block.layout ?? "grid";
 
@@ -2037,6 +2094,7 @@ export async function BlockRenderer({
           isTeamMember={isTeamMember}
           currencyLocale={currencyLocale}
           accentColor={accentColor}
+          siteSlug={siteSlug}
         />
       );
       break;

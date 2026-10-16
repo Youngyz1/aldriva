@@ -274,7 +274,7 @@ export function computeFeatureStatus(
           statusLine: `Needs setup — ${STOREFRONT_STATUS_REASONS.currency_not_supported}`,
         };
       }
-      if (selected.has("online_ordering")) {
+      if (selected.has("online_ordering") && built.ordering) {
         const orderingStatus = computeFeatureStatus("ordering", input);
         if (!orderingStatus.live) {
           return {
@@ -393,9 +393,12 @@ export function resolveStorefrontFeatures(
 }
 
 /** Read readiness from actual emitted manifest block types; pendingBlock does not count. */
-export function getBuiltStorefrontFeatures(template: Pick<WebsiteTemplateV2, "sections">): StorefrontFeatureState {
+export function getBuiltStorefrontFeatures(
+  template: Pick<WebsiteTemplateV2, "sections"> & Partial<Pick<WebsiteTemplateV2, "id">>
+): StorefrontFeatureState {
   const blocks = new Set<string>(template.sections.flatMap((section) => section.block ? [section.block] : []));
   const ordering = ["menu_order", "order_summary", "order_checkout"].some((block) => blocks.has(block));
+  const storeProductCheckout = template.id === "store" && blocks.has("products_embed");
   return {
     ordering,
     pickup: ordering,
@@ -404,12 +407,12 @@ export function getBuiltStorefrontFeatures(template: Pick<WebsiteTemplateV2, "se
     // Online payment renders inside the ordering checkout surface, so it is
     // built wherever ordering is built. Currency support is resolved per
     // site at call time, not from the manifest.
-    onlinePayment: ordering,
+    onlinePayment: ordering || storeProductCheckout,
   };
 }
 
 export function getBuiltStorefrontFeaturesFromTemplates(
-  templates: readonly Pick<WebsiteTemplateV2, "sections">[]
+  templates: readonly (Pick<WebsiteTemplateV2, "sections"> & Partial<Pick<WebsiteTemplateV2, "id">>)[]
 ): StorefrontFeatureState {
   const states = templates.map(getBuiltStorefrontFeatures);
   return Object.fromEntries(STOREFRONT_FEATURES.map((feature) => [

@@ -11,6 +11,7 @@
  */
 
 import type { ContentDoc } from "./website-content";
+import type { StorefrontProductPreviewItem } from "./website-blocks";
 
 export const PLACEHOLDER_BASE = "/placeholders";
 
@@ -161,8 +162,68 @@ export const FOOD_ORDER_SAMPLES: ContentDoc = {
   },
 };
 
+// Render-only sample cards for Store previews. No reference photos, category,
+// price, or claim is invented; published product cards always come from the
+// tenant-scoped products resolver.
+export const STORE_PREVIEW_PRODUCTS: StorefrontProductPreviewItem[] = [
+  {
+    id: "store-preview-example-item",
+    name: "Example item",
+    slug: "",
+    description: "Product details will appear here.",
+    images: [],
+    price_type: "one_time",
+    stock_quantity: null,
+    status: "active",
+    isDraft: false,
+    category: null,
+    tags: [],
+    stripe_price_id: null,
+  },
+  {
+    id: "store-preview-everyday-find",
+    name: "Everyday find",
+    slug: "",
+    description: "Explore the details shared by this business.",
+    images: [],
+    price_type: "one_time",
+    stock_quantity: null,
+    status: "active",
+    isDraft: false,
+    category: null,
+    tags: [],
+    stripe_price_id: null,
+  },
+  {
+    id: "store-preview-new-favorite",
+    name: "A new favorite",
+    slug: "",
+    description: "Choose an item that fits your needs.",
+    images: [],
+    price_type: "one_time",
+    stock_quantity: null,
+    status: "active",
+    isDraft: false,
+    category: null,
+    tags: [],
+    stripe_price_id: null,
+  },
+];
+
+export const STORE_SAMPLES: ContentDoc = {
+  business_name: "Your business",
+  tagline: "A thoughtful place to begin",
+  hero_headline: "Find something that fits your day",
+  hero_subtext: "Explore the collection, read the details, and choose what feels right for you.",
+  primary_cta_label: "Shop now",
+  template_extras: { storeTrustText: "Explore at your pace. Product details are shared by this business." },
+  testimonials: [],
+  nav_labels: { home: "Home", shop: "Shop", contact: "Contact" },
+};
+
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {
   "restaurant-table-flame": RESTAURANT_SAMPLES,
   "rental-driveline": RENTAL_SAMPLES,
   "food-order": FOOD_ORDER_SAMPLES,
+  store: STORE_SAMPLES,
 };

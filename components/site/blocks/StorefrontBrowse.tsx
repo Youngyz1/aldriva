@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import {
   BROWSE_ALL_GROUP,
   filterBrowseGroups,
@@ -99,6 +100,7 @@ export interface StorefrontBrowseLabels {
   trackOrder?: string;
   copyTrackingLink?: string;
   trackingLinkCopied?: string;
+  loadMore?: string;
 }
 
 export interface CartItem {
@@ -113,6 +115,9 @@ interface StorefrontBrowseProps {
   /** No chips row when there is a single category (search still shows). */
   showGroups: boolean;
   emptyHint?: string;
+  itemMode?: "details" | "links";
+  categoryTiles?: boolean;
+  pageSize?: number;
   orderConfig?: StorefrontOrderConfig;
   accentColor?: string;
   children: React.ReactNode;
@@ -161,10 +166,14 @@ export function StorefrontBrowse({
   orderConfig,
   accentColor,
   children,
+  itemMode = "details",
+  categoryTiles = false,
+  pageSize,
 }: StorefrontBrowseProps) {
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
+  const [visibleItemCount, setVisibleItemCount] = useState(Math.max(1, pageSize ?? 12));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -214,6 +223,15 @@ export function StorefrontBrowse({
 
   const visible = filterBrowseGroups(groups, query, activeGroup);
   const engaged = query.trim() !== "" || activeGroup !== BROWSE_ALL_GROUP;
+  const categoryGroups = categoryTiles ? groups.filter((group) => group.id !== "uncategorized") : groups;
+  const visibleCount = itemMode === "links" ? visibleItemCount : Number.POSITIVE_INFINITY;
+  let remaining = visibleCount;
+  const pagedVisible = visible.flatMap((group) => {
+    const items = group.items.slice(0, remaining);
+    remaining -= items.length;
+    return items.length ? [{ ...group, items }] : [];
+  });
+  const totalVisibleItems = visible.reduce((count, group) => count + group.items.length, 0);
   const allItems = groups.flatMap((group) => group.items);
   const selected = selectedId
     ? allItems.find((item) => item.id === selectedId) ?? null
@@ -222,6 +240,7 @@ export function StorefrontBrowse({
   const reset = () => {
     setQuery("");
     setActiveGroup(BROWSE_ALL_GROUP);
+    setVisibleItemCount(Math.max(1, pageSize ?? 12));
   };
 
   const openSheet = (id: string, trigger: HTMLElement | null) => {
@@ -321,7 +340,7 @@ export function StorefrontBrowse({
         </div>
       ) : null}
 
-      {showGroups && groups.length > 1 ? (
+      {showGroups && categoryGroups.length > 1 ? (
         <div
           className="sticky top-16 z-30 -mx-[var(--ps-space-1)] bg-[var(--ps-surface)]/95 py-[var(--ps-space-2)] backdrop-blur md:top-20"
           role="group"
@@ -329,7 +348,7 @@ export function StorefrontBrowse({
           id={chipsId}
         >
           <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
-            {[BROWSE_ALL_GROUP, ...groups.map((group) => group.id)].map((groupId) => {
+            {[BROWSE_ALL_GROUP, ...categoryGroups.map((group) => group.id)].map((groupId) => {
               const active = activeGroup === groupId;
               const title =
                 groupId === BROWSE_ALL_GROUP
@@ -398,13 +417,43 @@ export function StorefrontBrowse({
         </div>
       ) : (
         <div className="space-y-[var(--ps-space-8)]">
-          {visible.map((group) => (
-            <section key={group.id} aria-labelledby={`group-title-${group.id}`} className="space-y-[var(--ps-space-3)]">
-              <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
-                {group.title}
-              </h3>
+          {pagedVisible.map((group) => (
+            <section
+              key={group.id}
+              {...(categoryTiles && group.id === "uncategorized" ? {} : { "aria-labelledby": `group-title-${group.id}` })}
+              className="space-y-[var(--ps-space-3)]"
+            >
+              {categoryTiles && group.id === "uncategorized" ? null : (
+                <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
+                  {group.title}
+                </h3>
+              )}
               <div className="grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3">
-                {group.items.map((item) => (
+                {group.items.map((item) => itemMode === "links" ? (
+                  item.action ? (
+                    <Link
+                      key={item.id}
+                      href={item.action.href}
+                      aria-label={`${item.name} — ${item.action.label}`}
+                      className="group flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+                    >
+                      {item.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                      ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+                        {item.description ? <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">{item.description}</span> : null}
+                        {item.priceLabel ? <span className="mt-[var(--ps-space-1)] block text-xs font-bold text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                        {item.detailRows[0] ? <span className="mt-[var(--ps-space-1)] block text-xs text-[var(--ps-muted)]">{item.detailRows[0].value}</span> : null}
+                      </span>
+                    </Link>
+                  ) : (
+                    <article key={item.id} className="flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)]">
+                      <span className="text-sm font-semibold text-[var(--ps-text)]">{item.name}</span>
+                    </article>
+                  )
+                ) : (
                   <button
                     key={item.id}
                     type="button"
@@ -460,6 +509,18 @@ export function StorefrontBrowse({
           ))}
         </div>
       )}
+
+      {itemMode === "links" && totalVisibleItems > visibleCount ? (
+        <div className="mt-[var(--ps-space-6)] text-center">
+          <button
+            type="button"
+            onClick={() => setVisibleItemCount((count) => count + Math.max(1, pageSize ?? 12))}
+            className="ps-button ps-button-secondary min-h-11"
+          >
+            {labels.loadMore || "Load more"}
+          </button>
+        </div>
+      ) : null}
 
       {selected ? (
         <ItemDetailSheet

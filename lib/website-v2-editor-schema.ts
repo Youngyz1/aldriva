@@ -16,6 +16,7 @@ export interface WebsiteEditorControl {
   id: string;
   slotIds: string[];
   field: ContentKey;
+  extraKey?: string;
   label: string;
   labelKey?: string;
   kind: WebsiteEditorFieldKind;
@@ -111,11 +112,42 @@ const FOOD_ORDER_ITEM_FIELD_LABEL_KEYS: Record<string, Record<string, string>> =
   },
 };
 
+const STORE_SECTION_TITLE_KEYS: Record<string, string> = {
+  business: "storeEditorBusiness",
+  hero: "storeEditorHero",
+  "store-trust": "storeEditorTrust",
+  testimonials: "storeEditorTestimonials",
+  "store-fulfilment": "storeEditorFulfilment",
+  contact: "storeEditorContact",
+  footer: "storeEditorFooter",
+};
+
+const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
+  "nav.logo": "storeSlotLogo",
+  "nav.labels": "storeSlotNavigation",
+  "hero.image": "storeSlotHeroImage",
+  "hero.headline": "storeSlotHeadline",
+  "hero.subtext": "storeSlotIntroduction",
+  "hero.tagline": "storeSlotTagline",
+  "trust.copy": "storeSlotTrustText",
+  "product.fulfilment-note": "storeSlotFulfilmentNote",
+  "testimonials.items": "storeSlotTestimonials",
+  "contact.address": "storeSlotAddress",
+  "contact.phone": "storeSlotPhone",
+  "contact.email": "storeSlotEmail",
+  "contact.directions": "storeSlotDirections",
+  "footer.business": "storeSlotBusinessName",
+  "footer.socials": "storeSlotSocialLinks",
+  "footer.note": "storeSlotFooterNote",
+};
+
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
   { id: "business", title: "Business basics", slotIds: ["nav.logo", "footer.business", "nav.labels", "nav.cta"] },
   { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary"] },
   { id: "highlights", title: "Highlights", slotIds: ["highlights.items"] },
   { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items"] },
+  { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },
+  { id: "store-fulfilment", title: "Order fulfilment note", slotIds: ["product.fulfilment-note"] },
   { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured"] },
   { id: "about", title: "About", slotIds: ["about.photo", "about.text", "about.stats"] },
   { id: "gallery", title: "Gallery", slotIds: ["gallery.photos"] },
@@ -126,7 +158,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
     title: "Hours and location",
     slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list"],
   },
-  { id: "contact", title: "Contact", slotIds: ["contact.email"] },
+  { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
   { id: "footer", title: "Social and footer", slotIds: ["footer.socials", "footer.note"] },
 ];
 
@@ -143,7 +175,10 @@ function isFilled(value: unknown): boolean {
 }
 
 function describeControl(control: WebsiteEditorControl, content: ContentDoc): string[] {
-  const value = content[control.field];
+  const extras = content.template_extras && typeof content.template_extras === "object"
+    ? content.template_extras as Record<string, unknown>
+    : undefined;
+  const value = control.extraKey ? extras?.[control.extraKey] : content[control.field];
   if (control.field === "hero_image") return [isFilled(value) ? "Hero image added" : "No hero image"];
   if (control.field === "hero_headline") return [isFilled(value) ? "Headline added" : "No headline"];
   if (control.field === "business_name") return [isFilled(value) ? "Business name added" : "No business name"];
@@ -224,15 +259,20 @@ export function buildWebsiteEditorSections(
       const availableIds = aliases.filter((slotId) => active.has(slotId));
       if (availableIds.length === 0) continue;
       const slot = availableIds.map((id) => byId.get(id)).find((entry): entry is TemplateSlot => Boolean(entry));
-      if (!slot || seenFields.has(slot.field)) continue;
-      seenFields.add(slot.field);
+      const valueKey = slot?.extraKey ? `${slot.field}.${slot.extraKey}` : slot?.field;
+      if (!slot || !valueKey || seenFields.has(valueKey)) continue;
+      seenFields.add(valueKey);
       controls.push({
         id: requestedId,
         slotIds: availableIds,
         field: slot.field,
+        ...(slot.extraKey ? { extraKey: slot.extraKey } : {}),
         label: slot.field === "hours" ? "Opening hours" : slot.label,
         ...(template.id === "food-order" && FOOD_ORDER_CONTROL_LABEL_KEYS[requestedId]
           ? { labelKey: FOOD_ORDER_CONTROL_LABEL_KEYS[requestedId] }
+          : {}),
+        ...(template.id === "store" && STORE_CONTROL_LABEL_KEYS[requestedId]
+          ? { labelKey: STORE_CONTROL_LABEL_KEYS[requestedId] }
           : {}),
         kind: slot.field === "nav_labels" ? "nav-labels" : slot.kind,
         max: slot.max,
@@ -260,6 +300,9 @@ export function buildWebsiteEditorSections(
       title: group.title,
       ...(template.id === "food-order" && FOOD_ORDER_SECTION_TITLE_KEYS[group.id]
         ? { titleKey: FOOD_ORDER_SECTION_TITLE_KEYS[group.id] }
+        : {}),
+      ...(template.id === "store" && STORE_SECTION_TITLE_KEYS[group.id]
+        ? { titleKey: STORE_SECTION_TITLE_KEYS[group.id] }
         : {}),
       summary: summarize(group.title, controls, content),
       controls,
