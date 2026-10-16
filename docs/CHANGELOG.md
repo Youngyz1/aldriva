@@ -3,6 +3,26 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Public Site Design System (PSD), Stage 1 Foundation (2026-10-15; working tree)
+
+- Added a `.public-site` scoped token layer for typography, spacing, radii, colors, cards, buttons, and focus states without changing `:root`, global body typography, or Tailwind base. Migrated shared public blocks, storefront/order/reservation views, and site headers/footers to the shared roles and Plus Jakarta Sans. Template heading fonts now flow into block headings.
+- Made hero imagery and logos optional for publishing. Missing hero media produces text-only content; business name remains the logo fallback. Added six readable accent palettes with metadata override and manifest fallback; existing Table & Flame and DriveLine keep their current accents.
+- Removed category compatibility as a V2 gallery/server creation gate. Added a read-only live menu/products catalog adapter that hides unsupported or empty catalog slots/pages/nav/actions. Services and fleet adapters remain unsupported. V1 category filtering is unchanged.
+- Updated gallery previews to use the linked owner's identity and neutral bilingual sample copy. Samples remain preview-only and do not enter published output or saved owner content. No new food/store template was started.
+- **Verification:** affected website/public-render suites passed 266/266; full registered `npm test --script-shell=pwsh` passed 2,286/2,286 across 204 suites; ESLint on touched files and `npx tsc --noEmit` exited 0; `git diff --check` clean. Authenticated browser and live database verification remain outstanding. No migration or database write was performed.
+
+## [2026-10] — Phase 4 addendum: "Ordering & payments" panel in website builder (2026-10-13; working tree)
+
+- Added `OrderingPaymentsPanel` accordion panel to the v2 website editor. Category-agnostic: shows the feature-kind offerings the linked business's catalog allows. Toggles: online_ordering, pickup, delivery, online_payment. Reads/writes via the existing validated `updateBusiness` path in `lib/actions/businesses.ts` — no new column or table.
+- **Fulfilment rule added to `resolveStorefrontFeatures`:** ordering resolves to `false` when online_ordering is ticked but neither pickup nor delivery nor delivery_to_customer is ticked. Panel and Edit-business form both show a `FulfilmentWarning`. Existing sites with offerings unset → result unchanged.
+- **Live status lines:** each toggle shows "Live" or "Needs setup — <reason>" via `computeFeatureStatus`. Features not built in the active template are suppressed from the panel. `resolveStorefrontFeatures` extended with `status` and `reasons` fields.
+- **Live updates + preview channel:** changes write immediately (no draft/publish); preview receives `"update_offerings"` postMessage and re-resolves features live. Amber ordering notice banner added to preview when ordering is live (EN/FR).
+- **Role gating:** owner/admin/manager toggle; editor/viewer read-only. Multiple linked businesses: earliest-by-created_at (same rule as website category derivation); panel names the business.
+- **EN/FR i18n:** all new strings in `messages/en.json` and `messages/fr.json` under `BusinessOfferings` and `Storefront` namespaces.
+- **New test file:** `lib/__tests__/phase4-ordering-payments-panel.test.cjs` (8 tests). Registered in `package.json`.
+- **Pre-existing bug fixes:** `event-import-removal.test.cjs` — `/import/i` was too broad, catching French "Importez" in music link translations; narrowed to event-import-specific patterns. `org-dashboard-modules.ts` Orders nav check — was using `resolveStorefrontFeatures` (causing nav to hide with no fulfilment method); now uses direct `offerings.includes("online_ordering")` (nav access ≠ storefront live state).
+- **Verification:** ESLint clean, `tsc --noEmit` clean, `npm test --script-shell=pwsh` 2069/2069 (full suite, pending confirmation). Build and browser review not run.
+
 ## [2026-10] — Phase 3.1 menu interaction fix (2026-10-13; working tree)
 - Root cause: the client menu grid rendered only after a search/chip tap, so default-view dish cards were dead static markup and clicks did nothing on every site. The grid is now interactive right after mount (static markup remains the pre-mount/no-JS output). Gating unchanged: unticked sites browse and open dishes with no ordering UI.
 - Added real render coverage (react-dom/server for legacy/full/undefined-config shapes; jsdom client render proving buttons exist pre-engagement, a click opens the sheet, and throwing localStorage never breaks the menu).

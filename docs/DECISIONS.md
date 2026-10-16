@@ -325,6 +325,20 @@
   - No new payment_status value: pending+unpaid (+`payment_expires_at`) expresses awaiting payment; expiry is a read-time label, never a cron.
   - Slug generation lowercases before stripping everywhere (JS helper + SQL trigger); existing slugs are immutable without an owner-initiated rename.
 
+### DEC-0037: Public sites share scoped tokens and category-neutral V2 templates
+- **Decision Date**: 2026-10-15
+- **Status**: Implemented in the working tree; automated tests, TypeScript, and touched-file ESLint verified. Authenticated browser and live database verification remain open.
+- **Supersedes**: The V2 gallery and server-side category compatibility checks recorded in DEC-0031. The separate V1 gallery and instantiation gate are not changed by this decision.
+- **Key Tenets**:
+  - All shared public site styling lives under `.public-site`; `:root`, global body typography, and Tailwind base remain unchanged so dashboard/admin styles do not inherit the public tokens. Public body/UI uses Plus Jakarta Sans, and template heading choices flow into block headings.
+  - V2 templates are selectable across categories. Category may inform recommendations, but does not reject creation. V1 category filtering remains for a separate migration decision.
+  - A manifest default accent can be overridden by `metadata.brand.accentId`; unknown IDs fall back safely. Current Table & Flame and DriveLine manifests retain their existing terracotta and blue accents. Food/store template defaults are mustard/warm gold for later stages.
+  - The V2 builder preview uses the stored accent ID. No owner-facing Branding control is included because the existing metadata mutation is timezone-specific; adding an accent setting needs its own safe writer and EN/FR control.
+  - Missing hero images render text-only; missing logos use the business-name fallback. Neither is a publish requirement.
+  - A read-only catalog adapter emits menu or product content only from live active records. Empty or unsupported catalog slots, pages, navigation, and primary actions stay hidden. Services and fleet adapters are not implemented.
+  - Gallery samples use the linked owner's identity and neutral EN/FR wording, and are isolated from saved owner content and published rendering.
+  - This stage does not create the food/store templates. Compare, Blog, wishlist, reviews, account login, and newsletter remain deferred; payment methods must remain live-gated.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |
