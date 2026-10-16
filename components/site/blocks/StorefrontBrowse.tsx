@@ -23,6 +23,10 @@ import {
   type BrowseItem,
   type BrowseOptionGroup,
 } from "@/lib/storefront-browse";
+import {
+  ProductCarousel,
+  type ProductCarouselItem,
+} from "./ProductCarousel";
 import { submitOrderRequest } from "@/lib/actions/orders";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
@@ -120,6 +124,17 @@ interface StorefrontBrowseProps {
   pageSize?: number;
   orderConfig?: StorefrontOrderConfig;
   accentColor?: string;
+  /**
+   * Opt-in home-row mode: render paged items as a snap-scroll carousel
+   * instead of grouped grids. Search, chips, and load-more behavior above
+   * it are unchanged. Absent everywhere else, so existing sites are
+   * untouched.
+   */
+  carousel?: {
+    prevLabel: string;
+    nextLabel: string;
+    regionLabel: string;
+  };
   children: React.ReactNode;
 }
 
@@ -165,6 +180,7 @@ export function StorefrontBrowse({
   showGroups,
   orderConfig,
   accentColor,
+  carousel,
   children,
   itemMode = "details",
   categoryTiles = false,
@@ -232,6 +248,25 @@ export function StorefrontBrowse({
     return items.length ? [{ ...group, items }] : [];
   });
   const totalVisibleItems = visible.reduce((count, group) => count + group.items.length, 0);
+
+  const carouselItems: ProductCarouselItem[] = pagedVisible.flatMap((group) =>
+    group.items.map((item) => {
+      const badge =
+        item.badge ?? (item.isSoldOut && labels.soldOut ? labels.soldOut : null);
+      return {
+        id: `${group.id}-${item.id}`,
+        href: item.action && item.action.href !== "#" ? item.action.href : null,
+        image: item.image ?? null,
+        name: item.name,
+        description: item.description ?? null,
+        priceLabel: item.priceLabel,
+        badge,
+        badgeTone: badge
+          ? (item.badgeTone ?? (item.isSoldOut ? "alert" : "muted"))
+          : undefined,
+      };
+    })
+  );
   const allItems = groups.flatMap((group) => group.items);
   const selected = selectedId
     ? allItems.find((item) => item.id === selectedId) ?? null
@@ -415,6 +450,11 @@ export function StorefrontBrowse({
             </button>
           ) : null}
         </div>
+      ) : carousel ? (
+        <ProductCarousel
+          items={carouselItems}
+          labels={{ prev: carousel.prevLabel, next: carousel.nextLabel, region: carousel.regionLabel }}
+        />
       ) : (
         <div className="space-y-[var(--ps-space-8)]">
           {pagedVisible.map((group) => (

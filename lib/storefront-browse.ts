@@ -47,6 +47,13 @@ export interface BrowseItem {
   originalPriceLabel?: string | null;
   /** Sold-out flag for dishes/items. */
   isSoldOut?: boolean;
+  /**
+   * Pre-computed availability badge text (e.g. low/sold-out), derived
+   * server-side from real stock. Absent hides the badge.
+   */
+  badge?: string | null;
+  /** Visual tone for `badge`. Defaults to muted. */
+  badgeTone?: "muted" | "alert";
   tags: string[];
   detailRows: BrowseDetailRow[];
   optionGroups?: BrowseOptionGroup[];

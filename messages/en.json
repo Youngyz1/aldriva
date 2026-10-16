@@ -655,6 +655,8 @@
     "storeInStock": "In stock",
     "storeLowStock": "Low stock",
     "storeSoldOut": "Sold out",
+    "carouselPrev": "Show previous items",
+    "carouselNext": "Show next items",
     "products": "Products",
     "viewFullMenu": "View full menu",
     "popularDishes": "Popular dishes",
