@@ -72,6 +72,36 @@ export const GENERIC_BUSINESS_OFFERINGS = genericOfferings;
 export const MAX_BUSINESS_OFFERINGS = 20;
 export const BUSINESS_OFFERING_KEY_PATTERN = /^[a-z][a-z0-9_]{1,39}$/;
 
+/**
+ * Builder panel list (owner rule): the same five feature offerings in a
+ * stable order for every business, regardless of type. Capability gates
+ * must not hide an offering from its owner — they only explain "needs
+ * setup" and the public storefront gates stay closed until met.
+ */
+export const BUILDER_FEATURE_OFFERING_KEYS = [
+  "online_ordering",
+  "pickup",
+  "delivery",
+  "online_payment",
+  "table_reservations",
+] as const;
+
+export function getBuilderFeatureOfferings(): readonly BusinessOffering[] {
+  const byKey = new Map(restaurantFeatures.map((offering) => [offering.key, offering]));
+  return BUILDER_FEATURE_OFFERING_KEYS.map((key) => byKey.get(key)).filter(
+    (offering): offering is BusinessOffering => offering !== undefined
+  );
+}
+
+/** Every key any catalog accepts — validation must never reject a known key by business type. */
+const ALL_OFFERING_KEYS = new Set<string>(
+  [
+    ...Object.values(BUSINESS_OFFERINGS_BY_TYPE),
+    ...Object.values(BUSINESS_OFFERINGS_BY_CATEGORY),
+    GENERIC_BUSINESS_OFFERINGS,
+  ].flatMap((catalog) => catalog.map((offering) => offering.key))
+);
+
 export function getBusinessOfferings(
   businessType?: string | null,
   category?: string | null
@@ -107,11 +137,16 @@ export function validateBusinessOfferings(
   businessType?: string | null,
   category?: string | null
 ): BusinessOfferingsValidation {
+  // Owner rule: any known key validates for any business type — a missing
+  // capability only marks "needs setup" publicly, it never blocks saving.
+  // businessType/category stay in the signature for API compatibility.
+  void businessType;
+  void category;
   if (!Array.isArray(value) || value.length > MAX_BUSINESS_OFFERINGS) {
     return { valid: false, offerings: [], error: `Offerings must be an array of at most ${MAX_BUSINESS_OFFERINGS} keys.` };
   }
 
-  const catalogKeys = new Set(getBusinessOfferings(businessType, category).map((offering) => offering.key));
+  const catalogKeys = ALL_OFFERING_KEYS;
   const seen = new Set<string>();
   const offerings: string[] = [];
   for (const entry of value) {

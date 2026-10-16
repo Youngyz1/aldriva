@@ -4,7 +4,6 @@ import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { NEW_SITE_GALLERY_TEMPLATES } from "@/lib/website-template-v2";
-import { getV2GalleryCategories } from "@/lib/website-v2-create-flow";
 import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreLocalizedCopy, resolveV2TemplateGalleryPreview } from "@/lib/website-v2-template-preview";
 import type { WebsiteCategory } from "@/lib/website-category";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
@@ -142,7 +141,6 @@ export async function WebsiteV2TemplateGallery({
     <WebsiteV2TemplateGalleryClient
       organizerId={organizerId}
       initialCategory={initialCategory}
-      categories={getV2GalleryCategories()}
       cards={cards}
       canCreate={canCreate}
     />

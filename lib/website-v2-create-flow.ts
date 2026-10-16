@@ -1,8 +1,8 @@
-import { WEBSITE_CATEGORIES, type WebsiteCategory } from "./website-category";
+import { normalizeWebsiteCategory } from "./website-category";
 import { NEW_SITE_GALLERY_TEMPLATES } from "./website-template-v2";
 
 export interface V2TemplateCreateOptions {
-  websiteCategory: WebsiteCategory;
+  websiteCategory: string;
   creationRequestId: string;
 }
 
@@ -11,31 +11,24 @@ export interface V2CreationAttempt {
   requestId: string;
 }
 
-/** Category selects a recommendation badge; it never filters the gallery. */
-export function getV2GalleryCategories(): readonly WebsiteCategory[] {
-  return WEBSITE_CATEGORIES;
-}
-
-export function getV2GalleryCategoryModel(category: WebsiteCategory) {
+/** Category supplies an optional suggestion badge; every new template is always available. */
+export function getV2GalleryCategoryModel(category: string) {
   const templates = NEW_SITE_GALLERY_TEMPLATES;
+  const suggestionCategory = normalizeWebsiteCategory(category);
   return {
-    categories: WEBSITE_CATEGORIES,
     templates,
     empty: false,
     recommendedTemplateIds: templates
-      .filter((template) => template.supportedCategories.includes(category))
+      .filter((template) => template.supportedCategories.includes(suggestionCategory))
       .map((template) => template.id),
   };
 }
 
-export function getV2CreateAttemptKey(
-  category: WebsiteCategory,
-  templateId: string
-): string {
-  return `${category}:${templateId}`;
+export function getV2CreateAttemptKey(templateId: string): string {
+  return templateId;
 }
 
-/** Reuses the request key for retries of the same template/category attempt. */
+/** Reuses the request key for retries of the same template selection. */
 export function getOrCreateV2CreationAttempt(
   previous: V2CreationAttempt | null,
   key: string,
@@ -50,7 +43,7 @@ export function getOrCreateV2CreationAttempt(
 export function getV2CreateActionArgs(
   organizerId: string,
   templateId: string,
-  websiteCategory: WebsiteCategory,
+  websiteCategory: string,
   creationRequestId: string
 ): [string, string, V2TemplateCreateOptions] {
   return [organizerId, templateId, { websiteCategory, creationRequestId }];

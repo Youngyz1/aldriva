@@ -13,6 +13,9 @@ import { V2SlotField } from "./V2SlotField";
 import { WebsitePreviewPanel } from "./WebsitePreviewPanel";
 import { V2WebsiteLiveLink } from "./V2WebsiteLiveLink";
 import { V2MenuDrawer } from "./V2MenuDrawer";
+import { TemplateSwitchDialog } from "./TemplateSwitchDialog";
+import { canEditWebsiteTemplate, type TemplateSwitchTarget } from "@/lib/website-template-switch";
+import type { ReactNode } from "react";
 import { getBusinessOfferings } from "@/lib/business-offerings";
 import { getBuilderCommerceCapability } from "@/lib/website-commerce-registry";
 import { Switch } from "@/components/ui/switch";
@@ -22,9 +25,11 @@ import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreL
 interface V2WebsiteEditorProps {
   initialState: V2BuilderState;
   menuItems: V2MenuItemChoice[];
+  switchTargets: TemplateSwitchTarget[];
+  switchPreviews: Record<string, ReactNode>;
 }
 
-export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProps) {
+export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switchPreviews }: V2WebsiteEditorProps) {
   const storeT = useTranslations("Storefront");
   const publicT = useTranslations("PublicSite") as unknown as (key: string, values?: Record<string, string>) => string;
   const offeringT = useTranslations("BusinessOfferings");
@@ -409,7 +414,21 @@ export function V2WebsiteEditor({ initialState, menuItems }: V2WebsiteEditorProp
                       />
                     </div>
                   ) : null}
-                  {section.readOnly ? <div className="flex items-center justify-between rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800"><span>{template.id === "food-order" ? publicT("foodOrderTemplateName") : template.name}</span><button type="button" disabled className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-semibold opacity-50 dark:border-zinc-700">Change template</button></div> : section.controls.map(renderControl)}
+                  {section.readOnly ? (
+                    <TemplateSwitchDialog
+                      websiteId={websiteId}
+                      currentTemplateId={template.id}
+                      currentTemplateName={template.id === "food-order" ? publicT("foodOrderTemplateName") : template.name}
+                      canEdit={canEditWebsiteTemplate(initialState.userRole)}
+                      targets={switchTargets}
+                      previews={switchPreviews}
+                      getExpectedVersion={async () => {
+                        await queue.flush();
+                        return queueState.paused ? null : versionState.value;
+                      }}
+                      onSwitched={() => window.location.reload()}
+                    />
+                  ) : section.controls.map(renderControl)}
                 </div> : null}
               </section>;
             })}

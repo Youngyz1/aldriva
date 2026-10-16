@@ -9,7 +9,7 @@ import {
   resolveStorefrontFeatures,
   storefrontFeatureForOffering,
 } from "@/lib/storefront-features";
-import { getBusinessOfferings } from "@/lib/business-offerings";
+import { getBuilderFeatureOfferings } from "@/lib/business-offerings";
 import { getCapabilitiesForBusinessType, type Capability } from "@/lib/business-taxonomy";
 import { OfferingsFulfilmentWarning } from "@/components/dashboard/businesses/OfferingsFulfilmentWarning";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
@@ -54,7 +54,10 @@ export function OrderingPaymentsPanel({
   }
 
   const builtFeatures = getBuiltStorefrontFeatures(template);
-  const catalog = getBusinessOfferings(business.businessType, business.category);
+  // Owner rule: the same five feature offerings for every business, in a
+  // stable order. Missing capabilities only explain "needs setup" below;
+  // the public gates in resolveStorefrontFeatures stay closed until met.
+  const catalog = getBuilderFeatureOfferings();
 
   // Filter catalog to feature offerings built in this template
   const featureOfferings = catalog.filter((offering) => {

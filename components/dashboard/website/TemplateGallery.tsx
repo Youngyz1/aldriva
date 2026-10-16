@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, Check, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TEMPLATE_REGISTRY } from "@/lib/website-template-registry";
-import type { WebsiteCategory } from "@/lib/website-category";
-import { WEBSITE_CATEGORIES, isTemplateCompatibleWithCategory, WEBSITE_CATEGORY_LABELS } from "@/lib/website-category";
+import { WEBSITE_CATEGORY_LABELS } from "@/lib/website-category";
 import { TemplatePreview } from "./TemplatePreview";
 
 type Props = {
@@ -17,47 +16,22 @@ type Props = {
   onSelect: (id: string) => void;
   onUse: (id: string) => void;
   using?: boolean;
-  initialCategory?: WebsiteCategory;
 };
 
-const CATEGORIES: Array<{ id: WebsiteCategory | "all"; label: string }> = [
-  { id: "all", label: "All" },
-  ...(WEBSITE_CATEGORIES.map((c) => ({ id: c as WebsiteCategory | "all", label: WEBSITE_CATEGORY_LABELS[c] })) as Array<{ id: WebsiteCategory | "all"; label: string }>),
-];
-
-export function TemplateGallery({ selectedId, onSelect, onUse, using, initialCategory }: Props) {
-  const [category, setCategory] = useState<string>(initialCategory ?? "all");
+export function TemplateGallery({ selectedId, onSelect, onUse, using }: Props) {
   const [query, setQuery] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
 
-  useEffect(() => {
-    if (initialCategory) setCategory(initialCategory);
-  }, [initialCategory]);
-
   const filtered = TEMPLATE_REGISTRY.filter((t) => {
-    const catOk = category === "all" || isTemplateCompatibleWithCategory(t, category as WebsiteCategory);
     const qOk = !query || t.name.toLowerCase().includes(query.toLowerCase()) || t.description.toLowerCase().includes(query.toLowerCase()) || t.tags?.some((tag) => tag.toLowerCase().includes(query.toLowerCase()));
-    return catOk && qOk;
+    return qOk;
   });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCategory(c.id)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition border",
-                category === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <p className="text-xs text-muted-foreground">Every template is available to every business; category labels are suggestions only.</p>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <Input placeholder="Search templates..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
@@ -99,7 +73,7 @@ export function TemplateGallery({ selectedId, onSelect, onUse, using, initialCat
                 </div>
                 <div className="bg-white/95 backdrop-blur px-3 py-2 flex items-center justify-between">
                   <span className="text-xs font-bold text-zinc-900 truncate">{tpl.name}</span>
-                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tpl.category}</span>
+                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Suggested: {WEBSITE_CATEGORY_LABELS[tpl.category]}</span>
                 </div>
                 {selected && (
                   <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-primary shadow">
@@ -126,7 +100,7 @@ export function TemplateGallery({ selectedId, onSelect, onUse, using, initialCat
                     {tpl.style}
                   </Badge>
                   <Badge variant="outline" size="sm" className="capitalize">
-                    {WEBSITE_CATEGORY_LABELS[tpl.category]}
+                    Suggested for: {WEBSITE_CATEGORY_LABELS[tpl.category]}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {(tpl.pages.find((p) => p.isHome)?.blocks ?? tpl.pages[0]?.blocks ?? []).length} sections
@@ -135,7 +109,7 @@ export function TemplateGallery({ selectedId, onSelect, onUse, using, initialCat
                 </div>
                 {(tpl.supportedCategories?.length ?? 0) > 1 && (
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    Also for: {tpl.supportedCategories.filter((c) => c !== tpl.category).map((c) => WEBSITE_CATEGORY_LABELS[c as WebsiteCategory] ?? c).join(", ")}
+                    Also suggested for: {tpl.supportedCategories.filter((c) => c !== tpl.category).map((c) => WEBSITE_CATEGORY_LABELS[c] ?? c).join(", ")}
                   </p>
                 )}
               </div>
@@ -153,7 +127,7 @@ export function TemplateGallery({ selectedId, onSelect, onUse, using, initialCat
       )}
 
       {filtered.length === 0 && (
-        <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-sm text-muted-foreground">No templates match your filters.</div>
+        <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-sm text-muted-foreground">No templates match your search.</div>
       )}
 
       {previewId && (

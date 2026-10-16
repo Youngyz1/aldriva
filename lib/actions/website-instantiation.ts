@@ -6,7 +6,6 @@ import { requireTenantContext } from "@/lib/tenant-context";
 import { createSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
 import { getTemplateById, getTemplateByIdVersion } from "@/lib/website-template-registry";
-import { isTemplateCompatibleWithCategory } from "@/lib/website-category";
 import { normalizeWebsiteCategory, type WebsiteCategory } from "@/lib/website-category";
 import { validateBlocks, normalizeBlocks, cloneBlockWithNewIds, generateStableId } from "@/lib/website-blocks";
 import { buildHydrationContext, hydrateBlocks } from "@/lib/website-hydration";
@@ -75,10 +74,6 @@ export async function instantiateWebsiteFromTemplate(
     input.websiteCategory ?? template.category,
     template.category as WebsiteCategory
   );
-
-  if (!isTemplateCompatibleWithCategory(template, requestedCategory as WebsiteCategory)) {
-    return { success: false, error: `Incompatible category: template ${template.id} is not compatible with ${requestedCategory}` };
-  }
 
   const supabaseAdmin = createSupabaseAdmin();
 

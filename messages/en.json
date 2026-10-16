@@ -497,6 +497,21 @@
   },
   "PublicSite": {
     "chooseCategory": "Choose your business category",
+    "chooseWebsiteTemplate": "Choose a website template",
+    "changeTemplate": "Change template",
+    "templateSwitchTitle": "Switch template",
+    "templateSwitchCurrent": "Current",
+    "templateSwitchCarries": "Carries over",
+    "templateSwitchHidden": "Hidden until you switch back",
+    "templateSwitchNeedsContent": "Needs content",
+    "templateSwitchLiveNote": "Your live site stays unchanged until you publish.",
+    "templateSwitchConfirm": "Switch template",
+    "templateSwitchCancel": "Cancel",
+    "templateSwitching": "Switching…",
+    "templateSwitchLoading": "Loading…",
+    "templateSwitchStale": "This site changed in another tab. Reload, then switch again.",
+    "templateSwitchFailed": "Could not switch template. Please try again.",
+    "templateSwitchNoEdit": "Only editors can change the template.",
     "categoryRecommendationOnly": "This highlights a recommendation. Every template works for any business.",
     "recommendedFor": "Recommended for {category}",
     "anyCategory": "For any business",
@@ -969,7 +984,10 @@
       "no_fulfilment": "no pickup/delivery ticked",
       "no_active_dish": "no active dish",
       "currency_not_supported": "currency not supported for online payment",
-      "feature_not_built": "feature not built in this template"
+      "feature_not_built": "feature not built in this template",
+      "not_ticked": "not enabled",
+      "missing_capability": "not supported by this business type — saved, not live",
+      "approval_required": "business approval required"
     },
     "labels": {
       "dine_in": "Dine in",

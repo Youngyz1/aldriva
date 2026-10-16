@@ -10,6 +10,8 @@ import WebsiteBuilderClient from "@/components/dashboard/website/builder/Website
 import { getBuilderState, getV2MenuItemChoices } from "@/lib/actions/website-v2";
 import { getV2TemplateForWebsite } from "@/lib/website-v2-theme";
 import { V2WebsiteEditor } from "@/components/dashboard/website/v2/V2WebsiteEditor";
+import { TemplateSwitchPreview } from "@/components/dashboard/website/v2/TemplateSwitchPreview";
+import { getTemplateSwitchTargets } from "@/lib/website-template-switch";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -64,7 +66,31 @@ export default async function WebsiteBuilderPage({
         : Promise.resolve({ success: true as const, data: [] }),
     ]);
     if (!builderState.success || !builderState.data) return notFound();
-    return <V2WebsiteEditor initialState={builderState.data} menuItems={menuChoices.success ? menuChoices.data : []} />;
+    const switchTargets = getTemplateSwitchTargets(builderState.data.template.id);
+    const switchBusinessName =
+      builderState.data.storefront.businessName?.trim() || builderState.data.siteTitle;
+    const switchBusinessLogo =
+      typeof builderState.data.contentDraftOrLive.logo_url === "string"
+        ? builderState.data.contentDraftOrLive.logo_url
+        : null;
+    return (
+      <V2WebsiteEditor
+        initialState={builderState.data}
+        menuItems={menuChoices.success ? menuChoices.data : []}
+        switchTargets={switchTargets}
+        switchPreviews={Object.fromEntries(
+          switchTargets.map((target) => [
+            target.id,
+            <TemplateSwitchPreview
+              key={target.id}
+              templateId={target.id}
+              businessName={switchBusinessName}
+              businessLogo={switchBusinessLogo}
+            />,
+          ])
+        )}
+      />
+    );
   }
 
   if (pages.length === 0) {

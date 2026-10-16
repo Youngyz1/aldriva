@@ -497,6 +497,21 @@
   },
   "PublicSite": {
     "chooseCategory": "Choisissez la catégorie de votre activité",
+    "chooseWebsiteTemplate": "Choisissez un modèle de site web",
+    "changeTemplate": "Changer de modèle",
+    "templateSwitchTitle": "Changer de modèle",
+    "templateSwitchCurrent": "Actuel",
+    "templateSwitchCarries": "Conservé",
+    "templateSwitchHidden": "Masqué jusqu'au retour",
+    "templateSwitchNeedsContent": "Contenu à ajouter",
+    "templateSwitchLiveNote": "Votre site en ligne reste inchangé jusqu'à publication.",
+    "templateSwitchConfirm": "Changer de modèle",
+    "templateSwitchCancel": "Annuler",
+    "templateSwitching": "Changement…",
+    "templateSwitchLoading": "Chargement…",
+    "templateSwitchStale": "Ce site a changé dans un autre onglet. Rechargez, puis réessayez.",
+    "templateSwitchFailed": "Changement impossible. Veuillez réessayer.",
+    "templateSwitchNoEdit": "Seuls les éditeurs peuvent changer de modèle.",
     "categoryRecommendationOnly": "Cette sélection met une recommandation en avant. Tous les modèles conviennent à chaque activité.",
     "recommendedFor": "Recommandé pour {category}",
     "anyCategory": "Pour toute activité",
@@ -969,7 +984,10 @@
       "no_fulfilment": "aucun mode de retrait ou livraison coché",
       "no_active_dish": "aucun plat actif",
       "currency_not_supported": "devise non prise en charge pour le paiement en ligne",
-      "feature_not_built": "fonctionnalité non intégrée dans ce modèle"
+      "feature_not_built": "fonctionnalité non intégrée dans ce modèle",
+      "not_ticked": "non activé",
+      "missing_capability": "type d’établissement non pris en charge — enregistré, non actif",
+      "approval_required": "approbation de l’établissement requise"
     },
     "labels": {
       "dine_in": "Sur place",
