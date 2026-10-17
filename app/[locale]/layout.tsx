@@ -1,5 +1,5 @@
 import type { Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "../globals.css";
 import Navbar from "@/components/Navbar";
@@ -19,6 +19,8 @@ import { setRequestLocale } from "next-intl/server";
 // route as "uncached or runtime data outside <Suspense>".
 import enMessages from "../../messages/en.json";
 import frMessages from "../../messages/fr.json";
+import { PlatformThemeBootstrap } from "@/components/PlatformThemeBootstrap";
+import { PlatformThemeProvider } from "@/components/PlatformThemeProvider";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,21 +31,24 @@ export const viewport: Viewport = {
 
 function NavbarFallback() {
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 md:gap-4 md:px-6">
-        <BrandMark textClassName="hidden sm:inline text-zinc-950" priority />
+        <BrandMark textClassName="hidden sm:inline text-zinc-950 dark:text-white" priority />
       </div>
     </header>
   );
 }
 
-const font = Plus_Jakarta_Sans({
+const font = Geist({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-sans",
+  variable: "--font-ui",
   display: "swap",
 });
-
+const monoFont = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-code",
+  display: "swap",
+});
 export const metadata = rootMetadata;
 
 export function generateStaticParams() {
@@ -70,8 +75,9 @@ export default async function LocaleLayout({
   const messages = locale === "fr" ? frMessages : enMessages;
 
   return (
-    <html lang={locale} className={`h-full antialiased ${font.variable}`}>
+    <html lang={locale} suppressHydrationWarning className={`h-full antialiased ${font.variable} ${monoFont.variable}`}>
       <head>
+        <PlatformThemeBootstrap />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -80,17 +86,16 @@ export default async function LocaleLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <IntlProvider
-          locale={locale}
-          messages={messages}
-        >
-          <PwaRegister />
-          <Suspense fallback={<NavbarFallback />}>
-            <Navbar />
-          </Suspense>
-          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-          <CookieConsent />
-        </IntlProvider>
+        <PlatformThemeProvider>
+          <IntlProvider locale={locale} messages={messages}>
+            <PwaRegister />
+            <Suspense fallback={<NavbarFallback />}>
+              <Navbar />
+            </Suspense>
+            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+            <CookieConsent />
+          </IntlProvider>
+        </PlatformThemeProvider>
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!} />
     </html>

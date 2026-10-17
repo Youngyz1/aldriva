@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { safeImageSrc } from "@/lib/image-url";
+import { readableOn } from "@/lib/readable-on";
 import { sanitizeUrl } from "@/lib/sanitize-html";
 import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { ContentDoc } from "@/lib/website-content";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
+import { resolveV2ThemeColor } from "@/lib/website-v2-color-resolution";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { StorefrontAction } from "@/lib/storefront-primary-action";
 
@@ -26,6 +28,7 @@ interface V2SiteHeaderProps {
   primaryAction?: StorefrontAction;
   availablePageSlugs?: readonly string[] | ReadonlySet<string>;
   onPageNavigate?: (pageSlug: string) => void;
+  overHero?: boolean;
 }
 
 function nonEmpty(value: unknown): boolean {
@@ -66,17 +69,91 @@ export function V2SiteHeader({
   primaryAction,
   availablePageSlugs,
   onPageNavigate,
+  overHero = false,
 }: V2SiteHeaderProps) {
   const tStorefront = useTranslations("Storefront");
-  const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pastHeroThreshold, setPastHeroThreshold] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  const overlayMenu = template.header.mobileMenu === "overlay";
+  const tableFlame = template.id === "restaurant-table-flame";
 
   useEffect(() => {
-    const updateScrollState = () => setIsScrolled(window.scrollY > 24);
-    updateScrollState();
-    window.addEventListener("scroll", updateScrollState, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrollState);
-  }, []);
+    if (!overHero) return;
+    const update = () => setPastHeroThreshold(window.scrollY > 24);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [overHero]);
+
+  useEffect(() => {
+    if (!tableFlame) return;
+    const root = document.querySelector<HTMLElement>('.public-site[data-site-template="restaurant-table-flame"]');
+    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    root.setAttribute("data-motion-ready", "true");
+    const targets = root.querySelectorAll<HTMLElement>("[data-site-motion-section]");
+    if (typeof IntersectionObserver === "undefined") {
+      targets.forEach((target) => target.classList.add("is-visible"));
+      return () => root.removeAttribute("data-motion-ready");
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.12 });
+    targets.forEach((target) => observer.observe(target));
+    return () => {
+      observer.disconnect();
+      root.removeAttribute("data-motion-ready");
+    };
+  }, [tableFlame]);
+
+  useEffect(() => {
+    if (!menuOpen || !overlayMenu) return;
+    const scrollPosition = window.scrollY;
+    const pageElement = document.documentElement;
+    const previousOverflow = pageElement.style.overflow;
+    pageElement.style.overflow = "hidden";
+    const focusFirst = () => menuPanelRef.current?.querySelector<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )?.focus({ preventScroll: true });
+    const frame = window.requestAnimationFrame(focusFirst);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        window.requestAnimationFrame(() => {
+          menuButtonRef.current?.focus({ preventScroll: true });
+          window.scrollTo(0, scrollPosition);
+        });
+        return;
+      }
+      if (event.key !== "Tab" || !menuPanelRef.current) return;
+      const focusable = Array.from(menuPanelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      if (event.shiftKey && activeIndex <= 0) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (activeIndex === -1 || activeIndex === focusable.length - 1)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      pageElement.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen, overlayMenu]);
 
   const logoValue = content.logo_url || (previewMode ? sampleContent?.logo_url : undefined);
   const logoSrc = typeof logoValue === "string" ? safeImageSrc(logoValue) : "";
@@ -103,14 +180,20 @@ export function V2SiteHeader({
     onPageNavigate(targetPageSlug);
     setMenuOpen(false);
   };
-  const heroBand = template.templateBackground.bands.find((band) => band.zone === "hero");
-  const transparent = !isScrolled && !menuOpen;
-  const hasHeroImage = Boolean(content.hero_image || sampleContent?.hero_image);
-  const foreground = transparent && heroBand && hasHeroImage ? "#ffffff" : "var(--ps-text)";
+  const backgroundColor = tableFlame
+    ? resolveV2ThemeColor(template.templateBackground.base, template.id)
+    : template.templateBackground.base;
+  const transparentOverHero = overHero && !pastHeroThreshold;
+  const transparent = transparentOverHero;
+  const solidForeground = tableFlame ? readableOn(backgroundColor, ["#22201c", "#ffffff"]) : "var(--ps-text)";
   const headerStyle: CSSProperties = {
-    color: foreground,
-    backgroundColor: transparent ? "transparent" : template.templateBackground.base,
+    color: transparent
+      ? readableOn("#23211f", ["#faf6ef", "#22201c"])
+      : solidForeground,
+    backgroundColor: transparent ? "transparent" : backgroundColor,
+    borderColor: tableFlame ? transparent ? "transparent" : "rgba(34, 32, 28, 0.12)" : undefined,
     fontFamily: "var(--ps-font-body)",
+    ...(overHero ? { marginBottom: "calc(var(--site-header-h) * -1)" } : {}),
   };
   const labels = content.nav_labels && typeof content.nav_labels === "object"
     ? content.nav_labels as Record<string, unknown>
@@ -123,10 +206,22 @@ export function V2SiteHeader({
     (!item.feature || storefrontFeatures?.[item.feature]) &&
     (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
   );
+  const closeMenu = () => {
+    setMenuOpen(false);
+    if (overlayMenu) {
+      const scrollPosition = window.scrollY;
+      window.requestAnimationFrame(() => {
+        menuButtonRef.current?.focus({ preventScroll: true });
+        window.scrollTo(0, scrollPosition);
+      });
+    }
+  };
   const renderNavigation = (mobile: boolean) => (
     <nav
       aria-label={mobile ? "Mobile site navigation" : "Site navigation"}
-      className={mobile ? "flex flex-col gap-[var(--ps-space-1)] py-[var(--ps-space-3)]" : "hidden items-center gap-[var(--ps-space-6)] md:flex"}
+      className={mobile
+        ? overlayMenu ? "flex flex-col gap-5 py-6" : "flex flex-col gap-[var(--ps-space-1)] py-[var(--ps-space-3)]"
+        : "hidden items-center gap-[var(--ps-space-6)] md:flex"}
     >
       {visibleNavigation.map((item, index) => {
         const scopedHref = item.pageSlug
@@ -146,10 +241,12 @@ export function V2SiteHeader({
             href={href}
             onClick={(event) => {
               navigatePreview(event, href, item.pageSlug);
-              setMenuOpen(false);
+              closeMenu();
             }}
             className={mobile
-              ? "rounded-lg px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-sm font-medium hover:bg-black/5"
+              ? overlayMenu
+                ? "rounded-lg px-2 py-2 font-[var(--v2-heading-font)] text-3xl font-medium leading-tight hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+                : "rounded-lg px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-sm font-medium hover:bg-black/5"
               : "text-sm font-medium hover:opacity-70"}
           >
             {label}
@@ -164,11 +261,11 @@ export function V2SiteHeader({
         <a
           {...editablePath(editMode, sourceMap, "ctaLabel")}
           href={ctaHref}
-          className="ps-button ps-button-primary mt-[var(--ps-space-2)] inline-flex min-h-11 items-center justify-center text-[var(--ps-accent-foreground)]"
+          className={`ps-button ps-button-primary tf-button mt-[var(--ps-space-2)] inline-flex min-h-11 items-center justify-center text-[var(--ps-accent-foreground)] ${overlayMenu ? "min-h-12 text-base" : ""}`}
           style={{ backgroundColor: "var(--ps-accent)" }}
           onClick={(event) => {
             navigatePreview(event, ctaHref);
-            setMenuOpen(false);
+            closeMenu();
           }}
         >
           {ctaLabel}
@@ -179,11 +276,13 @@ export function V2SiteHeader({
 
   return (
     <header
-      className={(template.header.sticky ? "sticky top-0 z-50 -mb-[var(--ps-space-16)] md:-mb-[calc(var(--ps-space-16)_+_var(--ps-space-4))] " : "relative z-20 ") +
+      className={(template.header.sticky ? "sticky top-0 z-50 " : "relative z-20 ") +
         "border-b border-[var(--ps-border)]/5 transition-colors duration-200"}
       style={headerStyle}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:h-20 md:px-[var(--ps-space-8)]">
+      <div className={tableFlame
+        ? "mx-auto flex h-[var(--site-header-h)] w-full max-w-6xl items-center justify-between gap-[var(--ps-space-4)] px-6"
+        : "mx-auto flex h-[var(--site-header-h)] max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:px-[var(--ps-space-8)]"}>
         <a
           {...editablePath(editMode, sourceMap, "logo")}
           href={sanitizeUrl(getSitePageHref(siteSlug, "home"))}
@@ -193,9 +292,10 @@ export function V2SiteHeader({
         >
           {logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt={businessName} className="max-h-10 max-w-40 object-contain" />
-          ) : (
-            <span className="truncate">{editMode && sourceMap?.logo ? "Add logo" : businessName}</span>
+            <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
+          ) : null}
+          {(!logoSrc || tableFlame) && (
+            <span className="truncate">{!logoSrc && editMode && sourceMap?.logo ? "Add logo" : businessName}</span>
           )}
         </a>
 
@@ -205,7 +305,7 @@ export function V2SiteHeader({
             <a
               {...editablePath(editMode, sourceMap, "ctaLabel")}
               href={ctaHref}
-              className="ps-button ps-button-primary inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90"
+              className="ps-button ps-button-primary tf-button inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90"
               style={{ backgroundColor: "var(--ps-accent)" }}
               onClick={(event) => navigatePreview(event, ctaHref)}
             >
@@ -215,20 +315,34 @@ export function V2SiteHeader({
         </div>
 
         <button
+          ref={menuButtonRef}
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-current/20 text-sm md:hidden"
+          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-current/60 text-sm hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
+          aria-controls={overlayMenu ? "v2-site-mobile-menu" : undefined}
+          onClick={() => menuOpen ? closeMenu() : setMenuOpen(true)}
         >
           <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
         </button>
       </div>
-      {menuOpen && (
+      {menuOpen && (overlayMenu ? (
+        <div
+          ref={menuPanelRef}
+          id="v2-site-mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site menu"
+          className="fixed inset-x-0 bottom-0 top-[var(--site-header-h)] z-40 overflow-y-auto bg-[#faf6ef] px-6 pb-10 pt-5 text-[#2a211b] md:hidden"
+        >
+          <h2 className="font-[var(--v2-heading-font)] text-4xl font-medium">Menu</h2>
+          {renderNavigation(true)}
+        </div>
+      ) : (
         <div className="border-t border-[var(--ps-border)]/10 px-[var(--ps-space-4)] pb-[var(--ps-space-4)] md:hidden">
           {renderNavigation(true)}
         </div>
-      )}
+      ))}
     </header>
   );
 }

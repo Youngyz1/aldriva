@@ -19,14 +19,22 @@ import Link from "next/link";
 import {
   BROWSE_ALL_GROUP,
   filterBrowseGroups,
+  sortBrowseItems,
   type BrowseGroup,
   type BrowseItem,
   type BrowseOptionGroup,
+  type BrowseSortKey,
 } from "@/lib/storefront-browse";
 import {
   ProductCarousel,
   type ProductCarouselItem,
 } from "./ProductCarousel";
+import {
+  StoreCartWidget,
+  type StoreCartCatalogEntry,
+  type StoreCartLabels,
+} from "@/components/site/v2/StoreCartDrawer";
+import { addStoreCartItem } from "@/lib/store-cart";
 import { submitOrderRequest } from "@/lib/actions/orders";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
@@ -122,6 +130,8 @@ interface StorefrontBrowseProps {
   itemMode?: "details" | "links";
   categoryTiles?: boolean;
   pageSize?: number;
+  /** Table & Flame printed-menu presentation. Absent keeps existing cards. */
+  variant?: "cards" | "rows";
   orderConfig?: StorefrontOrderConfig;
   accentColor?: string;
   /**
@@ -135,7 +145,66 @@ interface StorefrontBrowseProps {
     nextLabel: string;
     regionLabel: string;
   };
+  /**
+   * Opt-in Shop sorting (Store template only): featured / newest /
+   * price low-high / price high-low. Absent everywhere else, so existing
+   * sites keep their current order.
+   */
+  sort?: {
+    label: string;
+    featured: string;
+    newest: string;
+    priceAsc: string;
+    priceDesc: string;
+  };
+  /**
+   * Opt-in Store cart (Store template only): quick-add buttons on carousel
+   * cards plus a floating cart button + drawer. Absent everywhere else.
+   */
+  storeCart?: {
+    slug: string;
+    siteCurrency: string;
+    addLabel: string;
+    labels: StoreCartLabels;
+  };
   children: React.ReactNode;
+}
+
+export function TableFlameMenuRows({
+  items,
+  onSelect,
+  soldOutLabel,
+}: {
+  items: BrowseItem[];
+  onSelect: (item: BrowseItem, trigger: HTMLButtonElement) => void;
+  soldOutLabel?: string;
+}) {
+  return <>
+    {items.map((item) => (
+      <button
+        key={item.id}
+        data-menu-row="true"
+        type="button"
+        aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
+        onClick={(event) => onSelect(item, event.currentTarget)}
+        className="group flex min-h-11 w-full items-center gap-5 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-2">
+            <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+            <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[#9b8d7d]" />
+            {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+          </span>
+          {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+          {item.isSoldOut && soldOutLabel ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{soldOutLabel}</span> : null}
+        </span>
+        {item.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[#e6dccd] object-cover" loading="lazy" />
+        ) : null}
+      </button>
+    ))}
+  </>;
 }
 
 function loadCart(slug: string): CartItem[] {
@@ -181,14 +250,18 @@ export function StorefrontBrowse({
   orderConfig,
   accentColor,
   carousel,
+  sort,
+  storeCart,
   children,
   itemMode = "details",
   categoryTiles = false,
   pageSize,
+  variant = "cards",
 }: StorefrontBrowseProps) {
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
+  const [sortKey, setSortKey] = useState<BrowseSortKey>("featured");
   const [visibleItemCount, setVisibleItemCount] = useState(Math.max(1, pageSize ?? 12));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -238,16 +311,24 @@ export function StorefrontBrowse({
   if (groups.length === 0) return <>{children}</>;
 
   const visible = filterBrowseGroups(groups, query, activeGroup);
+  const sortedVisible = sort
+    ? visible.map((group) => ({ ...group, items: sortBrowseItems(group.items, sortKey) }))
+    : visible;
   const engaged = query.trim() !== "" || activeGroup !== BROWSE_ALL_GROUP;
   const categoryGroups = categoryTiles ? groups.filter((group) => group.id !== "uncategorized") : groups;
   const visibleCount = itemMode === "links" ? visibleItemCount : Number.POSITIVE_INFINITY;
   let remaining = visibleCount;
-  const pagedVisible = visible.flatMap((group) => {
+  const pagedVisible = sortedVisible.flatMap((group) => {
     const items = group.items.slice(0, remaining);
     remaining -= items.length;
     return items.length ? [{ ...group, items }] : [];
   });
-  const totalVisibleItems = visible.reduce((count, group) => count + group.items.length, 0);
+  const totalVisibleItems = sortedVisible.reduce((count, group) => count + group.items.length, 0);
+
+  const handleSortChange = (next: BrowseSortKey) => {
+    setSortKey(next);
+    setVisibleItemCount(Math.max(1, pageSize ?? 12));
+  };
 
   const carouselItems: ProductCarouselItem[] = pagedVisible.flatMap((group) =>
     group.items.map((item) => {
@@ -264,8 +345,37 @@ export function StorefrontBrowse({
         badgeTone: badge
           ? (item.badgeTone ?? (item.isSoldOut ? "alert" : "muted"))
           : undefined,
+        canAdd: !item.isSoldOut,
       };
     })
+  );
+
+  const handleQuickAdd = (compositeId: string) => {
+    if (!storeCart) return;
+    // Carousel ids are `${group.id}-${item.id}`; recover the item by match
+    // against the visible catalog instead of parsing ids.
+    const found = pagedVisible
+      .flatMap((group) => group.items.map((item) => ({ group, item })))
+      .find(({ group, item }) => `${group.id}-${item.id}` === compositeId);
+    if (!found || found.item.isSoldOut) return;
+    addStoreCartItem(storeCart.slug, found.item.id, 1);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("store-cart:added"));
+    }
+  };
+
+  // Full filtered catalog (not paged) so drawer rows resolve even past
+  // Load More; availability still comes from live stock flags.
+  const cartCatalog: StoreCartCatalogEntry[] = sortedVisible.flatMap((group) =>
+    group.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      image: item.image ?? null,
+      priceLabel: item.priceLabel,
+      numericPrice: item.numericPrice,
+      isSoldOut: Boolean(item.isSoldOut),
+      href: item.action && item.action.href !== "#" ? item.action.href : null,
+    }))
   );
   const allItems = groups.flatMap((group) => group.items);
   const selected = selectedId
@@ -275,6 +385,7 @@ export function StorefrontBrowse({
   const reset = () => {
     setQuery("");
     setActiveGroup(BROWSE_ALL_GROUP);
+    setSortKey("featured");
     setVisibleItemCount(Math.max(1, pageSize ?? 12));
   };
 
@@ -377,7 +488,7 @@ export function StorefrontBrowse({
 
       {showGroups && categoryGroups.length > 1 ? (
         <div
-          className="sticky top-16 z-30 -mx-[var(--ps-space-1)] bg-[var(--ps-surface)]/95 py-[var(--ps-space-2)] backdrop-blur md:top-20"
+          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : "bg-[var(--ps-surface)]/95"}`}
           role="group"
           aria-label={labels.categories}
           id={chipsId}
@@ -437,6 +548,25 @@ export function StorefrontBrowse({
         </div>
       </div>
 
+      {sort && totalVisibleItems > 0 ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-end gap-[var(--ps-space-2)]">
+          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)]">
+            {sort.label}
+          </label>
+          <select
+            id={`${searchId}-sort`}
+            value={sortKey}
+            onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+            className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+          >
+            <option value="featured">{sort.featured}</option>
+            <option value="newest">{sort.newest}</option>
+            <option value="priceAsc">{sort.priceAsc}</option>
+            <option value="priceDesc">{sort.priceDesc}</option>
+          </select>
+        </div>
+      ) : null}
+
       {visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--ps-border)] py-[var(--ps-space-12)] text-center text-sm text-[var(--ps-muted)]">
           <p>{labels.noResults}</p>
@@ -454,6 +584,7 @@ export function StorefrontBrowse({
         <ProductCarousel
           items={carouselItems}
           labels={{ prev: carousel.prevLabel, next: carousel.nextLabel, region: carousel.regionLabel }}
+          {...(storeCart ? { onAdd: handleQuickAdd, addLabel: storeCart.addLabel } : {})}
         />
       ) : (
         <div className="space-y-[var(--ps-space-8)]">
@@ -468,7 +599,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              <div className="grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3">
+              <div className={variant === "rows" ? "divide-y divide-[#e6dccd] border-y border-[#e6dccd]" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -493,6 +624,12 @@ export function StorefrontBrowse({
                       <span className="text-sm font-semibold text-[var(--ps-text)]">{item.name}</span>
                     </article>
                   )
+                ) : variant === "rows" ? (
+                  <TableFlameMenuRows
+                    items={[item]}
+                    soldOutLabel={labels.soldOut}
+                    onSelect={(selectedItem, trigger) => openSheet(selectedItem.id, trigger)}
+                  />
                 ) : (
                   <button
                     key={item.id}
@@ -654,6 +791,16 @@ export function StorefrontBrowse({
       {/* Bottom padding to prevent floating cart bar from covering last content */}
       {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div className="h-24" aria-hidden="true" />
+      ) : null}
+
+      {/* Store multi-item cart (Store template only) */}
+      {storeCart ? (
+        <StoreCartWidget
+          slug={storeCart.slug}
+          siteCurrency={storeCart.siteCurrency}
+          catalog={cartCatalog}
+          labels={storeCart.labels}
+        />
       ) : null}
     </>
   );

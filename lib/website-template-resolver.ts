@@ -334,6 +334,7 @@ interface BuildContext {
   rentalCtaBandHeading: string;
   foodOrderCopy?: TemplateResolutionOptions["foodOrderCopy"];
   storeCopy?: TemplateResolutionOptions["storeCopy"];
+  timeZone?: string;
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -571,11 +572,32 @@ function buildHero(ctx: BuildContext): Block {
   const primaryCtaLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary"));
   const hours = asRecord(take(ctx, "hours", "hero.open_tag") ?? take(ctx, "hours", "hours.table"));
   const badge = hours ? asString(hours.today_tag) : undefined;
+  const isTableFlame = ctx.template.id === "restaurant-table-flame";
+  const tagline = asString(take(ctx, "tagline", "hero.tagline"));
+  const address = asString(effectiveValue(ctx, "address"));
+  const area = address?.split(",").slice(-2).join(",").trim();
+  const eyebrow = isTableFlame
+    ? [asString(ctx.business.businessType), area].filter(Boolean).join(" · ") || tagline
+    : tagline;
+  const today = isTableFlame ? resolveTodayHours(hours, ctx.timeZone) : null;
+  const phone = asString(effectiveValue(ctx, "phone"));
+  const metaPills = isTableFlame
+    ? [
+        today?.open && today.close && !today.closed ? { label: `Open today until ${today.close}` } : undefined,
+        address ? { label: address } : undefined,
+        phone ? { label: phone, href: `tel:${phone}` } : undefined,
+      ].filter((pill): pill is { label: string; href?: string } => Boolean(pill))
+    : [];
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const imagePosition = typeof extras?.tableFlameHeroPosition === "string"
+    ? extras.tableFlameHeroPosition
+    : undefined;
+  const logoMark = isTableFlame ? asString(take(ctx, "logo_url", "nav.logo")) : undefined;
   return {
     type: "hero",
-    variant: "split",
+    variant: isTableFlame ? "full-bleed" : "split",
     align: "left",
-    tagline: asString(take(ctx, "tagline", "hero.tagline")),
+    tagline: eyebrow,
     heading: asString(take(ctx, "hero_headline", "hero.headline")),
     subheading: asString(take(ctx, "hero_subtext", "hero.subtext")),
     backgroundImage: asString(take(ctx, "hero_image", "hero.image")),
@@ -584,6 +606,10 @@ function buildHero(ctx: BuildContext): Block {
     secondaryCtaLabel: asString(take(ctx, "secondary_cta_label", "hero.cta_secondary")),
     secondaryCtaHref: undefined,
     ...(badge ? { badge } : {}),
+    ...(logoMark ? { logoMark } : {}),
+    ...(imagePosition ? { imagePosition } : {}),
+    ...(metaPills.length ? { metaPills } : {}),
+    ...(isTableFlame ? { scrim: true } : {}),
   } as Block;
 }
 
@@ -646,6 +672,7 @@ function buildAbout(ctx: BuildContext): Block {
     .slice(0, 3);
   return {
     type: "about",
+    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : {}),
     story: asString(take(ctx, "about_text", "about.text")),
     founderImage: asString(take(ctx, "about_image", "about.photo")),
     ...(highlights.length > 0 ? { highlights } : {}),
@@ -675,6 +702,7 @@ function buildTestimonials(ctx: BuildContext): Block {
     .slice(0, 3);
   return {
     type: "testimonials",
+    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Words from the table" } : {}),
     layout: "grid",
     items,
   } as Block;
@@ -760,7 +788,7 @@ function buildCtaBand(ctx: BuildContext): Block {
     ...(isFoodOrder && ctx.foodOrderCopy?.offerSubheading
       ? { subheading: ctx.foodOrderCopy.offerSubheading }
       : {}),
-    variant: "brand",
+    variant: ctx.template.id === "restaurant-table-flame" ? "footer" : "brand",
   } as Block;
 }
 
@@ -784,6 +812,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     heading,
     limit,
     layout: "grid",
+    ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
   } as Block;
@@ -827,7 +856,8 @@ function buildSectionBlock(
     case "contact": {
       const heading = ctx.template.id === "food-order"
         ? ctx.foodOrderCopy?.contactHeading ?? "Contact"
-        : section.id === "locations" ? "Pickup locations" : "Visit us";
+        : ctx.template.id === "restaurant-table-flame" ? "Hours & Location"
+          : section.id === "locations" ? "Pickup locations" : "Visit us";
       return buildContact(ctx, heading);
     }
     case "faq":
@@ -870,6 +900,25 @@ function buildSectionBlock(
       if (ctx.template.id !== "store") return null;
       if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
       const home = section.id === "store.home.products";
+      // Owner-tunable grid density (V2 "Shop page" section); falls back to
+      // the template defaults (6 Home / 12 Shop) when unset or invalid.
+      const densityExtras = asRecord(effectiveValue(ctx, "template_extras"));
+      const densityRaw = densityExtras?.storeBrowsePageSize;
+      const density =
+        typeof densityRaw === "number" && Number.isFinite(densityRaw)
+          ? Math.min(24, Math.max(1, Math.floor(densityRaw)))
+          : home ? 6 : 12;
+      // Owner-picked featured products (V2 "Featured products" section) bind
+      // only when UUID-shaped; anything else falls back to latest. Tenant
+      // scoping stays in resolveProductsEmbed, so foreign ids resolve empty.
+      const featured = asRecord(effectiveValue(ctx, "featured"));
+      const picks = section.id === "store.home.products" && Array.isArray(featured?.product_ids)
+        ? (featured.product_ids as unknown[]).filter(
+            (id): id is string =>
+              typeof id === "string" &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+          ).map((id) => id.trim()).slice(0, 12)
+        : [];
       return {
         type: "products_embed",
         heading: home
@@ -880,7 +929,8 @@ function buildSectionBlock(
         categoryTiles: true,
         siteLocalProductDetails: true,
         allowLargeCatalog: true,
-        browsePageSize: home ? 6 : 12,
+        browsePageSize: density,
+        ...(picks.length > 0 ? { selectedProductIds: picks } : {}),
         ...(!ctx.catalogAvailability && ctx.includeSamples ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
       } as Block;
     }
@@ -1062,6 +1112,7 @@ export function resolveTemplateManifest(
     rentalCtaBandHeading: options.rentalCtaBandHeading ?? "Ready for your next journey?",
     foodOrderCopy: options.foodOrderCopy,
     storeCopy: options.storeCopy,
+    timeZone: options.timeZone,
   };
 
   const pages: ResolvedPage[] = [];
@@ -1090,6 +1141,7 @@ export function resolveTemplateManifest(
       }
       const block = buildSectionBlock(ctx, section);
       if (block) {
+        if (section.spacing) block.spacing = section.spacing;
         if (!ctx.includeSamples && !hasBlockContent(block)) {
           continue;
         }
@@ -1165,13 +1217,23 @@ export function resolveTemplateManifest(
     catalogAdapter,
     ...(template.id === "store" ? { catalogPageSlug: "shop", catalogActionLabelKey: "shopNow" } : {}),
   });
-  const actionLabel = primaryAction.primary
+  // Store-only owner hero-button label: template_extras.storeHeroCta becomes
+  // the action label itself, so fixed-fallback precedence (line ~1190) honors
+  // it by construction. Other templates keep platform-owned fallback labels.
+  const storeHeroCtaLabel = template.id === "store"
+    ? (() => {
+        const raw = asRecord(ctx.doc.template_extras)?.storeHeroCta;
+        const text = typeof raw === "string" ? raw.trim() : "";
+        return text ? text.slice(0, 60) : undefined;
+      })()
+    : undefined;
+  const actionLabel = storeHeroCtaLabel ?? (primaryAction.primary
     ? options.primaryActionLabels?.[primaryAction.primary.labelKey] ??
       (template.id === "store" && primaryAction.primary.labelKey === "shopNow" ? options.storeCopy?.navigationLabels?.shop : undefined) ??
       (primaryAction.primary.labelKey === "viewMenu" ? options.viewMenuLabel : undefined) ??
       (primaryAction.primary.labelKey === "rentalContactCta" ? options.rentalContactCta : undefined) ??
       DEFAULT_PRIMARY_ACTION_LABELS[primaryAction.primary.labelKey]
-    : undefined;
+    : undefined);
   for (const page of pages) {
     if (!page.isHome) continue;
     const hero = page.blocks.find((block) => block.type === "hero");

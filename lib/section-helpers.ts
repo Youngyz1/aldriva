@@ -26,17 +26,17 @@ export function isValidContainer(v: unknown): v is SectionContainer {
 /**
  * Controlled spacing → Tailwind wrapper padding.
  * Applied as outer wrapper so public / builder share same semantic.
- * Individual block renderers keep their internal py-16 but wrapper adds envelope-level spacing.
+ * The envelope is the sole owner of block-level vertical spacing.
  */
 export function getSpacingClass(spacing?: SectionSpacing | null): string {
   switch (spacing) {
     case "compact":
-      return "py-6 sm:py-8";
+      return "py-8 sm:py-12";
     case "roomy":
-      return "py-16 sm:py-24";
+      return "py-12 sm:py-20";
     case "default":
     default:
-      return "py-12 sm:py-16";
+      return "py-10 sm:py-16";
   }
 }
 

@@ -70,9 +70,14 @@ export interface HeroBlock extends BaseBlock {
   secondaryCtaLabel?: string;
   secondaryCtaHref?: string;
   align?: "left" | "center" | "right";
-  variant?: "split" | "center" | "video_bg";
+  variant?: "split" | "center" | "video_bg" | "full-bleed";
   videoUrl?: string;
   badge?: string;
+  imagePosition?: string;
+  logoMark?: string;
+  metaPills?: Array<{ label: string; href?: string }>;
+  /** True only when this hero supplies the deterministic header scrim signal. */
+  scrim?: boolean;
 }
 
 export interface FeatureItem extends WithItemId {
@@ -250,7 +255,7 @@ export interface CtaBannerBlock extends BaseBlock {
   subheading?: string;
   ctaLabel?: string;
   ctaHref?: string;
-  variant?: "brand" | "dark" | "light";
+  variant?: "brand" | "dark" | "light" | "footer";
 }
 
 export interface ServicesEmbedBlock extends BaseBlock {
@@ -277,6 +282,8 @@ export interface MenuEmbedBlock extends BaseBlock {
   selectedItemIds?: string[];
   /** ISO 4217 price display code (e.g. XOF). Omit for the USD default. */
   currency?: string;
+  /** Template-selected browse presentation. Absent preserves the card grid. */
+  variant?: "cards" | "rows";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -353,6 +360,8 @@ export const BLOCK_LIMITS = {
   DEFAULT_EMBED_LIMIT: 6,
   MIN_EMBED_LIMIT: 1,
   MAX_EMBED_LIMIT: 12,
+  MIN_BROWSE_PAGE_SIZE: 1,
+  MAX_BROWSE_PAGE_SIZE: 24,
 } as const;
 
 export interface ValidationIssue {
@@ -694,11 +703,28 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       const variant =
         obj.variant === "split" ||
         obj.variant === "video_bg" ||
+        obj.variant === "full-bleed" ||
         obj.variant === "center"
           ? obj.variant
           : "center";
       const videoUrl = validateUrlField(obj.videoUrl, "videoUrl", issues);
       const badge = validateStringField(obj.badge, "badge", 50, issues);
+      const logoMark = validateImageUrlField(obj.logoMark, "logoMark", issues);
+      const imagePositionValue = typeof obj.imagePosition === "string" ? obj.imagePosition.trim() : "";
+      const imagePosition = /^(?:\d{1,3}%\s+\d{1,3}%|left|center|right(?:\s+(?:top|center|bottom))?)$/i.test(imagePositionValue)
+        ? imagePositionValue
+        : undefined;
+      if (imagePosition && imagePositionValue.match(/\d{1,3}%/g)?.some((part) => Number.parseInt(part, 10) > 100)) {
+        issues.push({ path: "imagePosition", message: "Image focal percentages must be between 0% and 100%." });
+      }
+      const metaPills: Array<{ label: string; href?: string }> = [];
+      (Array.isArray(obj.metaPills) ? obj.metaPills : []).slice(0, 3).forEach((rawPill, index) => {
+        if (!rawPill || typeof rawPill !== "object" || Array.isArray(rawPill)) return;
+        const pill = rawPill as Record<string, unknown>;
+        const label = validateStringField(pill.label, `metaPills[${index}].label`, 100, issues, true);
+        const href = validateUrlField(pill.href, `metaPills[${index}].href`, issues);
+        if (label) metaPills.push({ label, ...(href ? { href } : {}) });
+      });
 
       if (issues.length > 0) {
         return {
@@ -726,6 +752,10 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           variant,
           ...(videoUrl ? { videoUrl } : {}),
           ...(badge ? { badge } : {}),
+          ...(logoMark ? { logoMark } : {}),
+          ...(imagePosition ? { imagePosition } : {}),
+          ...(metaPills.length ? { metaPills } : {}),
+          ...(typeof obj.scrim === "boolean" ? { scrim: obj.scrim } : {}),
         },
       };
     }
@@ -1397,6 +1427,56 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       const layout = obj.layout === "list" ? "list" : "grid";
       const showDrafts = Boolean(obj.showDrafts);
 
+      // Store-template browse flags: preserved when explicitly set so Store
+      // configuration survives validation → save → reload → publish.
+      // Non-boolean values are rejected; absent keys stay absent so existing
+      // non-Store blocks are byte-identical after validation.
+      const storeFlags: {
+        categoryTiles?: boolean;
+        siteLocalProductDetails?: boolean;
+        allowLargeCatalog?: boolean;
+      } = {};
+      for (const key of [
+        "categoryTiles",
+        "siteLocalProductDetails",
+        "allowLargeCatalog",
+      ] as const) {
+        const raw = obj[key];
+        if (raw === undefined) continue;
+        if (typeof raw !== "boolean") {
+          issues.push({
+            path: key,
+            message: `${key} must be a boolean when present.`,
+          });
+        } else {
+          storeFlags[key] = raw;
+        }
+      }
+
+      // Visible-products page size for Store browse rows (the resolver
+      // defaults to 6 on Home and 12 on Shop when absent).
+      let browsePageSize: number | undefined;
+      if (obj.browsePageSize !== undefined) {
+        const parsed =
+          typeof obj.browsePageSize === "number"
+            ? obj.browsePageSize
+            : typeof obj.browsePageSize === "string" &&
+                obj.browsePageSize.trim() !== ""
+              ? Number(obj.browsePageSize)
+              : NaN;
+        if (!Number.isFinite(parsed)) {
+          issues.push({
+            path: "browsePageSize",
+            message: "browsePageSize must be a number when present.",
+          });
+        } else {
+          browsePageSize = Math.min(
+            BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE,
+            Math.max(BLOCK_LIMITS.MIN_BROWSE_PAGE_SIZE, Math.floor(parsed))
+          );
+        }
+      }
+
       const rawSelected = Array.isArray(obj.selectedProductIds)
         ? obj.selectedProductIds
         : [];
@@ -1440,6 +1520,10 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           layout,
           showDrafts,
           ...(selectedProductIds.length > 0 ? { selectedProductIds } : {}),
+          // NOTE: previewProducts is render-only sample data generated at
+          // resolve time and is intentionally never persisted here.
+          ...storeFlags,
+          ...(browsePageSize !== undefined ? { browsePageSize } : {}),
         },
       };
     }
@@ -1583,7 +1667,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         issues.push({ path: "currency", message: "currency must be a 3-letter code (e.g. XOF)" });
       }
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}) } };
+      const variant = obj.variant === "rows" ? "rows" : undefined;
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}) } };
     }
 
     case "cta_banner": {
@@ -1607,7 +1692,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       );
       const ctaHref = validateUrlField(obj.ctaHref, "ctaHref", issues);
       const variant =
-        obj.variant === "dark" || obj.variant === "light"
+        obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer"
           ? obj.variant
           : "brand";
 
@@ -1756,9 +1841,18 @@ export function parseBlock(raw: unknown): Block | null {
         secondaryCtaLabel: typeof obj.secondaryCtaLabel === "string" ? obj.secondaryCtaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,
         secondaryCtaHref: sanitizeUrl(obj.secondaryCtaHref) || undefined,
         align: obj.align === "left" || obj.align === "right" ? obj.align : "center",
-        variant: obj.variant === "split" || obj.variant === "video_bg" ? obj.variant : "center",
+        variant: obj.variant === "split" || obj.variant === "video_bg" || obj.variant === "full-bleed" ? obj.variant : "center",
         videoUrl: sanitizeUrl(obj.videoUrl) || undefined,
         badge: typeof obj.badge === "string" ? obj.badge.slice(0, 50) : undefined,
+        logoMark: typeof obj.logoMark === "string" ? safeImageSrc(obj.logoMark) || undefined : undefined,
+        imagePosition: typeof obj.imagePosition === "string" && /^(?:\d{1,3}%\s+\d{1,3}%|left|center|right(?:\s+(?:top|center|bottom))?)$/i.test(obj.imagePosition.trim()) ? obj.imagePosition.trim() : undefined,
+        metaPills: Array.isArray(obj.metaPills) ? obj.metaPills.slice(0, 3).flatMap((rawPill) => {
+          if (!rawPill || typeof rawPill !== "object" || Array.isArray(rawPill)) return [];
+          const pill = rawPill as Record<string, unknown>;
+          const label = typeof pill.label === "string" ? pill.label.trim().slice(0, 100) : "";
+          const href = sanitizeUrl(pill.href) || undefined;
+          return label ? [{ label, ...(href ? { href } : {}) }] : [];
+        }) : undefined,
       };
 
     case "features":
@@ -1929,6 +2023,22 @@ export function parseBlock(raw: unknown): Block | null {
               .map((id) => id.trim())
               .slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
           : undefined,
+        // Lenient mirror of the strict validator: keep Store browse flags
+        // when they are already valid; drop invalid values instead of
+        // failing. previewProducts stays render-only and is never kept.
+        ...(typeof obj.categoryTiles === "boolean" ? { categoryTiles: obj.categoryTiles } : {}),
+        ...(typeof obj.siteLocalProductDetails === "boolean"
+          ? { siteLocalProductDetails: obj.siteLocalProductDetails }
+          : {}),
+        ...(typeof obj.allowLargeCatalog === "boolean" ? { allowLargeCatalog: obj.allowLargeCatalog } : {}),
+        ...(obj.browsePageSize !== undefined && Number.isFinite(Number(obj.browsePageSize))
+          ? {
+              browsePageSize: Math.min(
+                BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE,
+                Math.max(BLOCK_LIMITS.MIN_BROWSE_PAGE_SIZE, Math.floor(Number(obj.browsePageSize)))
+              ),
+            }
+          : {}),
       };
 
     case "fundraiser_embed":
@@ -1983,6 +2093,7 @@ export function parseBlock(raw: unknown): Block | null {
           ? obj.selectedItemIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
           : undefined,
         currency: normalizeCurrencyCode(obj.currency),
+        variant: obj.variant === "rows" ? "rows" : undefined,
       };
 
     case "cta_banner":
@@ -1993,7 +2104,7 @@ export function parseBlock(raw: unknown): Block | null {
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         ctaLabel: typeof obj.ctaLabel === "string" ? obj.ctaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,
         ctaHref: sanitizeUrl(obj.ctaHref) || undefined,
-        variant: obj.variant === "dark" || obj.variant === "light" ? obj.variant : "brand",
+        variant: obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer" ? obj.variant : "brand",
       };
 
     case "menu_order":

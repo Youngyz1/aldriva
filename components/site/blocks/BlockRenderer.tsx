@@ -55,6 +55,7 @@ import { normalizeCurrencyCode } from "@/lib/website-blocks";
 import { isOvernightWebsiteInterval } from "@/lib/website-hours";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { readableOn } from "@/lib/readable-on";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ProductCarousel } from "./ProductCarousel";
@@ -164,14 +165,16 @@ export function HeroBlockRenderer({
   scopeInternalLinks,
   editMode,
   sourceMap,
+  accentColor,
 }: {
   block: HeroBlock;
   siteSlug?: string;
   scopeInternalLinks?: boolean;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
+  accentColor?: string;
 }) {
-  const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) : "";
+  const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) || "" : "";
   const safeCtaHref = block.ctaHref
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
     : "";
@@ -179,6 +182,100 @@ export function HeroBlockRenderer({
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.secondaryCtaHref) : block.secondaryCtaHref)
     : "";
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
+
+  if (block.variant === "full-bleed") {
+    const hasPhoto = Boolean(
+      safeBgImage && !safeBgImage.endsWith("/placeholders/restaurant/hero.svg")
+    );
+    const accent = accentColor || "#c65d3b";
+    const ctaForeground = readableOn(accent, ["#090909", "#faf6ef"]);
+    const logoMark = block.logoMark ? safeImageSrc(block.logoMark) : "";
+    return (
+      <section className="relative z-0 flex min-h-[440px] w-full items-end overflow-visible md:min-h-[560px]" data-site-motion-hero>
+        <div
+          className="absolute inset-x-0 -top-12 -bottom-12 -z-10 overflow-hidden md:-top-20 md:-bottom-20"
+          style={{
+            backgroundImage: hasPhoto ? undefined : "linear-gradient(125deg, #c65d3b 0%, #7c2d12 48%, #23211f 100%)",
+            backgroundColor: "#23211f",
+            backgroundSize: "cover",
+            backgroundPosition: block.imagePosition || "center",
+          }}
+        >
+          {hasPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={safeBgImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: block.imagePosition || "center" }} />
+          ) : null}
+          {safeVideoUrl && hasPhoto ? (
+            <video
+              src={safeVideoUrl}
+              poster={safeBgImage}
+              muted
+              loop
+              playsInline
+              aria-label={block.heading || "Table & Flame"}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : null}
+          {!hasPhoto && logoMark ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoMark} alt="" className="absolute left-6 top-1/2 h-20 w-20 -translate-y-1/2 object-contain opacity-70 md:left-16 md:h-28 md:w-28" />
+          ) : null}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(to top, rgba(35, 33, 31, 0.72) 0%, rgba(35, 33, 31, 0.70) 38%, rgba(35, 33, 31, 0.68) 100%)" }}
+          />
+        </div>
+        <div className="mx-auto w-full max-w-6xl px-6">
+          <div className="mb-10 max-w-4xl text-left text-[#faf6ef] md:mb-16">
+            {block.tagline ? (
+              <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#faf6ef]">{block.tagline}</p>
+            ) : null}
+            {block.heading ? (
+              <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="max-w-4xl font-[var(--v2-heading-font)] text-[40px] font-medium leading-[1.08] tracking-[-0.025em] text-[#faf6ef] md:text-[72px]">
+                {block.heading}
+              </h1>
+            ) : null}
+            {block.subheading ? (
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#faf6ef] md:text-[17px]">{block.subheading}</p>
+            ) : null}
+            {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
+              <div className="mt-7 flex flex-wrap items-center justify-start gap-3">
+                {block.ctaLabel && safeCtaHref ? (
+                  <a
+                    {...elementPathProps(editMode, sourceMap, "ctaLabel")}
+                    href={safeCtaHref}
+                    className="tf-button inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#faf6ef]"
+                    style={{ backgroundColor: accent, color: ctaForeground }}
+                  >
+                    {block.ctaLabel}
+                  </a>
+                ) : null}
+                {block.secondaryCtaLabel && safeSecCtaHref ? (
+                  <a
+                    {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
+                    href={safeSecCtaHref}
+                    className="tf-button inline-flex min-h-12 items-center justify-center rounded-full border-[1.5px] border-[#faf6ef] px-6 py-3 text-sm font-semibold text-[#faf6ef] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#faf6ef]"
+                  >
+                    {block.secondaryCtaLabel}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+            {block.metaPills?.length ? (
+              <ul className="mt-6 flex flex-wrap justify-start gap-2 text-xs text-[#faf6ef]">
+                {block.metaPills.map((pill, index) => (
+                  <li key={`${pill.label}-${index}`} className="rounded-full border border-white/45 bg-[#23211f]/80 px-3 py-2">
+                    {pill.href ? <a href={sanitizeUrl(pill.href)} className="underline-offset-4 hover:underline">{pill.label}</a> : pill.label}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const alignClass =
     block.align === "left"
@@ -191,7 +288,7 @@ export function HeroBlockRenderer({
   if (block.variant === "split") {
     const hasMedia = Boolean(safeBgImage || safeVideoUrl);
     return (
-      <section className={`ps-section-spacious relative w-full overflow-hidden ${hasMedia ? "bg-[var(--ps-surface)]" : "bg-[var(--ps-accent-light)]"} py-[var(--ps-space-16)] md:py-[var(--ps-space-16)] border-b border-[var(--ps-border)]`}>
+      <section className={`relative w-full overflow-hidden ${hasMedia ? "bg-[var(--ps-surface)]" : "bg-[var(--ps-accent-light)]"} border-b border-[var(--ps-border)]`}>
         <div className="mx-auto max-w-6xl px-[var(--ps-space-6)]">
           <div className={`grid grid-cols-1 items-center gap-[var(--ps-space-12)] ${hasMedia ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
             <div className={`flex max-w-4xl flex-col items-start gap-[var(--ps-space-6)] ${hasMedia ? "" : "mx-auto"}`}>
@@ -259,7 +356,7 @@ export function HeroBlockRenderer({
   // Variant: Video Background
   if (block.variant === "video_bg" && safeVideoUrl) {
     return (
-      <section {...elementPathProps(editMode, sourceMap, "image")} className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)] py-[var(--ps-space-16)]">
+      <section {...elementPathProps(editMode, sourceMap, "image")} className="relative flex min-h-[520px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)]">
         <video
           src={safeVideoUrl}
           autoPlay
@@ -323,7 +420,7 @@ export function HeroBlockRenderer({
   return (
       <section
       {...elementPathProps(editMode, sourceMap, "image")}
-      className="ps-section-spacious relative flex min-h-[480px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)] py-[var(--ps-space-16)]"
+      className="relative flex min-h-[480px] w-full flex-col justify-center overflow-hidden px-[var(--ps-space-6)]"
       style={{
         backgroundColor: hasHeroImage
           ? (block.backgroundColor || "var(--ps-text)")
@@ -397,12 +494,23 @@ function FeaturesBlockRenderer({
   block,
   editMode,
   sourceMap,
+  siteTemplateId,
+  sectionAlign,
+  businessName,
+  businessLogo,
 }: {
   block: FeaturesBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
+  businessName?: string;
+  businessLogo?: string;
 }) {
   const cols = block.columns ?? 3;
+  const tableFlame = siteTemplateId === "restaurant-table-flame";
+  const safeBusinessLogo = businessLogo ? safeImageSrc(businessLogo) : "";
+  const items = block.items ?? [];
   const colClass =
     cols === 2
       ? "sm:grid-cols-2"
@@ -411,17 +519,29 @@ function FeaturesBlockRenderer({
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section id={block.heading === "How it works" ? "how-it-works" : undefined} className="w-full py-[var(--ps-space-16)]">
-      <SectionHeading heading={block.heading} subheading={block.subheading} />
-      <div className={`grid grid-cols-1 gap-[var(--ps-space-6)] ${colClass}`}>
-        {(block.items ?? []).map((item, i) => {
+    <section id={block.heading === "How it works" ? "how-it-works" : undefined} className="w-full">
+      <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
+      <div className={`grid grid-cols-1 gap-[var(--ps-space-6)] ${tableFlame
+        ? items.length >= 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "mx-auto w-full max-w-4xl sm:grid-cols-2"
+        : colClass}`}>
+        {items.map((item, i) => {
           const safeItemHref = item.href ? sanitizeUrl(item.href) : "";
           return (
             <div
               key={i}
-              className="flex flex-col justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs transition hover:shadow-sm"
+              className={`flex flex-col justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs transition hover:shadow-sm ${tableFlame ? "tf-card overflow-hidden p-0" : "p-[var(--ps-space-6)]"}`}
             >
-              <div>
+              {tableFlame ? (
+                <div className="flex h-32 items-center justify-center bg-[#f1e9dd] sm:h-40">
+                  {safeBusinessLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={safeBusinessLogo} alt="" className="max-h-16 max-w-24 object-contain" />
+                  ) : (
+                    <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-6xl font-medium text-[#6b5d52]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
+                  )}
+                </div>
+              ) : null}
+              <div className={tableFlame ? "p-6" : ""}>
                 {item.icon && (
                   <div className="mb-[var(--ps-space-4)] inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--ps-accent-light)] text-lg text-[var(--ps-accent-hover)] font-semibold">
                     {item.icon}
@@ -457,15 +577,59 @@ function AboutBlockRenderer({
   block,
   editMode,
   sourceMap,
+  siteTemplateId,
+  sectionAlign,
+  businessName,
+  businessLogo,
 }: {
   block: AboutBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
+  businessName?: string;
+  businessLogo?: string;
 }) {
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
 
+  if (siteTemplateId === "restaurant-table-flame") {
+    const safeBusinessLogo = businessLogo ? safeImageSrc(businessLogo) : "";
+    return (
+      <section id="about" className="w-full">
+        <SectionHeading heading={block.heading || "Our Story"} subheading={block.subheading} align={sectionAlign} />
+        <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-14">
+          <div className="flex flex-col gap-6">
+            {block.story ? <div {...elementPathProps(editMode, sourceMap, "story")} className="prose prose-zinc max-w-none text-base leading-relaxed text-[var(--ps-muted)]"><p>{block.story}</p></div> : null}
+            {block.mission ? <div className="border-l-2 border-[var(--ps-accent)] bg-[var(--ps-neutral)] p-5"><span className="text-xs font-bold uppercase tracking-wider text-[var(--ps-accent-hover)]">Our Mission</span><p className="mt-2 text-base italic leading-relaxed text-[var(--ps-text)]">&ldquo;{block.mission}&rdquo;</p></div> : null}
+            {block.highlights?.length ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {block.highlights.map((highlight, index) => (
+                  <div key={index} {...elementPathProps(editMode, sourceMap, `highlights[${index}].value`)} className={`rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-4 ${sectionAlign === "center" ? "text-center" : "text-left"}`}>
+                    <div className="text-2xl font-medium text-[var(--ps-text)]">{highlight.value}</div>
+                    <div {...elementPathProps(editMode, sourceMap, `highlights[${index}].label`)} className="mt-1 text-xs font-medium text-[var(--ps-muted)]">{highlight.label}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[#f1e9dd]">
+            {safeFounderImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img {...elementPathProps(editMode, sourceMap, "founderImage")} src={safeFounderImage} alt={businessName || "Our story"} className="h-full w-full object-cover" loading="lazy" />
+            ) : safeBusinessLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={safeBusinessLogo} alt="" className="max-h-24 max-w-36 object-contain" />
+            ) : (
+              <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-medium text-[#6b5d52]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section id="about" className="w-full py-[var(--ps-space-16)]">
+    <section id="about" className="w-full">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       
       <div className="grid grid-cols-1 gap-[var(--ps-space-12)] lg:grid-cols-12 items-start">
@@ -550,15 +714,22 @@ function GalleryBlockRenderer({
   block,
   editMode,
   sourceMap,
+  siteTemplateId,
+  sectionAlign,
 }: {
   block: GalleryBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
 }) {
+  const tableFlame = siteTemplateId === "restaurant-table-flame";
   const cols = block.columns ?? 3;
   const layout = block.layout ?? "grid";
 
-  const colClass =
+  const colClass = tableFlame
+    ? "grid-cols-2 lg:grid-cols-3"
+    :
     cols === 2
       ? "sm:grid-cols-2"
       : cols === 4
@@ -566,8 +737,8 @@ function GalleryBlockRenderer({
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
-      <SectionHeading heading={block.heading} subheading={block.subheading} />
+    <section className="w-full">
+      <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
 
       {layout === "carousel" ? (
         <div className="flex gap-[var(--ps-space-4)] overflow-x-auto pb-[var(--ps-space-4)] snap-x snap-mandatory scrollbar-thin">
@@ -624,21 +795,21 @@ function GalleryBlockRenderer({
           })}
         </div>
       ) : (
-        <div className={`grid grid-cols-1 gap-[var(--ps-space-4)] ${colClass}`}>
+        <div className={`grid ${tableFlame ? "grid-cols-2 gap-4 lg:grid-cols-3" : `grid-cols-1 gap-[var(--ps-space-4)] ${colClass}`}`}>
           {(block.images ?? []).map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
             if (!safeImgSrc) return null;
             return (
               <figure
                 key={i}
-                className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] shadow-xs"
+                className={`overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] shadow-xs ${tableFlame ? "aspect-[4/3]" : ""}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   {...elementPathProps(editMode, sourceMap, "images[" + i + "].src")}
                   src={safeImgSrc}
                   alt={img.alt ?? ""}
-                  className="h-56 w-full object-cover"
+                  className={`w-full object-cover ${tableFlame ? "h-full" : "h-56"}`}
                   loading="lazy"
                 />
                 {img.caption && (
@@ -661,16 +832,20 @@ function TestimonialsBlockRenderer({
   block,
   editMode,
   sourceMap,
+  siteTemplateId,
+  sectionAlign,
 }: {
   block: TestimonialsBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
 }) {
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
-      <SectionHeading heading={block.heading} subheading={block.subheading} />
+    <section className="w-full">
+      <SectionHeading heading={block.heading || (siteTemplateId === "restaurant-table-flame" ? "Words from the table" : undefined)} subheading={block.subheading} align={sectionAlign} />
 
       <div
         className={
@@ -703,7 +878,7 @@ function TestimonialsBlockRenderer({
                     ))}
                   </div>
                 )}
-                <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].quote")} className="text-sm leading-relaxed text-[var(--ps-muted)]">
+                <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].quote")} className={`${siteTemplateId === "restaurant-table-flame" ? "font-[var(--v2-heading-font)] text-xl text-[var(--ps-text)] md:text-2xl" : "text-sm text-[var(--ps-muted)]"} leading-relaxed`}>
                   &ldquo;{t.quote}&rdquo;
                 </p>
               </div>
@@ -748,12 +923,16 @@ function ContactBlockRenderer({
   sourceMap,
   nextDayLabel,
   closedLabel,
+  siteTemplateId,
+  sectionAlign,
 }: {
   block: ContactBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
   nextDayLabel: string;
   closedLabel: string;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
 }) {
   const safeEmail = block.email ? sanitizeUrl(`mailto:${block.email}`) : "";
   const safePhone = block.phone ? sanitizeUrl(`tel:${block.phone}`) : "";
@@ -762,8 +941,52 @@ function ContactBlockRenderer({
     ? sanitizeUrl(`https://maps.google.com/?q=${encodeURIComponent(mapSearch)}`)
     : "";
 
+  if (siteTemplateId === "restaurant-table-flame") {
+    const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
+    const hasHours = Boolean(block.hoursTable?.length || block.hours);
+    const hasLocation = Boolean(block.address || block.phone || block.email || safeDirections || block.locations?.length);
+    return (
+      <section id="contact" className="w-full">
+        <SectionHeading heading={block.heading || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
+        <div className={`grid grid-cols-1 gap-8 ${hasHours && hasLocation ? "md:grid-cols-2 md:gap-14" : ""}`}>
+          {hasHours ? (
+            <div>
+              <h3 className="mb-4 text-xl font-medium text-[var(--ps-text)]">Opening Hours</h3>
+              {block.hoursTable?.length ? (
+                <ul className="divide-y divide-[var(--ps-border)] border-y border-[var(--ps-border)] text-sm">
+                  {block.hoursTable.map((row, index) => (
+                    <li key={index} className="flex items-center justify-between gap-4 py-3">
+                      <span className="font-medium text-[var(--ps-text)]">{row.day}</span>
+                      <span className="text-[var(--ps-muted)]">{row.closed ? closedLabel : [row.open, row.close].filter(Boolean).join(" – ") || "–"}{!row.closed && isOvernightWebsiteInterval(row.open, row.close) ? ` (${nextDayLabel})` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-base leading-7 text-[var(--ps-muted)]">{block.hours}</p>}
+            </div>
+          ) : null}
+          {hasLocation ? (
+            <div className="space-y-3">
+              <h3 className="text-xl font-medium text-[var(--ps-text)]">Location</h3>
+              {block.address ? <p className="text-base leading-7 text-[var(--ps-muted)]">{block.address}</p> : null}
+              {block.phone && safePhone ? <a className="block text-base text-[var(--ps-text)] underline underline-offset-4" href={safePhone}>{block.phone}</a> : null}
+              {block.email && safeEmail ? <a className="block text-base text-[var(--ps-text)] underline underline-offset-4" href={safeEmail}>{block.email}</a> : null}
+              {safeDirections ? <a className="inline-block text-sm font-semibold text-[var(--ps-accent-hover)] underline underline-offset-4" href={safeDirections} target="_blank" rel="noreferrer">Get directions</a> : null}
+              {block.locations?.map((location, index) => (
+                <div key={index} className="border-t border-[var(--ps-border)] pt-3">
+                  {location.name ? <p className="font-semibold text-[var(--ps-text)]">{location.name}</p> : null}
+                  {location.address ? <p className="text-sm text-[var(--ps-muted)]">{location.address}</p> : null}
+                  {location.hours ? <p className="text-sm text-[var(--ps-muted)]">{location.hours}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section id="contact" className="w-full py-[var(--ps-space-16)]">
+    <section id="contact" className="w-full">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
 
       <div className="grid grid-cols-1 gap-[var(--ps-space-8)] md:grid-cols-2 items-start">
@@ -942,7 +1165,7 @@ function FaqBlockRenderer({
   sourceMap?: ElementSourceMap;
 }) {
   return (
-    <section id="faq" className="w-full py-[var(--ps-space-16)]">
+    <section id="faq" className="w-full">
       <SectionHeading heading={block.heading} subheading={block.subheading} />
       <div className="divide-y divide-[var(--ps-border)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
         {(block.items ?? []).map((item, i) => (
@@ -981,7 +1204,7 @@ async function EventsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <SectionHeading heading={block.heading || "Upcoming Events"} subheading={block.subheading} />
 
       {events.length === 0 ? (
@@ -1113,6 +1336,7 @@ async function ProductsEmbedBlockRenderer({
   currencyLocale,
   accentColor,
   siteSlug,
+  currency,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
@@ -1120,6 +1344,7 @@ async function ProductsEmbedBlockRenderer({
   currencyLocale?: Locale;
   accentColor?: string;
   siteSlug?: string;
+  currency?: string;
 }) {
   const isStore = block.siteLocalProductDetails === true;
   const products: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
@@ -1178,6 +1403,9 @@ async function ProductsEmbedBlockRenderer({
         description: product.description,
         image: firstImg || null,
         priceLabel: price ? formatCurrency(price.amount, price.currency, locale) : null,
+        numericPrice: price ? price.amount : undefined,
+        createdAt: "created_at" in product ? (product.created_at ?? null) : null,
+        isSoldOut: stockState === "sold_out",
         tags: product.tags,
         badge:
           stockState === "sold_out"
@@ -1209,6 +1437,7 @@ async function ProductsEmbedBlockRenderer({
 
   if (isStore) {
     if (products.length === 0) return null;
+    const publicT = await getTranslations("PublicSite");
     const realCategoryCount = productGroups.filter((group) => group.id !== "uncategorized").length;
     const staticItems = productGroups.flatMap((group) => group.items.map((item) => ({ group, item }))).slice(0, block.browsePageSize ?? 12);
     const carouselHeading = block.heading || t("storeShopHeading");
@@ -1230,8 +1459,41 @@ async function ProductsEmbedBlockRenderer({
       next: t("carouselNext"),
       region: carouselHeading,
     };
+    const sortLabels = {
+      label: t("sortLabel"),
+      featured: t("sortFeatured"),
+      newest: t("sortNewest"),
+      priceAsc: t("sortPriceAsc"),
+      priceDesc: t("sortPriceDesc"),
+    };
+    const cartLabels = {
+      title: t("storeCartTitle"),
+      empty: t("storeCartEmpty"),
+      emptyBody: t("storeCartEmptyBody"),
+      viewCart: t("storeViewCart"),
+      added: t("storeCartAdded"),
+      addToCart: t("storeAddToCart"),
+      checkout: t("storeCartCheckout"),
+      pay: t("storeCartPay"),
+      back: t("storeBackToShop"),
+      continueShopping: t("storeCartContinue"),
+      subtotal: t("storeCartSubtotal"),
+      discount: t("storeCartDiscount"),
+      total: t("storeCartTotal"),
+      remove: t("storeCartRemove"),
+      decrease: t("storeCartDecrease"),
+      increase: t("storeCartIncrease"),
+      promo: t("storeCartPromo"),
+      promoPlaceholder: t("storeCartPromoPlaceholder"),
+      buyerName: publicT("storeBuyerName"),
+      buyerEmail: publicT("storeBuyerEmail"),
+      changed: t("storeCartChanged"),
+      error: publicT("storeCheckoutError"),
+      unavailable: t("storeCartUnavailable"),
+      locale: locale === "fr" ? "fr-FR" : "en-US",
+    };
     return (
-      <section className="w-full py-[var(--ps-space-16)]">
+      <section className="w-full">
         <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
         <StorefrontBrowse
           groups={productGroups}
@@ -1246,6 +1508,22 @@ async function ProductsEmbedBlockRenderer({
             nextLabel: carouselLabels.next,
             regionLabel: carouselLabels.region,
           }}
+          sort={sortLabels}
+          // Cart mounts only on real tenant renders (previews and gallery
+          // samples pass no tenantId and must stay non-transactional).
+          {...(siteSlug && tenantId
+            ? {
+                storeCart: {
+                  slug: siteSlug,
+                  siteCurrency:
+                    currency ??
+                    priceMap.values().next().value?.currency ??
+                    "USD",
+                  addLabel: t("storeAddToCart"),
+                  labels: cartLabels,
+                },
+              }
+            : {})}
         >
           <ProductCarousel items={staticItems.map(toCarouselItem)} labels={carouselLabels} />
         </StorefrontBrowse>
@@ -1256,7 +1534,7 @@ async function ProductsEmbedBlockRenderer({
   const layout = block.layout ?? "grid";
 
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <SectionHeading heading={block.heading || "Featured Products"} subheading={block.subheading} />
 
       {products.length === 0 ? (
@@ -1399,7 +1677,7 @@ async function FundraiserEmbedBlockRenderer({
 
   if (fundraisers.length === 0) {
     return (
-      <section className="w-full py-[var(--ps-space-16)]">
+      <section className="w-full">
         <SectionHeading heading={block.heading || "Fundraising Campaigns"} subheading={block.subheading} />
         <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">
           No active fundraisers at this time.
@@ -1418,7 +1696,7 @@ async function FundraiserEmbedBlockRenderer({
     );
 
     return (
-      <section className="w-full py-[var(--ps-space-16)]">
+      <section className="w-full">
         <SectionHeading heading={block.heading} subheading={block.subheading} />
         <div className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs lg:grid lg:grid-cols-12 items-center">
           {safeImage && (
@@ -1482,7 +1760,7 @@ async function FundraiserEmbedBlockRenderer({
 
   // Layout: Grid / Cards
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <SectionHeading heading={block.heading || "Active Campaigns"} subheading={block.subheading} />
       <div className="grid grid-cols-1 gap-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
         {fundraisers.map((f: ResolvedFundraiserItem) => {
@@ -1570,7 +1848,7 @@ async function ServicesEmbedBlockRenderer({
   const services = tenantId ? await resolveServicesEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const layout = block.layout ?? "grid";
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <SectionHeading heading={block.heading || "Our Services"} subheading={block.subheading} />
       {services.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--ps-border)] p-[var(--ps-space-8)] text-center text-sm text-[var(--ps-muted)]">No services available at this time.</div>
@@ -1645,6 +1923,8 @@ async function MenuEmbedBlockRenderer({
   orderConfig,
   siteSlug,
   accentColor,
+  siteTemplateId,
+  sectionAlign,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
@@ -1657,6 +1937,8 @@ async function MenuEmbedBlockRenderer({
   orderConfig?: StorefrontOrderConfig;
   siteSlug?: string;
   accentColor?: string;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
 }) {
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
@@ -1773,23 +2055,23 @@ async function MenuEmbedBlockRenderer({
   }));
   const hasMenuItems = hasBrowseableItems(menuGroups);
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <div {...elementPathProps(editMode, sourceMap, "heading")}>
-        <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} />
+        <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
       </div>
       {!hasMenuItems ? (
         <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("menuComingSoon")}</p>
       ) : (
-        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig} accentColor={accentColor}>
+        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig} accentColor={accentColor} variant={siteTemplateId === "restaurant-table-flame" && block.variant === "rows" ? "rows" : "cards"}>
         <div className="space-y-[var(--ps-space-8)]">
           {populatedSections.map((sec: ResolvedMenuSection) => (
-            <div key={sec.id} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs">
+            <div key={sec.id} className={block.variant === "rows" ? "" : "rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs"}>
               <div className="flex items-center gap-[var(--ps-space-2)]">
                 <h3 className="text-lg font-bold text-[var(--ps-text)]">{sec.name}</h3>
                 {sec.isDraft && <DraftBadge />}
               </div>
               {sec.description && <p className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">{sec.description}</p>}
-              <div className="mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2">
+              <div className={block.variant === "rows" ? "mt-4 divide-y divide-[#e6dccd] border-y border-[#e6dccd]" : "mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2"}>
                 {sec.items.length === 0 ? (
                   <div className="text-xs text-[var(--ps-muted)]">No items in this section.</div>
                 ) : (
@@ -1804,24 +2086,19 @@ async function MenuEmbedBlockRenderer({
                           sourceMap,
                           "selectedItemIds[" + (block.selectedItemIds?.indexOf(it.id) ?? -1) + "]"
                         )}
-                        className="flex gap-[var(--ps-space-3)] rounded-lg border border-[var(--ps-border)] p-[var(--ps-space-3)]"
+                        className={block.variant === "rows" ? "flex min-h-11 items-center gap-5 py-4" : "flex gap-[var(--ps-space-3)] rounded-lg border border-[var(--ps-border)] p-[var(--ps-space-3)]"}
                       >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
-                          {safeImg ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-4 w-4" /></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
+                        {block.variant !== "rows" ? <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
+                          {safeImg ? <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-4 w-4" /></div>}
+                        </div> : null}
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-[var(--ps-space-2)]">
                             <span className="text-sm font-semibold text-[var(--ps-text)]">{it.name}</span>
                             {it.is_featured && <span className="rounded-full bg-amber-100 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-amber-700">Featured</span>}
                             {it.is_sold_out && <span className="rounded-full bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">{t("soldOut")}</span>}
                             {it.isDraft && <DraftBadge />}
                           </div>
-                          {it.description && <p className="text-xs text-[var(--ps-muted)] line-clamp-1">{it.description}</p>}
+                          {it.description && <p className={`text-[var(--ps-muted)] ${block.variant === "rows" ? "mt-1 text-sm leading-6" : "text-xs line-clamp-1"}`}>{it.description}</p>}
                           <div className="mt-[var(--ps-space-1)] flex flex-wrap gap-[var(--ps-space-1)]">
                             {it.dietary_tags.map((t) => (
                               <span key={t} className="rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium text-emerald-700 border border-emerald-200 capitalize">{t.replace("_"," ")}</span>
@@ -1843,6 +2120,10 @@ async function MenuEmbedBlockRenderer({
                             {it.option_groups && it.option_groups.length > 0 && <span className="font-normal text-[var(--ps-muted)]"> • {it.option_groups.length} {t("options").toLowerCase()}</span>}
                           </div>
                         </div>
+                        {block.variant === "rows" && safeImg ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={safeImg} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[#e6dccd] object-cover" loading="lazy" />
+                        ) : null}
                       </div>
                     );
                   })
@@ -1880,7 +2161,7 @@ async function ReservationFormBlockRenderer({
   const t = await getTranslations("Storefront");
   if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
     return (
-      <section className="w-full py-[var(--ps-space-16)]">
+      <section className="w-full">
         <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("requestNotAvailable")}</p>
       </section>
     );
@@ -1914,7 +2195,7 @@ async function ReservationFormBlockRenderer({
     requestFailed: t("reservationFailed"),
   };
   return (
-    <section className="w-full py-[var(--ps-space-16)]">
+    <section className="w-full">
       <ReservationRequestForm config={reservationConfig} labels={labels} siteSlug={siteSlug ?? reservationConfig.slug} />
     </section>
   );
@@ -1925,7 +2206,7 @@ async function ReservationFormBlockRenderer({
 function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
   const safeHtml = sanitizeArticleHtml(block.html);
   return (
-    <section className="mx-auto w-full max-w-3xl px-[var(--ps-space-6)] py-[var(--ps-space-12)]">
+    <section className="mx-auto w-full max-w-3xl px-[var(--ps-space-6)]">
       <div
         className="prose prose-zinc max-w-none prose-headings:font-bold prose-a:text-[var(--ps-accent-hover)]"
         dangerouslySetInnerHTML={{ __html: safeHtml }}
@@ -1936,12 +2217,14 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean }) {
+function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center" }) {
   const variantClasses =
     block.variant === "dark"
       ? "bg-[var(--ps-text)] text-white"
       : block.variant === "light"
         ? "bg-[var(--ps-neutral)] text-[var(--ps-text)] border border-[var(--ps-border)]"
+        : block.variant === "footer"
+        ? "bg-[#23211f] text-[#faf6ef]"
         : "text-white";
 
   const safeCtaHref = block.ctaHref
@@ -1950,14 +2233,16 @@ function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks }: { block
 
   return (
     <section
-      className={`w-full px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center ${variantClasses}`}
+      className={`w-full ${sectionAlign === "left" ? "text-left" : "text-center"} ${variantClasses}`}
       style={
-        block.variant !== "dark" && block.variant !== "light"
+        block.variant === "footer"
+          ? { backgroundColor: "#23211f", color: "#faf6ef" }
+          : block.variant !== "dark" && block.variant !== "light"
           ? { backgroundColor: "var(--ps-accent)" }
           : {}
       }
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto w-full max-w-6xl px-6">
         {block.heading && (
           <h2 className="text-3xl font-bold">{block.heading}</h2>
         )}
@@ -1965,12 +2250,14 @@ function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks }: { block
           <p className="mt-[var(--ps-space-3)] text-lg opacity-90">{block.subheading}</p>
         )}
         {block.ctaLabel && safeCtaHref && (
-          <a
-            href={safeCtaHref}
-            className="ps-button ps-button-secondary mt-[var(--ps-space-8)] inline-flex items-center text-sm font-semibold shadow-xs transition"
-          >
-            {block.ctaLabel}
-          </a>
+          <div className={`mt-[var(--ps-space-8)] flex w-full flex-wrap gap-3 ${sectionAlign === "left" ? "justify-start" : "justify-center"}`}>
+            <a
+              href={safeCtaHref}
+              className={`inline-flex items-center text-sm font-semibold transition ${block.variant === "footer" ? "tf-button rounded-full bg-[var(--ps-accent)] px-6 py-3 text-[var(--ps-accent-foreground)]" : "ps-button ps-button-secondary shadow-xs"}`}
+            >
+              {block.ctaLabel}
+            </a>
+          </div>
         )}
       </div>
     </section>
@@ -1982,10 +2269,14 @@ function SectionEnvelopeWrapper({
   block,
   children,
   blockId,
+  sectionAlign,
+  siteTemplateId,
 }: {
   block: Block;
   children: React.ReactNode;
   blockId?: string;
+  sectionAlign?: "left" | "center";
+  siteTemplateId?: string;
 }) {
   const raw = block as unknown as Record<string, unknown>;
   const hiddenOnMobile = Boolean(raw.hiddenOnMobile);
@@ -1997,20 +2288,37 @@ function SectionEnvelopeWrapper({
   const spacingClass = spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
   const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
   const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
-  const containerClass = getContainerClass(container as never);
+  const tableFlame = siteTemplateId === "restaurant-table-flame";
+  const fullBleedTableFlameBlock = tableFlame && (
+    (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
+    block.type === "cta_banner"
+  );
+  const containerClass = fullBleedTableFlameBlock
+    ? "w-full"
+    : tableFlame
+      ? "mx-auto w-full max-w-6xl px-6"
+      : getContainerClass(container as never);
+  const tableFlameCta = tableFlame && block.type === "cta_banner";
+  const sectionAttributes = {
+    "data-block-id": blockId,
+    "data-section-align": sectionAlign,
+    ...(tableFlame && block.type !== "hero" ? { "data-site-motion-section": "true" } : {}),
+  };
 
   // Respect visibility — hidden sections already filtered via isBlockVisible at call sites, but keep guard
   const isVisible = raw.visible !== false;
   if (!isVisible) return null as unknown as React.ReactElement;
 
-  const wrapperStyle = bgStyle as React.CSSProperties | undefined;
+  const wrapperStyle = tableFlameCta
+    ? { ...(bgStyle as React.CSSProperties | undefined), backgroundColor: "#23211f" }
+    : bgStyle as React.CSSProperties | undefined;
   // Outer section carries background, spacing, visibility, overlay — full-width
-  const outerClass = [hiddenClass, spacingClass, hasOverlay ? "relative" : ""].filter(Boolean).join(" ");
+  const outerClass = [hiddenClass, spacingClass, hasOverlay ? "relative" : "", tableFlameCta ? "w-full" : ""].filter(Boolean).join(" ");
   const hasOuter = Boolean(hiddenClass || spacingClass || bgStyle || hasOverlay);
 
   if (hasOuter) {
     return (
-      <div data-block-id={blockId} className={outerClass} style={wrapperStyle}>
+      <div {...sectionAttributes} className={outerClass} style={wrapperStyle}>
         {hasOverlay && (
           <div
             aria-hidden="true"
@@ -2028,7 +2336,7 @@ function SectionEnvelopeWrapper({
   }
 
   // No outer background/spacing — still constrain content via container so narrow/wide/full take effect
-  return <div data-block-id={blockId} className={containerClass}>{children}</div>;
+  return <div {...sectionAttributes} className={containerClass}>{children}</div>;
 }
 
 // ── Main Dispatcher ──────────────────────────────────────────────────────────
@@ -2046,6 +2354,10 @@ export async function BlockRenderer({
   siteSlug,
   scopeInternalLinks,
   accentColor,
+  siteTemplateId,
+  sectionAlign,
+  businessName,
+  businessLogo,
 }: {
   block: unknown;
   tenantId?: string;
@@ -2060,6 +2372,10 @@ export async function BlockRenderer({
   siteSlug?: string;
   scopeInternalLinks?: boolean;
   accentColor?: string;
+  siteTemplateId?: string;
+  sectionAlign?: "left" | "center";
+  businessName?: string;
+  businessLogo?: string;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -2070,28 +2386,35 @@ export async function BlockRenderer({
 
   // G2: hidden sections do not render publicly
   if (!isBlockVisible(b)) return null;
+  if (
+    !editMode &&
+    siteTemplateId === "restaurant-table-flame" &&
+    b.type === "contact" &&
+    !b.address && !b.phone && !b.email && !b.hours &&
+    !b.hoursTable?.length && !b.locations?.length && !b.directionsUrl && !b.mapQuery
+  ) return null;
 
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} />;
       break;
     case "features":
-      content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
       break;
     case "about":
-      content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
       break;
     case "gallery":
-      content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
       break;
     case "testimonials":
-      content = <TestimonialsBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} />;
+      content = <TestimonialsBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
       break;
     case "contact":
       {
         const t = await getTranslations("Storefront");
-        content = <ContactBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} nextDayLabel={t("nextDay")} closedLabel={t("closed")} />;
+        content = <ContactBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} nextDayLabel={t("nextDay")} closedLabel={t("closed")} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
       }
       break;
     case "faq":
@@ -2115,6 +2438,7 @@ export async function BlockRenderer({
           currencyLocale={currencyLocale}
           accentColor={accentColor}
           siteSlug={siteSlug}
+          currency={currency}
         />
       );
       break;
@@ -2149,6 +2473,8 @@ export async function BlockRenderer({
           orderConfig={orderConfig}
           siteSlug={siteSlug}
           accentColor={accentColor}
+          siteTemplateId={siteTemplateId}
+          sectionAlign={sectionAlign}
         />
       );
       break;
@@ -2156,7 +2482,7 @@ export async function BlockRenderer({
       content = <RichTextBlockRenderer block={b} />;
       break;
     case "cta_banner":
-      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} />;
+      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} />;
       break;
     case "menu_order":
       return null;
@@ -2179,6 +2505,8 @@ export async function BlockRenderer({
     <SectionEnvelopeWrapper
       block={b}
       blockId={editMode && blockSourceMap ? b.id : undefined}
+      sectionAlign={sectionAlign}
+      siteTemplateId={siteTemplateId}
     >
       {content}
     </SectionEnvelopeWrapper>

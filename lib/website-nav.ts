@@ -13,6 +13,8 @@ export type HeaderConfig = {
   ctaLabel: string;
   ctaHref: string;
   sticky: boolean;
+  /** Template opt-in; absent keeps the existing compact mobile dropdown. */
+  mobileMenu?: "dropdown" | "overlay";
 };
 
 export type FooterConfig = {

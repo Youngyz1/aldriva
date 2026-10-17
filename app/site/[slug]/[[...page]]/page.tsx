@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fraunces } from "next/font/google";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -61,12 +62,35 @@ interface Props {
   }>;
 }
 
+const tableFlameFont = Fraunces({
+  subsets: ["latin", "latin-ext"],
+  weight: "500",
+  variable: "--font-fraunces",
+  display: "swap",
+  preload: false,
+});
+
 interface V2RouteContent {
   template: WebsiteTemplateV2;
   content: ContentDoc;
   samples: ContentDoc;
   resolved: ResolvedTemplate;
   availablePageSlugs: string[];
+}
+
+function applyTableFlameSectionBands(blocks: unknown[]): unknown[] {
+  let sectionIndex = 0;
+  return blocks.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const block = value as Record<string, unknown>;
+    if (block.type === "menu_order" || block.visible === false) return value;
+    if (block.type === "cta_banner") {
+      return { ...block, variant: "footer", background: { color: "#23211f" } };
+    }
+    const color = sectionIndex % 2 === 0 ? "#faf6ef" : "#f1e9dd";
+    sectionIndex += 1;
+    return { ...block, background: { color } };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -512,12 +536,24 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     };
   }
 
-  const blocks = (targetPage.blocks as unknown[]) || [];
+  const rawBlocks = (targetPage.blocks as unknown[]) || [];
+  const tableFlame = v2Template?.id === "restaurant-table-flame";
+  const blocks = tableFlame ? applyTableFlameSectionBands(rawBlocks) : rawBlocks;
+  const firstResolvedBlock = rawBlocks.find((value) =>
+    value && typeof value === "object" && !Array.isArray(value) &&
+    (value as Record<string, unknown>).type !== "menu_order" &&
+    (value as Record<string, unknown>).visible !== false
+  ) as Record<string, unknown> | undefined;
+  const startsWithScrimHero = Boolean(
+    tableFlame && firstResolvedBlock?.type === "hero" &&
+    firstResolvedBlock.variant === "full-bleed" && firstResolvedBlock.scrim === true
+  );
 
   return (
     <div
       style={themeStyle}
-      className={`public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${
+      data-site-template={v2Template?.id}
+      className={`public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${tableFlame ? tableFlameFont.variable : ""} ${
         website.theme_config?.darkMode ? "dark" : ""
       }`}
     >
@@ -558,6 +594,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
           storefrontFeatures={v2Content.resolved.storefrontFeatures}
           primaryAction={v2Content.resolved.primaryAction.primary}
           availablePageSlugs={v2Content.availablePageSlugs}
+          overHero={startsWithScrimHero}
         />
       ) : (
         <SiteHeader
@@ -598,6 +635,10 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               accentColor={v2Template
                 ? v2ThemeStyle(v2Template, website.metadata)["--ps-accent"]
                 : (typeof website.theme_config?.primaryColor === "string" ? website.theme_config.primaryColor : undefined)}
+              siteTemplateId={v2Template?.id}
+              sectionAlign={v2Template?.sectionAlign}
+              businessName={typeof v2Content?.content.business_name === "string" ? v2Content.content.business_name : website.site_title}
+              businessLogo={typeof v2Content?.content.logo_url === "string" ? v2Content.content.logo_url : undefined}
             />
           ))
         )}

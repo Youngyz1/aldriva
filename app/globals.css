@@ -41,10 +41,13 @@
 }
 
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
-  --font-geist-sans: var(--font-sans), Arial, Helvetica, sans-serif;
-  --font-geist-mono: "Courier New", Courier, monospace;
+  --font-geist-sans: var(--font-ui), Arial, Helvetica, sans-serif;
+  --font-geist-mono: var(--font-code), "Courier New", Courier, monospace;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 
   /* Brand scale — Tailwind's stock `orange` values, promoted to named
      tokens. Aldriva's identity is already orange throughout the app (every
@@ -132,8 +135,14 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -154,17 +163,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #ffffff;
-    --foreground: #171717;
-  }
-}
-
 /* Public-site foundation: intentionally scoped so these values cannot reach
    dashboard, admin, or root-page UI. Per-template accent values are supplied
    as inline variables by lib/website-v2-theme.ts. */
 .public-site {
+  --site-header-h: 64px;
   --ps-text: #22201c;
   --ps-muted: #625f58;
   --ps-surface: #ffffff;
@@ -216,6 +219,12 @@
   font-weight: var(--ps-weight-body);
 }
 
+@media (min-width: 768px) {
+  .public-site {
+    --site-header-h: 80px;
+  }
+}
+
 .public-site h1,
 .public-site h2,
 .public-site h3,
@@ -249,11 +258,83 @@
 .public-site .rounded-2xl.border,
 .public-site .rounded-xl.border,
 .public-site .rounded-lg.border {
-  border-radius: var(--ps-card-radius);
+  border-radius: var(--site-card-radius, 8px);
   border-width: 1px;
-  border-color: var(--ps-border);
+  border-color: var(--site-card-border, var(--ps-border));
 }
-.public-site .shadow-xs { box-shadow: var(--ps-card-shadow); }
+.public-site .shadow-xs { box-shadow: var(--site-card-shadow, var(--ps-card-shadow)); }
+.public-site[data-site-template="restaurant-table-flame"] {
+  --site-card-radius: 12px;
+  --site-card-shadow: none;
+  --site-card-border: #e6dccd;
+  --ps-h1: 40px;
+  --ps-h2: 30px;
+  --ps-h3: 20px;
+  --ps-body: 16px;
+  --ps-small: 16px;
+  --ps-caption: 13px;
+}
+.public-site[data-site-template="restaurant-table-flame"] h1 {
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+}
+.public-site[data-site-template="restaurant-table-flame"] h2,
+.public-site[data-site-template="restaurant-table-flame"] h3 {
+  font-weight: 500;
+}
+@media (min-width: 768px) {
+  .public-site[data-site-template="restaurant-table-flame"] {
+    --ps-h1: 72px;
+    --ps-h2: 44px;
+  }
+}
+
+.public-site[data-site-template="restaurant-table-flame"] [data-section-align="left"] .text-center {
+  text-align: left !important;
+}
+.public-site[data-site-template="restaurant-table-flame"] [data-motion-ready="true"] [data-site-motion-section] {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.public-site[data-site-template="restaurant-table-flame"] [data-motion-ready="true"] [data-site-motion-section].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.public-site[data-site-template="restaurant-table-flame"] [data-site-motion-hero] img {
+  animation: table-flame-hero-image-in 400ms ease both;
+}
+.public-site[data-site-template="restaurant-table-flame"] .tf-card {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.public-site[data-site-template="restaurant-table-flame"] .tf-card:hover {
+  transform: translateY(-2px);
+}
+.public-site[data-site-template="restaurant-table-flame"] button {
+  transition: transform 200ms ease;
+}
+.public-site[data-site-template="restaurant-table-flame"] .tf-button:active,
+.public-site[data-site-template="restaurant-table-flame"] button:active {
+  transform: scale(0.98);
+}
+@keyframes table-flame-hero-image-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-site[data-site-template="restaurant-table-flame"] *,
+  .public-site[data-site-template="restaurant-table-flame"] *::before,
+  .public-site[data-site-template="restaurant-table-flame"] *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+  .public-site[data-site-template="restaurant-table-flame"] [data-motion-ready="true"] [data-site-motion-section] {
+    opacity: 1;
+    transform: none;
+  }
+}
 .public-site .ps-card {
   border: var(--ps-card-border);
   border-radius: var(--ps-card-radius);
@@ -278,7 +359,8 @@
 .public-site .ps-button-secondary:hover { background: var(--ps-neutral); }
 
 .dark {
-  --background: #0a0a0a;
+  color-scheme: dark;
+  --background: #09090b;
   --foreground: #ededed;
   --primary: var(--brand-300);
   --primary-foreground: var(--brand-950);
@@ -290,11 +372,66 @@
   --destructive-foreground: #09090b;
   --card: #18181b;
   --card-foreground: #fafafa;
+  --surface: #18181b;
+  --surface-subtle: #27272a;
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
   --border: #27272a;
+  --border-strong: #3f3f46;
   --input: #27272a;
   --ring: var(--brand-400);
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #fbbf24;
+  --warning-foreground: #451a03;
+}
+
+.light {
+  color-scheme: light;
+}
+
+/* Compatibility palette for platform surfaces that still use Tailwind's
+   zinc utilities. Website template surfaces are excluded and keep their own
+   palette. This maps neutral colors to a real dark palette; it does not use
+   opacity, filters, or screen dimming. */
+html.dark :is(.bg-white, .bg-zinc-50, .bg-gray-50):not(.public-site, .public-site *) {
+  background-color: var(--surface);
+}
+
+html.dark :is(.bg-zinc-100, .bg-zinc-200, .bg-gray-100, .bg-gray-200):not(.public-site, .public-site *) {
+  background-color: var(--surface-subtle);
+}
+
+html.dark :is(.text-zinc-950, .text-zinc-900, .text-gray-950, .text-gray-900):not(.public-site, .public-site *) {
+  color: var(--foreground);
+}
+
+html.dark :is(.text-zinc-800, .text-gray-800):not(.public-site, .public-site *) {
+  color: #e4e4e7;
+}
+
+html.dark :is(.text-zinc-700, .text-gray-700):not(.public-site, .public-site *) {
+  color: #d4d4d8;
+}
+
+html.dark :is(.text-zinc-600, .text-zinc-500, .text-gray-600, .text-gray-500):not(.public-site, .public-site *) {
+  color: var(--muted-foreground);
+}
+
+html.dark :is(.text-zinc-400, .text-gray-400):not(.public-site, .public-site *) {
+  color: #71717a;
+}
+
+html.dark :is(.border-zinc-50, .border-zinc-100, .border-zinc-200, .border-gray-100, .border-gray-200):not(.public-site, .public-site *) {
+  border-color: var(--border);
+}
+
+html.dark :is(.border-zinc-300, .border-gray-300, .divide-zinc-200, .divide-gray-200):not(.public-site, .public-site *) {
+  border-color: var(--border-strong);
+}
+
+html.dark .ring-offset-white:not(.public-site, .public-site *) {
+  --tw-ring-offset-color: var(--background);
 }
 
 *,
@@ -340,7 +477,7 @@ summary {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans);
   text-rendering: optimizeLegibility;
   position: relative;
 }

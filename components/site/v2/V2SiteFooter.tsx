@@ -3,10 +3,12 @@
 import { useTranslations } from "next-intl";
 import type { MouseEvent } from "react";
 import type { ContentDoc } from "@/lib/website-content";
+import { readableOn } from "@/lib/readable-on";
 import { sanitizeUrl } from "@/lib/sanitize-html";
 import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
+import { resolveV2ThemeColor } from "@/lib/website-v2-color-resolution";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { ResolvedTodayHours } from "@/lib/website-hours";
 
@@ -71,11 +73,19 @@ export function V2SiteFooter({
   const businessName =
     typeof businessNameValue === "string" && businessNameValue.trim()
       ? businessNameValue.trim()
-      : editMode && sourceMap?.businessName
-        ? "Add business name"
-        : siteTitle;
+      : siteTitle;
   const noteValue = valueFor(content, sampleContent, "footer_note", previewMode);
   const footerNote = typeof noteValue === "string" && noteValue.trim() ? noteValue.trim() : undefined;
+  const addressValue = valueFor(content, sampleContent, "address", previewMode);
+  const address = typeof addressValue === "string" && addressValue.trim() ? addressValue.trim() : undefined;
+  const phoneValue = valueFor(content, sampleContent, "phone", previewMode);
+  const phone = typeof phoneValue === "string" && phoneValue.trim() ? phoneValue.trim() : undefined;
+  const directionsValue = valueFor(content, sampleContent, "directions_url", previewMode);
+  const directionsUrl = typeof directionsValue === "string" ? sanitizeUrl(directionsValue) : "";
+  const safePhone = phone ? sanitizeUrl(`tel:${phone}`) : "";
+  const mapHref = address
+    ? directionsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : "";
   const rawSocials = valueFor(content, sampleContent, "socials", previewMode);
   const socials = rawSocials && typeof rawSocials === "object"
     ? rawSocials as Record<string, unknown>
@@ -88,8 +98,8 @@ export function V2SiteFooter({
     ? sampleContent.nav_labels as Record<string, unknown>
     : {};
   const footerBand = template.templateBackground.bands.find((band) => band.zone === "footer");
-  const backgroundColor = footerBand?.color || template.templateBackground.base;
-  const foregroundColor = footerBand?.color ? "#ffffff" : "#18181b";
+  const backgroundColor = resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
+  const foregroundColor = readableOn(backgroundColor, ["#22201c", "#ffffff"]);
   const safeSocials = template.footer.showSocials
     ? ["instagram", "facebook", "tiktok", "x"].flatMap((network) => {
         const raw = socials[network];
@@ -117,9 +127,19 @@ export function V2SiteFooter({
   return (
     <footer
       className="mt-auto border-t border-[var(--ps-border)]/10"
-      style={{ backgroundColor, color: foregroundColor, fontFamily: "var(--ps-font-body)" }}
+      style={{
+        backgroundColor,
+        color: foregroundColor,
+        fontFamily: "var(--ps-font-body)",
+        ...(template.id === "restaurant-table-flame" ? { borderTopColor: "#3a3632" } : {}),
+      }}
     >
-      <div className="mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:grid-cols-3 md:px-[var(--ps-space-8)]">
+      <div
+        className={template.id === "restaurant-table-flame"
+          ? "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
+          : "mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:px-[var(--ps-space-8)]"}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))" }}
+      >
         <div className="space-y-[var(--ps-space-3)]">
           <a
             href={sanitizeUrl(getSitePageHref(siteSlug, "home"))}
@@ -134,17 +154,16 @@ export function V2SiteFooter({
               {footerNote}
             </p>
           )}
-          {editMode && sourceMap?.footerNote && !footerNote && (
-            <p {...editablePath(editMode, sourceMap, "footerNote")} className="text-sm opacity-70">
-              Add a footer note
-            </p>
-          )}
         </div>
 
         <div className="space-y-[var(--ps-space-3)]">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Explore</h2>
           <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-[var(--ps-space-4)] gap-y-[var(--ps-space-2)]">
-            {visibleNavigation.map((item, index) => {
+            {visibleNavigation.length === 0 ? (
+              <a href={sanitizeUrl(getSitePageHref(siteSlug, "home"))} className="text-sm opacity-80 hover:opacity-100">
+                Home
+              </a>
+            ) : visibleNavigation.map((item, index) => {
               const scopedHref = item.pageSlug
                 ? getSitePageHref(siteSlug, item.pageSlug, item.anchor)
                 : resolveSiteHref(siteSlug, item.href);
@@ -180,18 +199,27 @@ export function V2SiteFooter({
           )}
         </div>
 
-        {(hoursLine || (editMode && sourceMap?.hours)) && (
+        {(address || phone) && (
+          <div className="space-y-[var(--ps-space-3)]">
+            {address && <p {...editablePath(editMode, sourceMap, "address")} className="text-sm opacity-85">{address}</p>}
+            {phone && (safePhone ? (
+              <a {...editablePath(editMode, sourceMap, "phone")} href={safePhone} className="block text-sm opacity-85 hover:opacity-100">{phone}</a>
+            ) : (
+              <p {...editablePath(editMode, sourceMap, "phone")} className="text-sm opacity-85">{phone}</p>
+            ))}
+            {address && mapHref && (
+              <a {...editablePath(editMode, sourceMap, "directions_url")} href={mapHref} target="_blank" rel="noopener noreferrer" className="inline-block text-sm underline-offset-4 hover:underline">
+                Get directions
+              </a>
+            )}
+          </div>
+        )}
+        {hoursLine && (
           <div className="space-y-[var(--ps-space-3)]">
             <h2 className="text-sm font-semibold uppercase tracking-wide">{tStorefront("hours")}</h2>
-            {hoursLine ? (
-              <p {...editablePath(editMode, sourceMap, todayHours ? "hours." + todayHours.day : "hours")} className="text-sm opacity-85">
-                {tStorefront("today")}: {hoursLine}
-              </p>
-            ) : (
-              <p {...editablePath(editMode, sourceMap, "hours")} className="text-sm opacity-75">
-                {tStorefront("addOpeningHours")}
-              </p>
-            )}
+            <p {...editablePath(editMode, sourceMap, todayHours ? "hours." + todayHours.day : "hours")} className="text-sm opacity-85">
+              {tStorefront("today")}: {hoursLine}
+            </p>
           </div>
         )}
       </div>

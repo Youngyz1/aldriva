@@ -15,6 +15,7 @@
 import type { WebsiteTemplateV2 } from "./website-template-v2";
 import { getFlagshipTemplate } from "./website-template-v2";
 import { normalizeCurrencyCode } from "./website-blocks";
+import { readableOn } from "./readable-on";
 
 export interface PublicAccentPalette {
   id: string;
@@ -115,9 +116,11 @@ export function v2ThemeStyle(
   const primary = palette?.accent ?? template.lockedTheme.primaryColor;
   const hover = palette?.hover ?? primary;
   const light = palette?.light ?? "#fbe9e3";
-  const foreground = palette?.foreground ?? "#ffffff";
-  const headingFont =
-    template.lockedTheme.headingFont === "serif"
+  const isTableFlame = template.id === "restaurant-table-flame";
+  const foreground = isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : palette?.foreground ?? "#ffffff";
+  const headingFont = isTableFlame
+    ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
+    : template.lockedTheme.headingFont === "serif"
       ? "Georgia, 'Times New Roman', serif"
       : "var(--font-sans), Arial, Helvetica, sans-serif";
   return {
@@ -131,5 +134,16 @@ export function v2ThemeStyle(
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,
     "--ps-accent-foreground": foreground,
+    ...(isTableFlame ? {
+      "--ps-text": "#2a211b",
+      "--ps-muted": "#6b5d52",
+      "--ps-surface": "#faf6ef",
+      "--ps-cream": "#faf6ef",
+      "--ps-neutral": "#f1e9dd",
+      "--ps-border": "#e6dccd",
+      "--ps-card-radius": "12px",
+      "--ps-card-shadow": "none",
+      "--ps-card-border": "1px solid #e6dccd",
+    } : {}),
   };
 }

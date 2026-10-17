@@ -16,7 +16,7 @@
  * lib/__tests__/website-template-v2.test.cjs — renames fail the test.
  */
 
-import type { BlockType } from "./website-blocks";
+import type { BlockType, SectionSpacing } from "./website-blocks";
 import type { ContentKey } from "./website-content";
 import type { WebsiteCategory } from "./website-category";
 import type {
@@ -41,7 +41,8 @@ export type TemplateSlotKind =
   | "pick"
   | "url"
   | "hours"
-  | "socials";
+  | "socials"
+  | "number";
 
 export interface TemplateSlot {
   /** Stable within id@version (pinned by test). e.g. "hero.headline" */
@@ -104,6 +105,8 @@ export interface TemplateSection {
   defaultOff?: boolean;
   /** Human note for template authors (e.g. why featured ids are unbound). */
   note?: string;
+  /** Optional template-owned section rhythm. Absent keeps the legacy default. */
+  spacing?: SectionSpacing;
 }
 
 // ── Locked look ─────────────────────────────────────────────────────────────
@@ -162,6 +165,8 @@ export interface WebsiteTemplateV2 {
   /** Kept registered for existing sites; later galleries may omit legacy templates. */
   legacy?: boolean;
   tags?: string[];
+  /** Optional alignment for all sections in this template. */
+  sectionAlign?: "left" | "center";
 }
 
 // ── Restaurant: Table & Flame ───────────────────────────────────────────────
@@ -194,7 +199,7 @@ const RESTAURANT_SLOTS: TemplateSlot[] = [
   { slotId: "footer.note", field: "footer_note", label: "Footer note", kind: "text" },
 ];
 
-const RESTAURANT_SECTIONS: TemplateSection[] = [
+const RESTAURANT_SECTION_DEFINITIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag"] },
   { id: "business-offerings", page: "home", block: "features", slots: [] },
@@ -221,9 +226,14 @@ const RESTAURANT_SECTIONS: TemplateSection[] = [
   { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note", "hours.table"] },
 ];
 
+const RESTAURANT_SECTIONS: TemplateSection[] = RESTAURANT_SECTION_DEFINITIONS.map((section) => ({
+  ...section,
+  spacing: section.id === "hero" ? "roomy" : "default",
+}));
+
 export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   id: "restaurant-table-flame",
-  version: "1.0.0",
+  version: "1.1.0",
   name: "Table & Flame",
   description: "A warm restaurant template for menus, stories, and location details.",
   category: "restaurant",
@@ -231,7 +241,7 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   previewColor: "#c65d3b",
   supportedCategories: ["restaurant"],
   theme: { ...DEFAULT_THEME_CONFIG, theme: "warm", primaryColor: "#c65d3b", fontFamily: "serif" },
-  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Order Now", ctaHref: "", sticky: true },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Order Now", ctaHref: "", sticky: true, mobileMenu: "overlay" },
   footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
   lockedTheme: { primaryColor: "#c65d3b", headingFont: "serif", bodyFont: "sans" },
   defaultAccentId: "terracotta",
@@ -261,6 +271,7 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   ],
   sections: RESTAURANT_SECTIONS,
   commerce: { order: "food" },
+  sectionAlign: "left",
   tags: ["restaurant", "food", "menu"],
 };
 
@@ -454,6 +465,7 @@ const STORE_SLOTS: TemplateSlot[] = [
   { slotId: "hero.headline", field: "hero_headline", label: "Headline", kind: "text", required: true },
   { slotId: "hero.subtext", field: "hero_subtext", label: "Introduction", kind: "textarea" },
   { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
+  { slotId: "hero.cta_primary", field: "template_extras", extraKey: "storeHeroCta", label: "Hero button label", kind: "text" },
   { slotId: "trust.copy", field: "template_extras", extraKey: "storeTrustText", label: "Trust strip text", kind: "textarea" },
   { slotId: "testimonials.items", field: "testimonials", label: "Testimonials", kind: "items", max: 3 },
   {
@@ -463,6 +475,8 @@ const STORE_SLOTS: TemplateSlot[] = [
     label: "How you receive your order",
     kind: "textarea",
   },
+  { slotId: "home.featured", field: "featured", label: "Featured products", kind: "pick", max: 6 },
+  { slotId: "shop.density", field: "template_extras", extraKey: "storeBrowsePageSize", label: "Products per page", kind: "number" },
   { slotId: "contact.address", field: "address", label: "Address", kind: "text" },
   { slotId: "contact.phone", field: "phone", label: "Phone", kind: "text" },
   { slotId: "contact.email", field: "email", label: "Email", kind: "text" },
@@ -474,17 +488,18 @@ const STORE_SLOTS: TemplateSlot[] = [
 
 const STORE_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels"] },
-  { id: "store.hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline"] },
+  { id: "store.hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary"] },
   {
     id: "store.home.products",
     page: "home",
     block: "products_embed",
+    slots: ["home.featured"],
     note: "Live products and owner categories; the category tiles are hidden unless at least two real categories exist.",
   },
   { id: "store.trust", page: "home", block: "features", slots: ["trust.copy"], optional: true },
   { id: "store.product-settings", page: "home", chrome: true, slots: ["product.fulfilment-note"] },
   { id: "store.testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"], optional: true },
-  { id: "store.shop.products", page: "catalog", block: "products_embed", note: "Searchable, category-filtered shop; product links remain inside this site." },
+  { id: "store.shop.products", page: "catalog", block: "products_embed", slots: ["shop.density"], note: "Searchable, category-filtered shop; product links remain inside this site." },
   { id: "store.contact", page: "contact", block: "contact", slots: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
   { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note"] },
 ];
@@ -544,7 +559,10 @@ export const NEW_SITE_GALLERY_TEMPLATES: WebsiteTemplateV2[] = FLAGSHIP_TEMPLATE
 );
 
 export function getFlagshipTemplate(id: string, version?: string): WebsiteTemplateV2 | undefined {
-  return FLAGSHIP_TEMPLATES.find((t) => t.id === id && (!version || t.version === version));
+  const requestedVersion = id === "restaurant-table-flame" && version === "1.0.0"
+    ? "1.1.0"
+    : version;
+  return FLAGSHIP_TEMPLATES.find((t) => t.id === id && (!requestedVersion || t.version === requestedVersion));
 }
 
 export function formatFlagshipRef(template: WebsiteTemplateV2): string {
