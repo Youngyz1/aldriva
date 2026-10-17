@@ -119,6 +119,7 @@ export default async function SharedInvitationPage({
   return (
     <UniversalPageRenderer
       kind="invitation"
+      templateId={publishedPage.published_snapshot.template_id}
       layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
       data={pageData}
       shared

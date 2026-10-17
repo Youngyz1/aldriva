@@ -157,6 +157,7 @@ async function PreviewLoader({ token }: { token: string }) {
       <PreviewBanner expiresAt={result.expiresAt} locale={draft.locale} />
       <UniversalPageRenderer
         kind="invitation"
+        templateId={draftAsSnapshot.template_id}
         layout={legacyInvitationSnapshotToLayout(draftAsSnapshot)}
         data={pageData}
         mode="preview"

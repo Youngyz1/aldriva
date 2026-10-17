@@ -97,12 +97,12 @@ export function ActionPortalBlock({
 
   return (
     <section className={theme.classes.section ?? ""} aria-label={blockTitle}>
-      <div className="mx-auto w-full max-w-3xl px-6 py-14 sm:py-20">
-        <div>
+      <div className="mx-auto min-w-0 w-full max-w-3xl px-6 py-14 sm:py-20">
+        <div className="min-w-0">
           <h2 className={`text-center text-2xl ${theme.classes.heading ?? ""}`}>
             {blockTitle}
           </h2>
-          {blockDescription ? <p className={`mx-auto mt-3 max-w-xl text-center ${theme.classes.body ?? ""}`}>{blockDescription}</p> : null}
+          {blockDescription ? <p className={`mx-auto mt-3 min-w-0 max-w-xl break-words text-center ${theme.classes.body ?? ""}`}>{blockDescription}</p> : null}
 
           {shared ? (
             <p className={`mt-5 text-center text-sm ${theme.classes.body ?? ""}`}>
@@ -115,14 +115,14 @@ export function ActionPortalBlock({
                   <p className={`text-xs font-semibold uppercase tracking-wide ${theme.classes.body ?? ""}`}>
                     {invitationData.guest.isVip ? dictionary.vipGuestPass : dictionary.officialGuestPass}
                   </p>
-                  <p className={`mt-2 text-lg ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy(invitationData.guest.name, locale)}</p>
+                  <p className={`mt-2 break-words text-lg ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy(invitationData.guest.name, locale)}</p>
                   {invitationData.guest.title || invitationData.guest.organization ? (
-                    <p className={`mt-1 text-sm ${theme.classes.body ?? ""}`}>
+                    <p className={`mt-1 break-words text-sm ${theme.classes.body ?? ""}`}>
                       {[invitationData.guest.title, invitationData.guest.organization].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
                   {invitationData.seat ? (
-                    <p className={`mt-3 text-sm ${theme.classes.body ?? ""}`}>
+                    <p className={`mt-3 break-words text-sm ${theme.classes.body ?? ""}`}>
                       {dictionary.reservedSeat}: {localizeInvitationSystemCopy(invitationData.seat.label, locale)}
                       {invitationData.seat.tableName ? ` — ${invitationData.seat.tableName}` : ""}
                     </p>
@@ -134,7 +134,7 @@ export function ActionPortalBlock({
                   type="button"
                   disabled={!onAction || busy || response === "accepted"}
                   onClick={() => void submitRsvp("accepted")}
-                  className={`disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
+                  className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
                 >
                   {response === "accepted" ? dictionary.attending : dictionary.accept}
                 </button>
@@ -142,7 +142,7 @@ export function ActionPortalBlock({
                   type="button"
                   disabled={!onAction || busy || response === "declined"}
                   onClick={() => void submitRsvp("declined")}
-                  className={`disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
+                  className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
                 >
                   {response === "declined" ? dictionary.declined : dictionary.decline}
                 </button>

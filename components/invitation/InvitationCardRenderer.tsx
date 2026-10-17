@@ -2,6 +2,9 @@
 
 import React from "react";
 import { InvitationTemplate, LayoutSlotConfig } from "@/lib/invitation-types";
+import { BotanicalStationeryCard } from "@/components/invitation/BotanicalStationeryCard";
+import { LuxeEditorialInvitationCard } from "@/components/invitation/LuxeEditorialInvitationCard";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 
 export interface InvitationCardData {
   eventTitle: string;
@@ -20,6 +23,7 @@ export interface InvitationCardData {
    * background_image_url when absent (all existing templates).
    */
   backgroundImageUrl?: string | null;
+  locale?: "en" | "fr";
 }
 
 import {
@@ -89,6 +93,14 @@ export function InvitationCardRenderer({
 }) {
   const { layout_config } = template;
   const { slots, colorPalette, typography } = layout_config;
+  if (layout_config.design === "botanical-reverie") {
+    return <BotanicalStationeryCard template={template} data={data} scale={scale} className={className} />;
+  }
+  if (layout_config.design === "luxe-editorial") {
+    return <LuxeEditorialInvitationCard template={template} data={data} scale={scale} className={className} />;
+  }
+  const canvasWidth = layout_config.canvas?.width || 1200;
+  const canvasHeight = layout_config.canvas?.height || 630;
 
   const hostDisplay = data.hostNames?.trim() || null;
   const guestDisplay = hostDisplay ? null : formatGuestDisplayName(data.guestName, data.guestTitle, data.organization);
@@ -111,10 +123,10 @@ export function InvitationCardRenderer({
     <div
       className={`relative overflow-hidden rounded-2xl shadow-2xl border border-white/10 ${className}`}
       style={{
-        width: 1200 * scale,
-        height: 630 * scale,
+        width: canvasWidth * scale,
+        height: canvasHeight * scale,
         maxWidth: "100%",
-        aspectRatio: "1200 / 630",
+        aspectRatio: `${canvasWidth} / ${canvasHeight}`,
         fontFamily: typography.bodyFont || "Plus Jakarta Sans, sans-serif",
         ...bgStyle,
       }}
@@ -129,7 +141,7 @@ export function InvitationCardRenderer({
           <img
             src={bgUrl}
             alt={template.name}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            className={invitationImageClassName("framed", "absolute inset-0 pointer-events-none")}
             style={heroDim !== undefined ? { filter: `brightness(${heroDim})` } : undefined}
           />
         );

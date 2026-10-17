@@ -36,7 +36,7 @@ export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: 
   const [hexDrafts, setHexDrafts] = useState<Record<number, string>>({});
   const isWedding = invitationType
     ? invitationType === "wedding"
-    : draft.template_id === "wedding-romantic";
+    : draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial";
   const isBirthday = invitationType
     ? invitationType === "birthday"
     : draft.template_id === "birthday-bold";

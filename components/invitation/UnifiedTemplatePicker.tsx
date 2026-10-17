@@ -30,6 +30,8 @@ const PAGE_SWATCH: Record<string, { bg: string; ink: string; accent: string }> =
   "black-tie": { bg: "#09090B", ink: "#FFFFFF", accent: "#FBBF24" },
   "wedding-romantic": { bg: "#FAF8F5", ink: "#2C2220", accent: "#A37068" },
   "romantic-envelope": { bg: "#E6DEC9", ink: "#292524", accent: "#8A4D42" },
+  "botanical-reverie": { bg: "#F4EFE4", ink: "#263B31", accent: "#BD8583" },
+  "luxe-editorial": { bg: "#FDFAF6", ink: "#4A4A4A", accent: "#C5A880" },
   "birthday-bold": { bg: "#FFFDF7", ink: "#141218", accent: "#FF5E5B" },
   cover: { bg: "#101014", ink: "#FFFFFF", accent: "#C2410C" },
 };
@@ -164,7 +166,7 @@ function ScaledPageFrame({
           className={cn("absolute left-0 top-0 origin-top-left", decorative && "pointer-events-none")}
           style={{ width: 390, transform: `scale(${scale})` }}
         >
-          <InvitationBlocksLayoutClient layout={pageLayout} data={data.data} />
+          <InvitationBlocksLayoutClient layout={pageLayout} data={data.data} templateId={pageId} />
         </div>
       )}
     </div>
@@ -195,6 +197,9 @@ function PagePairTile({
   onFocus: () => void;
 }) {
   const [pageReady, setPageReady] = useState(false);
+  const cardWidth = card.layout_config.canvas.width || 1200;
+  const cardHeight = card.layout_config.canvas.height || 630;
+  const miniScale = Math.min(72 / cardWidth, 96 / cardHeight);
   return (
     <label
       className={cn(
@@ -233,9 +238,9 @@ function PagePairTile({
           {pageReady ? (
             <div
               className="absolute left-1/2 top-1/2"
-              style={{ width: 1200 * 0.152, height: 630 * 0.152, transform: "translate(-50%, -50%)" }}
+              style={{ width: cardWidth * miniScale, height: cardHeight * miniScale, transform: "translate(-50%, -50%)" }}
             >
-              <InvitationCardRenderer template={card} data={cardData} scale={0.152} />
+              <InvitationCardRenderer template={card} data={cardData} scale={miniScale} />
             </div>
           ) : (
             <div className="absolute inset-0 bg-zinc-100" />
@@ -342,7 +347,10 @@ export function UnifiedTemplatePicker({
     eventDate: nonEmptyString(event.event_date) ?? selectedPageData?.data.eventDate ?? null,
     venue: nonEmptyString(draft.venue_name) ?? nonEmptyString(event.venue) ?? selectedPageData?.data.venue ?? null,
     city: nonEmptyString(event.city) ?? selectedPageData?.data.city ?? null,
-    backgroundImageUrl: selected?.baseId === "cover" ? nonEmptyString(draft.hero_image_url) : null,
+    backgroundImageUrl: selected?.baseId === "cover" || selected?.baseId === "botanical-reverie" || selected?.baseId === "luxe-editorial"
+      ? nonEmptyString(draft.hero_image_url) ?? ((selected.baseId === "botanical-reverie" || selected.baseId === "luxe-editorial") ? selectedPageData?.data.heroImage ?? null : null)
+      : null,
+    locale: selectedPageData?.data.locale,
   };
   const pageFields = selected ? extrasForTemplate(selected.pageId) : [];
 
@@ -451,7 +459,10 @@ export function UnifiedTemplatePicker({
                 eventDate: nonEmptyString(event.event_date) ?? pairPageData.data.eventDate ?? null,
                 venue: nonEmptyString(draft.venue_name) ?? nonEmptyString(event.venue) ?? pairPageData.data.venue ?? null,
                 city: nonEmptyString(event.city) ?? pairPageData.data.city ?? null,
-                backgroundImageUrl: pair.baseId === "cover" ? nonEmptyString(draft.hero_image_url) : null,
+                backgroundImageUrl: pair.baseId === "cover" || pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial"
+                  ? nonEmptyString(draft.hero_image_url) ?? ((pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial") ? pairPageData.data.heroImage ?? null : null)
+                  : null,
+                locale: pairPageData.data.locale,
               };
               const selectedForTile = selected?.id === pair.id;
               return (

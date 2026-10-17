@@ -72,7 +72,7 @@ function TemplateRender({
           {sampleLabel}
         </span>
       )}
-      <InvitationBlocksLayoutClient layout={layout} data={data.data} mode="preview" isEditMode />
+      <InvitationBlocksLayoutClient layout={layout} data={data.data} templateId={templateId} mode="preview" isEditMode />
     </>
   );
 }

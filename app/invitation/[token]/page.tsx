@@ -41,6 +41,11 @@ export async function generateMetadata({
 
     const event = result.invitation.events as { id?: string; invitation_template_id?: string | null } | null;
     const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
+    const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
+    const invitationTemplate = await getInvitationTemplateById(event?.invitation_template_id);
+    const cardSize = invitationTemplate.layout_config.design === "botanical-reverie" || invitationTemplate.layout_config.design === "luxe-editorial"
+      ? invitationTemplate.layout_config.canvas
+      : { width: 1200, height: 630 };
     const cardImageUrl = buildInvitationCardImageUrl(
       getSiteUrl(),
       token,
@@ -54,7 +59,7 @@ export async function generateMetadata({
         title,
         description,
         type: "website",
-        images: [{ url: cardImageUrl, width: 1200, height: 630, alt: "Invitation card preview" }],
+        images: [{ url: cardImageUrl, width: cardSize.width, height: cardSize.height, alt: "Invitation card preview" }],
       },
       twitter: {
         card: "summary_large_image",
@@ -182,6 +187,7 @@ async function InvitationLoader({ token }: { token: string }) {
     return (
       <UniversalPageRenderer
         kind="invitation"
+        templateId={publishedPage.published_snapshot.template_id}
         layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
         data={pageData}
         onAction={onAction}

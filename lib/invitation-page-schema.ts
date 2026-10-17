@@ -10,7 +10,8 @@ import { z } from "zod";
 import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
 import { MAX_MUSIC_LINKS, validateMusicLink } from "@/lib/invitation-music-links";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
-import { PageBlocksLayoutSchema } from "@/lib/page-composition";
+import { InvitationBlocksLayoutSchema } from "@/lib/invitation-template-schema";
+import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
 
 // Helpers for safe URLs
 const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
@@ -126,7 +127,7 @@ export const WeddingStoryItemSchema = z.object({
 export const InvitationPageDraftSchema = z.object({
   template_id: z.string().min(1, "Template ID is required").default("gala-editorial"),
   locale: z.enum(["en", "fr"]).default("en"),
-  blocks_layout: PageBlocksLayoutSchema.optional().nullable(),
+  blocks_layout: InvitationBlocksLayoutSchema.optional().nullable(),
 
   display_title: z.string().max(120, "Display title must be at most 120 characters").optional().nullable(),
   eyebrow: z.string().max(80, "Eyebrow must be at most 80 characters").optional().nullable(),
@@ -188,6 +189,42 @@ export const InvitationPageDraftSchema = z.object({
   accommodations: z.array(AccommodationItemSchema).max(6, "Accommodations list can have at most 6 stays").optional().nullable(),
   colors_of_the_day: z.array(ColorOfTheDaySchema).max(5, "Colors of the day can have at most 5 swatches").optional().nullable(),
   wedding_story: z.array(WeddingStoryItemSchema).max(4, "Our story can have at most 4 chapters").optional().nullable(),
+}).superRefine((draft, ctx) => {
+  const definition = getInvitationTemplateDefinition(draft.template_id);
+  if (!definition || !draft.blocks_layout) return;
+
+  const theme = draft.blocks_layout.global_theme;
+  if (!definition.supportedCustomizations.palette && theme.palette_id) {
+    ctx.addIssue({ code: "custom", path: ["blocks_layout", "global_theme", "palette_id"], message: "This template does not support palette changes." });
+  }
+  if (!definition.supportedCustomizations.fontPack && theme.font_pack_id) {
+    ctx.addIssue({ code: "custom", path: ["blocks_layout", "global_theme", "font_pack_id"], message: "This template does not support font-pack changes." });
+  }
+  if (!definition.supportedCustomizations.textScale && theme.text_scale !== 1) {
+    ctx.addIssue({ code: "custom", path: ["blocks_layout", "global_theme", "text_scale"], message: "This template does not support text scaling." });
+  }
+
+  const supportedBlocks = new Set<string>(definition.supportedBlockTypes);
+  draft.blocks_layout.layout_blocks.forEach((block, index) => {
+    if (!supportedBlocks.has(block.type)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["blocks_layout", "layout_blocks", index, "type"],
+        message: `Block type ${block.type} is not supported by the selected template.`,
+      });
+    }
+  });
+
+  const supportedEffects = new Set<string>(definition.supportedEffects);
+  draft.blocks_layout.effects?.forEach((effect, index) => {
+    if (!supportedEffects.has(effect.type)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["blocks_layout", "effects", index, "type"],
+        message: `Effect ${effect.type} is not supported by the selected template.`,
+      });
+    }
+  });
 });
 
 export type InvitationPageDraftInput = z.infer<typeof InvitationPageDraftSchema>;
@@ -247,7 +284,7 @@ export function validateForPublish(
   }
 
   // 4. Template-specific required fields
-  if (draft.template_id === "wedding-romantic") {
+  if (draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial") {
     if (!draft.partner1_name || !draft.partner1_name.trim()) {
       errors.push({
         field: "partner1_name",

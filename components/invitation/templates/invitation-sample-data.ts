@@ -320,6 +320,26 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
   token: "weddingtoken0123456789abcdef0123456789abcdef0123456789abcdef012345",
 };
 
+/** Local-art preview fixture for Botanical Reverie; no remote stock assets. */
+export const BOTANICAL_REVERIE_SAMPLE_DATA: InvitationPageData = {
+  ...WEDDING_INVITATION_SAMPLE_DATA,
+  eyebrow: "Together with their families",
+  heroImage: "/images/invitations/botanical/garden-arch.svg",
+  heroImageAlt: "Locally illustrated botanical garden arch in sage and dusty rose",
+  storyImage: "/images/invitations/botanical/corner-sprig.svg",
+  weddingStory: [
+    { title: "How We Met", text: "A chance meeting grew into a life full of small adventures and shared dreams." },
+    { title: "The Proposal", text: "A quiet garden evening, surrounded by the people and places we love." },
+  ],
+  gallery: [
+    { url: "/images/invitations/botanical/garden-arch.svg", alt: "Botanical stationery illustration", caption: "A garden celebration" },
+    { url: "/images/invitations/botanical/corner-sprig.svg", alt: "Sage and dusty rose botanical sprig", caption: "Our chosen palette" },
+  ],
+  musicAudioUrl: null,
+  musicTitle: null,
+  musicLinks: [],
+};
+
 // ── Birthday Full Dataset ───────────────────────────────────────────────────
 export const BIRTHDAY_INVITATION_SAMPLE_DATA: InvitationPageData = {
   title: "Maya's 30th Birthday Bash!",

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ImageResponse } from "next/og";
+import { BotanicalStationeryCard } from "@/components/invitation/BotanicalStationeryCard";
+import { LuxeEditorialInvitationCard } from "@/components/invitation/LuxeEditorialInvitationCard";
+import type { InvitationCardData } from "@/components/invitation/InvitationCardRenderer";
 import { getInvitationByToken } from "@/lib/invitations";
 import { getInvitationTemplateById } from "@/lib/invitation-templates";
 import { loadInvitationFonts } from "@/lib/invitation-fonts";
@@ -15,6 +18,9 @@ import {
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+const CARD_IMAGE_CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
+};
 
 export async function GET(
   request: NextRequest,
@@ -37,19 +43,38 @@ export async function GET(
   const templateId = event?.invitation_template_id || null;
   const template = await getInvitationTemplateById(templateId);
   const isCoverTemplate = template.id === "cover" || template.slug === "cover";
+  const isBotanicalTemplate = template.layout_config.design === "botanical-reverie" || template.slug === "botanical-reverie";
+  const isLuxeEditorialTemplate = template.layout_config.design === "luxe-editorial" || template.slug === "luxe-editorial";
 
-  // Round 5 Cover: the card hero comes from the PUBLISHED snapshot only —
+  // Cover and Botanical card artwork comes from the PUBLISHED snapshot only —
   // guests must never see unpublished draft edits. No published page means
-  // no hero (solid palette fallback, identical to the fetch-failure path).
+  // no hero (the card's authored design remains visible).
+  let publishedSnapshot: NonNullable<Awaited<ReturnType<typeof getPublishedInvitationPage>>>["published_snapshot"] | null = null;
+  if ((isCoverTemplate || isBotanicalTemplate || isLuxeEditorialTemplate) && event?.id) {
+    publishedSnapshot = (await getPublishedInvitationPage(event.id))?.published_snapshot ?? null;
+  }
   let coverHero: string | null = null;
-  if (isCoverTemplate && event?.id) {
-    const published = await getPublishedInvitationPage(event.id);
-    const snapshotHero = published?.published_snapshot.hero_image_url ?? null;
+  if (isCoverTemplate) {
+    const snapshotHero = publishedSnapshot?.hero_image_url ?? null;
     if (snapshotHero) {
       coverHero = await fetchCoverHeroDataUri(snapshotHero);
-      if (!coverHero) {
-        console.error("[invitation/card.png] Cover hero unavailable; rendering palette fallback.");
-      }
+      if (!coverHero) console.error("[invitation/card.png] Cover hero unavailable; rendering palette fallback.");
+    }
+  }
+  let botanicalHero: string | null = null;
+  if (isBotanicalTemplate) {
+    const snapshotHero = publishedSnapshot?.hero_image_url ?? null;
+    if (snapshotHero) {
+      botanicalHero = await fetchCoverHeroDataUri(snapshotHero);
+      if (!botanicalHero) console.error("[invitation/card.png] Botanical hero unavailable; rendering stationery without the photo.");
+    }
+  }
+  let luxeEditorialHero: string | null = null;
+  if (isLuxeEditorialTemplate) {
+    const snapshotHero = publishedSnapshot?.hero_image_url ?? null;
+    if (snapshotHero) {
+      luxeEditorialHero = await fetchCoverHeroDataUri(snapshotHero);
+      if (!luxeEditorialHero) console.error("[invitation/card.png] Luxe Editorial hero unavailable; rendering stationery without the photo.");
     }
   }
 
@@ -61,6 +86,68 @@ export async function GET(
     typography.bodyFont,
     typography.accentFont || typography.titleFont,
   ]);
+
+  if (isBotanicalTemplate) {
+    const snapshot = publishedSnapshot as (NonNullable<typeof publishedSnapshot> & {
+      host_names?: string | null;
+      partner1_name?: string | null;
+      partner2_name?: string | null;
+      locale?: "en" | "fr";
+    }) | null;
+    const partnerNames = [snapshot?.partner1_name, snapshot?.partner2_name].filter((name): name is string => Boolean(name?.trim())).join(" & ");
+    const botanicalData: InvitationCardData = {
+      eventTitle: event?.title || "Wedding Invitation",
+      guestName: "",
+      hostNames: snapshot?.host_names?.trim() || partnerNames || null,
+      eventDate: event?.event_date || null,
+      venue: event?.venue || null,
+      city: event?.city || null,
+      locale: snapshot?.locale === "fr" ? "fr" : "en",
+      backgroundImageUrl: botanicalHero,
+    };
+    const canvas = layout_config.canvas;
+    return new ImageResponse(
+      <BotanicalStationeryCard template={template} data={botanicalData} />,
+      {
+        width: canvas.width,
+        height: canvas.height,
+        fonts: fonts.map((f) => ({ name: f.name, data: f.data, weight: f.weight, style: f.style })),
+        headers: CARD_IMAGE_CACHE_HEADERS,
+      }
+    );
+  }
+
+  if (isLuxeEditorialTemplate) {
+    const snapshot = publishedSnapshot as (NonNullable<typeof publishedSnapshot> & {
+      host_names?: string | null;
+      partner1_name?: string | null;
+      partner2_name?: string | null;
+      locale?: "en" | "fr";
+    }) | null;
+    const partnerNames = [snapshot?.partner1_name, snapshot?.partner2_name]
+      .filter((name): name is string => Boolean(name?.trim()))
+      .join(" & ");
+    const luxeEditorialData: InvitationCardData = {
+      eventTitle: event?.title || "Wedding Invitation",
+      guestName: "",
+      hostNames: partnerNames || snapshot?.host_names?.trim() || null,
+      eventDate: event?.event_date || null,
+      venue: event?.venue || null,
+      city: event?.city || null,
+      locale: snapshot?.locale === "fr" ? "fr" : "en",
+      backgroundImageUrl: luxeEditorialHero,
+    };
+    const canvas = layout_config.canvas;
+    return new ImageResponse(
+      <LuxeEditorialInvitationCard template={template} data={luxeEditorialData} />,
+      {
+        width: canvas.width,
+        height: canvas.height,
+        fonts: fonts.map((font) => ({ name: font.name, data: font.data, weight: font.weight, style: font.style })),
+        headers: CARD_IMAGE_CACHE_HEADERS,
+      }
+    );
+  }
 
   const rawGuestDisplay = formatGuestDisplayName(
     invitation.guest_name,
@@ -273,9 +360,7 @@ export async function GET(
         weight: f.weight,
         style: f.style,
       })),
-      headers: {
-        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
-      },
+      headers: CARD_IMAGE_CACHE_HEADERS,
     }
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import {
   Calendar,
   Clock,
@@ -219,7 +220,7 @@ export function InvitationTemplateBlackTie({ data, onRsvp, className = "", share
                 fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 1024px"
-                className="object-cover transition-transform duration-700"
+                className={invitationImageClassName("framed", "transition-transform duration-700")}
                 style={heroFocusStyle}
               />
             ) : (
@@ -905,6 +906,7 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
   return (
     <InvitationGalleryGrid
       images={images}
+      mobileBleedGutter={4}
       captionClassName="text-xs text-zinc-400"
       lightboxCaptionClassName="text-xs sm:text-sm text-zinc-300 max-w-md text-center"
     />

@@ -20,7 +20,7 @@ import type {
   InvitationTicketPassData,
   InvitationMusicLink,
 } from "@/types/invitation-template";
-import type { PageBlocksLayout } from "@/lib/page-composition";
+import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 
@@ -48,7 +48,7 @@ export interface InvitationPageSnapshot {
   template_id: string;
   locale: InvitationLocale;
   /** Canonical block layout. Missing on legacy snapshots; resolved by adapter. */
-  blocks_layout?: PageBlocksLayout | null;
+  blocks_layout?: InvitationBlocksLayout | null;
 
   // Overrides & Host Narrative
   display_title?: string | null;
@@ -115,7 +115,7 @@ export interface EventInvitationPageRow {
   page_status: InvitationPageStatus;
   published_at: string | null;
   published_snapshot: InvitationPageSnapshot | null;
-  blocks_layout?: PageBlocksLayout | null;
+  blocks_layout?: InvitationBlocksLayout | null;
 
   display_title: string | null;
   eyebrow: string | null;

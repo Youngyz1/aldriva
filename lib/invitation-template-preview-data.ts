@@ -1,5 +1,6 @@
 import type { InvitationPageData } from "@/types/invitation-template";
 import {
+  BOTANICAL_REVERIE_SAMPLE_DATA,
   BIRTHDAY_INVITATION_SAMPLE_DATA,
   FULL_INVITATION_SAMPLE_DATA,
   WEDDING_INVITATION_SAMPLE_DATA,
@@ -8,6 +9,8 @@ import { assembleInvitationPageData, type EventLiveFields, type InvitationPageSn
 import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
 
 const SAMPLE_DATA_BY_TEMPLATE: Record<string, InvitationPageData> = {
+  "botanical-reverie": BOTANICAL_REVERIE_SAMPLE_DATA,
+  "luxe-editorial": WEDDING_INVITATION_SAMPLE_DATA,
   "wedding-romantic": WEDDING_INVITATION_SAMPLE_DATA,
   "romantic-envelope": WEDDING_INVITATION_SAMPLE_DATA,
   "birthday-bold": BIRTHDAY_INVITATION_SAMPLE_DATA,

@@ -30,6 +30,7 @@ import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
 import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 import { SharedNote } from "@/components/invitation/SharedNote";
 import { cn } from "@/lib/utils";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 
 const FF_DISPLAY = "Georgia, serif";
 const FF_TEXT = "var(--font-sans), sans-serif";
@@ -142,7 +143,7 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
               fill
               priority
               sizes="100vw"
-              className="object-cover"
+              className={invitationImageClassName("full-bleed")}
               style={{
                 objectPosition: `${heroFocus.x}% ${heroFocus.y}%`,
                 filter: "brightness(0.72)",
@@ -267,7 +268,7 @@ export function InvitationTemplateCover({ data, onRsvp, className = "", shared =
       {/* ── Section 5: gallery (HIDE-IF-EMPTY) ──────────────────────────── */}
       {hasGallery && (
         <section id="inv-gallery" aria-label="Event gallery" className="mx-auto max-w-2xl px-4 pb-12 sm:px-6">
-          <InvitationGalleryGrid images={data.gallery!} />
+          <InvitationGalleryGrid images={data.gallery!} mobileBleedGutter={4} />
         </section>
       )}
 

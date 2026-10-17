@@ -18,6 +18,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { INVITATION_TEMPLATES, type TemplateRegistryItem } from "@/components/invitation/templates/registry";
 import { orderTemplatesForType, type InvitationType } from "@/lib/invitation-type-fields";
 import { cn } from "@/lib/utils";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 
 /**
  * Static thumbnail slot per page template. Drop finished static artwork
@@ -28,6 +29,7 @@ const STATIC_THUMBNAIL_BY_TEMPLATE: Record<string, string | null> = {
   "gala-editorial": null,
   "black-tie": null,
   "wedding-romantic": null,
+  "luxe-editorial": null,
   "birthday-bold": null,
 };
 
@@ -36,6 +38,7 @@ const SWATCH_BY_TEMPLATE: Record<string, { bg: string; ink: string; accent: stri
   "gala-editorial": { bg: "#F8F5F0", ink: "#1C1A18", accent: "#7A5C3A" },
   "black-tie": { bg: "#09090B", ink: "#FFFFFF", accent: "#FBBF24" },
   "wedding-romantic": { bg: "#FAF8F5", ink: "#2C2220", accent: "#A37068" },
+  "luxe-editorial": { bg: "#FDFAF6", ink: "#4A4A4A", accent: "#C5A880" },
   "birthday-bold": { bg: "#FFFDF7", ink: "#141218", accent: "#FF5E5B" },
 };
 
@@ -51,7 +54,7 @@ function StaticThumbnail({ templateId, name }: { templateId: string; name: strin
     >
       {staticUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={staticUrl} alt="" className="h-full w-full object-cover" />
+        <img src={staticUrl} alt="" className={invitationImageClassName("thumbnail")} />
       ) : (
         <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 p-1">
           <span className="h-1 w-2/3 rounded-full" style={{ background: swatch.accent }} />

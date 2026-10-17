@@ -19,6 +19,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { cn } from "@/lib/utils";
+import {
+  invitationImageClassName,
+  invitationMobileGalleryBleedClassName,
+  invitationMobileGalleryCaptionClassName,
+  type InvitationGalleryBleedGutter,
+} from "@/lib/invitation-image-presentation";
 
 interface Props {
   images: InvitationGalleryItem[];
@@ -28,6 +34,8 @@ interface Props {
   lightboxCaptionClassName?: string;
   /** Extra classes for the image element (e.g. per-template rounding). */
   imageClassName?: string;
+  /** Mobile page-edge gutter; set only for unframed gallery photos. */
+  mobileBleedGutter?: InvitationGalleryBleedGutter;
 }
 
 export function InvitationGalleryGrid({
@@ -35,6 +43,7 @@ export function InvitationGalleryGrid({
   captionClassName = "text-xs text-zinc-500",
   lightboxCaptionClassName = "text-xs text-white/80",
   imageClassName = "",
+  mobileBleedGutter,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const touchStartX = useRef<number | null>(null);
@@ -74,7 +83,10 @@ export function InvitationGalleryGrid({
 
   return (
     <>
-      <div className="columns-2 md:columns-3 gap-4">
+      <div className={cn(
+        "columns-1 gap-4 sm:columns-2 md:columns-3",
+        mobileBleedGutter ? invitationMobileGalleryBleedClassName(mobileBleedGutter) : "",
+      )}>
         {images.map((img, idx) => {
           const visibleCaption = img.caption || img.alt || null;
           return (
@@ -90,11 +102,15 @@ export function InvitationGalleryGrid({
                   src={img.url}
                   alt={img.alt || img.caption || `Gallery photo ${idx + 1}`}
                   loading="lazy"
-                  className={cn("h-auto w-full", imageClassName)}
+                  className={cn(invitationImageClassName("contained"), imageClassName)}
                 />
               </button>
               {visibleCaption && (
-                <figcaption className={cn("mt-1.5", captionClassName)}>
+                <figcaption className={cn(
+                  "mt-1.5",
+                  mobileBleedGutter ? invitationMobileGalleryCaptionClassName(mobileBleedGutter) : "",
+                  captionClassName,
+                )}>
                   {visibleCaption}
                 </figcaption>
               )}
@@ -158,7 +174,7 @@ export function InvitationGalleryGrid({
             <img
               src={images[activeIdx].url}
               alt={images[activeIdx].alt || images[activeIdx].caption || "Gallery preview"}
-              className="max-h-[70vh] w-auto max-w-full object-contain"
+              className={invitationImageClassName("contained", "max-h-[70vh] w-auto")}
             />
             {(images[activeIdx].caption || images[activeIdx].alt) && (
               <p className={cn("mt-3 text-center max-w-md", lightboxCaptionClassName)}>

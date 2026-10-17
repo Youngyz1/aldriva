@@ -6,12 +6,17 @@ import {
   createPageBlocksLayout,
   isRecord,
   LEGACY_INVITATION_THEME_CLASSES,
-  normalizePageBlocksLayout,
   themeForInvitationTemplate,
   type PageGlobalTheme,
   type PageBlocksLayout,
   type PageLayoutBlock,
 } from "@/lib/page-composition";
+import { getInvitationTemplateDefinition, type InvitationBindingPath } from "@/lib/invitation-template-registry";
+import {
+  InvitationBlocksLayoutSchema,
+  normalizeInvitationBlocksLayout,
+  type InvitationBlocksLayout,
+} from "@/lib/invitation-template-schema";
 
 export interface ThemeUtilityPreset {
   label: string;
@@ -38,6 +43,14 @@ const PALETTE_EMERALD: ThemeUtilityPreset = {
     heading: "text-emerald-950",
     body: "text-emerald-900",
   };
+const PALETTE_BOTANICAL: ThemeUtilityPreset = {
+  label: "Botanical Reverie",
+  previewColors: ["#f4efe4", "#263b31", "#bd8583"],
+  page: "bg-[#f4efe4] text-[#263b31]",
+  section: "bg-transparent",
+  heading: "text-[#263b31]",
+  body: "text-[#53665a]",
+};
 const PALETTE_OCEAN: ThemeUtilityPreset = {
     label: "Ocean Blue",
     previewColors: ["#f0f9ff", "#082f49", "#0284c7"],
@@ -99,6 +112,7 @@ const PALETTE_MIDNIGHT: ThemeUtilityPreset = {
 export const COLOR_PALETTES: Record<string, ThemeUtilityPreset> = {
   "palette-rose": PALETTE_ROSE,
   "palette-emerald": PALETTE_EMERALD,
+  "palette-botanical": PALETTE_BOTANICAL,
   "palette-ocean": PALETTE_OCEAN,
   "palette-amber": PALETTE_AMBER,
   "palette-slate": PALETTE_SLATE,
@@ -158,72 +172,13 @@ export function compilePageGlobalTheme(theme: PageGlobalTheme): PageGlobalTheme 
   };
 }
 
-export function compilePageBlocksLayoutTheme(layout: PageBlocksLayout): PageBlocksLayout {
+export function compilePageBlocksLayoutTheme<T extends PageBlocksLayout>(layout: T): T {
   return { ...layout, global_theme: compilePageGlobalTheme(layout.global_theme) };
 }
-
-type InvitationBindingPath =
-  | "title"
-  | "eventDate"
-  | "timezone"
-  | "locale"
-  | "eyebrow"
-  | "hostNames"
-  | "heroImage"
-  | "heroImageFocus"
-  | "heroImageAlt"
-  | "scrollPrompt"
-  | "storyHeadline"
-  | "storyText"
-  | "storyImage"
-  | "venue"
-  | "address"
-  | "city"
-  | "endDate"
-  | "latitude"
-  | "longitude"
-  | "parkingNotes"
-  | "venues"
-  | "schedule"
-  | "gallery"
-  | "dressCode"
-  | "dressCodeNotes"
-  | "accommodations"
-  | "additionalNotes"
-  | "musicAudioUrl"
-  | "musicTitle"
-  | "musicLinks"
-  | "partner1Name"
-  | "partner2Name"
-  | "familyNote"
-  | "weddingSubtype"
-  | "colorsOfTheDay"
-  | "registryNote"
-  | "weddingStory"
-  | "celebrantName"
-  | "ageMilestone"
-  | "theme"
-  | "giftNote"
-  | "hashtag"
-  | "guest.name"
-  | "guest.title"
-  | "guest.organization"
-  | "guest.rsvpStatus"
-  | "guest.rsvpAt"
-  | "guest.isVip"
-  | "seat.label"
-  | "seat.tableNumber"
-  | "seat.tableName"
-  | "seat.isVip"
-  | "ticketInstance.qrCode"
-  | "ticketInstance.status"
-  | "ticketInstance.checkedInAt"
-  | "token";
 
 type BindingValue = { $bind: InvitationBindingPath };
 
 const bind = (path: InvitationBindingPath): BindingValue => ({ $bind: path });
-const COUNTDOWN_TEMPLATE_IDS = new Set(["wedding-romantic", "gala-editorial", "black-tie", "birthday-bold", "romantic-envelope"]);
 
 /**
  * Converts old flat invitation content into the common block envelope.
@@ -232,132 +187,72 @@ const COUNTDOWN_TEMPLATE_IDS = new Set(["wedding-romantic", "gala-editorial", "b
 export function legacyInvitationTemplateToLayout(
   templateId: string,
   savedLayout?: unknown
-): PageBlocksLayout {
-  const layoutBlocks: PageLayoutBlock[] = [
-    ...(templateId === "romantic-envelope"
-      ? [{ id: "romantic-envelope-entry", type: "interactive_envelope", content: {} }]
-      : []),
+): InvitationBlocksLayout {
+  const templateDefinition = getInvitationTemplateDefinition(templateId);
+  const hasSavedEffects = isRecord(savedLayout) && Array.isArray(savedLayout.effects);
+  const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope" || templateDefinition?.composition === "botanical-reverie";
+  const blockCatalog: PageLayoutBlock[] = [
+    { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },
     {
       id: "invitation-hero",
-      type: templateId === "romantic-envelope" ? "romantic_hero" : "hero",
+      type: isRomanticEnvelope ? "romantic_hero" : "hero",
       content: {
-        eyebrow: bind("eyebrow"),
-        title: bind("title"),
-        subtitle: bind("hostNames"),
-        image: bind("heroImage"),
-        imageAlt: bind("heroImageAlt"),
-        imageFocus: bind("heroImageFocus"),
-        scrollPrompt: bind("scrollPrompt"),
+        eyebrow: bind("eyebrow"), title: bind("title"), subtitle: bind("hostNames"), image: bind("heroImage"),
+        imageAlt: bind("heroImageAlt"), imageFocus: bind("heroImageFocus"), scrollPrompt: bind("scrollPrompt"),
       },
     },
     {
-      id: "invitation-story",
-      type: "story",
+      id: "invitation-story", type: "story",
+      content: { heading: bind("storyHeadline"), text: bind("storyText"), image: bind("storyImage"), moments: bind("weddingStory") },
+    },
+    {
+      id: "invitation-details", type: "details",
       content: {
-        heading: bind("storyHeadline"),
-        text: bind("storyText"),
-        image: bind("storyImage"),
-        moments: bind("weddingStory"),
+        title: bind("title"), eventDate: bind("eventDate"), timezone: bind("timezone"), venue: bind("venue"),
+        address: bind("address"), city: bind("city"), parkingNotes: bind("parkingNotes"), dressCode: bind("dressCode"),
+        dressCodeNotes: bind("dressCodeNotes"), additionalNotes: bind("additionalNotes"), venues: bind("venues"),
+        accommodations: bind("accommodations"), partner1Name: bind("partner1Name"), partner2Name: bind("partner2Name"),
+        familyNote: bind("familyNote"), weddingSubtype: bind("weddingSubtype"), colorsOfTheDay: bind("colorsOfTheDay"),
+        registryNote: bind("registryNote"), celebrantName: bind("celebrantName"), ageMilestone: bind("ageMilestone"),
+        theme: bind("theme"), giftNote: bind("giftNote"), hashtag: bind("hashtag"),
       },
     },
+    { id: "invitation-countdown", type: "countdown", content: { targetDate: bind("eventDate") } },
     {
-      id: "invitation-details",
-      type: "details",
+      id: "invitation-location-map", type: "location_map",
+      content: { latitude: bind("latitude"), longitude: bind("longitude"), venue: bind("venue"), address: bind("address"), city: bind("city") },
+    },
+    { id: "invitation-schedule", type: "schedule", content: { timeline: bind("schedule") } },
+    { id: "invitation-gallery", type: "gallery", content: { images: bind("gallery") } },
+    { id: "invitation-music", type: "music", content: { audioUrl: bind("musicAudioUrl"), title: bind("musicTitle"), links: bind("musicLinks") } },
+    {
+      id: "invitation-action-portal", type: "action_portal",
       content: {
-        title: bind("title"),
-        eventDate: bind("eventDate"),
-        timezone: bind("timezone"),
-        venue: bind("venue"),
-        address: bind("address"),
-        city: bind("city"),
-        parkingNotes: bind("parkingNotes"),
-        dressCode: bind("dressCode"),
-        dressCodeNotes: bind("dressCodeNotes"),
-        additionalNotes: bind("additionalNotes"),
-        venues: bind("venues"),
-        accommodations: bind("accommodations"),
-        partner1Name: bind("partner1Name"),
-        partner2Name: bind("partner2Name"),
-        familyNote: bind("familyNote"),
-        weddingSubtype: bind("weddingSubtype"),
-        colorsOfTheDay: bind("colorsOfTheDay"),
-        registryNote: bind("registryNote"),
-        celebrantName: bind("celebrantName"),
-        ageMilestone: bind("ageMilestone"),
-        theme: bind("theme"),
-        giftNote: bind("giftNote"),
-        hashtag: bind("hashtag"),
-      },
-    },
-    ...(COUNTDOWN_TEMPLATE_IDS.has(templateId)
-      ? [{
-          id: "invitation-countdown",
-          type: "countdown",
-          content: { targetDate: bind("eventDate") },
-        }]
-      : []),
-    {
-      id: "invitation-location-map",
-      type: "location_map",
-      content: {
-        latitude: bind("latitude"),
-        longitude: bind("longitude"),
-        venue: bind("venue"),
-        address: bind("address"),
-        city: bind("city"),
-      },
-    },
-    {
-      id: "invitation-schedule",
-      type: "schedule",
-      content: { timeline: bind("schedule") },
-    },
-    {
-      id: "invitation-gallery",
-      type: "gallery",
-      content: { images: bind("gallery") },
-    },
-    {
-      id: "invitation-music",
-      type: "music",
-      content: {
-        audioUrl: bind("musicAudioUrl"),
-        title: bind("musicTitle"),
-        links: bind("musicLinks"),
-      },
-    },
-    {
-      id: "invitation-action-portal",
-      type: "action_portal",
-      content: {
-        actionType: "RSVP_SUBMISSION",
-        guestName: bind("guest.name"),
-        rsvpStatus: bind("guest.rsvpStatus"),
-        seatLabel: bind("seat.label"),
-        qrCode: bind("ticketInstance.qrCode"),
+        actionType: "RSVP_SUBMISSION", guestName: bind("guest.name"), rsvpStatus: bind("guest.rsvpStatus"),
+        seatLabel: bind("seat.label"), qrCode: bind("ticketInstance.qrCode"),
       },
     },
   ];
+  const defaultBlockTypes = templateDefinition?.defaultBlockTypes ?? [
+    "hero", "story", "details", "location_map", "schedule", "gallery", "music", "action_portal",
+  ];
+  const blocksByType = new Map<string, PageLayoutBlock>(blockCatalog.map((block) => [block.type, block]));
+  const layoutBlocks = defaultBlockTypes
+    .map((type) => blocksByType.get(type))
+    .filter((block): block is PageLayoutBlock => Boolean(block));
 
-  if (templateId === "romantic-envelope") {
-    const requiredTypes = ["interactive_envelope", "romantic_hero", "countdown", "story", "schedule", "location_map"];
-    const requiredBlocks = requiredTypes
-      .map((type) => layoutBlocks.find((block) => block.type === type))
-      .filter((block): block is PageLayoutBlock => Boolean(block));
-    const optionalBlocks = layoutBlocks.filter((block) => !requiredTypes.includes(block.type));
-    layoutBlocks.splice(0, layoutBlocks.length, ...requiredBlocks, ...optionalBlocks);
-  }
-
-  const normalizedSavedLayout = normalizePageBlocksLayout(savedLayout);
+  const normalizedSavedLayout = normalizeInvitationBlocksLayout(savedLayout);
   if (!normalizedSavedLayout) {
-    return createPageBlocksLayout(layoutBlocks, themeForInvitationTemplate(templateId));
+    return InvitationBlocksLayoutSchema.parse({
+      ...createPageBlocksLayout(layoutBlocks, themeForInvitationTemplate(templateId)),
+      effects: templateDefinition?.defaultEffects ?? [],
+    });
   }
 
   const legacyTheme = LEGACY_INVITATION_THEME_CLASSES[templateId];
-  if (!legacyTheme) return normalizedSavedLayout;
+  if (!templateDefinition) return normalizedSavedLayout;
 
   const envelopeGate = layoutBlocks.find((block) => block.type === "interactive_envelope");
-  const isRomanticEnvelope = templateId === "romantic-envelope";
   const savedBlocks = normalizedSavedLayout.layout_blocks.map((block) => {
     if (block.type === "romantic_envelope_gate") return { ...block, type: "interactive_envelope" };
     if (isRomanticEnvelope && block.type === "hero") return { ...block, type: "romantic_hero" };
@@ -366,16 +261,17 @@ export function legacyInvitationTemplateToLayout(
   const savedEnvelopeGate = savedBlocks.find((block) => block.type === "interactive_envelope");
   const countdownBlock = layoutBlocks.find((block) => block.type === "countdown");
   const locationMapBlock = layoutBlocks.find((block) => block.type === "location_map");
+  const requiredTypes = templateDefinition?.requiredBlockTypes ?? [];
+  const requiredTypeSet = new Set<string>(requiredTypes);
   const authoredBlocks = isRomanticEnvelope
     ? (() => {
-        const requiredTypes = ["interactive_envelope", "romantic_hero", "countdown", "story", "schedule", "location_map"];
         const defaultsByType = new Map(layoutBlocks.map((block) => [block.type, block]));
         const savedByType = new Map(savedBlocks.map((block) => [block.type, block]));
         const requiredBlocks = requiredTypes
           .map((type) => savedByType.get(type) ?? defaultsByType.get(type))
           .filter((block): block is PageLayoutBlock => Boolean(block));
         const optionalBlocks = savedBlocks.filter((block) =>
-          block.type !== "romantic_envelope_gate" && !requiredTypes.includes(block.type)
+          block.type !== "romantic_envelope_gate" && !requiredTypeSet.has(block.type)
         );
         return [
           ...(savedEnvelopeGate || envelopeGate ? [savedEnvelopeGate ?? envelopeGate!] : []),
@@ -383,7 +279,7 @@ export function legacyInvitationTemplateToLayout(
           ...optionalBlocks,
         ];
       })()
-    : COUNTDOWN_TEMPLATE_IDS.has(templateId) && countdownBlock && !savedBlocks.some((block) => block.type === "countdown")
+    : requiredTypes.includes("countdown") && countdownBlock && !savedBlocks.some((block) => block.type === "countdown")
       ? (() => {
           const detailsIndex = savedBlocks.findIndex((block) => block.type === "details");
           const heroIndex = savedBlocks.findIndex((block) => block.type === "hero");
@@ -396,22 +292,25 @@ export function legacyInvitationTemplateToLayout(
   // Older saved snapshots may already contain a valid layout with generic
   // preset classes. Keep their authored blocks, but restore the template's
   // original premium presentation theme.
-  return {
+  return InvitationBlocksLayoutSchema.parse({
     ...normalizedSavedLayout,
     layout_blocks: compatibleBlocks.some((block) => block.type === "location_map") || !locationMapBlock
       ? compatibleBlocks
       : [...compatibleBlocks, locationMapBlock],
-    global_theme: {
-      ...normalizedSavedLayout.global_theme,
-      classes: {
-        ...normalizedSavedLayout.global_theme.classes,
-        ...legacyTheme,
-      },
-    },
-  };
+    global_theme: legacyTheme
+      ? {
+          ...normalizedSavedLayout.global_theme,
+          classes: {
+            ...normalizedSavedLayout.global_theme.classes,
+            ...legacyTheme,
+          },
+        }
+      : normalizedSavedLayout.global_theme,
+    effects: hasSavedEffects ? normalizedSavedLayout.effects ?? [] : templateDefinition.defaultEffects,
+  });
 }
 
-export function legacyInvitationSnapshotToLayout(snapshot: InvitationPageSnapshot): PageBlocksLayout {
+export function legacyInvitationSnapshotToLayout(snapshot: InvitationPageSnapshot): InvitationBlocksLayout {
   return legacyInvitationTemplateToLayout(snapshot.template_id, snapshot.blocks_layout);
 }
 

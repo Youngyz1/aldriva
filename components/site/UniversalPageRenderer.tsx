@@ -1,6 +1,7 @@
 import type { Locale } from "@/i18n/routing";
 import type { PageActionHandler } from "@/lib/page-actions";
 import type { PageBlocksLayout } from "@/lib/page-composition";
+import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import { compilePageBlocksLayoutTheme } from "@/lib/invitation-page-layout";
 import { parseBlock } from "@/lib/website-blocks";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
@@ -30,8 +31,9 @@ type WebsiteRendererContext = {
 type UniversalPageRendererProps =
   | {
       kind: "invitation";
-      layout: PageBlocksLayout;
+      layout: InvitationBlocksLayout;
       data: InvitationPageData;
+      templateId: string;
       onAction?: PageActionHandler;
       shared?: boolean;
       mode?: "preview" | "live" | "shared";
@@ -48,7 +50,7 @@ export function UniversalPageRenderer(props: UniversalPageRendererProps) {
   if (props.kind === "invitation") {
     const mode = props.shared ? "shared" : (props.mode ?? "preview");
     const onAction = mode === "live" ? props.onAction : undefined;
-    return <InvitationBlocksLayoutClient layout={props.layout} data={props.data} onAction={onAction} shared={props.shared} mode={mode} isEditMode={props.isEditMode} />;
+    return <InvitationBlocksLayoutClient layout={props.layout} data={props.data} templateId={props.templateId} onAction={onAction} shared={props.shared} mode={mode} isEditMode={props.isEditMode} />;
   }
 
   const layout = compilePageBlocksLayoutTheme(props.layout);

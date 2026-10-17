@@ -15,6 +15,7 @@ import React, {
 } from "react";
 import Image from "next/image";
 import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { Cormorant_Garamond, Lora } from "next/font/google";
 import {
   CheckCircle2,
@@ -235,7 +236,7 @@ export function InvitationTemplate1({ data, onRsvp, className = "", shared = fal
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover"
+                className={invitationImageClassName("full-bleed")}
                 style={heroFocusStyle}
               />
               <div
@@ -1196,6 +1197,7 @@ function EditorialGallery({ images }: { images: InvitationGalleryItem[] }) {
   return (
     <InvitationGalleryGrid
       images={images}
+      mobileBleedGutter={6}
       captionClassName="text-xs"
       lightboxCaptionClassName="text-xs"
     />

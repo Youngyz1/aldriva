@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 
 export interface InvitationStoryMoment {
   title?: string | null;
@@ -25,7 +26,7 @@ function StoryImage({ src, alt, className, onError }: StoryImageProps) {
         alt={alt}
         fill
         sizes="(max-width: 768px) 100vw, 480px"
-        className="object-cover"
+        className={invitationImageClassName("framed")}
         onError={onError}
       />
     </div>

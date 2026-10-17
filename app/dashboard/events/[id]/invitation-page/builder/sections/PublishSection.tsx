@@ -170,7 +170,7 @@ export function PublishSection({
           </div>
 
           {/* Template Specific Checks */}
-          {draft.template_id === "wedding-romantic" && (
+          {(draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial") && (
             <div className="flex items-center justify-between py-2 text-xs">
               <span className="text-zinc-700">Couple Names</span>
               {draft.partner1_name && draft.partner2_name ? (

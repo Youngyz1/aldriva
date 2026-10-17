@@ -22,6 +22,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 import { Great_Vibes, Playfair_Display, Lora } from "next/font/google";
 import {
@@ -342,7 +343,7 @@ export function InvitationTemplateWedding({ data, onRsvp, className = "", shared
               fill
               priority
               sizes="(max-width: 640px) 320px, 380px"
-              className="object-cover"
+              className={invitationImageClassName("framed")}
               style={heroFocusStyle}
             />
           ) : (
@@ -1108,6 +1109,7 @@ function WeddingGallery({ images }: { images: InvitationGalleryItem[] }) {
   return (
     <InvitationGalleryGrid
       images={images}
+      mobileBleedGutter={6}
       captionClassName="text-xs text-(--wed-ink-muted)"
       lightboxCaptionClassName="text-xs text-white/80"
     />

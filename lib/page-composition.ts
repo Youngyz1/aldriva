@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
 
 export const PAGE_LAYOUT_VERSION = 1 as const;
 
@@ -41,6 +42,26 @@ export const PAGE_THEME_PRESETS = {
       body: "font-serif text-stone-700",
       card: "rounded-xl border border-rose-200 bg-white shadow-xs",
       button: "rounded-xl bg-rose-800 text-white hover:bg-rose-900",
+    },
+  },
+  luxeEditorial: {
+    classes: {
+      page: "min-h-screen bg-[#fdfaf6] text-[#4a4a4a] font-serif selection:bg-[#e8d5c4]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#4a4a4a]",
+      body: "font-serif text-[#6a5c52]",
+      card: "border border-[#e8d5c4]/70 bg-white shadow-sm",
+      button: "rounded-lg bg-[#c5a880] text-white hover:bg-[#b59a72]",
+    },
+  },
+  botanical: {
+    classes: {
+      page: "min-h-screen bg-[#f4efe4] text-[#263b31]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#263b31]",
+      body: "font-sans text-[#53665a]",
+      card: "border border-[#d8d0bb] bg-[#fffdf7] shadow-lg",
+      button: "bg-[#365746] text-[#fffdf7] hover:bg-[#284434]",
     },
   },
   birthday: {
@@ -116,6 +137,14 @@ export const LEGACY_INVITATION_THEME_CLASSES: Record<string, PageThemeClasses> =
     card: "bg-white/80 border border-stone-200/50 shadow-md p-5 rounded-xl",
     heading: "font-serif text-amber-900 italic text-center font-normal tracking-wide",
     button: "bg-amber-800 text-white rounded-full font-serif px-8 py-3 tracking-wider hover:bg-amber-900 transition-all",
+  },
+  "botanical-reverie": {
+    page: "min-h-screen bg-[#f4efe4] text-[#263b31]",
+    section: "bg-transparent",
+    body: "font-sans text-[#53665a]",
+    card: "border border-[#d8d0bb] bg-[#fffdf7] shadow-lg",
+    heading: "font-serif text-[#263b31]",
+    button: "bg-[#365746] text-[#fffdf7] hover:bg-[#284434]",
   },
 };
 
@@ -284,16 +313,16 @@ export function pageLayoutToWebsiteBlocks(layout: PageBlocksLayout): Record<stri
 }
 
 export function themeForInvitationTemplate(templateId: string): PageGlobalTheme {
-  const preset: PageThemePreset =
-    templateId === "black-tie" || templateId === "gala-editorial" ? "blackTie" :
-      templateId === "wedding-romantic" || templateId === "romantic-envelope" ? "wedding" :
-        templateId === "birthday-bold" ? "birthday" :
-          templateId === "cover" ? "cover" : "gala";
+  const preset: PageThemePreset = getInvitationTemplateDefinition(templateId)?.defaultThemePreset ?? "gala";
   return {
     text_scale: 1.0,
     classes: {
       ...PAGE_THEME_PRESETS[preset].classes,
       ...LEGACY_INVITATION_THEME_CLASSES[templateId],
     },
+    ...(templateId === "botanical-reverie" ? {
+      palette_id: "palette-botanical",
+      font_pack_id: "font-serif-editorial",
+    } : {}),
   };
 }

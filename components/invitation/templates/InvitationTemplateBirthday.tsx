@@ -21,6 +21,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import {
   CheckCircle2,
@@ -293,7 +294,7 @@ export function InvitationTemplateBirthday({ data, onRsvp, className = "", share
               fill
               priority
               sizes="(max-width: 640px) 340px, 420px"
-              className="object-cover"
+              className={invitationImageClassName("framed")}
               style={heroFocusStyle}
             />
           ) : (
@@ -914,6 +915,7 @@ function BirthdayGallery({ images }: { images: InvitationGalleryItem[] }) {
   return (
     <InvitationGalleryGrid
       images={images}
+      mobileBleedGutter={6}
       captionClassName="text-xs font-bold text-(--bday-ink) text-center"
       lightboxCaptionClassName="text-xs text-white/90 max-w-md font-bold text-center"
     />

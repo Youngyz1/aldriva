@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import {
+  BOTANICAL_REVERIE_SAMPLE_DATA,
   FULL_INVITATION_SAMPLE_DATA,
   WEDDING_INVITATION_SAMPLE_DATA,
   BIRTHDAY_INVITATION_SAMPLE_DATA,
@@ -102,7 +103,10 @@ const SCENARIO_LABELS: Record<ScenarioKey, { label: string; description: string 
 
 /** Get the base dataset for a category / template */
 function getBaseDataForTemplate(templateId: string): InvitationPageData {
-  if (templateId === "wedding-romantic") {
+  if (templateId === "botanical-reverie") {
+    return BOTANICAL_REVERIE_SAMPLE_DATA;
+  }
+  if (templateId === "wedding-romantic" || templateId === "luxe-editorial") {
     return WEDDING_INVITATION_SAMPLE_DATA;
   }
   if (templateId === "birthday-bold") {
@@ -292,7 +296,7 @@ export default function PreviewSandboxClient() {
       <header className="sticky top-0 z-50 bg-zinc-900/95 border-b border-zinc-800 px-3 py-2 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           {/* Brand & Active Template Pill */}
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="p-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
               <Sparkles className="w-3.5 h-3.5" />
             </span>
@@ -444,7 +448,7 @@ export default function PreviewSandboxClient() {
           </div>
 
           {/* Mobile Right Controls: Language + Collapse Button */}
-          <div className="flex items-center gap-1.5 lg:hidden">
+          <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
             {/* Quick Language Toggle */}
             <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-[10px]">
               <button
@@ -578,11 +582,11 @@ export default function PreviewSandboxClient() {
       <main className="w-full flex-1 flex justify-center bg-zinc-950 overflow-x-hidden">
         {viewport === "mobile" ? (
           <div className="my-6 max-w-[390px] w-full min-h-[844px] border-4 border-zinc-800 rounded-[44px] overflow-hidden shadow-2xl bg-white">
-            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} />
+            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} templateId={templateId} />
           </div>
         ) : (
           <div className="w-full">
-            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} />
+            <InvitationBlocksLayoutClient layout={previewLayout} data={finalPageData} templateId={templateId} />
           </div>
         )}
       </main>

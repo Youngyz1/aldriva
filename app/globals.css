@@ -352,6 +352,11 @@ svg {
   max-width: 100%;
 }
 
+/* Deliberate mobile image breakouts can exceed their padded text column. */
+.invitation-image--full-bleed {
+  max-width: none;
+}
+
 /* --- Tiptap Editor Typography Styles --- */
 .tiptap-editor {
   outline: none;
@@ -442,4 +447,61 @@ svg {
 @keyframes featured-slider-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+@keyframes invitation-petal-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  12% { opacity: 0.72; }
+  88% { opacity: 0.58; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--invitation-petal-drift), 112vh, 0) rotate(500deg);
+  }
+}
+
+.invitation-falling-petal {
+  position: absolute;
+  top: -2rem;
+  width: 0.85rem;
+  height: 1.25rem;
+  animation-name: invitation-petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes botanical-bloom-arrive {
+  from { opacity: 0; transform: translate3d(0, 1.25rem, 0) rotate(-10deg) scale(.94); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) rotate(0) scale(1); }
+}
+
+@keyframes botanical-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); }
+  50% { transform: translate3d(0, -.55rem, 0) rotate(2deg); }
+}
+
+.botanical-bloom {
+  pointer-events: none;
+  opacity: 0;
+  animation: botanical-bloom-arrive 1.1s cubic-bezier(.2,.75,.25,1) forwards, botanical-float 9s ease-in-out 1.2s infinite;
+}
+
+.botanical-bloom--hero { animation-delay: .45s, 1.6s; }
+.botanical-bloom--section { animation-delay: .2s, 1.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .invitation-falling-petal {
+    display: none;
+    animation: none;
+    will-change: auto;
+  }
+
+  .botanical-bloom {
+    animation: none;
+    opacity: .7;
+    transform: none;
+  }
 }

@@ -12,7 +12,12 @@
  *  - birthday: "Birthday Celebration"
  */
 
-export type TemplateCategory = "gala_corporate" | "wedding" | "birthday" | "universal";
+import {
+  INVITATION_TEMPLATE_REGISTRY,
+  type InvitationTemplateCategory,
+} from "@/lib/invitation-template-registry";
+
+export type TemplateCategory = InvitationTemplateCategory;
 
 export interface TemplateRegistryItem {
   id: string;
@@ -41,50 +46,15 @@ export const INVITATION_CATEGORIES: Record<TemplateCategory, { label: string; de
   },
 };
 
-export const INVITATION_TEMPLATES: TemplateRegistryItem[] = [
-  {
-    id: "gala-editorial",
-    name: "Gala Editorial",
-    category: "gala_corporate",
-    categoryLabel: "Gala & Corporate",
-    description: "Warm ivory and deep ink light editorial design with Cormorant Garamond serif.",
-  },
-  {
-    id: "black-tie",
-    name: "Black Tie",
-    category: "gala_corporate",
-    categoryLabel: "Gala & Corporate",
-    description: "Dramatic dark zinc & amber-gold framed luxury composition with gold accents.",
-  },
-  {
-    id: "wedding-romantic",
-    name: "Romantic Wedding",
-    category: "wedding",
-    categoryLabel: "Wedding",
-    description: "Soft blush and sage palette on cream with script accents, arch photo, and response card.",
-  },
-  {
-    id: "romantic-envelope",
-    name: "Romantic Envelope",
-    category: "wedding",
-    categoryLabel: "Wedding",
-    description: "A cinematic envelope reveal followed by a full-screen wedding story and itinerary.",
-  },
-  {
-    id: "birthday-bold",
-    name: "Bold Celebration",
-    category: "birthday",
-    categoryLabel: "Birthday Celebration",
-    description: "Joyful bright color blocks, tilted sticker frames, polaroid gallery, and chunky party cards.",
-  },
-  {
-    id: "cover",
-    name: "Cover Story",
-    category: "universal",
-    categoryLabel: "Cover",
-    description: "Full-bleed event photo with live title, host, date, and venue text.",
-  },
-];
+export const INVITATION_TEMPLATES: TemplateRegistryItem[] = Object.values(INVITATION_TEMPLATE_REGISTRY)
+  .filter((template) => template.publicationStatus === "published")
+  .map(({ id, name, category, categoryLabel, description }) => ({
+    id,
+    name,
+    category,
+    categoryLabel,
+    description,
+  }));
 
 export function getTemplateById(id: string): TemplateRegistryItem {
   const found = INVITATION_TEMPLATES.find((t) => t.id === id);
