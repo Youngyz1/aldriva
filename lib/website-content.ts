@@ -57,6 +57,10 @@ export const OPTIONAL_CONTENT_KEYS = [
   "featured",
   "enabled_sections",
   "template_extras",
+  "about_caption",
+  "about_headline",
+  "about_subtitle",
+  "promo",
 ] as const;
 
 export type OptionalContentKey = (typeof OPTIONAL_CONTENT_KEYS)[number];
@@ -71,6 +75,9 @@ export const MAX_CONTENT_DOC_CHARS = 100_000;
 
 /** Keys that must never appear — prototype pollution guard. */
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+/** Image-ish keys that pass through clampImage (URL cap, not text truncation). */
+const IMAGE_KEYS = new Set(["image", "image_url", "photo", "src"]);
 
 // ── 2. Document types ───────────────────────────────────────────────────────
 
@@ -113,6 +120,7 @@ export interface ContentSocials {
 export interface ContentFeatured {
   menu_item_ids?: string[];
   vehicle_ids?: string[];
+  product_ids?: string[];
 }
 
 export type ContentDoc = Partial<
@@ -277,8 +285,18 @@ function normalizeKeyedItems(
       if (FORBIDDEN_KEYS.has(key)) continue;
       if (typeof raw === "string") {
         const trimmed = raw.trim();
-        if (trimmed) item[key] = trimmed.slice(0, textMax);
-      } else if (typeof raw === "number" || typeof raw === "boolean") {
+        if (trimmed) {
+          const k = key.toLowerCase();
+          if (IMAGE_KEYS.has(k)) {
+            const img = clampImage(trimmed);
+            if (img) item[key] = img;
+            continue;
+          }
+          item[key] = trimmed.slice(0, textMax);
+        }
+      } else if (typeof raw === "number" && Number.isFinite(raw)) {
+        item[key] = raw;
+      } else if (typeof raw === "boolean") {
         item[key] = raw;
       }
     }
@@ -331,6 +349,12 @@ export function normalizeContent(input: unknown): ContentDoc {
   if (secondaryCta) out.secondary_cta_label = secondaryCta;
   const aboutText = text(input.about_text, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH);
   if (aboutText) out.about_text = aboutText;
+  const aboutCaption = text(input.about_caption, BLOCK_LIMITS.LABEL_MAX_LENGTH);
+  if (aboutCaption) out.about_caption = aboutCaption;
+  const aboutHeadline = text(input.about_headline, BLOCK_LIMITS.HEADING_MAX_LENGTH);
+  if (aboutHeadline) out.about_headline = aboutHeadline;
+  const aboutSubtitle = text(input.about_subtitle, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH);
+  if (aboutSubtitle) out.about_subtitle = aboutSubtitle;
   const address = text(input.address, BLOCK_LIMITS.ADDRESS_MAX_LENGTH);
   if (address) out.address = address;
   const phone = text(input.phone, BLOCK_LIMITS.PHONE_MAX_LENGTH);
@@ -396,11 +420,36 @@ export function normalizeContent(input: unknown): ContentDoc {
       64
     );
     if (vehicleIds) featured.vehicle_ids = vehicleIds;
+    const productIds = clampStringArray(
+      input.featured.product_ids,
+      BLOCK_LIMITS.MAX_ARRAY_ITEMS,
+      64
+    );
+    if (productIds) featured.product_ids = productIds;
     if (Object.keys(featured).length > 0) out.featured = featured;
   }
 
   const enabledSections = normalizeEnabledSections(input.enabled_sections);
   if (enabledSections) out.enabled_sections = enabledSections;
+
+  if (isPlainObject(input.promo)) {
+    const promo: Record<string, unknown> = {};
+    const img = clampImage(input.promo.image);
+    if (img) promo.image = img;
+    const eyebrow = text(input.promo.eyebrow, BLOCK_LIMITS.LABEL_MAX_LENGTH);
+    if (eyebrow) promo.eyebrow = eyebrow;
+    const headline = text(input.promo.headline, BLOCK_LIMITS.HEADING_MAX_LENGTH);
+    if (headline) promo.headline = headline;
+    const desc = text(input.promo.text, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH);
+    if (desc) promo.text = desc;
+    const btnLabel = text(input.promo.button_label, BLOCK_LIMITS.LABEL_MAX_LENGTH);
+    if (btnLabel) promo.button_label = btnLabel;
+    const btnLink = clampUrl(input.promo.button_link);
+    if (btnLink) promo.button_link = btnLink;
+    const endDate = text(input.promo.end_date, BLOCK_LIMITS.LABEL_MAX_LENGTH);
+    if (endDate) promo.end_date = endDate;
+    if (Object.keys(promo).length > 0) out.promo = promo;
+  }
 
   if (isPlainObject(input.template_extras)) {
     const extras: Record<string, unknown> = {};
@@ -410,7 +459,9 @@ export function normalizeContent(input: unknown): ContentDoc {
       if (typeof raw === "string") {
         const trimmed = raw.trim();
         if (trimmed) extras[key] = trimmed.slice(0, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH);
-      } else if (typeof raw === "number" || typeof raw === "boolean") {
+      } else if (typeof raw === "number" && Number.isFinite(raw)) {
+        extras[key] = raw;
+      } else if (typeof raw === "boolean") {
         extras[key] = raw;
       } else if (isPlainObject(raw)) {
         const nested: Record<string, unknown> = {};
@@ -419,7 +470,9 @@ export function normalizeContent(input: unknown): ContentDoc {
           if (typeof nraw === "string") {
             const trimmed = nraw.trim();
             if (trimmed) nested[nkey] = trimmed.slice(0, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH);
-          } else if (typeof nraw === "number" || typeof nraw === "boolean") {
+          } else if (typeof nraw === "number" && Number.isFinite(nraw)) {
+            nested[nkey] = nraw;
+          } else if (typeof nraw === "boolean") {
             nested[nkey] = nraw;
           }
         }

@@ -17,6 +17,8 @@ interface V2SlotFieldProps {
   tenantId: string;
   template: WebsiteTemplateV2;
   menuItems: V2MenuItemChoice[];
+  /** Store featured-product choices (active tenant products). */
+  productChoices?: V2MenuItemChoice[];
   sampled: boolean;
   onOpenMenuEditor?: () => void;
   canManageMenu?: boolean;
@@ -46,6 +48,7 @@ export function V2SlotField({
   tenantId,
   template,
   menuItems,
+  productChoices = [],
   sampled,
   onOpenMenuEditor,
   canManageMenu,
@@ -136,6 +139,47 @@ export function V2SlotField({
         </>
       ) : null}
 
+      {control.kind === "number" ? (
+        <>
+          <input
+            className={inputClass}
+            type="number"
+            inputMode="numeric"
+            min={typeof control.min === "number" ? control.min : 1}
+            max={typeof control.max === "number" ? control.max : 24}
+            step={1}
+            value={typeof value === "number" && Number.isFinite(value) ? String(value) : ""}
+            onChange={(event) => {
+              const raw = event.currentTarget.value.trim();
+              if (raw === "") {
+                onChange(undefined);
+                return;
+              }
+              const parsed = Number(raw);
+              onChange(Number.isFinite(parsed) ? parsed : undefined);
+            }}
+            aria-label={control.label}
+          />
+          <p className="text-[11px] text-zinc-500">{control.extraKey === "storeBrowsePageSize" ? tPublicSite("storeSlotDensityHint") : "Whole numbers only."}</p>
+        </>
+      ) : null}
+
+      {control.kind === "select" ? (
+        <select
+          className={inputClass}
+          value={typeof value === "string" ? value : ""}
+          onChange={(event) => onChange(event.currentTarget.value || undefined)}
+          aria-label={control.label}
+        >
+          <option value="">Select…</option>
+          {(control.options ?? []).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
+
       {control.kind === "image" ? (
         <MediaUploadField
           label={control.label}
@@ -191,12 +235,17 @@ export function V2SlotField({
       ) : null}
 
       {control.kind === "pick" ? (() => {
+        // Store sites pick tenant products (product_ids); every other
+        // template picks menu items (menu_item_ids). Same checkbox pattern.
+        const isStorePick = template.id === "store";
+        const pickKey = isStorePick ? "product_ids" : "menu_item_ids";
+        const choices = isStorePick ? productChoices : menuItems;
         const featured = record(value);
-        const selected = Array.isArray(featured.menu_item_ids) ? featured.menu_item_ids.filter((id): id is string => typeof id === "string") : [];
+        const selected = Array.isArray(featured[pickKey]) ? featured[pickKey].filter((id): id is string => typeof id === "string") : [];
         const limit = control.max ?? BLOCK_LIMITS.MAX_ARRAY_ITEMS;
         return (
           <div className="space-y-3">
-            {onOpenMenuEditor && canManageMenu ? (
+            {!isStorePick && onOpenMenuEditor && canManageMenu ? (
               <div>
                 <button
                   type="button"
@@ -209,14 +258,14 @@ export function V2SlotField({
               </div>
             ) : null}
             <div className="space-y-2">
-              {menuItems.map((item) => {
+              {choices.map((item) => {
                 const checked = selected.includes(item.id);
                 return <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700"><input type="checkbox" checked={checked} disabled={!checked && selected.length >= limit} onChange={(event) => {
                   const next = event.currentTarget.checked ? [...selected, item.id].slice(0, limit) : selected.filter((id) => id !== item.id);
-                  onChange({ ...featured, menu_item_ids: next });
+                  onChange({ ...featured, [pickKey]: next });
                 }} /><span className="min-w-0 flex-1"><span className="block font-medium text-zinc-800 dark:text-zinc-100">{item.name}</span><span className="block text-xs text-zinc-500">{item.sectionName}{item.price != null ? ` · ${Number(item.price).toFixed(2)}` : ""}</span></span></label>;
               })}
-              {menuItems.length === 0 ? <p className="rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">There are no active menu items to pick yet.</p> : null}
+              {choices.length === 0 ? <p className="rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{isStorePick ? tPublicSite("storePickEmpty") : "There are no active menu items to pick yet."}</p> : null}
             </div>
             <p className="text-right text-[11px] text-zinc-500">{selected.length}/{limit}</p>
           </div>

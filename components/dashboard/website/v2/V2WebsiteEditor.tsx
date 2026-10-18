@@ -6,6 +6,7 @@ import type { ContentDoc } from "@/lib/website-content";
 import { createDraftSaveQueue } from "@/lib/draft-save-queue";
 import { checkPublishReadiness, resolveTemplateContent } from "@/lib/website-template-resolver";
 import { buildWebsiteEditorSections, getWebsiteEditorControlForSlot, toWebsiteContentDraft } from "@/lib/website-v2-editor-schema";
+import { applySlotValue, readSlotValue } from "@/lib/website-v2-slot-value";
 import type { V2BuilderState, V2MenuItemChoice } from "@/lib/actions/website-v2";
 import { getV2MenuItemChoices, saveV2WebsiteAppearanceDraft } from "@/lib/actions/website-v2";
 import { discardContentDraft, publishContentDraft } from "@/lib/actions/website-content";
@@ -337,20 +338,21 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
   }
 
   function renderControl(control: (typeof sections)[number]["controls"][number]) {
-    const extras = content.template_extras && typeof content.template_extras === "object"
-      ? content.template_extras as Record<string, unknown>
-      : {};
-    const value = control.extraKey ? extras[control.extraKey] ?? "" : content[control.field];
+    const value = readSlotValue(content, control.field, control.extraKey) ?? "";
     return <div key={control.id} data-slot-control-id={control.id} className="pt-4 first:pt-0">
       <V2SlotField
         control={control}
         value={value}
-        onChange={(nextValue) => updateContent(
-          control.field,
-          control.extraKey
-            ? { ...extras, [control.extraKey]: nextValue }
-            : nextValue
-        )}
+        onChange={(nextValue) => setContent((current) => {
+          const next = applySlotValue(current, control.field, control.extraKey, nextValue) as ContentDoc;
+          latestContentRef.current = next;
+          if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+          timerRef.current = window.setTimeout(() => {
+            timerRef.current = null;
+            sendSave(next);
+          }, 500);
+          return next;
+        })}
         tenantId={initialState.tenantId}
         template={template}
         menuItems={currentMenuItems}

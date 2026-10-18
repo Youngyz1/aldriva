@@ -166,6 +166,8 @@ export interface TemplateResolutionOptions {
   /** Locale-resolved template copy, supplied by the caller. */
   viewMenuLabel?: string;
   rentalContactCta?: string;
+  /** Evaluation timestamp for time-sensitive content (tests). */
+  now?: Date;
   primaryActionLabels?: Partial<Record<PrimaryActionLabelKey, string>>;
   offeringsHeading?: string;
   restaurantCtaBandHeading?: string;
@@ -335,6 +337,7 @@ interface BuildContext {
   foodOrderCopy?: TemplateResolutionOptions["foodOrderCopy"];
   storeCopy?: TemplateResolutionOptions["storeCopy"];
   timeZone?: string;
+  now?: Date;
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -484,11 +487,16 @@ function sourceEntriesForBlock(
       const title = recordText(row.value, ["title", "label", "name"]);
       if (!title || emittedIndex >= (block.items?.length ?? 0)) continue;
       const description = recordText(row.value, ["description", "value", "text"]);
+      const image = recordText(row.value, ["image", "image_url", "photo", "src"]);
       add("items[" + emittedIndex + "].title", slotId, field, true, { itemIndex: row.index, subfield: "title" });
       add("items[" + emittedIndex + "].description", slotId, field, Boolean(description), { itemIndex: row.index, subfield: "description" });
+      if (image) add("items[" + emittedIndex + "].image", slotId, field, true, { itemIndex: row.index, subfield: "image" });
       emittedIndex += 1;
     }
   } else if (block.type === "about") {
+    if (object.caption) add("caption", "about.caption", "about_caption", true);
+    if (object.heading) add("heading", "about.headline", "about_headline", true);
+    if (object.subtitle) add("subtitle", "about.subtitle", "about_subtitle", true);
     add("story", "about.text", "about_text", Boolean(object.story));
     add("founderImage", "about.photo", "about_image", Boolean(object.founderImage));
     const sourceRows = indexedRecords(effectiveValue(ctx, "stats"));
@@ -563,6 +571,22 @@ function sourceEntriesForBlock(
       ).slice(0, block.selectedItemIds?.length ?? 0);
       ids.forEach((pick, index) => add("selectedItemIds[" + index + "]", "menu.featured", "featured", true, { itemIndex: pick.itemIndex, subfield: "menu_item_ids" }));
     }
+  } else if (block.type === "cta_banner") {
+    if (section.id === "promo") {
+      add("eyebrow", "promo.eyebrow", "promo", Boolean(object.eyebrow), { subfield: "eyebrow" });
+      add("heading", "promo.headline", "promo", Boolean(object.heading), { subfield: "headline" });
+      add("subheading", "promo.text", "promo", Boolean(object.subheading), { subfield: "text" });
+      add("image", "promo.image", "promo", Boolean(object.image), { subfield: "image" });
+      add("ctaLabel", "promo.button_label", "promo", Boolean(object.ctaLabel), { subfield: "button_label" });
+      add("ctaHref", "promo.button_link", "promo", Boolean(object.ctaHref), { subfield: "button_link" });
+      add("endDate", "promo.end_date", "promo", Boolean(object.endDate), { subfield: "end_date" });
+    } else if (section.id === "cta-band") {
+      if (ctx.template.id === "restaurant-savannah") {
+        add("heading", "cta.heading", "template_extras", Boolean(object.heading), { subfield: "ctaBandHeading" });
+      }
+      add("ctaLabel", "cta.button_label", "template_extras", Boolean(object.ctaLabel), { subfield: "ctaBandButtonLabel" });
+      add("ctaHref", "cta.button_link", "template_extras", Boolean(object.ctaHref), { subfield: "ctaBandButtonLink" });
+    }
   }
 
   return entries;
@@ -583,7 +607,7 @@ function buildHero(ctx: BuildContext): Block {
     : tagline;
   const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone) : null;
   const phone = asString(effectiveValue(ctx, "phone"));
-  const metaPills = isRestaurantEditorial
+  const metaPills = isTableFlame
     ? [
         today?.open && today.close && !today.closed ? { label: `Open today until ${today.close}` } : undefined,
         address ? { label: address } : undefined,
@@ -591,10 +615,22 @@ function buildHero(ctx: BuildContext): Block {
       ].filter((pill): pill is { label: string; href?: string } => Boolean(pill))
     : [];
   const extras = asRecord(effectiveValue(ctx, "template_extras"));
-  const imagePosition = typeof extras?.tableFlameHeroPosition === "string"
+  let imagePosition = typeof extras?.tableFlameHeroPosition === "string"
     ? extras.tableFlameHeroPosition
     : undefined;
+  if (isSavannah) {
+    const fx = typeof extras?.savannahHeroFocalX === "number" && Number.isFinite(extras.savannahHeroFocalX)
+      ? extras.savannahHeroFocalX
+      : undefined;
+    const fy = typeof extras?.savannahHeroFocalY === "number" && Number.isFinite(extras.savannahHeroFocalY)
+      ? extras.savannahHeroFocalY
+      : undefined;
+    if (fx !== undefined || fy !== undefined) {
+      imagePosition = `${Math.max(0, Math.min(100, Math.round(fx ?? 50)))}% ${Math.max(0, Math.min(100, Math.round(fy ?? 50)))}%`;
+    }
+  }
   const logoMark = isTableFlame ? asString(take(ctx, "logo_url", "nav.logo")) : undefined;
+  const imageFit = isSavannah && extras?.savannahHeroFit === "contain" ? "contain" : undefined;
   return {
     type: "hero",
     variant: isRestaurantEditorial ? "full-bleed" : "split",
@@ -610,19 +646,21 @@ function buildHero(ctx: BuildContext): Block {
     ...(badge ? { badge } : {}),
     ...(logoMark ? { logoMark } : {}),
     ...(imagePosition ? { imagePosition } : {}),
+    ...(imageFit ? { imageFit } as any : {}),
     ...(metaPills.length ? { metaPills } : {}),
     ...(isRestaurantEditorial ? { scrim: true } : {}),
   } as Block;
 }
 
-function buildFeatureItems(value: unknown): Array<{ title: string; description?: string }> {
+function buildFeatureItems(value: unknown): Array<{ title: string; description?: string; image?: string }> {
   const rows = asRecordArray(value) ?? [];
-  const out: Array<{ title: string; description?: string }> = [];
+  const out: Array<{ title: string; description?: string; image?: string }> = [];
   for (const row of rows) {
     const title = recordText(row, ["title", "label", "name"]);
     if (!title) continue;
     const description = recordText(row, ["description", "value", "text"]) || undefined;
-    out.push(description ? { title, description } : { title });
+    const image = recordText(row, ["image", "image_url", "photo", "src"]) || undefined;
+    out.push({ title, ...(description ? { description } : {}), ...(image ? { image } : {}) });
   }
   return out;
 }
@@ -664,6 +702,7 @@ function buildBusinessOfferings(ctx: BuildContext): Block | null {
 }
 
 function buildAbout(ctx: BuildContext): Block {
+  const isSavannah = ctx.template.id === "restaurant-savannah";
   const stats = asRecordArray(take(ctx, "stats", "about.stats")) ?? [];
   const highlights = stats
     .map((row) => ({
@@ -674,7 +713,13 @@ function buildAbout(ctx: BuildContext): Block {
     .slice(0, 3);
   return {
     type: "about",
-    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : ctx.template.id === "restaurant-savannah" ? { heading: "Our Story" } : {}),
+    ...(isSavannah ? {
+      caption: asString(take(ctx, "about_caption", "about.caption")),
+      heading: asString(take(ctx, "about_headline", "about.headline")) || "Our Story",
+      subtitle: asString(take(ctx, "about_subtitle", "about.subtitle")),
+    } : {
+      ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : {}),
+    }),
     story: asString(take(ctx, "about_text", "about.text")),
     founderImage: asString(take(ctx, "about_image", "about.photo")),
     ...(highlights.length > 0 ? { highlights } : {}),
@@ -779,20 +824,31 @@ function buildFaq(ctx: BuildContext): Block {
 
 function buildCtaBand(ctx: BuildContext): Block {
   const isFoodOrder = ctx.template.id === "food-order";
-  const isRestaurantEditorial = ctx.template.id === "restaurant-table-flame" || ctx.template.id === "restaurant-savannah";
+  const isSavannah = ctx.template.id === "restaurant-savannah";
+  const isRestaurantEditorial = ctx.template.id === "restaurant-table-flame" || isSavannah;
   const heading = isFoodOrder
     ? ctx.foodOrderCopy?.offerHeading ?? "A little something special"
     : ctx.template.id === "restaurant-table-flame"
       ? ctx.restaurantCtaBandHeading
-      : ctx.template.id === "restaurant-savannah"
+      : isSavannah
         ? "Join us around the table."
       : ctx.rentalCtaBandHeading;
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const customLabel = isSavannah ? asString(extras?.ctaBandButtonLabel) : undefined;
+  const customLink = isSavannah ? asString(extras?.ctaBandButtonLink) : undefined;
+  const defaultLabel = isSavannah ? ctx.viewMenuLabel : undefined;
+  const defaultLink = isSavannah ? "/menu" : undefined;
+  const ctaLabel = customLabel ?? defaultLabel;
+  const ctaHref = customLink ?? defaultLink;
+  const headingFinal = (isSavannah ? (extras?.ctaBandHeading as string) : undefined) ?? heading;
   return {
     type: "cta_banner",
-    heading,
+    heading: headingFinal,
     ...(isFoodOrder && ctx.foodOrderCopy?.offerSubheading
       ? { subheading: ctx.foodOrderCopy.offerSubheading }
       : {}),
+    ...(ctaLabel ? { ctaLabel } : {}),
+    ...(ctaHref ? { ctaHref } : {}),
     variant: isRestaurantEditorial ? "footer" : "brand",
   } as Block;
 }
@@ -817,7 +873,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     heading,
     limit,
     layout: "grid",
-    ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : ctx.template.id === "restaurant-savannah" ? { variant: "editorial" } : {}),
+    ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : ctx.template.id === "restaurant-savannah" ? { variant: "catalog-carousel" } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
   } as Block;
@@ -867,8 +923,58 @@ function buildSectionBlock(
     }
     case "faq":
       return buildFaq(ctx);
-    case "cta_banner":
+    case "cta_banner": {
+      if (section.id === "promo") {
+        const promo = asRecord(effectiveValue(ctx, "promo"));
+        const headline = asString(promo?.headline) ?? (ctx.includeSamples ? "Special Seasonal Menu" : undefined);
+        const text = asString(promo?.text) ?? (ctx.includeSamples ? "Experience our chef's curated seasonal tasting menu, crafted with local ingredients." : undefined);
+        const eyebrow = asString(promo?.eyebrow) ?? (ctx.includeSamples ? "Limited Time" : undefined);
+        const image = asString(promo?.image);
+        const ctaLabel = asString(promo?.button_label) ?? (ctx.includeSamples ? "Reserve a table" : undefined);
+        const ctaHref = asString(promo?.button_link) ?? (ctx.includeSamples ? "/reservations" : undefined);
+        const endDateRaw = asString(promo?.end_date) ?? (ctx.includeSamples ? "Available this month" : undefined);
+        let shouldHide = false;
+        if (endDateRaw && !ctx.includeSamples) {
+          let ts: number | null = null;
+          const asDate = new Date(endDateRaw);
+          if (!Number.isNaN(asDate.getTime())) {
+            ts = asDate.getTime();
+          } else {
+            const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(endDateRaw);
+            if (match) {
+              const y = Number(match[1]);
+              const m = Number(match[2]) - 1;
+              const d = Number(match[3]);
+              const end = new Date(y, m, d);
+              end.setHours(23, 59, 59, 999);
+              ts = end.getTime();
+            } else {
+              const parsed = Date.parse(endDateRaw);
+              if (!Number.isNaN(parsed)) ts = parsed;
+            }
+          }
+          if (ts !== null) {
+            const nowTs = (ctx.now ?? new Date()).getTime();
+            if (nowTs > ts) shouldHide = true;
+          }
+        }
+        if (shouldHide) return null;
+        const endDate = endDateRaw;
+        if (!headline && !text && !image) return null;
+        return {
+          type: "cta_banner",
+          variant: "promo",
+          heading: headline,
+          subheading: text,
+          ...(eyebrow ? { eyebrow } : {}),
+          ...(image ? { image } : {}),
+          ...(ctaLabel ? { ctaLabel } : {}),
+          ...(ctaHref ? { ctaHref } : {}),
+          ...(endDate ? { endDate } : {}),
+        } as Block;
+      }
       return buildCtaBand(ctx);
+    }
     case "menu_embed": {
       if (ctx.catalogAvailability && !ctx.catalogAdapter) return null;
       if (ctx.catalogAdapter === "products") {
@@ -899,7 +1005,7 @@ function buildSectionBlock(
             : "Start your order", 200, false)
           : null;
       }
-      return buildMenuEmbed(ctx, "Featured dishes", 6, true); // menu.featured — picks only
+      return buildMenuEmbed(ctx, ctx.template.id === "restaurant-savannah" ? "Best sellers" : "Featured dishes", 6, true); // menu.featured — picks only
     }
     case "products_embed": {
       if (ctx.template.id !== "store") return null;
@@ -1118,6 +1224,7 @@ export function resolveTemplateManifest(
     foodOrderCopy: options.foodOrderCopy,
     storeCopy: options.storeCopy,
     timeZone: options.timeZone,
+    now: options.now,
   };
 
   const pages: ResolvedPage[] = [];

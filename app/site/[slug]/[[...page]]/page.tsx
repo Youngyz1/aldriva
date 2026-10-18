@@ -115,6 +115,7 @@ function applySavannahSectionBands(
     const block = value as Record<string, unknown>;
     if (block.type === "menu_order" || block.visible === false) return value;
     if (block.type === "cta_banner") {
+      if ((block as any).variant === "promo") return value;
       return { ...block, variant: "footer", background: { color: palette["--tf-band"] } };
     }
     if (block.type === "hero") return value;

@@ -1,6 +1,7 @@
 import { normalizeContent, type ContentDoc, type ContentKey } from "./website-content";
 import type { ResolvedTemplate } from "./website-template-resolver";
 import type { TemplateSlot, WebsiteTemplateV2 } from "./website-template-v2";
+import { readSlotValue } from "./website-v2-slot-value";
 
 export type WebsiteEditorFieldKind = TemplateSlot["kind"] | "nav-labels";
 
@@ -20,7 +21,9 @@ export interface WebsiteEditorControl {
   label: string;
   labelKey?: string;
   kind: WebsiteEditorFieldKind;
+  min?: number;
   max?: number;
+  options?: Array<{ label: string; value: string }>;
   required: boolean;
   itemFields?: WebsiteItemFieldSchema[];
 }
@@ -151,7 +154,8 @@ const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
 
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
   { id: "business", title: "Business basics", slotIds: ["nav.logo", "footer.business", "nav.labels", "nav.cta"] },
-  { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary"] },
+  { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary", "hero.focal_x", "hero.focal_y", "hero.fit"] },
+  { id: "promo", title: "Promotional banner (optional)", slotIds: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"] },
   { id: "highlights", title: "Highlights", slotIds: ["highlights.items"] },
   { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items"] },
   { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },
@@ -159,7 +163,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
   { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured"] },
   { id: "featured", title: "Featured products", slotIds: ["home.featured"] },
   { id: "shop", title: "Shop page", slotIds: ["shop.density"] },
-  { id: "about", title: "About", slotIds: ["about.photo", "about.text", "about.stats"] },
+  { id: "about", title: "About", slotIds: ["about.caption", "about.headline", "about.subtitle", "about.photo", "about.text", "about.stats"] },
   { id: "gallery", title: "Gallery", slotIds: ["gallery.photos"] },
   { id: "testimonials", title: "Testimonials", slotIds: ["testimonials.items"] },
   { id: "faq", title: "FAQ", slotIds: ["faq.items"] },
@@ -169,6 +173,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
     slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list"],
   },
   { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
+  { id: "cta-band", title: "Call to action banner", slotIds: ["cta.heading", "cta.button_label", "cta.button_link"] },
   { id: "footer", title: "Social and footer", slotIds: ["footer.socials", "footer.note"] },
 ];
 
@@ -185,10 +190,7 @@ function isFilled(value: unknown): boolean {
 }
 
 function describeControl(control: WebsiteEditorControl, content: ContentDoc): string[] {
-  const extras = content.template_extras && typeof content.template_extras === "object"
-    ? content.template_extras as Record<string, unknown>
-    : undefined;
-  const value = control.extraKey ? extras?.[control.extraKey] : content[control.field];
+  const value = readSlotValue(content, control.field, control.extraKey);
   if (control.field === "hero_image") return [isFilled(value) ? "Hero image added" : "No hero image"];
   if (control.field === "hero_headline") return [isFilled(value) ? "Headline added" : "No headline"];
   if (control.field === "business_name") return [isFilled(value) ? "Business name added" : "No business name"];
@@ -287,16 +289,32 @@ export function buildWebsiteEditorSections(
           ? { labelKey: STORE_CONTROL_LABEL_KEYS[requestedId] }
           : {}),
         kind: slot.field === "nav_labels" ? "nav-labels" : slot.kind,
+        min: slot.min,
         max: slot.max,
+        ...(slot.options ? { options: slot.options } : {}),
         required: availableIds.some((id) => byId.get(id)?.required),
-        ...(ITEM_FIELDS[requestedId] ? {
-          itemFields: ITEM_FIELDS[requestedId].map((itemField) => ({
-            ...itemField,
-            ...(template.id === "food-order" && FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId]?.[itemField.key]
-              ? { labelKey: FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId][itemField.key] }
-              : {}),
-          })),
-        } : {}),
+        ...(ITEM_FIELDS[requestedId] || (template.id === "restaurant-savannah" && requestedId === "highlights.items")
+          ? {
+            itemFields: (() => {
+              const base = ITEM_FIELDS[requestedId] ?? [
+                { key: "title", label: "Title", kind: "text" as const, aliases: ["label", "name"] },
+                { key: "description", label: "Description", kind: "textarea" as const, aliases: ["value", "text"] },
+              ];
+              const fields = base.map((itemField) => ({
+                ...itemField,
+                ...(template.id === "food-order" && FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId]?.[itemField.key]
+                  ? { labelKey: FOOD_ORDER_ITEM_FIELD_LABEL_KEYS[requestedId][itemField.key] }
+                  : {}),
+              }));
+              if (template.id === "restaurant-savannah" && requestedId === "highlights.items") {
+                if (!fields.some((f) => f.key === "image")) {
+                  fields.push({ key: "image", label: "Image", kind: "image" as const, aliases: ["image_url", "photo", "src"] });
+                }
+              }
+              return fields;
+            })(),
+          }
+          : {}),
       });
     }
     if (controls.length === 0) continue;

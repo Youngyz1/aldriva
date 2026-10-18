@@ -111,7 +111,7 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
     </section>;
   }
   if (value.type === "features") {
-    if (savannah) return <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">{value.heading ? <h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}<div className="grid items-center gap-8 md:grid-cols-2 md:gap-14">{rows("items").length ? <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2"><span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-bold text-[var(--tf-on-soft)]">{businessName?.trim().charAt(0).toUpperCase() || "S"}</span></div> : null}<div className="savannah-copy space-y-8">{rows("items").map((item, index) => <article key={index}><p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(index + 1).padStart(2, "0")}</p><h3 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{text(item.title)}</h3>{item.description ? <p className="mt-2 max-w-lg text-base leading-7 text-[var(--ps-muted)]">{text(item.description)}</p> : null}</article>)}</div></div></section>;
+    if (savannah) return <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">{value.heading ? <h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}<div className="grid items-center gap-8 md:grid-cols-2 md:gap-14">{(() => { const itemsArr = rows("items"); const firstWithImage = itemsArr.find((item:any)=>item.image) as { image?: string } | undefined; if (firstWithImage?.image) return <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2"><img src={firstWithImage.image} alt="" className="h-full w-full object-cover"/></div>; if (itemsArr.length) return <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2"><span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-bold text-[var(--tf-on-soft)]">{businessName?.trim().charAt(0).toUpperCase() || "S"}</span></div>; return null; })()}<div className="savannah-copy space-y-8">{rows("items").map((item, index) => <article key={index}><p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(index + 1).padStart(2, "0")}</p><h3 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{text(item.title)}</h3>{item.description ? <p className="mt-2 max-w-lg text-base leading-7 text-[var(--ps-muted)]">{text(item.description)}</p> : null}</article>)}</div></div></section>;
     return <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">{value.heading ? <h2 className="mb-[var(--ps-space-6)] font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}<div className="grid gap-[var(--ps-space-6)] md:grid-cols-3">{rows("items").map((item, index) => <article key={index} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs"><h3 className="font-semibold text-[var(--ps-text)]">{text(item.title)}</h3>{item.description ? <p className="mt-[var(--ps-space-2)] text-sm leading-6 text-[var(--ps-muted)]">{text(item.description)}</p> : null}</article>)}</div></section>;
   }
   if (value.type === "about") {
@@ -124,10 +124,82 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
   if (value.type === "contact") return <section id="contact" className="mx-auto max-w-5xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]"><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="mt-[var(--ps-space-6)] grid gap-[var(--ps-space-4)] md:grid-cols-2"><div className="space-y-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{value.address ? <p>{text(value.address)}</p> : null}{value.phone ? <p>{text(value.phone)}</p> : null}{value.email ? <p>{text(value.email)}</p> : null}{typeof value.directionsUrl === "string" && sanitizeUrl(value.directionsUrl) ? <a className="inline-block text-[var(--ps-accent-hover)] underline" href={sanitizeUrl(value.directionsUrl)} target="_blank" rel="noreferrer">Get directions</a> : null}</div><div className="space-y-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{rows("hoursTable").map((row, index) => <p key={index}>{text(row.day)} · {row.closed ? closedLabel : `${text(row.open)}–${text(row.close)}${isOvernightWebsiteInterval(row.open, row.close) ? ` (${nextDayLabel})` : ""}`}</p>)}</div></div></section>;
   if (value.type === "menu_embed") {
     const selected = Array.isArray(value.selectedItemIds) ? value.selectedItemIds.filter((id): id is string => typeof id === "string") : [];
-    const items = selected.length > 0 ? menuItems.filter((item) => selected.includes(item.id)) : menuItems.slice(0, 6);
+    const isRestaurant = savannah || tableFlame;
+    const items = selected.length > 0
+      ? menuItems.filter((item) => selected.includes(item.id))
+      : isRestaurant
+        ? menuItems
+        : menuItems.slice(0, 6);
     if (items.length === 0) return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]"><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="mt-[var(--ps-space-8)] rounded-xl border border-dashed border-[var(--ps-border)] bg-[var(--ps-neutral)] p-[var(--ps-space-6)] text-center"><p className="text-sm text-[var(--ps-muted)]">{addFirstDishLabel}</p><button type="button" onClick={() => { window.parent.postMessage({ source: WEBSITE_PREVIEW_MESSAGE_SOURCE, kind: "open_menu_editor" }, window.location.origin); }} className="mt-[var(--ps-space-3)] inline-flex rounded-lg bg-[var(--ps-accent)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm font-semibold text-[var(--ps-accent-foreground)] hover:bg-[var(--ps-accent-hover)]">{manageMenuLabel}</button></div></section>;
     const displayCurrency = normalizeCurrencyCode(value.currency) ?? currency;
-    if (savannah) return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]"><h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">{items.map((item) => <article key={item.id} className="savannah-copy flex min-h-12 items-start gap-5">{image(item.imageUrl) ? <img src={image(item.imageUrl)} alt="" className="h-[88px] w-[88px] shrink-0 object-cover"/> : null}<div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-4"><h3 className="font-[var(--v2-heading-font)] text-lg font-bold">{item.name}</h3>{item.price != null ? <span className="shrink-0 tabular-nums">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</span> : null}</div>{item.description ? <p className="mt-1 text-sm leading-6 text-[var(--ps-muted)]">{item.description}</p> : null}</div></article>)}</div></section>;
+
+    if (isRestaurant) {
+      // Group items by category (sectionName)
+      const categories: Array<{ name: string; items: V2MenuItemChoice[] }> = [];
+      for (const item of items) {
+        const catName = item.sectionName?.trim() || "Menu";
+        let cat = categories.find((c) => c.name === catName);
+        if (!cat) {
+          cat = { name: catName, items: [] };
+          categories.push(cat);
+        }
+        cat.items.push(item);
+      }
+
+      if (savannah) {
+        return (
+          <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">
+            <h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>
+            <div className="space-y-12">
+              {categories.map((cat) => (
+                <div key={cat.name} className="space-y-6">
+                  <h3 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{cat.name}</h3>
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
+                    {cat.items.map((item) => (
+                      <article key={item.id} className="savannah-copy flex min-h-12 items-start gap-5">
+                        {image(item.imageUrl) ? <img src={image(item.imageUrl)} alt="" className="h-[88px] w-[88px] shrink-0 object-cover"/> : null}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <h4 className="font-[var(--v2-heading-font)] text-lg font-bold">{item.name}</h4>
+                            {item.price != null ? <span className="shrink-0 tabular-nums">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</span> : null}
+                          </div>
+                          {item.description ? <p className="mt-1 text-sm leading-6 text-[var(--ps-muted)]">{item.description}</p> : null}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+
+      return (
+        <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]">
+          <h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>
+          <div className="mt-[var(--ps-space-8)] space-y-10">
+            {categories.map((cat) => (
+              <div key={cat.name} className="space-y-4">
+                <h3 className="text-xl font-semibold text-[var(--ps-text)]">{cat.name}</h3>
+                <div className="grid gap-[var(--ps-space-4)] sm:grid-cols-2 lg:grid-cols-3">
+                  {cat.items.map((item) => (
+                    <article key={item.id} className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)]">
+                      <div className="p-[var(--ps-space-6)]">
+                        <h4 className="font-semibold">{item.name}</h4>
+                        {item.description ? <p className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{item.description}</p> : null}
+                        {item.price != null ? <p className="mt-[var(--ps-space-3)] text-sm font-semibold">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</p> : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
     return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]"><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="mt-[var(--ps-space-8)] grid gap-[var(--ps-space-4)] sm:grid-cols-2 lg:grid-cols-3">{items.map((item) => <article key={item.id} className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)]"><div className="p-[var(--ps-space-6)]"><p className="text-xs font-medium uppercase tracking-wide text-[var(--ps-muted)]">{item.sectionName}</p><h3 className="mt-[var(--ps-space-1)] font-semibold">{item.name}</h3>{item.description ? <p className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{item.description}</p> : null}{item.price != null ? <p className="mt-[var(--ps-space-3)] text-sm font-semibold">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</p> : null}</div></article>)}</div></section>;
   }
   if (value.type === "cta_banner") {
@@ -251,9 +323,17 @@ export function V2WebsitePreviewClient({
     return () => window.removeEventListener("message", handleMessage);
   }, [emittedPages, websiteId]);
 
+  const firstBlock = page?.blocks?.[0] as unknown as Record<string, unknown> | undefined;
+  const startsWithScrimHero = Boolean(
+    (template.id === "restaurant-table-flame" || template.id === "restaurant-savannah") &&
+    firstBlock?.type === "hero" &&
+    firstBlock.variant === "full-bleed" &&
+    firstBlock.scrim === true
+  );
+
   return (
     <div style={themeStyle} data-site-template={template.id === "restaurant-savannah" ? template.id : undefined} data-background-pattern={template.palettes?.length ? activePattern : undefined} className={template.id === "restaurant-savannah" ? `public-site min-h-screen bg-[var(--ps-surface)] font-sans text-[var(--ps-text)] ${savannahArimoFont.variable}` : "public-site min-h-screen bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]"}>
-      <V2SiteHeader template={templateForPage} content={content} sampleContent={sampleContent} navigation={navigation} siteTitle={siteTitle} siteSlug={siteSlug} previewMode editMode sourceMap={resolved.chromeSourceMap.menuBar} storefrontFeatures={resolved.storefrontFeatures} primaryAction={resolved.primaryAction.primary} availablePageSlugs={resolved.pages.map((candidate) => candidate.slug)} onPageNavigate={navigateToPreviewPage} />
+      <V2SiteHeader template={templateForPage} content={content} sampleContent={sampleContent} navigation={navigation} siteTitle={siteTitle} siteSlug={siteSlug} previewMode editMode sourceMap={resolved.chromeSourceMap.menuBar} storefrontFeatures={resolved.storefrontFeatures} primaryAction={resolved.primaryAction.primary} availablePageSlugs={resolved.pages.map((candidate) => candidate.slug)} onPageNavigate={navigateToPreviewPage} overHero={startsWithScrimHero} />
       <main>{page?.blocks.map((block, index) => {
         const blockMap = resolved.sourceMap[block.id ?? ""] ?? {};
         const hasSample = Object.values(blockMap).some((entry) => entry.sampled);

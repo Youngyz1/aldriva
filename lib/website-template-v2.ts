@@ -42,7 +42,8 @@ export type TemplateSlotKind =
   | "url"
   | "hours"
   | "socials"
-  | "number";
+  | "number"
+  | "select";
 
 export interface TemplateSlot {
   /** Stable within id@version (pinned by test). e.g. "hero.headline" */
@@ -54,7 +55,9 @@ export interface TemplateSlot {
   /** Human label for the click-to-edit inspector. */
   label: string;
   kind: TemplateSlotKind;
+  min?: number;
   max?: number;
+  options?: Array<{ label: string; value: string }>;
   required?: boolean;
 }
 
@@ -282,6 +285,79 @@ const SAVANNAH_PALETTES: readonly WebsiteTemplatePalette[] = [
 ];
 const SAVANNAH_DEFAULT_PALETTE = SAVANNAH_PALETTES[0];
 
+const SAVANNAH_SLOTS: TemplateSlot[] = [
+  { slotId: "nav.logo", field: "logo_url", label: "Logo", kind: "image" },
+  { slotId: "nav.labels", field: "nav_labels", label: "Menu bar labels", kind: "text" },
+  { slotId: "nav.cta", field: "primary_cta_label", label: "Order Now button", kind: "text", required: true },
+  { slotId: "hero.image", field: "hero_image", label: "Hero photo", kind: "image" },
+  { slotId: "hero.headline", field: "hero_headline", label: "Headline", kind: "text", required: true },
+  { slotId: "hero.subtext", field: "hero_subtext", label: "Subtext", kind: "textarea" },
+  { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
+  { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Order button label", kind: "text" },
+  { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Second button label", kind: "text" },
+  { slotId: "hero.open_tag", field: "hours", label: "Highlight text (optional)", kind: "text" },
+  { slotId: "hero.focal_x", field: "template_extras", extraKey: "savannahHeroFocalX", label: "Hero focal X (%)", kind: "number", min: 0, max: 100 },
+  { slotId: "hero.focal_y", field: "template_extras", extraKey: "savannahHeroFocalY", label: "Hero focal Y (%)", kind: "number", min: 0, max: 100 },
+  { slotId: "hero.fit", field: "template_extras", extraKey: "savannahHeroFit", label: "Hero image fit", kind: "select", options: [
+    { label: "Cover", value: "cover" },
+    { label: "Contain", value: "contain" },
+  ] },
+  { slotId: "promo.image", field: "promo", extraKey: "image", label: "Promo image", kind: "image" },
+  { slotId: "promo.eyebrow", field: "promo", extraKey: "eyebrow", label: "Promo eyebrow", kind: "text" },
+  { slotId: "promo.headline", field: "promo", extraKey: "headline", label: "Promo headline", kind: "text" },
+  { slotId: "promo.text", field: "promo", extraKey: "text", label: "Promo description", kind: "textarea" },
+  { slotId: "promo.button_label", field: "promo", extraKey: "button_label", label: "Promo button label", kind: "text" },
+  { slotId: "promo.button_link", field: "promo", extraKey: "button_link", label: "Promo button link", kind: "url" },
+  { slotId: "promo.end_date", field: "promo", extraKey: "end_date", label: "Promo end date (optional)", kind: "text" },
+  { slotId: "highlights.items", field: "highlights", label: "Highlight items", kind: "items", max: 3 },
+  { slotId: "cta.heading", field: "template_extras", extraKey: "ctaBandHeading", label: "CTA heading", kind: "text" },
+  { slotId: "cta.button_label", field: "template_extras", extraKey: "ctaBandButtonLabel", label: "CTA button label", kind: "text" },
+  { slotId: "cta.button_link", field: "template_extras", extraKey: "ctaBandButtonLink", label: "CTA button link", kind: "url" },
+  { slotId: "menu.featured", field: "featured", label: "Best sellers", kind: "pick", max: 6 },
+  { slotId: "about.caption", field: "about_caption", label: "About caption", kind: "text" },
+  { slotId: "about.headline", field: "about_headline", label: "About headline", kind: "text" },
+  { slotId: "about.subtitle", field: "about_subtitle", label: "About subtitle", kind: "text" },
+  { slotId: "about.photo", field: "about_image", label: "About photo", kind: "image" },
+  { slotId: "about.text", field: "about_text", label: "Story text", kind: "textarea" },
+  { slotId: "about.stats", field: "stats", label: "Stats", kind: "items", max: 3 },
+  { slotId: "gallery.photos", field: "gallery_images", label: "Gallery photos", kind: "images", max: 6 },
+  { slotId: "testimonials.items", field: "testimonials", label: "Testimonials", kind: "items", max: 3 },
+  { slotId: "hours.table", field: "hours", label: "Opening hours", kind: "hours", required: true },
+  { slotId: "location.address", field: "address", label: "Address", kind: "text", required: true },
+  { slotId: "location.phone", field: "phone", label: "Phone", kind: "text", required: true },
+  { slotId: "location.directions", field: "directions_url", label: "Directions link", kind: "url" },
+  { slotId: "contact.email", field: "email", label: "Email", kind: "text" },
+  { slotId: "footer.business", field: "business_name", label: "Business name", kind: "text", required: true },
+  { slotId: "footer.socials", field: "socials", label: "Social links", kind: "socials" },
+  { slotId: "footer.note", field: "footer_note", label: "Footer note", kind: "text" },
+];
+
+const SAVANNAH_SECTIONS: TemplateSection[] = [
+  { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
+  { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag", "hero.focal_x", "hero.focal_y", "hero.fit"], spacing: "roomy" },
+  { id: "promo", page: "home", block: "cta_banner", slots: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"], optional: true, defaultOff: true },
+  { id: "business-offerings", page: "home", block: "features", slots: [] },
+  { id: "highlights", page: "home", block: "features", slots: ["highlights.items"] },
+  {
+    id: "menu.featured", page: "home", block: "menu_embed", slots: ["menu.featured"],
+    optional: true, defaultOff: true,
+    note: "Best sellers strip — optional, shows only owner-picked items. Hidden by default until picks are set.",
+  },
+  { id: "menu.browse", page: "home", block: "menu_embed", note: "Full menu browse on home." },
+  { id: "menu.order-buttons", page: "home", block: "menu_order", note: "Add to Order buttons enabled via menu ordering." },
+  { id: "about", page: "home", block: "about", slots: ["about.caption", "about.headline", "about.subtitle", "about.photo", "about.text", "about.stats"] },
+  { id: "gallery", page: "home", block: "gallery", slots: ["gallery.photos"], optional: true, defaultOff: true },
+  { id: "testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"] },
+  { id: "hours-location", page: "home", block: "contact", slots: ["hours.table", "location.address", "location.phone", "location.directions"] },
+  { id: "cta-band", page: "home", block: "cta_banner", slots: ["cta.heading", "cta.button_label", "cta.button_link"] },
+  { id: "menu.full", page: "catalog", block: "menu_embed", note: "Full menu shows all sections (no featured filter)." },
+  { id: "order.summary", page: "transaction", block: "menu_embed", note: "Live ordering reuses the tenant-scoped menu and checkout block." },
+  { id: "reservation.book", page: "booking", block: "reservation_form", note: "Table request form — emitted only when reservations resolve live (ticked + capability + built)." },
+  { id: "contact.main", page: "contact", block: "contact", slots: ["location.address", "hours.table", "location.phone", "location.directions", "contact.email"] },
+  { id: "contact.form", page: "contact", pendingBlock: "contact_form", note: "Message form needs the contact_form block (not built)." },
+  { id: "footer", page: "home", chrome: true, slots: ["footer.business", "footer.socials", "footer.note", "hours.table"] },
+];
+
 export const RESTAURANT_SAVANNAH: WebsiteTemplateV2 = {
   id: "restaurant-savannah",
   version: "1.0.0",
@@ -309,8 +385,8 @@ export const RESTAURANT_SAVANNAH: WebsiteTemplateV2 = {
     texture: "none",
     bands: [{ zone: "footer", color: SAVANNAH_DEFAULT_PALETTE.ink }],
   },
-  editableSlots: RESTAURANT_SLOTS,
-  lockedBlocks: ["cta-band", "footer"],
+  editableSlots: SAVANNAH_SLOTS,
+  lockedBlocks: ["footer"],
   pages: [
     { slug: "home", title: "Home", isHome: true, sortOrder: 0, purpose: "home" },
     { slug: "menu", title: "Menu", isHome: false, sortOrder: 1, purpose: "catalog" },
@@ -326,7 +402,7 @@ export const RESTAURANT_SAVANNAH: WebsiteTemplateV2 = {
     { label: "About", pageSlug: "home", anchor: "about", order: 4 },
     { label: "Contact", pageSlug: "contact", order: 5 },
   ],
-  sections: RESTAURANT_SECTIONS,
+  sections: SAVANNAH_SECTIONS,
   commerce: { order: "food" },
   sectionAlign: "center",
   tags: ["restaurant", "food", "menu", "editorial"],

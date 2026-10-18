@@ -29,6 +29,7 @@ import { getTranslations } from "next-intl/server";
 import { sanitizeArticleHtml, sanitizeUrl } from "@/lib/sanitize-html";
 import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
+import { CatalogCarousel } from "./CatalogCard";
 import {
   Block,
   HeroBlock,
@@ -114,8 +115,8 @@ function SectionHeading({
     align === "left"
       ? "text-left items-start"
       : align === "right"
-        ? "text-right items-end"
-        : "text-center items-center";
+        ? "text-right items-end ml-auto"
+        : "text-center items-center mx-auto";
 
   return (
     <div className={`mb-[var(--ps-space-12)] flex flex-col ${alignClasses}`}>
@@ -233,7 +234,12 @@ export function HeroBlockRenderer({
         >
           {hasPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={safeBgImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: block.imagePosition || "center" }} />
+            <img
+              src={safeBgImage}
+              alt=""
+              className={`absolute inset-0 h-full w-full ${block.imageFit === "contain" ? "object-contain bg-[var(--tf-soft)]" : "object-cover"}`}
+              style={{ objectPosition: block.imagePosition || "center" }}
+            />
           ) : null}
           {safeVideoUrl && hasPhoto ? (
             <video
@@ -557,21 +563,31 @@ function FeaturesBlockRenderer({
     <section id={block.heading === "How it works" ? "how-it-works" : undefined} className="w-full">
       <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
       {savannah ? (
-        <div className={`grid items-center gap-8 md:grid-cols-2 md:gap-14 ${items.length <= 2 ? "mx-auto max-w-5xl" : ""}`}>
-          {items.length > 0 ? (
-            <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2">
-              <SavannahFallbackMark businessName={businessName} />
-            </div>
-          ) : null}
-          <div className={`savannah-copy space-y-8 ${items.length === 1 ? "md:col-start-2" : ""}`}>
-            {items.map((item, i) => (
-              <article key={i} className={i % 2 === 1 ? "md:translate-x-8" : ""}>
-                <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(i + 1).padStart(2, "0")}</p>
-                <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{item.title}</h3>
-                {item.description ? <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 max-w-lg text-base leading-7 text-[var(--ps-muted)]">{item.description}</p> : null}
+        <div className={`grid gap-8 ${
+          items.length === 1
+            ? "mx-auto max-w-md grid-cols-1"
+            : items.length === 2
+              ? "mx-auto max-w-3xl sm:grid-cols-2"
+              : "mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-3"
+        }`}>
+          {items.map((item, i) => {
+            const itemImg = item.image ? safeImageSrc(item.image) : "";
+            return (
+              <article key={i} className="savannah-card flex flex-col overflow-hidden bg-[var(--ps-surface)]">
+                {itemImg ? (
+                  <div className="aspect-[16/9] w-full overflow-hidden bg-[var(--tf-soft)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={itemImg} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+                  </div>
+                ) : null}
+                <div className="p-6">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(i + 1).padStart(2, "0")}</p>
+                  <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{item.title}</h3>
+                  {item.description ? <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 text-base leading-7 text-[var(--ps-muted)]">{item.description}</p> : null}
+                </div>
               </article>
-            ))}
-          </div>
+            );
+          })}
         </div>
       ) : (
       <div className={`grid grid-cols-1 gap-[var(--ps-space-6)] ${tableFlame
@@ -675,19 +691,35 @@ function AboutBlockRenderer({
   if (siteTemplateId === "restaurant-savannah") {
     return (
       <section id="about" className="w-full">
-        <SectionHeading heading={block.heading || "Our Story"} subheading={block.subheading} align={sectionAlign} />
         <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-14">
-          <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:col-span-7">
+          <div className="savannah-card flex aspect-[3/4] max-h-[520px] items-center justify-center overflow-hidden bg-[var(--tf-soft)] md:col-span-5">
             {safeFounderImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img {...elementPathProps(editMode, sourceMap, "founderImage")} src={safeFounderImage} alt={businessName || "Our story"} className="h-full w-full object-cover" loading="lazy" />
             ) : <SavannahFallbackMark businessName={businessName} />}
           </div>
-          <div className="savannah-copy space-y-6 md:col-span-5 md:translate-y-10">
-            {block.story ? <div {...elementPathProps(editMode, sourceMap, "story")} className="max-w-xl text-base leading-7 text-[var(--ps-muted)]"><p>{block.story}</p></div> : null}
+          <div className="savannah-copy space-y-6 md:col-span-7">
+            {block.caption ? (
+              <p {...elementPathProps(editMode, sourceMap, "caption")} className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--tf-accent-deep)]">
+                {block.caption}
+              </p>
+            ) : null}
+            <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="font-[var(--v2-heading-font)] text-3xl font-bold leading-tight text-[var(--ps-text)] sm:text-4xl md:text-5xl">
+              {block.heading || "Our Story"}
+            </h2>
+            {block.subtitle ? (
+              <p {...elementPathProps(editMode, sourceMap, "subtitle")} className="text-lg font-medium leading-snug text-[var(--ps-text)]">
+                {block.subtitle}
+              </p>
+            ) : null}
+            {block.story ? (
+              <div {...elementPathProps(editMode, sourceMap, "story")} className="whitespace-pre-line text-base leading-7 text-[var(--ps-muted)]">
+                <p>{block.story}</p>
+              </div>
+            ) : null}
             {block.mission ? <blockquote className="border-l border-[var(--tf-soft)] pl-5 text-lg leading-7 text-[var(--ps-text)]">&ldquo;{block.mission}&rdquo;</blockquote> : null}
             {block.highlights?.length ? (
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6 pt-2">
                 {block.highlights.map((highlight, index) => (
                   <div key={index} {...elementPathProps(editMode, sourceMap, `highlights[${index}].value`)} className="savannah-card bg-[var(--tf-soft)] p-4">
                     <div className="text-2xl font-bold text-[var(--tf-on-soft)]">{highlight.value}</div>
@@ -2224,9 +2256,33 @@ async function MenuEmbedBlockRenderer({
                 {sec.isDraft && <DraftBadge />}
               </div>
               {sec.description && <p className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">{sec.description}</p>}
-              <div className={block.variant === "rows" ? `mt-4 divide-y ${tableFlameRows ? "divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : "divide-[#e6dccd] border-y border-[#e6dccd]"}` : savannahEditorial ? "mt-8 grid grid-cols-1 gap-8 md:grid-cols-2" : "mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2"}>
+              <div className={block.variant === "rows" ? `mt-4 divide-y ${tableFlameRows ? "divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : "divide-[#e6dccd] border-y border-[#e6dccd]"}` : savannahEditorial ? "mt-8 grid grid-cols-1 gap-8 md:grid-cols-2" : block.variant === "catalog-carousel" ? "mt-4" : "mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2"}>
                 {sec.items.length === 0 ? (
                   <div className="text-xs text-[var(--ps-muted)]">No items in this section.</div>
+                ) : block.variant === "catalog-carousel" ? (
+                  <CatalogCarousel
+                    items={sec.items.map((it) => {
+                      const safeImg = safeImageSrc(it.image_url);
+                      const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+                      return {
+                        id: it.id,
+                        name: it.name,
+                        description: it.description,
+                        image: safeImg,
+                        priceLabel: isPromo
+                          ? formatCurrency(Number(it.promo_price), displayCurrency, locale)
+                          : formatCurrency(Number(it.price), displayCurrency, locale),
+                        numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
+                        originalPriceLabel: isPromo
+                          ? formatCurrency(Number(it.price), displayCurrency, locale)
+                          : null,
+                        isSoldOut: Boolean(it.is_sold_out),
+                        isFeatured: Boolean(it.is_featured),
+                      };
+                    })}
+                    prevLabel={t("carouselPrev")}
+                    nextLabel={t("carouselNext")}
+                  />
                 ) : (
                   sec.items.map((it) => {
                     const safeImg = safeImageSrc(it.image_url);
@@ -2239,14 +2295,14 @@ async function MenuEmbedBlockRenderer({
                           sourceMap,
                           "selectedItemIds[" + (block.selectedItemIds?.indexOf(it.id) ?? -1) + "]"
                         )}
-                        className={block.variant === "rows" ? "flex min-h-11 items-center gap-5 py-4" : savannahEditorial ? "flex min-h-12 items-start gap-5" : "flex gap-[var(--ps-space-3)] rounded-lg border border-[var(--ps-border)] p-[var(--ps-space-3)]"}
+                        className={block.variant === "rows" ? "flex min-h-11 items-center gap-5 py-4" : savannahEditorial ? "flex min-h-12 items-start gap-5" : block.variant === "catalog-carousel" ? "" : "flex gap-[var(--ps-space-3)] rounded-lg border border-[var(--ps-border)] p-[var(--ps-space-3)]"}
                       >
                         {savannahEditorial
                           ? safeImg ? <div className="h-[88px] w-[88px] shrink-0 overflow-hidden bg-[var(--tf-soft)]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
                             </div> : null
-                          : block.variant !== "rows" ? <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
+                          : block.variant !== "rows" && block.variant !== "catalog-carousel" ? <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
                             {safeImg ? <>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
@@ -2378,8 +2434,58 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean }) {
+export function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean }) {
   const paletteTheme = tableFlame || savannah;
+  const safeCtaHref = block.ctaHref
+    ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
+    : "";
+
+  if (block.variant === "promo") {
+    const safeImage = block.image ? safeImageSrc(block.image) : "";
+    return (
+      <section className="mx-auto w-full max-w-6xl px-6">
+        <div className="savannah-card grid grid-cols-1 overflow-hidden bg-[var(--tf-soft)] text-[var(--tf-on-soft)] md:grid-cols-12">
+          {safeImage ? (
+            <div className="aspect-[4/3] w-full overflow-hidden md:col-span-5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={safeImage} alt={block.heading} className="h-full w-full object-cover" loading="lazy" />
+            </div>
+          ) : null}
+          <div className={`flex flex-col justify-center p-8 md:p-12 ${safeImage ? "md:col-span-7" : "md:col-span-12"}`}>
+            {block.eyebrow ? (
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--tf-accent-deep)]">
+                {block.eyebrow}
+              </p>
+            ) : null}
+            <h2 className="font-[var(--v2-heading-font)] text-2xl font-bold leading-tight sm:text-3xl md:text-4xl text-[var(--ps-text)]">
+              {block.heading}
+            </h2>
+            {block.subheading ? (
+              <p className="mt-3 text-base leading-7 text-[var(--ps-muted)]">
+                {block.subheading}
+              </p>
+            ) : null}
+            {block.endDate ? (
+              <p className="mt-2 text-xs font-medium text-[var(--tf-accent-deep)]">
+                Valid until {block.endDate}
+              </p>
+            ) : null}
+            {block.ctaLabel && safeCtaHref ? (
+              <div className="mt-6">
+                <a
+                  href={safeCtaHref}
+                  className="savannah-button inline-flex min-h-11 items-center justify-center bg-[var(--ps-accent)] px-6 py-2.5 text-sm font-semibold text-[var(--ps-accent-foreground)]"
+                >
+                  {block.ctaLabel}
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const variantClasses =
     block.variant === "dark"
       ? tableFlame ? "bg-[var(--ps-text)] text-[var(--tf-on-ink)]" : "bg-[var(--ps-text)] text-white"
@@ -2388,10 +2494,6 @@ function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAl
         : block.variant === "footer"
         ? paletteTheme ? "bg-[var(--tf-band)] text-[var(--tf-on-band)]" : "bg-[#23211f] text-[#faf6ef]"
         : paletteTheme ? "bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)]" : "text-white";
-
-  const safeCtaHref = block.ctaHref
-    ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
-    : "";
 
   return (
     <section
@@ -2454,11 +2556,11 @@ function SectionEnvelopeWrapper({
   const savannah = siteTemplateId === "restaurant-savannah";
   const fullBleedTableFlameBlock = tableFlame && (
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
-    block.type === "cta_banner"
+    (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
   );
   const fullBleedSavannahBlock = savannah && (
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
-    block.type === "cta_banner"
+    (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
   );
   const containerClass = fullBleedTableFlameBlock || fullBleedSavannahBlock
     ? "w-full"

@@ -13,6 +13,39 @@ import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { StorefrontAction } from "@/lib/storefront-primary-action";
 
+export function computeV2HeaderStyle({
+  transparent,
+  paletteTheme,
+  savannah,
+  overHero,
+  pastHeroThreshold,
+  backgroundColor,
+  solidForeground,
+}: {
+  transparent: boolean;
+  paletteTheme: boolean;
+  savannah: boolean;
+  overHero: boolean;
+  pastHeroThreshold: boolean;
+  backgroundColor: string;
+  solidForeground: string;
+}): CSSProperties {
+  return {
+    color: transparent
+      ? paletteTheme ? "var(--tf-on-scrim)" : readableOn("#23211f", ["#faf6ef", "#22201c"])
+      : solidForeground,
+    backgroundColor: transparent
+      ? "transparent"
+      : savannah && overHero && pastHeroThreshold
+        ? "color-mix(in srgb, var(--tf-base) 92%, transparent)"
+        : backgroundColor,
+    borderColor: paletteTheme ? (transparent ? "transparent" : "var(--tf-header-border)") : undefined,
+    fontFamily: "var(--ps-font-body)",
+    ...(savannah && overHero && pastHeroThreshold ? { backdropFilter: "blur(12px)" } : {}),
+    ...(overHero ? { marginBottom: "calc(var(--site-header-h) * -1)" } : {}),
+  };
+}
+
 interface V2SiteHeaderProps {
   template: WebsiteTemplateV2;
   content: ContentDoc;
@@ -189,20 +222,15 @@ export function V2SiteHeader({
   const solidForeground = paletteTheme
     ? "var(--tf-on-header)"
     : "var(--ps-text)";
-  const headerStyle: CSSProperties = {
-    color: transparent
-      ? paletteTheme ? "var(--tf-on-scrim)" : readableOn("#23211f", ["#faf6ef", "#22201c"])
-      : solidForeground,
-    backgroundColor: transparent
-      ? "transparent"
-      : savannah && overHero && pastHeroThreshold
-        ? "color-mix(in srgb, var(--tf-base) 92%, transparent)"
-        : backgroundColor,
-    borderColor: paletteTheme ? transparent ? "transparent" : "var(--tf-header-border)" : undefined,
-    fontFamily: "var(--ps-font-body)",
-    ...(savannah && overHero && pastHeroThreshold ? { backdropFilter: "blur(12px)" } : {}),
-    ...(overHero ? { marginBottom: "calc(var(--site-header-h) * -1)" } : {}),
-  };
+  const headerStyle: CSSProperties = computeV2HeaderStyle({
+    transparent,
+    paletteTheme,
+    savannah,
+    overHero,
+    pastHeroThreshold,
+    backgroundColor,
+    solidForeground,
+  });
   const labels = content.nav_labels && typeof content.nav_labels === "object"
     ? content.nav_labels as Record<string, unknown>
     : {};
@@ -322,7 +350,13 @@ export function V2SiteHeader({
             <a
               {...editablePath(editMode, sourceMap, "ctaLabel")}
               href={ctaHref}
-              className={`ps-button ps-button-primary tf-button${savannah ? " savannah-button" : ""} inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90`}
+              className={`ps-button ps-button-primary tf-button${savannah ? " savannah-button" : ""} inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90 transition-opacity duration-200 ${
+                savannah && overHero
+                  ? pastHeroThreshold
+                    ? "opacity-100"
+                    : "opacity-0 pointer-events-none invisible"
+                  : ""
+              }`}
               style={{ backgroundColor: "var(--ps-accent)" }}
               onClick={(event) => navigatePreview(event, ctaHref)}
             >

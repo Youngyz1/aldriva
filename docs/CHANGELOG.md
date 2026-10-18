@@ -3,6 +3,84 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Savannah Phase 3c (2026-10-18; working tree)
+
+- Promo save/render chain fixed via new shared `lib/website-v2-slot-value.ts` (`readSlotValue`/`applySlotValue`) used by both `V2WebsiteEditor.renderControl` and `website-v2-editor-schema.describeControl`; `applySavannahSectionBands` skips `variant === "promo"`; past end-date hides at resolver time (`now?: Date`, date-only parsed as end-of-day UTC); Promo OFF by default, no sample content live.
+- Highlights image upload control per item gated to Savannah; builder preview shows first item image instead of letter card; `normalizeKeyedItems` protects image keys via `clampImage`.
+- Hero optional focal point x/y (0-100, default 50/50) → `imagePosition`; optional "Show full image" fit (`cover`/`contain`, default cover) → `imageFit` with `object-contain` + `bg-[var(--tf-soft)]` only when contain.
+- New `components/site/blocks/CatalogCard.tsx` with `CatalogCard` + `CatalogCarousel` reusing `computeCarouselEnds`; 4:3 image cards, clamp-2, `formatCurrency`, no heart/rating/badge; scroll-snap + motion-reduce + arrow keys. `menu_embed` variant `"catalog-carousel"` accepted by `validateBlock`, emitted by `buildMenuEmbed` for Savannah.
+- Hidden header CTA uses `invisible` (visibility:hidden); extracted pure `computeV2HeaderStyle`; Savannah CTA band unlocked with editable `cta.heading`/`cta.button_label`/`cta.button_link` via `template_extras`; defaults `ctx.viewMenuLabel` → `/menu`.
+- Isolation diff against a634f04 via fixture-render script: `fc` reports zero differences for Table & Flame, Food Order, Store, DriveLine.
+- New tests: `lib/__tests__/savannah-phase-3c-content.test.cjs` and `lib/__tests__/savannah-phase-3c-render.test.cjs` (28 tests, all passing); both registered in `package.json`.
+
+## [2026-10] — Platform design spec and theme foundation (2026-10-17; working tree)
+
+- Added root `DESIGN.md` as the source of truth for platform colors, typography, spacing, shared components, motion guidance, and V1/V2 website and invitation template ownership. Converted `docs/DESIGN-SYSTEM.md` into a compatibility link and updated agent guidance.
+- Replaced the Plus Jakarta Sans root font with Geist Sans and Geist Mono in both root layouts, matching the existing design-document direction.
+- Added persistent Light / Dark / System theme selection, OS preference tracking, route ownership boundaries, a #09090b dark canvas, semantic dark tokens, and neutral utility compatibility mapping. Updated the footer theme control and shared buttons, section, page-header, and navbar surfaces.
+- Fundraising colors remain unchanged. Tests and visual review were not run; dark-theme coverage remains **NEEDS VISUAL VERIFICATION**.
+
+## [2026-10] — Luxe Editorial wedding invitation (2026-10-17; working tree)
+
+- Added `luxe-editorial` as a unified wedding card/page pair, with a custom photo-led page composition over the existing shared invitation blocks and an editorial full-bleed hero/gallery presentation.
+- Added conditional formal invitation, event, schedule, venue/map, gallery, and closing sections with French system copy. Existing organizer-managed RSVP remains the shared, token-authorized action flow; preview remains disabled for submissions.
+- Added a 900×1200 standalone card variant to `InvitationCardRenderer`; the card PNG uses published hero artwork only, preserves its existing token guard, and omits guest-identifying text.
+- Added migration 181 and rollback to seed the existing invitation card catalog row. The SQL is authored but not applied live; no commit was created.
+- **Verification:** browser preview checked at 320/375/390/430/768/1440px with no horizontal overflow and hero/gallery reaching the mobile edges; standalone card preview rendered at 432×576 without overflow. French system labels and disabled preview RSVP were present; no public RSVP form or browser JS exceptions appeared. Focused invitation suites passed 138/138; touched-file ESLint exited 0 with 10 existing `<img>` optimization warnings; TypeScript had no invitation errors but reported 52 Storefront translation-key errors, and the production bundle compiled before failing on those types. The 190-file test set passed 2,356/2,382; the 26 failures are in pre-existing Storefront/commerce work. No live token or RSVP was tested; migration 181 remains unapplied.
+
+## [2026-10] — Botanical Reverie wedding invitation (2026-10-16; working tree)
+
+- Added the selectable `botanical-reverie` wedding page/card pair to the code-owned page registry, unified picker, and local EN/FR name dictionaries. Its local SVG sample artwork keeps preview rendering independent of remote sample image hosts.
+- Added a bespoke envelope gate with open/skip controls, responsive split editorial hero, custom paper/stationery composition, shared event-detail/schedule/map/gallery/RSVP blocks, and decorative bloom motion that honors reduced-motion settings.
+- Added a portrait botanical card variant through `InvitationCardRenderer` and reused its pure component for the token-guarded card PNG route. Card export uses published snapshot artwork only and does not expose guest-specific names.
+- Added database seed/rollback migration 180 and updated invitation engine authoring documentation. Migration not applied live; no commit created.
+- **Verification so far:** TypeScript reports the pre-existing commerce translation-key failures; final invitation-only diagnostics, focused tests, lint, and viewport QA remain pending.
+
+## [2026-10] — Invitation custom composition and bounded effects (2026-10-16; working tree)
+
+- Added the first custom page composition for `romantic-envelope`, selected through the typed template definition registry. Its page component is loaded through an explicit literal-path `React.lazy` allowlist; Suspense and error fallback preserve the shared block canvas. The other five page templates continue using shared blocks and theme/config variants.
+- Added typed, bounded `envelope-reveal`, `scroll-reveal`, and `falling-petals` effect configuration; reduced-motion support, visibility-safe reveal defaults, and a 12-petal ceiling. The builder renders effect controls only when the selected template declares support.
+- Preserved the shared server action boundary: the custom page receives validated page data/layout and shared block children, while live RSVP callbacks remain optional and are omitted from preview/shared/sandbox rendering.
+- Updated template authoring documentation. No schema migration or live DB write was needed; migration 178 already stores layouts/snapshots.
+- **Verification:** focused invitation suites passed 141/141; changed TS/TSX ESLint exited 0 with six image-element warnings; `git diff --check` passed. Browser sandbox checked all six designs at 375px and 1440px without horizontal overflow; envelope reveal and French gate copy passed, with no JS exceptions. One sample Pixabay audio URL was blocked by the sandbox media CSP. Full TypeScript/build currently fail on unrelated commerce translation-key errors; private guest tokens and live RSVP were not used.
+
+## [2026-10] — Invitation template registry and configuration validation (2026-10-16; working tree)
+
+- Added the code-owned `lib/invitation-template-registry.ts` for stable page IDs, versioned definitions, rendered-sample preview metadata, default themes/block order, supported sections, customizations, and effects. The legacy invitation catalog now projects from this source.
+- Legacy template normalization now consumes registry metadata. Invitation draft layouts have a narrower schema than business pages: unknown block types, duplicate IDs, unsafe object keys, undeclared `$bind` paths, non-RSVP invitation actions, and invalid envelope transition settings are rejected.
+- Added a code-owned invitation block-to-component map and registry-driven design-control visibility. The envelope reveal accepts a bounded duration and honors reduced-motion preferences. Added the missing EN/FR Romantic Envelope name keys.
+- No database migration was needed; JSONB layout storage and snapshot support already exist in migration 178. No live migration or database write performed.
+- **Validation:** pending final registry/adapter tests, TypeScript, lint, full test suite, and build. Browser visual QA remains open.
+
+## [2026-10] — Shared JSON page composition (2026-10-16; working tree)
+
+- Added canonical `{ version, global_theme, layout_blocks: [{ id, type, content }] }` validation/adapters and invitation legacy-template conversion with explicit allowlisted bindings.
+- Added reusable invitation hero/story/details/gallery/schedule/music blocks, an RSVP/business-lead Action Portal, and `UniversalPageRenderer` for invitation and existing business blocks. Published invitations and the host preview use the new dispatcher; the host iframe click selects the mapped builder section; business site rendering unwraps canonical blocks back into the existing secure block renderer. Live invitations retain guest seating/QR passes and calendar exports.
+- Authored migration 178 (+ rollback and timestamped forward-migration mirror) to add JSONB layout columns and project existing website block arrays into the canonical envelope. Migration is not applied to a live database.
+- **Verification:** `npx tsc --noEmit --skipLibCheck` passed; touched-file ESLint passed with 0 errors and 4 `@next/next/no-img-element` warnings in invitation image blocks; `git diff --check` passed. No test suite or browser review run, and no live database migration applied.
+
+## [2026-10] — Store completion, Milestones 3 & 4: cart, checkout, density (2026-10-16; working tree)
+
+- Multi-item cart: `lib/store-cart.ts` external store (per-slug localStorage, 12-item/100-qty bounds), `StoreCartDrawer` (floating button, dialog drawer, quantity/remove, review-then-pay, empty/error/conflict states), quick-add on carousel cards (opt-in, sold-out disabled) and detail-page Add button. Single-product Buy Now and the menu-ordering cart are untouched.
+- Unified checkout: shared `lib/store-cart-checkout.ts` validation (tenant, status, stock, live Stripe prices, single currency, online-payment gate, promo) backs `POST /api/checkout/cart` (N pending `product_orders` snapshots + one multi-line session via server-computed `price_data`, session id stamped) and `POST /api/checkout/cart/validate` (priced review, writes nothing). Webhook `product_cart` fulfillment with charged-total guard, per-row idempotent flips, per-row failure alerts, and single promo burn. Cart-session lookup mode + multi-item site confirmation, both tenant-bound.
+- Promo backend (migration 177, authored not applied): `promo_codes` table + `apply_promo_use()` RPC + RLS + rollback/mirror twins; percent-XOR-fixed math with windows, caps, minimums, currency gates, and tests. Owner code-management UI deferred to dashboard work; crypto carts, tax/shipping engine, unified fulfillment dashboard, refunds automation, and variants explicitly deferred (see phase-06 §13).
+- Template editing (M4): V2 `shop.density` slot (`number` kind) with `storeBrowsePageSize` extras override honored by preview and publish; save/reload/publish consistency covered by tests; Food Order and legacy tracks regression-tested.
+- **Verification:** new `store-cart-checkout` suite 19/19; full registered list 2,356/2,356 (189 paths, 5 batches); `npx tsc --noEmit`, touched-file ESLint (0 errors, 2 pre-existing webhook `req` warnings), `git diff --check` clean; `npm run build` passed. No live Stripe, browser QA, or DB write.
+
+## [2026-10] — Store completion, Milestone 2: shop, detail, checkout return (2026-10-16; working tree)
+
+- Shop sorting (Featured/Newest/Price ↑↓) via new pure `sortBrowseItems` (unpriced/undated sort last, stable), opt-in `sort` prop on `StorefrontBrowse` so Food Order ordering is untouched; `numericPrice` (Stripe amount) and `created_at` (new resolver projection) feed the sort. Category reuse: `getOwnerProductCategories()` + datalist suggestions in both product forms, no new table.
+- Multi-image detail gallery (`StoreProductGallery` with thumbnail group, `aria-pressed`); site-local checkout return (`siteSlug` validated against published Store tenancy in `/api/checkout/product`, platform fallback); new site-local `app/site/[slug]/order-confirmation` page binding the order to the site tenant and polling the existing buyer-proofed lookup; `proxy.ts` pre-stream `checkStoreProductAccess` for product slugs.
+- New suite `lib/__tests__/store-milestone2.test.cjs` (14 tests, registered). One task-mandated pin update in `storefront-browse.test.cjs` (projection now includes `created_at`).
+- **Verification:** new suite 14/14; affected suites green; full registered list 2,337/2,337 (188 paths, 5 batches); `npx tsc --noEmit`, touched-file ESLint (0 errors, 4 pre-existing `<img>` warnings), `git diff --check` clean. No migration or database write. Browser QA and live Stripe verification remain open.
+
+## [2026-10] — Store completion, Milestone 1: products_embed hardening (2026-10-16; working tree)
+
+- `validateBlock(products_embed)` now preserves valid Store browse flags (`categoryTiles`, `siteLocalProductDetails`, `allowLargeCatalog`, `browsePageSize` 1..24) instead of stripping them; non-boolean/non-numeric values are rejected, absent keys stay absent. `previewProducts` remains render-only and is never persisted. `parseBlock` fallback mirrors the same preservation leniently.
+- Products inspector gains an owner-friendly "Products Shown at Once" control plus a note that category tiles and site-local details are template-managed. Hero inspector gains Tagline and Background Color controls; badge limit corrected 100→50 to match the validator. Gallery alt/caption limits corrected to 200/300.
+- New suite `lib/__tests__/store-products-embed-validation.test.cjs` (13 tests, registered in `package.json`).
+- **Verification:** new suite 13/13; affected suites 113/113; full registered list 2,323/2,323 (187 paths, 5 batches); `npx tsc --noEmit`, touched-file ESLint, and `git diff --check` clean. No migration or database write. Browser QA and live Stripe verification remain open.
+
 ## [2026-10] — Public Site Design System (PSD), Stage 3 Store template (2026-10-16; working tree)
 
 - Added Store v1.0 to the new V2 gallery after Food Order; its `warm-gold` manifest default remains overridable through the existing public accent metadata. Legacy templates remain resolvable.

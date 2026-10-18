@@ -74,6 +74,7 @@ export interface HeroBlock extends BaseBlock {
   videoUrl?: string;
   badge?: string;
   imagePosition?: string;
+  imageFit?: "contain" | "cover";
   logoMark?: string;
   metaPills?: Array<{ label: string; href?: string }>;
   /** True only when this hero supplies the deterministic header scrim signal. */
@@ -84,6 +85,7 @@ export interface FeatureItem extends WithItemId {
   title: string;
   description?: string;
   icon?: string;
+  image?: string;
   href?: string;
 }
 
@@ -105,6 +107,8 @@ export interface AboutBlock extends BaseBlock {
   type: "about";
   heading?: string;
   subheading?: string;
+  caption?: string;
+  subtitle?: string;
   story?: string;
   mission?: string;
   founderName?: string;
@@ -255,7 +259,10 @@ export interface CtaBannerBlock extends BaseBlock {
   subheading?: string;
   ctaLabel?: string;
   ctaHref?: string;
-  variant?: "brand" | "dark" | "light" | "footer";
+  variant?: "brand" | "dark" | "light" | "footer" | "promo";
+  image?: string;
+  eyebrow?: string;
+  endDate?: string;
 }
 
 export interface ServicesEmbedBlock extends BaseBlock {
@@ -283,7 +290,7 @@ export interface MenuEmbedBlock extends BaseBlock {
   /** ISO 4217 price display code (e.g. XOF). Omit for the USD default. */
   currency?: string;
   /** Template-selected browse presentation. Absent preserves the card grid. */
-  variant?: "cards" | "rows" | "editorial";
+  variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -717,6 +724,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       if (imagePosition && imagePositionValue.match(/\d{1,3}%/g)?.some((part) => Number.parseInt(part, 10) > 100)) {
         issues.push({ path: "imagePosition", message: "Image focal percentages must be between 0% and 100%." });
       }
+      const imageFit = obj.imageFit === "contain" || obj.imageFit === "cover" ? obj.imageFit : undefined;
       const metaPills: Array<{ label: string; href?: string }> = [];
       (Array.isArray(obj.metaPills) ? obj.metaPills : []).slice(0, 3).forEach((rawPill, index) => {
         if (!rawPill || typeof rawPill !== "object" || Array.isArray(rawPill)) return;
@@ -754,6 +762,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(badge ? { badge } : {}),
           ...(logoMark ? { logoMark } : {}),
           ...(imagePosition ? { imagePosition } : {}),
+          ...(imageFit ? { imageFit } : {}),
           ...(metaPills.length ? { metaPills } : {}),
           ...(typeof obj.scrim === "boolean" ? { scrim: obj.scrim } : {}),
         },
@@ -862,6 +871,18 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         BLOCK_LIMITS.SUBHEADING_MAX_LENGTH,
         issues
       );
+      const caption = validateStringField(
+        obj.caption,
+        "caption",
+        BLOCK_LIMITS.LABEL_MAX_LENGTH,
+        issues
+      );
+      const subtitle = validateStringField(
+        obj.subtitle,
+        "subtitle",
+        BLOCK_LIMITS.SUBHEADING_MAX_LENGTH,
+        issues
+      );
       const story = validateStringField(
         obj.story,
         "story",
@@ -957,6 +978,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...envelope,
           ...(heading ? { heading } : {}),
           ...(subheading ? { subheading } : {}),
+          ...(caption ? { caption } : {}),
+          ...(subtitle ? { subtitle } : {}),
           ...(story ? { story } : {}),
           ...(mission ? { mission } : {}),
           ...(founderName ? { founderName } : {}),
@@ -1667,7 +1690,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         issues.push({ path: "currency", message: "currency must be a 3-letter code (e.g. XOF)" });
       }
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
-      const variant = obj.variant === "rows" ? "rows" : undefined;
+      const variant = obj.variant === "rows" || obj.variant === "cards" || obj.variant === "editorial" || obj.variant === "catalog-carousel" ? obj.variant : undefined;
       return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}) } };
     }
 
@@ -1692,9 +1715,12 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       );
       const ctaHref = validateUrlField(obj.ctaHref, "ctaHref", issues);
       const variant =
-        obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer"
+        obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer" || obj.variant === "promo"
           ? obj.variant
           : "brand";
+      const image = validateImageUrlField(obj.image, "image", issues);
+      const eyebrow = validateStringField(obj.eyebrow, "eyebrow", BLOCK_LIMITS.LABEL_MAX_LENGTH, issues);
+      const endDate = validateStringField(obj.endDate, "endDate", BLOCK_LIMITS.LABEL_MAX_LENGTH, issues);
 
       if (issues.length > 0) {
         return {
@@ -1713,6 +1739,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(subheading ? { subheading } : {}),
           ...(ctaLabel ? { ctaLabel } : {}),
           ...(ctaHref ? { ctaHref } : {}),
+          ...(image ? { image } : {}),
+          ...(eyebrow ? { eyebrow } : {}),
+          ...(endDate ? { endDate } : {}),
           variant,
         },
       };
@@ -1846,6 +1875,7 @@ export function parseBlock(raw: unknown): Block | null {
         badge: typeof obj.badge === "string" ? obj.badge.slice(0, 50) : undefined,
         logoMark: typeof obj.logoMark === "string" ? safeImageSrc(obj.logoMark) || undefined : undefined,
         imagePosition: typeof obj.imagePosition === "string" && /^(?:\d{1,3}%\s+\d{1,3}%|left|center|right(?:\s+(?:top|center|bottom))?)$/i.test(obj.imagePosition.trim()) ? obj.imagePosition.trim() : undefined,
+        imageFit: obj.imageFit === "contain" || obj.imageFit === "cover" ? obj.imageFit : undefined,
         metaPills: Array.isArray(obj.metaPills) ? obj.metaPills.slice(0, 3).flatMap((rawPill) => {
           if (!rawPill || typeof rawPill !== "object" || Array.isArray(rawPill)) return [];
           const pill = rawPill as Record<string, unknown>;
@@ -1879,6 +1909,8 @@ export function parseBlock(raw: unknown): Block | null {
         ...envelope,
         heading: typeof obj.heading === "string" ? obj.heading.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
+        caption: typeof obj.caption === "string" ? obj.caption.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
+        subtitle: typeof obj.subtitle === "string" ? obj.subtitle.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         story: typeof obj.story === "string" ? obj.story.slice(0, BLOCK_LIMITS.BODY_TEXT_MAX_LENGTH) : undefined,
         mission: typeof obj.mission === "string" ? obj.mission.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         founderName: typeof obj.founderName === "string" ? obj.founderName.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
@@ -2104,7 +2136,10 @@ export function parseBlock(raw: unknown): Block | null {
         subheading: typeof obj.subheading === "string" ? obj.subheading.slice(0, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH) : undefined,
         ctaLabel: typeof obj.ctaLabel === "string" ? obj.ctaLabel.slice(0, BLOCK_LIMITS.CTA_LABEL_MAX_LENGTH) : undefined,
         ctaHref: sanitizeUrl(obj.ctaHref) || undefined,
-        variant: obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer" ? obj.variant : "brand",
+        variant: obj.variant === "dark" || obj.variant === "light" || obj.variant === "footer" || obj.variant === "promo" ? obj.variant : "brand",
+        image: typeof obj.image === "string" ? safeImageSrc(obj.image) || undefined : undefined,
+        eyebrow: typeof obj.eyebrow === "string" ? obj.eyebrow.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
+        endDate: typeof obj.endDate === "string" ? obj.endDate.slice(0, BLOCK_LIMITS.LABEL_MAX_LENGTH) : undefined,
       };
 
     case "menu_order":
