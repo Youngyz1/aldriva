@@ -16,6 +16,9 @@ import type { WebsiteTemplateV2 } from "./website-template-v2";
 import { getFlagshipTemplate } from "./website-template-v2";
 import { normalizeCurrencyCode } from "./website-blocks";
 import { readableOn } from "./readable-on";
+import { deriveWebsitePaletteRoles } from "./website-v2-color-resolution";
+
+export const WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY = "websiteAppearance";
 
 export interface PublicAccentPalette {
   id: string;
@@ -50,6 +53,36 @@ function readAccentId(metadata: unknown): string | undefined {
   if (!brand || typeof brand !== "object" || Array.isArray(brand)) return undefined;
   const id = (brand as Record<string, unknown>).accentId;
   return typeof id === "string" ? id : undefined;
+}
+
+function readBrandValue(metadata: unknown, key: string): unknown {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return undefined;
+  const brand = (metadata as Record<string, unknown>).brand;
+  if (!brand || typeof brand !== "object" || Array.isArray(brand)) return undefined;
+  return (brand as Record<string, unknown>)[key];
+}
+
+export function getWebsitePaletteId(template: WebsiteTemplateV2, metadata?: unknown): string | undefined {
+  if (!template.palettes?.length) return undefined;
+  const saved = readBrandValue(metadata, "paletteId");
+  const fallback = template.defaultPaletteId ?? template.palettes[0].id;
+  return typeof saved === "string" && template.palettes.some((palette) => palette.id === saved)
+    ? saved
+    : fallback;
+}
+
+export function getWebsiteBackgroundPattern(template: WebsiteTemplateV2, metadata?: unknown): "none" | "dots" {
+  if (!template.patterns?.length) return "none";
+  const saved = readBrandValue(metadata, "backgroundPattern");
+  return typeof saved === "string" && template.patterns.some((pattern) => pattern.id === saved)
+    ? saved as "none" | "dots"
+    : "none";
+}
+
+function toRgbChannels(color: string): string {
+  const value = color.startsWith("#") ? color.slice(1) : color;
+  const full = value.length === 3 ? value.split("").map((digit) => digit + digit).join("") : value;
+  return [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16)).join(", ");
 }
 
 /**
@@ -111,13 +144,35 @@ export function v2ThemeStyle(
   template: WebsiteTemplateV2,
   metadata?: unknown
 ): Record<string, string> {
+  const paletteId = getWebsitePaletteId(template, metadata);
+  const declaredPalette = paletteId
+    ? template.palettes?.find((entry) => entry.id === paletteId)
+    : undefined;
   const accentId = readAccentId(metadata) ?? template.defaultAccentId;
-  const palette = getPublicAccentPalette(accentId);
-  const primary = palette?.accent ?? template.lockedTheme.primaryColor;
-  const hover = palette?.hover ?? primary;
-  const light = palette?.light ?? "#fbe9e3";
+  const accentPalette = getPublicAccentPalette(accentId);
+  const hasExplicitPaletteChoice = typeof readBrandValue(metadata, "paletteId") === "string" &&
+    template.palettes?.some((entry) => entry.id === readBrandValue(metadata, "paletteId"));
+  // Keep existing public accent choices working for older Table & Flame sites
+  // until the owner chooses one of the new full palettes in the builder.
+  const legacyAccentOverride = Boolean(
+    declaredPalette && !hasExplicitPaletteChoice && readAccentId(metadata) && accentPalette
+  );
+  const palette = declaredPalette && legacyAccentOverride && accentPalette
+    ? { ...declaredPalette, accent: accentPalette.accent }
+    : declaredPalette;
+  const derivedRoles = palette ? deriveWebsitePaletteRoles(palette) : undefined;
+  const roles = derivedRoles && legacyAccentOverride && accentPalette
+    ? {
+        ...derivedRoles,
+        accentDeep: readableOn(palette!.base, [accentPalette.hover, derivedRoles.accentDeep, palette!.ink]),
+        accentLight: accentPalette.light,
+      }
+    : derivedRoles;
+  const primary = roles?.accent ?? accentPalette?.accent ?? template.lockedTheme.primaryColor;
+  const hover = roles?.accentDeep ?? accentPalette?.hover ?? primary;
+  const light = roles?.accentLight ?? accentPalette?.light ?? "#fbe9e3";
   const isTableFlame = template.id === "restaurant-table-flame";
-  const foreground = isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : palette?.foreground ?? "#ffffff";
+  const foreground = roles?.onAccent ?? (isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : accentPalette?.foreground ?? "#ffffff");
   const headingFont = isTableFlame
     ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
     : template.lockedTheme.headingFont === "serif"
@@ -128,22 +183,44 @@ export function v2ThemeStyle(
     "--site-primary-hover": hover,
     "--site-primary-light": light,
     "--site-accent": primary,
-    "--site-bg": template.templateBackground.base,
+    "--site-bg": roles?.base ?? template.templateBackground.base,
     "--v2-heading-font": headingFont,
     "--ps-accent": primary,
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,
     "--ps-accent-foreground": foreground,
-    ...(isTableFlame ? {
-      "--ps-text": "#2a211b",
-      "--ps-muted": "#6b5d52",
-      "--ps-surface": "#faf6ef",
-      "--ps-cream": "#faf6ef",
-      "--ps-neutral": "#f1e9dd",
-      "--ps-border": "#e6dccd",
+    ...(roles ? {
+      "--tf-base": roles.base,
+      "--tf-subtle": roles.subtle,
+      "--tf-ink": roles.ink,
+      "--tf-muted": roles.muted,
+      "--tf-border": roles.border,
+      "--tf-accent": roles.accent,
+      "--tf-accent-deep": roles.accentDeep,
+      "--tf-on-accent": roles.onAccent,
+      "--tf-on-ink": roles.onInk,
+      "--tf-band": roles.band,
+      "--tf-scrim": roles.scrim,
+      "--tf-scrim-rgb": toRgbChannels(roles.scrim),
+      "--tf-on-base": roles.onBase,
+      "--tf-on-header": roles.onHeader,
+      "--tf-on-band": roles.onBand,
+      "--tf-on-footer": roles.onFooter,
+      "--tf-on-scrim": roles.onScrim,
+      "--tf-hairline": roles.hairline,
+      "--tf-header-border": roles.headerBorder,
+      "--tf-menu-leader": roles.menuLeader,
+      "--tf-dot": roles.dot,
+      "--tf-dot-background": roles.dotBackground,
+      "--ps-text": roles.ink,
+      "--ps-muted": roles.muted,
+      "--ps-surface": roles.base,
+      "--ps-cream": roles.base,
+      "--ps-neutral": roles.subtle,
+      "--ps-border": roles.border,
       "--ps-card-radius": "12px",
       "--ps-card-shadow": "none",
-      "--ps-card-border": "1px solid #e6dccd",
+      "--ps-card-border": `1px solid ${roles.border}`,
     } : {}),
   };
 }

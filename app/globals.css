@@ -266,7 +266,7 @@
 .public-site[data-site-template="restaurant-table-flame"] {
   --site-card-radius: 12px;
   --site-card-shadow: none;
-  --site-card-border: #e6dccd;
+  --site-card-border: var(--tf-border);
   --ps-h1: 40px;
   --ps-h2: 30px;
   --ps-h3: 20px;

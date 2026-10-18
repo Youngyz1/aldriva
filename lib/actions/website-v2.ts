@@ -40,7 +40,7 @@ import {
   getFlagshipTemplate,
   type WebsiteTemplateV2,
 } from "@/lib/website-template-v2";
-import type { ContentDoc } from "@/lib/website-content";
+import { normalizeContent, type ContentDoc } from "@/lib/website-content";
 import { buildInitialContentFromOrganizer } from "@/lib/website-v2-initial-content";
 import {
   resolveTemplateContent,
@@ -51,11 +51,18 @@ import {
   type PublishReadiness,
 } from "@/lib/website-template-resolver";
 import { generateStableId } from "@/lib/website-blocks";
+import { getStoreProductStockState } from "@/lib/store-product-detail";
 import { isReservedWebsiteSlug } from "@/lib/website-nav";
 import { getTenantSiteBuilderLiveUrl } from "@/lib/website-structured-data";
-import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import {
+  getWebsiteBackgroundPattern,
+  getWebsitePaletteId,
+  resolveStorefrontCurrency,
+  WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY,
+} from "@/lib/website-v2-theme";
 import {
   getContentForBuilder,
+  saveContentDraft,
   type ContentActionResult,
 } from "@/lib/actions/website-content";
 
@@ -70,6 +77,42 @@ export interface CreateV2WebsiteResult {
   success: boolean;
   data?: { websiteId: string; slug: string; idempotent?: boolean };
   error?: string;
+}
+
+/** Save regular V2 content plus a manifest-validated appearance selection. */
+export async function saveV2WebsiteAppearanceDraft(
+  websiteId: string,
+  content: unknown,
+  expectedVersion?: number | null
+): Promise<ContentActionResult<{ savedAt: string; version: number; hasDraft: boolean }>> {
+  const builder = await getContentForBuilder(websiteId);
+  if (!builder.success || !builder.data) {
+    return { success: false, code: "forbidden", error: builder.error ?? "Website not available." };
+  }
+  const metadata = builder.data.metadata ?? {};
+  const templateId = typeof metadata.templateId === "string" ? metadata.templateId : "";
+  const templateVersion = typeof metadata.templateVersion === "string" ? metadata.templateVersion : undefined;
+  const template = getFlagshipTemplate(templateId, templateVersion);
+  if (!template) {
+    return { success: false, code: "V2_ONLY", error: "Appearance settings are only available for V2 websites." };
+  }
+
+  const normalized = normalizeContent(content);
+  const extras = normalized.template_extras ?? {};
+  const appearance = extras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
+  if (appearance !== undefined) {
+    if (!template.palettes?.length || !template.patterns?.length || !appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
+      return { success: false, error: "This template does not support appearance choices." };
+    }
+    const value = appearance as Record<string, unknown>;
+    const validPalette = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId);
+    const validPattern = typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern);
+    if (!validPalette || !validPattern) {
+      return { success: false, error: "Choose a palette and background pattern declared by this template." };
+    }
+  }
+
+  return saveContentDraft(websiteId, normalized, expectedVersion);
 }
 
 interface OrganizerRow {
@@ -353,6 +396,8 @@ export interface V2BuilderState {
   isPublished: boolean;
   publicUrl: string;
   accentId?: string;
+  paletteId?: string;
+  backgroundPattern?: "none" | "dots";
   storefront: {
     businessId: string | null;
     businessName: string | null;
@@ -470,6 +515,86 @@ export async function getV2MenuItemChoices(
 }
 
 /**
+ * Lists product choices for a Store website's featured-products picker.
+ * Mirrors getV2MenuItemChoices: website-derived tenant, role-gated, active
+ * tenant products only (sold-out and draft rows are never pickable).
+ */
+export async function getV2ProductChoices(
+  websiteId: string
+): Promise<{ success: true; data: V2MenuItemChoice[] } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Unauthorized: Please sign in." };
+  const websiteKey = typeof websiteId === "string" ? websiteId.trim() : "";
+  if (!websiteKey) return { success: false, error: "Website ID is required." };
+
+  const supabaseAdmin = createSupabaseAdmin();
+  const { data: website, error: websiteError } = await supabaseAdmin
+    .from("tenant_websites")
+    .select("id, tenant_id, metadata")
+    .eq("id", websiteKey)
+    .maybeSingle();
+  if (websiteError || !website) return { success: false, error: "Website not found." };
+
+  const metadata = website.metadata && typeof website.metadata === "object"
+    ? website.metadata as Record<string, unknown>
+    : {};
+  const templateId = typeof metadata.templateId === "string" ? metadata.templateId : "";
+  const templateVersion = typeof metadata.templateVersion === "string" ? metadata.templateVersion : undefined;
+  if (!getFlagshipTemplate(templateId, templateVersion)) {
+    return { success: false, error: "Product choices are only available for v2 websites." };
+  }
+
+  const isSuperAdmin = await isAdmin();
+  if (!isSuperAdmin) {
+    const access = await checkTenantAccess(user.id, website.tenant_id as string, [
+      "owner", "admin", "manager", "editor",
+    ]);
+    if (!access.hasAccess) return { success: false, error: "Forbidden: insufficient website permissions." };
+  }
+
+  const tenantId = website.tenant_id as string;
+  const { data: businesses, error: bizError } = await supabaseAdmin
+    .from("businesses")
+    .select("id")
+    .eq("organizer_id", tenantId);
+  if (bizError) return { success: false, error: "Failed to load businesses." };
+  const businessIds = ((businesses ?? []) as Array<{ id: string }>).map((b) => b.id);
+  if (businessIds.length === 0) return { success: true, data: [] };
+
+  const { data: products, error: productsError } = await supabaseAdmin
+    .from("products")
+    .select("id, name, category, stock_quantity, status")
+    .in("business_id", businessIds)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (productsError) return { success: false, error: "Failed to load products." };
+
+  return {
+    success: true,
+    data: ((products ?? []) as Array<{
+      id: string;
+      name: string;
+      category?: string | null;
+      stock_quantity?: number | null;
+      status: string;
+    }>)
+      .filter((item) => getStoreProductStockState(item.status, item.stock_quantity ?? null) !== "sold_out")
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        description: null,
+        price: null,
+        imageUrl: null,
+        sectionName:
+          typeof item.category === "string" && item.category.trim() !== ""
+            ? item.category.trim()
+            : "Uncategorized",
+      })),
+  };
+}
+
+/**
  * Builder snapshot for a v2 site: live + draft content (via the existing
  * getContentForBuilder, which re-authorizes), readiness, role, and resolved
  * preview pages. Read access follows getContentForBuilder (all roles).
@@ -541,6 +666,8 @@ export async function getBuilderState(
       accentId: metadata.brand && typeof metadata.brand === "object" && !Array.isArray(metadata.brand) && typeof (metadata.brand as Record<string, unknown>).accentId === "string"
         ? (metadata.brand as Record<string, string>).accentId
         : undefined,
+      paletteId: getWebsitePaletteId(template, metadata),
+      backgroundPattern: getWebsiteBackgroundPattern(template, metadata),
       storefront,
       template: { id: template.id, version: template.version, name: template.name },
       templateManifest: template,

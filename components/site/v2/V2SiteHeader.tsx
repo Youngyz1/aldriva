@@ -10,7 +10,6 @@ import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-pa
 import type { ContentDoc } from "@/lib/website-content";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
-import { resolveV2ThemeColor } from "@/lib/website-v2-color-resolution";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { StorefrontAction } from "@/lib/storefront-primary-action";
 
@@ -181,17 +180,19 @@ export function V2SiteHeader({
     setMenuOpen(false);
   };
   const backgroundColor = tableFlame
-    ? resolveV2ThemeColor(template.templateBackground.base, template.id)
+    ? "var(--tf-base)"
     : template.templateBackground.base;
   const transparentOverHero = overHero && !pastHeroThreshold;
   const transparent = transparentOverHero;
-  const solidForeground = tableFlame ? readableOn(backgroundColor, ["#22201c", "#ffffff"]) : "var(--ps-text)";
+  const solidForeground = tableFlame
+    ? "var(--tf-on-header)"
+    : "var(--ps-text)";
   const headerStyle: CSSProperties = {
     color: transparent
-      ? readableOn("#23211f", ["#faf6ef", "#22201c"])
+      ? tableFlame ? "var(--tf-on-scrim)" : readableOn("#23211f", ["#faf6ef", "#22201c"])
       : solidForeground,
     backgroundColor: transparent ? "transparent" : backgroundColor,
-    borderColor: tableFlame ? transparent ? "transparent" : "rgba(34, 32, 28, 0.12)" : undefined,
+    borderColor: tableFlame ? transparent ? "transparent" : "var(--tf-header-border)" : undefined,
     fontFamily: "var(--ps-font-body)",
     ...(overHero ? { marginBottom: "calc(var(--site-header-h) * -1)" } : {}),
   };
@@ -333,7 +334,7 @@ export function V2SiteHeader({
           role="dialog"
           aria-modal="true"
           aria-label="Site menu"
-          className="fixed inset-x-0 bottom-0 top-[var(--site-header-h)] z-40 overflow-y-auto bg-[#faf6ef] px-6 pb-10 pt-5 text-[#2a211b] md:hidden"
+          className="fixed inset-x-0 bottom-0 top-[var(--site-header-h)] z-40 overflow-y-auto bg-[var(--tf-base)] px-6 pb-10 pt-5 text-[var(--tf-on-base)] md:hidden"
         >
           <h2 className="font-[var(--v2-heading-font)] text-4xl font-medium">Menu</h2>
           {renderNavigation(true)}

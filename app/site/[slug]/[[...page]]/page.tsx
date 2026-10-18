@@ -24,6 +24,7 @@ import {
 } from "@/lib/website-structured-data";
 import { resolveThemeTokens, themeTokensToStyle } from "@/lib/website-blocks";
 import {
+  getWebsiteBackgroundPattern,
   getV2TemplateForWebsite,
   resolveStorefrontCurrency,
   v2ThemeStyle,
@@ -78,18 +79,28 @@ interface V2RouteContent {
   availablePageSlugs: string[];
 }
 
-function applyTableFlameSectionBands(blocks: unknown[]): unknown[] {
+function applyTableFlameSectionBands(
+  blocks: unknown[],
+  palette: Record<string, string>,
+  backgroundPattern: "none" | "dots"
+): unknown[] {
   let sectionIndex = 0;
   return blocks.map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return value;
     const block = value as Record<string, unknown>;
     if (block.type === "menu_order" || block.visible === false) return value;
     if (block.type === "cta_banner") {
-      return { ...block, variant: "footer", background: { color: "#23211f" } };
+      return { ...block, variant: "footer", background: { color: palette["--tf-band"] } };
     }
-    const color = sectionIndex % 2 === 0 ? "#faf6ef" : "#f1e9dd";
+    const isBase = sectionIndex % 2 === 0;
     sectionIndex += 1;
-    return { ...block, background: { color } };
+    return {
+      ...block,
+      background: {
+        color: isBase ? palette["--tf-base"] : palette["--tf-subtle"],
+        ...(isBase && block.type !== "hero" && backgroundPattern === "dots" ? { pattern: "dots" } : {}),
+      },
+    };
   });
 }
 
@@ -488,7 +499,9 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     ...themeConfigToStyle(website.theme_config),
     ...(v2Template ? v2ThemeStyle(v2Template, website.metadata) : {}),
     ...(v2Template
-      ? { backgroundColor: v2Template.templateBackground.base }
+      ? { backgroundColor: v2Template.palettes?.length
+          ? v2ThemeStyle(v2Template, website.metadata)["--tf-base"]
+          : v2Template.templateBackground.base }
       : {}),
   };
 
@@ -538,7 +551,12 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
 
   const rawBlocks = (targetPage.blocks as unknown[]) || [];
   const tableFlame = v2Template?.id === "restaurant-table-flame";
-  const blocks = tableFlame ? applyTableFlameSectionBands(rawBlocks) : rawBlocks;
+  const backgroundPattern = tableFlame && v2Template
+    ? getWebsiteBackgroundPattern(v2Template, website.metadata)
+    : "none";
+  const blocks = tableFlame && v2Template
+    ? applyTableFlameSectionBands(rawBlocks, v2ThemeStyle(v2Template, website.metadata), backgroundPattern)
+    : rawBlocks;
   const firstResolvedBlock = rawBlocks.find((value) =>
     value && typeof value === "object" && !Array.isArray(value) &&
     (value as Record<string, unknown>).type !== "menu_order" &&
@@ -553,6 +571,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
     <div
       style={themeStyle}
       data-site-template={v2Template?.id}
+      data-background-pattern={tableFlame ? backgroundPattern : undefined}
       className={`public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${tableFlame ? tableFlameFont.variable : ""} ${
         website.theme_config?.darkMode ? "dark" : ""
       }`}

@@ -58,6 +58,21 @@ export interface TemplateSlot {
   required?: boolean;
 }
 
+export interface WebsiteTemplatePalette {
+  id: string;
+  label: { en: string; fr: string };
+  base: string;
+  accent: string;
+  ink: string;
+}
+
+export type WebsiteTemplatePatternId = "none" | "dots";
+
+export interface WebsiteTemplatePattern {
+  id: WebsiteTemplatePatternId;
+  label: { en: string; fr: string };
+}
+
 // ── Page purposes + sections ────────────────────────────────────────────────
 
 export type TemplatePagePurpose = "home" | "catalog" | "transaction" | "booking" | "contact";
@@ -167,6 +182,12 @@ export interface WebsiteTemplateV2 {
   tags?: string[];
   /** Optional alignment for all sections in this template. */
   sectionAlign?: "left" | "center";
+  /** Curated, template-owned palettes. Absent means no palette control. */
+  palettes?: readonly WebsiteTemplatePalette[];
+  /** Optional background patterns controlled by this template. */
+  patterns?: readonly WebsiteTemplatePattern[];
+  /** Palette selected when no valid saved palette id exists. */
+  defaultPaletteId?: string;
 }
 
 // ── Restaurant: Table & Flame ───────────────────────────────────────────────
@@ -231,6 +252,20 @@ const RESTAURANT_SECTIONS: TemplateSection[] = RESTAURANT_SECTION_DEFINITIONS.ma
   spacing: section.id === "hero" ? "roomy" : "default",
 }));
 
+const TABLE_FLAME_PALETTES: readonly WebsiteTemplatePalette[] = [
+  { id: "terracotta", label: { en: "Terracotta", fr: "Terre cuite" }, base: "#faf6ef", accent: "#c65d3b", ink: "#2a211b" },
+  { id: "olive-grove", label: { en: "Olive Grove", fr: "Oliviers" }, base: "#f6f4ea", accent: "#5f6b3c", ink: "#232619" },
+  { id: "wine-cellar", label: { en: "Wine Cellar", fr: "Cave à vin" }, base: "#fbf3f1", accent: "#7a1f33", ink: "#2b1a1e" },
+  { id: "ink-brass", label: { en: "Ink & Brass", fr: "Encre et laiton" }, base: "#1c1b19", accent: "#c9a24b", ink: "#f3eee3" },
+  { id: "sea-salt", label: { en: "Sea Salt", fr: "Fleur de sel" }, base: "#f4f7f6", accent: "#1f5f5b", ink: "#14282a" },
+  { id: "butter-cobalt", label: { en: "Butter & Cobalt", fr: "Beurre et cobalt" }, base: "#fdf8e6", accent: "#2d4fb3", ink: "#1b2233" },
+];
+
+const TABLE_FLAME_PATTERNS: readonly WebsiteTemplatePattern[] = [
+  { id: "none", label: { en: "None", fr: "Aucun" } },
+  { id: "dots", label: { en: "Dots", fr: "Points" } },
+];
+
 export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   id: "restaurant-table-flame",
   version: "1.1.0",
@@ -245,6 +280,9 @@ export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
   lockedTheme: { primaryColor: "#c65d3b", headingFont: "serif", bodyFont: "sans" },
   defaultAccentId: "terracotta",
+  defaultPaletteId: "terracotta",
+  palettes: TABLE_FLAME_PALETTES,
+  patterns: TABLE_FLAME_PATTERNS,
   legacy: true,
   lockedLayout: true,
   templateBackground: {

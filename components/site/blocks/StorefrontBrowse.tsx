@@ -192,7 +192,7 @@ export function TableFlameMenuRows({
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
             <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
-            <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[#9b8d7d]" />
+            <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[var(--tf-menu-leader)]" />
             {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
           </span>
           {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
@@ -200,7 +200,7 @@ export function TableFlameMenuRows({
         </span>
         {item.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[#e6dccd] object-cover" loading="lazy" />
+          <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[var(--tf-border)] object-cover" loading="lazy" />
         ) : null}
       </button>
     ))}
@@ -258,6 +258,7 @@ export function StorefrontBrowse({
   pageSize,
   variant = "cards",
 }: StorefrontBrowseProps) {
+  const isTableFlame = variant === "rows";
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
@@ -599,7 +600,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              <div className={variant === "rows" ? "divide-y divide-[#e6dccd] border-y border-[#e6dccd]" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+              <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -713,6 +714,7 @@ export function StorefrontBrowse({
           tags={selected.tags}
           detailRows={selected.detailRows}
           action={selected.action}
+          tableFlame={isTableFlame}
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
@@ -724,7 +726,7 @@ export function StorefrontBrowse({
       {/* Floating cart bar */}
       {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
-          <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] text-white shadow-xl">
+          <div className={`flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
             <div className="flex items-center gap-[var(--ps-space-3)]">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ps-accent)] text-xs font-bold">
                 {totalCartCount}
@@ -784,6 +786,7 @@ export function StorefrontBrowse({
           fulfilmentType={orderSuccess.fulfilmentType}
           currency={orderSuccess.currency ?? orderConfig.currency}
           labels={labels}
+          tableFlame={isTableFlame}
           onClose={() => setOrderSuccess(null)}
         />
       ) : null}
@@ -819,6 +822,7 @@ function ItemDetailSheet({
   tags,
   detailRows,
   action,
+  tableFlame,
   closeLabel,
   labels,
   orderConfig,
@@ -837,6 +841,7 @@ function ItemDetailSheet({
   tags: string[];
   detailRows: Array<{ label: string; value: string }>;
   action?: { label: string; href: string };
+  tableFlame: boolean;
   closeLabel: string;
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
@@ -1118,7 +1123,7 @@ function ItemDetailSheet({
           ) : action ? (
             <a
               href={action.href}
-              className="block rounded-xl bg-[var(--ps-text)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-semibold text-white hover:bg-[var(--ps-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+              className={`block rounded-xl bg-[var(--ps-text)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-semibold ${tableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} hover:bg-[var(--ps-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}
             >
               {action.label}
             </a>
@@ -1827,6 +1832,7 @@ function OrderConfirmationModal({
   fulfilmentType,
   currency,
   labels,
+  tableFlame,
   onClose,
 }: {
   orderNumber: string;
@@ -1839,6 +1845,7 @@ function OrderConfirmationModal({
   fulfilmentType?: string | null;
   currency?: string | null;
   labels: StorefrontBrowseLabels;
+  tableFlame: boolean;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -1950,7 +1957,7 @@ function OrderConfirmationModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-xl bg-[var(--ps-text)] py-[var(--ps-space-3)] text-xs font-bold text-white hover:bg-[var(--ps-muted)] transition"
+          className={`w-full rounded-xl bg-[var(--ps-text)] py-[var(--ps-space-3)] text-xs font-bold ${tableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} hover:bg-[var(--ps-muted)] transition`}
         >
           {labels.backToMenu || "Back to menu"}
         </button>

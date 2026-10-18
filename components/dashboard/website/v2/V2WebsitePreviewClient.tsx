@@ -12,7 +12,7 @@ import { getFlagshipTemplate, type WebsiteTemplateV2 } from "@/lib/website-templ
 import { FLAGSHIP_SAMPLES } from "@/lib/website-template-samples";
 import { resolveTemplateContent } from "@/lib/website-template-resolver";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
-import { v2ThemeStyle } from "@/lib/website-v2-theme";
+import { v2ThemeStyle, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { formatMoney as formatSharedMoney } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { isSameOriginWebsitePreviewMessage, isWebsitePreviewMessage, WEBSITE_PREVIEW_MESSAGE_SOURCE } from "@/lib/website-preview-channel";
@@ -36,6 +36,8 @@ interface V2WebsitePreviewClientProps {
   menuItems: V2MenuItemChoice[];
   emittedPages: ResolvedPage[];
   accentId?: string;
+  paletteId?: string;
+  backgroundPattern?: "none" | "dots";
   /** Site price display default; block currency wins when set. */
   currency?: string;
   currencyLocale?: Locale;
@@ -51,7 +53,7 @@ function image(value: unknown): string | undefined {
   return src || undefined;
 }
 
-export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextDayLabel, closedLabel, addFirstDishLabel, manageMenuLabel, siteSlug, onPageNavigate }: { block: unknown; menuItems: V2MenuItemChoice[]; tenantId?: string; currency: string; currencyLocale: Locale; nextDayLabel: string; closedLabel: string; addFirstDishLabel: string; manageMenuLabel: string; siteSlug?: string; onPageNavigate?: (pageSlug: string) => void }) {
+export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextDayLabel, closedLabel, addFirstDishLabel, manageMenuLabel, siteSlug, onPageNavigate, tableFlame = false }: { block: unknown; menuItems: V2MenuItemChoice[]; tenantId?: string; currency: string; currencyLocale: Locale; nextDayLabel: string; closedLabel: string; addFirstDishLabel: string; manageMenuLabel: string; siteSlug?: string; onPageNavigate?: (pageSlug: string) => void; tableFlame?: boolean }) {
   if (!block || typeof block !== "object" || Array.isArray(block)) return null;
   const value = block as Record<string, unknown>;
   const rows = (key: string): Array<Record<string, unknown>> => Array.isArray(value[key]) ? (value[key] as unknown[]).filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row)) : [];
@@ -75,13 +77,24 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
     const heroImage = image(value.backgroundImage);
     const primaryLink = internalLink(value.ctaHref);
     const secondaryLink = internalLink(value.secondaryCtaHref);
-    return <section className="relative flex min-h-[520px] items-center bg-[var(--ps-text)] px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-white md:min-h-[600px] md:px-[var(--ps-space-16)]" style={heroImage ? { backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.68), rgba(0,0,0,.12)), url("${heroImage}")`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>
+    const heroStyle: CSSProperties | undefined = heroImage
+      ? {
+          backgroundImage: tableFlame
+            ? `linear-gradient(90deg, rgba(var(--tf-scrim-rgb),.68), rgba(var(--tf-scrim-rgb),.12)), url("${heroImage}")`
+            : `linear-gradient(90deg, rgba(0,0,0,.68), rgba(0,0,0,.12)), url("${heroImage}")`,
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }
+      : tableFlame
+        ? { backgroundImage: "linear-gradient(125deg, var(--tf-accent) 0%, var(--tf-accent-deep) 48%, var(--tf-band) 100%)" }
+        : undefined;
+    return <section className={`relative flex min-h-[520px] items-center px-[var(--ps-space-6)] py-[var(--ps-space-16)] ${tableFlame ? "bg-[var(--tf-band)] text-[var(--tf-on-scrim)]" : "bg-[var(--ps-text)] text-white"} md:min-h-[600px] md:px-[var(--ps-space-16)]`} style={heroStyle}>
       <div className="mx-auto w-full max-w-6xl"><div className="max-w-2xl">
-        {value.tagline ? <p className="mb-[var(--ps-space-3)] text-sm font-semibold uppercase tracking-[.16em] text-white/75">{text(value.tagline)}</p> : null}
-        <h1 className="font-[var(--v2-heading-font)] text-4xl font-bold leading-tight md:text-6xl">{text(value.heading) || "Your headline"}</h1>
-        {value.subheading ? <p className="mt-[var(--ps-space-6)] max-w-xl text-base leading-7 text-white/85 md:text-lg">{text(value.subheading)}</p> : null}
-        {value.ctaLabel && primaryLink ? <a {...primaryLink} className="mt-[var(--ps-space-8)] inline-flex rounded-lg px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-white" style={{ backgroundColor: "var(--site-primary)" }}>{text(value.ctaLabel)}</a> : null}
-        {value.secondaryCtaLabel && secondaryLink ? <a {...secondaryLink} className="ml-[var(--ps-space-3)] mt-[var(--ps-space-8)] inline-flex rounded-lg border border-white/60 px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-white">{text(value.secondaryCtaLabel)}</a> : null}
+        {value.tagline ? <p className={`mb-[var(--ps-space-3)] text-sm font-semibold uppercase tracking-[.16em] ${tableFlame ? "text-[var(--tf-on-scrim)]" : "text-white/75"}`}>{text(value.tagline)}</p> : null}
+        <h1 className={`font-[var(--v2-heading-font)] text-4xl font-bold leading-tight md:text-6xl ${tableFlame ? "text-[var(--tf-on-scrim)]" : ""}`}>{text(value.heading) || "Your headline"}</h1>
+        {value.subheading ? <p className={`mt-[var(--ps-space-6)] max-w-xl text-base leading-7 md:text-lg ${tableFlame ? "text-[var(--tf-on-scrim)]" : "text-white/85"}`}>{text(value.subheading)}</p> : null}
+        {value.ctaLabel && primaryLink ? <a {...primaryLink} className="mt-[var(--ps-space-8)] inline-flex rounded-lg px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold" style={{ backgroundColor: "var(--site-primary)", color: tableFlame ? "var(--tf-on-accent)" : "#ffffff" }}>{text(value.ctaLabel)}</a> : null}
+        {value.secondaryCtaLabel && secondaryLink ? <a {...secondaryLink} className={`ml-[var(--ps-space-3)] mt-[var(--ps-space-8)] inline-flex rounded-lg border px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold ${tableFlame ? "border-[var(--tf-on-scrim)] text-[var(--tf-on-scrim)]" : "border-white/60 text-white"}`}>{text(value.secondaryCtaLabel)}</a> : null}
       </div></div>
     </section>;
   }
@@ -100,7 +113,7 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
   }
   if (value.type === "cta_banner") {
     const link = internalLink(value.ctaHref);
-    return <section className="px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center text-white" style={{ backgroundColor: "var(--site-primary)" }}><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>{value.ctaLabel && link ? <a {...link} className="mt-[var(--ps-space-6)] inline-flex rounded-lg bg-[var(--ps-surface)] px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-[var(--ps-text)]">{text(value.ctaLabel)}</a> : null}</section>;
+    return <section className={`px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center ${tableFlame ? "text-[var(--tf-on-band)]" : "text-white"}`} style={{ backgroundColor: tableFlame ? "var(--tf-band)" : "var(--site-primary)" }}><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>{value.ctaLabel && link ? <a {...link} className={`mt-[var(--ps-space-6)] inline-flex rounded-lg px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold ${tableFlame ? "" : "bg-[var(--ps-surface)] text-[var(--ps-text)]"}`} style={tableFlame ? { backgroundColor: "var(--ps-accent)", color: "var(--tf-on-accent)" } : undefined}>{text(value.ctaLabel)}</a> : null}</section>;
   }
   return null;
 }
@@ -115,6 +128,8 @@ export function V2WebsitePreviewClient({
   menuItems,
   emittedPages,
   accentId,
+  paletteId,
+  backgroundPattern = "none",
   currency,
   currencyLocale,
   business,
@@ -159,9 +174,26 @@ export function V2WebsitePreviewClient({
   const navigateToPreviewPage = (targetSlug: string) => {
     if (resolved.pages.some((candidate) => candidate.slug === targetSlug)) setPageSlug(targetSlug);
   };
-  const themeStyle = v2ThemeStyle(template, {
-    brand: { accentId },
-  }) as CSSProperties;
+  const appearanceExtras = content.template_extras && typeof content.template_extras === "object"
+    ? content.template_extras as Record<string, unknown>
+    : {};
+  const draftAppearance = appearanceExtras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
+  const draftAppearanceRecord = draftAppearance && typeof draftAppearance === "object" && !Array.isArray(draftAppearance)
+    ? draftAppearance as Record<string, unknown>
+    : {};
+  const activePaletteId = template.palettes?.some((palette) => palette.id === draftAppearanceRecord.paletteId)
+    ? draftAppearanceRecord.paletteId as string
+    : paletteId;
+  const activePattern = template.patterns?.some((pattern) => pattern.id === draftAppearanceRecord.backgroundPattern)
+    ? draftAppearanceRecord.backgroundPattern as "none" | "dots"
+    : backgroundPattern;
+  const themeStyle = {
+    ...v2ThemeStyle(template, { brand: { accentId, paletteId: activePaletteId, backgroundPattern: activePattern } }),
+    ...(activePattern === "dots" && template.palettes?.length ? {
+      backgroundImage: "radial-gradient(circle, var(--tf-dot) 1px, transparent 1px)",
+      backgroundSize: "20px 20px",
+    } : {}),
+  } as CSSProperties;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -203,14 +235,14 @@ export function V2WebsitePreviewClient({
   }, [emittedPages, websiteId]);
 
   return (
-    <div style={themeStyle} className="public-site min-h-screen bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]">
+    <div style={themeStyle} data-background-pattern={template.palettes?.length ? activePattern : undefined} className="public-site min-h-screen bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]">
       <V2SiteHeader template={templateForPage} content={content} sampleContent={sampleContent} navigation={navigation} siteTitle={siteTitle} siteSlug={siteSlug} previewMode editMode sourceMap={resolved.chromeSourceMap.menuBar} storefrontFeatures={resolved.storefrontFeatures} primaryAction={resolved.primaryAction.primary} availablePageSlugs={resolved.pages.map((candidate) => candidate.slug)} onPageNavigate={navigateToPreviewPage} />
       <main>{page?.blocks.map((block, index) => {
         const blockMap = resolved.sourceMap[block.id ?? ""] ?? {};
         const hasSample = Object.values(blockMap).some((entry) => entry.sampled);
         return <div key={block.id ?? index} className="relative" data-sample-content={hasSample ? "true" : undefined}>
           {hasSample ? <span className="absolute right-4 top-3 z-10 rounded-full bg-amber-100 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-semibold text-amber-900">Sample content</span> : null}
-          <PreviewBlock block={block} menuItems={currentMenuItems} currency={displayCurrency} currencyLocale={locale} nextDayLabel={storeT("nextDay")} closedLabel={storeT("closed")} addFirstDishLabel={storeT("addFirstDish")} manageMenuLabel={storeT("manageMenu")} siteSlug={siteSlug} onPageNavigate={navigateToPreviewPage} />
+          <PreviewBlock block={block} menuItems={currentMenuItems} currency={displayCurrency} currencyLocale={locale} nextDayLabel={storeT("nextDay")} closedLabel={storeT("closed")} addFirstDishLabel={storeT("addFirstDish")} manageMenuLabel={storeT("manageMenu")} siteSlug={siteSlug} onPageNavigate={navigateToPreviewPage} tableFlame={template.id === "restaurant-table-flame"} />
         </div>;
       })}</main>
       <V2SiteFooter template={templateForPage} content={content} sampleContent={sampleContent} navigation={navigation} siteTitle={siteTitle} siteSlug={siteSlug} previewMode editMode sourceMap={resolved.chromeSourceMap.footer} storefrontFeatures={resolved.storefrontFeatures} availablePageSlugs={resolved.pages.map((candidate) => candidate.slug)} todayHours={resolved.todayHours} onPageNavigate={navigateToPreviewPage} />

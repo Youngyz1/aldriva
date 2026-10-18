@@ -166,6 +166,7 @@ export function HeroBlockRenderer({
   editMode,
   sourceMap,
   accentColor,
+  tableFlame = false,
 }: {
   block: HeroBlock;
   siteSlug?: string;
@@ -173,6 +174,7 @@ export function HeroBlockRenderer({
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
   accentColor?: string;
+  tableFlame?: boolean;
 }) {
   const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) || "" : "";
   const safeCtaHref = block.ctaHref
@@ -187,16 +189,22 @@ export function HeroBlockRenderer({
     const hasPhoto = Boolean(
       safeBgImage && !safeBgImage.endsWith("/placeholders/restaurant/hero.svg")
     );
-    const accent = accentColor || "#c65d3b";
-    const ctaForeground = readableOn(accent, ["#090909", "#faf6ef"]);
+    const accent = accentColor || (tableFlame ? "var(--ps-accent)" : "#c65d3b");
+    const ctaForeground = tableFlame ? "var(--tf-on-accent)" : readableOn(accent, ["#090909", "#faf6ef"]);
+    const heroText = tableFlame ? "text-[var(--tf-on-scrim)]" : "text-[#faf6ef]";
+    const scrim = tableFlame
+      ? "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.72) 0%, rgba(var(--tf-scrim-rgb), 0.70) 38%, rgba(var(--tf-scrim-rgb), 0.68) 100%)"
+      : "linear-gradient(to top, rgba(35, 33, 31, 0.72) 0%, rgba(35, 33, 31, 0.70) 38%, rgba(35, 33, 31, 0.68) 100%)";
     const logoMark = block.logoMark ? safeImageSrc(block.logoMark) : "";
     return (
       <section className="relative z-0 flex min-h-[440px] w-full items-end overflow-visible md:min-h-[560px]" data-site-motion-hero>
         <div
           className="absolute inset-x-0 -top-12 -bottom-12 -z-10 overflow-hidden md:-top-20 md:-bottom-20"
           style={{
-            backgroundImage: hasPhoto ? undefined : "linear-gradient(125deg, #c65d3b 0%, #7c2d12 48%, #23211f 100%)",
-            backgroundColor: "#23211f",
+            backgroundImage: hasPhoto ? undefined : tableFlame
+              ? "linear-gradient(125deg, var(--tf-accent) 0%, var(--tf-accent-deep) 48%, var(--tf-band) 100%)"
+              : "linear-gradient(125deg, #c65d3b 0%, #7c2d12 48%, #23211f 100%)",
+            backgroundColor: tableFlame ? "var(--tf-band)" : "#23211f",
             backgroundSize: "cover",
             backgroundPosition: block.imagePosition || "center",
           }}
@@ -223,21 +231,21 @@ export function HeroBlockRenderer({
           <div
             aria-hidden="true"
             className="absolute inset-0"
-            style={{ background: "linear-gradient(to top, rgba(35, 33, 31, 0.72) 0%, rgba(35, 33, 31, 0.70) 38%, rgba(35, 33, 31, 0.68) 100%)" }}
+            style={{ background: scrim }}
           />
         </div>
         <div className="mx-auto w-full max-w-6xl px-6">
-          <div className="mb-10 max-w-4xl text-left text-[#faf6ef] md:mb-16">
+          <div className={`mb-10 max-w-4xl text-left ${heroText} md:mb-16`}>
             {block.tagline ? (
-              <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#faf6ef]">{block.tagline}</p>
+              <p className={`mb-4 text-[13px] font-semibold uppercase tracking-[0.08em] ${heroText}`}>{block.tagline}</p>
             ) : null}
             {block.heading ? (
-              <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="max-w-4xl font-[var(--v2-heading-font)] text-[40px] font-medium leading-[1.08] tracking-[-0.025em] text-[#faf6ef] md:text-[72px]">
+              <h1 {...elementPathProps(editMode, sourceMap, "heading")} className={`max-w-4xl font-[var(--v2-heading-font)] text-[40px] font-medium leading-[1.08] tracking-[-0.025em] ${heroText} md:text-[72px]`}>
                 {block.heading}
               </h1>
             ) : null}
             {block.subheading ? (
-              <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#faf6ef] md:text-[17px]">{block.subheading}</p>
+              <p className={`mt-4 max-w-2xl text-base leading-relaxed ${heroText} md:text-[17px]`}>{block.subheading}</p>
             ) : null}
             {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
               <div className="mt-7 flex flex-wrap items-center justify-start gap-3">
@@ -245,7 +253,7 @@ export function HeroBlockRenderer({
                   <a
                     {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                     href={safeCtaHref}
-                    className="tf-button inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#faf6ef]"
+                    className={`tf-button inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 ${tableFlame ? "focus-visible:outline-[var(--tf-on-scrim)]" : "focus-visible:outline-[#faf6ef]"}`}
                     style={{ backgroundColor: accent, color: ctaForeground }}
                   >
                     {block.ctaLabel}
@@ -255,7 +263,7 @@ export function HeroBlockRenderer({
                   <a
                     {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                     href={safeSecCtaHref}
-                    className="tf-button inline-flex min-h-12 items-center justify-center rounded-full border-[1.5px] border-[#faf6ef] px-6 py-3 text-sm font-semibold text-[#faf6ef] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#faf6ef]"
+                    className={`tf-button inline-flex min-h-12 items-center justify-center rounded-full border-[1.5px] px-6 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 ${tableFlame ? "border-[var(--tf-on-scrim)] text-[var(--tf-on-scrim)] focus-visible:outline-[var(--tf-on-scrim)]" : "border-[#faf6ef] text-[#faf6ef] focus-visible:outline-[#faf6ef]"}`}
                   >
                     {block.secondaryCtaLabel}
                   </a>
@@ -263,9 +271,9 @@ export function HeroBlockRenderer({
               </div>
             ) : null}
             {block.metaPills?.length ? (
-              <ul className="mt-6 flex flex-wrap justify-start gap-2 text-xs text-[#faf6ef]">
+              <ul className={`mt-6 flex flex-wrap justify-start gap-2 text-xs ${heroText}`}>
                 {block.metaPills.map((pill, index) => (
-                  <li key={`${pill.label}-${index}`} className="rounded-full border border-white/45 bg-[#23211f]/80 px-3 py-2">
+                  <li key={`${pill.label}-${index}`} className={`rounded-full border px-3 py-2 ${tableFlame ? "border-[var(--tf-on-scrim)]/45 bg-[var(--tf-band)]/80" : "border-white/45 bg-[#23211f]/80"}`}>
                     {pill.href ? <a href={sanitizeUrl(pill.href)} className="underline-offset-4 hover:underline">{pill.label}</a> : pill.label}
                   </li>
                 ))}
@@ -532,12 +540,12 @@ function FeaturesBlockRenderer({
               className={`flex flex-col justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs transition hover:shadow-sm ${tableFlame ? "tf-card overflow-hidden p-0" : "p-[var(--ps-space-6)]"}`}
             >
               {tableFlame ? (
-                <div className="flex h-32 items-center justify-center bg-[#f1e9dd] sm:h-40">
+                <div className="flex h-32 items-center justify-center bg-[var(--tf-subtle)] sm:h-40">
                   {safeBusinessLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={safeBusinessLogo} alt="" className="max-h-16 max-w-24 object-contain" />
                   ) : (
-                    <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-6xl font-medium text-[#6b5d52]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
+                    <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-6xl font-medium text-[var(--tf-muted)]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
                   )}
                 </div>
               ) : null}
@@ -612,7 +620,7 @@ function AboutBlockRenderer({
               </div>
             ) : null}
           </div>
-          <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[#f1e9dd]">
+          <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--tf-subtle)]">
             {safeFounderImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img {...elementPathProps(editMode, sourceMap, "founderImage")} src={safeFounderImage} alt={businessName || "Our story"} className="h-full w-full object-cover" loading="lazy" />
@@ -620,7 +628,7 @@ function AboutBlockRenderer({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={safeBusinessLogo} alt="" className="max-h-24 max-w-36 object-contain" />
             ) : (
-              <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-medium text-[#6b5d52]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
+              <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-medium text-[var(--tf-muted)]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
             )}
           </div>
         </div>
@@ -1941,6 +1949,7 @@ async function MenuEmbedBlockRenderer({
   sectionAlign?: "left" | "center";
 }) {
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
+  const tableFlameRows = siteTemplateId === "restaurant-table-flame" && block.variant === "rows";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
@@ -2071,7 +2080,7 @@ async function MenuEmbedBlockRenderer({
                 {sec.isDraft && <DraftBadge />}
               </div>
               {sec.description && <p className="mt-[var(--ps-space-1)] text-sm text-[var(--ps-muted)]">{sec.description}</p>}
-              <div className={block.variant === "rows" ? "mt-4 divide-y divide-[#e6dccd] border-y border-[#e6dccd]" : "mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2"}>
+              <div className={block.variant === "rows" ? `mt-4 divide-y ${tableFlameRows ? "divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : "divide-[#e6dccd] border-y border-[#e6dccd]"}` : "mt-[var(--ps-space-4)] grid gap-[var(--ps-space-4)] sm:grid-cols-2"}>
                 {sec.items.length === 0 ? (
                   <div className="text-xs text-[var(--ps-muted)]">No items in this section.</div>
                 ) : (
@@ -2122,7 +2131,7 @@ async function MenuEmbedBlockRenderer({
                         </div>
                         {block.variant === "rows" && safeImg ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={safeImg} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[#e6dccd] object-cover" loading="lazy" />
+                          <img src={safeImg} alt="" className={`h-[88px] w-[88px] shrink-0 rounded-xl border object-cover ${tableFlameRows ? "border-[var(--tf-border)]" : "border-[#e6dccd]"}`} loading="lazy" />
                         ) : null}
                       </div>
                     );
@@ -2217,15 +2226,15 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center" }) {
+function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean }) {
   const variantClasses =
     block.variant === "dark"
-      ? "bg-[var(--ps-text)] text-white"
+      ? tableFlame ? "bg-[var(--ps-text)] text-[var(--tf-on-ink)]" : "bg-[var(--ps-text)] text-white"
       : block.variant === "light"
         ? "bg-[var(--ps-neutral)] text-[var(--ps-text)] border border-[var(--ps-border)]"
         : block.variant === "footer"
-        ? "bg-[#23211f] text-[#faf6ef]"
-        : "text-white";
+        ? tableFlame ? "bg-[var(--tf-band)] text-[var(--tf-on-band)]" : "bg-[#23211f] text-[#faf6ef]"
+        : tableFlame ? "bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)]" : "text-white";
 
   const safeCtaHref = block.ctaHref
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
@@ -2236,7 +2245,7 @@ function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAl
       className={`w-full ${sectionAlign === "left" ? "text-left" : "text-center"} ${variantClasses}`}
       style={
         block.variant === "footer"
-          ? { backgroundColor: "#23211f", color: "#faf6ef" }
+          ? tableFlame ? { backgroundColor: "var(--tf-band)", color: "var(--tf-on-band)" } : { backgroundColor: "#23211f", color: "#faf6ef" }
           : block.variant !== "dark" && block.variant !== "light"
           ? { backgroundColor: "var(--ps-accent)" }
           : {}
@@ -2299,19 +2308,26 @@ function SectionEnvelopeWrapper({
       ? "mx-auto w-full max-w-6xl px-6"
       : getContainerClass(container as never);
   const tableFlameCta = tableFlame && block.type === "cta_banner";
+  const tableFlameDots = tableFlame && bg?.pattern === "dots";
   const sectionAttributes = {
     "data-block-id": blockId,
     "data-section-align": sectionAlign,
     ...(tableFlame && block.type !== "hero" ? { "data-site-motion-section": "true" } : {}),
+    ...(tableFlameDots ? { "data-background-pattern": "dots" } : {}),
   };
 
   // Respect visibility — hidden sections already filtered via isBlockVisible at call sites, but keep guard
   const isVisible = raw.visible !== false;
   if (!isVisible) return null as unknown as React.ReactElement;
 
-  const wrapperStyle = tableFlameCta
-    ? { ...(bgStyle as React.CSSProperties | undefined), backgroundColor: "#23211f" }
-    : bgStyle as React.CSSProperties | undefined;
+  const wrapperStyle = {
+    ...(bgStyle as React.CSSProperties | undefined),
+    ...(tableFlameDots ? {
+      backgroundImage: "radial-gradient(circle, var(--tf-dot) 1px, transparent 1px)",
+      backgroundSize: "20px 20px",
+    } : {}),
+    ...(tableFlameCta ? { backgroundColor: "var(--tf-band)" } : {}),
+  };
   // Outer section carries background, spacing, visibility, overlay — full-width
   const outerClass = [hiddenClass, spacingClass, hasOverlay ? "relative" : "", tableFlameCta ? "w-full" : ""].filter(Boolean).join(" ");
   const hasOuter = Boolean(hiddenClass || spacingClass || bgStyle || hasOverlay);
@@ -2397,7 +2413,7 @@ export async function BlockRenderer({
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} />;
+      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} tableFlame={siteTemplateId === "restaurant-table-flame"} />;
       break;
     case "features":
       content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
@@ -2482,7 +2498,7 @@ export async function BlockRenderer({
       content = <RichTextBlockRenderer block={b} />;
       break;
     case "cta_banner":
-      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} />;
+      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} />;
       break;
     case "menu_order":
       return null;

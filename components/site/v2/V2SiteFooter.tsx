@@ -98,8 +98,13 @@ export function V2SiteFooter({
     ? sampleContent.nav_labels as Record<string, unknown>
     : {};
   const footerBand = template.templateBackground.bands.find((band) => band.zone === "footer");
-  const backgroundColor = resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
-  const foregroundColor = readableOn(backgroundColor, ["#22201c", "#ffffff"]);
+  const tableFlame = template.id === "restaurant-table-flame";
+  const backgroundColor = tableFlame
+    ? "var(--tf-band)"
+    : resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
+  const foregroundColor = tableFlame
+    ? "var(--tf-on-footer)"
+    : readableOn(backgroundColor, ["#22201c", "#ffffff"]);
   const safeSocials = template.footer.showSocials
     ? ["instagram", "facebook", "tiktok", "x"].flatMap((network) => {
         const raw = socials[network];
@@ -131,7 +136,7 @@ export function V2SiteFooter({
         backgroundColor,
         color: foregroundColor,
         fontFamily: "var(--ps-font-body)",
-        ...(template.id === "restaurant-table-flame" ? { borderTopColor: "#3a3632" } : {}),
+        ...(tableFlame ? { borderTopColor: "var(--tf-hairline)" } : {}),
       }}
     >
       <div

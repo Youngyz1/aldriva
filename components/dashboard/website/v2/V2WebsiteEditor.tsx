@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ContentDoc } from "@/lib/website-content";
 import { createDraftSaveQueue } from "@/lib/draft-save-queue";
 import { checkPublishReadiness, resolveTemplateContent } from "@/lib/website-template-resolver";
 import { buildWebsiteEditorSections, getWebsiteEditorControlForSlot, toWebsiteContentDraft } from "@/lib/website-v2-editor-schema";
 import type { V2BuilderState, V2MenuItemChoice } from "@/lib/actions/website-v2";
-import { getV2MenuItemChoices } from "@/lib/actions/website-v2";
-import { discardContentDraft, publishContentDraft, saveContentDraft } from "@/lib/actions/website-content";
+import { getV2MenuItemChoices, saveV2WebsiteAppearanceDraft } from "@/lib/actions/website-v2";
+import { discardContentDraft, publishContentDraft } from "@/lib/actions/website-content";
 import { V2SlotField } from "./V2SlotField";
 import { WebsitePreviewPanel } from "./WebsitePreviewPanel";
 import { V2WebsiteLiveLink } from "./V2WebsiteLiveLink";
@@ -21,17 +21,20 @@ import { getBuilderCommerceCapability } from "@/lib/website-commerce-registry";
 import { Switch } from "@/components/ui/switch";
 import { OrderingPaymentsPanel } from "./OrderingPaymentsPanel";
 import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreLocalizedCopy } from "@/lib/website-v2-template-preview";
+import { WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 
 interface V2WebsiteEditorProps {
   initialState: V2BuilderState;
   menuItems: V2MenuItemChoice[];
+  productChoices?: V2MenuItemChoice[];
   switchTargets: TemplateSwitchTarget[];
   switchPreviews: Record<string, ReactNode>;
 }
 
-export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switchPreviews }: V2WebsiteEditorProps) {
+export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], switchTargets, switchPreviews }: V2WebsiteEditorProps) {
   const storeT = useTranslations("Storefront");
   const publicT = useTranslations("PublicSite") as unknown as (key: string, values?: Record<string, string>) => string;
+  const locale = useLocale();
   const offeringT = useTranslations("BusinessOfferings");
   const websiteId = initialState.websiteId;
   const template = initialState.templateManifest;
@@ -41,7 +44,7 @@ export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switch
   const timerRef = useRef<number | null>(null);
   const previewFocusTimer = useRef<number | null>(null);
   const queue = useMemo(() => createDraftSaveQueue<ContentDoc>(async (draft) => {
-    const result = await saveContentDraft(websiteId, toWebsiteContentDraft(draft), versionState.value);
+    const result = await saveV2WebsiteAppearanceDraft(websiteId, toWebsiteContentDraft(draft), versionState.value);
     if (result.success && result.data) {
       versionState.value = result.data.version;
       return { ok: true };
@@ -50,6 +53,18 @@ export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switch
   }, { pauseOnStaleDraft: true }), [websiteId, versionState]);
 
   const [content, setContent] = useState<ContentDoc>(initialState.contentDraftOrLive);
+  const appearanceDraft = content.template_extras && typeof content.template_extras === "object"
+    ? (content.template_extras as Record<string, unknown>)[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]
+    : undefined;
+  const appearanceValue = appearanceDraft && typeof appearanceDraft === "object" && !Array.isArray(appearanceDraft)
+    ? appearanceDraft as Record<string, unknown>
+    : {};
+  const appearancePaletteId = template.palettes?.some((palette) => palette.id === appearanceValue.paletteId)
+    ? appearanceValue.paletteId as string
+    : initialState.paletteId ?? template.defaultPaletteId ?? template.palettes?.[0]?.id;
+  const appearancePattern = template.patterns?.some((pattern) => pattern.id === appearanceValue.backgroundPattern)
+    ? appearanceValue.backgroundPattern as "none" | "dots"
+    : initialState.backgroundPattern ?? "none";
   const [storefrontOfferings, setStorefrontOfferings] = useState<string[]>(initialState.storefront.offerings ?? []);
   const [currentMenuItems, setCurrentMenuItems] = useState<V2MenuItemChoice[]>(menuItems);
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
@@ -195,6 +210,16 @@ export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switch
     });
   }, [sendSave]);
 
+  const updateAppearance = (next: { paletteId: string; backgroundPattern: "none" | "dots" }) => {
+    const currentExtras = content.template_extras && typeof content.template_extras === "object"
+      ? content.template_extras as Record<string, unknown>
+      : {};
+    updateContent("template_extras", {
+      ...currentExtras,
+      [WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]: next,
+    });
+  };
+
   const isSectionToggledOn = useCallback((sectionId: string, defaultOff?: boolean) => {
     const enabledMap = content.enabled_sections as Record<string, boolean> | undefined;
     const explicit = enabledMap?.[sectionId];
@@ -329,6 +354,7 @@ export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switch
         tenantId={initialState.tenantId}
         template={template}
         menuItems={currentMenuItems}
+        productChoices={productChoices}
         sampled={control.slotIds.some((slotId) => sampleSlots.includes(slotId))}
         onOpenMenuEditor={canManageCommerce ? () => setMenuDrawerOpen(true) : undefined}
         canManageMenu={canManageCommerce}
@@ -385,6 +411,43 @@ export function V2WebsiteEditor({ initialState, menuItems, switchTargets, switch
         </div>
         <section className={`${mobileView === "preview" ? "hidden xl:block" : ""} min-w-0 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 xl:h-full xl:min-h-0 xl:max-h-full xl:overflow-x-hidden xl:overflow-y-auto xl:overscroll-contain xl:pr-2`} aria-label="Website content sections">
           <div className="border-b border-zinc-200 p-4 dark:border-zinc-800"><h1 className="text-base font-bold">Edit your website</h1><p className="mt-1 text-xs text-zinc-500">Your template controls the layout and colors.</p></div>
+          {template.palettes?.length ? (
+            <section className="border-b border-zinc-200 p-4 dark:border-zinc-800" aria-label={publicT("appearance")}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold">{publicT("appearance")}</h2>
+                  <p className="mt-1 text-xs text-zinc-500">{publicT("appearanceDescription")}</p>
+                </div>
+                <label className="sr-only" htmlFor="website-background-pattern">{publicT("backgroundPattern")}</label>
+                <select
+                  id="website-background-pattern"
+                  value={appearancePattern}
+                  disabled={!editable}
+                  onChange={(event) => updateAppearance({ paletteId: appearancePaletteId ?? template.palettes![0].id, backgroundPattern: event.currentTarget.value as "none" | "dots" })}
+                  className="rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-xs font-medium text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  {template.patterns?.map((pattern) => <option key={pattern.id} value={pattern.id}>{locale === "fr" ? pattern.label.fr : pattern.label.en}</option>)}
+                </select>
+              </div>
+              <fieldset className="mt-3" disabled={!editable}>
+                <legend className="mb-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">{publicT("palette")}</legend>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {template.palettes.map((palette) => (
+                    <button
+                      key={palette.id}
+                      type="button"
+                      aria-pressed={appearancePaletteId === palette.id}
+                      onClick={() => updateAppearance({ paletteId: palette.id, backgroundPattern: appearancePattern })}
+                      className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left text-xs font-medium ${appearancePaletteId === palette.id ? "border-orange-500 bg-orange-50 ring-1 ring-orange-500 dark:bg-orange-950/30" : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}
+                    >
+                      <span className="h-5 w-5 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: palette.accent }} aria-hidden="true" />
+                      <span className="truncate">{locale === "fr" ? palette.label.fr : palette.label.en}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </section>
+          ) : null}
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {sections.map((section, index) => {
               const open = openSectionId === section.id;

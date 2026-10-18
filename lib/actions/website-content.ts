@@ -47,7 +47,7 @@ import { revalidatePath } from "next/cache";
 import { getOrgApproval } from "@/lib/server-approval";
 import { canPublish as canPublishApproval } from "@/lib/business-approval";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
-import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import { resolveStorefrontCurrency, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import { getTranslations } from "next-intl/server";
 
@@ -420,6 +420,26 @@ export async function publishContentDraft(
       .select("content, version")
       .eq("website_id", ctx.websiteId)
       .maybeSingle();
+    const normalizedGateContent = normalizeContent(gateDraft?.content ?? {});
+    const gateExtras = normalizedGateContent.template_extras ?? {};
+    const appearanceValue = gateExtras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
+    let appearanceToPublish: { paletteId: string; backgroundPattern: "none" | "dots" } | null = null;
+    if (appearanceValue !== undefined) {
+      if (!flagship.palettes?.length || !flagship.patterns?.length || !appearanceValue || typeof appearanceValue !== "object" || Array.isArray(appearanceValue)) {
+        return { success: false, error: "The saved appearance is not supported by this template." };
+      }
+      const appearance = appearanceValue as Record<string, unknown>;
+      const paletteId = typeof appearance.paletteId === "string" && flagship.palettes.some((palette) => palette.id === appearance.paletteId)
+        ? appearance.paletteId
+        : undefined;
+      const backgroundPattern = typeof appearance.backgroundPattern === "string" && flagship.patterns.some((pattern) => pattern.id === appearance.backgroundPattern)
+        ? appearance.backgroundPattern as "none" | "dots"
+        : undefined;
+      if (!paletteId || !backgroundPattern) {
+        return { success: false, error: "The saved appearance contains an unknown palette or background pattern." };
+      }
+      appearanceToPublish = { paletteId, backgroundPattern };
+    }
     // Stale writes are rejected BEFORE any page materialization, so a
     // version-mismatched publish never creates or touches page rows. The RPC
     // stays the atomic authority (a race between this check and the RPC still
@@ -442,7 +462,7 @@ export async function publishContentDraft(
       const readiness = checkPublishReadiness(
         templateId as string,
         templateVersion ?? flagship.version,
-        normalizeContent(gateDraft.content ?? {})
+        normalizedGateContent
       );
       if (!readiness.ready) {
         const missing = readiness.missingRequired.map((slot) => slot.label).join(", ");
@@ -671,6 +691,37 @@ export async function publishContentDraft(
           if (draftDeleteErr) throw draftDeleteErr;
         }
 
+        if (appearanceToPublish) {
+          const { data: currentWebsite, error: metadataReadError } = await supabaseAdmin
+            .from("tenant_websites")
+            .select("metadata")
+            .eq("id", ctx.websiteId)
+            .maybeSingle();
+          if (metadataReadError || !currentWebsite) {
+            throw metadataReadError ?? new Error("Website metadata could not be loaded.");
+          }
+          const currentMetadata = currentWebsite.metadata && typeof currentWebsite.metadata === "object" && !Array.isArray(currentWebsite.metadata)
+            ? currentWebsite.metadata as Record<string, unknown>
+            : {};
+          const currentBrand = currentMetadata.brand && typeof currentMetadata.brand === "object" && !Array.isArray(currentMetadata.brand)
+            ? currentMetadata.brand as Record<string, unknown>
+            : {};
+          const { error: appearanceUpdateError } = await supabaseAdmin
+            .from("tenant_websites")
+            .update({
+              metadata: {
+                ...currentMetadata,
+                brand: {
+                  ...currentBrand,
+                  paletteId: appearanceToPublish.paletteId,
+                  backgroundPattern: appearanceToPublish.backgroundPattern,
+                },
+              },
+            })
+            .eq("id", ctx.websiteId);
+          if (appearanceUpdateError) throw appearanceUpdateError;
+        }
+
         revalidatePath(`/site/${ctx.websiteSlug}`);
         for (const page of v2Resolved.pages) {
           revalidatePath(
@@ -682,7 +733,7 @@ export async function publishContentDraft(
         return {
           success: false,
           error:
-            "Content was published, but page status could not be finalized. Save the content again and republish.",
+            "Content was published, but page status or appearance could not be finalized. Save the content again and republish.",
         };
       }
     } else {
