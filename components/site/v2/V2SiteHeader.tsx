@@ -292,8 +292,15 @@ export function V2SiteHeader({
           onClick={(event) => navigatePreview(event, getSitePageHref(siteSlug, "home"), "home")}
         >
           {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
+            tableFlame && transparent ? (
+              <span className="inline-flex items-center justify-center rounded-md border border-black/10 bg-[var(--tf-base)] px-1.5 py-1 shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoSrc} alt={businessName} className="max-h-10 max-w-32 object-contain" />
+              </span>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
+            )
           ) : null}
           {(!logoSrc || tableFlame) && (
             <span className="truncate">{!logoSrc && editMode && sourceMap?.logo ? "Add logo" : businessName}</span>

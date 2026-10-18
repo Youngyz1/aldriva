@@ -12,7 +12,7 @@ import { getFlagshipTemplate, type WebsiteTemplateV2 } from "@/lib/website-templ
 import { FLAGSHIP_SAMPLES } from "@/lib/website-template-samples";
 import { resolveTemplateContent } from "@/lib/website-template-resolver";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
-import { v2ThemeStyle, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
+import { getWebsiteBackgroundPatternStyle, v2ThemeStyle, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { formatMoney as formatSharedMoney } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { isSameOriginWebsitePreviewMessage, isWebsitePreviewMessage, WEBSITE_PREVIEW_MESSAGE_SOURCE } from "@/lib/website-preview-channel";
@@ -88,11 +88,18 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
       : tableFlame
         ? { backgroundImage: "linear-gradient(125deg, var(--tf-accent) 0%, var(--tf-accent-deep) 48%, var(--tf-band) 100%)" }
         : undefined;
-    return <section className={`relative flex min-h-[520px] items-center px-[var(--ps-space-6)] py-[var(--ps-space-16)] ${tableFlame ? "bg-[var(--tf-band)] text-[var(--tf-on-scrim)]" : "bg-[var(--ps-text)] text-white"} md:min-h-[600px] md:px-[var(--ps-space-16)]`} style={heroStyle}>
+    const heroClass = tableFlame
+      ? "relative flex min-h-[520px] items-center px-[var(--ps-space-6)] py-[var(--ps-space-16)] bg-[var(--tf-band)] text-[var(--tf-on-scrim)] md:min-h-[600px] md:px-[var(--ps-space-16)]"
+      : "relative flex min-h-[520px] items-center bg-[var(--ps-text)] px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-white md:min-h-[600px] md:px-[var(--ps-space-16)]";
+    const headingClass = "font-[var(--v2-heading-font)] text-4xl font-bold leading-tight md:text-6xl" + (tableFlame ? " text-[var(--tf-on-scrim)]" : "");
+    const subheadingClass = tableFlame
+      ? "mt-[var(--ps-space-6)] max-w-xl text-base leading-7 md:text-lg text-[var(--tf-on-scrim)]"
+      : "mt-[var(--ps-space-6)] max-w-xl text-base leading-7 text-white/85 md:text-lg";
+    return <section className={heroClass} style={heroStyle}>
       <div className="mx-auto w-full max-w-6xl"><div className="max-w-2xl">
         {value.tagline ? <p className={`mb-[var(--ps-space-3)] text-sm font-semibold uppercase tracking-[.16em] ${tableFlame ? "text-[var(--tf-on-scrim)]" : "text-white/75"}`}>{text(value.tagline)}</p> : null}
-        <h1 className={`font-[var(--v2-heading-font)] text-4xl font-bold leading-tight md:text-6xl ${tableFlame ? "text-[var(--tf-on-scrim)]" : ""}`}>{text(value.heading) || "Your headline"}</h1>
-        {value.subheading ? <p className={`mt-[var(--ps-space-6)] max-w-xl text-base leading-7 md:text-lg ${tableFlame ? "text-[var(--tf-on-scrim)]" : "text-white/85"}`}>{text(value.subheading)}</p> : null}
+        <h1 className={headingClass}>{text(value.heading) || "Your headline"}</h1>
+        {value.subheading ? <p className={subheadingClass}>{text(value.subheading)}</p> : null}
         {value.ctaLabel && primaryLink ? <a {...primaryLink} className="mt-[var(--ps-space-8)] inline-flex rounded-lg px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold" style={{ backgroundColor: "var(--site-primary)", color: tableFlame ? "var(--tf-on-accent)" : "#ffffff" }}>{text(value.ctaLabel)}</a> : null}
         {value.secondaryCtaLabel && secondaryLink ? <a {...secondaryLink} className={`ml-[var(--ps-space-3)] mt-[var(--ps-space-8)] inline-flex rounded-lg border px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold ${tableFlame ? "border-[var(--tf-on-scrim)] text-[var(--tf-on-scrim)]" : "border-white/60 text-white"}`}>{text(value.secondaryCtaLabel)}</a> : null}
       </div></div>
@@ -189,10 +196,7 @@ export function V2WebsitePreviewClient({
     : backgroundPattern;
   const themeStyle = {
     ...v2ThemeStyle(template, { brand: { accentId, paletteId: activePaletteId, backgroundPattern: activePattern } }),
-    ...(activePattern === "dots" && template.palettes?.length ? {
-      backgroundImage: "radial-gradient(circle, var(--tf-dot) 1px, transparent 1px)",
-      backgroundSize: "20px 20px",
-    } : {}),
+    ...getWebsiteBackgroundPatternStyle(template, activePattern),
   } as CSSProperties;
 
   useEffect(() => {

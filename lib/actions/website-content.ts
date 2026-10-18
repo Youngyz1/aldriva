@@ -47,7 +47,7 @@ import { revalidatePath } from "next/cache";
 import { getOrgApproval } from "@/lib/server-approval";
 import { canPublish as canPublishApproval } from "@/lib/business-approval";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
-import { resolveStorefrontCurrency, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
+import { mergeWebsiteAppearanceMetadata, resolveStorefrontCurrency, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import { getTranslations } from "next-intl/server";
 
@@ -700,23 +700,10 @@ export async function publishContentDraft(
           if (metadataReadError || !currentWebsite) {
             throw metadataReadError ?? new Error("Website metadata could not be loaded.");
           }
-          const currentMetadata = currentWebsite.metadata && typeof currentWebsite.metadata === "object" && !Array.isArray(currentWebsite.metadata)
-            ? currentWebsite.metadata as Record<string, unknown>
-            : {};
-          const currentBrand = currentMetadata.brand && typeof currentMetadata.brand === "object" && !Array.isArray(currentMetadata.brand)
-            ? currentMetadata.brand as Record<string, unknown>
-            : {};
           const { error: appearanceUpdateError } = await supabaseAdmin
             .from("tenant_websites")
             .update({
-              metadata: {
-                ...currentMetadata,
-                brand: {
-                  ...currentBrand,
-                  paletteId: appearanceToPublish.paletteId,
-                  backgroundPattern: appearanceToPublish.backgroundPattern,
-                },
-              },
+              metadata: mergeWebsiteAppearanceMetadata(currentWebsite.metadata, appearanceToPublish),
             })
             .eq("id", ctx.websiteId);
           if (appearanceUpdateError) throw appearanceUpdateError;

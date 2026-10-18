@@ -133,6 +133,15 @@ function SectionHeading({
   );
 }
 
+function TableFlameFallbackMark({ businessName, className }: { businessName?: string; className: string }) {
+  const initial = businessName?.trim().charAt(0).toUpperCase() || "T";
+  return (
+    <span aria-hidden="true" className={`font-[var(--v2-heading-font)] ${className} text-[var(--tf-muted)]`}>
+      {initial}
+    </span>
+  );
+}
+
 type ElementSourceMap = Record<string, TemplateSourceMapEntry>;
 
 function elementPathProps(
@@ -505,7 +514,6 @@ function FeaturesBlockRenderer({
   siteTemplateId,
   sectionAlign,
   businessName,
-  businessLogo,
 }: {
   block: FeaturesBlock;
   editMode?: boolean;
@@ -517,7 +525,6 @@ function FeaturesBlockRenderer({
 }) {
   const cols = block.columns ?? 3;
   const tableFlame = siteTemplateId === "restaurant-table-flame";
-  const safeBusinessLogo = businessLogo ? safeImageSrc(businessLogo) : "";
   const items = block.items ?? [];
   const colClass =
     cols === 2
@@ -541,12 +548,7 @@ function FeaturesBlockRenderer({
             >
               {tableFlame ? (
                 <div className="flex h-32 items-center justify-center bg-[var(--tf-subtle)] sm:h-40">
-                  {safeBusinessLogo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={safeBusinessLogo} alt="" className="max-h-16 max-w-24 object-contain" />
-                  ) : (
-                    <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-6xl font-medium text-[var(--tf-muted)]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
-                  )}
+                  <TableFlameFallbackMark businessName={businessName} className="text-6xl font-medium" />
                 </div>
               ) : null}
               <div className={tableFlame ? "p-6" : ""}>
@@ -588,7 +590,6 @@ function AboutBlockRenderer({
   siteTemplateId,
   sectionAlign,
   businessName,
-  businessLogo,
 }: {
   block: AboutBlock;
   editMode?: boolean;
@@ -601,7 +602,6 @@ function AboutBlockRenderer({
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
 
   if (siteTemplateId === "restaurant-table-flame") {
-    const safeBusinessLogo = businessLogo ? safeImageSrc(businessLogo) : "";
     return (
       <section id="about" className="w-full">
         <SectionHeading heading={block.heading || "Our Story"} subheading={block.subheading} align={sectionAlign} />
@@ -624,11 +624,8 @@ function AboutBlockRenderer({
             {safeFounderImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img {...elementPathProps(editMode, sourceMap, "founderImage")} src={safeFounderImage} alt={businessName || "Our story"} className="h-full w-full object-cover" loading="lazy" />
-            ) : safeBusinessLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={safeBusinessLogo} alt="" className="max-h-24 max-w-36 object-contain" />
             ) : (
-              <span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-medium text-[var(--tf-muted)]">{businessName?.trim().charAt(0).toUpperCase() || "T"}</span>
+              <TableFlameFallbackMark businessName={businessName} className="text-8xl font-medium" />
             )}
           </div>
         </div>
@@ -724,16 +721,21 @@ function GalleryBlockRenderer({
   sourceMap,
   siteTemplateId,
   sectionAlign,
+  businessName,
 }: {
   block: GalleryBlock;
   editMode?: boolean;
   sourceMap?: ElementSourceMap;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
+  businessName?: string;
 }) {
   const tableFlame = siteTemplateId === "restaurant-table-flame";
   const cols = block.columns ?? 3;
   const layout = block.layout ?? "grid";
+  const images = tableFlame && !(block.images?.length)
+    ? [{ src: "", alt: "" }]
+    : block.images ?? [];
 
   const colClass = tableFlame
     ? "grid-cols-2 lg:grid-cols-3"
@@ -750,9 +752,13 @@ function GalleryBlockRenderer({
 
       {layout === "carousel" ? (
         <div className="flex gap-[var(--ps-space-4)] overflow-x-auto pb-[var(--ps-space-4)] snap-x snap-mandatory scrollbar-thin">
-          {(block.images ?? []).map((img, i) => {
+          {images.map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
-            if (!safeImgSrc) return null;
+            if (!safeImgSrc) return tableFlame ? (
+              <figure key={i} className="flex aspect-[4/3] w-72 shrink-0 items-center justify-center snap-start overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--tf-subtle)] sm:w-80">
+                <TableFlameFallbackMark businessName={businessName} className="text-7xl font-medium" />
+              </figure>
+            ) : null;
             return (
               <figure
                 key={i}
@@ -777,9 +783,13 @@ function GalleryBlockRenderer({
         </div>
       ) : layout === "masonry" ? (
         <div className="columns-1 gap-[var(--ps-space-4)] sm:columns-2 lg:columns-3">
-          {(block.images ?? []).map((img, i) => {
+          {images.map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
-            if (!safeImgSrc) return null;
+            if (!safeImgSrc) return tableFlame ? (
+              <figure key={i} className="mb-[var(--ps-space-4)] flex min-h-56 break-inside-avoid items-center justify-center overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--tf-subtle)]">
+                <TableFlameFallbackMark businessName={businessName} className="text-7xl font-medium" />
+              </figure>
+            ) : null;
             return (
               <figure
                 key={i}
@@ -804,9 +814,13 @@ function GalleryBlockRenderer({
         </div>
       ) : (
         <div className={`grid ${tableFlame ? "grid-cols-2 gap-4 lg:grid-cols-3" : `grid-cols-1 gap-[var(--ps-space-4)] ${colClass}`}`}>
-          {(block.images ?? []).map((img, i) => {
+          {images.map((img, i) => {
             const safeImgSrc = safeImageSrc(img.src);
-            if (!safeImgSrc) return null;
+            if (!safeImgSrc) return tableFlame ? (
+              <figure key={i} className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--tf-subtle)]">
+                <TableFlameFallbackMark businessName={businessName} className="text-7xl font-medium" />
+              </figure>
+            ) : null;
             return (
               <figure
                 key={i}
@@ -2069,7 +2083,7 @@ async function MenuEmbedBlockRenderer({
         <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
       </div>
       {!hasMenuItems ? (
-        <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("menuComingSoon")}</p>
+        <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : (
         <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig} accentColor={accentColor} variant={siteTemplateId === "restaurant-table-flame" && block.variant === "rows" ? "rows" : "cards"}>
         <div className="space-y-[var(--ps-space-8)]">
@@ -2422,7 +2436,7 @@ export async function BlockRenderer({
       content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
       break;
     case "gallery":
-      content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
+      content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} />;
       break;
     case "testimonials":
       content = <TestimonialsBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;

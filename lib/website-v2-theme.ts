@@ -79,6 +79,38 @@ export function getWebsiteBackgroundPattern(template: WebsiteTemplateV2, metadat
     : "none";
 }
 
+export function getWebsiteBackgroundPatternStyle(
+  template: WebsiteTemplateV2,
+  pattern: "none" | "dots"
+): Record<string, string> {
+  return pattern === "dots" && template.palettes?.length
+    ? {
+        backgroundImage: "radial-gradient(circle, var(--tf-dot) 1px, transparent 1px)",
+        backgroundSize: "20px 20px",
+      }
+    : {};
+}
+
+export function mergeWebsiteAppearanceMetadata(
+  metadata: unknown,
+  appearance: { paletteId: string; backgroundPattern: "none" | "dots" }
+): Record<string, unknown> {
+  const currentMetadata = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : {};
+  const currentBrand = currentMetadata.brand && typeof currentMetadata.brand === "object" && !Array.isArray(currentMetadata.brand)
+    ? currentMetadata.brand as Record<string, unknown>
+    : {};
+  return {
+    ...currentMetadata,
+    brand: {
+      ...currentBrand,
+      paletteId: appearance.paletteId,
+      backgroundPattern: appearance.backgroundPattern,
+    },
+  };
+}
+
 function toRgbChannels(color: string): string {
   const value = color.startsWith("#") ? color.slice(1) : color;
   const full = value.length === 3 ? value.split("").map((digit) => digit + digit).join("") : value;

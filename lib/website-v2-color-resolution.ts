@@ -121,7 +121,8 @@ function readableTint(background: string, ink: string): string {
  * pixel compatibility. Other palettes use fixed 5.5%/8%/18% tints; the muted
  * foreground is moved only as far toward ink as needed for 4.5:1 over the
  * worst-case 12% ink dot. Accent text and all foreground roles pass through
- * readableOn. The scrim is the darker of base and accessible accentDeep.
+ * readableOn. Hero scrims are derived from ink so light palettes never put
+ * dark text over photos.
  */
 export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): ResolvedWebsitePalette {
   const dotBackground = mix(palette.base, palette.ink, 0.12);
@@ -174,8 +175,11 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
   const accentDeep = readableOn(palette.base, [palette.accent, mix(palette.accent, palette.ink, 0.55), palette.ink]);
   const onAccent = readableOn(palette.accent, [palette.ink, palette.base, "#faf6ef", "#090909"]);
   const onInk = readableOn(palette.ink, ["#ffffff", palette.base, "#090909"]);
-  const band = mix(palette.base, palette.ink, 0.08);
-  const scrim = luminance(palette.base) <= luminance(accentDeep) ? palette.base : accentDeep;
+  const darkBase = luminance(palette.base) < 0.2;
+  const band = darkBase
+    ? mix(palette.base, palette.ink, 0.18)
+    : mix(palette.ink, "#000000", 0.08);
+  const scrim = mix(palette.ink, "#000000", luminance(palette.ink) > 0.35 ? 0.82 : 0.12);
   const onBase = readableOn(palette.base, [palette.ink, accentDeep, "#faf6ef", "#090909"]);
   const onHeader = readableOn(palette.base, ["#22201c", "#ffffff"]);
   const onBand = readableOn(band, [palette.ink, palette.base, "#faf6ef", "#090909"]);
