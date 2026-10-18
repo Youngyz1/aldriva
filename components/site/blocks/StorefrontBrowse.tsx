@@ -130,8 +130,8 @@ interface StorefrontBrowseProps {
   itemMode?: "details" | "links";
   categoryTiles?: boolean;
   pageSize?: number;
-  /** Table & Flame printed-menu presentation. Absent keeps existing cards. */
-  variant?: "cards" | "rows";
+  /** Template-scoped menu presentation. Absent keeps existing cards. */
+  variant?: "cards" | "rows" | "editorial";
   orderConfig?: StorefrontOrderConfig;
   accentColor?: string;
   /**
@@ -259,6 +259,7 @@ export function StorefrontBrowse({
   variant = "cards",
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
+  const isEditorial = variant === "editorial";
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
@@ -489,7 +490,7 @@ export function StorefrontBrowse({
 
       {showGroups && categoryGroups.length > 1 ? (
         <div
-          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : "bg-[var(--ps-surface)]/95"}`}
+          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : isEditorial ? "bg-[var(--tf-base)]" : "bg-[var(--ps-surface)]/95"}`}
           role="group"
           aria-label={labels.categories}
           id={chipsId}
@@ -507,7 +508,9 @@ export function StorefrontBrowse({
                   type="button"
                   aria-pressed={active}
                   onClick={() => setActiveGroup(groupId)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                  className={isEditorial
+                    ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
+                    : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
                     active
                       ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
                       : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
@@ -600,7 +603,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+              <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -625,6 +628,27 @@ export function StorefrontBrowse({
                       <span className="text-sm font-semibold text-[var(--ps-text)]">{item.name}</span>
                     </article>
                   )
+                ) : isEditorial ? (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
+                    onClick={(event) => openSheet(item.id, event.currentTarget)}
+                    className={`savannah-button group flex min-h-12 w-full items-start gap-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ps-accent-hover)] ${item.isSoldOut ? "opacity-60" : ""}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-4">
+                        <span className="font-[var(--v2-heading-font)] text-lg font-bold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+                        {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                      </span>
+                      {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+                      {item.isSoldOut && labels.soldOut ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{labels.soldOut}</span> : null}
+                    </span>
+                    {item.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 object-cover" loading="lazy" />
+                    ) : null}
+                  </button>
                 ) : variant === "rows" ? (
                   <TableFlameMenuRows
                     items={[item]}
@@ -715,6 +739,7 @@ export function StorefrontBrowse({
           detailRows={selected.detailRows}
           action={selected.action}
           tableFlame={isTableFlame}
+          savannah={isEditorial}
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
@@ -726,7 +751,9 @@ export function StorefrontBrowse({
       {/* Floating cart bar */}
       {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
-          <div className={`flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
+          <div className={isEditorial
+            ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"
+            : `flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
             <div className="flex items-center gap-[var(--ps-space-3)]">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ps-accent)] text-xs font-bold">
                 {totalCartCount}
@@ -738,7 +765,7 @@ export function StorefrontBrowse({
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="ps-button ps-button-primary rounded-xl text-xs font-bold transition"
+              className={`ps-button ps-button-primary${isEditorial ? " savannah-button rounded-none shadow-none" : " rounded-xl"} text-xs font-bold transition`}
             >
               {labels.viewOrder || "View order"}
             </button>
@@ -754,6 +781,7 @@ export function StorefrontBrowse({
           allItems={allItems}
           labels={labels}
           accentColor={accentColor}
+          savannah={isEditorial}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={(index, qty) => {
             if (qty <= 0) {
@@ -787,6 +815,7 @@ export function StorefrontBrowse({
           currency={orderSuccess.currency ?? orderConfig.currency}
           labels={labels}
           tableFlame={isTableFlame}
+          savannah={isEditorial}
           onClose={() => setOrderSuccess(null)}
         />
       ) : null}
@@ -823,6 +852,7 @@ function ItemDetailSheet({
   detailRows,
   action,
   tableFlame,
+  savannah,
   closeLabel,
   labels,
   orderConfig,
@@ -842,6 +872,7 @@ function ItemDetailSheet({
   detailRows: Array<{ label: string; value: string }>;
   action?: { label: string; href: string };
   tableFlame: boolean;
+  savannah: boolean;
   closeLabel: string;
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
@@ -931,7 +962,7 @@ function ItemDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70" : "bg-black/50"} p-0 sm:items-center sm:p-[var(--ps-space-6)]`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -942,11 +973,11 @@ function ItemDetailSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-[var(--ps-surface)] shadow-xl outline-none sm:rounded-2xl"
+        className={`max-h-[88dvh] w-full max-w-lg overflow-y-auto ${savannah ? "rounded-none bg-[var(--tf-base)] shadow-none" : "rounded-t-2xl bg-[var(--ps-surface)] shadow-xl sm:rounded-2xl"} outline-none`}
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="aspect-[16/9] w-full rounded-t-2xl object-cover" />
+          <img src={image} alt="" className={`aspect-[16/9] w-full object-cover ${savannah ? "rounded-none" : "rounded-t-2xl"}`} />
         ) : null}
         <div className="space-y-[var(--ps-space-3)] p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]">
           <div className="flex items-start justify-between gap-[var(--ps-space-3)]">
@@ -995,7 +1026,7 @@ function ItemDetailSheet({
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700"
+                  className={savannah ? "bg-[var(--tf-subtle)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-[var(--tf-on-subtle)]" : "rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700"}
                 >
                   {tag.replace("_", " ")}
                 </span>
@@ -1140,6 +1171,7 @@ function OrderDrawer({
   allItems,
   labels,
   accentColor,
+  savannah,
   onClose,
   onUpdateQuantity,
   onRemoveItem,
@@ -1150,6 +1182,7 @@ function OrderDrawer({
   allItems: BrowseItem[];
   labels: StorefrontBrowseLabels;
   accentColor?: string;
+  savannah: boolean;
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
@@ -1367,7 +1400,7 @@ function OrderDrawer({
   if (onlineSecret && onlineOrderNumber) {
     return (
       <div
-        className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
+        className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70" : "bg-black/50"} p-0 sm:items-center sm:p-[var(--ps-space-6)]`}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -1376,7 +1409,7 @@ function OrderDrawer({
           ref={panelRef}
           role="dialog"
           aria-modal="true"
-          className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl outline-none sm:rounded-2xl"
+          className={`max-h-[90dvh] w-full max-w-lg flex flex-col ${savannah ? "rounded-none bg-[var(--tf-base)] shadow-none" : "rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl sm:rounded-2xl"} outline-none`}
         >
           <div className="flex items-center justify-between border-b border-[var(--ps-border)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)]">
             <h2 className="text-base font-bold text-[var(--ps-text)]">{labels.payOnline || "Pay online"}</h2>
@@ -1396,7 +1429,7 @@ function OrderDrawer({
               <span className="text-[var(--ps-accent-hover)]">{formattedTotal}</span>
             </div>
             {errorMessage ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700">
+              <div className={savannah ? "bg-[var(--tf-subtle)] p-[var(--ps-space-3)] text-xs font-medium text-[var(--tf-ink)]" : "rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700"}>
                 {errorMessage}
               </div>
             ) : null}
@@ -1431,7 +1464,7 @@ function OrderDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-[var(--ps-space-6)]"
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70" : "bg-black/50"} p-0 sm:items-center sm:p-[var(--ps-space-6)]`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1440,7 +1473,7 @@ function OrderDrawer({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        className="max-h-[90dvh] w-full max-w-lg flex flex-col rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl outline-none sm:rounded-2xl"
+        className={`max-h-[90dvh] w-full max-w-lg flex flex-col ${savannah ? "rounded-none bg-[var(--tf-base)] shadow-none" : "rounded-t-2xl bg-[var(--ps-surface)] shadow-2xl sm:rounded-2xl"} outline-none`}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--ps-border)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)]">
@@ -1460,14 +1493,14 @@ function OrderDrawer({
         <div className="overflow-y-auto p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] space-y-[var(--ps-space-6)]">
           {/* Closed Restaurant Notice */}
           {orderConfig.isClosed ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-[var(--ps-space-3)] text-xs text-amber-900">
+            <div className={savannah ? "bg-[var(--tf-subtle)] p-[var(--ps-space-3)] text-xs text-[var(--tf-ink)]" : "rounded-xl border border-amber-200 bg-amber-50 p-[var(--ps-space-3)] text-xs text-amber-900"}>
               <div className="font-bold flex items-center gap-[var(--ps-space-2)]">
-                <svg className="h-4 w-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`h-4 w-4 shrink-0 ${savannah ? "text-[var(--tf-accent-deep)]" : "text-amber-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>Notice: Restaurant Closed</span>
               </div>
-              <p className="mt-[var(--ps-space-1)] text-amber-800">
+              <p className={`mt-[var(--ps-space-1)] ${savannah ? "text-[var(--tf-ink)]" : "text-amber-800"}`}>
                 {orderConfig.scheduledFor
                   ? `Your order will be accepted and prepared for reopening on ${new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}.`
                   : labels.scheduledNotice || "The restaurant is currently closed. Your order will be prepared for reopening."}
@@ -1755,7 +1788,7 @@ function OrderDrawer({
 
             {/* Error Message */}
             {errorMessage ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700">
+              <div className={savannah ? "bg-[var(--tf-subtle)] p-[var(--ps-space-3)] text-xs font-medium text-[var(--tf-ink)]" : "rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700"}>
                 {errorMessage}
               </div>
             ) : null}
@@ -1771,7 +1804,7 @@ function OrderDrawer({
                   <span>{labels.deliveryFee || "Delivery fee"}</span>
                   <span>
                     {displayDeliveryFee === 0 ? (
-                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                      <span className={savannah ? "text-[var(--tf-accent-deep)]" : "text-green-600"}>{labels.freeDelivery || "Free"}</span>
                     ) : (
                       formattedDeliveryFee
                     )}
@@ -1833,6 +1866,7 @@ function OrderConfirmationModal({
   currency,
   labels,
   tableFlame,
+  savannah,
   onClose,
 }: {
   orderNumber: string;
@@ -1846,6 +1880,7 @@ function OrderConfirmationModal({
   currency?: string | null;
   labels: StorefrontBrowseLabels;
   tableFlame: boolean;
+  savannah: boolean;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -1878,9 +1913,9 @@ function OrderConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-[var(--ps-space-4)]">
-      <div className="w-full max-w-sm rounded-2xl bg-[var(--ps-surface)] p-[var(--ps-space-6)] text-center shadow-2xl space-y-[var(--ps-space-4)]">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+    <div className={`fixed inset-0 z-[90] flex items-center justify-center ${savannah ? "bg-[var(--tf-scrim)]/80" : "bg-black/60"} p-[var(--ps-space-4)]`}>
+      <div className={`w-full max-w-sm ${savannah ? "bg-[var(--tf-base)] shadow-none" : "rounded-2xl bg-[var(--ps-surface)] shadow-2xl"} p-[var(--ps-space-6)] text-center space-y-[var(--ps-space-4)]`}>
+        <div className={`mx-auto flex h-14 w-14 items-center justify-center ${savannah ? "bg-[var(--tf-subtle)] text-[var(--tf-accent-deep)]" : "rounded-full bg-emerald-100 text-emerald-600"}`}>
           <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
@@ -1912,7 +1947,7 @@ function OrderConfirmationModal({
                   <span>{labels.deliveryFee || "Delivery fee"}</span>
                   <span className="tabular-nums">
                     {(deliveryFee ?? 0) === 0 ? (
-                      <span className="text-green-600">{labels.freeDelivery || "Free"}</span>
+                      <span className={savannah ? "text-[var(--tf-accent-deep)]" : "text-green-600"}>{labels.freeDelivery || "Free"}</span>
                     ) : (
                       `${currency} ${(deliveryFee ?? 0).toFixed(2)}`
                     )}
@@ -1957,7 +1992,7 @@ function OrderConfirmationModal({
         <button
           type="button"
           onClick={onClose}
-          className={`w-full rounded-xl bg-[var(--ps-text)] py-[var(--ps-space-3)] text-xs font-bold ${tableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} hover:bg-[var(--ps-muted)] transition`}
+          className={`w-full bg-[var(--ps-text)] py-[var(--ps-space-3)] text-xs font-bold ${savannah ? "rounded-none text-[var(--tf-on-ink)] hover:bg-[var(--tf-subtle)]" : `rounded-xl ${tableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} hover:bg-[var(--ps-muted)]`} transition`}
         >
           {labels.backToMenu || "Back to menu"}
         </button>

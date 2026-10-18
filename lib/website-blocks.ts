@@ -283,7 +283,7 @@ export interface MenuEmbedBlock extends BaseBlock {
   /** ISO 4217 price display code (e.g. XOF). Omit for the USD default. */
   currency?: string;
   /** Template-selected browse presentation. Absent preserves the card grid. */
-  variant?: "cards" | "rows";
+  variant?: "cards" | "rows" | "editorial";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -2093,7 +2093,7 @@ export function parseBlock(raw: unknown): Block | null {
           ? obj.selectedItemIds.filter((id) => typeof id === "string" && UUID_REGEX.test(id.trim())).map((id) => id.trim()).slice(0, BLOCK_LIMITS.MAX_ARRAY_ITEMS)
           : undefined,
         currency: normalizeCurrencyCode(obj.currency),
-        variant: obj.variant === "rows" ? "rows" : undefined,
+        variant: obj.variant === "rows" ? "rows" : obj.variant === "editorial" ? "editorial" : undefined,
       };
 
     case "cta_banner":

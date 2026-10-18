@@ -573,15 +573,17 @@ function buildHero(ctx: BuildContext): Block {
   const hours = asRecord(take(ctx, "hours", "hero.open_tag") ?? take(ctx, "hours", "hours.table"));
   const badge = hours ? asString(hours.today_tag) : undefined;
   const isTableFlame = ctx.template.id === "restaurant-table-flame";
+  const isSavannah = ctx.template.id === "restaurant-savannah";
+  const isRestaurantEditorial = isTableFlame || isSavannah;
   const tagline = asString(take(ctx, "tagline", "hero.tagline"));
   const address = asString(effectiveValue(ctx, "address"));
   const area = address?.split(",").slice(-2).join(",").trim();
   const eyebrow = isTableFlame
     ? [asString(ctx.business.businessType), area].filter(Boolean).join(" · ") || tagline
     : tagline;
-  const today = isTableFlame ? resolveTodayHours(hours, ctx.timeZone) : null;
+  const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone) : null;
   const phone = asString(effectiveValue(ctx, "phone"));
-  const metaPills = isTableFlame
+  const metaPills = isRestaurantEditorial
     ? [
         today?.open && today.close && !today.closed ? { label: `Open today until ${today.close}` } : undefined,
         address ? { label: address } : undefined,
@@ -595,7 +597,7 @@ function buildHero(ctx: BuildContext): Block {
   const logoMark = isTableFlame ? asString(take(ctx, "logo_url", "nav.logo")) : undefined;
   return {
     type: "hero",
-    variant: isTableFlame ? "full-bleed" : "split",
+    variant: isRestaurantEditorial ? "full-bleed" : "split",
     align: "left",
     tagline: eyebrow,
     heading: asString(take(ctx, "hero_headline", "hero.headline")),
@@ -609,7 +611,7 @@ function buildHero(ctx: BuildContext): Block {
     ...(logoMark ? { logoMark } : {}),
     ...(imagePosition ? { imagePosition } : {}),
     ...(metaPills.length ? { metaPills } : {}),
-    ...(isTableFlame ? { scrim: true } : {}),
+    ...(isRestaurantEditorial ? { scrim: true } : {}),
   } as Block;
 }
 
@@ -672,7 +674,7 @@ function buildAbout(ctx: BuildContext): Block {
     .slice(0, 3);
   return {
     type: "about",
-    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : {}),
+    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : ctx.template.id === "restaurant-savannah" ? { heading: "Our Story" } : {}),
     story: asString(take(ctx, "about_text", "about.text")),
     founderImage: asString(take(ctx, "about_image", "about.photo")),
     ...(highlights.length > 0 ? { highlights } : {}),
@@ -702,7 +704,7 @@ function buildTestimonials(ctx: BuildContext): Block {
     .slice(0, 3);
   return {
     type: "testimonials",
-    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Words from the table" } : {}),
+    ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Words from the table" } : ctx.template.id === "restaurant-savannah" ? { heading: "A word from our guests" } : {}),
     layout: "grid",
     items,
   } as Block;
@@ -777,10 +779,13 @@ function buildFaq(ctx: BuildContext): Block {
 
 function buildCtaBand(ctx: BuildContext): Block {
   const isFoodOrder = ctx.template.id === "food-order";
+  const isRestaurantEditorial = ctx.template.id === "restaurant-table-flame" || ctx.template.id === "restaurant-savannah";
   const heading = isFoodOrder
     ? ctx.foodOrderCopy?.offerHeading ?? "A little something special"
     : ctx.template.id === "restaurant-table-flame"
       ? ctx.restaurantCtaBandHeading
+      : ctx.template.id === "restaurant-savannah"
+        ? "Join us around the table."
       : ctx.rentalCtaBandHeading;
   return {
     type: "cta_banner",
@@ -788,7 +793,7 @@ function buildCtaBand(ctx: BuildContext): Block {
     ...(isFoodOrder && ctx.foodOrderCopy?.offerSubheading
       ? { subheading: ctx.foodOrderCopy.offerSubheading }
       : {}),
-    variant: ctx.template.id === "restaurant-table-flame" ? "footer" : "brand",
+    variant: isRestaurantEditorial ? "footer" : "brand",
   } as Block;
 }
 
@@ -812,7 +817,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     heading,
     limit,
     layout: "grid",
-    ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : {}),
+    ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : ctx.template.id === "restaurant-savannah" ? { variant: "editorial" } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
   } as Block;
@@ -856,7 +861,7 @@ function buildSectionBlock(
     case "contact": {
       const heading = ctx.template.id === "food-order"
         ? ctx.foodOrderCopy?.contactHeading ?? "Contact"
-        : ctx.template.id === "restaurant-table-flame" ? "Hours & Location"
+        : ctx.template.id === "restaurant-table-flame" || ctx.template.id === "restaurant-savannah" ? "Hours & Location"
           : section.id === "locations" ? "Pickup locations" : "Visit us";
       return buildContact(ctx, heading);
     }

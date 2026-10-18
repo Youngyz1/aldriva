@@ -44,11 +44,11 @@ export function canEditWebsiteTemplate(userRole: string | null | undefined): boo
 }
 
 /** Non-legacy templates only; the current template is marked, never excluded. */
-export function getTemplateSwitchTargets(currentTemplateId: string | null): TemplateSwitchTarget[] {
+export function getTemplateSwitchTargets(currentTemplateId: string | null, locale: "en" | "fr" = "en"): TemplateSwitchTarget[] {
   return NEW_SITE_GALLERY_TEMPLATES.map((template) => ({
     id: template.id,
-    name: template.name,
-    description: template.description,
+    name: template.localizedName?.[locale] ?? template.name,
+    description: template.localizedDescription?.[locale] ?? template.description,
     isCurrent: template.id === currentTemplateId,
   }));
 }

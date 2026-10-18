@@ -64,6 +64,8 @@ export interface WebsiteTemplatePalette {
   base: string;
   accent: string;
   ink: string;
+  /** Optional decorative hue; never used for text. */
+  soft?: string;
 }
 
 export type WebsiteTemplatePatternId = "none" | "dots";
@@ -158,6 +160,8 @@ export interface WebsiteTemplateV2 {
   version: string;
   name: string;
   description: string;
+  localizedName?: { en: string; fr: string };
+  localizedDescription?: { en: string; fr: string };
   category: WebsiteCategory;
   style: "modern" | "minimal" | "bold" | "warm";
   previewColor: string;
@@ -265,6 +269,68 @@ const TABLE_FLAME_PATTERNS: readonly WebsiteTemplatePattern[] = [
   { id: "none", label: { en: "None", fr: "Aucun" } },
   { id: "dots", label: { en: "Dots", fr: "Points" } },
 ];
+
+// ── Restaurant: Savannah ────────────────────────────────────────────────────
+
+const SAVANNAH_PALETTES: readonly WebsiteTemplatePalette[] = [
+  { id: "midnight-sapphire", label: { en: "Midnight Sapphire", fr: "Saphir de minuit" }, base: "#EEF3FB", accent: "#2F5DA8", ink: "#0C1F3F", soft: "#8FAADC" },
+  { id: "deep-sapphire", label: { en: "Deep Sapphire", fr: "Saphir profond" }, base: "#0C1F3F", accent: "#8FAADC", ink: "#EEF3FB", soft: "#2F5DA8" },
+  { id: "gallery-white", label: { en: "Gallery White", fr: "Blanc galerie" }, base: "#F9F9F9", accent: "#000000", ink: "#1B1B1B", soft: "#DADADA" },
+  { id: "dusk-sienna", label: { en: "Dusk Sienna", fr: "Terre de crépuscule" }, base: "#FBF4EA", accent: "#B5441F", ink: "#2B1810", soft: "#E8B89A" },
+  { id: "acacia", label: { en: "Acacia", fr: "Acacia" }, base: "#F3F6EE", accent: "#2F6B3A", ink: "#14241A", soft: "#A9C9A4" },
+  { id: "baobab-gold", label: { en: "Baobab Gold", fr: "Or baobab" }, base: "#FAF6EA", accent: "#C8941F", ink: "#231B0E", soft: "#E6CF8F" },
+];
+const SAVANNAH_DEFAULT_PALETTE = SAVANNAH_PALETTES[0];
+
+export const RESTAURANT_SAVANNAH: WebsiteTemplateV2 = {
+  id: "restaurant-savannah",
+  version: "1.0.0",
+  name: "Savannah",
+  localizedName: { en: "Savannah", fr: "Savannah" },
+  description: "A modern editorial restaurant site with a calm, image-led layout.",
+  localizedDescription: {
+    en: "A modern editorial restaurant site with a calm, image-led layout.",
+    fr: "Un site de restaurant éditorial et contemporain, porté par une mise en page calme et photographique.",
+  },
+  category: "restaurant",
+  style: "modern",
+  previewColor: SAVANNAH_DEFAULT_PALETTE.accent,
+  supportedCategories: ["restaurant"],
+  theme: { ...DEFAULT_THEME_CONFIG, theme: "default", primaryColor: SAVANNAH_DEFAULT_PALETTE.accent, fontFamily: "sans" },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Order Now", ctaHref: "", sticky: true, mobileMenu: "overlay" },
+  footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
+  lockedTheme: { primaryColor: SAVANNAH_DEFAULT_PALETTE.accent, headingFont: "sans", bodyFont: "sans" },
+  defaultAccentId: "midnight-sapphire",
+  defaultPaletteId: "midnight-sapphire",
+  palettes: SAVANNAH_PALETTES,
+  lockedLayout: true,
+  templateBackground: {
+    base: SAVANNAH_DEFAULT_PALETTE.base,
+    texture: "none",
+    bands: [{ zone: "footer", color: SAVANNAH_DEFAULT_PALETTE.ink }],
+  },
+  editableSlots: RESTAURANT_SLOTS,
+  lockedBlocks: ["cta-band", "footer"],
+  pages: [
+    { slug: "home", title: "Home", isHome: true, sortOrder: 0, purpose: "home" },
+    { slug: "menu", title: "Menu", isHome: false, sortOrder: 1, purpose: "catalog" },
+    { slug: "order", title: "Order", isHome: false, sortOrder: 2, purpose: "transaction" },
+    { slug: "contact", title: "Contact", isHome: false, sortOrder: 3, purpose: "contact" },
+    { slug: "reservations", title: "Reservations", isHome: false, sortOrder: 4, purpose: "booking" },
+  ],
+  navigation: [
+    { label: "Home", pageSlug: "home", order: 0 },
+    { label: "Menu", pageSlug: "menu", order: 1 },
+    { label: "Order", pageSlug: "order", order: 2, feature: "ordering" },
+    { label: "Reservations", pageSlug: "reservations", order: 3, feature: "reservations" },
+    { label: "About", pageSlug: "home", anchor: "about", order: 4 },
+    { label: "Contact", pageSlug: "contact", order: 5 },
+  ],
+  sections: RESTAURANT_SECTIONS,
+  commerce: { order: "food" },
+  sectionAlign: "center",
+  tags: ["restaurant", "food", "menu", "editorial"],
+};
 
 export const RESTAURANT_TABLE_FLAME: WebsiteTemplateV2 = {
   id: "restaurant-table-flame",
@@ -586,6 +652,7 @@ export const STORE_TEMPLATE: WebsiteTemplateV2 = {
 
 export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   RESTAURANT_TABLE_FLAME,
+  RESTAURANT_SAVANNAH,
   RENTAL_DRIVELINE,
   FOOD_ORDER_TEMPLATE,
   STORE_TEMPLATE,

@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import { getTenantWebsite } from "@/lib/actions/website";
@@ -7,7 +8,7 @@ import {
   getBuilderEmbedOptions,
 } from "@/lib/actions/website-builder";
 import WebsiteBuilderClient from "@/components/dashboard/website/builder/WebsiteBuilderClient";
-import { getBuilderState, getV2MenuItemChoices } from "@/lib/actions/website-v2";
+import { getBuilderState, getV2MenuItemChoices, getV2ProductChoices } from "@/lib/actions/website-v2";
 import { getV2TemplateForWebsite } from "@/lib/website-v2-theme";
 import { V2WebsiteEditor } from "@/components/dashboard/website/v2/V2WebsiteEditor";
 import { TemplateSwitchPreview } from "@/components/dashboard/website/v2/TemplateSwitchPreview";
@@ -59,14 +60,18 @@ export default async function WebsiteBuilderPage({
   // publish, when there may be no emitted website_pages rows yet.
   const v2Template = getV2TemplateForWebsite(website.metadata);
   if (v2Template) {
-    const [builderState, menuChoices] = await Promise.all([
+    const [builderState, menuChoices, productChoices] = await Promise.all([
       getBuilderState(website.id),
-      v2Template.id === "restaurant-table-flame"
+      v2Template.id === "restaurant-table-flame" || v2Template.id === "restaurant-savannah"
         ? getV2MenuItemChoices(website.id)
+        : Promise.resolve({ success: true as const, data: [] }),
+      v2Template.id === "store"
+        ? getV2ProductChoices(website.id)
         : Promise.resolve({ success: true as const, data: [] }),
     ]);
     if (!builderState.success || !builderState.data) return notFound();
-    const switchTargets = getTemplateSwitchTargets(builderState.data.template.id);
+    const locale = await getLocale();
+    const switchTargets = getTemplateSwitchTargets(builderState.data.template.id, locale === "fr" ? "fr" : "en");
     const switchBusinessName =
       builderState.data.storefront.businessName?.trim() || builderState.data.siteTitle;
     const switchBusinessLogo =
@@ -77,6 +82,7 @@ export default async function WebsiteBuilderPage({
       <V2WebsiteEditor
         initialState={builderState.data}
         menuItems={menuChoices.success ? menuChoices.data : []}
+        productChoices={productChoices.success ? productChoices.data : []}
         switchTargets={switchTargets}
         switchPreviews={Object.fromEntries(
           switchTargets.map((target) => [

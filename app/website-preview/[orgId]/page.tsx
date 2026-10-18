@@ -73,7 +73,7 @@ export default async function WebsiteV2PreviewRoute({
     console.warn("[website-preview] denied: builder state failed", { websiteId, error: state.error });
     return notFound();
   }
-  const menuResult = template.id === "restaurant-table-flame"
+  const menuResult = template.id === "restaurant-table-flame" || template.id === "restaurant-savannah"
     ? await getV2MenuItemChoices(website.id as string)
     : { success: true as const, data: [] };
   const menuItems = menuResult.success ? menuResult.data : [];

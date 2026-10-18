@@ -77,6 +77,23 @@ export const RESTAURANT_SAMPLES: ContentDoc = {
   footer_note: "Family-run since 2012.",
 };
 
+export const SAVANNAH_SAMPLES: ContentDoc = {
+  business_name: "Savannah",
+  tagline: "A table for every occasion",
+  hero_headline: "Seasonal cooking, thoughtfully served",
+  hero_subtext: "A considered menu, a welcoming room, and time well spent around the table.",
+  primary_cta_label: "Order Now",
+  secondary_cta_label: "View Menu",
+  about_text: "Savannah brings seasonal ingredients and generous hospitality together in a calm, contemporary dining room.",
+  highlights: [
+    { title: "Seasonal menu", description: "Thoughtful plates guided by what is fresh." },
+    { title: "Made with care", description: "A kitchen led by craft and good ingredients." },
+  ],
+  stats: [],
+  testimonials: [{ quote: "A thoughtful meal from the first course to the last.", author: "A guest" }],
+  nav_labels: { home: "Home", menu: "Menu", order: "Order", reservations: "Reservations", about: "About", contact: "Contact" },
+};
+
 // ── Car rental: DriveLine ───────────────────────────────────────────────────
 
 export const RENTAL_SAMPLES: ContentDoc = {
@@ -223,6 +240,7 @@ export const STORE_SAMPLES: ContentDoc = {
 
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {
   "restaurant-table-flame": RESTAURANT_SAMPLES,
+  "restaurant-savannah": SAVANNAH_SAMPLES,
   "rental-driveline": RENTAL_SAMPLES,
   "food-order": FOOD_ORDER_SAMPLES,
   store: STORE_SAMPLES,

@@ -77,6 +77,8 @@ export function V2SiteHeader({
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const overlayMenu = template.header.mobileMenu === "overlay";
   const tableFlame = template.id === "restaurant-table-flame";
+  const savannah = template.id === "restaurant-savannah";
+  const paletteTheme = tableFlame || savannah;
 
   useEffect(() => {
     if (!overHero) return;
@@ -87,8 +89,8 @@ export function V2SiteHeader({
   }, [overHero]);
 
   useEffect(() => {
-    if (!tableFlame) return;
-    const root = document.querySelector<HTMLElement>('.public-site[data-site-template="restaurant-table-flame"]');
+    if (!paletteTheme) return;
+    const root = document.querySelector<HTMLElement>(`.public-site[data-site-template="${template.id}"]`);
     if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     root.setAttribute("data-motion-ready", "true");
     const targets = root.querySelectorAll<HTMLElement>("[data-site-motion-section]");
@@ -108,7 +110,7 @@ export function V2SiteHeader({
       observer.disconnect();
       root.removeAttribute("data-motion-ready");
     };
-  }, [tableFlame]);
+  }, [paletteTheme, template.id]);
 
   useEffect(() => {
     if (!menuOpen || !overlayMenu) return;
@@ -179,21 +181,26 @@ export function V2SiteHeader({
     onPageNavigate(targetPageSlug);
     setMenuOpen(false);
   };
-  const backgroundColor = tableFlame
+  const backgroundColor = paletteTheme
     ? "var(--tf-base)"
     : template.templateBackground.base;
   const transparentOverHero = overHero && !pastHeroThreshold;
   const transparent = transparentOverHero;
-  const solidForeground = tableFlame
+  const solidForeground = paletteTheme
     ? "var(--tf-on-header)"
     : "var(--ps-text)";
   const headerStyle: CSSProperties = {
     color: transparent
-      ? tableFlame ? "var(--tf-on-scrim)" : readableOn("#23211f", ["#faf6ef", "#22201c"])
+      ? paletteTheme ? "var(--tf-on-scrim)" : readableOn("#23211f", ["#faf6ef", "#22201c"])
       : solidForeground,
-    backgroundColor: transparent ? "transparent" : backgroundColor,
-    borderColor: tableFlame ? transparent ? "transparent" : "var(--tf-header-border)" : undefined,
+    backgroundColor: transparent
+      ? "transparent"
+      : savannah && overHero && pastHeroThreshold
+        ? "color-mix(in srgb, var(--tf-base) 92%, transparent)"
+        : backgroundColor,
+    borderColor: paletteTheme ? transparent ? "transparent" : "var(--tf-header-border)" : undefined,
     fontFamily: "var(--ps-font-body)",
+    ...(savannah && overHero && pastHeroThreshold ? { backdropFilter: "blur(12px)" } : {}),
     ...(overHero ? { marginBottom: "calc(var(--site-header-h) * -1)" } : {}),
   };
   const labels = content.nav_labels && typeof content.nav_labels === "object"
@@ -246,7 +253,7 @@ export function V2SiteHeader({
             }}
             className={mobile
               ? overlayMenu
-                ? "rounded-lg px-2 py-2 font-[var(--v2-heading-font)] text-3xl font-medium leading-tight hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+                ? savannah ? "rounded-none px-2 py-2 font-[var(--v2-heading-font)] text-3xl font-medium leading-tight hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]" : "rounded-lg px-2 py-2 font-[var(--v2-heading-font)] text-3xl font-medium leading-tight hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
                 : "rounded-lg px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-sm font-medium hover:bg-black/5"
               : "text-sm font-medium hover:opacity-70"}
           >
@@ -262,7 +269,7 @@ export function V2SiteHeader({
         <a
           {...editablePath(editMode, sourceMap, "ctaLabel")}
           href={ctaHref}
-          className={`ps-button ps-button-primary tf-button mt-[var(--ps-space-2)] inline-flex min-h-11 items-center justify-center text-[var(--ps-accent-foreground)] ${overlayMenu ? "min-h-12 text-base" : ""}`}
+          className={`ps-button ps-button-primary tf-button${savannah ? " savannah-button" : ""} mt-[var(--ps-space-2)] inline-flex min-h-11 items-center justify-center text-[var(--ps-accent-foreground)] ${overlayMenu ? "min-h-12 text-base" : ""}`}
           style={{ backgroundColor: "var(--ps-accent)" }}
           onClick={(event) => {
             navigatePreview(event, ctaHref);
@@ -292,8 +299,10 @@ export function V2SiteHeader({
           onClick={(event) => navigatePreview(event, getSitePageHref(siteSlug, "home"), "home")}
         >
           {logoSrc ? (
-            tableFlame && transparent ? (
-              <span className="inline-flex items-center justify-center rounded-md border border-black/10 bg-[var(--tf-base)] px-1.5 py-1 shadow-sm">
+            paletteTheme && transparent ? (
+              <span className={savannah
+                ? "inline-flex items-center justify-center rounded-none border border-[var(--tf-header-border)] bg-[var(--tf-base)] px-1.5 py-1 shadow-none"
+                : "inline-flex items-center justify-center rounded-md border border-black/10 bg-[var(--tf-base)] px-1.5 py-1 shadow-sm"}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={logoSrc} alt={businessName} className="max-h-10 max-w-32 object-contain" />
               </span>
@@ -302,7 +311,7 @@ export function V2SiteHeader({
               <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
             )
           ) : null}
-          {(!logoSrc || tableFlame) && (
+          {(!logoSrc || tableFlame || savannah) && (
             <span className="truncate">{!logoSrc && editMode && sourceMap?.logo ? "Add logo" : businessName}</span>
           )}
         </a>
@@ -313,7 +322,7 @@ export function V2SiteHeader({
             <a
               {...editablePath(editMode, sourceMap, "ctaLabel")}
               href={ctaHref}
-              className="ps-button ps-button-primary tf-button inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90"
+              className={`ps-button ps-button-primary tf-button${savannah ? " savannah-button" : ""} inline-flex min-h-10 items-center justify-center text-[var(--ps-accent-foreground)] shadow-xs hover:opacity-90`}
               style={{ backgroundColor: "var(--ps-accent)" }}
               onClick={(event) => navigatePreview(event, ctaHref)}
             >

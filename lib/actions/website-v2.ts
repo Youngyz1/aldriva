@@ -101,14 +101,16 @@ export async function saveV2WebsiteAppearanceDraft(
   const extras = normalized.template_extras ?? {};
   const appearance = extras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
   if (appearance !== undefined) {
-    if (!template.palettes?.length || !template.patterns?.length || !appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
+    if (!template.palettes?.length || !appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
       return { success: false, error: "This template does not support appearance choices." };
     }
     const value = appearance as Record<string, unknown>;
     const validPalette = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId);
-    const validPattern = typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern);
+    const validPattern = template.patterns?.length
+      ? typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern)
+      : value.backgroundPattern === undefined || value.backgroundPattern === "none";
     if (!validPalette || !validPattern) {
-      return { success: false, error: "Choose a palette and background pattern declared by this template." };
+      return { success: false, error: "Choose a palette and any background pattern declared by this template." };
     }
   }
 
@@ -272,7 +274,7 @@ export async function createWebsiteFromV2Template(
     // Site settings (metadata.storefront.currency). Other templates keep the
     // USD default; the country fallback upgrades them when relevant.
     storefront: {
-      currency: template.id === "restaurant-table-flame" ? "XOF" : "USD",
+      currency: template.id === "restaurant-table-flame" || template.id === "restaurant-savannah" ? "XOF" : "USD",
     },
   };
 

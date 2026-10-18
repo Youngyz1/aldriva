@@ -123,6 +123,13 @@ export function createNeutralGallerySampleContent(
   logoUrl: string | null | undefined,
   copy: NeutralGallerySampleCopy
 ): ContentDoc {
+  if (templateId === "restaurant-savannah") {
+    return normalizeContent({
+      ...FLAGSHIP_SAMPLES[templateId],
+      business_name: businessName,
+      ...(logoUrl ? { logo_url: logoUrl } : {}),
+    });
+  }
   const shared: Partial<ContentDoc> = {
     business_name: businessName,
     ...(logoUrl ? { logo_url: logoUrl } : {}),

@@ -11,6 +11,7 @@ import {
   resolveV2TemplateGalleryPreview,
 } from "@/lib/website-v2-template-preview";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
+import { savannahArimoFont } from "@/lib/site-fonts";
 
 /**
  * Server-rendered template preview for the Change-template dialog.
@@ -84,7 +85,9 @@ export async function TemplateSwitchPreview({
 
   const style = v2ThemeStyle(template) as CSSProperties;
   return (
-    <div style={style} className="public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]">
+    <div style={style} className={template.id === "restaurant-savannah"
+      ? `public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)] ${savannahArimoFont.variable}`
+      : "public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]"}>
       <V2SiteHeader
         template={template}
         content={preview.content}
@@ -98,7 +101,7 @@ export async function TemplateSwitchPreview({
       />
       <main>
         {home.blocks.map((block, index) => (
-          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks />
+          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...(template.id === "restaurant-savannah" ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
         ))}
       </main>
       <V2SiteFooter

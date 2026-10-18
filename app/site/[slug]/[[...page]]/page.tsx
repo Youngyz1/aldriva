@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
+import { savannahArimoFont } from "@/lib/site-fonts";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -101,6 +102,25 @@ function applyTableFlameSectionBands(
         ...(isBase && block.type !== "hero" && backgroundPattern === "dots" ? { pattern: "dots" } : {}),
       },
     };
+  });
+}
+
+function applySavannahSectionBands(
+  blocks: unknown[],
+  palette: Record<string, string>
+): unknown[] {
+  let sectionIndex = 0;
+  return blocks.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const block = value as Record<string, unknown>;
+    if (block.type === "menu_order" || block.visible === false) return value;
+    if (block.type === "cta_banner") {
+      return { ...block, variant: "footer", background: { color: palette["--tf-band"] } };
+    }
+    if (block.type === "hero") return value;
+    const isBase = sectionIndex % 2 === 0;
+    sectionIndex += 1;
+    return { ...block, background: { color: isBase ? palette["--tf-base"] : palette["--tf-subtle"] } };
   });
 }
 
@@ -551,19 +571,22 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
 
   const rawBlocks = (targetPage.blocks as unknown[]) || [];
   const tableFlame = v2Template?.id === "restaurant-table-flame";
+  const savannah = v2Template?.id === "restaurant-savannah";
   const backgroundPattern = tableFlame && v2Template
     ? getWebsiteBackgroundPattern(v2Template, website.metadata)
     : "none";
   const blocks = tableFlame && v2Template
     ? applyTableFlameSectionBands(rawBlocks, v2ThemeStyle(v2Template, website.metadata), backgroundPattern)
-    : rawBlocks;
+    : savannah && v2Template
+      ? applySavannahSectionBands(rawBlocks, v2ThemeStyle(v2Template, website.metadata))
+      : rawBlocks;
   const firstResolvedBlock = rawBlocks.find((value) =>
     value && typeof value === "object" && !Array.isArray(value) &&
     (value as Record<string, unknown>).type !== "menu_order" &&
     (value as Record<string, unknown>).visible !== false
   ) as Record<string, unknown> | undefined;
   const startsWithScrimHero = Boolean(
-    tableFlame && firstResolvedBlock?.type === "hero" &&
+    (tableFlame || savannah) && firstResolvedBlock?.type === "hero" &&
     firstResolvedBlock.variant === "full-bleed" && firstResolvedBlock.scrim === true
   );
 
@@ -572,9 +595,9 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       style={themeStyle}
       data-site-template={v2Template?.id}
       data-background-pattern={tableFlame ? backgroundPattern : undefined}
-      className={`public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${tableFlame ? tableFlameFont.variable : ""} ${
-        website.theme_config?.darkMode ? "dark" : ""
-      }`}
+      className={savannah
+        ? `public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${savannahArimoFont.variable} ${website.theme_config?.darkMode ? "dark" : ""}`
+        : `public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)] ${tableFlame ? tableFlameFont.variable : ""} ${website.theme_config?.darkMode ? "dark" : ""}`}
     >
       {/* Injected JSON-LD Structured Data */}
       <script

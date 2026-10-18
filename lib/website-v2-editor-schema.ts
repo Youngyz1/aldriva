@@ -120,11 +120,17 @@ const STORE_SECTION_TITLE_KEYS: Record<string, string> = {
   "store-fulfilment": "storeEditorFulfilment",
   contact: "storeEditorContact",
   footer: "storeEditorFooter",
+  shop: "storeEditorShop",
+  featured: "storeEditorFeatured",
 };
 
 const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
   "nav.logo": "storeSlotLogo",
   "nav.labels": "storeSlotNavigation",
+  // Store has no nav.cta slot; the shared "nav.cta" alias group exposes the
+  // hero primary-button slot (template_extras.storeHeroCta), so it carries
+  // the hero label, not a nav label.
+  "nav.cta": "storeSlotHeroCta",
   "hero.image": "storeSlotHeroImage",
   "hero.headline": "storeSlotHeadline",
   "hero.subtext": "storeSlotIntroduction",
@@ -139,6 +145,8 @@ const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
   "footer.business": "storeSlotBusinessName",
   "footer.socials": "storeSlotSocialLinks",
   "footer.note": "storeSlotFooterNote",
+  "home.featured": "storeSlotFeaturedProducts",
+  "shop.density": "storeSlotDensity",
 };
 
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
@@ -149,6 +157,8 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
   { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },
   { id: "store-fulfilment", title: "Order fulfilment note", slotIds: ["product.fulfilment-note"] },
   { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured"] },
+  { id: "featured", title: "Featured products", slotIds: ["home.featured"] },
+  { id: "shop", title: "Shop page", slotIds: ["shop.density"] },
   { id: "about", title: "About", slotIds: ["about.photo", "about.text", "about.stats"] },
   { id: "gallery", title: "Gallery", slotIds: ["gallery.photos"] },
   { id: "testimonials", title: "Testimonials", slotIds: ["testimonials.items"] },
@@ -189,7 +199,9 @@ function describeControl(control: WebsiteEditorControl, content: ContentDoc): st
       ? value.length
       : value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).menu_item_ids)
         ? ((value as Record<string, unknown>).menu_item_ids as unknown[]).length
-        : 0;
+        : value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).product_ids)
+          ? ((value as Record<string, unknown>).product_ids as unknown[]).length
+          : 0;
     return [count > 0 ? `${count} ${count === 1 ? "item" : "items"}` : "No items yet"];
   }
   if (control.field === "socials") {

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
@@ -8,6 +8,7 @@ import { createNeutralGallerySampleContent, getFoodOrderLocalizedCopy, getStoreL
 import type { WebsiteCategory } from "@/lib/website-category";
 import { v2ThemeStyle } from "@/lib/website-v2-theme";
 import { WebsiteV2TemplateGalleryClient } from "./WebsiteV2TemplateGalleryClient";
+import { savannahArimoFont } from "@/lib/site-fonts";
 
 interface WebsiteV2TemplateGalleryProps {
   organizerId: string;
@@ -82,7 +83,9 @@ async function V2TemplateCardPreview({
 
   const style = v2ThemeStyle(template) as CSSProperties;
   return (
-    <div style={style} className="public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]">
+    <div style={style} className={template.id === "restaurant-savannah"
+      ? `public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)] ${savannahArimoFont.variable}`
+      : "public-site min-h-full bg-[var(--ps-surface)] font-sans text-[var(--ps-text)]"}>
       <V2SiteHeader
         template={template}
         content={preview.content}
@@ -96,7 +99,7 @@ async function V2TemplateCardPreview({
       />
       <main>
         {home.blocks.map((block, index) => (
-          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks />
+          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...(template.id === "restaurant-savannah" ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
         ))}
       </main>
       <V2SiteFooter
@@ -121,6 +124,8 @@ export async function WebsiteV2TemplateGallery({
   initialCategory,
   canCreate,
 }: WebsiteV2TemplateGalleryProps) {
+  const locale = await getLocale();
+  const language = locale === "fr" ? "fr" : "en";
   const cards: Array<{
     id: string;
     name: string;
@@ -130,8 +135,8 @@ export async function WebsiteV2TemplateGallery({
     preview: ReactNode;
   }> = NEW_SITE_GALLERY_TEMPLATES.map((template) => ({
     id: template.id,
-    name: template.name,
-    description: template.description,
+    name: template.localizedName?.[language] ?? template.name,
+    description: template.localizedDescription?.[language] ?? template.description,
     category: template.category,
     supportedCategories: template.supportedCategories,
     preview: <V2TemplateCardPreview templateId={template.id} businessName={businessName} businessLogo={businessLogo} />,

@@ -99,10 +99,12 @@ export function V2SiteFooter({
     : {};
   const footerBand = template.templateBackground.bands.find((band) => band.zone === "footer");
   const tableFlame = template.id === "restaurant-table-flame";
-  const backgroundColor = tableFlame
+  const savannah = template.id === "restaurant-savannah";
+  const paletteTheme = tableFlame || savannah;
+  const backgroundColor = paletteTheme
     ? "var(--tf-band)"
     : resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
-  const foregroundColor = tableFlame
+  const foregroundColor = paletteTheme
     ? "var(--tf-on-footer)"
     : readableOn(backgroundColor, ["#22201c", "#ffffff"]);
   const safeSocials = template.footer.showSocials
@@ -136,11 +138,11 @@ export function V2SiteFooter({
         backgroundColor,
         color: foregroundColor,
         fontFamily: "var(--ps-font-body)",
-        ...(tableFlame ? { borderTopColor: "var(--tf-hairline)" } : {}),
+        ...(paletteTheme ? { borderTopColor: "var(--tf-hairline)" } : {}),
       }}
     >
       <div
-        className={template.id === "restaurant-table-flame"
+        className={tableFlame || savannah
           ? "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
           : "mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:px-[var(--ps-space-8)]"}
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))" }}

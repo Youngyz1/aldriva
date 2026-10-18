@@ -208,6 +208,7 @@
   --ps-card-radius: 0.5rem;
   --ps-card-border: 1px solid var(--ps-border);
   --ps-card-shadow: 0 1px 3px rgb(34 32 28 / 0.08);
+  --site-card-border-style: 1px solid var(--ps-border);
   --ps-button-height: 2.75rem;
   --ps-button-x: 1rem;
   --ps-button-radius: 0.5rem;
@@ -261,6 +262,98 @@
   border-radius: var(--site-card-radius, 8px);
   border-width: 1px;
   border-color: var(--site-card-border, var(--ps-border));
+}
+.public-site[data-site-template="restaurant-savannah"] {
+  --site-header-h: 64px;
+  --site-card-radius: 0px;
+  --site-card-shadow: none;
+  --site-card-border-style: none;
+  --ps-font-body: 'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif;
+  --ps-font-heading: 'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif;
+  --ps-h1: 40px;
+  --ps-h2: 30px;
+  --ps-h3: 20px;
+  --ps-body: 16px;
+  --ps-small: 16px;
+  --ps-caption: 12px;
+  --ps-button-radius: 0px;
+  --ps-radius-sm: 0px;
+  --ps-radius-md: 0px;
+  --ps-radius-lg: 0px;
+  --ps-radius-xl: 0px;
+}
+.public-site[data-site-template="restaurant-savannah"] h1,
+.public-site[data-site-template="restaurant-savannah"] h2,
+.public-site[data-site-template="restaurant-savannah"] h3 {
+  font-weight: 700;
+}
+.public-site[data-site-template="restaurant-savannah"] h1 {
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+  .public-site[data-site-template="restaurant-savannah"] {
+    --site-header-h: 80px;
+    --ps-h1: 72px;
+    --ps-h2: 44px;
+  }
+}
+.public-site[data-site-template="restaurant-savannah"] .rounded-2xl.border,
+.public-site[data-site-template="restaurant-savannah"] .rounded-xl.border,
+.public-site[data-site-template="restaurant-savannah"] .rounded-lg.border,
+.public-site[data-site-template="restaurant-savannah"] .ps-card,
+.public-site[data-site-template="restaurant-savannah"] .savannah-card {
+  border: var(--site-card-border-style);
+  border-radius: 0;
+  box-shadow: none;
+}
+.public-site[data-site-template="restaurant-savannah"] .ps-button {
+  border-radius: 0;
+}
+.public-site[data-site-template="restaurant-savannah"] input,
+.public-site[data-site-template="restaurant-savannah"] select,
+.public-site[data-site-template="restaurant-savannah"] textarea {
+  border: 0;
+  border-bottom: 1px solid var(--tf-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+.public-site[data-site-template="restaurant-savannah"] [data-section-align="center"] .savannah-copy {
+  text-align: left;
+}
+.public-site[data-site-template="restaurant-savannah"] [data-motion-ready="true"] [data-site-motion-section] {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.public-site[data-site-template="restaurant-savannah"] [data-motion-ready="true"] [data-site-motion-section].is-visible {
+  opacity: 1;
+}
+.public-site[data-site-template="restaurant-savannah"] [data-site-motion-hero] img {
+  animation: savannah-hero-image-in 400ms ease both;
+}
+.public-site[data-site-template="restaurant-savannah"] button,
+.public-site[data-site-template="restaurant-savannah"] a {
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, opacity 200ms ease;
+}
+.public-site[data-site-template="restaurant-savannah"] button:active,
+.public-site[data-site-template="restaurant-savannah"] .savannah-button:active {
+  transform: scale(0.98);
+}
+@keyframes savannah-hero-image-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-site[data-site-template="restaurant-savannah"] *,
+  .public-site[data-site-template="restaurant-savannah"] *::before,
+  .public-site[data-site-template="restaurant-savannah"] *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+  .public-site[data-site-template="restaurant-savannah"] [data-motion-ready="true"] [data-site-motion-section] {
+    opacity: 1;
+  }
 }
 .public-site .shadow-xs { box-shadow: var(--site-card-shadow, var(--ps-card-shadow)); }
 .public-site[data-site-template="restaurant-table-flame"] {

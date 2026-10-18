@@ -180,6 +180,8 @@ export function v2ThemeStyle(
   const declaredPalette = paletteId
     ? template.palettes?.find((entry) => entry.id === paletteId)
     : undefined;
+  const isTableFlame = template.id === "restaurant-table-flame";
+  const isSavannah = template.id === "restaurant-savannah";
   const accentId = readAccentId(metadata) ?? template.defaultAccentId;
   const accentPalette = getPublicAccentPalette(accentId);
   const hasExplicitPaletteChoice = typeof readBrandValue(metadata, "paletteId") === "string" &&
@@ -187,7 +189,7 @@ export function v2ThemeStyle(
   // Keep existing public accent choices working for older Table & Flame sites
   // until the owner chooses one of the new full palettes in the builder.
   const legacyAccentOverride = Boolean(
-    declaredPalette && !hasExplicitPaletteChoice && readAccentId(metadata) && accentPalette
+    isTableFlame && declaredPalette && !hasExplicitPaletteChoice && readAccentId(metadata) && accentPalette
   );
   const palette = declaredPalette && legacyAccentOverride && accentPalette
     ? { ...declaredPalette, accent: accentPalette.accent }
@@ -203,9 +205,11 @@ export function v2ThemeStyle(
   const primary = roles?.accent ?? accentPalette?.accent ?? template.lockedTheme.primaryColor;
   const hover = roles?.accentDeep ?? accentPalette?.hover ?? primary;
   const light = roles?.accentLight ?? accentPalette?.light ?? "#fbe9e3";
-  const isTableFlame = template.id === "restaurant-table-flame";
   const foreground = roles?.onAccent ?? (isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : accentPalette?.foreground ?? "#ffffff");
-  const headingFont = isTableFlame
+  const savannahFont = "'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif";
+  const headingFont = isSavannah
+    ? savannahFont
+    : isTableFlame
     ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
     : template.lockedTheme.headingFont === "serif"
       ? "Georgia, 'Times New Roman', serif"
@@ -217,6 +221,7 @@ export function v2ThemeStyle(
     "--site-accent": primary,
     "--site-bg": roles?.base ?? template.templateBackground.base,
     "--v2-heading-font": headingFont,
+    ...(isSavannah ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
     "--ps-accent": primary,
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,
@@ -235,6 +240,7 @@ export function v2ThemeStyle(
       "--tf-scrim": roles.scrim,
       "--tf-scrim-rgb": toRgbChannels(roles.scrim),
       "--tf-on-base": roles.onBase,
+      ...(isSavannah ? { "--tf-on-subtle": roles.onSubtle } : {}),
       "--tf-on-header": roles.onHeader,
       "--tf-on-band": roles.onBand,
       "--tf-on-footer": roles.onFooter,
@@ -253,6 +259,23 @@ export function v2ThemeStyle(
       "--ps-card-radius": "12px",
       "--ps-card-shadow": "none",
       "--ps-card-border": `1px solid ${roles.border}`,
+      ...(isSavannah ? {
+        "--tf-soft": roles.soft ?? roles.subtle,
+        "--tf-on-soft": roles.onSoft,
+      } : {}),
+      ...(isSavannah ? {
+        "--site-card-radius": "0px",
+        "--site-card-shadow": "none",
+        "--site-card-border-style": "none",
+        "--ps-card-radius": "0px",
+        "--ps-card-shadow": "none",
+        "--ps-card-border": "none",
+        "--ps-button-radius": "0px",
+        "--ps-radius-sm": "0px",
+        "--ps-radius-md": "0px",
+        "--ps-radius-lg": "0px",
+        "--ps-radius-xl": "0px",
+      } : {}),
     } : {}),
   };
 }

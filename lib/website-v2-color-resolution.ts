@@ -50,6 +50,7 @@ export interface ResolvedWebsitePalette extends WebsiteTemplatePalette {
   band: string;
   scrim: string;
   onBase: string;
+  onSubtle: string;
   onHeader: string;
   onBand: string;
   onFooter: string;
@@ -59,6 +60,7 @@ export interface ResolvedWebsitePalette extends WebsiteTemplatePalette {
   menuLeader: string;
   dot: string;
   dotBackground: string;
+  onSoft: string;
 }
 
 function rgb(hex: string): [number, number, number] {
@@ -155,6 +157,7 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
       band,
       scrim,
       onBase,
+      onSubtle: readableOn(subtle, [palette.ink, palette.base, "#090909", "#ffffff"]),
       onHeader,
       onBand,
       onFooter,
@@ -164,6 +167,7 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
       menuLeader: "#9b8d7d",
       dot,
       dotBackground,
+      onSoft: readableOn(palette.soft ?? subtle, [palette.ink, palette.base, "#090909", "#ffffff"]),
     };
   }
 
@@ -186,6 +190,7 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
   const onFooter = readableOn(band, [palette.ink, palette.base, "#22201c", "#ffffff"]);
   const worstScrim = composite(scrim, 0.68, "#ffffff");
   const onScrim = readableOn(worstScrim, [palette.ink, palette.base, "#faf6ef", "#090909"]);
+  const soft = palette.soft ?? subtle;
   return {
     ...palette,
     subtle,
@@ -198,6 +203,7 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
     band,
     scrim,
     onBase,
+    onSubtle: readableOn(subtle, [palette.ink, palette.base, "#faf6ef", "#090909"]),
     onHeader,
     onBand,
     onFooter,
@@ -207,5 +213,6 @@ export function deriveWebsitePaletteRoles(palette: WebsiteTemplatePalette): Reso
     menuLeader: mix(palette.base, palette.ink, 0.4),
     dot,
     dotBackground,
+    onSoft: readableOn(soft, [palette.ink, palette.base, "#090909", "#ffffff"]),
   };
 }

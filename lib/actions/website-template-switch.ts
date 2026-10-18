@@ -10,6 +10,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getLocale } from "next-intl/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import {
@@ -103,10 +104,12 @@ export async function previewTemplateSwitch(
   const doc = (draftRow?.content ?? liveRow?.content ?? {}) as ContentDoc;
   const currentTemplateId =
     typeof auth.metadata.templateId === "string" ? (auth.metadata.templateId as string) : null;
+  const currentLocale = await getLocale();
+  const locale = currentLocale === "fr" ? "fr" : "en";
   return {
     success: true,
     data: {
-      targets: getTemplateSwitchTargets(currentTemplateId),
+      targets: getTemplateSwitchTargets(currentTemplateId, locale),
       summary: summarizeTemplateSwitch(currentTemplateId, target, doc),
     },
   };
