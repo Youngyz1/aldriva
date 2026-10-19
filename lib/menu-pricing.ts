@@ -190,6 +190,14 @@ export interface SelectionValidationResult {
   error?: string;
 }
 
+export function isOptionGroupSelectionSatisfied(
+  group: Pick<MenuItemOptionGroup, "required" | "min" | "max">,
+  selectedCount: number
+): boolean {
+  const minimum = group.required ? Math.max(1, group.min) : group.min;
+  return selectedCount >= minimum && selectedCount <= group.max;
+}
+
 /**
  * Validates a customer's option selections against the item's configured option groups:
  * - Checks that required groups have at least `min` (and >= 1) selections.
@@ -238,15 +246,14 @@ export function validateSelection(
       }
     }
 
-    if (group.required && count < Math.max(1, group.min)) {
-      return { valid: false, error: `Selection required for "${group.name}" (minimum ${Math.max(1, group.min)})` };
-    }
-
-    if (count < group.min) {
-      return { valid: false, error: `Minimum ${group.min} selection(s) required for "${group.name}"` };
-    }
-
-    if (count > group.max) {
+    if (!isOptionGroupSelectionSatisfied(group, count)) {
+      const minimum = group.required ? Math.max(1, group.min) : group.min;
+      if (count < minimum) {
+        if (group.required) {
+          return { valid: false, error: `Selection required for "${group.name}" (minimum ${minimum})` };
+        }
+        return { valid: false, error: `Minimum ${minimum} selection(s) required for "${group.name}"` };
+      }
       return { valid: false, error: `Maximum ${group.max} selection(s) allowed for "${group.name}"` };
     }
   }

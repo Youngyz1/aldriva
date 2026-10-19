@@ -40,7 +40,7 @@ import {
 import { addStoreCartItem } from "@/lib/store-cart";
 import { submitOrderRequest } from "@/lib/actions/orders";
 import { formatMoney } from "@/lib/money";
-import { MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
+import { isOptionGroupSelectionSatisfied, MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
 
@@ -1119,11 +1119,10 @@ function ItemDetailSheet({
     });
   };
 
-  // Check required groups
-  const isRequiredSatisfied = (optionGroups || []).every((group) => {
-    if (!group.required) return true;
+  // Match the shared server selection rules for every group, including optional groups with a minimum.
+  const areOptionGroupsSatisfied = (optionGroups || []).every((group) => {
     const selected = selectedOptions[group.id] || [];
-    return selected.length >= (group.min || 1);
+    return isOptionGroupSelectionSatisfied(group, selected.length);
   });
 
   // Calculate live item line price
@@ -1140,7 +1139,7 @@ function ItemDetailSheet({
   const totalUnitPrice = basePrice + optionsDelta;
   const lineTotalFormatted = formatMoney(totalUnitPrice * quantity, orderConfig?.currency ?? "USD", locale);
 
-  const canAddToOrder = !isSoldOut && isRequiredSatisfied && !orderConfig?.blocked;
+  const canAddToOrder = !isSoldOut && areOptionGroupsSatisfied && !orderConfig?.blocked;
 
   return (
     <div
