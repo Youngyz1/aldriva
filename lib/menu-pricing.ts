@@ -37,7 +37,7 @@ export interface OptionGroupSelection {
 export const MAX_OPTION_GROUPS = 8;
 export const MAX_OPTIONS_PER_GROUP = 20;
 export const MIN_ORDER_QUANTITY = 1;
-export const MAX_ORDER_QUANTITY = 50;
+export const MAX_LINE_QUANTITY = 50;
 
 /**
  * Validates promo price against the item base price.
@@ -262,7 +262,7 @@ export interface LineTotalCalculation {
 
 /**
  * Authoritative server calculation for line total:
- * - Validates quantity is integer in [1, 50].
+ * - Validates quantity is integer in [1, MAX_LINE_QUANTITY].
  * - Validates option selections.
  * - (effectiveUnitPrice + sum(options.price_delta)) * quantity, rounded to 2 decimals.
  */
@@ -277,9 +277,9 @@ export function computeLineTotal(params: {
     typeof quantity !== "number" ||
     !Number.isInteger(quantity) ||
     quantity < MIN_ORDER_QUANTITY ||
-    quantity > MAX_ORDER_QUANTITY
+    quantity > MAX_LINE_QUANTITY
   ) {
-    throw new Error(`Quantity must be an integer between ${MIN_ORDER_QUANTITY} and ${MAX_ORDER_QUANTITY}`);
+    throw new Error(`Quantity must be an integer between ${MIN_ORDER_QUANTITY} and ${MAX_LINE_QUANTITY}`);
   }
 
   const validation = validateSelection(item, selection);

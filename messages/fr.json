@@ -766,6 +766,7 @@
     "options": "Options",
     "promoPrice": "Prix promo",
     "addToOrder": "Ajouter à la commande",
+    "quantityLimit": "Maximum 50 par article",
     "viewOrder": "Voir la commande",
     "yourOrder": "Votre commande",
     "emptyCart": "Votre commande est vide",

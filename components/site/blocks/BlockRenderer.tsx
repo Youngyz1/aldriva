@@ -2165,6 +2165,7 @@ async function MenuEmbedBlockRenderer({
     optional: t("optional"),
     options: t("options"),
     addToOrder: t("addToOrder"),
+    quantityLimit: t("quantityLimit"),
     viewOrder: t("viewOrder"),
     yourOrder: t("yourOrder"),
     emptyCart: t("emptyCart"),

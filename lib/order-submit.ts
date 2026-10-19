@@ -17,6 +17,7 @@ import { getV2TemplateForWebsite, resolveStorefrontCurrency } from "@/lib/websit
 import { normalizeContent } from "@/lib/website-content";
 import { resolveOrderSchedule, validateScheduledOrderTime } from "@/lib/website-hours";
 import {
+  MAX_LINE_QUANTITY,
   computeLineTotal,
   effectiveUnitPrice,
   validateSelection,
@@ -164,7 +165,13 @@ export async function submitOrderRequestWithClient(
     }
 
     for (const line of input.items) {
-      if (!line.itemId || typeof line.quantity !== "number" || line.quantity < 1 || line.quantity > 99) {
+      if (
+        !line.itemId ||
+        typeof line.quantity !== "number" ||
+        !Number.isInteger(line.quantity) ||
+        line.quantity < 1 ||
+        line.quantity > MAX_LINE_QUANTITY
+      ) {
         return { success: false, error: "invalid_items", message: "Invalid item quantity." };
       }
     }

@@ -40,6 +40,7 @@ import {
 import { addStoreCartItem } from "@/lib/store-cart";
 import { submitOrderRequest } from "@/lib/actions/orders";
 import { formatMoney } from "@/lib/money";
+import { MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
 
@@ -76,6 +77,7 @@ export interface StorefrontBrowseLabels {
   optional?: string;
   options?: string;
   addToOrder?: string;
+  quantityLimit?: string;
   viewOrder?: string;
   yourOrder?: string;
   emptyCart?: string;
@@ -1433,14 +1435,17 @@ function ItemDetailSheet({
                     <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
                     <button
                       type="button"
-                      onClick={() => setQuantity((q) => Math.min(99, q + 1))}
-                      disabled={quantity >= 99}
+                      onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
+                      disabled={quantity >= MAX_LINE_QUANTITY}
                       className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
                     >
                       +
                     </button>
                   </div>
                 </div>
+              ) : null}
+              {!isSoldOut && quantity >= MAX_LINE_QUANTITY ? (
+                <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
               ) : null}
 
               <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = Object.values(selectedOptions).flat(); onAddToOrder(itemId, allSelected, quantity); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
@@ -1836,7 +1841,7 @@ function OrderDrawer({
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(index, line.quantity - 1)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
+                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                       >
                         -
                       </button>
@@ -1844,11 +1849,15 @@ function OrderDrawer({
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(index, line.quantity + 1)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)]"
+                        disabled={line.quantity >= MAX_LINE_QUANTITY}
+                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                       >
                         +
                       </button>
                     </div>
+                    {line.quantity >= MAX_LINE_QUANTITY ? (
+                      <p className="mt-1 text-right text-[10px] text-[var(--ps-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onRemoveItem(index)}
