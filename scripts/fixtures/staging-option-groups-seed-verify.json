@@ -1,0 +1,53 @@
+{
+  "menuItems": [
+    {
+      "id": "18200000-0000-4000-8000-000000000002",
+      "organizer_id": "11111111-1111-4111-8111-111111111111",
+      "option_groups": [
+        { "id": "legacy-sauce", "name": "Legacy sauce", "required": false, "min": 0, "max": 1, "options": [{ "id": "legacy-extra", "name": "Legacy extra", "price_delta": -1 }] }
+      ]
+    },
+    {
+      "id": "18200000-0000-4000-8000-000000000003",
+      "organizer_id": "11111111-1111-4111-8111-111111111111",
+      "option_groups": [
+        { "id": "backfill-toppings", "name": "Backfill extras", "required": false, "min": 0, "max": 1, "options": [{ "id": "backfill-cheese", "name": "Backfill cheese", "price_delta": 2.5 }] }
+      ]
+    },
+    { "id": "18200000-0000-4000-8000-000000000004", "organizer_id": "11111111-1111-4111-8111-111111111111", "option_groups": [] },
+    { "id": "18200000-0000-4000-8000-000000000005", "organizer_id": "11111111-1111-4111-8111-111111111111", "option_groups": [] },
+    {
+      "id": "18200000-0000-4000-8000-000000000006",
+      "organizer_id": "11111111-1111-4111-8111-111111111111",
+      "option_groups": [
+        { "id": "legacy-decoy", "name": "Legacy decoy", "required": false, "min": 0, "max": 1, "options": [{ "id": "legacy-decoy-option", "name": "Do not show", "price_delta": 99 }] }
+      ]
+    },
+    { "id": "18200000-0000-4000-8000-000000000007", "organizer_id": "11111111-1111-4111-8111-111111111111", "option_groups": [] },
+    { "id": "18200000-0000-4000-8000-000000000008", "organizer_id": "11111111-1111-4111-8111-111111111111", "option_groups": [] }
+  ],
+  "groups": [
+    { "id": "936e6f7c-4c3d-5adc-ad28-cfcb42a610f6", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Backfill extras", "kind": "addon", "min_select": 0, "max_select": 1, "is_required": false, "position": 0, "is_active": true, "legacy_source_item_id": "18200000-0000-4000-8000-000000000003", "legacy_group_id": "backfill-toppings" },
+    { "id": "18210000-0000-4000-8000-000000000001", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "STAGING — Bowl add-ons", "kind": "addon", "min_select": 0, "max_select": 2, "is_required": false, "position": 0, "is_active": true, "legacy_source_item_id": null, "legacy_group_id": null },
+    { "id": "18210000-0000-4000-8000-000000000002", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "STAGING — Size", "kind": "variant", "min_select": 1, "max_select": 1, "is_required": true, "position": 0, "is_active": true, "legacy_source_item_id": null, "legacy_group_id": null },
+    { "id": "18210000-0000-4000-8000-000000000003", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "STAGING — Availability", "kind": "addon", "min_select": 0, "max_select": 1, "is_required": false, "position": 0, "is_active": true, "legacy_source_item_id": null, "legacy_group_id": null }
+  ],
+  "options": [
+    { "id": "8219c007-cda0-59c2-9bfe-3c1b7ab34a00", "group_id": "936e6f7c-4c3d-5adc-ad28-cfcb42a610f6", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Backfill cheese", "price": 2.5, "max_qty": 1, "is_available": true, "position": 0, "legacy_option_id": "backfill-cheese" },
+    { "id": "18220000-0000-4000-8000-000000000001", "group_id": "18210000-0000-4000-8000-000000000001", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Extra cheese", "price": 1.5, "max_qty": 3, "is_available": true, "position": 0 },
+    { "id": "18220000-0000-4000-8000-000000000002", "group_id": "18210000-0000-4000-8000-000000000001", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Avocado", "price": 2, "max_qty": 1, "is_available": true, "position": 1 },
+    { "id": "18220000-0000-4000-8000-000000000003", "group_id": "18210000-0000-4000-8000-000000000002", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Small", "price": 8, "max_qty": 1, "is_available": true, "position": 0 },
+    { "id": "18220000-0000-4000-8000-000000000004", "group_id": "18210000-0000-4000-8000-000000000002", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Regular", "price": 12, "max_qty": 1, "is_available": true, "position": 1 },
+    { "id": "18220000-0000-4000-8000-000000000005", "group_id": "18210000-0000-4000-8000-000000000002", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Large", "price": 16, "max_qty": 1, "is_available": true, "position": 2 },
+    { "id": "18220000-0000-4000-8000-000000000006", "group_id": "18210000-0000-4000-8000-000000000003", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Available topping", "price": 0.75, "max_qty": 1, "is_available": true, "position": 0 },
+    { "id": "18220000-0000-4000-8000-000000000007", "group_id": "18210000-0000-4000-8000-000000000003", "organizer_id": "11111111-1111-4111-8111-111111111111", "name": "Sold out topping", "price": 1.25, "max_qty": 1, "is_available": false, "position": 1 }
+  ],
+  "assignments": [
+    { "id": "f2d9da82-e935-5fd8-a2db-8bcf484e0b23", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000003", "group_id": "936e6f7c-4c3d-5adc-ad28-cfcb42a610f6", "position": 0, "hidden_option_ids": [], "price_overrides": {} },
+    { "id": "18230000-0000-4000-8000-000000000001", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000004", "group_id": "18210000-0000-4000-8000-000000000001", "position": 0, "hidden_option_ids": [], "price_overrides": {} },
+    { "id": "18230000-0000-4000-8000-000000000002", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000005", "group_id": "18210000-0000-4000-8000-000000000002", "position": 0, "hidden_option_ids": [], "price_overrides": {} },
+    { "id": "18230000-0000-4000-8000-000000000003", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000006", "group_id": "18210000-0000-4000-8000-000000000001", "position": 0, "hidden_option_ids": ["18220000-0000-4000-8000-000000000001"], "price_overrides": { "18220000-0000-4000-8000-000000000002": 1.25 } },
+    { "id": "18230000-0000-4000-8000-000000000004", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000007", "group_id": "18210000-0000-4000-8000-000000000003", "position": 0, "hidden_option_ids": [], "price_overrides": {} },
+    { "id": "18230000-0000-4000-8000-000000000005", "organizer_id": "11111111-1111-4111-8111-111111111111", "item_id": "18200000-0000-4000-8000-000000000008", "group_id": "18210000-0000-4000-8000-000000000002", "position": 0, "hidden_option_ids": [], "price_overrides": { "18220000-0000-4000-8000-000000000005": 17 } }
+  ]
+}
