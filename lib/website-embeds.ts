@@ -109,11 +109,15 @@ export interface ResolvedMenuSection {
   is_active: boolean;
   isDraft: boolean;
   items: ResolvedMenuItem[];
+  hasMoreItems?: boolean;
+  hasMoreItemsOverall?: boolean;
 }
 
 export const EMBED_LIMIT_MAX = 12;
 export const EMBED_LIMIT_DEFAULT = 6;
 export const EMBED_LIMIT_MIN = 1;
+export const MENU_ITEMS_PER_SECTION_LIMIT = 100;
+export const MENU_ITEMS_OVERALL_LIMIT = 500;
 
 export function clampLimit(limit?: number): number {
   if (typeof limit !== "number" || Number.isNaN(limit)) {
@@ -367,10 +371,18 @@ export async function resolveMenuEmbed(
     : [];
   if (pickedItemIds.length > 0) itemQuery = itemQuery.in("id", pickedItemIds);
   // also ensure section is active for public
-  itemQuery = itemQuery.order("position", { ascending: true });
+  itemQuery = itemQuery.order("position", { ascending: true }).limit(MENU_ITEMS_OVERALL_LIMIT + 1);
   const { data: items } = await itemQuery;
   const itemsBySection: Record<string, ResolvedMenuItem[]> = {};
-  for (const it of (items || []) as any[]) {
+  const sectionsWithMoreItems = new Set<string>();
+  const queriedItems = (items || []) as any[];
+  const hasMoreItemsOverall = queriedItems.length > MENU_ITEMS_OVERALL_LIMIT;
+  for (const it of queriedItems.slice(0, MENU_ITEMS_OVERALL_LIMIT)) {
+    const sectionItems = itemsBySection[it.section_id] || [];
+    if (sectionItems.length >= MENU_ITEMS_PER_SECTION_LIMIT) {
+      sectionsWithMoreItems.add(it.section_id);
+      continue;
+    }
     const mapped: ResolvedMenuItem = {
       id: it.id,
       name: it.name,
@@ -388,8 +400,8 @@ export async function resolveMenuEmbed(
       isDraft: !it.is_active,
     };
     // For public, filter items where parent section is inactive already handled by sectionQuery, but double-check
-    itemsBySection[it.section_id] = itemsBySection[it.section_id] || [];
-    itemsBySection[it.section_id].push(mapped);
+    sectionItems.push(mapped);
+    itemsBySection[it.section_id] = sectionItems;
   }
   // Item-pick mode shows only sections that actually contain a picked item;
   // the default (no picks) keeps every section, even empty ones, as before.
@@ -402,6 +414,8 @@ export async function resolveMenuEmbed(
     is_active: Boolean(sec.is_active),
     isDraft: !sec.is_active,
     items: itemsBySection[sec.id] || [],
+    hasMoreItems: sectionsWithMoreItems.has(sec.id),
+    hasMoreItemsOverall,
   }));
 }
 

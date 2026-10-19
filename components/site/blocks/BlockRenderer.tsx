@@ -2207,6 +2207,7 @@ async function MenuEmbedBlockRenderer({
     trackingLinkCopied: t("trackingLinkCopied"),
   };
   const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
+  const menuItemsTruncated = sections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
   const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
     id: sec.id,
     title: sec.name,
@@ -2402,8 +2403,9 @@ async function MenuEmbedBlockRenderer({
         )}
         </StorefrontBrowse>
       )}
-      {siteSlug && !block.selectedItemIds?.length && hasMenuItems ? (
+      {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
         <div className="mt-[var(--ps-space-8)] text-center">
+          {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
           <a
             href={`/site/${encodeURIComponent(siteSlug)}/menu`}
             className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
