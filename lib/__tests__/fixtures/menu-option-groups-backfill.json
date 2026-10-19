@@ -1,0 +1,27 @@
+{
+  "menuItems": [
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "option_groups": [
+        { "id": "fixture-extras", "name": "Fixture extras", "required": false, "min": 0, "max": 1, "options": [{ "id": "fixture-cheese", "name": "Fixture cheese", "price_delta": 2.5 }] }
+      ]
+    },
+    {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "option_groups": [
+        { "id": "legacy-negative", "name": "Legacy discount", "required": false, "min": 0, "max": 1, "options": [{ "id": "legacy-negative-option", "name": "Legacy discount", "price_delta": -1 }] }
+      ]
+    }
+  ],
+  "groups": [
+    { "id": "c5436048-01d1-52ec-acc7-30ea2b268b8f", "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "name": "Fixture extras", "kind": "addon", "min_select": 0, "max_select": 1, "is_required": false, "position": 0, "is_active": true, "legacy_source_item_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "legacy_group_id": "fixture-extras" }
+  ],
+  "options": [
+    { "id": "3fb88a54-432f-5143-af10-7cf6ab4ed802", "group_id": "c5436048-01d1-52ec-acc7-30ea2b268b8f", "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "name": "Fixture cheese", "price": "2.50", "position": 0, "max_qty": 1, "legacy_option_id": "fixture-cheese" }
+  ],
+  "assignments": [
+    { "id": "50e9928c-63f6-5377-84b6-3ce2e82c2a62", "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "item_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "group_id": "c5436048-01d1-52ec-acc7-30ea2b268b8f", "position": 0, "hidden_option_ids": [], "price_overrides": {} }
+  ]
+}
