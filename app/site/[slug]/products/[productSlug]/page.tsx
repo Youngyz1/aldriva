@@ -14,7 +14,9 @@ import { safeImageSrc } from "@/lib/image-url";
 import { getSitePageHref } from "@/lib/site-paths";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
+import { StoreProductGallery } from "@/components/site/v2/StoreProductGallery";
 import { StoreProductPurchaseButton } from "@/components/site/v2/StoreProductPurchaseButton";
+import { StoreAddToCartButton, StoreCartWidget } from "@/components/site/v2/StoreCartDrawer";
 
 interface Props {
   params: Promise<{ slug: string; productSlug: string }>;
@@ -93,7 +95,38 @@ export default async function StoreProductPage({ params }: Props) {
     id: product.id,
     stripe_price_id: typeof product.stripe_price_id === "string" ? product.stripe_price_id : null,
   }]);
-  const price = priceMap.get(product.id) ?? null;
+  // Full active catalog for the floating cart widget: cart items resolve
+  // against every purchasable product, not just the viewed one. Sold-out or
+  // removed products stay out so the drawer marks them unavailable.
+  const { data: catalogRows } = await admin
+    .from("products")
+    .select("id, name, images, stripe_price_id, status, stock_quantity, slug")
+    .in("business_id", businessIds)
+    .eq("status", "active");
+  const catalogPriceMap = await resolveShopPrices(
+    (catalogRows ?? []).map((row) => ({
+      id: row.id,
+      stripe_price_id: typeof row.stripe_price_id === "string" ? row.stripe_price_id : null,
+    }))
+  );
+  const cartCatalog = (catalogRows ?? []).map((row) => {
+    const rowPrice = catalogPriceMap.get(row.id) ?? null;
+    const rowImage = (Array.isArray(row.images) ? row.images : []).find(
+      (entry: unknown): entry is string => typeof entry === "string" && safeImageSrc(entry) !== null
+    );
+    const rowStock = row.stock_quantity == null ? null : Number(row.stock_quantity);
+    return {
+      id: row.id,
+      name: row.name,
+      image: rowImage ? (safeImageSrc(rowImage) as string) : null,
+      priceLabel: rowPrice ? formatMoney(rowPrice.amount, rowPrice.currency, locale === "fr" ? "fr-FR" : "en-US") : null,
+      numericPrice: rowPrice ? rowPrice.amount : undefined,
+      isSoldOut: getStoreProductStockState(row.status, rowStock) === "sold_out",
+      href: typeof row.slug === "string" && row.slug
+        ? `/site/${encodeURIComponent(slug)}/products/${encodeURIComponent(row.slug)}`
+        : null,
+    };
+  });  const price = priceMap.get(product.id) ?? null;
   const stockQuantity = product.stock_quantity == null ? null : Number(product.stock_quantity);
   const stockState = getStoreProductStockState(product.status, stockQuantity);
   const canBuy = canBuyStoreProduct({
@@ -110,8 +143,10 @@ export default async function StoreProductPage({ params }: Props) {
       ? storeT("storeLowStock")
       : storeT("storeInStock");
   const imageList = Array.isArray(product.images) ? product.images : [];
-  const image = imageList.find((entry: unknown) => typeof entry === "string" && safeImageSrc(entry)) as string | undefined;
-  const safeImage = image ? safeImageSrc(image) : "";
+  const safeImages = imageList.filter(
+    (entry: unknown): entry is string =>
+      typeof entry === "string" && safeImageSrc(entry) !== null
+  );
   const extras = content.template_extras && typeof content.template_extras === "object"
     ? content.template_extras as Record<string, unknown>
     : {};
@@ -141,14 +176,11 @@ export default async function StoreProductPage({ params }: Props) {
         availablePageSlugs={availablePageSlugs}
       />
       <main className="mx-auto grid max-w-6xl gap-8 px-4 pb-16 pt-24 md:grid-cols-2 md:px-8">
-        <div className="overflow-hidden rounded-2xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]">
-          {safeImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={safeImage} alt={product.name} className="aspect-square w-full object-cover" />
-          ) : (
-            <div className="flex aspect-square items-center justify-center px-8 text-center text-sm text-[var(--ps-muted)]">{publicT("storeImageUnavailable")}</div>
-          )}
-        </div>
+        <StoreProductGallery
+          images={safeImages}
+          name={product.name}
+          unavailableLabel={publicT("storeImageUnavailable")}
+        />
         <section className="flex flex-col justify-center">
           <Link href={resolved.pages.some((page) => page.slug === "shop") ? getSitePageHref(slug, "shop") : getSitePageHref(slug, "home")} className="mb-6 text-sm font-semibold text-[var(--ps-accent-hover)] hover:underline">
             ← {storeT("storeBackToShop")}
@@ -165,18 +197,26 @@ export default async function StoreProductPage({ params }: Props) {
           ) : null}
           <div className="mt-8">
             {canBuy ? (
-              <StoreProductPurchaseButton
-                productId={product.id}
-                maxQuantity={maxQuantity}
-                labels={{
-                  quantity: publicT("storeQuantity"),
-                  buyerName: publicT("storeBuyerName"),
-                  buyerEmail: publicT("storeBuyerEmail"),
-                  buyNow: publicT("storeBuyNow"),
-                  processing: publicT("storeProcessing"),
-                  checkoutError: publicT("storeCheckoutError"),
-                }}
-              />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <StoreProductPurchaseButton
+                  productId={product.id}
+                  maxQuantity={maxQuantity}
+                  siteSlug={slug}
+                  labels={{
+                    quantity: publicT("storeQuantity"),
+                    buyerName: publicT("storeBuyerName"),
+                    buyerEmail: publicT("storeBuyerEmail"),
+                    buyNow: publicT("storeBuyNow"),
+                    processing: publicT("storeProcessing"),
+                    checkoutError: publicT("storeCheckoutError"),
+                  }}
+                />
+                <StoreAddToCartButton
+                  slug={slug}
+                  productId={product.id}
+                  label={storeT("storeAddToCart")}
+                />
+              </div>
             ) : (
               <Link href={contactHref} className="ps-button ps-button-primary inline-flex min-h-11 items-center justify-center">
                 {publicT("storeContactSeller")}
@@ -194,6 +234,37 @@ export default async function StoreProductPage({ params }: Props) {
         storefrontFeatures={resolved.storefrontFeatures}
         todayHours={resolved.todayHours}
         availablePageSlugs={availablePageSlugs}
+      />
+      <StoreCartWidget
+        slug={slug}
+        siteCurrency={currency}
+        catalog={cartCatalog}
+        labels={{
+          title: storeT("storeCartTitle"),
+          empty: storeT("storeCartEmpty"),
+          emptyBody: storeT("storeCartEmptyBody"),
+          viewCart: storeT("storeViewCart"),
+          added: storeT("storeCartAdded"),
+          addToCart: storeT("storeAddToCart"),
+          checkout: storeT("storeCartCheckout"),
+          pay: storeT("storeCartPay"),
+          back: storeT("storeBackToShop"),
+          continueShopping: storeT("storeCartContinue"),
+          subtotal: storeT("storeCartSubtotal"),
+          discount: storeT("storeCartDiscount"),
+          total: storeT("storeCartTotal"),
+          remove: storeT("storeCartRemove"),
+          decrease: storeT("storeCartDecrease"),
+          increase: storeT("storeCartIncrease"),
+          promo: storeT("storeCartPromo"),
+          promoPlaceholder: storeT("storeCartPromoPlaceholder"),
+          buyerName: publicT("storeBuyerName"),
+          buyerEmail: publicT("storeBuyerEmail"),
+          changed: storeT("storeCartChanged"),
+          error: publicT("storeCheckoutError"),
+          unavailable: storeT("storeCartUnavailable"),
+          locale: locale === "fr" ? "fr-FR" : "en-US",
+        }}
       />
     </div>
   );

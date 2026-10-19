@@ -43,6 +43,8 @@ export interface BrowseItem {
   priceLabel: string | null;
   /** Numeric price value for client total calculations. */
   numericPrice?: number;
+  /** ISO timestamp for newest-first sorting. Absent sorts last. */
+  createdAt?: string | null;
   /** Regular price crossed out when promo price is active. */
   originalPriceLabel?: string | null;
   /** Sold-out flag for dishes/items. */
@@ -65,6 +67,44 @@ export interface BrowseGroup {
   id: string;
   title: string;
   items: BrowseItem[];
+}
+
+/** Sort orders for storefront browse grids. `featured` keeps server order. */
+export type BrowseSortKey = "featured" | "newest" | "priceAsc" | "priceDesc";
+
+/**
+ * Pure sort for one browse group. Items without a price/timestamp sort last
+ * (stable by original index) so sort controls never hide products.
+ */
+export function sortBrowseItems(
+  items: readonly BrowseItem[],
+  sortKey: BrowseSortKey
+): BrowseItem[] {
+  if (sortKey === "featured") return [...items];
+  const ranked = items.map((item, index) => ({ item, index }));
+  const timeOf = (candidate: BrowseItem): number => {
+    if (!candidate.createdAt) return Number.NEGATIVE_INFINITY;
+    const parsed = Date.parse(candidate.createdAt);
+    return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+  };
+  const priceOf = (candidate: BrowseItem): number | null =>
+    typeof candidate.numericPrice === "number" &&
+    Number.isFinite(candidate.numericPrice)
+      ? candidate.numericPrice
+      : null;
+  ranked.sort((a, b) => {
+    if (sortKey === "newest") {
+      return timeOf(b.item) - timeOf(a.item) || a.index - b.index;
+    }
+    const priceA = priceOf(a.item);
+    const priceB = priceOf(b.item);
+    if (priceA === null && priceB === null) return a.index - b.index;
+    if (priceA === null) return 1;
+    if (priceB === null) return -1;
+    const delta = sortKey === "priceAsc" ? priceA - priceB : priceB - priceA;
+    return delta || a.index - b.index;
+  });
+  return ranked.map((entry) => entry.item);
 }
 
 /** True only when a storefront catalog has at least one real, renderable item. */

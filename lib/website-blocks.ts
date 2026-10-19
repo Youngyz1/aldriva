@@ -291,6 +291,8 @@ export interface MenuEmbedBlock extends BaseBlock {
   currency?: string;
   /** Template-selected browse presentation. Absent preserves the card grid. */
   variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
+  /** How menu card images fit their container in catalog-carousel ('cover' | 'contain'). Defaults to 'cover'. */
+  imageFit?: "cover" | "contain";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -1691,7 +1693,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       }
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
       const variant = obj.variant === "rows" || obj.variant === "cards" || obj.variant === "editorial" || obj.variant === "catalog-carousel" ? obj.variant : undefined;
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}) } };
+      const imageFit = obj.imageFit === "contain" || obj.imageFit === "cover" ? obj.imageFit : undefined;
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}) } };
     }
 
     case "cta_banner": {

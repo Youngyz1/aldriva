@@ -23,6 +23,8 @@ export interface ProductCarouselItem {
   priceLabel?: string | null;
   badge?: string | null;
   badgeTone?: "muted" | "alert";
+  /** When false with onAdd present, the quick-add button renders disabled. */
+  canAdd?: boolean;
 }
 
 export interface ProductCarouselLabels {
@@ -34,6 +36,10 @@ export interface ProductCarouselLabels {
 interface ProductCarouselProps {
   items: ProductCarouselItem[];
   labels: ProductCarouselLabels;
+  /** Opt-in Store quick-add: renders an Add button per card (sibling of the
+   * name link, never nested). Absent everywhere else. */
+  onAdd?: (id: string) => void;
+  addLabel?: string;
 }
 
 /**
@@ -58,7 +64,7 @@ function scrollByPage(element: HTMLElement, direction: -1 | 1): void {
   element.scrollBy({ left: direction * element.clientWidth * 0.8, behavior: "smooth" });
 }
 
-export function ProductCarousel({ items, labels }: ProductCarouselProps) {
+export function ProductCarousel({ items, labels, onAdd, addLabel }: ProductCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: false });
   const [overflowing, setOverflowing] = useState(false);
@@ -166,6 +172,17 @@ export function ProductCarousel({ items, labels }: ProductCarouselProps) {
                 <p className="mt-[var(--ps-space-2)] text-sm font-bold text-[var(--ps-text)]">
                   {item.priceLabel}
                 </p>
+              ) : null}
+              {onAdd && addLabel ? (
+                <button
+                  type="button"
+                  disabled={item.canAdd === false}
+                  onClick={() => onAdd(item.id)}
+                  aria-label={`${addLabel} — ${item.name}`}
+                  className="ps-button ps-button-secondary mt-[var(--ps-space-3)] inline-flex min-h-11 w-full items-center justify-center disabled:opacity-40"
+                >
+                  {addLabel}
+                </button>
               ) : null}
             </div>
           </article>

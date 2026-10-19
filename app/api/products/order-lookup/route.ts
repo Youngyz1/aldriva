@@ -1,4 +1,5 @@
 import "server-only";
+import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -28,6 +29,87 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
  * same generic 404 so arbitrary order ids cannot be enumerated. Rate-limited
  * on the guestLookup tier (keyed user-or-IP).
  */
+/**
+ * Cart-session lookup backing the site-local Store order confirmation.
+ *
+ * GET /api/products/order-lookup?cartSession=<cs_…>
+ *
+ * Proof is possession of the unguessable Stripe session id from the checkout
+ * success URL: the session is retrieved live, must be paid, and must carry
+ * metadata kind "product_cart". Rows are then read by stripe_session_id
+ * (written by the cart checkout route). Tenant binding stays page-level:
+ * the site confirmation page 404s unless every row's product belongs to the
+ * site's businesses. Failures return the same generic 404.
+ */
+async function lookupCartSession(cartSessionId: string) {
+  try {
+    if (
+      typeof cartSessionId !== "string" ||
+      !cartSessionId.startsWith("cs_") ||
+      cartSessionId.length > 200
+    ) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(cartSessionId);
+    } catch {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    if (
+      session.payment_status !== "paid" ||
+      (session.metadata ?? {}).kind !== "product_cart"
+    ) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    const admin = createSupabaseAdmin();
+    const { data: rows } = await admin
+      .from("product_orders")
+      .select("id, status, product_id, product_name, quantity, total_amount, currency")
+      .eq("stripe_session_id", session.id)
+      .limit(12);
+    if (!rows || rows.length === 0) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    const items = (rows as Array<{
+      id: string;
+      status: string;
+      product_id: string;
+      product_name: string;
+      quantity: number;
+      total_amount: number;
+      currency: string;
+    }>).map((row) => ({
+      orderId: row.id,
+      productId: row.product_id,
+      productName: row.product_name,
+      quantity: row.quantity,
+      totalAmount: row.total_amount,
+      currency: row.currency,
+      status: row.status,
+    }));
+    const allPaid = items.every((item) => item.status === "paid");
+    return NextResponse.json({
+      status: allPaid ? "paid" : "pending",
+      kind: "product_cart",
+      sessionId: session.id,
+      currency: items[0]?.currency ?? null,
+      items,
+    });
+  } catch (err) {
+    console.error("products/order-lookup cart session error:", err);
+    return NextResponse.json(
+      { error: "Could not look up the order. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     let viewerId: string | null = null;
@@ -43,6 +125,10 @@ export async function GET(req: NextRequest) {
     if (limited) return limited;
 
     const orderId = req.nextUrl.searchParams.get("orderId");
+    const cartSessionId = req.nextUrl.searchParams.get("cartSession");
+    if (cartSessionId) {
+      return lookupCartSession(cartSessionId);
+    }
     if (!isUuid(orderId)) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }

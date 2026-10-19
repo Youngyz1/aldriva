@@ -56,6 +56,8 @@ export interface ResolvedProductItem {
   category: string | null;
   tags: string[];
   stripe_price_id: string | null;
+  /** ISO timestamp for newest-first sorting; null when unknown. */
+  created_at?: string | null;
 }
 
 export interface ResolvedFundraiserItem {
@@ -208,7 +210,7 @@ export async function resolveProductsEmbed(
   let query = supabase
     .from("products")
     .select(
-      "id, name, slug, description, images, price_type, stock_quantity, status, category, tags, stripe_price_id"
+      "id, name, slug, description, images, price_type, stock_quantity, status, category, tags, stripe_price_id, created_at"
     )
     .in("business_id", businessIds);
 
@@ -254,6 +256,7 @@ export async function resolveProductsEmbed(
       typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
         ? item.stripe_price_id.trim()
         : null,
+    created_at: typeof item.created_at === "string" ? item.created_at : null,
   }));
 }
 

@@ -160,7 +160,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
   { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items"] },
   { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },
   { id: "store-fulfilment", title: "Order fulfilment note", slotIds: ["product.fulfilment-note"] },
-  { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured"] },
+  { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured", "menu.image_fit"] },
   { id: "featured", title: "Featured products", slotIds: ["home.featured"] },
   { id: "shop", title: "Shop page", slotIds: ["shop.density"] },
   { id: "about", title: "About", slotIds: ["about.caption", "about.headline", "about.subtitle", "about.photo", "about.text", "about.stats"] },

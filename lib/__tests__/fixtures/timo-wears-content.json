@@ -1,0 +1,738 @@
+{
+  "website": {
+    "id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+    "tenant_id": "09858d50-9974-496c-b184-c18ba23b52b4",
+    "slug": "timo-wears",
+    "site_title": "Timo Wears",
+    "site_tagline": null,
+    "theme_config": {
+      "theme": "default",
+      "darkMode": false,
+      "fontFamily": "sans",
+      "borderRadius": "xl",
+      "primaryColor": "#2F5DA8"
+    },
+    "header_config": {
+      "sticky": true,
+      "ctaHref": "",
+      "showCta": true,
+      "showNav": true,
+      "ctaLabel": "Order Now",
+      "showLogo": true,
+      "mobileMenu": "overlay"
+    },
+    "footer_config": {
+      "customLinks": [],
+      "showSocials": true,
+      "copyrightText": "",
+      "showPoweredBy": true
+    },
+    "seo_title": null,
+    "seo_description": null,
+    "seo_og_image": null,
+    "status": "published",
+    "created_at": "2026-10-18T22:36:49.341451+00:00",
+    "updated_at": "2026-10-18T22:50:48.932754+00:00",
+    "metadata": {
+      "brand": {
+        "accentId": "midnight-sapphire"
+      },
+      "storefront": {
+        "currency": "XOF"
+      },
+      "templateId": "restaurant-savannah",
+      "templateVersion": "1.0.0",
+      "websiteCategory": "restaurant",
+      "creationRequestId": "3c53a519-ea92-411b-b8f9-b50ccbb1d358"
+    }
+  },
+  "business": {
+    "id": "ffdf0107-92fb-4f44-90e8-a364efae70d3",
+    "owner_id": "6daac409-ea91-4257-9397-a1faf7aed13f",
+    "name": "Timo Wears",
+    "slug": "timo-wears",
+    "description": "Come to us for everything wear from Italian to American wears",
+    "industry": "Food & Beverage",
+    "category": "Restaurant",
+    "logo": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/9e5c45f9-3bf9-41e0-bf85-865ee077b7da/business-logos/1792362930669-5edfslkb-sci-sanogo-logo-transparent-upload.webp",
+    "website": null,
+    "email": "ivanchristianartem@gmail.com",
+    "phone": "+380995349269",
+    "address": "Khreschatyk St, 22, Kyiv, Ukraine, 02000",
+    "city": "Kiev",
+    "state": "Kyyivs'ka (Kiev)",
+    "country": "Ukraine",
+    "listing_tier": "free",
+    "status": "active",
+    "is_flagged": false,
+    "stripe_price_id": null,
+    "stripe_subscription_id": null,
+    "current_period_end": null,
+    "seo_title": null,
+    "seo_description": null,
+    "created_at": "2026-10-18T22:36:04.324443+00:00",
+    "updated_at": "2026-10-18T22:36:05.902363+00:00",
+    "pre_approval_status_snapshot": null,
+    "is_featured": false,
+    "rejection_reason": null,
+    "organizer_id": "09858d50-9974-496c-b184-c18ba23b52b4",
+    "business_type": "Full-Service Restaurant",
+    "screening_risk_score": 0,
+    "screened_at": "2026-10-18T22:36:05.35+00:00",
+    "offerings": [
+      "pickup",
+      "delivery",
+      "online_ordering",
+      "online_payment",
+      "table_reservations",
+      "outdoor_seating"
+    ]
+  },
+  "liveContent": {
+    "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+    "content": {
+      "email": "ivanchristianartem@gmail.com",
+      "hours": {
+        "fri": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "mon": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "sat": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "sun": {
+          "closed": true
+        },
+        "thu": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "tue": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "wed": {
+          "open": "09:00",
+          "close": "23:00"
+        }
+      },
+      "phone": "0907539629",
+      "address": "684 n road mine 2 port",
+      "tagline": "Visit us at",
+      "logo_url": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/9e5c45f9-3bf9-41e0-bf85-865ee077b7da/business-logos/1792362930669-5edfslkb-sci-sanogo-logo-transparent-upload.webp",
+      "about_text": "Come to us for everything wear from Italian to American wears",
+      "hero_image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363117309-zk6byk31-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+      "highlights": [
+        {
+          "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363345396-yxii3slr-premium-photo-1792016992000-a3e5d0f92f88-upload.webp",
+          "title": "We are waiting",
+          "description": "get here soon now before it's late"
+        }
+      ],
+      "nav_labels": {
+        "home": "Home"
+      },
+      "about_image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363620497-ha7r6u0h-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+      "about_caption": "Welcome to Timo Food and Wear",
+      "business_name": "Timo Food and Wear",
+      "hero_headline": "Seasons Greeting From Timo Wears",
+      "about_headline": "we can do it again",
+      "template_extras": {
+        "text": "Buy one and get one free",
+        "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363220634-gxv6erm5-photo-1791643329293-2e0774489663-upload.webp",
+        "eyebrow": "Grab is now",
+        "end_date": "soon",
+        "headline": "Don't miss this opportunity",
+        "button_label": "Hurry",
+        "ctaBandHeading": "No time left bro, just get here",
+        "ctaBandButtonLabel": "Hurry"
+      },
+      "enabled_sections": {
+        "promo": true,
+        "menu.featured": true
+      },
+      "primary_cta_label": "Come in"
+    },
+    "updated_by": "6daac409-ea91-4257-9397-a1faf7aed13f",
+    "updated_at": "2026-10-18T22:50:47.985074+00:00"
+  },
+  "draftContent": {
+    "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+    "content": {
+      "email": "ivanchristianartem@gmail.com",
+      "hours": {
+        "fri": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "mon": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "sat": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "sun": {
+          "closed": true
+        },
+        "thu": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "tue": {
+          "open": "09:00",
+          "close": "23:00"
+        },
+        "wed": {
+          "open": "09:00",
+          "close": "23:00"
+        }
+      },
+      "phone": "0907539629",
+      "address": "684 n road mine 2 port",
+      "tagline": "Visit us at",
+      "logo_url": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/9e5c45f9-3bf9-41e0-bf85-865ee077b7da/business-logos/1792362930669-5edfslkb-sci-sanogo-logo-transparent-upload.webp",
+      "about_text": "Come to us for everything wear from Italian to American wears",
+      "hero_image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363117309-zk6byk31-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+      "highlights": [
+        {
+          "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363345396-yxii3slr-premium-photo-1792016992000-a3e5d0f92f88-upload.webp",
+          "title": "We are waiting",
+          "description": "get here soon now before it's late"
+        }
+      ],
+      "nav_labels": {
+        "home": "Home"
+      },
+      "about_image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363620497-ha7r6u0h-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+      "about_caption": "Welcome to Timo Food and Wear",
+      "business_name": "Timo Food and Wear",
+      "hero_headline": "Seasons Greeting From Timo Wears",
+      "about_headline": "we can do it again",
+      "template_extras": {
+        "text": "Buy one and get one free",
+        "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363220634-gxv6erm5-photo-1791643329293-2e0774489663-upload.webp",
+        "eyebrow": "Grab is now",
+        "end_date": "soon",
+        "headline": "Don't miss this opportunity",
+        "button_label": "Hurry",
+        "ctaBandHeading": "No time left bro, just get here",
+        "ctaBandButtonLabel": "Hurry"
+      },
+      "enabled_sections": {
+        "promo": true,
+        "menu.featured": false
+      },
+      "primary_cta_label": "Come in"
+    },
+    "updated_by": "6daac409-ea91-4257-9397-a1faf7aed13f",
+    "updated_at": "2026-10-19T00:12:10.229136+00:00",
+    "version": 12
+  },
+  "pages": [
+    {
+      "id": "3fe7e98b-ab00-42ba-986d-75cc39b47375",
+      "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+      "title": "Menu",
+      "slug": "menu",
+      "is_home": false,
+      "status": "published",
+      "blocks": [
+        {
+          "id": "d7580f3e-1344-5cc4-8813-87563937f3cc",
+          "type": "menu_embed",
+          "limit": 200,
+          "layout": "grid",
+          "heading": "Our full menu",
+          "variant": "catalog-carousel",
+          "currency": "XOF"
+        }
+      ],
+      "sort_order": 1,
+      "seo_title": null,
+      "seo_description": null,
+      "seo_og_image": null,
+      "created_at": "2026-10-18T22:36:49.341451+00:00",
+      "updated_at": "2026-10-18T22:50:48.326535+00:00",
+      "blocks_layout": {
+        "version": 1,
+        "global_theme": {
+          "classes": {}
+        },
+        "layout_blocks": [
+          {
+            "id": "d7580f3e-1344-5cc4-8813-87563937f3cc",
+            "type": "menu_embed",
+            "content": {
+              "limit": 200,
+              "layout": "grid",
+              "heading": "Our full menu",
+              "variant": "catalog-carousel",
+              "currency": "XOF"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1bac7190-82c4-407a-a995-8e3ec934edea",
+      "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+      "title": "Order",
+      "slug": "order",
+      "is_home": false,
+      "status": "published",
+      "blocks": [
+        {
+          "id": "fc8b0b5b-a38e-5134-8d49-c6990edec876",
+          "type": "menu_embed",
+          "limit": 200,
+          "layout": "grid",
+          "heading": "Start your order",
+          "variant": "catalog-carousel",
+          "currency": "XOF"
+        }
+      ],
+      "sort_order": 2,
+      "seo_title": null,
+      "seo_description": null,
+      "seo_og_image": null,
+      "created_at": "2026-10-18T22:50:47.476445+00:00",
+      "updated_at": "2026-10-18T22:50:48.637446+00:00",
+      "blocks_layout": {
+        "version": 1,
+        "global_theme": {
+          "classes": {}
+        },
+        "layout_blocks": [
+          {
+            "id": "fc8b0b5b-a38e-5134-8d49-c6990edec876",
+            "type": "menu_embed",
+            "content": {
+              "limit": 200,
+              "layout": "grid",
+              "heading": "Start your order",
+              "variant": "catalog-carousel",
+              "currency": "XOF"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "559b4334-00ff-4902-b0c8-592b22e17adc",
+      "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+      "title": "Reservations",
+      "slug": "reservations",
+      "is_home": false,
+      "status": "published",
+      "blocks": [
+        {
+          "id": "5b3e4ec9-fe0e-5a2c-8e74-95ab69938dea",
+          "type": "reservation_form"
+        }
+      ],
+      "sort_order": 4,
+      "seo_title": null,
+      "seo_description": null,
+      "seo_og_image": null,
+      "created_at": "2026-10-18T22:50:47.82578+00:00",
+      "updated_at": "2026-10-18T22:50:48.782773+00:00",
+      "blocks_layout": {
+        "version": 1,
+        "global_theme": {
+          "classes": {}
+        },
+        "layout_blocks": [
+          {
+            "id": "5b3e4ec9-fe0e-5a2c-8e74-95ab69938dea",
+            "type": "reservation_form",
+            "content": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "7456d71d-6d52-438e-b4fa-ac673c635485",
+      "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+      "title": "Home",
+      "slug": "home",
+      "is_home": true,
+      "status": "published",
+      "blocks": [
+        {
+          "id": "10525324-0cbc-5e5b-8392-4ff2d9b83255",
+          "type": "hero",
+          "align": "left",
+          "scrim": true,
+          "ctaHref": "/site/timo-wears/order",
+          "heading": "Seasons Greeting From Timo Wears",
+          "spacing": "roomy",
+          "tagline": "Visit us at",
+          "variant": "full-bleed",
+          "ctaLabel": "Come in",
+          "backgroundImage": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363117309-zk6byk31-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+          "secondaryCtaHref": "/site/timo-wears/reservations",
+          "secondaryCtaLabel": "Reserve a table"
+        },
+        {
+          "id": "fe6a4aad-b512-56fe-8fdc-f9ab7f9d9ca0",
+          "type": "features",
+          "items": [
+            {
+              "id": "4178ee1d-5503-547e-85aa-d35b9ad86ad8",
+              "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363345396-yxii3slr-premium-photo-1792016992000-a3e5d0f92f88-upload.webp",
+              "title": "We are waiting",
+              "description": "get here soon now before it's late"
+            }
+          ],
+          "columns": 3
+        },
+        {
+          "id": "24fa23c5-c025-56f9-83ce-bcfd2fd478c5",
+          "type": "menu_embed",
+          "limit": 6,
+          "layout": "grid",
+          "heading": "Best sellers",
+          "variant": "catalog-carousel",
+          "currency": "XOF"
+        },
+        {
+          "id": "edb96955-dd01-5143-81ff-c3bd79a700c3",
+          "type": "menu_embed",
+          "limit": 200,
+          "layout": "grid",
+          "heading": "Our Menu",
+          "variant": "catalog-carousel",
+          "currency": "XOF"
+        },
+        {
+          "id": "4ffa9799-0781-5412-8e0e-6c7b3dc18158",
+          "type": "menu_order"
+        },
+        {
+          "id": "ff4e0989-8848-5d0d-810e-f9893595c2b9",
+          "type": "about",
+          "story": "Come to us for everything wear from Italian to American wears",
+          "caption": "Welcome to Timo Food and Wear",
+          "heading": "we can do it again",
+          "founderImage": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363620497-ha7r6u0h-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp"
+        },
+        {
+          "id": "6294f3e1-2b17-5ed6-801b-3073ed9a552c",
+          "type": "contact",
+          "email": "ivanchristianartem@gmail.com",
+          "phone": "0907539629",
+          "address": "684 n road mine 2 port",
+          "heading": "Hours & Location",
+          "showMap": false,
+          "hoursTable": [
+            {
+              "day": "Mon",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Tue",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Wed",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Thu",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Fri",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Sat",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Sun",
+              "closed": true
+            }
+          ]
+        },
+        {
+          "id": "8e028ac2-c684-5bdd-815e-46fcea5d03d3",
+          "type": "cta_banner",
+          "ctaHref": "/menu",
+          "heading": "No time left bro, just get here",
+          "variant": "footer",
+          "ctaLabel": "Hurry"
+        }
+      ],
+      "sort_order": 0,
+      "seo_title": null,
+      "seo_description": null,
+      "seo_og_image": null,
+      "created_at": "2026-10-18T22:36:49.341451+00:00",
+      "updated_at": "2026-10-18T22:50:48.183719+00:00",
+      "blocks_layout": {
+        "version": 1,
+        "global_theme": {
+          "classes": {}
+        },
+        "layout_blocks": [
+          {
+            "id": "10525324-0cbc-5e5b-8392-4ff2d9b83255",
+            "type": "hero",
+            "content": {
+              "align": "left",
+              "scrim": true,
+              "ctaHref": "/site/timo-wears/order",
+              "heading": "Seasons Greeting From Timo Wears",
+              "spacing": "roomy",
+              "tagline": "Visit us at",
+              "variant": "full-bleed",
+              "ctaLabel": "Come in",
+              "backgroundImage": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363117309-zk6byk31-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp",
+              "secondaryCtaHref": "/site/timo-wears/reservations",
+              "secondaryCtaLabel": "Reserve a table"
+            }
+          },
+          {
+            "id": "fe6a4aad-b512-56fe-8fdc-f9ab7f9d9ca0",
+            "type": "features",
+            "content": {
+              "items": [
+                {
+                  "id": "4178ee1d-5503-547e-85aa-d35b9ad86ad8",
+                  "image": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363345396-yxii3slr-premium-photo-1792016992000-a3e5d0f92f88-upload.webp",
+                  "title": "We are waiting",
+                  "description": "get here soon now before it's late"
+                }
+              ],
+              "columns": 3
+            }
+          },
+          {
+            "id": "24fa23c5-c025-56f9-83ce-bcfd2fd478c5",
+            "type": "menu_embed",
+            "content": {
+              "limit": 6,
+              "layout": "grid",
+              "heading": "Best sellers",
+              "variant": "catalog-carousel",
+              "currency": "XOF"
+            }
+          },
+          {
+            "id": "edb96955-dd01-5143-81ff-c3bd79a700c3",
+            "type": "menu_embed",
+            "content": {
+              "limit": 200,
+              "layout": "grid",
+              "heading": "Our Menu",
+              "variant": "catalog-carousel",
+              "currency": "XOF"
+            }
+          },
+          {
+            "id": "4ffa9799-0781-5412-8e0e-6c7b3dc18158",
+            "type": "menu_order",
+            "content": {}
+          },
+          {
+            "id": "ff4e0989-8848-5d0d-810e-f9893595c2b9",
+            "type": "about",
+            "content": {
+              "story": "Come to us for everything wear from Italian to American wears",
+              "caption": "Welcome to Timo Food and Wear",
+              "heading": "we can do it again",
+              "founderImage": "https://qyodwnefnploexgrbuhr.supabase.co/storage/v1/object/public/cms-media/09858d50-9974-496c-b184-c18ba23b52b4/website/1792363620497-ha7r6u0h-premium-photo-1792016991429-bf62a2d6e3c2-upload.webp"
+            }
+          },
+          {
+            "id": "6294f3e1-2b17-5ed6-801b-3073ed9a552c",
+            "type": "contact",
+            "content": {
+              "email": "ivanchristianartem@gmail.com",
+              "phone": "0907539629",
+              "address": "684 n road mine 2 port",
+              "heading": "Hours & Location",
+              "showMap": false,
+              "hoursTable": [
+                {
+                  "day": "Mon",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Tue",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Wed",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Thu",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Fri",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Sat",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Sun",
+                  "closed": true
+                }
+              ]
+            }
+          },
+          {
+            "id": "8e028ac2-c684-5bdd-815e-46fcea5d03d3",
+            "type": "cta_banner",
+            "content": {
+              "ctaHref": "/menu",
+              "heading": "No time left bro, just get here",
+              "variant": "footer",
+              "ctaLabel": "Hurry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "023c2d46-ccf8-4b77-8ec5-bd9f8ad786ab",
+      "website_id": "f067e1e2-7fc7-46a3-b782-966fb87a836d",
+      "title": "Contact",
+      "slug": "contact",
+      "is_home": false,
+      "status": "published",
+      "blocks": [
+        {
+          "id": "bb155574-9f0e-5de8-8bfa-6d94dec8859c",
+          "type": "contact",
+          "email": "ivanchristianartem@gmail.com",
+          "phone": "0907539629",
+          "address": "684 n road mine 2 port",
+          "heading": "Hours & Location",
+          "showMap": false,
+          "hoursTable": [
+            {
+              "day": "Mon",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Tue",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Wed",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Thu",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Fri",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Sat",
+              "open": "09:00",
+              "close": "23:00"
+            },
+            {
+              "day": "Sun",
+              "closed": true
+            }
+          ]
+        }
+      ],
+      "sort_order": 3,
+      "seo_title": null,
+      "seo_description": null,
+      "seo_og_image": null,
+      "created_at": "2026-10-18T22:36:49.341451+00:00",
+      "updated_at": "2026-10-18T22:50:48.483584+00:00",
+      "blocks_layout": {
+        "version": 1,
+        "global_theme": {
+          "classes": {}
+        },
+        "layout_blocks": [
+          {
+            "id": "bb155574-9f0e-5de8-8bfa-6d94dec8859c",
+            "type": "contact",
+            "content": {
+              "email": "ivanchristianartem@gmail.com",
+              "phone": "0907539629",
+              "address": "684 n road mine 2 port",
+              "heading": "Hours & Location",
+              "showMap": false,
+              "hoursTable": [
+                {
+                  "day": "Mon",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Tue",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Wed",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Thu",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Fri",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Sat",
+                  "open": "09:00",
+                  "close": "23:00"
+                },
+                {
+                  "day": "Sun",
+                  "closed": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

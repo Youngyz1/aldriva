@@ -1,0 +1,1229 @@
+"use client";
+
+/**
+ * components/site/blocks/StorefrontBrowse.tsx
+ *
+ * One shared client enhancement for menu + shop browse: category chips,
+ * accent-insensitive search, item cards as buttons, accessible item
+ * detail sheet (bottom sheet on mobile, centered modal on desktop), and
+ * guest cart + order request flow (Phase 2b-2).
+ *
+ * Progressive enhancement contract: the server always renders the full static
+ * section HTML as `children`. Before mount (and with JS disabled) only that
+ * static markup shows. After mount this component renders chips + search and
+ * takes over the grids.
+ */
+
+import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
+import { X } from "lucide-react";
+import {
+  BROWSE_ALL_GROUP,
+  filterBrowseGroups,
+  sortBrowseItems,
+  type BrowseGroup,
+  type BrowseItem,
+  type BrowseOptionGroup,
+  type BrowseSortKey,
+} from "@/lib/storefront-browse";
+import {
+  ProductCarousel,
+  type ProductCarouselItem,
+} from "./ProductCarousel";
+import { CatalogCarousel } from "./CatalogCard";
+import type { Locale } from "@/i18n/routing";
+import {
+  StoreCartWidget,
+  type StoreCartCatalogEntry,
+  type StoreCartLabels,
+} from "@/components/site/v2/StoreCartDrawer";
+import { addStoreCartItem } from "@/lib/store-cart";
+import { submitOrderRequest } from "@/lib/actions/orders";
+import { formatMoney } from "@/lib/money";
+import StripeProvider from "@/components/payments/StripeProvider";
+import PaymentForm from "@/components/payments/PaymentForm";
+
+export interface StorefrontOrderConfig {
+  enabled: boolean;
+  slug: string;
+  currency: string;
+  offerings?: string[];
+  /** Online card payment available (USD site + owner ticked + built). */
+  onlinePayment?: boolean;
+  isClosed?: boolean;
+  closedNotice?: string;
+  scheduledFor?: string | null;
+  blocked?: boolean;
+  blockReason?: string;
+  /** Flat delivery fee in the site currency (0 = free). Computed server-side; displayed in cart. */
+  deliveryFee?: number;
+  /** Subtotal threshold above which delivery is free (null = no free threshold). */
+  freeDeliveryAbove?: number | null;
+}
+
+export interface StorefrontBrowseLabels {
+  categories: string;
+  all: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  clearFilters: string;
+  noResults: string;
+  details: string;
+  close: string;
+  allergens: string;
+  soldOut?: string;
+  required?: string;
+  optional?: string;
+  options?: string;
+  addToOrder?: string;
+  viewOrder?: string;
+  yourOrder?: string;
+  emptyCart?: string;
+  subtotal?: string;
+  deliveryFee?: string;
+  deliveryFeeNotice?: string;
+  freeDelivery?: string;
+  freeDeliveryProgress?: string;
+  total?: string;
+  fulfilment?: string;
+  pickup?: string;
+  delivery?: string;
+  deliveryAddress?: string;
+  deliveryAddressPlaceholder?: string;
+  customerDetails?: string;
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  orderNote?: string;
+  orderNotePlaceholder?: string;
+  paymentOnFulfilment?: string;
+  paymentMethod?: string;
+  payOnline?: string;
+  payingOnline?: string;
+  onlinePaymentNotice?: string;
+  placeOrder?: string;
+  placingOrder?: string;
+  orderSuccessTitle?: string;
+  orderSuccessSubtext?: string;
+  orderNumber?: string;
+  scheduledNotice?: string;
+  noUpcomingHours?: string;
+  backToMenu?: string;
+  asap?: string;
+  scheduleForLater?: string;
+  chooseDate?: string;
+  chooseTime?: string;
+  trackOrder?: string;
+  copyTrackingLink?: string;
+  trackingLinkCopied?: string;
+  loadMore?: string;
+}
+
+export interface CartItem {
+  itemId: string;
+  selectedOptionIds: string[];
+  quantity: number;
+}
+
+interface StorefrontBrowseProps {
+  groups: BrowseGroup[];
+  labels: StorefrontBrowseLabels;
+  /** No chips row when there is a single category (search still shows). */
+  showGroups: boolean;
+  emptyHint?: string;
+  itemMode?: "details" | "links";
+  categoryTiles?: boolean;
+  pageSize?: number;
+  /** Template-scoped menu presentation. Absent keeps existing cards. */
+  variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
+  /** Site price display default (ISO 4217). */
+  currency?: string;
+  /** Locale for price formatting. */
+  currencyLocale?: Locale;
+  orderConfig?: StorefrontOrderConfig;
+  accentColor?: string;
+  /**
+   * Opt-in home-row mode: render paged items as a snap-scroll carousel
+   * instead of grouped grids. Search, chips, and load-more behavior above
+   * it are unchanged. Absent everywhere else, so existing sites are
+   * untouched.
+   */
+  carousel?: {
+    prevLabel: string;
+    nextLabel: string;
+    regionLabel: string;
+  };
+  /**
+   * Opt-in Shop sorting (Store template only): featured / newest /
+   * price low-high / price high-low. Absent everywhere else, so existing
+   * sites keep their current order.
+   */
+  sort?: {
+    label: string;
+    featured: string;
+    newest: string;
+    priceAsc: string;
+    priceDesc: string;
+  };
+  /**
+   * Opt-in Store cart (Store template only): quick-add buttons on carousel
+   * cards plus a floating cart button + drawer. Absent everywhere else.
+   */
+  storeCart?: {
+    slug: string;
+    siteCurrency: string;
+    addLabel: string;
+    labels: StoreCartLabels;
+  };
+  children: React.ReactNode;
+}
+
+export function TableFlameMenuRows({
+  items,
+  onSelect,
+  soldOutLabel,
+}: {
+  items: BrowseItem[];
+  onSelect: (item: BrowseItem, trigger: HTMLButtonElement) => void;
+  soldOutLabel?: string;
+}) {
+  return <>
+    {items.map((item) => (
+      <button
+        key={item.id}
+        data-menu-row="true"
+        type="button"
+        aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
+        onClick={(event) => onSelect(item, event.currentTarget)}
+        className="group flex min-h-11 w-full items-center gap-5 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-2">
+            <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+            <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[var(--tf-menu-leader)]" />
+            {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+          </span>
+          {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+          {item.isSoldOut && soldOutLabel ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{soldOutLabel}</span> : null}
+        </span>
+        {item.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[var(--tf-border)] object-cover" loading="lazy" />
+        ) : null}
+      </button>
+    ))}
+  </>;
+}
+
+function loadCart(slug: string): CartItem[] {
+  if (typeof window === "undefined" || !slug) return [];
+  try {
+    const raw = localStorage.getItem(`aldriva_cart_${slug}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.itemId === "string" &&
+        Array.isArray(item.selectedOptionIds) &&
+        typeof item.quantity === "number" &&
+        item.quantity > 0
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(slug: string, cart: CartItem[]): void {
+  if (typeof window === "undefined" || !slug) return;
+  try {
+    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify(cart));
+  } catch {
+    // quota exceeded or private mode, silently ignore
+  }
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, index) => val === sortedB[index]);
+}
+
+export function StorefrontBrowse({
+  groups,
+  labels,
+  showGroups,
+  orderConfig,
+  accentColor,
+  carousel,
+  sort,
+  storeCart,
+  children,
+  itemMode = "details",
+  categoryTiles = false,
+  pageSize,
+  variant = "cards",
+  currency,
+  currencyLocale,
+}: StorefrontBrowseProps) {
+  const isTableFlame = variant === "rows";
+  const isEditorial = variant === "editorial";
+  const [mounted, setMounted] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
+  const [sortKey, setSortKey] = useState<BrowseSortKey>("featured");
+  const [visibleItemCount, setVisibleItemCount] = useState(Math.max(1, pageSize ?? 12));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState<{
+    orderNumber: string;
+    trackingToken?: string | null;
+    scheduledFor?: string | null;
+    subtotal?: number | null;
+    deliveryFee?: number | null;
+    total?: number | null;
+    fulfilmentType?: string | null;
+    currency?: string | null;
+  } | null>(null);
+  const [activeOrder, setActiveOrder] = useState<{
+    token: string;
+    orderNumber: string;
+    scheduledFor?: string | null;
+    savedAt?: number;
+  } | null>(null);
+
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const searchId = useId();
+  const chipsId = useId();
+
+  useEffect(() => {
+    setMounted(true);
+    if (orderConfig?.enabled && orderConfig.slug) {
+      setCart(loadCart(orderConfig.slug));
+      try {
+        const raw = localStorage.getItem(`aldriva_active_order_${orderConfig.slug}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token && parsed?.orderNumber && Date.now() - (parsed.savedAt || 0) < 86400000) {
+            setActiveOrder(parsed);
+          }
+        }
+      } catch {
+        // Storage unavailable (private browsing)
+      }
+    }
+  }, [orderConfig?.enabled, orderConfig?.slug]);
+
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
+
+  const openSheet = (id: string, trigger: HTMLElement | null) => {
+    triggerRef.current = trigger;
+    setSelectedId(id);
+  };
+
+  const closeSheet = () => {
+    setSelectedId(null);
+    triggerRef.current?.focus();
+    triggerRef.current = null;
+  };
+
+  const allItems = groups.flatMap((group) => group.items);
+  const selected = selectedId
+    ? allItems.find((item) => item.id === selectedId) ?? null
+    : null;
+
+  const handleAddToOrder = (
+    itemId: string,
+    selectedOptionIds: string[],
+    quantity: number
+  ) => {
+    const existingIndex = cart.findIndex(
+      (c) => c.itemId === itemId && arraysEqual(c.selectedOptionIds, selectedOptionIds)
+    );
+    let nextCart: CartItem[];
+    if (existingIndex >= 0) {
+      nextCart = cart.map((c, i) =>
+        i === existingIndex ? { ...c, quantity: c.quantity + quantity } : c
+      );
+    } else {
+      nextCart = [...cart, { itemId, selectedOptionIds, quantity }];
+    }
+    updateCart(nextCart);
+    closeSheet();
+  };
+
+  // Catalog carousel (Savannah): render per-category scrollable carousels
+  // both server-side and after mount, replacing the static cards grid.
+  // When a card is clicked, the item sheet renders below the carousel.
+  if (variant === "catalog-carousel") {
+    return (
+      <div className="space-y-[var(--ps-space-8)]">
+        {groups.map((group) => (
+          <section
+            key={group.id}
+            className="space-y-[var(--ps-space-3)]"
+          >
+            <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
+              {group.title}
+            </h3>
+            <CatalogCarousel
+              items={group.items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                description: item.description,
+                image: item.image,
+                priceLabel: item.priceLabel,
+                numericPrice: item.numericPrice,
+                originalPriceLabel: item.originalPriceLabel,
+                isSoldOut: item.isSoldOut,
+              }))}
+              prevLabel={carousel?.prevLabel ?? labels.all}
+              nextLabel={carousel?.nextLabel ?? labels.all}
+              currency={currency}
+              locale={locale}
+              onSelect={(id) => openSheet(id, null)}
+            />
+          </section>
+        ))}
+        {selected ? (
+          <ItemDetailSheet
+            itemId={selected.id}
+            title={selected.name}
+            image={selected.image ?? null}
+            description={selected.description ?? null}
+            priceLabel={selected.priceLabel}
+            originalPriceLabel={selected.originalPriceLabel}
+            numericPrice={selected.numericPrice}
+            isSoldOut={selected.isSoldOut}
+            optionGroups={selected.optionGroups}
+            tags={selected.tags}
+            detailRows={selected.detailRows}
+            action={selected.action}
+            tableFlame={false}
+            savannah={true}
+            closeLabel={labels.close}
+            labels={labels}
+            orderConfig={orderConfig}
+            onAddToOrder={handleAddToOrder}
+            onClose={closeSheet}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  // Before hydration (and without JS): server static markup only.
+  if (!mounted) return <>{children}</>;
+
+  if (groups.length === 0) return <>{children}</>;
+
+  const visible = filterBrowseGroups(groups, query, activeGroup);
+  const sortedVisible = sort
+    ? visible.map((group) => ({ ...group, items: sortBrowseItems(group.items, sortKey) }))
+    : visible;
+  const engaged = query.trim() !== "" || activeGroup !== BROWSE_ALL_GROUP;
+  const categoryGroups = categoryTiles ? groups.filter((group) => group.id !== "uncategorized") : groups;
+  const visibleCount = itemMode === "links" ? visibleItemCount : Number.POSITIVE_INFINITY;
+  let remaining = visibleCount;
+  const pagedVisible = sortedVisible.flatMap((group) => {
+    const items = group.items.slice(0, remaining);
+    remaining -= items.length;
+    return items.length ? [{ ...group, items }] : [];
+  });
+  const totalVisibleItems = sortedVisible.reduce((count, group) => count + group.items.length, 0);
+
+  const handleSortChange = (next: BrowseSortKey) => {
+    setSortKey(next);
+    setVisibleItemCount(Math.max(1, pageSize ?? 12));
+  };
+
+  const carouselItems: ProductCarouselItem[] = pagedVisible.flatMap((group) =>
+    group.items.map((item) => {
+      const badge =
+        item.badge ?? (item.isSoldOut && labels.soldOut ? labels.soldOut : null);
+      return {
+        id: `${group.id}-${item.id}`,
+        href: item.action && item.action.href !== "#" ? item.action.href : null,
+        image: item.image ?? null,
+        name: item.name,
+        description: item.description ?? null,
+        priceLabel: item.priceLabel,
+        badge,
+        badgeTone: badge
+          ? (item.badgeTone ?? (item.isSoldOut ? "alert" : "muted"))
+          : undefined,
+        canAdd: !item.isSoldOut,
+      };
+    })
+  );
+
+  const handleQuickAdd = (compositeId: string) => {
+    if (!storeCart) return;
+    // Carousel ids are `${group.id}-${item.id}`; recover the item by match
+    // against the visible catalog instead of parsing ids.
+    const found = pagedVisible
+      .flatMap((group) => group.items.map((item) => ({ group, item })))
+      .find(({ group, item }) => `${group.id}-${item.id}` === compositeId);
+    if (!found || found.item.isSoldOut) return;
+    addStoreCartItem(storeCart.slug, found.item.id, 1);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("store-cart:added"));
+    }
+  };
+
+  // Full filtered catalog (not paged) so drawer rows resolve even past
+  // Load More; availability still comes from live stock flags.
+  const cartCatalog: StoreCartCatalogEntry[] = sortedVisible.flatMap((group) =>
+    group.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      image: item.image ?? null,
+      priceLabel: item.priceLabel,
+      numericPrice: item.numericPrice,
+      isSoldOut: Boolean(item.isSoldOut),
+      href: item.action && item.action.href !== "#" ? item.action.href : null,
+    }))
+  );
+  const reset = () => {
+    setQuery("");
+    setActiveGroup(BROWSE_ALL_GROUP);
+    setSortKey("featured");
+    setVisibleItemCount(Math.max(1, pageSize ?? 12));
+  };
+
+  const updateCart = (nextCart: CartItem[]) => {
+    setCart(nextCart);
+    if (orderConfig?.slug) {
+      saveCart(orderConfig.slug, nextCart);
+    }
+  };
+
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Compute cart subtotal from items
+  const itemsMap = new Map(allItems.map((it) => [it.id, it]));
+  const cartSubtotal = cart.reduce((sum, line) => {
+    const it = itemsMap.get(line.itemId);
+    if (!it) return sum;
+    const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
+    let deltas = 0;
+    const optSet = new Set(line.selectedOptionIds);
+    for (const group of it.optionGroups || []) {
+      for (const opt of group.options) {
+        if (optSet.has(opt.id) && typeof opt.priceDelta === "number") {
+          deltas += opt.priceDelta;
+        }
+      }
+    }
+    return sum + (base + deltas) * line.quantity;
+  }, 0);
+
+  const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
+
+  return (
+    <>
+      {/* Active order persistent banner */}
+      {activeOrder && !orderSuccess && orderConfig?.slug ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
+          <div className="flex items-center gap-[var(--ps-space-2)] min-w-0">
+            <span className="h-2 w-2 rounded-full bg-[var(--ps-accent)] shrink-0 animate-pulse" />
+            <span className="truncate">
+              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-[var(--ps-space-3)] shrink-0">
+            <a
+              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
+              className="font-bold text-[var(--ps-accent-hover)] underline hover:text-[var(--ps-accent-hover)] transition-colors"
+            >
+              {labels.trackOrder || "Track order"} →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveOrder(null);
+                try {
+                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="text-[var(--ps-muted)] hover:text-[var(--ps-muted)] text-xs px-[var(--ps-space-1)]"
+              aria-label="Dismiss active order banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showGroups && categoryGroups.length > 1 ? (
+        <div
+          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : isEditorial ? "bg-[var(--tf-base)]" : "bg-[var(--ps-surface)]/95"}`}
+          role="group"
+          aria-label={labels.categories}
+          id={chipsId}
+        >
+          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
+            {[BROWSE_ALL_GROUP, ...categoryGroups.map((group) => group.id)].map((groupId) => {
+              const active = activeGroup === groupId;
+              const title =
+                groupId === BROWSE_ALL_GROUP
+                  ? labels.all
+                  : groups.find((group) => group.id === groupId)?.title ?? groupId;
+              return (
+                <button
+                  key={groupId}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setActiveGroup(groupId)}
+                  className={isEditorial
+                    ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
+                    : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                    active
+                      ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
+                      : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
+                  }`}
+                >
+                  {title}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="my-[var(--ps-space-4)]">
+        <label htmlFor={searchId} className="sr-only">
+          {labels.searchLabel}
+        </label>
+        <div className="relative">
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={labels.searchPlaceholder}
+            className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label={labels.clearFilters}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {sort && totalVisibleItems > 0 ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-end gap-[var(--ps-space-2)]">
+          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)]">
+            {sort.label}
+          </label>
+          <select
+            id={`${searchId}-sort`}
+            value={sortKey}
+            onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+            className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+          >
+            <option value="featured">{sort.featured}</option>
+            <option value="newest">{sort.newest}</option>
+            <option value="priceAsc">{sort.priceAsc}</option>
+            <option value="priceDesc">{sort.priceDesc}</option>
+          </select>
+        </div>
+      ) : null}
+
+      {visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--ps-border)] py-[var(--ps-space-12)] text-center text-sm text-[var(--ps-muted)]">
+          <p>{labels.noResults}</p>
+          {engaged ? (
+            <button
+              type="button"
+              onClick={reset}
+              className="mt-[var(--ps-space-3)] text-xs font-semibold text-[var(--ps-accent-hover)] hover:text-[var(--ps-accent-hover)] underline"
+            >
+              {labels.clearFilters}
+            </button>
+          ) : null}
+        </div>
+      ) : carousel ? (
+        <ProductCarousel
+          items={carouselItems}
+          labels={{ prev: carousel.prevLabel, next: carousel.nextLabel, region: carousel.regionLabel }}
+          {...(storeCart ? { onAdd: handleQuickAdd, addLabel: storeCart.addLabel } : {})}
+        />
+      ) : (
+        <div className="space-y-[var(--ps-space-8)]">
+          {pagedVisible.map((group) => (
+            <section
+              key={group.id}
+              {...(categoryTiles && group.id === "uncategorized" ? {} : { "aria-labelledby": `group-title-${group.id}` })}
+              className="space-y-[var(--ps-space-3)]"
+            >
+              {categoryTiles && group.id === "uncategorized" ? null : (
+                <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
+                  {group.title}
+                </h3>
+              )}
+              <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+                {group.items.map((item) => itemMode === "links" ? (
+                  item.action ? (
+                    <Link
+                      key={item.id}
+                      href={item.action.href}
+                      aria-label={`${item.name} — ${item.action.label}`}
+                      className="group flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+                    >
+                      {item.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                      ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+                        {item.description ? <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">{item.description}</span> : null}
+                        {item.priceLabel ? <span className="mt-[var(--ps-space-1)] block text-xs font-bold text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                        {item.detailRows[0] ? <span className="mt-[var(--ps-space-1)] block text-xs text-[var(--ps-muted)]">{item.detailRows[0].value}</span> : null}
+                      </span>
+                    </Link>
+                  ) : (
+                    <article key={item.id} className="flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)]">
+                      <span className="text-sm font-semibold text-[var(--ps-text)]">{item.name}</span>
+                    </article>
+                  )
+                ) : isEditorial ? (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
+                    onClick={(event) => openSheet(item.id, event.currentTarget)}
+                    className={`savannah-button group flex min-h-12 w-full items-start gap-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ps-accent-hover)] ${item.isSoldOut ? "opacity-60" : ""}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-4">
+                        <span className="font-[var(--v2-heading-font)] text-lg font-bold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+                        {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                      </span>
+                      {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+                      {item.isSoldOut && labels.soldOut ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{labels.soldOut}</span> : null}
+                    </span>
+                    {item.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 object-cover" loading="lazy" />
+                    ) : null}
+                  </button>
+                ) : variant === "rows" ? (
+                  <TableFlameMenuRows
+                    items={[item]}
+                    soldOutLabel={labels.soldOut}
+                    onSelect={(selectedItem, trigger) => openSheet(selectedItem.id, trigger)}
+                  />
+                ) : (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={`${item.name}`}
+                    onClick={(event) => openSheet(item.id, event.currentTarget)}
+                    className={`group flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                      item.isSoldOut ? "opacity-60" : ""
+                    }`}
+                  >
+                    {item.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                    ) : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-[var(--ps-space-2)]">
+                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+                        {item.isSoldOut && labels.soldOut ? (
+                          <span className="shrink-0 rounded bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">
+                            {labels.soldOut}
+                          </span>
+                        ) : null}
+                      </span>
+                      {item.description ? (
+                        <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">{item.description}</span>
+                      ) : null}
+                      <span className="mt-[var(--ps-space-1)] flex items-baseline gap-[var(--ps-space-2)]">
+                        {item.priceLabel ? (
+                          <span
+                            className={
+                              item.originalPriceLabel
+                                ? "text-xs font-bold text-[var(--ps-accent-hover)]"
+                                : "text-xs font-bold text-[var(--ps-text)]"
+                            }
+                          >
+                            {item.priceLabel}
+                          </span>
+                        ) : null}
+                        {item.originalPriceLabel ? (
+                          <span className="text-xs font-normal text-[var(--ps-muted)] line-through">
+                            {item.originalPriceLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    </span>
+                    </button>
+                  ))}
+                </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {itemMode === "links" && totalVisibleItems > visibleCount ? (
+        <div className="mt-[var(--ps-space-6)] text-center">
+          <button
+            type="button"
+            onClick={() => setVisibleItemCount((count) => count + Math.max(1, pageSize ?? 12))}
+            className="ps-button ps-button-secondary min-h-11"
+          >
+            {labels.loadMore || "Load more"}
+          </button>
+        </div>
+      ) : null}
+
+      {selected ? (
+        <ItemDetailSheet
+          itemId={selected.id}
+          title={selected.name}
+          image={selected.image ?? null}
+          description={selected.description ?? null}
+          priceLabel={selected.priceLabel}
+          originalPriceLabel={selected.originalPriceLabel}
+          numericPrice={selected.numericPrice}
+          isSoldOut={selected.isSoldOut}
+          optionGroups={selected.optionGroups}
+          tags={selected.tags}
+          detailRows={selected.detailRows}
+          action={selected.action}
+          tableFlame={isTableFlame}
+          savannah={isEditorial || variant === "catalog-carousel"}
+          closeLabel={labels.close}
+          labels={labels}
+          orderConfig={orderConfig}
+            locale={locale}
+            onAddToOrder={handleAddToOrder}
+          onClose={closeSheet}
+        />
+      ) : null}
+
+      {/* Floating cart bar */}
+      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+          <div className={isEditorial
+            ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"
+            : `flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
+            <div className="flex items-center gap-[var(--ps-space-3)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ps-accent)] text-xs font-bold">
+                {totalCartCount}
+              </span>
+              <div className="text-sm font-semibold">
+                {labels.yourOrder || "Your order"} • {formattedCartSubtotal}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className={`ps-button ps-button-primary${isEditorial ? " savannah-button rounded-none shadow-none" : " rounded-xl"} text-xs font-bold transition`}
+            >
+              {labels.viewOrder || "View order"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Order Drawer */}
+      {isCartOpen && orderConfig ? (
+        <OrderDrawer
+          cart={cart}
+          orderConfig={orderConfig}
+          allItems={allItems}
+          labels={labels}
+          accentColor={accentColor}
+          savannah={isEditorial}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={(index, qty) => {
+            if (qty <= 0) {
+              updateCart(cart.filter((_, i) => i !== index));
+            } else {
+              updateCart(cart.map((item, i) => (i === index ? { ...item, quantity: qty } : item)));
+            }
+          }}
+          onRemoveItem={(index) => {
+            updateCart(cart.filter((_, i) => i !== index));
+          }}
+          onOrderSuccess={(result) => {
+            updateCart([]);
+            setIsCartOpen(false);
+            setOrderSuccess(result);
+          }}
+        />
+      ) : null}
+
+      {/* Confirmation Modal */}
+      {orderSuccess && orderConfig?.slug ? (
+        <OrderConfirmationModal
+          orderNumber={orderSuccess.orderNumber}
+          trackingToken={orderSuccess.trackingToken}
+          slug={orderConfig.slug}
+          scheduledFor={orderSuccess.scheduledFor}
+          subtotal={orderSuccess.subtotal}
+          deliveryFee={orderSuccess.deliveryFee}
+          total={orderSuccess.total}
+          fulfilmentType={orderSuccess.fulfilmentType}
+          currency={orderSuccess.currency ?? orderConfig.currency}
+          labels={labels}
+          tableFlame={isTableFlame}
+          savannah={isEditorial}
+          onClose={() => setOrderSuccess(null)}
+        />
+      ) : null}
+
+      {/* Bottom padding to prevent floating cart bar from covering last content */}
+      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div className="h-24" aria-hidden="true" />
+      ) : null}
+
+      {/* Store multi-item cart (Store template only) */}
+      {storeCart ? (
+        <StoreCartWidget
+          slug={storeCart.slug}
+          siteCurrency={storeCart.siteCurrency}
+          catalog={cartCatalog}
+          labels={storeCart.labels}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ItemDetailSheet({
+  itemId,
+  title,
+  image,
+  description,
+  priceLabel,
+  originalPriceLabel,
+  numericPrice,
+  isSoldOut,
+  optionGroups,
+  tags,
+  detailRows,
+  action,
+  tableFlame,
+  savannah,
+  closeLabel,
+  labels,
+  orderConfig,
+  onAddToOrder,
+  onClose,
+}: {
+  itemId: string;
+  title: string;
+  image: string | null;
+  description: string | null;
+  priceLabel: string | null;
+  originalPriceLabel?: string | null;
+  numericPrice?: number;
+  isSoldOut?: boolean;
+  optionGroups?: BrowseOptionGroup[];
+  tags: string[];
+  detailRows: Array<{ label: string; value: string }>;
+  action?: { label: string; href: string };
+  tableFlame: boolean;
+  savannah: boolean;
+  closeLabel: string;
+  labels: StorefrontBrowseLabels;
+  orderConfig?: StorefrontOrderConfig;
+  locale?: Locale;
+  onAddToOrder?: (itemId: string, selectedOptionIds: string[], quantity: number) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const [quantity, setQuantity] = useState(1);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+
+  // Esc to close + scroll lock; focus the panel on open for screen readers.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key === "Tab" && panelRef.current) {
+        const focusables = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => element.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, itemId]);
+
+  // Handle option choice change
+  const handleOptionToggle = (groupId: string, optionId: string, max: number) => {
+    setSelectedOptions((prev) => {
+      const current = prev[groupId] || [];
+      if (max === 1) {
+        return { ...prev, [groupId]: [optionId] };
+      }
+      if (current.includes(optionId)) {
+        return { ...prev, [groupId]: current.filter((id) => id !== optionId) };
+      }
+      if (current.length < max) {
+        return { ...prev, [groupId]: [...current, optionId] };
+      }
+      return prev;
+    });
+  };
+
+  // Check required groups
+  const isRequiredSatisfied = (optionGroups || []).every((group) => {
+    if (!group.required) return true;
+    const selected = selectedOptions[group.id] || [];
+    return selected.length >= (group.min || 1);
+  });
+
+  // Calculate live item line price
+  const basePrice = typeof numericPrice === "number" ? numericPrice : 0;
+  let optionsDelta = 0;
+  for (const group of optionGroups || []) {
+    const selected = selectedOptions[group.id] || [];
+    for (const opt of group.options) {
+      if (selected.includes(opt.id) && typeof opt.priceDelta === "number") {
+        optionsDelta += opt.priceDelta;
+      }
+    }
+  }
+  const totalUnitPrice = basePrice + optionsDelta;
+  const lineTotalFormatted = formatMoney(totalUnitPrice * quantity, orderConfig?.currency ?? "USD", locale);
+
+  const canAddToOrder = !isSoldOut && isRequiredSatisfied && !orderConfig?.blocked;
+
+  return (
+    <div
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70" : "bg-black/50"} p-0 sm:items-center sm:p-[var(--ps-space-6)]`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={savannah
+          ? "max-w-[880px] max-h-[85dvh] w-full flex flex-col overflow-hidden rounded-none shadow-none bg-[var(--tf-base)] outline-none"
+          : "max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl sm:rounded-2xl outline-none"}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-[var(--ps-space-3)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] border-b border-[var(--ps-border)]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-[var(--ps-space-2)]">
+              <h2 id={titleId} className={savannah ? "text-[24px] font-bold text-[var(--tf-on-base)] lg:text-[32px]" : "text-lg font-bold text-[var(--ps-text)]"}>
+                {title}
+              </h2>
+              {isSoldOut && labels.soldOut ? (
+                <span className={savannah ? "rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--tf-on-accent)]" : "rounded-full bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]"}>
+                  {labels.soldOut}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={closeLabel}
+            className={savannah
+              ? "flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:bg-[var(--tf-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+              : "shrink-0 rounded-lg border border-[var(--ps-border)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"}
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Body - scrolls */}
+        <div className={`overflow-y-auto p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)] ${savannah ? "flex-1" : ""}`}>
+          {/* Desktop: two columns; Mobile: single column */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--ps-space-6)]">
+            {/* Image column */}
+            <div className="lg:col-span-1">
+              {image ? (
+                <div className={`aspect-[16/9] lg:aspect-[4/3] w-full overflow-hidden rounded-none bg-[var(--tf-soft)] ${savannah ? "max-h-[30dvh]" : ""}`}>
+                  <img src={image} alt="" className="h-full w-full object-cover object-center" loading="lazy" />
+                </div>
+              ) : null}
+            </div>
+            {/* Details column */}
+            <div className={`lg:col-span-1 ${savannah && !image ? "lg:col-span-2" : ""}`}>
+              <div className="flex flex-wrap items-center gap-[var(--ps-space-2)]">
+                <h2 id={titleId} className={savannah ? "text-[24px] font-bold text-[var(--tf-on-base)] lg:text-[32px]" : "text-lg font-bold text-[var(--ps-text)]"}>
+                  {title}
+                </h2>
+                {isSoldOut && labels.soldOut ? (
+                  <span className={savannah ? "rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--tf-on-accent)]" : "rounded-full bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]"}>
+                    {labels.soldOut}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-[var(--ps-space-1)] flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
+                {priceLabel ? (
+                  <p className={savannah ? "text-[18px] font-semibold text-[var(--tf-on-base)]" : "text-base font-bold text-[var(--ps-text)]"}>
+                    {priceLabel}
+                  </p>
+                ) : null}
+                {originalPriceLabel ? (
+                  <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
+                    {originalPriceLabel}
+                  </span>
+                ) : null}
+              </div>
+              {description ? <p className={`${savannah ? "text-[16px]" : "text-sm"} leading-6 text-[var(--ps-muted)]`}>{description}</p> : null}
+              {tags.length > 0 ? (
+                <div className="flex flex-wrap gap-[var(--ps-space-2)]">
+                  {tags.map((tag) => (
+                    <span key={tag} className={savannah ? "bg-[var(--tf-subtle)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-[var(--tf-on-subtle)]" : "rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700"}>
+                      {tag.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Option groups */}
+              {optionGroups && optionGroups.length > 0 ? (
+                <div className="space-y-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
+                    {labels.options || "Options"}
+                  </h3>
+                  <div className="space-y-[var(--ps-space-3)]">
+                    {optionGroups.map((group) => {
+                      const currentSelected = selectedOptions[group.id] || [];
+                      const isSingle = group.max === 1;
+
+                      return (
+                        <div key={group.id} className="rounded-none border border-[var(--ps-border)] bg-[var(--tf-soft)] p-[var(--ps-space-3)]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[var(--tf-on-base)]">{group.name}</span>
+                            <span
+                              className={`rounded-full px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-subtle)] text-[var(--tf-on-soft)]"}`}
+                            >
+                              {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+                            </span>
+                          </div>
+                          <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
+                            {group.options.map((opt) => {
+                              const isChecked = currentSelected.includes(opt.id);
+
+                              return (
+                                <label
+                                  key={opt.id}
+                                  className={`flex items-center justify-between text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer ${
+                                    isChecked
+                                      ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
+                                      : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-[var(--ps-space-2)]">
+                                    <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                    <span>{opt.name}</span>
+                                  </div>
+                                  {opt.priceDeltaLabel ? (
+                                    <span className="font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                  ) : null}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {detailRows.length > 0 ? (
+                <dl className="divide-y divide-[var(--ps-border)] rounded-none border border-[var(--ps-border)]">
+                  {detailRows.map((row, index) => (
+                    <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] px-[var(--ps-space-3)] py-[var(--ps-space-2)]">
+                      <dt className="text-xs font-semibold text-[var(--tf-muted)]">{row.label}</dt>
+                      <dd className="text-right text-xs font-medium text-[var(--tf-on-base)]">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer - pinned */}
+        <div className={`border-t border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-4)] ${savannah ? "pb-[env(safe-area-inset-bottom)]" : ""}`}>
+          {orderConfig?.enabled ? (
+            <div className="space-y-[var(--ps-space-3)]">
+              {!isSoldOut ? (
+                <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
+                  <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
+                  <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={quantity <= 1}
+                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+                      disabled={quantity >= 99}
+                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = Object.values(selectedOptions).flat(); onAddToOrder(itemId, allSelected, quantity); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
+                {isSoldOut ? labels.soldOut || "Sold out" : `${labels.addToOrder || "Add to order"} • ${lineTotalFormatted}`}
+              </button>
+            </div>
+          ) : action ? (
+            <a href={action.href} className={`block rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-bold text-[var(--tf-on-accent)] hover:bg-[var(--tf-accent-deep)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}>{action.label}</a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

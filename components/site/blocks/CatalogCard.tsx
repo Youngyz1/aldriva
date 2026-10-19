@@ -25,6 +25,8 @@ export interface CatalogCardProps {
   currency?: string;
   /** Locale for price formatting (e.g. "fr"). Defaults to "en". */
   locale?: "en" | "fr";
+  /** How the menu item image fits its 4:3 container ('cover' | 'contain'). Defaults to 'cover'. */
+  imageFit?: "cover" | "contain";
 }
 
 function InitialFallback({ name }: { name: string }) {
@@ -38,34 +40,39 @@ function InitialFallback({ name }: { name: string }) {
   );
 }
 
-export function CatalogCard({ item, onSelect, className, currency = "USD", locale = "en" }: CatalogCardProps) {
+export function CatalogCard({ item, onSelect, className, currency = "USD", locale = "en", imageFit }: CatalogCardProps) {
   const content = (
     <div
-      className={`flex flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
+      className={`flex h-full flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
     >
-      <div className="aspect-[4/3] w-full overflow-hidden bg-[var(--tf-soft)]">
+      <div className="aspect-[4/3] w-full overflow-hidden bg-[var(--tf-soft)] p-0">
         {item.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image} alt={item.name} className="h-full w-full object-cover" loading="lazy" />
+          <img
+            src={item.image}
+            alt={item.name}
+            className={`h-full w-full ${imageFit === "contain" ? "object-contain" : "object-cover"}`}
+            loading="lazy"
+          />
         ) : (
           <InitialFallback name={item.name} />
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <h3 className="font-[var(--v2-heading-font)] text-base font-semibold leading-tight text-[var(--ps-text)] line-clamp-2">
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <h3 className="font-[var(--v2-heading-font)] text-[18px] font-semibold leading-snug text-[var(--tf-on-soft)] line-clamp-2">
           {item.name}
         </h3>
-        {item.description ? (
-          <p className="text-sm text-[var(--ps-muted)] line-clamp-2">{item.description}</p>
-        ) : null}
+        <p className="min-h-[2.5rem] text-[16px] text-[var(--tf-on-soft)]/90 line-clamp-2">
+          {item.description || ""}
+        </p>
         {item.priceLabel || item.numericPrice != null ? (
-          <div className="mt-auto pt-2 text-sm font-semibold text-[var(--ps-text)]">
+          <div className="mt-auto pt-1 text-[16px] font-semibold text-[var(--tf-on-soft)]">
             {item.priceLabel ??
               (typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
                 ? formatCurrency(item.numericPrice, currency, locale)
                 : null)}
             {item.originalPriceLabel ? (
-              <span className="ml-1 text-xs font-normal text-[var(--ps-muted)] line-through">
+              <span className="ml-2 text-xs font-normal text-[var(--tf-on-soft)]/75 line-through">
                 {item.originalPriceLabel}
               </span>
             ) : null}
@@ -79,7 +86,7 @@ export function CatalogCard({ item, onSelect, className, currency = "USD", local
     return (
       <button
         type="button"
-        className="group text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+        className="group flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
         onClick={() => onSelect(item.id)}
         aria-label={item.name}
       >
@@ -99,11 +106,13 @@ export interface CatalogCarouselProps {
   currency?: string;
   /** Locale for price formatting. */
   locale?: "en" | "fr";
+  /** How the menu item image fits its 4:3 container ('cover' | 'contain'). Defaults to 'cover'. */
+  imageFit?: "cover" | "contain";
   /** When set, cards render as buttons that call this handler on click. */
   onSelect?: (id: string) => void;
 }
 
-export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", onSelect }: CatalogCarouselProps) {
+export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: true });
 
@@ -177,8 +186,8 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((item) => (
-          <div key={item.id} className="w-64 shrink-0 snap-start sm:w-72">
-            <CatalogCard item={item} onSelect={onSelect} currency={currency} locale={locale} />
+          <div key={item.id} className="flex w-64 shrink-0 snap-start flex-col sm:w-72">
+            <CatalogCard item={item} onSelect={onSelect} currency={currency} locale={locale} imageFit={imageFit} />
           </div>
         ))}
       </div>

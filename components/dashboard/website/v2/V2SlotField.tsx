@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
 import { sanitizeUrl } from "@/lib/sanitize-html";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
@@ -53,6 +53,7 @@ export function V2SlotField({
   onOpenMenuEditor,
   canManageMenu,
 }: V2SlotFieldProps) {
+  const locale = useLocale();
   const [urlDraft, setUrlDraft] = useState<string | null>(null);
   const tStorefront = useTranslations("Storefront");
   const tPublicSite = useTranslations("PublicSite") as unknown as (key: string, values?: Record<string, string | number>) => string;
@@ -171,12 +172,19 @@ export function V2SlotField({
           onChange={(event) => onChange(event.currentTarget.value || undefined)}
           aria-label={control.label}
         >
-          <option value="">Select…</option>
-          {(control.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
+          <option value="">{locale === "fr" ? "Sélectionner…" : "Select…"}</option>
+          {(control.options ?? []).map((option) => {
+            let label = option.label;
+            if (locale === "fr") {
+              if (option.value === "cover") label = "Remplir (couvrir)";
+              else if (option.value === "contain") label = "Ajuster (contenir)";
+            }
+            return (
+              <option key={option.value} value={option.value}>
+                {label}
+              </option>
+            );
+          })}
         </select>
       ) : null}
 

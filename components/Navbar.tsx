@@ -82,7 +82,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
       {/*
         Layout: 3-column flex row.
         - Left (shrink-0):  BrandMark — always a fixed, small size.
@@ -95,7 +95,7 @@ export default function Navbar() {
       <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-1 px-2 sm:h-16 sm:gap-2 sm:px-4 md:px-6">
 
         {/* Left: brand */}
-        <Link href="/" className="shrink-0 text-zinc-950">
+        <Link href="/" className="shrink-0 text-zinc-950 dark:text-white">
           <BrandMark className="[&>img]:h-7 [&>img]:max-w-[6rem] sm:[&>img]:h-10 sm:[&>img]:max-w-none" priority />
         </Link>
 

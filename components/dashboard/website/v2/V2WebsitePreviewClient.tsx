@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- preview media is already sanitized and this iframe uses direct browser rendering. */
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import type { V2BuilderState, V2MenuItemChoice } from "@/lib/actions/website-v2";
@@ -111,7 +112,48 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
     </section>;
   }
   if (value.type === "features") {
-    if (savannah) return <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">{value.heading ? <h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}<div className="grid items-center gap-8 md:grid-cols-2 md:gap-14">{(() => { const itemsArr = rows("items"); const firstWithImage = itemsArr.find((item:any)=>item.image) as { image?: string } | undefined; if (firstWithImage?.image) return <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2"><img src={firstWithImage.image} alt="" className="h-full w-full object-cover"/></div>; if (itemsArr.length) return <div className="savannah-card flex aspect-[4/3] items-center justify-center bg-[var(--tf-soft)] md:row-span-2"><span aria-hidden="true" className="font-[var(--v2-heading-font)] text-8xl font-bold text-[var(--tf-on-soft)]">{businessName?.trim().charAt(0).toUpperCase() || "S"}</span></div>; return null; })()}<div className="savannah-copy space-y-8">{rows("items").map((item, index) => <article key={index}><p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(index + 1).padStart(2, "0")}</p><h3 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{text(item.title)}</h3>{item.description ? <p className="mt-2 max-w-lg text-base leading-7 text-[var(--ps-muted)]">{text(item.description)}</p> : null}</article>)}</div></div></section>;
+    if (savannah) {
+      const itemsArr = rows("items");
+      const hasAnyImage = itemsArr.some((item: any) => Boolean(item.image));
+      if (!hasAnyImage) {
+        return (
+          <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">
+            {value.heading ? <h2 className="mb-[var(--ps-space-8)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 sm:gap-x-8">
+              {itemsArr.map((item, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)]">
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="text-[16px] font-semibold text-[var(--ps-text)]">{text(item.title)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      return (
+        <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">
+          {value.heading ? <h2 className="mb-[var(--ps-space-12)] text-center font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {itemsArr.map((item: any, index) => (
+              <article key={index} className="savannah-card flex flex-col overflow-hidden bg-[var(--ps-surface)]">
+                {item.image ? (
+                  <div className="aspect-[16/9] w-full overflow-hidden bg-[var(--tf-soft)]">
+                    <img src={image(item.image)} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ) : null}
+                <div className="p-6">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(index + 1).padStart(2, "0")}</p>
+                  <h3 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{text(item.title)}</h3>
+                  {item.description ? <p className="mt-2 text-base leading-7 text-[var(--ps-muted)]">{text(item.description)}</p> : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      );
+    }
     return <section id={value.heading === "How it works" ? "how-it-works" : undefined} className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] md:px-[var(--ps-space-12)]">{value.heading ? <h2 className="mb-[var(--ps-space-6)] font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2> : null}<div className="grid gap-[var(--ps-space-6)] md:grid-cols-3">{rows("items").map((item, index) => <article key={index} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs"><h3 className="font-semibold text-[var(--ps-text)]">{text(item.title)}</h3>{item.description ? <p className="mt-[var(--ps-space-2)] text-sm leading-6 text-[var(--ps-muted)]">{text(item.description)}</p> : null}</article>)}</div></section>;
   }
   if (value.type === "about") {
@@ -203,6 +245,53 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
     return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]"><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="mt-[var(--ps-space-8)] grid gap-[var(--ps-space-4)] sm:grid-cols-2 lg:grid-cols-3">{items.map((item) => <article key={item.id} className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)]"><div className="p-[var(--ps-space-6)]"><p className="text-xs font-medium uppercase tracking-wide text-[var(--ps-muted)]">{item.sectionName}</p><h3 className="mt-[var(--ps-space-1)] font-semibold">{item.name}</h3>{item.description ? <p className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{item.description}</p> : null}{item.price != null ? <p className="mt-[var(--ps-space-3)] text-sm font-semibold">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</p> : null}</div></article>)}</div></section>;
   }
   if (value.type === "cta_banner") {
+    if (value.variant === "promo") {
+      const img = image(value.image);
+      const link = internalLink(value.ctaHref);
+      return (
+        <section className="mx-auto w-full max-w-6xl px-6 py-6">
+          <div className="savannah-card grid grid-cols-1 overflow-hidden bg-[var(--tf-soft)] text-[var(--tf-on-soft)] md:grid-cols-12">
+            {img ? (
+              <div className="aspect-[4/3] w-full overflow-hidden md:col-span-5">
+                <img src={img} alt="" className="h-full w-full object-cover" />
+              </div>
+            ) : null}
+            <div className={`flex flex-col justify-center p-8 md:p-12 ${img ? "md:col-span-7" : "md:col-span-12"}`}>
+              {value.eyebrow ? (
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--tf-accent-deep)]">
+                  {text(value.eyebrow)}
+                </p>
+              ) : null}
+              {value.heading ? (
+                <h2 className="font-[var(--v2-heading-font)] text-2xl font-bold leading-tight sm:text-3xl md:text-4xl text-[var(--ps-text)]">
+                  {text(value.heading)}
+                </h2>
+              ) : null}
+              {value.subheading ? (
+                <p className="mt-3 text-base leading-7 text-[var(--ps-muted)]">
+                  {text(value.subheading)}
+                </p>
+              ) : null}
+              {value.endDate ? (
+                <p className="mt-2 text-xs font-medium text-[var(--tf-accent-deep)]">
+                  Valid until {text(value.endDate)}
+                </p>
+              ) : null}
+              {value.ctaLabel && link ? (
+                <div className="mt-6">
+                  <a
+                    {...link}
+                    className="savannah-button inline-flex min-h-11 items-center justify-center bg-[var(--ps-accent)] px-6 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)]"
+                  >
+                    {text(value.ctaLabel)}
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      );
+    }
     const link = internalLink(value.ctaHref);
     if (savannah) return <section className="px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center text-[var(--tf-on-band)]" style={{ backgroundColor: "var(--tf-band)" }}><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>{value.ctaLabel && link ? <a {...link} className="savannah-button mt-[var(--ps-space-6)] inline-flex min-h-12 items-center rounded-none bg-[var(--ps-accent)] px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold text-[var(--tf-on-accent)]">{text(value.ctaLabel)}</a> : null}</section>;
     return <section className={`px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center ${tableFlame ? "text-[var(--tf-on-band)]" : "text-white"}`} style={{ backgroundColor: tableFlame ? "var(--tf-band)" : "var(--site-primary)" }}><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2>{value.ctaLabel && link ? <a {...link} className={`mt-[var(--ps-space-6)] inline-flex rounded-lg px-[var(--ps-space-6)] py-[var(--ps-space-3)] text-sm font-semibold ${tableFlame ? "" : "bg-[var(--ps-surface)] text-[var(--ps-text)]"}`} style={tableFlame ? { backgroundColor: "var(--ps-accent)", color: "var(--tf-on-accent)" } : undefined}>{text(value.ctaLabel)}</a> : null}</section>;

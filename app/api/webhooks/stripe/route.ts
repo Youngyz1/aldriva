@@ -8,6 +8,7 @@ import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { notifyProductPurchase } from "@/lib/product-notifications";
+import { toMinorUnits } from "@/lib/money";
 import { handleStorefrontOrderPaymentSucceeded } from "@/lib/storefront-order-payments";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
@@ -815,6 +816,142 @@ async function handlePaymentIntentSucceeded(
 
 // ── checkout.session.completed ────────────────────────────────────────────────
 
+/**
+ * Fulfill a multi-item Store cart session (meta.kind === "product_cart").
+ *
+ * Safety contract (mirrors the single-product branch, extended to N rows):
+ *  1. Order ids come from session metadata (bounded array, UUID-checked);
+ *     rows are additionally cross-checked by stripe_session_id.
+ *  2. The charged total is re-verified: Σ row snapshot totals (minor units)
+ *     must equal session.amount_total with matching currency — otherwise
+ *     nothing is marked paid and reconciliation is alerted.
+ *  3. Each row flips via markProductOrderPaid (idempotent RPC) with per-row
+ *     try/catch: one bad row never blocks its siblings, failures alert.
+ *  4. Notifications fan out only for rows this delivery newly paid.
+ *  5. A promo code id in metadata burns one use via apply_promo_use() iff at
+ *     least one row newly paid (abandoned carts never consume uses).
+ */
+async function fulfillProductCart(
+  session: Stripe.Checkout.Session,
+  meta: Stripe.Metadata
+): Promise<void> {
+  const piId =
+    typeof session.payment_intent === "string" ? session.payment_intent : undefined;
+
+  let orderIds: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(meta.product_order_ids ?? "[]");
+    if (Array.isArray(parsed)) {
+      orderIds = parsed.filter(
+        (id): id is string =>
+          typeof id === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
+    }
+  } catch {
+    orderIds = [];
+  }
+  if (orderIds.length === 0 || orderIds.length > 12) {
+    console.error("[webhook] Invalid product_order_ids in product_cart metadata");
+    await alertReconciliationFailure({
+      kind: "product_cart",
+      stripePaymentIntentId: piId ?? session.id,
+      amount: (session.amount_total ?? 0) / 100,
+      currency: (session.currency ?? "usd").toUpperCase(),
+      buyerEmail: session.customer_email || null,
+      rawMetadata: meta,
+      errorMessage: "Invalid product_order_ids in product_cart session metadata",
+    });
+    return;
+  }
+
+  const { data: rows, error: rowsError } = await supabaseAdmin
+    .from("product_orders")
+    .select("id, total_amount, currency, stripe_session_id")
+    .in("id", orderIds);
+  if (rowsError || !rows || rows.length !== orderIds.length) {
+    console.error("[webhook] product_cart rows missing:", rowsError?.message);
+    await alertReconciliationFailure({
+      kind: "product_cart",
+      stripePaymentIntentId: piId ?? session.id,
+      amount: (session.amount_total ?? 0) / 100,
+      currency: (session.currency ?? "usd").toUpperCase(),
+      buyerEmail: session.customer_email || null,
+      rawMetadata: meta,
+      errorMessage: "Cart order rows missing or incomplete",
+    });
+    return;
+  }
+
+  const sessionCurrency = (session.currency ?? "usd").toUpperCase();
+  const expectedMinor = rows.reduce((sum, row) => {
+    if (String(row.currency ?? "").toUpperCase() !== sessionCurrency) return NaN;
+    try {
+      return sum + toMinorUnits(Number(row.total_amount), sessionCurrency);
+    } catch {
+      return NaN;
+    }
+  }, 0);
+  if (!Number.isFinite(expectedMinor) || expectedMinor !== (session.amount_total ?? NaN)) {
+    console.error("[webhook] product_cart total mismatch");
+    await alertReconciliationFailure({
+      kind: "product_cart",
+      stripePaymentIntentId: piId ?? session.id,
+      amount: (session.amount_total ?? 0) / 100,
+      currency: sessionCurrency,
+      buyerEmail: session.customer_email || null,
+      rawMetadata: meta,
+      errorMessage: "Cart charged total does not match order snapshots",
+    });
+    return;
+  }
+
+  let newlyPaid = 0;
+  for (const row of rows) {
+    if (row.stripe_session_id && row.stripe_session_id !== session.id) {
+      console.error(`[webhook] product_cart row ${row.id} bound to another session`);
+      await alertReconciliationFailure({
+        kind: "product_cart",
+        stripePaymentIntentId: piId ?? session.id,
+        amount: (session.amount_total ?? 0) / 100,
+        currency: sessionCurrency,
+        buyerEmail: session.customer_email || null,
+        rawMetadata: meta,
+        errorMessage: `Cart row ${row.id} bound to another session`,
+      });
+      continue;
+    }
+    try {
+      const result = await markProductOrderPaid(row.id, { stripePaymentIntentId: piId });
+      if (result.was_newly_paid) {
+        newlyPaid++;
+        await notifyProductPurchase(row.id);
+      }
+    } catch (err: unknown) {
+      const errorMessage = (err as Error)?.message ?? "Failed to mark product order paid";
+      console.error(`[webhook] markProductOrderPaid error for cart row ${row.id}:`, errorMessage);
+      await alertReconciliationFailure({
+        kind: "product_cart",
+        stripePaymentIntentId: piId ?? session.id,
+        amount: (session.amount_total ?? 0) / 100,
+        currency: sessionCurrency,
+        buyerEmail: session.customer_email || null,
+        rawMetadata: meta,
+        errorMessage: `Cart row ${row.id}: ${errorMessage}`,
+      });
+    }
+  }
+
+  if (newlyPaid > 0 && typeof meta.promo_code_id === "string" && meta.promo_code_id) {
+    const { error: promoError } = await supabaseAdmin.rpc("apply_promo_use", {
+      p_code_id: meta.promo_code_id,
+    });
+    if (promoError) {
+      console.error("[webhook] apply_promo_use error:", promoError.message);
+    }
+  }
+}
+
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
   req: NextRequest
@@ -942,6 +1079,11 @@ async function handleCheckoutSessionCompleted(
       });
     }
 
+    return;
+  }
+
+  if (meta.kind === "product_cart") {
+    await fulfillProductCart(session, meta);
     return;
   }
 

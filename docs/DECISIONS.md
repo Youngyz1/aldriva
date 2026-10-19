@@ -349,6 +349,78 @@
   - Owner trust and fulfilment copy use bounded `template_extras`; empty values stay hidden. Testimonials require owner-supplied text. This stage adds no block type, table, column, migration, or fulfilment guarantee.
   - Existing checkout success/cancel URLs remain platform `/products` routes; updating them to return to a tenant site requires a separate checkout integration change.
 
+### DEC-0039: Store multi-item cart groups via session linkage, promos without a new order table
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented in the working tree (Milestones 3 & 4); browser and live Stripe verification remain open. Migration 177 authored, not applied live.
+- **Key Tenets**:
+  - Cart rows are ordinary `product_orders` rows (same snapshots, same RLS, same `markProductOrderPaid` idempotency and `gte` stock guard). Grouping needs no order-table change: rows link through the existing indexed `product_orders.stripe_session_id` plus the Stripe session metadata id array (bounded to 12 items, UUID-checked). This proves the current model supports multi-item checkout, so no second order system or order table was introduced.
+  - One multi-line session uses server-computed `price_data` amounts (live Stripe prices, promo distributed by largest remainder so snapshots sum exactly to the charge). The webhook re-verifies Σ snapshots against the charged total and marks rows paid per-row with per-row failure alerts; retries stay silent via `was_newly_paid`.
+  - Promo codes are tenant-scoped (`UNIQUE (tenant_id, lower(code))`, percent-XOR-fixed, windows, usage caps) with usage burned once per paid session via `apply_promo_use()`. No dashboard code-management UI exists yet, so codes are provisioned out-of-band; the checkout promo field validates live and reports errors instead of failing silently. Tax/shipping engines, unified fulfillment dashboard, crypto carts, refunds automation, and variants are explicitly deferred (phase-06 §13).
+  - The V2 editor gains a `number` slot kind for the Store-only `shop.density` control (`template_extras.storeBrowsePageSize`, clamped 1..24), honored identically by preview and publish resolution. Unknown slot kinds still render label-only with no control.
+  - `previewProducts` remains render-only sample data and is never persisted by validation, saving, or publishing.
+
+### DEC-0040: Invitation and business pages share a versioned JSON block envelope
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented in the working tree; TypeScript passed, touched-file ESLint passed with 4 image-element warnings; browser and live database verification remain open. Migration 178 authored, not applied live.
+- **Key Tenets**:
+  - The common persisted shape is `{ version, global_theme: { classes }, layout_blocks: [{ id, type, content }] }`. The envelope remains JSONB so each block's content can evolve; the page-level schema validates the version, block envelope, bounded list, and declared theme class presets.
+  - Invitation layouts may carry explicit `$bind` tokens resolved through a finite `InvitationPageData` allowlist. Arbitrary property-path evaluation is not supported. Legacy flat snapshots/template IDs are converted into the canonical blocks until a saved layout exists.
+  - Business pages retain their established block validation and renderer. `UniversalPageRenderer` unwraps canonical website blocks and delegates them to `BlockRenderer`, preserving tenant-scoped embeds, commerce/reservation behavior, edit metadata, and URL sanitization.
+  - RSVP and business lead actions are enabled only when a server action handler is passed. Preview renderers omit the handler; business edit mode continues to use the existing `editMode` and `sourceMap` props.
+  - Invitation builder preview marks its iframe as edit mode and posts a same-origin `block-select` message from non-interactive block content; the host maps block types to the existing invitation editor sections. Guest/live renderers do not attach this selection behavior.
+  - Migration 178 adds JSONB draft/layout columns, backfills business layouts, and keeps current business block writes compatible through triggers. Live application of the migration is a deployment step.
+
+### DEC-0041: Invitation template definitions and block validation are registry-owned
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented as a working-tree vertical slice; full-page custom TSX lazy loading and browser review remain open.
+- **Key Tenets**:
+  - Stable invitation page IDs resolve through a code-owned definition registry for category, version, preview, default theme/block order, required blocks, builder customizations, and supported effects. The existing unified card/page pair catalog remains separate because it represents a different relationship.
+  - The generic page envelope remains shared with business sites, while invitation drafts apply a narrower approved-block schema and a finite binding-path allowlist. Unknown template IDs keep the established generic/gala fallback; unknown invitation block types or binding paths are rejected.
+  - Template JSON configures approved React blocks and bounded effects. It cannot name/import components, evaluate arbitrary property paths, or submit non-RSVP invitation actions.
+  - Existing JSONB storage from migration 178 and the published layout snapshot are sufficient; no template-specific column or new migration is introduced.
+  - Custom full-page TSX loading is deferred until a template needs an independent composition. Existing self-submitting legacy templates are not reconnected because that would duplicate RSVP business logic.
+
+### DEC-0042: Distinct invitation journeys use an allowlisted lazy page composition
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented in the working tree; focused invitation tests and local preview QA are the verification scope. Full TypeScript/build remain blocked by unrelated commerce translation-key errors.
+- **Supersedes**: DEC-0041's deferral of custom full-page TSX loading.
+- **Key Tenets**:
+  - Five invitation designs remain configuration-driven shared-block compositions; `romantic-envelope` is the first template with a distinct full-page guest journey.
+  - Custom page selection maps only through the code-owned `InvitationPageComponentRegistry` with literal dynamic import paths, Suspense, and a shared-block fallback. Database values cannot select module paths.
+  - The custom page is presentation-only and receives the validated layout/data plus shared rendered blocks. RSVP and business lead effects remain attached only through the existing optional live handler contract.
+  - Supported motion is a bounded template-level configuration for envelope reveal, scroll reveal, and falling petals. Reduced motion is honored; scroll reveal fails open to visible content; decorative petals are pointer-transparent and capped.
+  - Builder effect controls are derived from each template's supported-effect declaration. Existing JSONB columns/snapshots are sufficient; this change adds no migration.
+
+### DEC-0043: Botanical Reverie pairs a bespoke page with the existing portrait card pipeline
+- **Decision Date**: 2026-10-16
+- **Status**: Implemented in the working tree; migration 180 is authored and awaits deployment. Viewport QA is in progress.
+- **Key Tenets**:
+  - The wedding page remains inside the existing invitation definition/custom-page allowlist and rearranges shared, already-authorized block output; it does not add another data loader or RSVP implementation.
+  - The matching standalone card is an extension of `InvitationCardRenderer`, selected by the typed `layout_config.design` value and stored under the existing invitation card slug. Its public PNG endpoint uses the existing 64-character invitation-token guard and reads optional hero artwork only from a published page snapshot.
+  - Card output does not add guest-specific PII. Existing guest admission QR and RSVP continue in the event invitation action/pass flow.
+  - Local project-authored SVG artwork replaces remote stock dependencies for sample preview. Migration 180 seeds the catalog row; rollback preserves rows still referenced by events by deactivating them.
+  - Builder palette/type/scale options are page controls; approved hero media and event fields flow to both the page and card. Effects remain bounded and reduced-motion aware.
+
+### DEC-0044: Luxe Editorial adapts the Figma stationery design through shared invitation blocks
+- **Decision Date**: 2026-10-17
+- **Status**: Implemented in the working tree; migration 181 is authored and awaits deployment. Focused invitation suites passed 138/138; full-suite and TypeScript failures are isolated to Storefront/commerce work outside this decision.
+- **Key Tenets**:
+  - `luxe-editorial` is registered as a wedding card/page pair and uses the existing template registries, preview fixtures, builder selection, and invitation-card catalog.
+  - Its custom composition rearranges validated shared blocks. The invitation, gallery, and schedule gain a distinct editorial presentation while event details retain shared field validation and formatting.
+  - The custom page has no RSVP form or data loader. RSVP callbacks continue through the existing `action_portal` and the published invitation's token-authorized server action.
+  - The 900×1200 card is a code-owned `InvitationCardRenderer` variant. The guarded PNG path reads page artwork from the published snapshot and does not render guest-identifying text.
+  - Migration 181 seeds only the existing card catalog row; it is not applied automatically or against a live database.
+
+### DEC-0045: Platform visual rules live in DESIGN.md; themes stay surface-owned
+- **Decision Date**: 2026-10-17
+- **Status**: Implemented in the working tree; visual review is still required.
+- **Key Tenets**:
+  - Repository-root `DESIGN.md` is the visual design source of truth. `docs/DESIGN-SYSTEM.md` remains a compatibility pointer; `AGENTS.md` and `CLAUDE.md` direct UI work to the root document.
+  - Geist Sans and Geist Mono are the provisional platform fonts, following the owner's Codex / Claude Code product-UI reference and the font family already named by the previous design docs.
+  - Platform theme selection supports Light, Dark, and System, defaults to System, and stores the selection locally. Dark mode changes semantic colors and surfaces; it does not dim or filter the page.
+  - Fundraising, public business websites, and event invitations retain their own theme ownership. Fundraising colors remain unchanged; public websites continue using their theme configuration and invitation pages use their registered themes.
+  - The dark palette and platform route scoping are in place, but remaining hardcoded surface colors require visual coverage review before dark mode is called complete.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

@@ -38,7 +38,7 @@ Every agent starting a session MUST execute in order:
 2. **Read `docs/CURRENT-STATE.md`** — exact current development position and active blockers.
 3. **Read `docs/ROADMAP.md`** — current phase and upcoming milestones.
 4. **Read the relevant Phase Document** in `docs/phases/`.
-5. **For UI/design work**: Read `docs/DESIGN-SYSTEM.md` and `.aldriva/design/principles.md`.
+5. **For UI/design work**: Read the repository-root `DESIGN.md`.
 6. **Inspect actual code & migrations** — do NOT trust documentation blindly.
 7. **State intended work and scope** before touching any file.
 8. **Implement minimal, high-quality changes** — preserve existing functionality and tests.
@@ -70,12 +70,12 @@ Every agent starting a session MUST execute in order:
 - Maintain 100% test pass rate.
 
 ### E. Design & UI Quality
-- **Design system**: Follow `.aldriva/design/principles.md` and `docs/DESIGN-SYSTEM.md` for all UI work.
-- **Design tokens**: Zinc neutral base + Orange accent. `--primary` = `--brand-700` (#c2410c). Full token list in `app/globals.css` and `docs/DESIGN-SYSTEM.md`.
+- **Design system**: Follow the repository-root `DESIGN.md` for all UI work.
+- **Design tokens**: Zinc neutral base + Orange accent. `--primary` = `--brand-700` (#c2410c). Full token list in `app/globals.css` and `DESIGN.md`.
 - **Component radius**: `rounded-xl` (not `rounded-2xl`) is the standard for cards and buttons.
 - **Shadows**: `shadow-xs` standard. No elevation stacking without purpose.
 - **No gradients** on interactive elements (buttons are solid). No glassmorphism.
-- **Existing UI is not automatically good UI.** See `.aldriva/design/legacy-ui.md`.
+- **Existing UI is not automatically good UI.** Check `DESIGN.md`'s known inconsistencies before copying older page layouts.
 - **Component reuse**: Always check `components/ui/` → `components/dashboard/` → `components/` before creating a new component.
 - **Visual review**: Implementation is not complete when TypeScript compiles. Open in browser. Test at 375px, 768px, 1024px, 1440px.
 
@@ -89,10 +89,9 @@ Every agent starting a session MUST execute in order:
 | `docs/ROADMAP.md` | 14-phase platform roadmap |
 | `docs/ARCHITECTURE.md` | Full technical architecture diagram |
 | `docs/DECISIONS.md` | Architectural Decision Records (ADR-0001 through DEC-0012) |
-| `docs/DESIGN-SYSTEM.md` | Aldriva design system reference |
+| `DESIGN.md` | Aldriva design system source of truth |
 | `docs/AI-AGENT-GUIDE.md` | How coding agents work in this repo |
 | `docs/AI-MCP.md` | MCP tooling, configuration, agent compatibility |
-| `.aldriva/design/` | Full design knowledge base |
 | `.aldriva/workflows/` | Agent workflow guides |
 | `.aldriva/architecture/agent-system.md` | Agent system architecture |
 | `docs/phases/` | Per-phase execution plans |

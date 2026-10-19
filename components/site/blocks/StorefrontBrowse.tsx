@@ -16,6 +16,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 import {
   BROWSE_ALL_GROUP,
   filterBrowseGroups,
@@ -38,6 +39,7 @@ import {
 } from "@/components/site/v2/StoreCartDrawer";
 import { addStoreCartItem } from "@/lib/store-cart";
 import { submitOrderRequest } from "@/lib/actions/orders";
+import { formatMoney } from "@/lib/money";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
 
@@ -150,6 +152,7 @@ interface StorefrontBrowseProps {
     prevLabel: string;
     nextLabel: string;
     regionLabel: string;
+    imageFit?: "cover" | "contain";
   };
   /**
    * Opt-in Shop sorting (Store template only): featured / newest /
@@ -317,6 +320,26 @@ export function StorefrontBrowse({
 
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
 
+  const allItems = groups.flatMap((group) => group.items);
+
+  const updateCart = (nextCart: CartItem[]) => {
+    setCart(nextCart);
+    if (orderConfig?.slug) {
+      saveCart(orderConfig.slug, nextCart);
+    }
+  };
+
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const openSheet = (id: string, trigger: HTMLElement | null) => {
     triggerRef.current = trigger;
     setSelectedId(id);
@@ -328,10 +351,31 @@ export function StorefrontBrowse({
     triggerRef.current = null;
   };
 
-  const allItems = groups.flatMap((group) => group.items);
   const selected = selectedId
     ? allItems.find((item) => item.id === selectedId) ?? null
     : null;
+
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Compute cart subtotal from items
+  const itemsMap = new Map(allItems.map((it) => [it.id, it]));
+  const cartSubtotal = cart.reduce((sum, line) => {
+    const it = itemsMap.get(line.itemId);
+    if (!it) return sum;
+    const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
+    let deltas = 0;
+    const optSet = new Set(line.selectedOptionIds);
+    for (const group of it.optionGroups || []) {
+      for (const opt of group.options) {
+        if (optSet.has(opt.id) && typeof opt.priceDelta === "number") {
+          deltas += opt.priceDelta;
+        }
+      }
+    }
+    return sum + (base + deltas) * line.quantity;
+  }, 0);
+
+  const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
 
   const handleAddToOrder = (
     itemId: string,
@@ -351,6 +395,14 @@ export function StorefrontBrowse({
     }
     updateCart(nextCart);
     closeSheet();
+    setFeedbackMessage("Added to order");
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setFeedbackMessage(null);
+      feedbackTimeoutRef.current = null;
+    }, 2000);
   };
 
   // Catalog carousel (Savannah): render per-category scrollable carousels
@@ -359,6 +411,16 @@ export function StorefrontBrowse({
   if (variant === "catalog-carousel") {
     return (
       <div className="space-y-[var(--ps-space-8)]">
+        {/* Aria-live region for screen readers & toast announcement */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {feedbackMessage || ""}
+        </div>
+
         {groups.map((group) => (
           <section
             key={group.id}
@@ -382,6 +444,7 @@ export function StorefrontBrowse({
               nextLabel={carousel?.nextLabel ?? labels.all}
               currency={currency}
               locale={locale}
+              imageFit={carousel?.imageFit}
               onSelect={(id) => openSheet(id, null)}
             />
           </section>
@@ -405,9 +468,85 @@ export function StorefrontBrowse({
             closeLabel={labels.close}
             labels={labels}
             orderConfig={orderConfig}
+            locale={locale}
             onAddToOrder={handleAddToOrder}
             onClose={closeSheet}
           />
+        ) : null}
+
+        {/* Floating cart bar */}
+        {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+          <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+            <div className="flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none rounded-none">
+              <div className="flex items-center gap-[var(--ps-space-3)]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-none bg-[var(--ps-accent)] text-xs font-bold text-[var(--tf-on-accent)]">
+                  {totalCartCount}
+                </span>
+                <div className="text-sm font-semibold">
+                  {labels.yourOrder || "Your order"} • {formattedCartSubtotal}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="ps-button ps-button-primary savannah-button rounded-none shadow-none text-xs font-bold transition"
+              >
+                {labels.viewOrder || "View order"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Order Drawer */}
+        {isCartOpen && orderConfig ? (
+          <OrderDrawer
+            cart={cart}
+            orderConfig={orderConfig}
+            allItems={allItems}
+            labels={labels}
+            accentColor={accentColor}
+            savannah={true}
+            onClose={() => setIsCartOpen(false)}
+            onUpdateQuantity={(index, qty) => {
+              if (qty <= 0) {
+                updateCart(cart.filter((_, i) => i !== index));
+              } else {
+                updateCart(cart.map((item, i) => (i === index ? { ...item, quantity: qty } : item)));
+              }
+            }}
+            onRemoveItem={(index) => {
+              updateCart(cart.filter((_, i) => i !== index));
+            }}
+            onOrderSuccess={(result) => {
+              updateCart([]);
+              setIsCartOpen(false);
+              setOrderSuccess(result);
+            }}
+          />
+        ) : null}
+
+        {/* Confirmation Modal */}
+        {orderSuccess && orderConfig?.slug ? (
+          <OrderConfirmationModal
+            orderNumber={orderSuccess.orderNumber}
+            trackingToken={orderSuccess.trackingToken}
+            slug={orderConfig.slug}
+            scheduledFor={orderSuccess.scheduledFor}
+            subtotal={orderSuccess.subtotal}
+            deliveryFee={orderSuccess.deliveryFee}
+            total={orderSuccess.total}
+            fulfilmentType={orderSuccess.fulfilmentType}
+            currency={orderSuccess.currency ?? orderConfig.currency}
+            labels={labels}
+            tableFlame={false}
+            savannah={true}
+            onClose={() => setOrderSuccess(null)}
+          />
+        ) : null}
+
+        {/* Bottom padding to prevent floating cart bar from covering last content */}
+        {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+          <div className="h-24" aria-hidden="true" />
         ) : null}
       </div>
     );
@@ -491,35 +630,6 @@ export function StorefrontBrowse({
     setSortKey("featured");
     setVisibleItemCount(Math.max(1, pageSize ?? 12));
   };
-
-  const updateCart = (nextCart: CartItem[]) => {
-    setCart(nextCart);
-    if (orderConfig?.slug) {
-      saveCart(orderConfig.slug, nextCart);
-    }
-  };
-
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  // Compute cart subtotal from items
-  const itemsMap = new Map(allItems.map((it) => [it.id, it]));
-  const cartSubtotal = cart.reduce((sum, line) => {
-    const it = itemsMap.get(line.itemId);
-    if (!it) return sum;
-    const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
-    let deltas = 0;
-    const optSet = new Set(line.selectedOptionIds);
-    for (const group of it.optionGroups || []) {
-      for (const opt of group.options) {
-        if (optSet.has(opt.id) && typeof opt.priceDelta === "number") {
-          deltas += opt.priceDelta;
-        }
-      }
-    }
-    return sum + (base + deltas) * line.quantity;
-  }, 0);
-
-  const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
 
   return (
     <>
@@ -741,9 +851,7 @@ export function StorefrontBrowse({
                     ) : null}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-[var(--ps-space-2)]">
-                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">
-                          {item.name}
-                        </span>
+                        <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
                         {item.isSoldOut && labels.soldOut ? (
                           <span className="shrink-0 rounded bg-[var(--ps-neutral)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--ps-muted)] border border-[var(--ps-border)]">
                             {labels.soldOut}
@@ -751,9 +859,7 @@ export function StorefrontBrowse({
                         ) : null}
                       </span>
                       {item.description ? (
-                        <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">
-                          {item.description}
-                        </span>
+                        <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">{item.description}</span>
                       ) : null}
                       <span className="mt-[var(--ps-space-1)] flex items-baseline gap-[var(--ps-space-2)]">
                         {item.priceLabel ? (
@@ -813,7 +919,8 @@ export function StorefrontBrowse({
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
-          onAddToOrder={handleAddToOrder}
+            locale={locale}
+            onAddToOrder={handleAddToOrder}
           onClose={closeSheet}
         />
       ) : null}
@@ -921,11 +1028,12 @@ function ItemDetailSheet({
   tags,
   detailRows,
   action,
-  tableFlame,
+  tableFlame: _tableFlame,
   savannah,
   closeLabel,
   labels,
   orderConfig,
+  locale = "en",
   onAddToOrder,
   onClose,
 }: {
@@ -946,9 +1054,11 @@ function ItemDetailSheet({
   closeLabel: string;
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
+  locale?: Locale;
   onAddToOrder?: (itemId: string, selectedOptionIds: string[], quantity: number) => void;
   onClose: () => void;
 }) {
+  void _tableFlame;
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [quantity, setQuantity] = useState(1);
@@ -1026,13 +1136,13 @@ function ItemDetailSheet({
     }
   }
   const totalUnitPrice = basePrice + optionsDelta;
-  const lineTotalFormatted = `${orderConfig?.currency || "USD"} ${(totalUnitPrice * quantity).toFixed(2)}`;
+  const lineTotalFormatted = formatMoney(totalUnitPrice * quantity, orderConfig?.currency ?? "USD", locale);
 
   const canAddToOrder = !isSoldOut && isRequiredSatisfied && !orderConfig?.blocked;
 
   return (
     <div
-      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70" : "bg-black/50"} p-0 sm:items-center sm:p-[var(--ps-space-6)]`}
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center" : "bg-black/50 p-0 sm:p-[var(--ps-space-6)] sm:items-center"}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -1043,14 +1153,23 @@ function ItemDetailSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`max-h-[88dvh] w-full max-w-lg overflow-y-auto ${savannah ? "rounded-none bg-[var(--tf-base)] shadow-none" : "rounded-t-2xl bg-[var(--ps-surface)] shadow-xl sm:rounded-2xl"} outline-none`}
+        className={savannah
+          ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none"
+          : "max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl sm:rounded-2xl outline-none"}
       >
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className={`aspect-[16/9] w-full object-cover ${savannah ? "rounded-none" : "rounded-t-2xl"}`} />
-        ) : null}
-        <div className="space-y-[var(--ps-space-3)] p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]">
-          <div className="flex items-start justify-between gap-[var(--ps-space-3)]">
+        {savannah ? (
+          /* Savannah: Close button overlaid on top-right, no separate header bar */
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={closeLabel}
+            className="absolute right-3 top-3 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-md border border-[var(--ps-border)] hover:bg-[var(--tf-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        ) : (
+          /* Standard Header for non-Savannah */
+          <div className="flex items-center justify-between gap-[var(--ps-space-3)] p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] border-b border-[var(--ps-border)]">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-[var(--ps-space-2)]">
                 <h2 id={titleId} className="text-lg font-bold text-[var(--ps-text)]">
@@ -1062,142 +1181,261 @@ function ItemDetailSheet({
                   </span>
                 ) : null}
               </div>
-              <div className="mt-[var(--ps-space-1)] flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
-                {priceLabel ? (
-                  <p
-                    className={
-                      originalPriceLabel
-                        ? "text-base font-bold text-[var(--ps-accent-hover)]"
-                        : "text-base font-bold text-[var(--ps-text)]"
-                    }
-                  >
-                    {priceLabel}
-                  </p>
-                ) : null}
-                {originalPriceLabel ? (
-                  <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
-                    {originalPriceLabel}
-                  </span>
-                ) : null}
-              </div>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label={closeLabel}
-              className="shrink-0 rounded-lg border border-[var(--ps-border)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+              className="shrink-0 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[var(--ps-border)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
             >
-              {closeLabel}
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          {description ? <p className="text-sm leading-6 text-[var(--ps-muted)]">{description}</p> : null}
-          {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-[var(--ps-space-2)]">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className={savannah ? "bg-[var(--tf-subtle)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-[var(--tf-on-subtle)]" : "rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700"}
-                >
-                  {tag.replace("_", " ")}
-                </span>
-              ))}
-            </div>
-          ) : null}
+        )}
 
-          {/* Option groups */}
-          {optionGroups && optionGroups.length > 0 ? (
-            <div className="space-y-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
-                {labels.options || "Options"}
-              </h3>
-              <div className="space-y-[var(--ps-space-3)]">
-                {optionGroups.map((group) => {
-                  const currentSelected = selectedOptions[group.id] || [];
-                  const isSingle = group.max === 1;
-
-                  return (
-                    <div key={group.id} className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/70 p-[var(--ps-space-3)]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[var(--ps-text)]">{group.name}</span>
-                        <span
-                          className={`rounded-full px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium ${
-                            group.required
-                              ? "bg-[var(--ps-accent-light)] text-[var(--ps-accent-hover)]"
-                              : "bg-[var(--ps-neutral)]/80 text-[var(--ps-muted)]"
-                          }`}
-                        >
-                          {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+        {/* Body - single scrollable container */}
+        <div className={`overflow-y-auto ${savannah ? "flex-1 p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
+          {savannah ? (
+            /* Savannah Stacked Layout: edge-to-edge image on top, clean text below */
+            <div className="flex flex-col">
+              {image ? (
+                <div className="relative w-full max-h-[45dvh] sm:max-h-[55dvh] overflow-hidden bg-[var(--tf-soft)] flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image}
+                    alt={title}
+                    className="w-full h-auto max-h-[45dvh] sm:max-h-[55dvh] object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              ) : null}
+              <div className="space-y-4 p-5 sm:p-6">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 id={titleId} className="font-[var(--v2-heading-font)] text-[24px] font-bold leading-tight text-[var(--tf-on-base)]">
+                      {title}
+                    </h2>
+                    {isSoldOut && labels.soldOut ? (
+                      <span className="rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-bold text-[var(--tf-on-accent)]">
+                        {labels.soldOut}
+                      </span>
+                    ) : null}
+                  </div>
+                  {priceLabel ? (
+                    <p className="mt-1.5 text-[18px] font-bold text-[var(--tf-on-base)]">
+                      {priceLabel}
+                      {originalPriceLabel ? (
+                        <span className="ml-2 text-sm font-normal text-[var(--ps-muted)] line-through">
+                          {originalPriceLabel}
                         </span>
-                      </div>
-                      <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
-                        {group.options.map((opt) => {
-                          const isChecked = currentSelected.includes(opt.id);
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
 
-                          return (
-                            <label
-                              key={opt.id}
-                              className={`flex items-center justify-between text-xs p-[var(--ps-space-2)] rounded-lg border transition cursor-pointer ${
-                                isChecked
-                                  ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent-light)]/50 text-[var(--ps-text)]"
-                                  : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)]"
-                              }`}
-                            >
-                              <div className="flex items-center gap-[var(--ps-space-2)]">
-                                <input
-                                  type={isSingle ? "radio" : "checkbox"}
-                                  name={`group-${group.id}`}
-                                  checked={isChecked}
-                                  onChange={() => handleOptionToggle(group.id, opt.id, group.max)}
-                                  className="text-[var(--ps-accent-hover)] focus:ring-[var(--ps-accent-hover)]"
-                                />
-                                <span>{opt.name}</span>
-                              </div>
-                              {opt.priceDeltaLabel ? (
-                                <span className="font-medium text-[var(--ps-muted)]">{opt.priceDeltaLabel}</span>
-                              ) : null}
-                            </label>
-                          );
-                        })}
-                      </div>
+                {description ? (
+                  <p className="text-[16px] leading-relaxed text-[var(--ps-muted)]">
+                    {description}
+                  </p>
+                ) : null}
+
+                {tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {tags.map((tag) => (
+                      <span key={tag} className="bg-[var(--tf-subtle)] px-2.5 py-1 text-xs font-medium capitalize text-[var(--tf-on-subtle)]">
+                        {tag.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Option groups */}
+                {optionGroups && optionGroups.length > 0 ? (
+                  <div className="space-y-3 pt-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
+                      {labels.options || "Options"}
+                    </h3>
+                    <div className="space-y-3">
+                      {optionGroups.map((group) => {
+                        const currentSelected = selectedOptions[group.id] || [];
+                        const isSingle = group.max === 1;
+
+                        return (
+                          <div key={group.id} className="rounded-none border border-[var(--ps-border)] bg-[var(--tf-soft)] p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-[var(--tf-on-base)]">{group.name}</span>
+                              <span
+                                className={`px-2 py-0.5 text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-subtle)] text-[var(--tf-on-soft)]"}`}
+                              >
+                                {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+                              </span>
+                            </div>
+                            <div className="mt-2.5 space-y-2">
+                              {group.options.map((opt) => {
+                                const isChecked = currentSelected.includes(opt.id);
+
+                                return (
+                                  <label
+                                    key={opt.id}
+                                    className={`flex items-center justify-between text-xs p-2 rounded-none border transition cursor-pointer ${
+                                      isChecked
+                                        ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
+                                        : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                      <span>{opt.name}</span>
+                                    </div>
+                                    {opt.priceDeltaLabel ? (
+                                      <span className="font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                    ) : null}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ) : null}
+
+                {detailRows.length > 0 ? (
+                  <dl className="divide-y divide-[var(--ps-border)] border border-[var(--ps-border)]">
+                    {detailRows.map((row, index) => (
+                      <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-3 px-3 py-2">
+                        <dt className="text-xs font-semibold text-[var(--tf-muted)]">{row.label}</dt>
+                        <dd className="text-right text-xs font-medium text-[var(--tf-on-base)]">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
               </div>
             </div>
-          ) : null}
-
-          {detailRows.length > 0 ? (
-            <dl className="divide-y divide-[var(--ps-border)] rounded-xl border border-[var(--ps-border)]">
-              {detailRows.map((row, index) => (
-                <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] px-[var(--ps-space-3)] py-[var(--ps-space-2)]">
-                  <dt className="text-xs font-semibold text-[var(--ps-muted)]">{row.label}</dt>
-                  <dd className="text-right text-xs font-medium text-[var(--ps-text)]">{row.value}</dd>
+          ) : (
+            /* Non-Savannah two columns on desktop */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--ps-space-6)]">
+              <div className="lg:col-span-1">
+                {image ? (
+                  <div className="aspect-[16/9] lg:aspect-[4/3] w-full overflow-hidden rounded-none bg-[var(--tf-soft)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={image} alt="" className="h-full w-full object-cover object-center" loading="lazy" />
+                  </div>
+                ) : null}
+              </div>
+              <div className="lg:col-span-1">
+                <div className="flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
+                  {priceLabel ? (
+                    <p className="text-base font-bold text-[var(--ps-text)]">
+                      {priceLabel}
+                    </p>
+                  ) : null}
+                  {originalPriceLabel ? (
+                    <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
+                      {originalPriceLabel}
+                    </span>
+                  ) : null}
                 </div>
-              ))}
-            </dl>
-          ) : null}
+                {description ? <p className="text-sm leading-6 text-[var(--ps-muted)]">{description}</p> : null}
+                {tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-[var(--ps-space-2)]">
+                    {tags.map((tag) => (
+                      <span key={tag} className="rounded-full bg-emerald-50 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium capitalize text-emerald-700">
+                        {tag.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
 
-          {/* Ordering controls: quantity + Add to order */}
+                {optionGroups && optionGroups.length > 0 ? (
+                  <div className="space-y-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
+                      {labels.options || "Options"}
+                    </h3>
+                    <div className="space-y-[var(--ps-space-3)]">
+                      {optionGroups.map((group) => {
+                        const currentSelected = selectedOptions[group.id] || [];
+                        const isSingle = group.max === 1;
+
+                        return (
+                          <div key={group.id} className="rounded-none border border-[var(--ps-border)] bg-[var(--tf-soft)] p-[var(--ps-space-3)]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-[var(--tf-on-base)]">{group.name}</span>
+                              <span
+                                className={`rounded-full px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-subtle)] text-[var(--tf-on-soft)]"}`}
+                              >
+                                {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+                              </span>
+                            </div>
+                            <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
+                              {group.options.map((opt) => {
+                                const isChecked = currentSelected.includes(opt.id);
+
+                                return (
+                                  <label
+                                    key={opt.id}
+                                    className={`flex items-center justify-between text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer ${
+                                      isChecked
+                                        ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
+                                        : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-[var(--ps-space-2)]">
+                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                      <span>{opt.name}</span>
+                                    </div>
+                                    {opt.priceDeltaLabel ? (
+                                      <span className="font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                    ) : null}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                {detailRows.length > 0 ? (
+                  <dl className="divide-y divide-[var(--ps-border)] rounded-none border border-[var(--ps-border)]">
+                    {detailRows.map((row, index) => (
+                      <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] px-[var(--ps-space-3)] py-[var(--ps-space-2)]">
+                        <dt className="text-xs font-semibold text-[var(--tf-muted)]">{row.label}</dt>
+                        <dd className="text-right text-xs font-medium text-[var(--tf-on-base)]">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer - pinned */}
+        <div className={`border-t border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-4)] ${savannah ? "pb-[env(safe-area-inset-bottom)]" : ""}`}>
           {orderConfig?.enabled ? (
-            <div className="pt-[var(--ps-space-2)] border-t border-[var(--ps-border)] space-y-[var(--ps-space-3)]">
+            <div className="space-y-[var(--ps-space-3)]">
               {!isSoldOut ? (
                 <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
-                  <span className="text-xs font-semibold text-[var(--ps-muted)]">Quantity</span>
-                  <div className="flex items-center rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)] p-[var(--ps-space-1)]">
+                  <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
+                  <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="h-7 w-7 rounded-lg bg-[var(--ps-surface)] flex items-center justify-center text-[var(--ps-muted)] shadow-xs hover:bg-[var(--ps-neutral)] disabled:opacity-40"
+                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
                     >
                       -
                     </button>
-                    <span className="w-8 text-center text-xs font-bold text-[var(--ps-text)]">{quantity}</span>
+                    <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.min(99, q + 1))}
                       disabled={quantity >= 99}
-                      className="h-7 w-7 rounded-lg bg-[var(--ps-surface)] flex items-center justify-center text-[var(--ps-muted)] shadow-xs hover:bg-[var(--ps-neutral)] disabled:opacity-40"
+                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
                     >
                       +
                     </button>
@@ -1205,35 +1443,19 @@ function ItemDetailSheet({
                 </div>
               ) : null}
 
-              <button
-                type="button"
-                disabled={!canAddToOrder}
-                onClick={() => {
-                  if (canAddToOrder && onAddToOrder) {
-                    const allSelected = Object.values(selectedOptions).flat();
-                    onAddToOrder(itemId, allSelected, quantity);
-                  }
-                }}
-                className="ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                {isSoldOut
-                  ? labels.soldOut || "Sold out"
-                  : `${labels.addToOrder || "Add to order"} • ${lineTotalFormatted}`}
+              <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = Object.values(selectedOptions).flat(); onAddToOrder(itemId, allSelected, quantity); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
+                {isSoldOut ? labels.soldOut || "Sold out" : `${labels.addToOrder || "Add to order"} • ${lineTotalFormatted}`}
               </button>
             </div>
           ) : action ? (
-            <a
-              href={action.href}
-              className={`block rounded-xl bg-[var(--ps-text)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-semibold ${tableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} hover:bg-[var(--ps-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}
-            >
-              {action.label}
-            </a>
+            <a href={action.href} className={`block rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-bold text-[var(--tf-on-accent)] hover:bg-[var(--tf-accent-deep)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}>{action.label}</a>
           ) : null}
         </div>
       </div>
     </div>
   );
 }
+
 
 function OrderDrawer({
   cart,

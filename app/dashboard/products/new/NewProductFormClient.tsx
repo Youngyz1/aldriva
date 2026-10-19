@@ -14,8 +14,10 @@ import { ImageUploader } from "@/components/shared/ImageUploader";
 
 export default function NewProductFormClient({
   ownedBusinesses,
+  existingCategories = [],
 }: {
   ownedBusinesses: { id: string; name: string }[];
+  existingCategories?: string[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -267,7 +269,7 @@ export default function NewProductFormClient({
           </div>
         </div>
 
-        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} />
+        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} categorySuggestions={existingCategories} />
 
         {/* SEO (Optional) */}
         <div className="space-y-4 border-t border-zinc-200 pt-6">

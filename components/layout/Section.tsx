@@ -29,7 +29,7 @@ export function Section({
   return (
     <section
       className={cn(
-        bordered && "rounded-xl border border-zinc-200 bg-white shadow-xs",
+        bordered && "rounded-xl border border-border bg-card shadow-xs",
         padded && "p-5 sm:p-6",
         className
       )}
@@ -44,7 +44,7 @@ export function Section({
               </p>
             )}
             {heading && (
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-zinc-900">
+                <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground">
                 {heading}
               </h2>
             )}

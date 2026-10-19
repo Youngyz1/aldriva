@@ -135,6 +135,20 @@ export function HeroInspector({
             className="w-full text-xs px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-orange-500 resize-y"
           />
         </InspectorField>
+
+        <InspectorField
+          label="Tagline"
+          currentLength={block.tagline?.length}
+          maxLength={BLOCK_LIMITS.LABEL_MAX_LENGTH}
+        >
+          <input
+            type="text"
+            value={block.tagline || ""}
+            onChange={(e) => update({ tagline: e.target.value })}
+            placeholder="e.g. A thoughtful place to begin"
+            className="w-full text-xs px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-orange-500"
+          />
+        </InspectorField>
       </InspectorSection>
 
       {/* Media Section */}
@@ -147,6 +161,25 @@ export function HeroInspector({
           onChange={(url) => update({ backgroundImage: url })}
         />
 
+        <InspectorField label="Background Color">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={/^#[0-9a-f]{6}$/i.test(block.backgroundColor || "") ? block.backgroundColor : "#ffffff"}
+              onChange={(e) => update({ backgroundColor: e.target.value })}
+              aria-label="Background color swatch"
+              className="h-8 w-10 shrink-0 cursor-pointer rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+            />
+            <input
+              type="text"
+              value={block.backgroundColor || ""}
+              onChange={(e) => update({ backgroundColor: e.target.value })}
+              placeholder="e.g. #0f172a or var(--ps-cream)"
+              maxLength={50}
+              className="w-full text-xs px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-orange-500"
+            />
+          </div>
+        </InspectorField>
         {block.variant === "video_bg" && (
           <InspectorField
             label="Background Video URL (MP4 / WebM / YouTube)"

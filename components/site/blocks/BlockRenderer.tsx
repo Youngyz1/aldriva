@@ -25,6 +25,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { sanitizeArticleHtml, sanitizeUrl } from "@/lib/sanitize-html";
 import { resolveSiteHref } from "@/lib/site-paths";
@@ -563,32 +564,53 @@ function FeaturesBlockRenderer({
     <section id={block.heading === "How it works" ? "how-it-works" : undefined} className="w-full">
       <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
       {savannah ? (
-        <div className={`grid gap-8 ${
-          items.length === 1
-            ? "mx-auto max-w-md grid-cols-1"
-            : items.length === 2
-              ? "mx-auto max-w-3xl sm:grid-cols-2"
-              : "mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-3"
-        }`}>
-          {items.map((item, i) => {
-            const itemImg = item.image ? safeImageSrc(item.image) : "";
+        (() => {
+          const hasAnyImage = items.some((item) => Boolean(item.image));
+          if (!hasAnyImage) {
             return (
-              <article key={i} className="savannah-card flex flex-col overflow-hidden bg-[var(--ps-surface)]">
-                {itemImg ? (
-                  <div className="aspect-[16/9] w-full overflow-hidden bg-[var(--tf-soft)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={itemImg} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+              <div className="mx-auto max-w-6xl grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 sm:gap-x-8">
+                {items.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)]">
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                    <span {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="text-[16px] font-semibold text-[var(--ps-text)]">
+                      {item.title}
+                    </span>
                   </div>
-                ) : null}
-                <div className="p-6">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(i + 1).padStart(2, "0")}</p>
-                  <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{item.title}</h3>
-                  {item.description ? <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 text-base leading-7 text-[var(--ps-muted)]">{item.description}</p> : null}
-                </div>
-              </article>
+                ))}
+              </div>
             );
-          })}
-        </div>
+          }
+          return (
+            <div className={`grid gap-8 ${
+              items.length === 1
+                ? "mx-auto max-w-md grid-cols-1"
+                : items.length === 2
+                  ? "mx-auto max-w-3xl sm:grid-cols-2"
+                  : "mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-3"
+            }`}>
+              {items.map((item, i) => {
+                const itemImg = item.image ? safeImageSrc(item.image) : "";
+                return (
+                  <article key={i} className="savannah-card flex flex-col overflow-hidden bg-[var(--ps-surface)]">
+                    {itemImg ? (
+                      <div className="aspect-[16/9] w-full overflow-hidden bg-[var(--tf-soft)]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={itemImg} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+                      </div>
+                    ) : null}
+                    <div className="p-6">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.1em] text-[var(--tf-accent-deep)]">{String(i + 1).padStart(2, "0")}</p>
+                      <h3 {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")} className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">{item.title}</h3>
+                      {item.description ? <p {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")} className="mt-2 text-base leading-7 text-[var(--ps-muted)]">{item.description}</p> : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          );
+        })()
       ) : (
       <div className={`grid grid-cols-1 gap-[var(--ps-space-6)] ${tableFlame
         ? items.length >= 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "mx-auto w-full max-w-4xl sm:grid-cols-2"
@@ -2260,6 +2282,7 @@ async function MenuEmbedBlockRenderer({
                   prevLabel: t("carouselPrev"),
                   nextLabel: t("carouselNext"),
                   regionLabel: t("categories"),
+                  imageFit: block.imageFit,
                 }
               : undefined
           }
@@ -2594,8 +2617,8 @@ function SectionEnvelopeWrapper({
     : tableFlame || savannah
       ? "mx-auto w-full max-w-6xl px-6"
       : getContainerClass(container as never);
-  const tableFlameCta = tableFlame && block.type === "cta_banner";
-  const savannahCta = savannah && block.type === "cta_banner";
+  const tableFlameCta = tableFlame && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
+  const savannahCta = savannah && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
   const tableFlameDots = tableFlame && bg?.pattern === "dots";
   const sectionAttributes = {
     "data-block-id": blockId,

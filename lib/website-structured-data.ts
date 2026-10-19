@@ -7,6 +7,7 @@
 
 import type { ThemeConfig, HeaderConfig, FooterConfig, NavigationItem } from "@/lib/website-nav";
 import { getSiteUrl } from "@/lib/site-url";
+import type { PageBlocksLayout } from "@/lib/page-composition";
 
 export interface TenantWebsite {
   id: string;
@@ -34,6 +35,7 @@ export interface WebsitePage {
   is_home: boolean;
   status: string;
   blocks: unknown[];
+  blocks_layout?: PageBlocksLayout | null;
   sort_order: number;
   seo_title: string | null;
   seo_description: string | null;

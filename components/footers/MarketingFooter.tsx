@@ -16,7 +16,7 @@ import { BRAND } from "@/config/branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Select } from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PwaInstallButton } from "@/components/PwaRegister";
 import { cn } from "@/lib/utils";
+import { usePlatformTheme, type PlatformThemeMode } from "@/components/PlatformThemeProvider";
 
 const socialLinks = [
   ["Facebook", FaFacebookF, "https://www.facebook.com/profile.php?id=61592673256673"],
@@ -80,7 +81,7 @@ export function MarketingFooter({
   const t = useTranslations('Footer');
   const shouldShowNewsletter = showNewsletter ?? (pathname === "/" || pathname === "/en" || pathname === "/fr" || pathname.endsWith("/"));
   const [openSection, setOpenSection] = React.useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = React.useState(false);
+  const { mode, setMode } = usePlatformTheme();
 
   const quickLinks: [string, string][] = [
     [t('home'), "/"],
@@ -92,12 +93,6 @@ export function MarketingFooter({
     [t('privacy'), "/privacy"],
     [t('cookies'), "/cookies"],
   ];
-
-  React.useEffect(() => {
-    if (typeof document !== "undefined") {
-      setIsDarkMode(document.documentElement.classList.contains("dark"));
-    }
-  }, []);
 
   const toggle = (section: string) => {
     setOpenSection((prev) => (prev === section ? null : section));
@@ -241,16 +236,21 @@ export function MarketingFooter({
             </div>
             <div className="flex items-center space-x-3">
               <Sun className="h-5 w-5 text-zinc-700 dark:text-white" />
-              <Switch
-                id="dark-mode"
-                checked={isDarkMode}
-                onCheckedChange={setIsDarkMode}
-                className="data-[state=checked]:bg-orange-600"
-              />
-              <Moon className="h-5 w-5 text-zinc-700 dark:text-white" />
-              <Label htmlFor="dark-mode" className="sr-only">
-                {t('toggleDarkMode')}
+              <Label htmlFor="platform-theme" className="sr-only">
+                {t("theme")}
               </Label>
+              <Select
+                id="platform-theme"
+                aria-label={t("theme")}
+                value={mode}
+                onChange={(event) => setMode(event.target.value as PlatformThemeMode)}
+                className="h-9 w-32 border-zinc-200 bg-white text-xs dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+              >
+                <option value="system">{t("themeSystem")}</option>
+                <option value="light">{t("themeLight")}</option>
+                <option value="dark">{t("themeDark")}</option>
+              </Select>
+              <Moon className="h-5 w-5 text-zinc-700 dark:text-white" />
             </div>
           </div>
         </div>

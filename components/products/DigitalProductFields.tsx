@@ -46,10 +46,13 @@ export default function DigitalProductFields({
   value,
   onChange,
   onError,
+  categorySuggestions = [],
 }: {
   value: DigitalFormState;
   onChange: (next: DigitalFormState) => void;
   onError: (msg: string) => void;
+  /** Existing owner categories offered for reuse (datalist); free text still allowed. */
+  categorySuggestions?: string[];
 }) {
   function set<K extends keyof DigitalFormState>(key: K, v: DigitalFormState[K]) {
     onChange({ ...value, [key]: v });
@@ -126,8 +129,21 @@ export default function DigitalProductFields({
             onChange={(e) => set("category", e.target.value)}
             placeholder="e.g. Business, Cooking, Design"
             maxLength={80}
+            list="product-category-suggestions"
             className={inputClass}
           />
+          {categorySuggestions.length > 0 && (
+            <datalist id="product-category-suggestions">
+              {categorySuggestions.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          )}
+          {categorySuggestions.length > 0 && (
+            <p className="text-xs text-slate-400 mt-1">
+              Reuse an existing category to keep your shop filters tidy, or type a new one.
+            </p>
+          )}
         </div>
         <div>
           <label className={labelClass}>Version</label>

@@ -24,10 +24,13 @@ export async function POST(req: NextRequest) {
     const limited = await enforceRateLimit("paymentIntent", req, user?.id ?? null);
     if (limited) return limited;
 
-    const { productId, quantity: rawQuantity, buyerEmail, buyerName } = await req.json();
+    const { productId, quantity: rawQuantity, buyerEmail, buyerName, siteSlug: rawSiteSlug } = await req.json();
     if (!productId) {
       return NextResponse.json({ error: "Missing product ID." }, { status: 400 });
     }
+    const siteSlug = typeof rawSiteSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(rawSiteSlug)
+      ? rawSiteSlug
+      : null;
 
     const requestedQuantity = Math.max(1, parseInt(rawQuantity) || 1);
 
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch product and validate it's purchasable
     const { data: product, error: dbError } = await supabaseAdmin
       .from("products")
-      .select("id, name, status, price_type, product_type, stripe_price_id, stock_quantity")
+      .select("id, business_id, name, slug, status, price_type, product_type, stripe_price_id, stock_quantity")
       .eq("id", productId)
       .single();
 
@@ -129,18 +132,45 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = getSiteUrl();
 
+    // Site-local return: only when the requested site is a published Store
+    // site whose tenant owns this product's business. Anything else falls
+    // back to the platform routes — checkout never fails for a bad slug.
+    let successUrl = `${baseUrl}/products/order-confirmation?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`;
+    let cancelUrl = `${baseUrl}/products?cancelled=true`;
+    if (siteSlug && product.business_id) {
+      const { data: site } = await supabaseAdmin
+        .from("tenant_websites")
+        .select("id, tenant_id, slug, status, metadata")
+        .eq("slug", siteSlug)
+        .eq("status", "published")
+        .maybeSingle();
+      const siteTemplateId = (site?.metadata as { templateId?: unknown } | null)?.templateId;
+      if (site && siteTemplateId === "store") {
+        const { data: siteBusinesses } = await supabaseAdmin
+          .from("businesses")
+          .select("id")
+          .eq("organizer_id", site.tenant_id)
+          .limit(25);
+        const siteBusinessIds = new Set((siteBusinesses ?? []).map((b) => b.id));
+        if (siteBusinessIds.has(product.business_id)) {
+          successUrl = `${baseUrl}/site/${siteSlug}/order-confirmation?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`;
+          const productSlug = typeof product.slug === "string" && product.slug ? product.slug : null;
+          cancelUrl = productSlug
+            ? `${baseUrl}/site/${siteSlug}/products/${productSlug}?cancelled=true`
+            : `${baseUrl}/site/${siteSlug}/shop?cancelled=true`;
+        }
+      }
+    }
+
     // 4. Create the Checkout Session carrying the order id in metadata, so
     // the webhook finds exactly this row instead of guessing.
-    // TODO(products): /products/order-confirmation doesn't exist yet. See
-    // ADR 0001 §10 — must be built together with /products and /products/
-    // [slug] before this route is reachable from any real "Buy" button.
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: resolvedBuyerEmail,
       line_items: [{ price: product.stripe_price_id, quantity }],
       mode: checkoutMode,
-      success_url: `${baseUrl}/products/order-confirmation?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/products?cancelled=true`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         kind: "product",
         product_order_id: order.id,

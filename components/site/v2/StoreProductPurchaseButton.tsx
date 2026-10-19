@@ -15,10 +15,13 @@ export function StoreProductPurchaseButton({
   productId,
   maxQuantity,
   labels,
+  siteSlug = null,
 }: {
   productId: string;
   maxQuantity: number;
   labels: StoreProductPurchaseLabels;
+  /** Site-local checkout return: validated server-side, ignored when invalid. */
+  siteSlug?: string | null;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -39,6 +42,7 @@ export function StoreProductPurchaseButton({
           quantity,
           buyerName: String(form.get("buyerName") ?? "").trim(),
           buyerEmail: String(form.get("buyerEmail") ?? "").trim(),
+          ...(siteSlug ? { siteSlug } : {}),
         }),
       });
       const result = await response.json() as { url?: string };

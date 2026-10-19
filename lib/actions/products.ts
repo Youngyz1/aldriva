@@ -392,3 +392,32 @@ export async function deleteProduct(id: string) {
   revalidatePath("/dashboard/products");
   return { success: true };
 }
+
+/**
+ * Distinct non-empty product categories owned by the current user, for
+ * category reuse suggestions in the product forms. Read-only: scoped to
+ * `owner_id`, capped, and never exposes other owners' values.
+ */
+export async function getOwnerProductCategories(): Promise<string[]> {
+  const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("products")
+    .select("category")
+    .eq("owner_id", user.id)
+    .not("category", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(500);
+
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    const category = typeof (row as { category?: unknown }).category === "string"
+      ? (row as { category: string }).category.trim()
+      : "";
+    if (category && category.length <= 80) seen.add(category);
+    if (seen.size >= 100) break;
+  }
+  return [...seen];
+}

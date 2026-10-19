@@ -39,8 +39,8 @@ Key conventions:
 
 ## UI & Design System
 
-- Follow `.aldriva/design/principles.md` and `docs/DESIGN-SYSTEM.md`.
-- **Existing UI is not automatically good UI**: See `.aldriva/design/legacy-ui.md` before copying older page layouts.
+- Follow the repository-root `DESIGN.md`.
+- **Existing UI is not automatically good UI**: Check `DESIGN.md`'s known inconsistencies before copying older page layouts.
 - Reusable primitives live in `components/ui/` (`button.tsx`, `card.tsx`, `dialog.tsx`, etc.). Use `rounded-xl` and `shadow-xs`.
 
 ---

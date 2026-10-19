@@ -342,6 +342,59 @@ async function checkWebsiteAccess(
 }
 
 // ---------------------------------------------------------------------------
+// Site-local store product access-control helper.
+//
+// Mirrors app/site/[slug]/products/[productSlug]/page.tsx: a product is public
+// only when it belongs to one of the site tenant's businesses AND its status is
+// active or out_of_stock (the sold-out detail state stays reachable so buyers
+// see the real state instead of a 404). Everything else 404s before the page
+// streams a 200 shell — the same pre-stream status-code constraint as the site
+// gate below. The outer site gate already fails closed on missing sites, so a
+// fetch hiccup here defers to the page's own notFound() rather than 404ing a
+// real product.
+// ---------------------------------------------------------------------------
+async function checkStoreProductAccess(
+  siteSlug: string,
+  productSlug: string
+): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const headers = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    "Content-Type": "application/json",
+  };
+
+  const siteRes = await fetch(
+    `${supabaseUrl}/rest/v1/tenant_websites?slug=eq.${encodeURIComponent(siteSlug)}&select=tenant_id&limit=1`,
+    { headers, cache: "no-store" }
+  );
+  if (!siteRes.ok) return true; // Outer site gate already handled failures.
+  const sites = (await siteRes.json()) as Array<{ tenant_id: string }>;
+  if (!sites.length) return false;
+  const tenantId = sites[0].tenant_id;
+
+  const bizRes = await fetch(
+    `${supabaseUrl}/rest/v1/businesses?organizer_id=eq.${encodeURIComponent(tenantId)}&select=id`,
+    { headers, cache: "no-store" }
+  );
+  if (!bizRes.ok) return true;
+  const businesses = (await bizRes.json()) as Array<{ id: string }>;
+  const businessIds = businesses.map((business) => business.id);
+  if (businessIds.length === 0) return false;
+
+  const businessFilter = businessIds.map((id) => `"${id}"`).join(",");
+  const productRes = await fetch(
+    `${supabaseUrl}/rest/v1/products?slug=eq.${encodeURIComponent(productSlug)}&business_id=in.(${businessFilter})&status=in.(active,out_of_stock)&select=id&limit=1`,
+    { headers, cache: "no-store" }
+  );
+  if (!productRes.ok) return true;
+
+  const products = (await productRes.json()) as Array<{ id: string }>;
+  return products.length > 0;
+}
+
+// ---------------------------------------------------------------------------
 // Ticketmaster existence-check helper — lightweight fetch without next/cache.
 // ---------------------------------------------------------------------------
 async function checkTicketmasterAccess(id: string): Promise<boolean> {
@@ -657,6 +710,25 @@ export async function proxy(req: NextRequest) {
       const notFoundUrl = req.nextUrl.clone();
       notFoundUrl.pathname = "/_not-found";
       return NextResponse.rewrite(notFoundUrl, { status: 404 });
+    }
+
+    // Site-local product detail pages (/site/<slug>/products/<productSlug>):
+    // gate the product too so a missing or unlisted product returns a real
+    // 404 before the page streams a 200 shell. The /products/ subpath is
+    // distinguished from ordinary site pages; sold-out products stay public.
+    const storeProductMatch = pathname.match(
+      /^\/site\/([^/]+)\/products\/([^/]+)\/?$/
+    );
+    if (storeProductMatch) {
+      const productAllowed = await checkStoreProductAccess(
+        storeProductMatch[1],
+        decodeURIComponent(storeProductMatch[2])
+      );
+      if (!productAllowed) {
+        const notFoundUrl = req.nextUrl.clone();
+        notFoundUrl.pathname = "/_not-found";
+        return NextResponse.rewrite(notFoundUrl, { status: 404 });
+      }
     }
   }
 

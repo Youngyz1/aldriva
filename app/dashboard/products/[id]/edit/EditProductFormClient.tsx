@@ -38,9 +38,11 @@ type Product = {
 export default function EditProductFormClient({
   product,
   ownedBusinesses,
+  existingCategories = [],
 }: {
   product: Product;
   ownedBusinesses: { id: string; name: string }[];
+  existingCategories?: string[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -312,7 +314,7 @@ export default function EditProductFormClient({
           </div>
         </div>
 
-        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} />
+        <DigitalProductFields value={digital} onChange={setDigital} onError={setError} categorySuggestions={existingCategories} />
 
         {isDigital && <AssetManager productId={product.id} />}
 

@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { getOwnerProductCategories } from "@/lib/actions/products";
 import EditProductFormClient from "./EditProductFormClient";
 
 export default async function EditProductPage({
@@ -35,9 +36,11 @@ export default async function EditProductPage({
     .eq("owner_id", ctx.user.id)
     .order("name", { ascending: true });
 
+  const existingCategories = await getOwnerProductCategories();
+
   return (
     <div className="flex-1 p-6 max-w-4xl mx-auto">
-      <EditProductFormClient product={product} ownedBusinesses={businesses || []} />
+      <EditProductFormClient product={product} ownedBusinesses={businesses || []} existingCategories={existingCategories} />
     </div>
   );
 }

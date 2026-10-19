@@ -11,10 +11,10 @@ const buttonVariants = cva(
         // Primary
         default:     "bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs",
         // Secondary / Outline
-        outline:     "border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 hover:text-zinc-950 shadow-xs",
-        secondary:   "border border-zinc-200/80 bg-zinc-50 text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950 shadow-xs",
+        outline:     "border border-border bg-card text-card-foreground hover:bg-muted hover:text-foreground shadow-xs",
+        secondary:   "border border-border bg-muted text-foreground hover:bg-accent hover:text-accent-foreground shadow-xs",
         // Ghost
-        ghost:       "hover:bg-zinc-100 hover:text-zinc-900",
+        ghost:       "hover:bg-muted hover:text-foreground",
         // Text
         link:        "text-primary underline-offset-4 hover:underline shadow-none",
         // Functional, non-hierarchy variant

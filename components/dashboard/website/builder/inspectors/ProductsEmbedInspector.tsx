@@ -68,6 +68,17 @@ export function ProductsEmbedInspector({
     update({ limit: clamped });
   }
 
+  function handleBrowsePageSizeChange(val: number) {
+    const clamped = Math.min(
+      Math.max(
+        BLOCK_LIMITS.MIN_BROWSE_PAGE_SIZE,
+        Number.isFinite(val) ? Math.floor(val) : BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE
+      ),
+      BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE
+    );
+    update({ browsePageSize: clamped });
+  }
+
   return (
     <div className="space-y-4">
       <InspectorSection title="Products Embed Configuration" defaultOpen>
@@ -133,6 +144,26 @@ export function ProductsEmbedInspector({
             />
           </InspectorField>
         </div>
+
+        <InspectorField
+          label="Products Shown at Once"
+          description={`Clamp: ${BLOCK_LIMITS.MIN_BROWSE_PAGE_SIZE}–${BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE}`}
+        >
+          <input
+            type="number"
+            min={BLOCK_LIMITS.MIN_BROWSE_PAGE_SIZE}
+            max={BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE}
+            value={block.browsePageSize ?? BLOCK_LIMITS.MAX_BROWSE_PAGE_SIZE}
+            onChange={(e) =>
+              handleBrowsePageSizeChange(parseInt(e.target.value, 10))
+            }
+            className="w-full text-xs px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-1 focus:ring-orange-500"
+          />
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Store template: how many products appear before the “Load more”
+            control. Other templates ignore this setting.
+          </p>
+        </InspectorField>
 
         <div className="flex items-center justify-between p-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-xl border border-zinc-150 dark:border-zinc-800 mt-2">
           <div>

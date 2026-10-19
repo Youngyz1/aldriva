@@ -868,12 +868,17 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
       : [];
     if (ids.length > 0) selectedItemIds = ids;
   }
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const menuImageFit = ctx.template.id === "restaurant-savannah" && (extras?.menuImageFit === "contain" || extras?.menuImageFit === "cover")
+    ? extras.menuImageFit
+    : undefined;
   return {
     type: "menu_embed",
     heading,
     limit,
     layout: "grid",
     ...(ctx.template.id === "restaurant-table-flame" ? { variant: "rows" } : ctx.template.id === "restaurant-savannah" ? { variant: "catalog-carousel" } : {}),
+    ...(menuImageFit ? { imageFit: menuImageFit } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
   } as Block;
@@ -925,16 +930,36 @@ function buildSectionBlock(
       return buildFaq(ctx);
     case "cta_banner": {
       if (section.id === "promo") {
-        const promo = asRecord(effectiveValue(ctx, "promo"));
-        const headline = asString(promo?.headline) ?? (ctx.includeSamples ? "Special Seasonal Menu" : undefined);
-        const text = asString(promo?.text) ?? (ctx.includeSamples ? "Experience our chef's curated seasonal tasting menu, crafted with local ingredients." : undefined);
-        const eyebrow = asString(promo?.eyebrow) ?? (ctx.includeSamples ? "Limited Time" : undefined);
+        const promoLive = asRecord(ctx.doc.promo);
+        const extrasLive = asRecord(ctx.doc.template_extras);
+        // Backwards compatibility: earlier editor drafts wrote promo fields into template_extras
+        const promoFromExtras = extrasLive ? {
+          headline: extrasLive.headline,
+          text: extrasLive.text,
+          eyebrow: extrasLive.eyebrow,
+          image: extrasLive.image,
+          button_label: extrasLive.button_label,
+          button_link: extrasLive.button_link,
+          end_date: extrasLive.end_date,
+        } : undefined;
+        const promoSource = promoLive && Object.keys(promoLive).length > 0
+          ? promoLive
+          : promoFromExtras && Object.values(promoFromExtras).some(Boolean)
+            ? promoFromExtras
+            : undefined;
+
+        const promoSamples = ctx.includeSamples ? asRecord(ctx.samples.promo) : undefined;
+        const promo = promoSource ?? promoSamples;
+
+        const headline = asString(promo?.headline);
+        const text = asString(promo?.text);
+        const eyebrow = asString(promo?.eyebrow);
         const image = asString(promo?.image);
-        const ctaLabel = asString(promo?.button_label) ?? (ctx.includeSamples ? "Reserve a table" : undefined);
-        const ctaHref = asString(promo?.button_link) ?? (ctx.includeSamples ? "/reservations" : undefined);
-        const endDateRaw = asString(promo?.end_date) ?? (ctx.includeSamples ? "Available this month" : undefined);
+        const ctaLabel = asString(promo?.button_label);
+        const ctaHref = asString(promo?.button_link);
+        const endDateRaw = asString(promo?.end_date);
         let shouldHide = false;
-        if (endDateRaw && !ctx.includeSamples) {
+        if (endDateRaw && promoSource) {
           let ts: number | null = null;
           const asDate = new Date(endDateRaw);
           if (!Number.isNaN(asDate.getTime())) {
@@ -964,8 +989,8 @@ function buildSectionBlock(
         return {
           type: "cta_banner",
           variant: "promo",
-          heading: headline,
-          subheading: text,
+          ...(headline ? { heading: headline } : {}),
+          ...(text ? { subheading: text } : {}),
           ...(eyebrow ? { eyebrow } : {}),
           ...(image ? { image } : {}),
           ...(ctaLabel ? { ctaLabel } : {}),
