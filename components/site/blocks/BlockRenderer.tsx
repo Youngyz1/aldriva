@@ -2126,6 +2126,7 @@ async function MenuEmbedBlockRenderer({
   currencyLocale,
   orderConfig,
   siteSlug,
+  hasPublishedMenuPage,
   accentColor,
   siteTemplateId,
   sectionAlign,
@@ -2140,6 +2141,7 @@ async function MenuEmbedBlockRenderer({
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
   siteSlug?: string;
+  hasPublishedMenuPage?: boolean;
   accentColor?: string;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
@@ -2232,6 +2234,7 @@ async function MenuEmbedBlockRenderer({
           name: opt.name,
           priceDelta: og.kind === "variant" ? 0 : Number(opt.price_delta) || 0,
           price: Number(opt.price) || 0,
+          isDefault: Boolean(opt.is_default),
           maxQty: opt.max_qty ?? 1,
           priceDeltaLabel: og.kind === "variant"
             ? formatCurrency(Number(opt.price), displayCurrency, locale)
@@ -2414,13 +2417,15 @@ async function MenuEmbedBlockRenderer({
       {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
         <div className="mt-[var(--ps-space-8)] text-center">
           {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
-          <a
-            href={`/site/${encodeURIComponent(siteSlug)}/menu`}
-            className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
-          >
-            {t("viewFullMenu")}
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </a>
+          {hasPublishedMenuPage ? (
+            <a
+              href={`/site/${encodeURIComponent(siteSlug)}/menu`}
+              className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
+            >
+              {t("viewFullMenu")}
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </a>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -2691,6 +2696,7 @@ export async function BlockRenderer({
   orderConfig,
   reservationConfig,
   siteSlug,
+  hasPublishedMenuPage,
   scopeInternalLinks,
   accentColor,
   siteTemplateId,
@@ -2709,6 +2715,7 @@ export async function BlockRenderer({
   orderConfig?: StorefrontOrderConfig;
   reservationConfig?: StorefrontReservationConfig;
   siteSlug?: string;
+  hasPublishedMenuPage?: boolean;
   scopeInternalLinks?: boolean;
   accentColor?: string;
   siteTemplateId?: string;
@@ -2817,6 +2824,7 @@ export async function BlockRenderer({
           currencyLocale,
           orderConfig,
           siteSlug,
+          hasPublishedMenuPage,
           accentColor,
           siteTemplateId,
           sectionAlign,

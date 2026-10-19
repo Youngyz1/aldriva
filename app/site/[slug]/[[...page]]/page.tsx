@@ -139,6 +139,7 @@ export async function resolveWebsiteAndPage(
   v2Content?: V2RouteContent;
   currency: string;
   currencyLocale: Locale;
+  hasPublishedMenuPage: boolean;
 }> {
   const supabaseAdmin = createSupabaseAdmin();
 
@@ -150,7 +151,7 @@ export async function resolveWebsiteAndPage(
     .maybeSingle();
 
   if (!websiteRow) {
-    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency: "USD", currencyLocale: "en" };
+    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency: "USD", currencyLocale: "en", hasPublishedMenuPage: false };
   }
 
   const website = websiteRow as TenantWebsite;
@@ -218,7 +219,7 @@ export async function resolveWebsiteAndPage(
 
   // 3. Access gate for website
   if (website.status !== "published" && !isTeamMember) {
-    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency, currencyLocale };
+    return { website: null, targetPage: null, navItems: [], isTeamMember: false, currency, currencyLocale, hasPublishedMenuPage: false };
   }
 
   // 4. Fetch pages — public visitors and team members fetch from website_pages
@@ -342,6 +343,7 @@ export async function resolveWebsiteAndPage(
       isTeamMember,
       currency,
       currencyLocale,
+      hasPublishedMenuPage: routeSelection.pages.some((page) => page.slug === "menu" && page.status === "published"),
       v2Content: {
         template: v2Template,
         content,
@@ -431,6 +433,7 @@ export async function resolveWebsiteAndPage(
     isTeamMember,
     currency,
     currencyLocale,
+    hasPublishedMenuPage: publishedPages.some((page) => page.slug === "menu"),
   };
 }
 
@@ -495,7 +498,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 // ---------------------------------------------------------------------------
 export default async function TenantWebsitePublicPage({ params }: Props) {
   const { slug, page: pageSlugArr } = await params;
-  const { website, targetPage, navItems, isTeamMember, v2Content, currency, currencyLocale } =
+  const { website, targetPage, navItems, isTeamMember, v2Content, currency, currencyLocale, hasPublishedMenuPage } =
     await resolveWebsiteAndPage(slug, pageSlugArr);
 
   if (!website || !targetPage) {
@@ -675,6 +678,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               orderConfig={orderConfig}
               reservationConfig={reservationConfig}
               siteSlug={website.slug}
+              hasPublishedMenuPage={hasPublishedMenuPage}
               accentColor={v2Template
                 ? v2ThemeStyle(v2Template, website.metadata)["--ps-accent"]
                 : (typeof website.theme_config?.primaryColor === "string" ? website.theme_config.primaryColor : undefined)}

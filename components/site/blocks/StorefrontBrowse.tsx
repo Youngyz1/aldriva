@@ -19,6 +19,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import {
   BROWSE_ALL_GROUP,
+  defaultBrowseOptionSelections,
   filterBrowseGroups,
   sortBrowseItems,
   type BrowseGroup,
@@ -513,6 +514,7 @@ export function StorefrontBrowse({
         ))}
         {selected ? (
           <ItemDetailSheet
+            key={selected.id}
             itemId={selected.id}
             title={selected.name}
             image={selected.image ?? null}
@@ -964,6 +966,7 @@ export function StorefrontBrowse({
 
       {selected ? (
         <ItemDetailSheet
+          key={selected.id}
           itemId={selected.id}
           title={selected.name}
           image={selected.image ?? null}
@@ -1129,7 +1132,7 @@ function ItemDetailSheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [quantity, setQuantity] = useState(1);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => defaultBrowseOptionSelections(optionGroups || []));
   const [selectedOptionQtys, setSelectedOptionQtys] = useState<Record<string, number>>({});
 
   // Esc to close + scroll lock; focus the panel on open for screen readers.

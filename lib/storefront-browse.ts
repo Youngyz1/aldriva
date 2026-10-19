@@ -24,6 +24,7 @@ export interface BrowseOption {
   priceDeltaLabel?: string | null;
   priceDelta?: number;
   price?: number;
+  isDefault?: boolean;
   maxQty?: number;
 }
 
@@ -70,6 +71,24 @@ export interface BrowseGroup {
   id: string;
   title: string;
   items: BrowseItem[];
+}
+
+export function defaultBrowseOptionSelections(
+  groups: readonly BrowseOptionGroup[]
+): Record<string, string[]> {
+  const selected: Record<string, string[]> = {};
+  for (const group of groups) {
+    if (group.kind === "variant") {
+      const option = group.options.find((candidate) => candidate.isDefault) ?? group.options[0];
+      if (option) selected[group.id] = [option.id];
+      continue;
+    }
+    const freeDefaults = group.options
+      .filter((option) => option.isDefault && Number(option.priceDelta ?? option.price) === 0)
+      .map((option) => option.id);
+    if (freeDefaults.length > 0) selected[group.id] = freeDefaults;
+  }
+  return selected;
 }
 
 /** Sort orders for storefront browse grids. `featured` keeps server order. */
