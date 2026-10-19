@@ -19,6 +19,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
 import { fromMinorUnits } from "@/lib/money";
+import { resolveItemOptionGroups, type NormalizedOptionAssignmentRow, type ResolvedOptionGroup } from "@/lib/menu-pricing";
 import type {
   EventsEmbedBlock,
   ProductsEmbedBlock,
@@ -96,7 +97,7 @@ export interface ResolvedMenuItem {
   dietary_tags: string[];
   allergens: string[];
   modifiers: { name: string; price_delta: number }[];
-  option_groups?: import("@/lib/menu-pricing").MenuItemOptionGroup[];
+  option_groups?: ResolvedOptionGroup[];
   is_active: boolean;
   is_featured: boolean;
   isDraft: boolean;
@@ -377,7 +378,49 @@ export async function resolveMenuEmbed(
   const sectionsWithMoreItems = new Set<string>();
   const queriedItems = (items || []) as any[];
   const hasMoreItemsOverall = queriedItems.length > MENU_ITEMS_OVERALL_LIMIT;
-  for (const it of queriedItems.slice(0, MENU_ITEMS_OVERALL_LIMIT)) {
+  const returnedItems = queriedItems.slice(0, MENU_ITEMS_OVERALL_LIMIT);
+  const returnedItemIds = returnedItems.map((item) => item.id);
+  let assignments: any[] = [];
+  if (returnedItemIds.length > 0) {
+    const { data, error } = await supabase
+      .from("menu_item_option_groups")
+      .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
+      .in("item_id", returnedItemIds);
+    if (!error && Array.isArray(data)) assignments = data;
+  }
+  const groupIds = [...new Set(assignments.map((row) => row.group_id).filter(Boolean))];
+  const groupsById = new Map<string, any>();
+  const optionsByGroupId = new Map<string, any[]>();
+  if (groupIds.length > 0) {
+    let groupQuery = supabase.from("menu_option_groups")
+      .select("id, organizer_id, name, kind, min_select, max_select, is_required, position, is_active")
+      .in("id", groupIds);
+    let optionQuery = supabase.from("menu_options")
+      .select("id, group_id, organizer_id, name, description, price, image_url, is_default, max_qty, is_available, allergens, position")
+      .in("group_id", groupIds);
+    if (!isTeamMember) {
+      groupQuery = groupQuery.eq("is_active", true);
+      optionQuery = optionQuery.eq("is_available", true);
+    }
+    const [{ data: groupsData }, { data: optionsData }] = await Promise.all([groupQuery, optionQuery]);
+    for (const group of groupsData || []) groupsById.set(group.id, group);
+    for (const option of optionsData || []) {
+      const optionRows = optionsByGroupId.get(option.group_id) || [];
+      optionRows.push(option);
+      optionsByGroupId.set(option.group_id, optionRows);
+    }
+  }
+  const assignmentsByItem = new Map<string, NormalizedOptionAssignmentRow[]>();
+  for (const assignment of assignments) {
+    const group = groupsById.get(assignment.group_id);
+    const list = assignmentsByItem.get(assignment.item_id) || [];
+    list.push({
+      ...assignment,
+      group: group ? { ...group, options: optionsByGroupId.get(group.id) || [] } : null,
+    });
+    assignmentsByItem.set(assignment.item_id, list);
+  }
+  for (const it of returnedItems) {
     const sectionItems = itemsBySection[it.section_id] || [];
     if (sectionItems.length >= MENU_ITEMS_PER_SECTION_LIMIT) {
       sectionsWithMoreItems.add(it.section_id);
@@ -394,7 +437,10 @@ export async function resolveMenuEmbed(
       dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : [],
       allergens: Array.isArray(it.allergens) ? it.allergens : [],
       modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
-      option_groups: Array.isArray(it.option_groups) ? it.option_groups : [],
+      option_groups: resolveItemOptionGroups(
+        { id: it.id, price: Number(it.price), promo_price: it.promo_price != null ? Number(it.promo_price) : null, option_groups: Array.isArray(it.option_groups) ? it.option_groups : [] },
+        assignmentsByItem.get(it.id) || []
+      ),
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
       isDraft: !it.is_active,

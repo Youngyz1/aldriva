@@ -23,6 +23,7 @@ import {
   sortBrowseItems,
   type BrowseGroup,
   type BrowseItem,
+  type BrowseOption,
   type BrowseOptionGroup,
   type BrowseSortKey,
 } from "@/lib/storefront-browse";
@@ -129,8 +130,11 @@ export interface StorefrontBrowseLabels {
 export interface CartItem {
   itemId: string;
   selectedOptionIds: string[];
+  selectedOptions?: Array<{ groupId?: string; optionId: string; qty: number }>;
   quantity: number;
 }
+
+const STOREFRONT_CART_VERSION = 2;
 
 interface StorefrontBrowseProps {
   groups: BrowseGroup[];
@@ -229,15 +233,30 @@ function loadCart(slug: string): CartItem[] {
     const raw = localStorage.getItem(`aldriva_cart_${slug}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item) =>
+    const rows = Array.isArray(parsed)
+      ? parsed
+      : parsed?.version === STOREFRONT_CART_VERSION && Array.isArray(parsed.items)
+        ? parsed.items
+        : [];
+    return rows.filter(
+      (item: any) =>
         item &&
         typeof item.itemId === "string" &&
         Array.isArray(item.selectedOptionIds) &&
         typeof item.quantity === "number" &&
         item.quantity > 0
-    );
+    ).map((item: any) => ({
+      ...item,
+      selectedOptions: Array.isArray(item.selectedOptions)
+        ? item.selectedOptions.filter((option: any) =>
+            option && typeof option.optionId === "string" && Number.isInteger(option.qty) && option.qty >= 1
+          ).map((option: any) => ({
+            ...(typeof option.groupId === "string" ? { groupId: option.groupId } : {}),
+            optionId: option.optionId,
+            qty: option.qty,
+          }))
+        : undefined,
+    }));
   } catch {
     return [];
   }
@@ -246,7 +265,7 @@ function loadCart(slug: string): CartItem[] {
 function saveCart(slug: string, cart: CartItem[]): void {
   if (typeof window === "undefined" || !slug) return;
   try {
-    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify(cart));
+    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify({ version: STOREFRONT_CART_VERSION, items: cart }));
   } catch {
     // quota exceeded or private mode, silently ignore
   }
@@ -257,6 +276,50 @@ function arraysEqual(a: string[], b: string[]): boolean {
   const sortedA = [...a].sort();
   const sortedB = [...b].sort();
   return sortedA.every((val, index) => val === sortedB[index]);
+}
+
+function optionQuantityKey(groupId: string, optionId: string): string {
+  return `${groupId}:${optionId}`;
+}
+
+function browseLineUnitPrice(
+  item: BrowseItem,
+  selectedOptionIds: readonly string[],
+  selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]
+): number {
+  let basePrice = typeof item.numericPrice === "number" ? item.numericPrice : 0;
+  let addOnDelta = 0;
+  const selectedIds = new Set(selectedOptionIds);
+  for (const group of item.optionGroups || []) {
+    for (const option of group.options) {
+      if (!selectedIds.has(option.id)) continue;
+      const selected = selectedOptions?.find((entry) =>
+        entry.optionId === option.id && (!entry.groupId || entry.groupId === group.id)
+      );
+      const qty = selected?.qty ?? 1;
+      if (group.kind === "variant") {
+        basePrice = Number(option.price) || 0;
+      } else {
+        addOnDelta += (Number(option.priceDelta) || 0) * qty;
+      }
+    }
+  }
+  return calculateOptionAdjustedUnitPrice(basePrice, addOnDelta);
+}
+
+function selectedOptionSummary(option: BrowseOption, groupId: string, selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]): string {
+  const qty = selectedOptions?.find((entry) => entry.optionId === option.id && (!entry.groupId || entry.groupId === groupId))?.qty ?? 1;
+  return qty > 1 ? `${option.name} × ${qty}` : option.name;
+}
+
+function cartOptionsEqual(left: CartItem, right: { selectedOptionIds: string[]; selectedOptions: Array<{ groupId: string; optionId: string; qty: number }> }): boolean {
+  if (!arraysEqual(left.selectedOptionIds, right.selectedOptionIds)) return false;
+  const normalizedLeft: Array<{ groupId?: string; optionId: string; qty: number }> = left.selectedOptions || left.selectedOptionIds.map((optionId) => ({ optionId, qty: 1 }));
+  const normalizedLeftKeys = normalizedLeft
+    .map((entry) => `${entry.groupId || ""}:${entry.optionId}:${entry.qty}`)
+    .sort();
+  const normalizedRight = right.selectedOptions.map((entry) => `${entry.groupId}:${entry.optionId}:${entry.qty}`).sort();
+  return normalizedLeftKeys.length === normalizedRight.length && normalizedLeftKeys.every((entry, index) => entry === normalizedRight[index]);
 }
 
 export function StorefrontBrowse({
@@ -369,17 +432,7 @@ export function StorefrontBrowse({
   const cartSubtotal = cart.reduce((sum, line) => {
     const it = itemsMap.get(line.itemId);
     if (!it) return sum;
-    const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
-    let deltas = 0;
-    const optSet = new Set(line.selectedOptionIds);
-    for (const group of it.optionGroups || []) {
-      for (const opt of group.options) {
-        if (optSet.has(opt.id) && typeof opt.priceDelta === "number") {
-          deltas += opt.priceDelta;
-        }
-      }
-    }
-    return sum + calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
+    return sum + calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
   }, 0);
 
   const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
@@ -387,18 +440,20 @@ export function StorefrontBrowse({
   const handleAddToOrder = (
     itemId: string,
     selectedOptionIds: string[],
-    quantity: number
+    quantity: number,
+    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
   ) => {
+    const selected = { selectedOptionIds, selectedOptions };
     const existingIndex = cart.findIndex(
-      (c) => c.itemId === itemId && arraysEqual(c.selectedOptionIds, selectedOptionIds)
+      (c) => c.itemId === itemId && cartOptionsEqual(c, selected)
     );
     let nextCart: CartItem[];
     if (existingIndex >= 0) {
       nextCart = cart.map((c, i) =>
-        i === existingIndex ? { ...c, quantity: c.quantity + quantity } : c
+        i === existingIndex ? { ...c, quantity: Math.min(MAX_LINE_QUANTITY, c.quantity + quantity) } : c
       );
     } else {
-      nextCart = [...cart, { itemId, selectedOptionIds, quantity }];
+      nextCart = [...cart, { itemId, selectedOptionIds, selectedOptions, quantity }];
     }
     updateCart(nextCart);
     closeSheet();
@@ -1062,7 +1117,12 @@ function ItemDetailSheet({
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
   locale?: Locale;
-  onAddToOrder?: (itemId: string, selectedOptionIds: string[], quantity: number) => void;
+  onAddToOrder?: (
+    itemId: string,
+    selectedOptionIds: string[],
+    quantity: number,
+    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
+  ) => void;
   onClose: () => void;
 }) {
   void _tableFlame;
@@ -1070,6 +1130,7 @@ function ItemDetailSheet({
   const titleId = useId();
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [selectedOptionQtys, setSelectedOptionQtys] = useState<Record<string, number>>({});
 
   // Esc to close + scroll lock; focus the panel on open for screen readers.
   useEffect(() => {
@@ -1109,6 +1170,8 @@ function ItemDetailSheet({
 
   // Handle option choice change
   const handleOptionToggle = (groupId: string, optionId: string, max: number) => {
+    const current = selectedOptions[groupId] || [];
+    const removing = max !== 1 && current.includes(optionId);
     setSelectedOptions((prev) => {
       const current = prev[groupId] || [];
       if (max === 1) {
@@ -1122,6 +1185,37 @@ function ItemDetailSheet({
       }
       return prev;
     });
+    setSelectedOptionQtys((prev) => {
+      const next = { ...prev };
+      const key = optionQuantityKey(groupId, optionId);
+      if (removing) delete next[key];
+      else next[key] = 1;
+      return next;
+    });
+  };
+
+  const handleOptionQuantityChange = (group: BrowseOptionGroup, option: BrowseOption, nextQty: number) => {
+    const key = optionQuantityKey(group.id, option.id);
+    const qty = Math.max(0, Math.min(option.maxQty ?? 1, nextQty));
+    if (qty === 0) {
+      setSelectedOptions((prev) => ({
+        ...prev,
+        [group.id]: (prev[group.id] || []).filter((id) => id !== option.id),
+      }));
+      setSelectedOptionQtys((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+    setSelectedOptions((prev) => {
+      const current = prev[group.id] || [];
+      return current.includes(option.id) || current.length >= group.max
+        ? prev
+        : { ...prev, [group.id]: [...current, option.id] };
+    });
+    setSelectedOptionQtys((prev) => ({ ...prev, [key]: qty }));
   };
 
   // Match the shared server selection rules for every group, including optional groups with a minimum.
@@ -1131,18 +1225,29 @@ function ItemDetailSheet({
   });
 
   // Calculate live item line price
-  const basePrice = typeof numericPrice === "number" ? numericPrice : 0;
+  let basePrice = typeof numericPrice === "number" ? numericPrice : 0;
   let optionsDelta = 0;
   for (const group of optionGroups || []) {
     const selected = selectedOptions[group.id] || [];
     for (const opt of group.options) {
-      if (selected.includes(opt.id) && typeof opt.priceDelta === "number") {
-        optionsDelta += opt.priceDelta;
+      if (selected.includes(opt.id)) {
+        if (group.kind === "variant") {
+          basePrice = Number(opt.price) || 0;
+        } else if (typeof opt.priceDelta === "number") {
+          optionsDelta += opt.priceDelta * (selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1);
+        }
       }
     }
   }
   const totalUnitPrice = calculateOptionAdjustedUnitPrice(basePrice, optionsDelta);
   const lineTotalFormatted = formatMoney(calculateMenuLineTotal(totalUnitPrice, quantity), orderConfig?.currency ?? "USD", locale);
+  const selectedOptionQuantities = (optionGroups || []).flatMap((group) =>
+    (selectedOptions[group.id] || []).map((optionId) => ({
+      groupId: group.id,
+      optionId,
+      qty: selectedOptionQtys[optionQuantityKey(group.id, optionId)] || 1,
+    }))
+  );
 
   const canAddToOrder = !isSoldOut && areOptionGroupsSatisfied && !orderConfig?.blocked;
 
@@ -1279,24 +1384,33 @@ function ItemDetailSheet({
                             <div className="mt-2.5 space-y-2">
                               {group.options.map((opt) => {
                                 const isChecked = currentSelected.includes(opt.id);
+                                const optionQty = selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1;
 
                                 return (
-                                  <label
-                                    key={opt.id}
-                                    className={`flex items-center justify-between text-xs p-2 rounded-none border transition cursor-pointer ${
-                                      isChecked
-                                        ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
-                                        : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
-                                      <span>{opt.name}</span>
-                                    </div>
-                                    {opt.priceDeltaLabel ? (
-                                      <span className="font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                  <div key={opt.id} className="flex items-center gap-2">
+                                    <label
+                                      className={`flex min-w-0 flex-1 items-center justify-between text-xs p-2 rounded-none border transition cursor-pointer ${
+                                        isChecked
+                                          ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
+                                          : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
+                                      }`}
+                                    >
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                        <span>{opt.name}</span>
+                                      </div>
+                                      {opt.priceDeltaLabel ? (
+                                        <span className="ml-2 shrink-0 font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                      ) : null}
+                                    </label>
+                                    {isChecked && (opt.maxQty ?? 1) > 1 ? (
+                                      <div className="flex items-center gap-1">
+                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
+                                        <span className="min-w-5 text-center text-xs tabular-nums">{optionQty}</span>
+                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
+                                      </div>
                                     ) : null}
-                                  </label>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -1377,24 +1491,33 @@ function ItemDetailSheet({
                             <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
                               {group.options.map((opt) => {
                                 const isChecked = currentSelected.includes(opt.id);
+                                const optionQty = selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1;
 
                                 return (
-                                  <label
-                                    key={opt.id}
-                                    className={`flex items-center justify-between text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer ${
-                                      isChecked
-                                        ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
-                                        : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-[var(--ps-space-2)]">
-                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
-                                      <span>{opt.name}</span>
-                                    </div>
-                                    {opt.priceDeltaLabel ? (
-                                      <span className="font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                  <div key={opt.id} className="flex items-center gap-[var(--ps-space-2)]">
+                                    <label
+                                      className={`flex min-w-0 flex-1 items-center justify-between text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer ${
+                                        isChecked
+                                          ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
+                                          : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
+                                      }`}
+                                    >
+                                      <div className="flex min-w-0 items-center gap-[var(--ps-space-2)]">
+                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                        <span>{opt.name}</span>
+                                      </div>
+                                      {opt.priceDeltaLabel ? (
+                                        <span className="ml-2 shrink-0 font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
+                                      ) : null}
+                                    </label>
+                                    {isChecked && (opt.maxQty ?? 1) > 1 ? (
+                                      <div className="flex items-center gap-1">
+                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
+                                        <span className="min-w-5 text-center text-xs tabular-nums">{optionQty}</span>
+                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
+                                      </div>
                                     ) : null}
-                                  </label>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -1452,7 +1575,7 @@ function ItemDetailSheet({
                 <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
               ) : null}
 
-              <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = Object.values(selectedOptions).flat(); onAddToOrder(itemId, allSelected, quantity); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
+              <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = selectedOptionQuantities.map((option) => option.optionId); onAddToOrder(itemId, allSelected, quantity, selectedOptionQuantities); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
                 {isSoldOut ? labels.soldOut || "Sold out" : `${labels.addToOrder || "Add to order"} • ${lineTotalFormatted}`}
               </button>
             </div>
@@ -1545,17 +1668,7 @@ function OrderDrawer({
   const subtotal = cart.reduce((sum, line) => {
     const it = itemsMap.get(line.itemId);
     if (!it) return sum;
-    const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
-    let deltas = 0;
-    const optSet = new Set(line.selectedOptionIds);
-    for (const group of it.optionGroups || []) {
-      for (const opt of group.options) {
-        if (optSet.has(opt.id) && typeof opt.priceDelta === "number") {
-          deltas += opt.priceDelta;
-        }
-      }
-    }
-    return sum + calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
+    return sum + calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
   }, 0);
 
   // Delivery fee preview (client-side only; server recomputes authoritatively on submit)
@@ -1604,6 +1717,11 @@ function OrderDrawer({
     const payloadItems = cart.map((c) => ({
       itemId: c.itemId,
       selectedOptionIds: c.selectedOptionIds,
+      selectedOptions: c.selectedOptions?.map((option) => ({
+        ...(option.groupId ? { groupId: option.groupId } : {}),
+        optionId: option.optionId,
+        qty: option.qty,
+      })),
       quantity: c.quantity,
     }));
     // Idempotency key per submission attempt
@@ -1815,19 +1933,16 @@ function OrderDrawer({
               const it = itemsMap.get(line.itemId);
               if (!it) return null;
 
-              const base = typeof it.numericPrice === "number" ? it.numericPrice : 0;
-              let deltas = 0;
               const chosenOptionNames: string[] = [];
               const optSet = new Set(line.selectedOptionIds);
               for (const group of it.optionGroups || []) {
                 for (const opt of group.options) {
                   if (optSet.has(opt.id)) {
-                    chosenOptionNames.push(opt.name);
-                    if (typeof opt.priceDelta === "number") deltas += opt.priceDelta;
+                    chosenOptionNames.push(selectedOptionSummary(opt, group.id, line.selectedOptions));
                   }
                 }
               }
-              const itemTotal = calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
+              const itemTotal = calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
 
               return (
                 <div key={`${line.itemId}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">

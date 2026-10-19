@@ -10,7 +10,13 @@ export interface MenuItemOption {
   id: string;
   name: string;
   price_delta: number;
+  /** Full unit price for variants; add-on amount for normalized add-ons. */
+  price?: number;
+  max_qty?: number;
+  is_available?: boolean;
 }
+
+export type MenuOptionKind = "variant" | "addon";
 
 export interface MenuItemOptionGroup {
   id: string;
@@ -18,7 +24,34 @@ export interface MenuItemOptionGroup {
   required: boolean;
   min: number;
   max: number;
+  kind?: MenuOptionKind;
   options: MenuItemOption[];
+}
+
+export interface ResolvedOptionGroup extends MenuItemOptionGroup {
+  kind: MenuOptionKind;
+}
+
+export interface NormalizedOptionAssignmentRow {
+  id?: string;
+  item_id: string;
+  group_id: string;
+  position?: number;
+  hidden_option_ids?: readonly string[] | null;
+  price_overrides?: Record<string, unknown> | null;
+  group?: {
+    id?: string;
+    name: string;
+    kind: MenuOptionKind;
+    min_select: number;
+    max_select: number;
+    is_required: boolean;
+    position?: number;
+    is_active?: boolean;
+    options?: readonly Record<string, unknown>[];
+  } | null;
+  menu_option_groups?: NormalizedOptionAssignmentRow["group"];
+  options?: readonly Record<string, unknown>[];
 }
 
 export interface MenuPricingItem {
@@ -32,12 +65,91 @@ export interface MenuPricingItem {
 export interface OptionGroupSelection {
   groupId: string;
   optionIds: readonly string[];
+  selectedOptions?: readonly { optionId: string; qty: number }[];
 }
 
 export const MAX_OPTION_GROUPS = 8;
 export const MAX_OPTIONS_PER_GROUP = 20;
 export const MIN_ORDER_QUANTITY = 1;
 export const MAX_LINE_QUANTITY = 50;
+
+/**
+ * Converts assignments plus their joined group/options rows into the shared
+ * pricing shape. Any assignment row takes precedence over legacy JSON for the
+ * item, including when its group is inactive or missing from the supplied rows.
+ */
+export function resolveItemOptionGroups(
+  item: MenuPricingItem & { id?: string },
+  normalizedRows?: readonly NormalizedOptionAssignmentRow[] | null
+): ResolvedOptionGroup[] {
+  const assignments = (normalizedRows || []).filter((row) => !item.id || row.item_id === item.id);
+  if (assignments.length === 0) {
+    return (item.option_groups || []).map((group) => ({
+      ...group,
+      kind: group.kind || "addon",
+      options: group.options.map((option) => ({
+        ...option,
+        price: typeof option.price === "number" ? option.price : Number(option.price_delta) || 0,
+        price_delta: group.kind === "variant" ? 0 : Number(option.price_delta) || 0,
+        max_qty: option.max_qty ?? 1,
+        is_available: option.is_available ?? true,
+      })),
+    }));
+  }
+
+  return assignments
+    .map((assignment) => {
+      const group = assignment.group ?? assignment.menu_option_groups;
+      if (!group) return null;
+      const hiddenIds = new Set(assignment.hidden_option_ids || []);
+      const overrides = assignment.price_overrides || {};
+      const sourceOptions = assignment.options || group.options || [];
+      const options = sourceOptions
+        .filter((option) => option.is_available !== false && !hiddenIds.has(String(option.id)))
+        .map((option) => {
+          const id = String(option.id);
+          const rawPrice = Object.prototype.hasOwnProperty.call(overrides, id)
+            ? overrides[id]
+            : option.price;
+          const price = Number(rawPrice) || 0;
+          return {
+            id,
+            name: String(option.name || ""),
+            price,
+            price_delta: group.kind === "addon" ? price : 0,
+            max_qty: Number(option.max_qty) || 1,
+            is_available: option.is_available !== false,
+          };
+        })
+        .sort((left, right) => Number(sourceOptions.find((option) => String(option.id) === left.id)?.position || 0) - Number(sourceOptions.find((option) => String(option.id) === right.id)?.position || 0));
+      return {
+        id: String(group.id || assignment.group_id),
+        name: String(group.name || ""),
+        kind: group.kind,
+        required: Boolean(group.is_required),
+        min: Number(group.min_select),
+        max: Number(group.max_select),
+        options,
+        position: Number(assignment.position ?? group.position ?? 0),
+      } as ResolvedOptionGroup & { position: number };
+    })
+    .filter((group): group is ResolvedOptionGroup & { position: number } => Boolean(group))
+    .sort((left, right) => left.position - right.position)
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      kind: group.kind,
+      required: group.required,
+      min: group.min,
+      max: group.max,
+      options: group.options,
+    }));
+}
+
+function selectedQuantities(selection: OptionGroupSelection): Array<{ optionId: string; qty: number }> {
+  if (selection.selectedOptions) return [...selection.selectedOptions];
+  return (selection.optionIds || []).map((optionId) => ({ optionId, qty: 1 }));
+}
 
 /**
  * Validates promo price against the item base price.
@@ -169,9 +281,21 @@ export function validateOptionGroups(groups: unknown): string | null {
  * otherwise returns price.
  */
 export function effectiveUnitPrice(
-  item: Pick<MenuPricingItem, "price" | "promo_price">
+  item: Pick<MenuPricingItem, "price" | "promo_price" | "option_groups">,
+  selection?: readonly OptionGroupSelection[] | null
 ): number {
   const base = Number(item.price);
+  const variantGroup = (item.option_groups || []).find((group) => group.kind === "variant");
+  if (variantGroup) {
+    const selectedGroup = selection?.find((entry) => entry.groupId === variantGroup.id);
+    const selected = selectedGroup ? selectedQuantities(selectedGroup) : [];
+    const option = variantGroup.options.find((candidate) => candidate.id === selected[0]?.optionId);
+    // Variant price is the full unit price, and menu_items.promo_price is ignored.
+    if (option && Number.isFinite(Number(option.price))) {
+      return Math.round(Number(option.price) * 100) / 100;
+    }
+    return Math.round(base * 100) / 100;
+  }
   if (
     item.promo_price !== null &&
     item.promo_price !== undefined &&
@@ -201,9 +325,10 @@ export interface SelectionValidationResult {
 }
 
 export function isOptionGroupSelectionSatisfied(
-  group: Pick<MenuItemOptionGroup, "required" | "min" | "max">,
+  group: Pick<MenuItemOptionGroup, "required" | "min" | "max" | "kind">,
   selectedCount: number
 ): boolean {
+  if (group.kind === "variant") return selectedCount === 1;
   const minimum = group.required ? Math.max(1, group.min) : group.min;
   return selectedCount >= minimum && selectedCount <= group.max;
 }
@@ -220,6 +345,9 @@ export function validateSelection(
   selections?: readonly OptionGroupSelection[] | null
 ): SelectionValidationResult {
   const groups = item.option_groups ?? [];
+  if (groups.filter((group) => group.kind === "variant").length > 1) {
+    return { valid: false, error: "An item can have only one variant group" };
+  }
   const groupMap = new Map<string, MenuItemOptionGroup>();
   for (const g of groups) {
     groupMap.set(g.id, g);
@@ -234,7 +362,10 @@ export function validateSelection(
       if (!groupMap.has(sel.groupId)) {
         return { valid: false, error: `Unknown option group ID: "${sel.groupId}"` };
       }
-      selectionMap.set(sel.groupId, sel.optionIds);
+      const selectedIds = sel.selectedOptions?.length
+        ? sel.selectedOptions.map((entry) => entry.optionId)
+        : sel.optionIds;
+      selectionMap.set(sel.groupId, selectedIds);
     }
   }
 
@@ -253,6 +384,35 @@ export function validateSelection(
     for (const optId of selectedIds) {
       if (!validOptionIds.has(optId)) {
         return { valid: false, error: `Unknown option ID "${optId}" in group "${group.name}"` };
+      }
+    }
+
+    const selected = selections?.find((entry) => entry.groupId === group.id);
+    if (selected?.selectedOptions) {
+      const selectedOptions = selectedQuantities(selected);
+      const selectedOptionIds = selectedOptions.map((entry) => entry.optionId);
+      if (new Set(selectedOptionIds).size !== selectedOptionIds.length) {
+        return { valid: false, error: `Duplicate option selections in group "${group.name}"` };
+      }
+      if (selected.optionIds.length > 0 && (
+        selected.optionIds.length !== selectedOptionIds.length ||
+        selected.optionIds.some((id) => !selectedOptionIds.includes(id))
+      )) {
+        return { valid: false, error: `Option IDs and option quantities do not match for "${group.name}"` };
+      }
+      const optionMap = new Map(group.options.map((option) => [option.id, option]));
+      for (const entry of selectedOptions) {
+        const option = optionMap.get(entry.optionId);
+        if (!option || option.is_available === false) {
+          return { valid: false, error: `Unavailable or unknown option ID "${entry.optionId}" in group "${group.name}"` };
+        }
+        const maxQty = option.max_qty ?? 1;
+        if (!Number.isInteger(entry.qty) || entry.qty < 1 || entry.qty > maxQty) {
+          return { valid: false, error: `Maximum ${maxQty} allowed for "${option.name}"` };
+        }
+        if (group.kind === "variant" && entry.qty !== 1) {
+          return { valid: false, error: `Variant option "${option.name}" can only be selected once` };
+        }
       }
     }
 
@@ -304,7 +464,7 @@ export function computeLineTotal(params: {
     throw new Error(validation.error || "Invalid option selection");
   }
 
-  const unitPrice = effectiveUnitPrice(item);
+  const unitPrice = effectiveUnitPrice(item, selection);
 
   // Compute option deltas
   let optionsDelta = 0;
@@ -314,10 +474,10 @@ export function computeLineTotal(params: {
       const group = groupMap.get(sel.groupId);
       if (!group) continue;
       const optionMap = new Map(group.options.map((o) => [o.id, o]));
-      for (const optId of sel.optionIds) {
+      for (const { optionId: optId, qty } of selectedQuantities(sel)) {
         const opt = optionMap.get(optId);
-        if (opt) {
-          optionsDelta += Number(opt.price_delta);
+        if (opt && group.kind !== "variant") {
+          optionsDelta += Number(opt.price_delta) * qty;
         }
       }
     }

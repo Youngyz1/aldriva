@@ -23,6 +23,8 @@ export interface BrowseOption {
   name: string;
   priceDeltaLabel?: string | null;
   priceDelta?: number;
+  price?: number;
+  maxQty?: number;
 }
 
 export interface BrowseOptionGroup {
@@ -31,6 +33,7 @@ export interface BrowseOptionGroup {
   required: boolean;
   min: number;
   max: number;
+  kind?: "variant" | "addon";
   options: BrowseOption[];
 }
 

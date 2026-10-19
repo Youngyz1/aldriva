@@ -2212,7 +2212,8 @@ async function MenuEmbedBlockRenderer({
     id: sec.id,
     title: sec.name,
     items: sec.items.map((it) => {
-      const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+      const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
+      const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
       const priceLabel = isPromo
         ? formatCurrency(Number(it.promo_price), displayCurrency, locale)
         : formatCurrency(Number(it.price), displayCurrency, locale);
@@ -2225,15 +2226,20 @@ async function MenuEmbedBlockRenderer({
         required: og.required,
         min: og.min,
         max: og.max,
+        kind: og.kind || "addon",
         options: og.options.map((opt) => ({
           id: opt.id,
           name: opt.name,
-          priceDelta: Number(opt.price_delta) || 0,
-          priceDeltaLabel: opt.price_delta !== 0
-            ? (opt.price_delta > 0
-                ? `+${formatCurrency(opt.price_delta, displayCurrency, locale)}`
-                : formatCurrency(opt.price_delta, displayCurrency, locale))
-            : undefined,
+          priceDelta: og.kind === "variant" ? 0 : Number(opt.price_delta) || 0,
+          price: Number(opt.price) || 0,
+          maxQty: opt.max_qty ?? 1,
+          priceDeltaLabel: og.kind === "variant"
+            ? formatCurrency(Number(opt.price), displayCurrency, locale)
+            : opt.price_delta !== 0
+              ? (opt.price_delta > 0
+                  ? `+${formatCurrency(opt.price_delta, displayCurrency, locale)}`
+                  : formatCurrency(opt.price_delta, displayCurrency, locale))
+              : undefined,
         })),
       }));
 
@@ -2314,7 +2320,8 @@ async function MenuEmbedBlockRenderer({
                   <CatalogCarousel
                     items={sec.items.map((it) => {
                       const safeImg = safeImageSrc(it.image_url);
-                      const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+                      const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
+                      const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
                       return {
                         id: it.id,
                         name: it.name,
@@ -2337,7 +2344,8 @@ async function MenuEmbedBlockRenderer({
                 ) : (
                   sec.items.map((it) => {
                     const safeImg = safeImageSrc(it.image_url);
-                    const isPromo = it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+                    const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
+                    const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
                     return (
                       <div
                         key={it.id}
