@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { isAdmin } from "@/lib/auth";
 import { requireTenantContext } from "@/lib/tenant-context";
 import { safeImageSrc } from "@/lib/image-url";
 
@@ -13,7 +14,7 @@ const MAX_OPTIONS = 20;
 const ALLOWED_ALLERGENS = ["nuts", "dairy", "gluten", "soy", "eggs", "shellfish"] as const;
 
 type WriteRole = "owner" | "admin" | "manager" | "editor";
-type DeleteRole = "owner" | "admin" | "manager" | "editor";
+type DeleteRole = "owner" | "admin" | "manager";
 
 interface GroupInput {
   name?: unknown;
@@ -117,13 +118,28 @@ async function authorize(organizerId: string, roles: readonly (WriteRole | Delet
   try {
     await requireTenantContext(user.id, organizerId, [...roles] as any);
   } catch {
-    return { error: "Forbidden" as const };
+    try {
+      if (!(await isAdmin())) return { error: "Forbidden" as const };
+    } catch {
+      return { error: "Forbidden" as const };
+    }
   }
   return { admin: createSupabaseAdmin() };
 }
 
 function revalidateMenu(organizerId: string) {
   revalidatePath(`/dashboard/org/${organizerId}/menu`);
+}
+
+async function markItemsOptionsNormalized(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  organizerId: string,
+  itemIds: readonly string[]
+) {
+  if (itemIds.length === 0) return true;
+  const { error } = await admin.from("menu_items").update({ options_source: "normalized" })
+    .eq("organizer_id", organizerId).in("id", [...new Set(itemIds)]);
+  return !error;
 }
 
 export async function listMenuOptionGroups(organizerId: string) {
@@ -183,8 +199,15 @@ export async function updateMenuOptionGroup(groupId: string, organizerId: string
 }
 
 export async function deleteMenuOptionGroup(groupId: string, organizerId: string) {
-  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  const auth = await authorize(organizerId, ["owner", "admin", "manager"]);
   if ("error" in auth && auth.error) return fail(auth.error);
+  const { data: assignments, error: assignmentError } = await auth.admin.from("menu_item_option_groups")
+    .select("item_id").eq("group_id", groupId).eq("organizer_id", organizerId);
+  if (assignmentError) return fail("Failed to load option group assignments");
+  const itemIds = (assignments || []).map((row: { item_id: string }) => row.item_id);
+  if (!(await markItemsOptionsNormalized(auth.admin, organizerId, itemIds))) {
+    return fail("Failed to mark menu item options as normalized");
+  }
   const { error } = await auth.admin.from("menu_option_groups").delete().eq("id", groupId).eq("organizer_id", organizerId);
   if (error) return fail("Failed to delete option group");
   revalidateMenu(organizerId);
@@ -246,7 +269,7 @@ export async function updateMenuOption(optionId: string, groupId: string, organi
 }
 
 export async function deleteMenuOption(optionId: string, groupId: string, organizerId: string) {
-  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  const auth = await authorize(organizerId, ["owner", "admin", "manager"]);
   if ("error" in auth && auth.error) return fail(auth.error);
   const { error } = await auth.admin.from("menu_options").delete()
     .eq("id", optionId).eq("group_id", groupId).eq("organizer_id", organizerId);
@@ -294,6 +317,10 @@ export async function assignMenuOptionGroup(itemId: string, groupId: string, org
   const { data, error } = await auth.admin.from("menu_item_option_groups")
     .insert({ ...payload, organizer_id: organizerId, item_id: itemId, group_id: groupId }).select("*").single();
   if (error) return fail("Failed to assign option group to menu item");
+  if (!(await markItemsOptionsNormalized(auth.admin, organizerId, [itemId]))) {
+    await auth.admin.from("menu_item_option_groups").delete().eq("id", data.id).eq("organizer_id", organizerId);
+    return fail("Failed to mark menu item options as normalized");
+  }
   revalidateMenu(organizerId);
   return { success: true as const, data };
 }
@@ -321,8 +348,14 @@ export async function updateMenuItemOptionGroup(assignmentId: string, organizerI
 }
 
 export async function unassignMenuOptionGroup(assignmentId: string, organizerId: string) {
-  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  const auth = await authorize(organizerId, ["owner", "admin", "manager"]);
   if ("error" in auth && auth.error) return fail(auth.error);
+  const { data: assignment, error: assignmentError } = await auth.admin.from("menu_item_option_groups")
+    .select("item_id").eq("id", assignmentId).eq("organizer_id", organizerId).maybeSingle();
+  if (assignmentError) return fail("Failed to load menu item option group assignment");
+  if (assignment && !(await markItemsOptionsNormalized(auth.admin, organizerId, [assignment.item_id]))) {
+    return fail("Failed to mark menu item options as normalized");
+  }
   const { error } = await auth.admin.from("menu_item_option_groups").delete()
     .eq("id", assignmentId).eq("organizer_id", organizerId);
   if (error) return fail("Failed to remove option group from menu item");

@@ -197,9 +197,10 @@ function verifyBackfill(dataset) {
     if (!Array.isArray(item.option_groups) || item.option_groups.length === 0) continue;
     const itemGroups = groupsBySource.get(item.id) || [];
     if (itemGroups.length === 0) {
-      if ((assignmentByItem.get(item.id) || []).length === 0) legacyFallbackItems++;
+      if (item.options_source !== "normalized" && (assignmentByItem.get(item.id) || []).length === 0) legacyFallbackItems++;
       continue;
     }
+    if (item.options_source !== "normalized") issues.push(`options_source is not normalized for backfilled item ${item.id}`);
     const expectedGroups = plan.groups.filter((row) => row.legacy_source_item_id === item.id);
     const expectedOptions = plan.options.filter((row) => expectedGroups.some((group) => group.id === row.group_id));
     const expectedAssignments = plan.assignments.filter((row) => row.item_id === item.id);
@@ -255,7 +256,7 @@ function chunk(values, size) {
 async function fetchRemoteDataset(admin) {
   const menuItems = [];
   for (let start = 0; ; start += PAGE_SIZE) {
-    const { data, error } = await admin.from("menu_items").select("id, organizer_id, option_groups").range(start, start + PAGE_SIZE - 1);
+    const { data, error } = await admin.from("menu_items").select("id, organizer_id, option_groups, options_source").range(start, start + PAGE_SIZE - 1);
     if (error) throw new Error(`Failed to read menu_items: ${error.message}`);
     menuItems.push(...(data || []));
     if (!data || data.length < PAGE_SIZE) break;
@@ -306,6 +307,11 @@ async function applyPlan(admin, dataset) {
   for (const rows of chunk(plan.assignments, WRITE_BATCH_SIZE)) {
     const { error } = await admin.from("menu_item_option_groups").upsert(rows, { onConflict: "item_id,group_id" });
     if (error) throw new Error(`Failed to upsert menu_item_option_groups: ${error.message}`);
+  }
+  const migratedItemIds = [...new Set(plan.assignments.map((row) => row.item_id))];
+  for (const ids of chunk(migratedItemIds, WRITE_BATCH_SIZE)) {
+    const { error } = await admin.from("menu_items").update({ options_source: "normalized" }).in("id", ids);
+    if (error) throw new Error(`Failed to mark migrated menu items as normalized: ${error.message}`);
   }
   return plan;
 }
@@ -359,4 +365,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildBackfillPlan, stableUuid, verifyBackfill, verifyNormalizedGraph };
+module.exports = { applyPlan, buildBackfillPlan, stableUuid, verifyBackfill, verifyNormalizedGraph };

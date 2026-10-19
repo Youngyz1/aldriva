@@ -20,6 +20,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
 import { fromMinorUnits } from "@/lib/money";
 import { resolveItemOptionGroups, type NormalizedOptionAssignmentRow, type ResolvedOptionGroup } from "@/lib/menu-pricing";
+import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
 import type {
   EventsEmbedBlock,
   ProductsEmbedBlock,
@@ -362,18 +363,24 @@ export async function resolveMenuEmbed(
   const { data: sections, error: secErr } = await sectionQuery;
   if (secErr || !Array.isArray(sections) || sections.length === 0) return [];
   const sectionIds = sections.map((s) => s.id);
-  let itemQuery = supabase.from("menu_items").select("id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured").in("section_id", sectionIds);
-  if (!isTeamMember) itemQuery = itemQuery.eq("is_active", true);
-  // Item picks (featured dishes): constrain to the tenant's own sections so
-  // crafted ids from other tenants return nothing (DEC-0014). Tenant id comes
-  // from server context (function argument), never from block JSON.
+  // Picked IDs are still constrained by the tenant's own section IDs below.
   const pickedItemIds = Array.isArray(block.selectedItemIds)
     ? block.selectedItemIds.filter((id) => typeof id === "string" && id.length > 0)
     : [];
-  if (pickedItemIds.length > 0) itemQuery = itemQuery.in("id", pickedItemIds);
-  // also ensure section is active for public
-  itemQuery = itemQuery.order("position", { ascending: true }).limit(MENU_ITEMS_OVERALL_LIMIT + 1);
-  const { data: items } = await itemQuery;
+  const buildItemQuery = (includeOptionsSource: boolean) => {
+    let query = supabase.from("menu_items").select(`id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured${includeOptionsSource ? ", options_source" : ""}`).in("section_id", sectionIds);
+    if (!isTeamMember) query = query.eq("is_active", true);
+    if (pickedItemIds.length > 0) query = query.in("id", pickedItemIds);
+    return query.order("position", { ascending: true }).limit(MENU_ITEMS_OVERALL_LIMIT + 1);
+  };
+  let normalizedSchemaAvailable = true;
+  let itemResult = await buildItemQuery(true);
+  if (itemResult.error && isMissingMenuOptionSchema(itemResult.error)) {
+    warnMissingMenuOptionSchemaOnce("resolveMenuEmbed", itemResult.error);
+    normalizedSchemaAvailable = false;
+    itemResult = await buildItemQuery(false) as typeof itemResult;
+  }
+  const items = itemResult.data;
   const itemsBySection: Record<string, ResolvedMenuItem[]> = {};
   const sectionsWithMoreItems = new Set<string>();
   const queriedItems = (items || []) as any[];
@@ -381,12 +388,15 @@ export async function resolveMenuEmbed(
   const returnedItems = queriedItems.slice(0, MENU_ITEMS_OVERALL_LIMIT);
   const returnedItemIds = returnedItems.map((item) => item.id);
   let assignments: any[] = [];
-  if (returnedItemIds.length > 0) {
+  if (normalizedSchemaAvailable && returnedItemIds.length > 0) {
     const { data, error } = await supabase
       .from("menu_item_option_groups")
       .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
       .in("item_id", returnedItemIds);
-    if (!error && Array.isArray(data)) assignments = data;
+    if (error && isMissingMenuOptionSchema(error)) {
+      warnMissingMenuOptionSchemaOnce("resolveMenuEmbed", error);
+      normalizedSchemaAvailable = false;
+    } else if (!error && Array.isArray(data)) assignments = data;
   }
   const groupIds = [...new Set(assignments.map((row) => row.group_id).filter(Boolean))];
   const groupsById = new Map<string, any>();
@@ -402,12 +412,19 @@ export async function resolveMenuEmbed(
       groupQuery = groupQuery.eq("is_active", true);
       optionQuery = optionQuery.eq("is_available", true);
     }
-    const [{ data: groupsData }, { data: optionsData }] = await Promise.all([groupQuery, optionQuery]);
-    for (const group of groupsData || []) groupsById.set(group.id, group);
-    for (const option of optionsData || []) {
-      const optionRows = optionsByGroupId.get(option.group_id) || [];
-      optionRows.push(option);
-      optionsByGroupId.set(option.group_id, optionRows);
+    const [groupResult, optionResult] = await Promise.all([groupQuery, optionQuery]);
+    const missingSchemaError = [groupResult.error, optionResult.error].find(isMissingMenuOptionSchema);
+    if (missingSchemaError) {
+      warnMissingMenuOptionSchemaOnce("resolveMenuEmbed", missingSchemaError);
+      normalizedSchemaAvailable = false;
+      assignments = [];
+    } else {
+      for (const group of groupResult.data || []) groupsById.set(group.id, group);
+      for (const option of optionResult.data || []) {
+        const optionRows = optionsByGroupId.get(option.group_id) || [];
+        optionRows.push(option);
+        optionsByGroupId.set(option.group_id, optionRows);
+      }
     }
   }
   const assignmentsByItem = new Map<string, NormalizedOptionAssignmentRow[]>();
@@ -438,8 +455,8 @@ export async function resolveMenuEmbed(
       allergens: Array.isArray(it.allergens) ? it.allergens : [],
       modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
       option_groups: resolveItemOptionGroups(
-        { id: it.id, price: Number(it.price), promo_price: it.promo_price != null ? Number(it.promo_price) : null, option_groups: Array.isArray(it.option_groups) ? it.option_groups : [] },
-        assignmentsByItem.get(it.id) || []
+        { id: it.id, price: Number(it.price), promo_price: it.promo_price != null ? Number(it.promo_price) : null, options_source: normalizedSchemaAvailable ? it.options_source : "json", option_groups: Array.isArray(it.option_groups) ? it.option_groups : [] },
+        normalizedSchemaAvailable ? assignmentsByItem.get(it.id) || [] : []
       ),
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),

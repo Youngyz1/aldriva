@@ -32,6 +32,7 @@ import { isValidPhoneNumber, normalizePhone } from "@/lib/order-phone";
 import { getOrgApproval } from "@/lib/server-approval";
 import { canTakeOrders } from "@/lib/business-approval";
 import { extractDeliverySettings, computeOrderDeliveryFee } from "@/lib/delivery-settings";
+import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
 
 export interface OrderItemInput {
   itemId: string;
@@ -307,11 +308,20 @@ export async function submitOrderRequestWithClient(
 
     // 7. Authoritative price and option calculation (NEVER trust client prices)
     const itemIds = Array.from(new Set(input.items.map((i) => i.itemId)));
-    const { data: dbItems, error: itemsError } = await admin
+    const loadItems = (includeOptionsSource: boolean) => admin
       .from("menu_items")
-      .select("id, name, price, promo_price, is_active, is_sold_out, option_groups, organizer_id")
+      .select(`id, name, price, promo_price, is_active, is_sold_out, option_groups, organizer_id${includeOptionsSource ? ", options_source" : ""}`)
       .eq("organizer_id", organizerId)
       .in("id", itemIds);
+    let normalizedSchemaAvailable = true;
+    let itemResult = await loadItems(true);
+    if (itemResult.error && isMissingMenuOptionSchema(itemResult.error)) {
+      warnMissingMenuOptionSchemaOnce("order-submit", itemResult.error);
+      normalizedSchemaAvailable = false;
+      itemResult = await loadItems(false) as typeof itemResult;
+    }
+    const dbItems = itemResult.data as any[] | null;
+    const itemsError = itemResult.error;
 
     if (itemsError || !dbItems) {
       return { success: false, error: "db_error", message: "Failed to load menu items." };
@@ -319,18 +329,25 @@ export async function submitOrderRequestWithClient(
 
     const itemsById = new Map(dbItems.map((item) => [item.id, item]));
 
-    const { data: assignmentRows, error: assignmentsError } = await admin
-      .from("menu_item_option_groups")
-      .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
-      .in("item_id", itemIds);
-    if (assignmentsError) {
-      return { success: false, error: "db_error", message: "Failed to load menu options." };
+    let assignments: NormalizedOptionAssignmentRow[] = [];
+    if (normalizedSchemaAvailable) {
+      const { data: assignmentRows, error: assignmentsError } = await admin
+        .from("menu_item_option_groups")
+        .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
+        .in("item_id", itemIds);
+      if (assignmentsError && isMissingMenuOptionSchema(assignmentsError)) {
+        warnMissingMenuOptionSchemaOnce("order-submit", assignmentsError);
+        normalizedSchemaAvailable = false;
+      } else if (assignmentsError) {
+        return { success: false, error: "db_error", message: "Failed to load menu options." };
+      } else {
+        assignments = (Array.isArray(assignmentRows) ? assignmentRows : []) as NormalizedOptionAssignmentRow[];
+      }
     }
-    const assignments = (Array.isArray(assignmentRows) ? assignmentRows : []) as NormalizedOptionAssignmentRow[];
     const groupIds = [...new Set(assignments.map((row) => row.group_id).filter(Boolean))];
     const groupsById = new Map<string, any>();
     const optionsByGroupId = new Map<string, any[]>();
-    if (groupIds.length > 0) {
+    if (normalizedSchemaAvailable && groupIds.length > 0) {
       const [groupResult, optionResult] = await Promise.all([
         admin.from("menu_option_groups")
           .select("id, organizer_id, name, kind, min_select, max_select, is_required, position, is_active")
@@ -341,14 +358,20 @@ export async function submitOrderRequestWithClient(
           .in("group_id", groupIds)
           .eq("is_available", true),
       ]);
-      if (groupResult.error || optionResult.error) {
+      const missingSchemaError = [groupResult.error, optionResult.error].find(isMissingMenuOptionSchema);
+      if (missingSchemaError) {
+        warnMissingMenuOptionSchemaOnce("order-submit", missingSchemaError);
+        normalizedSchemaAvailable = false;
+        assignments = [];
+      } else if (groupResult.error || optionResult.error) {
         return { success: false, error: "db_error", message: "Failed to load menu options." };
-      }
-      for (const group of groupResult.data || []) groupsById.set(group.id, group);
-      for (const option of optionResult.data || []) {
-        const list = optionsByGroupId.get(option.group_id) || [];
-        list.push(option);
-        optionsByGroupId.set(option.group_id, list);
+      } else {
+        for (const group of groupResult.data || []) groupsById.set(group.id, group);
+        for (const option of optionResult.data || []) {
+          const list = optionsByGroupId.get(option.group_id) || [];
+          list.push(option);
+          optionsByGroupId.set(option.group_id, list);
+        }
       }
     }
     const assignmentsByItem = new Map<string, NormalizedOptionAssignmentRow[]>();
@@ -398,8 +421,8 @@ export async function submitOrderRequestWithClient(
       }
 
       const groups = resolveItemOptionGroups(
-        { ...item, id: item.id, price: Number(item.price), option_groups: Array.isArray(item.option_groups) ? item.option_groups : [] },
-        assignmentsByItem.get(item.id) || []
+        { ...item, id: item.id, price: Number(item.price), options_source: normalizedSchemaAvailable ? item.options_source : "json", option_groups: Array.isArray(item.option_groups) ? item.option_groups : [] },
+        normalizedSchemaAvailable ? assignmentsByItem.get(item.id) || [] : []
       ) as MenuItemOptionGroup[];
       const selectedIds = Array.isArray(line.selectedOptionIds) ? line.selectedOptionIds : [];
       const selectedInput = Array.isArray(line.selectedOptions) ? line.selectedOptions : null;

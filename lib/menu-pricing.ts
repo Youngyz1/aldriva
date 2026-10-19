@@ -12,6 +12,7 @@ export interface MenuItemOption {
   price_delta: number;
   /** Full unit price for variants; add-on amount for normalized add-ons. */
   price?: number;
+  is_default?: boolean;
   max_qty?: number;
   is_available?: boolean;
 }
@@ -59,6 +60,7 @@ export interface MenuPricingItem {
   price: number;
   promo_price?: number | null;
   is_sold_out?: boolean;
+  options_source?: "json" | "normalized" | null;
   option_groups?: readonly MenuItemOptionGroup[] | null;
 }
 
@@ -74,22 +76,22 @@ export const MIN_ORDER_QUANTITY = 1;
 export const MAX_LINE_QUANTITY = 50;
 
 /**
- * Converts assignments plus their joined group/options rows into the shared
- * pricing shape. Any assignment row takes precedence over legacy JSON for the
- * item, including when its group is inactive or missing from the supplied rows.
+ * Converts the selected source plus its rows into the shared pricing shape.
+ * The persisted source marker is authoritative, including when a normalized
+ * item currently has no assignments.
  */
 export function resolveItemOptionGroups(
   item: MenuPricingItem & { id?: string },
   normalizedRows?: readonly NormalizedOptionAssignmentRow[] | null
 ): ResolvedOptionGroup[] {
-  const assignments = (normalizedRows || []).filter((row) => !item.id || row.item_id === item.id);
-  if (assignments.length === 0) {
+  if (item.options_source !== "normalized") {
     return (item.option_groups || []).map((group) => ({
       ...group,
       kind: group.kind || "addon",
       options: group.options.map((option) => ({
         ...option,
         price: typeof option.price === "number" ? option.price : Number(option.price_delta) || 0,
+        is_default: option.is_default === true,
         price_delta: group.kind === "variant" ? 0 : Number(option.price_delta) || 0,
         max_qty: option.max_qty ?? 1,
         is_available: option.is_available ?? true,
@@ -97,6 +99,7 @@ export function resolveItemOptionGroups(
     }));
   }
 
+  const assignments = (normalizedRows || []).filter((row) => !item.id || row.item_id === item.id);
   return assignments
     .map((assignment) => {
       const group = assignment.group ?? assignment.menu_option_groups;
@@ -116,6 +119,7 @@ export function resolveItemOptionGroups(
             id,
             name: String(option.name || ""),
             price,
+            is_default: option.is_default === true,
             price_delta: group.kind === "addon" ? price : 0,
             max_qty: Number(option.max_qty) || 1,
             is_available: option.is_available !== false,
