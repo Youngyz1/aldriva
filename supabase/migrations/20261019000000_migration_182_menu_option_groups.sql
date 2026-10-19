@@ -1,6 +1,25 @@
 -- Migration 182: reusable restaurant menu option groups and per-item assignments.
 -- Additive only. Existing menu_items.option_groups JSON remains untouched.
 
+BEGIN;
+
+ALTER TABLE public.menu_items
+  ADD COLUMN IF NOT EXISTS options_source text NOT NULL DEFAULT 'json';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'public.menu_items'::regclass
+       AND conname = 'menu_items_options_source_check'
+  ) THEN
+    ALTER TABLE public.menu_items
+      ADD CONSTRAINT menu_items_options_source_check
+      CHECK (options_source IN ('json', 'normalized'));
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.menu_option_groups (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organizer_id uuid NOT NULL REFERENCES public.organizers(id) ON DELETE CASCADE,
@@ -18,8 +37,23 @@ CREATE TABLE IF NOT EXISTS public.menu_option_groups (
   CONSTRAINT menu_option_groups_variant_shape CHECK (
     kind <> 'variant' OR (min_select = 1 AND max_select = 1 AND is_required = true)
   ),
+  CONSTRAINT menu_option_groups_required_min_check CHECK (NOT is_required OR min_select >= 1),
   CONSTRAINT menu_option_groups_legacy_identity_unique UNIQUE (legacy_source_item_id, legacy_group_id)
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'public.menu_option_groups'::regclass
+       AND conname = 'menu_option_groups_required_min_check'
+  ) THEN
+    ALTER TABLE public.menu_option_groups
+      ADD CONSTRAINT menu_option_groups_required_min_check
+      CHECK (NOT is_required OR min_select >= 1);
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.menu_options (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -123,6 +157,32 @@ CREATE TRIGGER trg_menu_options_organizer_match
   BEFORE INSERT OR UPDATE ON public.menu_options
   FOR EACH ROW EXECUTE FUNCTION public.check_menu_option_organizer_match();
 
+CREATE OR REPLACE FUNCTION public.check_menu_option_variant_default()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  v_kind text;
+BEGIN
+  SELECT kind INTO v_kind
+    FROM public.menu_option_groups
+   WHERE id = NEW.group_id
+   FOR UPDATE;
+  IF v_kind = 'variant' AND NEW.is_default = true AND EXISTS (
+    SELECT 1 FROM public.menu_options
+     WHERE group_id = NEW.group_id
+       AND is_default = true
+       AND id IS DISTINCT FROM NEW.id
+  ) THEN
+    RAISE EXCEPTION 'A variant group can have at most one default option' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_menu_options_variant_default ON public.menu_options;
+CREATE TRIGGER trg_menu_options_variant_default
+  BEFORE INSERT OR UPDATE OF group_id, is_default ON public.menu_options
+  FOR EACH ROW EXECUTE FUNCTION public.check_menu_option_variant_default();
+
 CREATE OR REPLACE FUNCTION public.check_menu_item_option_group_match()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -196,6 +256,13 @@ CREATE TRIGGER trg_menu_item_option_groups_tenant_limits
 CREATE OR REPLACE FUNCTION public.check_menu_option_group_variant_reassignment()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.kind = 'variant' AND EXISTS (
+    SELECT 1 FROM public.menu_options
+     WHERE group_id = NEW.id AND is_default = true
+     GROUP BY group_id HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'A variant group can have at most one default option' USING ERRCODE = '23514';
+  END IF;
   IF NEW.kind = 'variant' AND EXISTS (
     SELECT 1
       FROM public.menu_item_option_groups assigned
@@ -302,10 +369,10 @@ CREATE POLICY "Tenant editors can update menu option groups"
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu option groups" ON public.menu_option_groups;
 DROP POLICY IF EXISTS "Tenant editors can delete menu option groups" ON public.menu_option_groups;
-CREATE POLICY "Tenant editors can delete menu option groups"
+CREATE POLICY "Tenant managers can delete menu option groups"
   ON public.menu_option_groups FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 
@@ -349,10 +416,10 @@ CREATE POLICY "Tenant editors can update menu item option groups"
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu item option groups" ON public.menu_item_option_groups;
 DROP POLICY IF EXISTS "Tenant editors can delete menu item option groups" ON public.menu_item_option_groups;
-CREATE POLICY "Tenant editors can delete menu item option groups"
+CREATE POLICY "Tenant managers can delete menu item option groups"
   ON public.menu_item_option_groups FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 
@@ -398,9 +465,12 @@ CREATE POLICY "Tenant editors can update menu options"
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu options" ON public.menu_options;
 DROP POLICY IF EXISTS "Tenant editors can delete menu options" ON public.menu_options;
-CREATE POLICY "Tenant editors can delete menu options"
+CREATE POLICY "Tenant managers can delete menu options"
   ON public.menu_options FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
