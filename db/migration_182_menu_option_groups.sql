@@ -301,10 +301,11 @@ CREATE POLICY "Tenant editors can update menu option groups"
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu option groups" ON public.menu_option_groups;
-CREATE POLICY "Tenant managers can delete menu option groups"
+DROP POLICY IF EXISTS "Tenant editors can delete menu option groups" ON public.menu_option_groups;
+CREATE POLICY "Tenant editors can delete menu option groups"
   ON public.menu_option_groups FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 
@@ -347,10 +348,11 @@ CREATE POLICY "Tenant editors can update menu item option groups"
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu item option groups" ON public.menu_item_option_groups;
-CREATE POLICY "Tenant managers can delete menu item option groups"
+DROP POLICY IF EXISTS "Tenant editors can delete menu item option groups" ON public.menu_item_option_groups;
+CREATE POLICY "Tenant editors can delete menu item option groups"
   ON public.menu_item_option_groups FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 
@@ -395,9 +397,10 @@ CREATE POLICY "Tenant editors can update menu options"
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
 DROP POLICY IF EXISTS "Tenant managers can delete menu options" ON public.menu_options;
-CREATE POLICY "Tenant managers can delete menu options"
+DROP POLICY IF EXISTS "Tenant editors can delete menu options" ON public.menu_options;
+CREATE POLICY "Tenant editors can delete menu options"
   ON public.menu_options FOR DELETE
   USING (
-    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager'])
+    public.is_entity_member(organizer_id, ARRAY['owner','admin','manager','editor'])
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.status = 'active')
   );
