@@ -1,7 +1,7 @@
 # Aldriva — Architectural Decision Records & Established Principles
 
 > **Status**: Living Decision Register  
-> **Last Verified**: September 2026
+> **Last Verified**: October 2026
 
 ---
 
@@ -420,6 +420,15 @@
   - Platform theme selection supports Light, Dark, and System, defaults to System, and stores the selection locally. Dark mode changes semantic colors and surfaces; it does not dim or filter the page.
   - Fundraising, public business websites, and event invitations retain their own theme ownership. Fundraising colors remain unchanged; public websites continue using their theme configuration and invitation pages use their registered themes.
   - The dark palette and platform route scoping are in place, but remaining hardcoded surface colors require visual coverage review before dark mode is called complete.
+
+### DEC-0046: Menu options use additive normalized groups with legacy dual-read
+- **Decision Date**: 2026-10-19
+- **Status**: Implemented in working tree; migration 182 and staging QA seed are authored but have not been run.
+- **Key Tenets**:
+  - Reusable groups and options are organizer-scoped and assigned per menu item. Normalized assignments take precedence over legacy `menu_items.option_groups`; items without assignments continue through the legacy JSON path. Legacy `modifiers` are not migrated.
+  - Add-ons add non-negative option deltas, including bounded per-option quantity. Variants require exactly one option whose price replaces the item's base price. Existing negative deltas remain accepted only through the legacy path.
+  - `promo_price` is ignored when an item has a variant group in this phase. Existing order snapshots are not rewritten; new snapshots include group identity/label/kind and quantity.
+  - The backfill uses deterministic IDs and remains opt-in. Read-only `--verify` supports fixture files and remote inspection; database writes require explicit apply flags.
 
 ## 2. Proposed & Under Review Decisions
 

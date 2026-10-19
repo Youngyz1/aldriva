@@ -1,5 +1,12 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Menu option groups Phase 1 (2026-10-19)
+
+- **Status: IMPLEMENTED IN WORKING TREE; Checkpoint B review ready.** Authored additive migration 182 for reusable normalized option groups, per-item assignment overrides, tenant guards, indexes, and RLS. The `db/` SQL and timestamped Supabase mirror are byte-identical; rollback, staging-only seed/cleanup SQL, and deterministic dual-read backfill tooling are included. Nothing was run against a database; staging seed and cleanup files remain for the user to run.
+- **Read and pricing:** `lib/menu-pricing.ts` converts legacy JSON and normalized assignments to one resolved shape. Assignments replace legacy JSON for an item; hidden/unavailable options are omitted, per-item price overrides apply, add-on quantities multiply deltas, and variants replace the base unit price. Variant items ignore `promo_price` in this phase. Checkout reloads normalized data server-side and stores option group labels/kinds/quantities in new order snapshots; old snapshots retain their fallback rendering.
+- **Staging QA:** `db/seed/staging_option_groups_seed.sql` covers legacy fallback, deterministic backfill verification, add-ons, Size variants, hidden and overridden options, unavailable options, and variant-plus-promo. Cleanup is restricted to those tagged seed rows. Backfill `--verify` passes for a JSON mirror of the staging seed and an independent test-suite fixture.
+- **Verification:** The 13 affected menu/order, service, website-template, Savannah, and Phase 0 regression suites passed (0 failures); focused storefront tests passed 34/34, Phase 2b-2 order tests 45/45, and Phase 0 regression tests 4/4. `npx tsc --noEmit` and `git diff --check` pass. ESLint has no errors and one existing unused `CatalogCard` warning in the storefront test file. No DB reads/writes or migration execution were performed.
+
 ## Active Worktree Update — Savannah Phase 3c (2026-10-18)
 
 - **Status: IMPLEMENTED IN WORKING TREE; all gates pass.** Savannah restaurant template Phase 3c (revised): Promo save/render chain, Highlights image upload, hero focal point/fit, menu "catalog-carousel" cards variant, header/CTA band/hidden CTA.
