@@ -81,6 +81,10 @@ BEGIN
     (v_organizer_id, v_promo_variant_item_id, v_size_group_id, 0, '{}', jsonb_build_object(v_size_option_3::text, 17.00))
   ON CONFLICT (item_id, group_id) DO NOTHING;
 
+  UPDATE public.menu_items
+     SET options_source = 'normalized'
+   WHERE id IN (v_backfill_item_id, v_addon_item_id, v_size_item_id, v_hidden_item_id, v_unavailable_item_id, v_promo_variant_item_id);
+
   -- Deterministic IDs from scripts/backfill-menu-option-groups.cjs for this
   -- legacy source row let --verify compare the copied normalized values.
   INSERT INTO public.menu_option_groups (id, organizer_id, name, kind, min_select, max_select, is_required, position, legacy_source_item_id, legacy_group_id)
