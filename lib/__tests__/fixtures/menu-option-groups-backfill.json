@@ -3,6 +3,7 @@
     {
       "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "options_source": "normalized",
       "option_groups": [
         { "id": "fixture-extras", "name": "Fixture extras", "required": false, "min": 0, "max": 1, "options": [{ "id": "fixture-cheese", "name": "Fixture cheese", "price_delta": 2.5 }] }
       ]
@@ -10,6 +11,7 @@
     {
       "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       "organizer_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "options_source": "json",
       "option_groups": [
         { "id": "legacy-negative", "name": "Legacy discount", "required": false, "min": 0, "max": 1, "options": [{ "id": "legacy-negative-option", "name": "Legacy discount", "price_delta": -1 }] }
       ]
