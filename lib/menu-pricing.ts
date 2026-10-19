@@ -185,6 +185,16 @@ export function effectiveUnitPrice(
   return Math.round(base * 100) / 100;
 }
 
+export function calculateOptionAdjustedUnitPrice(unitPrice: number, optionsDelta: number): number {
+  const roundedUnitPrice = Math.round(unitPrice * 100) / 100;
+  const roundedOptionsDelta = Math.round(optionsDelta * 100) / 100;
+  return Math.max(0, roundedUnitPrice + roundedOptionsDelta);
+}
+
+export function calculateMenuLineTotal(unitPrice: number, quantity: number): number {
+  return Math.round(unitPrice * quantity * 100) / 100;
+}
+
 export interface SelectionValidationResult {
   valid: boolean;
   error?: string;
@@ -314,8 +324,8 @@ export function computeLineTotal(params: {
   }
 
   optionsDelta = Math.round(optionsDelta * 100) / 100;
-  const singleItemPrice = Math.max(0, unitPrice + optionsDelta);
-  const lineTotal = Math.round(singleItemPrice * quantity * 100) / 100;
+  const singleItemPrice = calculateOptionAdjustedUnitPrice(unitPrice, optionsDelta);
+  const lineTotal = calculateMenuLineTotal(singleItemPrice, quantity);
 
   return {
     unitPrice,

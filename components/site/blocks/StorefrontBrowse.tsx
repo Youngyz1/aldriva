@@ -40,7 +40,12 @@ import {
 import { addStoreCartItem } from "@/lib/store-cart";
 import { submitOrderRequest } from "@/lib/actions/orders";
 import { formatMoney } from "@/lib/money";
-import { isOptionGroupSelectionSatisfied, MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
+import {
+  calculateMenuLineTotal,
+  calculateOptionAdjustedUnitPrice,
+  isOptionGroupSelectionSatisfied,
+  MAX_LINE_QUANTITY,
+} from "@/lib/menu-pricing";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
 
@@ -374,7 +379,7 @@ export function StorefrontBrowse({
         }
       }
     }
-    return sum + (base + deltas) * line.quantity;
+    return sum + calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
   }, 0);
 
   const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
@@ -1136,8 +1141,8 @@ function ItemDetailSheet({
       }
     }
   }
-  const totalUnitPrice = basePrice + optionsDelta;
-  const lineTotalFormatted = formatMoney(totalUnitPrice * quantity, orderConfig?.currency ?? "USD", locale);
+  const totalUnitPrice = calculateOptionAdjustedUnitPrice(basePrice, optionsDelta);
+  const lineTotalFormatted = formatMoney(calculateMenuLineTotal(totalUnitPrice, quantity), orderConfig?.currency ?? "USD", locale);
 
   const canAddToOrder = !isSoldOut && areOptionGroupsSatisfied && !orderConfig?.blocked;
 
@@ -1550,7 +1555,7 @@ function OrderDrawer({
         }
       }
     }
-    return sum + (base + deltas) * line.quantity;
+    return sum + calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
   }, 0);
 
   // Delivery fee preview (client-side only; server recomputes authoritatively on submit)
@@ -1822,7 +1827,7 @@ function OrderDrawer({
                   }
                 }
               }
-              const itemTotal = (base + deltas) * line.quantity;
+              const itemTotal = calculateMenuLineTotal(calculateOptionAdjustedUnitPrice(base, deltas), line.quantity);
 
               return (
                 <div key={`${line.itemId}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
