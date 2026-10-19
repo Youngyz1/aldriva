@@ -26,7 +26,13 @@ export interface OrderNotificationPayload {
     quantity: number;
     unit_price: number;
     line_total: number;
-    chosen_options?: Array<{ name: string; price_delta?: number }>;
+    chosen_options?: Array<{
+      name: string;
+      price_delta?: number;
+      group_name?: string;
+      group_kind?: "variant" | "addon";
+      qty?: number;
+    }>;
   }>;
 }
 
@@ -113,7 +119,7 @@ export async function dispatchOrderNotifications(
         const itemsHtml = (order.items || [])
           .map((item) => {
             const optionsList = (item.chosen_options || [])
-              .map((opt) => opt.name)
+              .map((opt) => `${opt.group_name ? `${opt.group_name}: ` : ""}${opt.name}${opt.qty && opt.qty > 1 ? ` × ${opt.qty}` : ""}`)
               .join(", ");
             return `<tr>
               <td style="padding: 6px 0; border-bottom: 1px solid #f4f4f5;">

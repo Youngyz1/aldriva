@@ -414,7 +414,7 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                     </p>
                     {item.chosen_options && item.chosen_options.length > 0 && (
                       <p className="text-[var(--ps-muted)] mt-[var(--ps-space-1)]">
-                        {item.chosen_options.map((o) => o.name).join(", ")}
+                        {item.chosen_options.map((o: { name: string; group_name?: string; qty?: number }) => `${o.group_name ? `${o.group_name}: ` : ""}${o.name}${o.qty && o.qty > 1 ? ` × ${o.qty}` : ""}`).join(", ")}
                       </p>
                     )}
                   </div>

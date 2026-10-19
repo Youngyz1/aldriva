@@ -20,7 +20,9 @@ import {
   MAX_LINE_QUANTITY,
   computeLineTotal,
   effectiveUnitPrice,
+  resolveItemOptionGroups,
   validateSelection,
+  type NormalizedOptionAssignmentRow,
   type MenuItemOptionGroup,
   type MenuPricingItem,
   type OptionGroupSelection,
@@ -34,6 +36,7 @@ import { extractDeliverySettings, computeOrderDeliveryFee } from "@/lib/delivery
 export interface OrderItemInput {
   itemId: string;
   selectedOptionIds?: string[];
+  selectedOptions?: Array<{ groupId?: string; optionId: string; qty: number }>;
   quantity: number;
 }
 
@@ -316,6 +319,49 @@ export async function submitOrderRequestWithClient(
 
     const itemsById = new Map(dbItems.map((item) => [item.id, item]));
 
+    const { data: assignmentRows, error: assignmentsError } = await admin
+      .from("menu_item_option_groups")
+      .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
+      .in("item_id", itemIds);
+    if (assignmentsError) {
+      return { success: false, error: "db_error", message: "Failed to load menu options." };
+    }
+    const assignments = (Array.isArray(assignmentRows) ? assignmentRows : []) as NormalizedOptionAssignmentRow[];
+    const groupIds = [...new Set(assignments.map((row) => row.group_id).filter(Boolean))];
+    const groupsById = new Map<string, any>();
+    const optionsByGroupId = new Map<string, any[]>();
+    if (groupIds.length > 0) {
+      const [groupResult, optionResult] = await Promise.all([
+        admin.from("menu_option_groups")
+          .select("id, organizer_id, name, kind, min_select, max_select, is_required, position, is_active")
+          .in("id", groupIds)
+          .eq("is_active", true),
+        admin.from("menu_options")
+          .select("id, group_id, organizer_id, name, description, price, image_url, is_default, max_qty, is_available, allergens, position")
+          .in("group_id", groupIds)
+          .eq("is_available", true),
+      ]);
+      if (groupResult.error || optionResult.error) {
+        return { success: false, error: "db_error", message: "Failed to load menu options." };
+      }
+      for (const group of groupResult.data || []) groupsById.set(group.id, group);
+      for (const option of optionResult.data || []) {
+        const list = optionsByGroupId.get(option.group_id) || [];
+        list.push(option);
+        optionsByGroupId.set(option.group_id, list);
+      }
+    }
+    const assignmentsByItem = new Map<string, NormalizedOptionAssignmentRow[]>();
+    for (const assignment of assignments) {
+      const group = groupsById.get(assignment.group_id);
+      const list = assignmentsByItem.get(assignment.item_id) || [];
+      list.push({
+        ...assignment,
+        group: group ? { ...group, options: optionsByGroupId.get(group.id) || [] } : null,
+      });
+      assignmentsByItem.set(assignment.item_id, list);
+    }
+
     let subtotal = 0;
     const orderItemsSnapshot: Array<{
       item_id: string;
@@ -323,7 +369,16 @@ export async function submitOrderRequestWithClient(
       unit_price: number;
       base_price: number;
       promo_price: number | null;
-      chosen_options: Array<{ id: string; name: string; price_delta: number }>;
+      chosen_options: Array<{
+        id: string;
+        name: string;
+        price_delta: number;
+        price?: number;
+        group_id: string;
+        group_name: string;
+        group_kind: "variant" | "addon";
+        qty: number;
+      }>;
       quantity: number;
       line_total: number;
     }> = [];
@@ -342,19 +397,40 @@ export async function submitOrderRequestWithClient(
         return { success: false, error: "item_sold_out", itemId: line.itemId, message: `"${item.name}" is sold out.` };
       }
 
-      const groups = (Array.isArray(item.option_groups) ? item.option_groups : []) as MenuItemOptionGroup[];
-      const selectedSet = new Set(line.selectedOptionIds || []);
-
-      // Reject option ids that belong to no group of this item instead of
-      // silently dropping them: a stale or forged id must fail loudly.
-      const knownOptionIds = new Set<string>();
-      for (const group of groups) {
-        for (const opt of group.options) {
-          knownOptionIds.add(opt.id);
+      const groups = resolveItemOptionGroups(
+        { ...item, id: item.id, price: Number(item.price), option_groups: Array.isArray(item.option_groups) ? item.option_groups : [] },
+        assignmentsByItem.get(item.id) || []
+      ) as MenuItemOptionGroup[];
+      const selectedIds = Array.isArray(line.selectedOptionIds) ? line.selectedOptionIds : [];
+      const selectedInput = Array.isArray(line.selectedOptions) ? line.selectedOptions : null;
+      const requestedOptions: Array<{ groupId?: string; optionId: string; qty: number }> =
+        selectedInput || selectedIds.map((optionId) => ({ optionId, qty: 1 }));
+      if (selectedInput && line.selectedOptionIds !== undefined) {
+        const optionIds = requestedOptions.map((entry) => entry.optionId).sort();
+        const declaredIds = [...selectedIds].sort();
+        if (optionIds.length !== declaredIds.length || optionIds.some((id, index) => id !== declaredIds[index])) {
+          return { success: false, error: "invalid_options", itemId: line.itemId, message: `Please review the selected options for "${item.name}".` };
         }
       }
-      const unknownIds = [...selectedSet].filter((id) => !knownOptionIds.has(id));
-      if (unknownIds.length > 0) {
+
+      const selectionByGroup = new Map<string, Array<{ optionId: string; qty: number }>>();
+      let unknownSelection = false;
+      for (const selected of requestedOptions) {
+        if (!selected || typeof selected.optionId !== "string") {
+          return { success: false, error: "invalid_options", itemId: line.itemId, message: `Please review the selected options for "${item.name}".` };
+        }
+        const matches = groups.filter((group) =>
+          (!selected.groupId || group.id === selected.groupId) && group.options.some((option) => option.id === selected.optionId)
+        );
+        if (matches.length !== 1) {
+          unknownSelection = true;
+          break;
+        }
+        const list = selectionByGroup.get(matches[0].id) || [];
+        list.push({ optionId: selected.optionId, qty: selected.qty });
+        selectionByGroup.set(matches[0].id, list);
+      }
+      if (unknownSelection) {
         return {
           success: false,
           error: "unknown_option",
@@ -364,11 +440,15 @@ export async function submitOrderRequestWithClient(
       }
 
       const selection: OptionGroupSelection[] = groups
-        .map((g) => ({
-          groupId: g.id,
-          optionIds: g.options.filter((o) => selectedSet.has(o.id)).map((o) => o.id),
-        }))
-        .filter((s) => s.optionIds.length > 0);
+        .map((group) => {
+          const selected = selectionByGroup.get(group.id) || [];
+          return {
+            groupId: group.id,
+            optionIds: selected.map((entry) => entry.optionId),
+            selectedOptions: selected,
+          };
+        })
+        .filter((entry) => entry.optionIds.length > 0);
 
       const itemPricing: MenuPricingItem = {
         price: Number(item.price),
@@ -387,27 +467,30 @@ export async function submitOrderRequestWithClient(
         };
       }
 
-      // Snapshot chosen option labels and price deltas
-      const chosenOptions: Array<{ id: string; name: string; price_delta: number }> = [];
-      for (const group of groups) {
-        for (const opt of group.options) {
-          if (selectedSet.has(opt.id)) {
-            chosenOptions.push({
-              id: opt.id,
-              name: opt.name,
-              price_delta: Number(opt.price_delta) || 0,
-            });
-          }
-        }
-      }
-
-      const unitPrice = effectiveUnitPrice(itemPricing);
-
       const calc = computeLineTotal({
         item: itemPricing,
         selection,
         quantity: line.quantity,
       });
+      const chosenOptions = selection.flatMap((groupSelection) => {
+        const group = groups.find((candidate) => candidate.id === groupSelection.groupId)!;
+        return (groupSelection.selectedOptions || []).flatMap((selected) => {
+          const option = group.options.find((candidate) => candidate.id === selected.optionId);
+          if (!option) return [];
+          return [{
+            id: option.id,
+            name: option.name,
+            price_delta: group.kind === "variant" ? 0 : Number(option.price_delta) || 0,
+            ...(group.kind === "variant" ? { price: Number(option.price) || 0 } : {}),
+            group_id: group.id,
+            group_name: group.name,
+            group_kind: group.kind || "addon",
+            qty: selected.qty,
+          }];
+        });
+      });
+      const hasVariant = groups.some((group) => group.kind === "variant");
+      const unitPrice = effectiveUnitPrice(itemPricing, selection);
 
       subtotal += calc.lineTotal;
       orderItemsSnapshot.push({
@@ -415,7 +498,7 @@ export async function submitOrderRequestWithClient(
         name: item.name,
         unit_price: unitPrice,
         base_price: Number(item.price),
-        promo_price: item.promo_price != null ? Number(item.promo_price) : null,
+        promo_price: !hasVariant && item.promo_price != null ? Number(item.promo_price) : null,
         chosen_options: chosenOptions,
         quantity: line.quantity,
         line_total: calc.lineTotal,

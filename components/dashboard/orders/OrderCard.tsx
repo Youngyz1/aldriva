@@ -22,7 +22,16 @@ export interface DashboardOrderItem {
   unit_price: number;
   quantity: number;
   line_total: number;
-  chosen_options?: Array<{ id?: string; name: string; price_delta?: number }>;
+  chosen_options?: Array<{
+    id?: string;
+    name: string;
+    price_delta?: number;
+    price?: number;
+    group_id?: string;
+    group_name?: string;
+    group_kind?: "variant" | "addon";
+    qty?: number;
+  }>;
 }
 
 export interface DashboardOrderRow {
@@ -796,7 +805,7 @@ export function OrderCard({
                             key={oIdx}
                             className="inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600"
                           >
-                            {opt.name}
+                            {opt.group_name ? `${opt.group_name}: ` : ""}{opt.name}{opt.qty && opt.qty > 1 ? ` × ${opt.qty}` : ""}
                           </span>
                         ))}
                       </div>
