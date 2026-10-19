@@ -29,6 +29,8 @@ import {
   ProductCarousel,
   type ProductCarouselItem,
 } from "./ProductCarousel";
+import { CatalogCarousel } from "./CatalogCard";
+import type { Locale } from "@/i18n/routing";
 import {
   StoreCartWidget,
   type StoreCartCatalogEntry,
@@ -131,7 +133,11 @@ interface StorefrontBrowseProps {
   categoryTiles?: boolean;
   pageSize?: number;
   /** Template-scoped menu presentation. Absent keeps existing cards. */
-  variant?: "cards" | "rows" | "editorial";
+  variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
+  /** Site price display default (ISO 4217). */
+  currency?: string;
+  /** Locale for price formatting. */
+  currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
   accentColor?: string;
   /**
@@ -257,6 +263,8 @@ export function StorefrontBrowse({
   categoryTiles = false,
   pageSize,
   variant = "cards",
+  currency,
+  currencyLocale,
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
   const isEditorial = variant === "editorial";
@@ -306,6 +314,44 @@ export function StorefrontBrowse({
       }
     }
   }, [orderConfig?.enabled, orderConfig?.slug]);
+
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
+
+  // Catalog carousel (Savannah): render per-category scrollable carousels
+  // both server-side and after mount, replacing the static children.
+  if (variant === "catalog-carousel") {
+    return (
+      <div className="space-y-[var(--ps-space-8)]">
+        {groups.map((group) => (
+          <section
+            key={group.id}
+            className="space-y-[var(--ps-space-3)]"
+          >
+            <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
+              {group.title}
+            </h3>
+            <CatalogCarousel
+              items={group.items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                description: item.description,
+                image: item.image,
+                priceLabel: item.priceLabel,
+                numericPrice: item.numericPrice,
+                originalPriceLabel: item.originalPriceLabel,
+                isSoldOut: item.isSoldOut,
+              }))}
+              prevLabel={carousel?.prevLabel ?? labels.all}
+              nextLabel={carousel?.nextLabel ?? labels.all}
+              currency={currency}
+              locale={locale}
+              onSelect={(id) => openSheet(id, null)}
+            />
+          </section>
+        ))}
+      </div>
+    );
+  }
 
   // Before hydration (and without JS): server static markup only.
   if (!mounted) return <>{children}</>;

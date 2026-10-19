@@ -1,0 +1,12 @@
+{
+  "slug": "timo-wears",
+  "id": "site-timo-wears",
+  "tenant_id": "tenant-timo-wears",
+  "site_title": "Timo Wears",
+  "theme_config": {},
+  "header_config": {},
+  "footer_config": {},
+  "status": "published",
+  "template_id": "restaurant-savannah",
+  "template_version": "1.0.0"
+}

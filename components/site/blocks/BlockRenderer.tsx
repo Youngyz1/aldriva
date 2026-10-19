@@ -2247,8 +2247,35 @@ async function MenuEmbedBlockRenderer({
       {!hasMenuItems ? (
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : (
-        <StorefrontBrowse groups={menuGroups} labels={browseLabels} showGroups={populatedSections.length > 1} orderConfig={orderConfig} accentColor={accentColor} variant={tableFlameRows ? "rows" : savannahEditorial ? "editorial" : "cards"}>
-        <div className="space-y-[var(--ps-space-8)]">
+        <StorefrontBrowse
+          groups={menuGroups}
+          labels={browseLabels}
+          showGroups={
+            populatedSections.length > 1 && block.variant !== "catalog-carousel"
+          }
+          orderConfig={orderConfig}
+          accentColor={accentColor}
+          carousel={
+            block.variant === "catalog-carousel"
+              ? {
+                  prevLabel: t("carouselPrev"),
+                  nextLabel: t("carouselNext"),
+                  regionLabel: t("categories"),
+                }
+              : undefined
+          }
+          variant={
+            tableFlameRows
+              ? "rows"
+              : savannahEditorial
+                ? "editorial"
+                : block.variant === "catalog-carousel"
+                  ? "catalog-carousel"
+                  : "cards"
+          }
+        >
+          {block.variant === "catalog-carousel" ? null : (
+            <div className="space-y-[var(--ps-space-8)]">
           {populatedSections.map((sec: ResolvedMenuSection) => (
             <div key={sec.id} className={block.variant === "rows" || savannahEditorial ? "" : "rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-6)] shadow-xs"}>
               <div className="flex items-center gap-[var(--ps-space-2)]">
@@ -2349,6 +2376,7 @@ async function MenuEmbedBlockRenderer({
             </div>
           ))}
         </div>
+        )}
         </StorefrontBrowse>
       )}
       {siteSlug && !block.selectedItemIds?.length && hasMenuItems ? (

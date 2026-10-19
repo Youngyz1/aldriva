@@ -21,6 +21,10 @@ export interface CatalogCardProps {
   item: CatalogCardItem;
   onSelect?: (id: string) => void;
   className?: string;
+  /** ISO 4217 currency code for price display (e.g. "XOF"). Defaults to "USD". */
+  currency?: string;
+  /** Locale for price formatting (e.g. "fr"). Defaults to "en". */
+  locale?: "en" | "fr";
 }
 
 function InitialFallback({ name }: { name: string }) {
@@ -34,7 +38,7 @@ function InitialFallback({ name }: { name: string }) {
   );
 }
 
-export function CatalogCard({ item, onSelect, className }: CatalogCardProps) {
+export function CatalogCard({ item, onSelect, className, currency = "USD", locale = "en" }: CatalogCardProps) {
   const content = (
     <div
       className={`flex flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
@@ -58,7 +62,7 @@ export function CatalogCard({ item, onSelect, className }: CatalogCardProps) {
           <div className="mt-auto pt-2 text-sm font-semibold text-[var(--ps-text)]">
             {item.priceLabel ??
               (typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
-                ? formatCurrency(item.numericPrice, "USD", "en")
+                ? formatCurrency(item.numericPrice, currency, locale)
                 : null)}
             {item.originalPriceLabel ? (
               <span className="ml-1 text-xs font-normal text-[var(--ps-muted)] line-through">
@@ -91,9 +95,15 @@ export interface CatalogCarouselProps {
   items: CatalogCardItem[];
   prevLabel: string;
   nextLabel: string;
+  /** ISO 4217 currency code for price display. */
+  currency?: string;
+  /** Locale for price formatting. */
+  locale?: "en" | "fr";
+  /** When set, cards render as buttons that call this handler on click. */
+  onSelect?: (id: string) => void;
 }
 
-export function CatalogCarousel({ items, prevLabel, nextLabel }: CatalogCarouselProps) {
+export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", onSelect }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: true });
 
@@ -168,7 +178,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel }: CatalogCarousel
       >
         {items.map((item) => (
           <div key={item.id} className="w-64 shrink-0 snap-start sm:w-72">
-            <CatalogCard item={item} />
+            <CatalogCard item={item} onSelect={onSelect} currency={currency} locale={locale} />
           </div>
         ))}
       </div>
