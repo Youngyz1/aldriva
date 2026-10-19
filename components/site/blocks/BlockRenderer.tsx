@@ -2150,7 +2150,6 @@ async function MenuEmbedBlockRenderer({
     deliveryFee: t("deliveryFee"),
     deliveryFeeNotice: t("deliveryFeeNotice"),
     freeDelivery: t("freeDelivery"),
-    freeDeliveryProgress: t("freeDeliveryProgress"),
     total: t("total"),
     fulfilment: t("fulfilment"),
     pickup: t("pickup"),

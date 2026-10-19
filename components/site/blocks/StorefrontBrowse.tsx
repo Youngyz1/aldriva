@@ -317,8 +317,45 @@ export function StorefrontBrowse({
 
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
 
+  const openSheet = (id: string, trigger: HTMLElement | null) => {
+    triggerRef.current = trigger;
+    setSelectedId(id);
+  };
+
+  const closeSheet = () => {
+    setSelectedId(null);
+    triggerRef.current?.focus();
+    triggerRef.current = null;
+  };
+
+  const allItems = groups.flatMap((group) => group.items);
+  const selected = selectedId
+    ? allItems.find((item) => item.id === selectedId) ?? null
+    : null;
+
+  const handleAddToOrder = (
+    itemId: string,
+    selectedOptionIds: string[],
+    quantity: number
+  ) => {
+    const existingIndex = cart.findIndex(
+      (c) => c.itemId === itemId && arraysEqual(c.selectedOptionIds, selectedOptionIds)
+    );
+    let nextCart: CartItem[];
+    if (existingIndex >= 0) {
+      nextCart = cart.map((c, i) =>
+        i === existingIndex ? { ...c, quantity: c.quantity + quantity } : c
+      );
+    } else {
+      nextCart = [...cart, { itemId, selectedOptionIds, quantity }];
+    }
+    updateCart(nextCart);
+    closeSheet();
+  };
+
   // Catalog carousel (Savannah): render per-category scrollable carousels
-  // both server-side and after mount, replacing the static children.
+  // both server-side and after mount, replacing the static cards grid.
+  // When a card is clicked, the item sheet renders below the carousel.
   if (variant === "catalog-carousel") {
     return (
       <div className="space-y-[var(--ps-space-8)]">
@@ -349,6 +386,29 @@ export function StorefrontBrowse({
             />
           </section>
         ))}
+        {selected ? (
+          <ItemDetailSheet
+            itemId={selected.id}
+            title={selected.name}
+            image={selected.image ?? null}
+            description={selected.description ?? null}
+            priceLabel={selected.priceLabel}
+            originalPriceLabel={selected.originalPriceLabel}
+            numericPrice={selected.numericPrice}
+            isSoldOut={selected.isSoldOut}
+            optionGroups={selected.optionGroups}
+            tags={selected.tags}
+            detailRows={selected.detailRows}
+            action={selected.action}
+            tableFlame={false}
+            savannah={true}
+            closeLabel={labels.close}
+            labels={labels}
+            orderConfig={orderConfig}
+            onAddToOrder={handleAddToOrder}
+            onClose={closeSheet}
+          />
+        ) : null}
       </div>
     );
   }
@@ -425,11 +485,6 @@ export function StorefrontBrowse({
       href: item.action && item.action.href !== "#" ? item.action.href : null,
     }))
   );
-  const allItems = groups.flatMap((group) => group.items);
-  const selected = selectedId
-    ? allItems.find((item) => item.id === selectedId) ?? null
-    : null;
-
   const reset = () => {
     setQuery("");
     setActiveGroup(BROWSE_ALL_GROUP);
@@ -437,42 +492,11 @@ export function StorefrontBrowse({
     setVisibleItemCount(Math.max(1, pageSize ?? 12));
   };
 
-  const openSheet = (id: string, trigger: HTMLElement | null) => {
-    triggerRef.current = trigger;
-    setSelectedId(id);
-  };
-
-  const closeSheet = () => {
-    setSelectedId(null);
-    triggerRef.current?.focus();
-    triggerRef.current = null;
-  };
-
   const updateCart = (nextCart: CartItem[]) => {
     setCart(nextCart);
     if (orderConfig?.slug) {
       saveCart(orderConfig.slug, nextCart);
     }
-  };
-
-  const handleAddToOrder = (
-    itemId: string,
-    selectedOptionIds: string[],
-    quantity: number
-  ) => {
-    const existingIndex = cart.findIndex(
-      (c) => c.itemId === itemId && arraysEqual(c.selectedOptionIds, selectedOptionIds)
-    );
-    let nextCart: CartItem[];
-    if (existingIndex >= 0) {
-      nextCart = cart.map((c, i) =>
-        i === existingIndex ? { ...c, quantity: c.quantity + quantity } : c
-      );
-    } else {
-      nextCart = [...cart, { itemId, selectedOptionIds, quantity }];
-    }
-    updateCart(nextCart);
-    closeSheet();
   };
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
