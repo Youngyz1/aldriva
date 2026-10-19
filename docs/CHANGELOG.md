@@ -3,13 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-10] — Menu option groups Phase 1 (2026-10-19; authored, awaiting migration rollout)
+## [2026-10] — Menu option groups Phase 1 (2026-10-20; authored, awaiting migration rollout)
 
 - Added migration 182 and timestamped Supabase mirror for reusable tenant-scoped option groups/options, per-item assignments, hidden choices, price overrides, bounded cardinality, tenant-matching triggers, indexes, and RLS; added a rollback twin.
 - Added an explicit opt-in deterministic backfill with read-only `--verify`, plus fixture inputs for the staging seed and the test suite. Added staging-only seed and narrowly scoped cleanup SQL; neither file has been run.
-- Added a shared resolver and pricing path for legacy JSON and normalized rows. Normalized assignments take precedence; add-on quantities multiply deltas; variant prices replace the base price and ignore item `promo_price` for this phase.
+- Added a shared resolver and pricing path selected by `menu_items.options_source`, so normalized items with no remaining assignments do not resurrect legacy JSON and JSON items ignore normalized assignments. Add-on quantities multiply deltas; variant prices replace the base price and ignore item `promo_price` for this phase.
 - Checkout reloads normalized data and snapshots group ID/name/kind and option quantity. Order displays and notifications keep legacy snapshot fallbacks. Added authorized server actions for group/option CRUD and item assignments.
-- **Verification:** both backfill fixtures pass; 13 affected suites passed with 0 failures, including storefront 34/34, order/cart 45/45, and Phase 0 menu regressions 4/4. TypeScript and diff checks pass. ESLint reports 0 errors and 1 unused `CatalogCard` warning in the existing storefront test file. No database query, write, or migration was run.
+- **Verification:** `npm run test:chunked` passed 2,487/2,487 tests across 196 registered files; TypeScript and diff checks pass; touched-file ESLint has 0 errors and 1 unused-`CatalogCard` warning in `storefront-browse.test.cjs`; both backfill verification fixtures pass. The migration mirror has identical SHA-256. No database query, write, seed, or migration was run.
 
 ## [2026-10] — Savannah Phase 3c (2026-10-18; working tree)
 

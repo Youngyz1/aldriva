@@ -422,13 +422,14 @@
   - The dark palette and platform route scoping are in place, but remaining hardcoded surface colors require visual coverage review before dark mode is called complete.
 
 ### DEC-0046: Menu options use additive normalized groups with legacy dual-read
-- **Decision Date**: 2026-10-19
+- **Decision Date**: 2026-10-20
 - **Status**: Implemented in working tree; migration 182 and staging QA seed are authored but have not been run.
 - **Key Tenets**:
-  - Reusable groups and options are organizer-scoped and assigned per menu item. Normalized assignments take precedence over legacy `menu_items.option_groups`; items without assignments continue through the legacy JSON path. Legacy `modifiers` are not migrated.
+  - Reusable groups and options are organizer-scoped and assigned per menu item. `menu_items.options_source` is the source-of-truth marker: `json` keeps legacy `option_groups`, and `normalized` uses assignments even when none remain. This prevents deleted/unassigned normalized options from being resurrected and prevents assignment rows from changing JSON items. Legacy `modifiers` are not migrated.
   - Add-ons add non-negative option deltas, including bounded per-option quantity. Variants require exactly one option whose price replaces the item's base price. Existing negative deltas remain accepted only through the legacy path.
-  - `promo_price` is ignored when an item has a variant group in this phase. Existing order snapshots are not rewritten; new snapshots include group identity/label/kind and quantity.
-  - The backfill uses deterministic IDs and remains opt-in. Read-only `--verify` supports fixture files and remote inspection; database writes require explicit apply flags.
+  - The storefront preselects a variant default or first visible option. It preselects only free add-on defaults; paid defaults wait for the Phase 2 dashboard. These are client selections, not server defaults. `promo_price` and its strikethrough are hidden for variant items in this phase. Existing order snapshots are not rewritten; new snapshots include group identity/label/kind and quantity.
+  - Owner/admin/manager and active platform admins can DELETE groups, options, and assignments. Editors retain create/update access; editor DELETE is not needed without the Phase 2 dashboard. Actions use the same delete roles as RLS.
+  - The backfill uses deterministic IDs and remains opt-in; `--apply` marks only items it migrates as `normalized`. Read-only `--verify` is tested on the staging seed mirror fixture and an independent test fixture. Public embeds and order-submit fall back to JSON and log once if the new schema is missing.
 
 ## 2. Proposed & Under Review Decisions
 
