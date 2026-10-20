@@ -2415,6 +2415,8 @@ async function MenuEmbedBlockRenderer({
           }
           orderConfig={orderConfig}
           accentColor={accentColor}
+          currency={displayCurrency}
+          currencyLocale={locale}
           carousel={
             block.variant === "catalog-carousel"
               ? {

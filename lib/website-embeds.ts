@@ -475,6 +475,9 @@ export async function resolveMenuEmbed(
     const variantGroup = optionGroups.find((group) => group.kind === "variant");
     const selectedVariant = variantGroup?.options.find((option) => option.is_default === true && option.is_available !== false)
       ?? variantGroup?.options.find((option) => option.is_available !== false);
+    // Menu cards preview a single unpromoted unit. Using zero here hides every
+    // minimum-order offer even when buying this one item already meets it.
+    const previewSubtotal = selectedVariant ? Number(selectedVariant.price) : Number(it.price);
     const resolvedPrice = resolveBasePrice({
       id: it.id,
       organizer_id: tenantId,
@@ -484,7 +487,12 @@ export async function resolveMenuEmbed(
       is_active: Boolean(it.is_active),
       is_sold_out: Boolean(it.is_sold_out),
       option_groups: optionGroups,
-    }, itemPromotions, { now: promotionNow, subtotal: 0, currency, variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined });
+    }, itemPromotions, {
+      now: promotionNow,
+      subtotal: Number.isFinite(previewSubtotal) ? Math.max(0, previewSubtotal) : 0,
+      currency,
+      variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined,
+    });
     const mapped: ResolvedMenuItem = {
       id: it.id,
       section_id: it.section_id,
