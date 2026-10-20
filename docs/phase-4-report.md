@@ -37,9 +37,12 @@
 
 ### 1. Migration 184
 
-- **[VERIFIED]** `db/migration_184_menu_promotions.sql:4-69` creates `promotions` and `promotion_targets` with offer, schedule, destination, target, and code uniqueness constraints. Lines 72-143 define updated-at and organizer-match/50-target triggers; lines 146-213 define RLS, schema notification, and transaction finish.
-- **[VERIFIED]** The rollback drops only the new triggers, tables, and functions, then reloads the schema (`db/migration_184_menu_promotions_rollback.sql:1-14`).
-- **[VERIFIED]** The rollback-only check harness tests offer-field and time-window constraints, case-insensitive code uniqueness, cross-organizer target rejection, target limit, and anonymous visibility, with failures raised as exceptions (`db/tests/migration_184_checks.sql:2-117`). It was not run.
+- **[VERIFIED]** `db/migration_184_menu_promotions.sql:4-70` creates `promotions` and `promotion_targets` with offer, schedule, destination, target, and code uniqueness constraints. Lines 72-139 define updated-at, organizer-match, and target-limit triggers; lines 141-154 prevent changing a promotion's organizer while targets exist; lines 156-229 define RLS, grants, policies, schema notification, and transaction finish.
+- **[VERIFIED]** `REVOKE ALL` for `anon` and `authenticated` is immediately before the forward grants (`db/migration_184_menu_promotions.sql:158-160`). The `db/` and timestamped Supabase migration copies are byte-identical.
+- **[VERIFIED]** The rollback revokes those grants, drops the new triggers, tables, and functions, then reloads the schema (`db/migration_184_menu_promotions_rollback.sql:1-17`).
+- **[VERIFIED]** The rollback-only check harness covers offer-field and time-window constraints, case-insensitive code uniqueness, cross-organizer target rejection, target limit, organizer-change rejection, and anonymous visibility (`db/tests/migration_184_checks.sql:2-111`). It was not run.
+- **[VERIFIED]** The `draft hidden` insert now has six values for its six listed columns, with the offer tuple `('percent_off', 10, 'draft', 'banner')`; re-reading the full harness found no other column/value count mismatches (`db/tests/migration_184_checks.sql:39-40`).
+- **[VERIFIED]** The organizer bootstrap schema requires `user_id` and `name` and gives `id` a generated default (`db/organizers_schema.sql:4-7`). Migration 48 adds `slug` and migration 49 sets it `NOT NULL` (`db/migration_48_organization_system.sql:7`; `db/migration_49_fix_slugs.sql:33`); the harness now supplies `user_id`, `name`, and unique `slug` values while relying on the `id` default (`db/tests/migration_184_checks.sql:26-29`).
 
 ### 2. Shared pricing engine
 
@@ -65,23 +68,32 @@
 - **[VERIFIED]** The cart keeps only menu references and selected options in its order payload, uses shared preview pricing, calls `validatePromoCode` on Apply and again before either checkout path, and displays the “Price updated” review message (`components/site/blocks/StorefrontBrowse.tsx:331-347,1977-2009,2031-2065,2080-2130`). Stored promo codes are convenience references and are revalidated; they do not supply a price.
 - **[VERIFIED]** Optional promotion names/savings render in dashboard order cards, public tracking, and email notifications (`components/dashboard/orders/OrderCard.tsx:819-827`; `components/site/OrderTrackingView.tsx:421-427`; `lib/order-notifications.ts:90-99,136-147`). Old order shapes remain optional-field compatible.
 
+### Owner follow-up checks
+
+- **[VERIFIED] a.** `Phase 4 free delivery: server removes the delivery fee from the order total` asserts the delivery fee is zero and the total equals the subtotal (`lib/__tests__/phase2b2-cart-and-orders.test.cjs:474-514`). The server applies the free-delivery result before computing the total (`lib/order-submit.ts:592-598`).
+- **[VERIFIED] b.** `old order items without promotion snapshots still render in cards, tracking, and notifications` checks optional promotion access for each surface (`lib/__tests__/storefront-browse.test.cjs:336-349`; `components/dashboard/orders/OrderCard.tsx:822-827`; `components/site/OrderTrackingView.tsx:421-427`; `lib/order-notifications.ts:93-99,139-147`).
+- **[VERIFIED] c.** `validatePromoCode rate limits before reads and gives invalid, expired, and other-tenant codes one exact message` asserts the limit runs before database reads and that all three rejected code cases share the generic message (`lib/__tests__/menu-promotions.test.cjs:254-362`). The rate-limit response and generic invalid message are defined at `lib/actions/orders.ts:149-171`; promotion reads are organizer-scoped at `lib/menu-promotion-data.ts:28-29`.
+- **[VERIFIED] d.** The loader missing-schema test simulates `42P01` for `promotions` and expects an empty promotion result (`lib/__tests__/menu-promotions.test.cjs:206-252`; `lib/menu-promotion-data.ts:32-35`). `Phase 4 missing promotions table: order-submit succeeds without promotions` verifies order submission succeeds and retains the ordinary delivery fee (`lib/__tests__/phase2b2-cart-and-orders.test.cjs:517-541`; `lib/order-submit.ts:346-351`).
+- **[VERIFIED] e.** `an item destination with a null item id produces no promotion link` checks a null destination and the renderer CTA guard (`lib/__tests__/menu-promotions.test.cjs:112-123`; `lib/menu-promotions.ts:52-65`; `components/site/blocks/BlockRenderer.tsx:2144-2160`).
+
 ### 6. Documentation
 
 - **[VERIFIED]** This checkpoint is recorded in `docs/phase-4-report.md`; the decision is `docs/DECISIONS.md:445-454`; current status is at `docs/CURRENT-STATE.md:3-10`; and the changelog entry is at `docs/CHANGELOG.md:6-12`.
 
 ## Migration identity and RLS summary
 
-- **SHA-256 — [VERIFIED]:** `db/migration_184_menu_promotions.sql`: `8033C841987E2E95E42A5E907D83090717D20D197475C8E2797A97ACBF4FCE41`.
-- **SHA-256 — [VERIFIED]:** `supabase/migrations/20261020010000_migration_184_menu_promotions.sql`: `8033C841987E2E95E42A5E907D83090717D20D197475C8E2797A97ACBF4FCE41`. The two copies are byte-identical.
-- **RLS — [VERIFIED]:** Anonymous public SELECT is limited to active, code-free rows inside the start/end window; target SELECT checks the same conditions on its parent promotion (`db/migration_184_menu_promotions.sql:146-150,177-185`).
-- **RLS — [VERIFIED]:** Dashboard SELECT allows owner/admin/manager/editor/finance/viewer. INSERT and UPDATE allow owner/admin/manager/editor. DELETE allows owner/admin/manager. Each policy also admits an active platform admin (`db/migration_184_menu_promotions.sql:152-211`).
-- **[VERIFIED]** Both tables have RLS enabled; no SECURITY DEFINER function is used (`db/migration_184_menu_promotions.sql:72-90,144-145`).
+- **SHA-256 — [VERIFIED]:** `db/migration_184_menu_promotions.sql`: `30FB2D164CFBC0315230C8F72B7D91D21C551C6ED30C84BDEBE21686CF255482`.
+- **SHA-256 — [VERIFIED]:** `supabase/migrations/20261020010000_migration_184_menu_promotions.sql`: `30FB2D164CFBC0315230C8F72B7D91D21C551C6ED30C84BDEBE21686CF255482`. The two copies are byte-identical.
+- **RLS — [VERIFIED]:** Anonymous public SELECT is limited to active, code-free rows inside the start/end window; target SELECT checks the same conditions on its parent promotion (`db/migration_184_menu_promotions.sql:162-166,193-201`).
+- **RLS — [VERIFIED]:** Dashboard SELECT allows owner/admin/manager/editor/finance/viewer. INSERT and UPDATE allow owner/admin/manager/editor. DELETE allows owner/admin/manager. Each policy also admits an active platform admin (`db/migration_184_menu_promotions.sql:168-187,203-227`).
+- **[VERIFIED]** Both tables have RLS enabled; no SECURITY DEFINER function is used (`db/migration_184_menu_promotions.sql:72-155,156-157`).
 
 ## Test and build results
 
 - **Phase 3 baseline — [VERIFIED from the final Phase 3 report]:** 2,507 passing tests across 196 files (`docs/phase-3-report.md:37-40`).
-- **After Phase 4 item 5 — [VERIFIED]:** `npm run test:chunked` passed **2,526/2,526** tests across **197 files**, 0 failures. The 197-file count includes the promotion suite introduced during this phase.
-- **[VERIFIED]** Focused final regression run: 195/195. `npx tsc --noEmit --pretty false`, changed-file `npx eslint`, `git diff --check`, and `npm run build` all passed. The production build compiled, completed TypeScript, generated pages, and exited successfully.
+- **Phase 4 item 5 baseline — [VERIFIED]:** `npm run test:chunked` passed **2,526/2,526** tests across **197 files** before the owner follow-up changes.
+- **Owner follow-up — [VERIFIED]:** `npm run test:chunked` passed **2,530/2,530** tests across **197 files**, with 0 failures.
+- **[VERIFIED]** `npx tsc --noEmit --pretty false`, ESLint on the three changed test files, and `git diff --check` passed. The migration and SQL harness were not run; no database operation was performed.
 - **Screenshots — [NOT POSSIBLE]:** `cua.getState()` returned no browsers and the error “Local browser use is disabled in Work settings.” No 375px or 1440px screenshot was captured; visual behavior remains unverified.
 
 ## Deferred items
