@@ -53,6 +53,8 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           <img
             src={item.image}
             alt={item.name}
+            width={640}
+            height={480}
             className={`h-full w-full ${imageFit === "contain" ? "object-contain" : "object-cover"}`}
             loading="lazy"
           />

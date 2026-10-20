@@ -942,7 +942,7 @@ export function StorefrontBrowse({
                     >
                       {item.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                        <img src={item.image} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-lg object-cover" loading="lazy" />
                       ) : null}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
@@ -974,7 +974,7 @@ export function StorefrontBrowse({
                     </span>
                     {item.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 object-cover" loading="lazy" />
+                      <img src={item.image} alt="" width={88} height={88} className="h-[88px] w-[88px] shrink-0 object-cover" loading="lazy" />
                     ) : null}
                   </button>
                   {orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups) ? (

@@ -2366,12 +2366,12 @@ async function MenuEmbedBlockRenderer({
                         {savannahEditorial
                           ? safeImg ? <div className="h-[88px] w-[88px] shrink-0 overflow-hidden bg-[var(--tf-soft)]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
+                              <img src={safeImg} alt={it.name} width={88} height={88} className="h-full w-full object-cover" loading="lazy" />
                             </div> : null
                           : block.variant !== "rows" && block.variant !== "catalog-carousel" ? <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[var(--ps-neutral)]">
                             {safeImg ? <>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={safeImg} alt={it.name} className="h-full w-full object-cover" loading="lazy" />
+                              <img src={safeImg} alt={it.name} width={64} height={64} className="h-full w-full object-cover" loading="lazy" />
                             </> : <div className="flex h-full w-full items-center justify-center text-[var(--ps-muted)]"><Tag className="h-4 w-4" /></div>}
                           </div> : null}
                         <div className="min-w-0 flex-1">
@@ -2405,7 +2405,7 @@ async function MenuEmbedBlockRenderer({
                         </div>
                         {block.variant === "rows" && safeImg ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={safeImg} alt="" className={`h-[88px] w-[88px] shrink-0 rounded-xl border object-cover ${tableFlameRows ? "border-[var(--tf-border)]" : "border-[#e6dccd]"}`} loading="lazy" />
+                          <img src={safeImg} alt="" width={88} height={88} className={`h-[88px] w-[88px] shrink-0 rounded-xl border object-cover ${tableFlameRows ? "border-[var(--tf-border)]" : "border-[#e6dccd]"}`} loading="lazy" />
                         ) : null}
                       </div>
                     );
