@@ -421,6 +421,9 @@ export function validateSelection(
       if (!validOptionIds.has(optId)) {
         return { valid: false, error: `Unknown option ID "${optId}" in group "${group.name}"` };
       }
+      if (group.options.find((option) => option.id === optId)?.is_available === false) {
+        return { valid: false, error: `Unavailable or unknown option ID "${optId}" in group "${group.name}"` };
+      }
     }
 
     const selected = selections?.find((entry) => entry.groupId === group.id);
@@ -451,6 +454,9 @@ export function validateSelection(
         }
       }
     }
+
+    const hasAvailableOptions = group.options.some((option) => option.is_available !== false);
+    if (!hasAvailableOptions && count === 0) continue;
 
     if (!isOptionGroupSelectionSatisfied(group, count)) {
       const minimum = group.required ? Math.max(1, group.min) : group.min;

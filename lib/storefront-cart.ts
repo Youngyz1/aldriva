@@ -67,8 +67,11 @@ export function reconcileStorefrontCart(
   const valid: StorefrontCartLine[] = [];
   for (const line of lines) {
     const item = itemMap.get(line.itemId);
-    if (!item) continue;
+    if (!item || item.isSoldOut) continue;
     const groups = item.optionGroups || [];
+    const selectableGroups = groups.filter((group) =>
+      group.options.some((option) => option.isAvailable !== false)
+    );
     const resolved: Array<{ groupId: string; optionId: string; qty: number }> = [];
     let invalid = false;
     for (const optionId of line.selectedOptionIds) {
@@ -84,7 +87,7 @@ export function reconcileStorefrontCart(
       resolved.push({ groupId: group.id, optionId, qty });
     }
     if (invalid || (line.selectedOptions.length > 0 && line.selectedOptions.length !== resolved.length)) continue;
-    if (groups.some((group) => !isOptionGroupSelectionSatisfied(
+    if (selectableGroups.some((group) => !isOptionGroupSelectionSatisfied(
       group,
       resolved.filter((selection) => selection.groupId === group.id).length
     ))) continue;
