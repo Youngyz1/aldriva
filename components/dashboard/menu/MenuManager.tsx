@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MenuSectionForm } from "./MenuSectionForm";
@@ -7,6 +7,8 @@ import { MenuItemForm } from "./MenuItemForm";
 import { deleteMenuSection, deleteMenuItem, reorderMenuSections, reorderMenuItems } from "@/lib/actions/menus";
 import { useRouter } from "next/navigation";
 import { ChevronUp, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
+import { listMenuOptionGroups } from "@/lib/actions/menu-option-groups";
+import { MenuOptionGroupsLibrary } from "./MenuOptionGroupsLibrary";
 
 export function MenuManager({
   organizerId,
@@ -41,6 +43,14 @@ export function MenuManager({
   const [deleteItem, setDeleteItem] = useState<{item:any, sectionId:string} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [view, setView] = useState<"menu" | "options">("menu");
+  const [optionData, setOptionData] = useState<{ groups: any[]; options: any[]; assignments: any[] }>({ groups: [], options: [], assignments: [] });
+
+  const refreshOptionData = useCallback(async () => {
+    const result = await listMenuOptionGroups(organizerId);
+    if (result.success) setOptionData(result.data);
+  }, [organizerId]);
+  useEffect(() => { void refreshOptionData(); }, [refreshOptionData]);
 
   const sortedSections = [...sections].sort((a,b)=> a.position-b.position || a.created_at.localeCompare(b.created_at));
 
@@ -90,6 +100,23 @@ export function MenuManager({
 
   return (
     <div className="space-y-6">
+      <nav className="flex flex-wrap gap-2" aria-label="Menu management">
+        <Button type="button" className="min-h-11" variant={view === "menu" ? "default" : "outline"} aria-pressed={view === "menu"} onClick={() => setView("menu")}>Menu items</Button>
+        <Button type="button" className="min-h-11" variant={view === "options" ? "default" : "outline"} aria-pressed={view === "options"} onClick={() => setView("options")}>Option groups</Button>
+      </nav>
+      {view === "options" ? (
+        <MenuOptionGroupsLibrary
+          organizerId={organizerId}
+          tenantId={tenantId}
+          groups={optionData.groups}
+          options={optionData.options}
+          assignments={optionData.assignments}
+          items={Object.values(itemsBySection).flat().map((item: any) => ({ id: item.id, name: item.name }))}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          onChanged={() => { void refreshOptionData(); router.refresh(); onChanged?.(); }}
+        />
+      ) : <>
       <div className="flex items-center justify-between">
         <h2 className="font-medium">Sections</h2>
         {canEdit && <Button size="sm" onClick={()=>{setEditingSection(null); setShowSectionForm(true);}}><Plus className="h-4 w-4 mr-1"/>New Section</Button>}
@@ -130,6 +157,10 @@ export function MenuManager({
                 organizerId={organizerId}
                 tenantId={tenantId}
                 defaultSectionName={defaultSectionName}
+                optionGroups={optionData.groups}
+                optionOptions={optionData.options}
+                optionAssignments={optionData.assignments}
+                onOptionGroupsChanged={() => { void refreshOptionData(); }}
                 onSaved={() => {
                   setShowFirstDishForm(false);
                   router.refresh();
@@ -172,6 +203,10 @@ export function MenuManager({
                         sectionId={sec.id}
                         organizerId={organizerId}
                         tenantId={tenantId}
+                        optionGroups={optionData.groups}
+                        optionOptions={optionData.options}
+                        optionAssignments={optionData.assignments}
+                        onOptionGroupsChanged={() => { void refreshOptionData(); }}
                         onSaved={() => {
                           setActiveItemSection(null);
                           router.refresh();
@@ -189,6 +224,10 @@ export function MenuManager({
                         organizerId={organizerId}
                         tenantId={tenantId}
                         item={editingItem}
+                        optionGroups={optionData.groups}
+                        optionOptions={optionData.options}
+                        optionAssignments={optionData.assignments}
+                        onOptionGroupsChanged={() => { void refreshOptionData(); }}
                         onSaved={() => {
                           setEditingItem(null);
                           router.refresh();
@@ -228,6 +267,7 @@ export function MenuManager({
       <ConfirmDialog open={!!deleteSection} onOpenChange={(o)=> !o && setDeleteSection(null)} title="Delete section?" description="Items inside this section will be deleted too." confirmLabel="Delete" variant="destructive" onConfirm={handleDeleteSection} loading={pending} />
       <ConfirmDialog open={!!deleteItem} onOpenChange={(o)=> !o && setDeleteItem(null)} title="Delete item?" description="This will permanently delete the item." confirmLabel="Delete" variant="destructive" onConfirm={handleDeleteItem} loading={pending} />
       {error && <div className="text-sm text-red-600">{error}</div>}
+      </>}
     </div>
   );
 }

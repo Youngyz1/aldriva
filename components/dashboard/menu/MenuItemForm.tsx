@@ -1,19 +1,19 @@
 "use client";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
-import { ModifiersEditor } from "./ModifiersEditor";
 import { OptionGroupsEditor } from "./OptionGroupsEditor";
+import { MenuItemOptionsPanel } from "./MenuItemOptionsPanel";
 import type { MenuItemOptionGroup } from "@/lib/menu-pricing";
 import { createMenuItem, updateMenuItem, createMenuSection } from "@/lib/actions/menus";
+import { upgradeMenuItemOptions } from "@/lib/actions/menu-option-groups";
+import { DIETARY_TAGS, MENU_ALLERGENS } from "@/lib/menu-option-taxonomy";
 import { useRouter } from "next/navigation";
-
-const DIETARY_TAGS = ["vegan","vegetarian","gluten_free","halal","kosher","dairy_free","nut_free"] as const;
-const ALLERGENS = ["nuts","dairy","gluten","soy","eggs","shellfish"] as const;
 
 export function MenuItemForm({
   sectionId,
@@ -21,6 +21,10 @@ export function MenuItemForm({
   tenantId,
   item,
   defaultSectionName,
+  optionGroups: libraryGroups = [],
+  optionOptions = [],
+  optionAssignments = [],
+  onOptionGroupsChanged,
   onSaved,
   onCancel,
 }: {
@@ -29,10 +33,15 @@ export function MenuItemForm({
   tenantId: string;
   item?: any;
   defaultSectionName?: string;
+  optionGroups?: any[];
+  optionOptions?: any[];
+  optionAssignments?: any[];
+  onOptionGroupsChanged?: () => void;
   onSaved?: () => void;
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const tOptions = useTranslations("MenuOptions");
   const [sectionName, setSectionName] = useState(defaultSectionName || "Main menu");
   const [createdSectionId, setCreatedSectionId] = useState<string | null>(null);
   const [name, setName] = useState(item?.name || "");
@@ -42,13 +51,14 @@ export function MenuItemForm({
   const [imageUrl, setImageUrl] = useState(item?.image_url || "");
   const [dietary, setDietary] = useState<string[]>(item?.dietary_tags || []);
   const [allergens, setAllergens] = useState<string[]>(item?.allergens || []);
-  const [modifiers, setModifiers] = useState<{ name: string; price_delta: number }[]>(item?.modifiers || []);
   const [optionGroups, setOptionGroups] = useState<MenuItemOptionGroup[]>(item?.option_groups || []);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
   const [isFeatured, setIsFeatured] = useState(item?.is_featured ?? false);
   const [isSoldOut, setIsSoldOut] = useState(item?.is_sold_out ?? false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const usesNormalizedOptions = item?.options_source === "normalized";
 
   function toggle(list: string[], value: string, setter: (v: string[]) => void) {
     if (list.includes(value)) setter(list.filter(v=>v!==value));
@@ -113,8 +123,7 @@ export function MenuItemForm({
       image_url: imageUrl || null,
       dietary_tags: dietary,
       allergens,
-      modifiers,
-      option_groups: optionGroups,
+      ...(!usesNormalizedOptions ? { option_groups: optionGroups } : {}),
       is_active: isActive,
       is_featured: isFeatured,
     };
@@ -124,6 +133,15 @@ export function MenuItemForm({
     setPending(false);
     if (!res.success) { setError(res.error || "Failed"); return; }
     router.refresh(); onSaved?.();
+  }
+
+  async function handleUpgradeOptions() {
+    if (!item?.id) return;
+    setPending(true); setUpgradeError(null);
+    const result = await upgradeMenuItemOptions(item.id, organizerId);
+    setPending(false);
+    if (!result.success) { setUpgradeError(result.error || "Could not upgrade these options"); return; }
+    router.refresh(); onOptionGroupsChanged?.(); onSaved?.();
   }
 
   return (
@@ -178,16 +196,36 @@ export function MenuItemForm({
       <div className="space-y-1">
         <Label>Allergens (max 12)</Label>
         <div className="flex flex-wrap gap-2">
-          {ALLERGENS.map(a=> (
+          {MENU_ALLERGENS.map(a=> (
             <label key={a} className="flex items-center gap-1 text-xs border rounded-full px-2 py-1">
               <input type="checkbox" checked={allergens.includes(a)} onChange={()=> toggle(allergens, a, setAllergens)} /> {a}
             </label>
           ))}
         </div>
-        <div className="text-xs text-amber-600">Allergen labels are entered by the business and are not verified by the platform.</div>
+        <div className="text-xs text-amber-600">{tOptions("allergenNote")}</div>
       </div>
-      <ModifiersEditor modifiers={modifiers} onChange={setModifiers} />
-      <OptionGroupsEditor groups={optionGroups} onChange={setOptionGroups} />
+      {Array.isArray(item?.modifiers) && item.modifiers.length > 0 && <section className="space-y-2 rounded-xl border p-3">
+        <h3 className="text-sm font-medium">{tOptions("legacyModifiers")}</h3>
+        <ul className="list-inside list-disc text-sm">{item.modifiers.map((modifier: { name?: string; price_delta?: number }, index: number) => <li key={`${modifier.name}-${index}`}>{modifier.name || "Modifier"} · {Number(modifier.price_delta || 0).toFixed(2)}</li>)}</ul>
+        <p className="text-xs text-muted-foreground">{tOptions("legacyModifiersNote")}</p>
+      </section>}
+      {usesNormalizedOptions && item?.id ? <MenuItemOptionsPanel
+        itemId={item.id}
+        organizerId={organizerId}
+        groups={libraryGroups}
+        options={optionOptions}
+        assignments={optionAssignments}
+        canEdit={true}
+        onChanged={onOptionGroupsChanged}
+      /> : <>
+        <OptionGroupsEditor groups={optionGroups} onChange={setOptionGroups} />
+        {item?.id && <section className="space-y-2 rounded-xl border border-dashed p-4">
+          <h3 className="font-medium">{tOptions("upgradeTitle")}</h3>
+          <p className="text-sm text-muted-foreground">{tOptions("upgradeBody")}</p>
+          <Button className="min-h-11" type="button" variant="outline" disabled={pending} onClick={() => void handleUpgradeOptions()}>{tOptions("upgrade")}</Button>
+          {upgradeError && <p role="alert" className="text-sm text-destructive">{tOptions("upgradeRefused", { reason: upgradeError })}</p>}
+        </section>}
+      </>}
       <div className="flex flex-wrap gap-4 pt-1">
         <label className="flex items-center gap-2 text-sm"><Switch checked={isActive} onCheckedChange={setIsActive} /> Active</label>
         <label className="flex items-center gap-2 text-sm"><Switch checked={isFeatured} onCheckedChange={setIsFeatured} /> Featured</label>
