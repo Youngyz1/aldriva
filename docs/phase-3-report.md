@@ -1,101 +1,85 @@
-# Menu Options Upgrade — Phase 3 Customer Ordering
+# Aldriva Menu Options Upgrade — Phase 3 Checkpoint D
 
-**Status:** Implemented in the working tree; Checkpoint D review pending. No database operation or migration was run.
+**Status:** Checkpoint D review; awaiting approval. **No migrations or database writes were run.** The report records repository evidence and the checks run in the authoritative staging checkout.
 
-## Summary
+## Recovered state
 
-- Added an item customization sheet with required groups first, real rule badges, available option details, default selections, per-option quantity controls, shared client/server pricing helpers, live totals, and actionable validation that focuses the first unsatisfied group.
-- Added direct one-tap add for available items with no visible option groups. Cards with any available group still open the sheet; sold-out items cannot be added.
-- Moved cart behavior into version 3 helpers. Cart lines keep item/option references rather than prices, migrate old formats, reconcile removed menu data, edit in place, merge identical selections, cap quantity at 50, and show when current pricing differs.
-- Added keyboard-operable category tabs, scroll-spy, near-viewport section rendering with a no-IntersectionObserver fallback, and client-side search over the data already loaded.
-- Found and fixed an order-display gap: the three old displays showed option names without the new group context. They now render group name, option kind, and quantity for new snapshots and retain legacy rendering for old snapshots.
-- The Phase 0 carry-over fixes are already isolated in HEAD commit `3663011` (`fix: dedupe legacy menu option upgrades`): converter assignments for reused groups contain no legacy IDs or overrides, and identical JSON groups deduplicate while keeping the first position.
+- **[VERIFIED]** Working branch at recovery: `feat/menu-options-phase-3`; Phase 2 tip: `15bb0d9`.
+- **[VERIFIED]** The Phase 3 commits already present at recovery were `3663011`, `0105c8a`, `911bce8`, `67f6935`, and `54385d4`. The original tracked working tree was clean; the only untracked files were the six protected scratch files listed below.
+- **[VERIFIED]** Follow-up fixes were committed separately: `df91b61` (selection validation and stale cart cleanup), `2e94ab4` (cart price fingerprints and v4 migration), and `cc9b2b3` (menu image dimensions).
+- **[VERIFIED]** The six pre-existing untracked scratch files remain untouched: `.tmp-soundcloud-proof.cjs`, `StorefrontBrowse.3b6c660.bak`, `StorefrontBrowse.broken.bak`, `StorefrontBrowse.head.bak`, `test-files.json`, and `tsc-output.txt`.
+- **[VERIFIED]** Twenty PNGs are present in `docs/phase-3-screenshots/`; each has a modification time newer than the Phase 2 tip. The inventory and review limits are below.
 
-## Evidence by Feature
+## Feature check
 
-| Feature | Evidence |
-|---|---|
-| Customization, validation, defaults, live price | `components/site/blocks/StorefrontBrowse.tsx:1171` (sheet), `:1521` and `:1635` (required feedback), `:1731` (live announcement/total); `lib/storefront-browse.ts:82` (defaults and rules); `lib/menu-pricing.ts:328` (shared selected-price calculation). |
-| One-tap add | `components/site/blocks/StorefrontBrowse.tsx:507` (eligibility), `:979` and `:1027` (card buttons); `components/site/blocks/CatalogCard.tsx:98` (carousel card action). |
-| Cart versioning/edit/merge | `lib/storefront-cart.ts:4`, `:16`, `:62`, `:109`, `:142`; `components/site/blocks/StorefrontBrowse.tsx:462` (feedback/focus), `:1124` (edit opens the sheet), `:2116` (price change notice). |
-| Longer menus | `components/site/blocks/StorefrontBrowse.tsx:323` and `:414` (active category and scroll-spy), `:759` (navigation), `:924` (sticky offset), `:933` (lazy section rendering); the no-IntersectionObserver fallback is tested in `lib/__tests__/storefront-browse.test.cjs:977`. |
-| Order snapshot display | `lib/order-option-display.ts:8`; used by `components/dashboard/orders/OrderCard.tsx:809`, `components/site/OrderTrackingView.tsx:418`, and `lib/order-notifications.ts:123`. Legacy snapshots continue through the formatter fallback and tests at `lib/__tests__/storefront-browse.test.cjs:206` and `:577`. |
-| Carry-over | `lib/actions/menu-option-groups.ts:488` rejects per-item legacy IDs/overrides when reusing a group. The converter and duplicate-group regression live in `lib/__tests__/phase0-menu-options-regressions.test.cjs:207`; commit `3663011` is separate from Phase 3. |
-
-## Files Changed
-
-- `components/dashboard/orders/OrderCard.tsx`
-- `components/site/OrderTrackingView.tsx`
-- `components/site/blocks/BlockRenderer.tsx`
-- `components/site/blocks/CatalogCard.tsx`
-- `components/site/blocks/StorefrontBrowse.tsx`
-- `lib/__tests__/storefront-browse.test.cjs`
-- `lib/menu-pricing.ts`
-- `lib/order-notifications.ts`
-- `lib/order-option-display.ts` (new)
-- `lib/storefront-browse.ts`
-- `lib/storefront-cart.ts` (new)
-- `lib/website-embeds.ts`
-- `docs/CURRENT-STATE.md`, `docs/CHANGELOG.md`, `docs/DECISIONS.md`, `docs/phase-3-report.md`
-- `docs/phase-3-screenshots/` (local visual captures)
-
-No migration, `package.json`, order snapshot schema, or server pricing rule changed. The local preview fixture route was removed after screenshot capture.
-
-## Verification
-
-| Check | Before Phase 3 | After Phase 3 |
-|---|---:|---:|
-| `npm run test:chunked` | 2,497 / 2,497 (Phase 2 checkpoint) | **2,506 / 2,506**, 196 files, 7 chunks |
-| Focused storefront suite | — | **46 / 46** |
-| `npx tsc --noEmit --pretty false` | — | Passed |
-| ESLint on changed source and test files | — | Passed, no diagnostics |
-| Full-project `npm run lint -- --no-warn-ignored` | — | 8 errors, 299 warnings; errors are in untouched `app/dashboard/DashboardView.tsx` and `e2e/fixtures.ts` |
-| `git diff --check` | — | Passed before handoff |
-
-The first parallel validation attempt hit memory pressure while a production build was collecting 366 static pages; three test chunks failed to start in that run and TypeScript hit the Node heap limit. The checks were rerun without that contention: the full suite and standalone TypeScript then passed.
-
-### Bundle impact
-
-The baseline production manifest associates **728,529 raw bytes / 214,624 gzip bytes across 15 JavaScript chunks** with the `/site/[slug]/[[...page]]` client modules. The Phase 3 Webpack compile emitted **829,107 raw bytes / 257,129 gzip bytes across 32 chunks** for those modules: a directional difference of **+100,578 raw bytes / +42,505 gzip bytes**.
-
-This is not an apples-to-apples final comparison: the baseline manifest was built with Turbopack; the isolated feature build used Webpack because Turbopack rejects the temporary `node_modules` junction. Webpack completed compilation (with one existing `libheif-js` dynamic-require warning), then page generation ran out of memory. The figures come from the emitted route client-module manifests before that failure and should be treated as indicative, not a final budget result. No dynamic sheet import was added because the comparison cannot establish the actual Phase 3 increase; a clean, same-bundler production build remains the verification needed to make that call.
-
-### Browser screenshots
-
-Playwright captured and checked the five requested flows at 375px and 1440px in the light public-site theme. Each run checked for horizontal overflow and browser/page errors; the final run captured 10 screenshots with no errors.
-
-| Flow | 375px | 1440px |
+| Item | Status | Evidence and coverage |
 |---|---|---|
-| Required group unsatisfied | [Screenshot](phase-3-screenshots/light-375-required-unsatisfied.png) | [Screenshot](phase-3-screenshots/light-1440-required-unsatisfied.png) |
-| Required group satisfied and live total | [Screenshot](phase-3-screenshots/light-375-required-satisfied-total.png) | [Screenshot](phase-3-screenshots/light-1440-required-satisfied-total.png) |
-| One-tap add and cart bar | [Screenshot](phase-3-screenshots/light-375-one-tap-cart-bar.png) | [Screenshot](phase-3-screenshots/light-1440-one-tap-cart-bar.png) |
-| Cart line edited | [Screenshot](phase-3-screenshots/light-375-cart-edited-options.png) | [Screenshot](phase-3-screenshots/light-1440-cart-edited-options.png) |
-| Category tabs selected by keyboard | [Screenshot](phase-3-screenshots/light-375-category-tabs-active.png) | [Screenshot](phase-3-screenshots/light-1440-category-tabs-active.png) |
+| **0.1 Reused-group upgrade guard** | **DONE — [VERIFIED]** | `lib/actions/menu-option-groups.ts:487-494` rejects reused groups whose item assignment still contains legacy hidden IDs or price overrides. `lib/__tests__/phase0-menu-options-regressions.test.cjs:207-215` covers the guard and clean assignment data. Migration 183 SHA-256 is `83B29AC2DA5065F0C8806BDC9124183F69D0C06A677E8F9774A0F804E4E9C3E0`, matching the required hash. |
+| **0.2 Duplicate JSON groups** | **DONE — [VERIFIED]** | `lib/menu-option-backfill.cjs:56-70` deduplicates by normalized signature and keeps the first position. `lib/__tests__/phase0-menu-options-regressions.test.cjs:200-210` checks one group, one assignment, and first position retained. |
+| **A. Customization sheet** | **DONE — [VERIFIED]** | `components/site/blocks/StorefrontBrowse.tsx:1377-1400,1519-1555,1633-1669,1719-1732` uses the shared satisfaction/rules helpers, reports and focuses the first unsatisfied group, exposes the dialog, option descriptions/allergens/thumbnails and max-quantity controls, and announces the live total. Thumbnails render only with an image URL and use lazy loading plus fixed dimensions. Focus handling, Escape, defaults, and customer/server pricing parity are covered in `lib/__tests__/storefront-browse.test.cjs:131-183,296-318,960-980,1092-1128`. |
+| **B. One-tap add** | **DONE — [VERIFIED]** | `lib/storefront-browse.ts:88-120` removes unavailable choices before deciding whether a group is selectable; `components/site/blocks/StorefrontBrowse.tsx:503-510` blocks sold-out/customizable items from direct add and announces success. `lib/__tests__/storefront-browse.test.cjs:967-1015` covers the option-free, unavailable-only, customizable, sold-out, and blocked cases. |
+| **C. Cart** | **PARTIAL — [VERIFIED]** | `lib/storefront-cart.ts:4-69,76-110,130-157` migrates v1-v3 data to v4, keeps stable IDs and option references, reconciles missing/unavailable/sold-out items, enforces group/option limits, and caps merges at `MAX_LINE_QUANTITY`. New v4 lines save only references plus `priceVersion`, a price fingerprint; the live price is recalculated and compared at `components/site/blocks/StorefrontBrowse.tsx:496-500,2098-2117`. Edit/merge/cap flows and migration are covered at `lib/__tests__/storefront-browse.test.cjs:185-234,1080-1128`. **Limitation:** v3 lines created before this fix have only the former item update timestamp, not a prior price fingerprint. Migration preserves the line and selections but drops that timestamp; a “Price updated” warning cannot be reconstructed for that old local line without a historic price or timestamp resolver field. Current v4 lines detect changed base or option prices. |
+| **D. Browsing** | **DONE — [VERIFIED]** | `components/site/blocks/StorefrontBrowse.tsx:815-845,760-765,393-430,920-937` implements sticky category tabs, roving tabindex/arrow keys, scroll-spy, header/tab scroll margin, and near-viewport section rendering; initial/active sections and no-`IntersectionObserver` fallback are covered at `lib/__tests__/storefront-browse.test.cjs:292-303,1020-1075`. Bottom padding protects the last section from the floating cart bar (`StorefrontBrowse.tsx:666-670,1154-1158`). Search and no-results state are at `StorefrontBrowse.tsx:846-908`. The cap notice is rendered by `components/site/blocks/BlockRenderer.tsx:2212,2421-2425`, outside the lazily populated groups, so lazy rendering does not hide it. **[VERIFIED]** `lib/website-embeds.ts:121-122,374,387-388,442` retains the 100/500 caps; the resolver is unchanged from Phase 2. |
+| **E. Order views** | **DONE — [VERIFIED]** | `lib/order-option-display.ts:1-24` formats group name, kind, option name, and quantity with old-snapshot fallback. It is used by `components/dashboard/orders/OrderCard.tsx:809`, `components/site/OrderTrackingView.tsx:418`, and `lib/order-notifications.ts:123`; test coverage is at `lib/__tests__/storefront-browse.test.cjs:234-245`. |
+| **F. Budget and images** | **DONE — [VERIFIED]** | `components/site/blocks/StorefrontBrowse.tsx:231,944,976,1004,1450-1456,1542,1587,1656` and `components/site/blocks/CatalogCard.tsx:53-62` use lazy image loading and intrinsic dimensions; menu static markup does the same at `components/site/blocks/BlockRenderer.tsx:2370,2375,2409`. The image-source regression is `lib/__tests__/storefront-browse.test.cjs:278-288`. `package.json` and `package-lock.json` are unchanged from Phase 2. Current bundle evidence is below. |
 
-The customer public-site styles do not provide a separate dark palette: their `--ps-*` colors stay template-owned. Forced `.dark` captures were used to verify this and are not presented as dark-theme QA.
+## Required invariants
 
-## Manual QA Checklist for Localhost
+- **[VERIFIED]** `git diff feat/menu-options-phase-2..HEAD -- db/ supabase/migrations/` is empty. Migration 182/183, RLS policy files, and database schema were not changed; no migration or DB write was run.
+- **[VERIFIED]** `lib/order-submit.ts` is unchanged from Phase 2, so the chosen-option snapshot shape remains unchanged (`id`, `name`, `price_delta`, optional variant `price`, `group_id`, `group_name`, `group_kind`, `qty`); Phase 3 only changes display formatting.
+- **[VERIFIED]** The server still computes submitted prices through the existing shared pricing functions in `lib/menu-pricing.ts:300-357,484-510`. The follow-up changes affect selection validation for empty/unavailable groups and do not alter the pricing formula or server defaults.
+- **[VERIFIED]** No dependency was added; the menu item caps remain 100 per section and 500 overall.
 
-Use a local fixture or test site. Stop before submitting an order; order creation would write data. At 375px:
+## Checks
 
-1. Open an item with a required option group. Tap **Add to order** without choosing an option. Confirm the group scrolls into view, receives focus, shows the visible error indicator and message, and the button remains actionable.
-2. Choose a required option. Confirm the selected row is checked, the total updates, and a free add-on default is already checked. If an option allows quantity greater than one, raise/lower it and confirm the total reflects the quantity.
-3. Open a variant item. Confirm the default (or first available option) is selected, the displayed price follows the variant, and the item promo strikethrough is hidden.
-4. Tap the **+** on an option-free item. Confirm it adds directly and updates the cart bar. Tap the rest of that card and confirm it opens the sheet. Confirm a sold-out item has no add action.
-5. Open the cart and edit a line. Confirm its option choices and quantity are prefilled, then update it and verify the same line changes in place. Add an identical selection again and verify it merges. Check the 50-item cap and the cap message.
-6. Change a menu price in the local fixture, reload the menu, and confirm the cart line says **Price updated** while its total uses the current price.
-7. Use Left/Right arrow keys on category tabs and click a tab. Confirm focus and `aria-selected` move, the section scroll offset clears the sticky header, and long sections populate as they approach. Search by a name and description, check the no-results state, and clear the search.
-8. At 1440px, confirm the sheet is centered and constrained to 520px; at both widths, check the option group names/rules, text-only option rows, close button, and reduced-motion behavior.
-9. Review a new-format order fixture in the staff order card, tracking view, and notification preview. Confirm old-format snapshots still render without a group label.
+| Check | Result |
+|---|---|
+| Phase 2 baseline | **[INFERRED]** The user-supplied task gives 2,497 passing tests across 196 files. The Phase 2 tip was not rerun. |
+| Pre-fix Phase 3 attempt | **[VERIFIED from recovery notes; ran in a mirror, not staging]** 2,505 passed and 1 failed in chunk 6 (`r2-media-amendment.test.cjs`). That file passed 13/13 when run alone. |
+| Focused storefront suite after fixes | **[VERIFIED]** 47 passed, 0 failed. |
+| `npm run test:chunked` after fixes | **[VERIFIED]** 2,507 passed, 0 failed; 196 files across 7 chunks. |
+| `npx tsc --noEmit --pretty false` | **[VERIFIED]** Passed in staging. The successful production build also completed its TypeScript phase. |
+| ESLint on changed source and test files | **[VERIFIED]** Passed with no diagnostics. |
+| `npm run build` | **[VERIFIED]** Next.js 16.3.4 / Turbopack build completed: optimized compile, TypeScript, and 366/366 static pages. |
+| `git diff --check` | **[VERIFIED]** Passed after code changes; rerun after this report commit. |
 
-## Intentionally Not Done
+### Bundle measurement
 
-- No migrations, database reads/writes, schema changes, order snapshot shape changes, or RLS changes.
-- No server-side application of defaults; submitted prices remain server-computed.
-- No paid add-on defaults, cart upsell, promotional behavior beyond the required variant display rule, new special-instructions field, analytics, popup, or server-side search/pagination.
-- No customer-facing dark palette was added.
+- **[VERIFIED] Current:** the successful Turbopack build’s `/site/[slug]/[[...page]]` client-reference manifest references 15 unique JavaScript chunks totaling **743,019 raw bytes / 218,496 gzip bytes**. This measures unique route client chunks from the manifest.
+- **[NOT FOUND] Baseline artifact:** no Phase 2 client-reference manifest is present in the repo to independently reproduce the earlier number. The prior report claims **728,529 raw / 214,624 gzip / 15 chunks** for Phase 2. If that claim is accurate, the inferred change is **+14,490 raw / +3,872 gzip bytes** (about +2.0% / +1.8%). Treat that delta as directional, not independently verified. The prior report’s Webpack Phase 3 figure is superseded by this successful same-bundler build.
 
-## Open Product Questions
+## Screenshot inventory and visual QA
 
-1. Should public business sites get a deliberate dark palette in a later design phase? The current public-site token system has no distinct dark palette.
-2. Should paid add-on defaults ever become preselected customer choices? Phase 3 preserves the Phase 1 free-default-only rule.
+**[VERIFIED]** The 20 files below exist; PNG headers confirm 375×812 or 1440×960 pixel dimensions, and file sizes are listed in bytes. Filename-derived flow descriptions are not proof of every screenshot’s contents. I visually inspected only the seven marked “checked”; the remaining files were not individually opened. All files predate the recovery fixes, so they do not visually verify the new unavailable-only one-tap case, price fingerprint notice, or image attributes.
+
+| Flow implied by filename | 375 light | 375 dark | 1440 light | 1440 dark |
+|---|---|---|---|---|
+| Required group unsatisfied | [`light-375-required-unsatisfied.png`](phase-3-screenshots/light-375-required-unsatisfied.png) · 375×812 · 39,590 B — checked | [`dark-375-required-unsatisfied.png`](phase-3-screenshots/dark-375-required-unsatisfied.png) · 375×812 · 40,786 B — checked | [`light-1440-required-unsatisfied.png`](phase-3-screenshots/light-1440-required-unsatisfied.png) · 1440×960 · 79,340 B — checked | [`dark-1440-required-unsatisfied.png`](phase-3-screenshots/dark-1440-required-unsatisfied.png) · 1440×960 · 82,161 B — filename only |
+| Required group satisfied / live total | [`light-375-required-satisfied-total.png`](phase-3-screenshots/light-375-required-satisfied-total.png) · 375×812 · 38,841 B — checked | [`dark-375-required-satisfied-total.png`](phase-3-screenshots/dark-375-required-satisfied-total.png) · 375×812 · 41,040 B — filename only | [`light-1440-required-satisfied-total.png`](phase-3-screenshots/light-1440-required-satisfied-total.png) · 1440×960 · 77,960 B — filename only | [`dark-1440-required-satisfied-total.png`](phase-3-screenshots/dark-1440-required-satisfied-total.png) · 1440×960 · 80,283 B — filename only |
+| One-tap add / cart bar | [`light-375-one-tap-cart-bar.png`](phase-3-screenshots/light-375-one-tap-cart-bar.png) · 375×812 · 49,648 B — checked | [`dark-375-one-tap-cart-bar.png`](phase-3-screenshots/dark-375-one-tap-cart-bar.png) · 375×812 · 51,246 B — filename only | [`light-1440-one-tap-cart-bar.png`](phase-3-screenshots/light-1440-one-tap-cart-bar.png) · 1440×960 · 61,521 B — filename only | [`dark-1440-one-tap-cart-bar.png`](phase-3-screenshots/dark-1440-one-tap-cart-bar.png) · 1440×960 · 66,217 B — filename only |
+| Cart edited options | [`light-375-cart-edited-options.png`](phase-3-screenshots/light-375-cart-edited-options.png) · 375×812 · 41,097 B — checked | [`dark-375-cart-edited-options.png`](phase-3-screenshots/dark-375-cart-edited-options.png) · 375×812 · 42,737 B — filename only | [`light-1440-cart-edited-options.png`](phase-3-screenshots/light-1440-cart-edited-options.png) · 1440×960 · 55,459 B — filename only | [`dark-1440-cart-edited-options.png`](phase-3-screenshots/dark-1440-cart-edited-options.png) · 1440×960 · 56,856 B — filename only |
+| Category tabs active | [`light-375-category-tabs-active.png`](phase-3-screenshots/light-375-category-tabs-active.png) · 375×812 · 48,384 B — checked | [`dark-375-category-tabs-active.png`](phase-3-screenshots/dark-375-category-tabs-active.png) · 375×812 · 50,067 B — filename only | [`light-1440-category-tabs-active.png`](phase-3-screenshots/light-1440-category-tabs-active.png) · 1440×960 · 55,232 B — filename only | [`dark-1440-category-tabs-active.png`](phase-3-screenshots/dark-1440-category-tabs-active.png) · 1440×960 · 57,742 B — filename only |
+
+- **[NOT FOUND]** No capped-menu-notice screenshot exists in the screenshot directory.
+- **[VERIFIED]** A localhost recapture was not run: port 3101 was closed and `app/phase3-preview/page.tsx` is absent. I did not start a browser against a missing preview. The dark-named sample reviewed shows a mostly white sheet; public-site tokens do not define a separate dark palette, so these captures do not establish dark-theme support.
+
+## Manual QA checklist for localhost at 375px
+
+Run against a local fixture and stop before submitting an order.
+
+1. Open an item with a required group and try adding without a choice. Confirm the group is brought into view and focus, a visible message/highlight appears, and the add button remains available.
+2. Pick the required choice. Confirm selection and total update. Check a free add-on default; for a `max_qty > 1` option, increment/decrement and verify its quantity and total.
+3. Open a variant item. Confirm the default-or-first available variant is selected, its full price is used, and promo strikethrough is absent.
+4. Add an item with no available groups using `+`; confirm direct add and the “Added to order” announcement. Confirm an item with an available group opens the sheet and a sold-out item cannot be added.
+5. Open the cart, edit a line and save; confirm the same line ID updates. Add the same selection twice and confirm merge. Test the 50-item cap and message. Change a selected item/option price, reload, and verify a v4 line shows “Price updated” while using the new total.
+6. With a menu containing more than 100 section items or 500 total items, confirm the cap notice remains visible while scrolling/lazy sections load.
+7. Use Left/Right arrows and clicks on category tabs; verify active tab/focus, header offset, and that the floating cart bar does not cover the last content. Search by name/description, check no-results, and clear search.
+8. At 1440px, verify the sheet is centered; at both widths inspect group labels, option details, image crops, close behavior, and reduced-motion behavior.
+9. Review a new-format order fixture in staff card, tracking view, and notification preview; also confirm an old snapshot still renders.
+
+## Deferred / product questions
+
+- **[NOT FOUND]** No capped-notice screenshot and no post-fix browser capture; manual visual QA remains for localhost.
+- **[INFERRED]** Existing v3 local cart lines cannot receive an accurate price-change warning after migration because they contain no historic price/version fingerprint and the resolver is intentionally unchanged. Decide whether that compatibility warning is needed for pre-release local carts.
+- **[INFERRED]** Should public business sites gain a deliberate dark palette in a later design phase? Current token styles and reviewed captures do not show a separate public-site dark theme.
+- **[INFERRED]** Should paid add-on defaults ever be preselected? Phase 3 preserves the existing free-default-only behavior.
