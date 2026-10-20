@@ -1,11 +1,18 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Menu promotions Phase 4 (2026-10-20)
+
+- **Status: IMPLEMENTED AND COMMITTED THROUGH ITEM 6; Checkpoint E is ready for owner review.** The promotions manager, shared pricing, authoritative order validation, storefront display, safe promotion destinations, template embed, and optional order promotion summaries are implemented on `feat/menu-promotions-phase-4` (`ae02feb` for item 5). The progress log records each work item and commit.
+- Migration 184 and its timestamped Supabase mirror are authored and have matching SHA-256 `8033C841987E2E95E42A5E907D83090717D20D197475C8E2797A97ACBF4FCE41`. **Migration 184 is not applied; no database operation has been run.** Apply only `supabase/migrations/20261020010000_migration_184_menu_promotions.sql` after approval, then run `db/tests/migration_184_checks.sql`; deploy the code after the migration.
+- **Verification:** `npm run test:chunked` passed 2,526/2,526 tests across 197 files; `npx tsc --noEmit --pretty false`, changed-file ESLint, `git diff --check`, and `npm run build` passed. The Phase 3 baseline was 2,507/2,507 across 196 files (`docs/phase-3-report.md:40`).
+- **Visual QA:** not verified. Local browser access is disabled in Codex Work settings, so no requested screenshots could be captured. The 375px manual QA checklist and all remaining deferrals are in `docs/phase-4-report.md`.
+
 ## Active Worktree Update — Menu option groups Phase 3 customer ordering (2026-10-20)
 
 - **Status: IMPLEMENTED IN WORKING TREE; Checkpoint D review pending.** The customer menu now supports a required-first customization sheet with live totals, direct add for option-free items, editable and mergeable cart lines, category tabs/search/lazy rendering, and consistent option labels in new and legacy order snapshots. The sheet is limited to 520px on desktop and fills the mobile viewport width.
 - **Carry-over:** HEAD includes commit `3663011` (`fix: dedupe legacy menu option upgrades`), which deduplicates identical JSON groups during conversion, leaves per-item hidden/override data empty, guards reuse with legacy option IDs, and tests those invariants.
 - **Visual QA:** a local static fixture was reviewed at 375px and 1440px in light mode across five flows. The public-site token system does not define a customer dark palette; dark mode is not claimed as verified. Screenshots are in `docs/phase-3-screenshots/`.
-- **Verification:** `npm run test:chunked` passed 2,506/2,506 tests across 196 files; focused storefront tests passed 46/46; `npx tsc --noEmit --pretty false` passed; touched-file ESLint passed with no diagnostics; `git diff --check` is run before handoff. Full-project ESLint reports 8 errors in untouched `app/dashboard/DashboardView.tsx` and `e2e/fixtures.ts`, with 299 warnings. A production build in an isolated copy compiled but page generation ran out of memory; route bundle figures are directional because baseline used Turbopack and the feature build used Webpack.
+- **Verification:** `npm run test:chunked` passed 2,507/2,507 tests across 196 files; focused storefront tests passed 46/46; `npx tsc --noEmit --pretty false` passed; touched-file ESLint passed with no diagnostics; `git diff --check` is run before handoff. Full-project ESLint reports 8 errors in untouched `app/dashboard/DashboardView.tsx` and `e2e/fixtures.ts`, with 299 warnings. A production build in an isolated copy compiled but page generation ran out of memory; route bundle figures are directional because baseline used Turbopack and the feature build used Webpack.
 - No database work or migration was run. Full details, screenshots, bundle measurements, manual QA flows, and open product questions are in `docs/phase-3-report.md`.
 
 ## Active Worktree Update — Menu option groups Phase 2 dashboard (2026-10-20)

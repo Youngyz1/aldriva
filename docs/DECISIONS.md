@@ -442,6 +442,16 @@
   - Code-owned templates are fully editable and create only zero-priced example options. Paid add-on defaults receive an honest notice; customer-side default behavior and pricing logic stay unchanged.
   - `DIETARY_TAGS` and `MENU_ALLERGENS` are the shared code definitions used by UI and server validation. Tests parse the existing SQL CHECK arrays to prevent drift. Custom tags, custom allergens, image optimization, bulk import, paid add-on defaults, promotions, popups, and analytics remain deferred.
 
+### DEC-0048: Restaurant menu promotions use one server-authoritative price candidate
+- **Decision Date**: 2026-10-20
+- **Status**: Phase 4 implementation is committed on `feat/menu-promotions-phase-4`; migration 184 is authored but not applied. Checkpoint E review is pending.
+- **Key Tenets**:
+  - This subsystem applies only to restaurant menu orders. Store products, Store promo codes, and `homepage_promotions` remain untouched. Free-delivery promotions remain in scope because delivery fees are part of the server-calculated order total.
+  - A line chooses one lowest candidate: valid manual `promo_price`, one eligible automatic offer, or one eligible customer-supplied code offer. Offers never stack. Ties use higher priority, then earlier creation time, then ID. Variant prices ignore manual and special-price promotions; percent discounts apply only when `apply_to_variants` is enabled. Add-on deltas are added after the discounted base.
+  - Eligibility is checked at order time against current status/window, item availability, code, and pre-discount minimum subtotal. The same pure pricing helpers calculate server totals and client previews; the server reloads prices and rejects invalid supplied codes. Unit discounts are rounded to the currency minor unit before multiplying quantity.
+  - Browser storage contains only a promo-code reference. Optional promotion details are additive order snapshot fields, and old snapshots keep their existing rendering fallback.
+  - Anonymous public reads expose active, in-window automatic promotions only; code promotions are not publicly listable. Dashboard roles follow the migration's read/write/delete policy matrix.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

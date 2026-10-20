@@ -3,13 +3,20 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Restaurant menu promotions Phase 4 (2026-10-20; implementation committed, migration unapplied)
+
+- Added organizer-scoped restaurant promotions in the dashboard, shared promotion pricing, batched public-safe promotion reads, server-side code/order revalidation, and additive optional promotion snapshot details. Migration 184 is authored with rollback, RLS, target limits and a rollback-only SQL check harness; it has not been applied.
+- Added promotion prices to menu cards and item sheets, item/section/menu/HTTPS destinations, and a dashboard-managed promotions embed with announcement, banner, and dish-card layouts. The older manual `cta_banner` promotion remains available and is labelled legacy in its inspector.
+- Added promo-code checkout reference storage and revalidation, price-change messaging, and promotion savings in order cards, tracking, and notifications. Store product promotions and popup/click analytics remain deferred.
+- **Verification:** full suite passed 2,526/2,526 across 197 files; TypeScript, changed-file ESLint, diff check, and production build passed. Screenshots were not possible because local browser use is disabled in the desktop Work settings. No migration or database operation was run; see `docs/phase-4-report.md` for evidence, full SQL, and staging instructions.
+
 ## [2026-10] — Menu option groups Phase 3 customer ordering (2026-10-20; working tree)
 
 - Added a responsive customization sheet with shared-rule badges, required-group validation/focus, option details, quantity controls, defaults, and live customer totals. The server remains the pricing authority.
 - Added one-tap add for option-free items; cart v3 references current menu data, reconciles removed options, edits and merges lines, and reports quantity caps and changed prices.
 - Added keyboard-operable category tabs with scroll-spy/lazy sections and loaded-item search. New option snapshot labels now render group name, kind, and quantity in staff/customer tracking and notifications; old snapshots retain their fallback.
 - Added local Playwright screenshots for five ordering flows at 375px and 1440px in light mode. Public-site tokens have no customer dark palette, so dark-theme storefront coverage is not claimed.
-- **Verification:** focused storefront suite passed 46/46; `npm run test:chunked` passed 2,506/2,506 across 196 files; standalone TypeScript and changed-file ESLint passed. Full ESLint retains 8 errors in untouched dashboard/e2e files. The isolated production build compiled, then page generation ran out of memory; bundle measurements are directional because the baseline was Turbopack and the feature build was Webpack. No database operation was run.
+- **Verification:** focused storefront suite passed 46/46; `npm run test:chunked` passed 2,507/2,507 across 196 files; standalone TypeScript and changed-file ESLint passed. Full ESLint retains 8 errors in untouched dashboard/e2e files. The isolated production build compiled, then page generation ran out of memory; bundle measurements are directional because the baseline was Turbopack and the feature build was Webpack. No database operation was run.
 
 ## [2026-10] — Menu option groups Phase 2 dashboard (2026-10-20; authored, migration not applied)
 
