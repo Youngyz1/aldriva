@@ -244,6 +244,11 @@ export function PreviewBlock({ block, menuItems, currency, currencyLocale, nextD
 
     return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-16)]"><h2 className="font-[var(--v2-heading-font)] text-3xl font-bold">{text(value.heading)}</h2><div className="mt-[var(--ps-space-8)] grid gap-[var(--ps-space-4)] sm:grid-cols-2 lg:grid-cols-3">{items.map((item) => <article key={item.id} className="overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)]"><div className="p-[var(--ps-space-6)]"><p className="text-xs font-medium uppercase tracking-wide text-[var(--ps-muted)]">{item.sectionName}</p><h3 className="mt-[var(--ps-space-1)] font-semibold">{item.name}</h3>{item.description ? <p className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">{item.description}</p> : null}{item.price != null ? <p className="mt-[var(--ps-space-3)] text-sm font-semibold">{formatSharedMoney(Number(item.price), displayCurrency, currencyLocale)}</p> : null}</div></article>)}</div></section>;
   }
+  if (value.type === "promotions_embed") {
+    if (value.enabled === false) return null;
+    const layout = typeof value.layout === "string" ? value.layout.replaceAll("_", " ") : "Use each promotion’s setting";
+    return <section className="mx-auto max-w-6xl px-[var(--ps-space-6)] py-[var(--ps-space-12)]"><div className="rounded-xl border border-dashed border-[var(--ps-border)] bg-[var(--ps-neutral)] p-[var(--ps-space-6)] text-center"><h2 className="font-[var(--v2-heading-font)] text-xl font-bold text-[var(--ps-text)]">Active dashboard promotions</h2><p className="mt-[var(--ps-space-2)] text-sm text-[var(--ps-muted)]">Live promotion content will appear here · {layout}</p></div></section>;
+  }
   if (value.type === "cta_banner") {
     if (value.variant === "promo") {
       const img = image(value.image);

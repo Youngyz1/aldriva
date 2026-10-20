@@ -232,6 +232,7 @@ const RESTAURANT_SECTION_DEFINITIONS: TemplateSection[] = [
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag"] },
   { id: "business-offerings", page: "home", block: "features", slots: [] },
   { id: "highlights", page: "home", block: "features", slots: ["highlights.items"] },
+  { id: "promotions", page: "home", block: "promotions_embed", optional: true, defaultOff: true, note: "Dashboard-managed restaurant promotions. Content and destinations come from Promotions." },
   { id: "menu.browse", page: "home", block: "menu_embed",
     note: "Full menu browse on home — shows all active items grouped by category with chips and search. No selectedItemIds filter.",
   },
@@ -339,7 +340,8 @@ const SAVANNAH_SLOTS: TemplateSlot[] = [
 const SAVANNAH_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.open_tag", "hero.focal_x", "hero.focal_y", "hero.fit"], spacing: "roomy" },
-  { id: "promo", page: "home", block: "cta_banner", slots: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"], optional: true, defaultOff: true },
+  { id: "promo", page: "home", block: "cta_banner", slots: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"], optional: true, defaultOff: true, note: "Legacy manual promo banner; this stays separate from dashboard-managed Promotions." },
+  { id: "promotions", page: "home", block: "promotions_embed", optional: true, defaultOff: true, note: "Dashboard-managed promotions. The manual promo banner above is legacy." },
   { id: "business-offerings", page: "home", block: "features", slots: [] },
   { id: "highlights", page: "home", block: "features", slots: ["highlights.items"] },
   {
@@ -578,6 +580,7 @@ const FOOD_ORDER_SLOTS: TemplateSlot[] = [
 const FOOD_ORDER_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
   { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary"] },
+  { id: "promotions", page: "home", block: "promotions_embed", optional: true, defaultOff: true, note: "Dashboard-managed restaurant promotions." },
   { id: "how-it-works", page: "home", block: "features", slots: ["steps.items"] },
   {
     id: "menu.browse", page: "home", block: "menu_embed",

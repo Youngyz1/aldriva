@@ -295,6 +295,14 @@ export interface MenuEmbedBlock extends BaseBlock {
   imageFit?: "cover" | "contain";
 }
 
+export interface PromotionsEmbedBlock extends BaseBlock {
+  type: "promotions_embed";
+  /** Section-level switch; disabled blocks render no promotion content. */
+  enabled?: boolean;
+  /** auto respects each dashboard promotion's layout. */
+  layout?: "auto" | "banner" | "dish_card" | "announcement_bar";
+}
+
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
 export function normalizeCurrencyCode(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -315,6 +323,7 @@ export type Block =
   | FundraiserEmbedBlock
   | ServicesEmbedBlock
   | MenuEmbedBlock
+  | PromotionsEmbedBlock
   | RichTextBlock
   | CtaBannerBlock
   | MenuOrderBlock
@@ -341,6 +350,7 @@ export const KNOWN_BLOCK_TYPES = [
   "fundraiser_embed",
   "services_embed",
   "menu_embed",
+  "promotions_embed",
   "rich_text",
   "cta_banner",
   "menu_order",
@@ -1697,6 +1707,14 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}) } };
     }
 
+    case "promotions_embed": {
+      const enabled = obj.enabled !== false;
+      const layout = obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar"
+        ? obj.layout
+        : "auto";
+      return { success: true, data: { type: "promotions_embed", ...envelope, enabled, layout } };
+    }
+
     case "cta_banner": {
       const heading = validateStringField(
         obj.heading,
@@ -2129,6 +2147,14 @@ export function parseBlock(raw: unknown): Block | null {
           : undefined,
         currency: normalizeCurrencyCode(obj.currency),
         variant: obj.variant === "rows" ? "rows" : obj.variant === "editorial" ? "editorial" : undefined,
+      };
+
+    case "promotions_embed":
+      return {
+        type: "promotions_embed",
+        ...envelope,
+        enabled: obj.enabled !== false,
+        layout: obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar" ? obj.layout : "auto",
       };
 
     case "cta_banner":

@@ -130,6 +130,7 @@ export async function submitOrderRequest(
 }
 
 export interface ValidatePromoCodeLine {
+  lineIndex: number;
   itemId: string;
   name: string;
   unitPrice: number;
@@ -141,7 +142,7 @@ export interface ValidatePromoCodeLine {
 }
 
 export type ValidatePromoCodeResult =
-  | { success: true; valid: true; subtotal: number; lines: ValidatePromoCodeLine[] }
+  | { success: true; valid: true; subtotal: number; lines: ValidatePromoCodeLine[]; freeDeliveryPromotionApplied: boolean }
   | { success: true; valid: false; message: string }
   | { success: false; error: "rate_limited" | "invalid_cart" | "unavailable"; message: string };
 
@@ -156,7 +157,7 @@ export async function validatePromoCode(
   const invalidCode = (): ValidatePromoCodeResult => ({ success: true, valid: false, message: INVALID_PROMO_CODE_MESSAGE });
   try {
     const rawCode = typeof code === "string" ? code.trim() : "";
-    if (!rawCode || !/^[A-Za-z0-9_-]{3,40}$/.test(rawCode)) return invalidCode();
+    if (rawCode && !/^[A-Za-z0-9_-]{3,40}$/.test(rawCode)) return invalidCode();
     if (!Array.isArray(cartLines) || cartLines.length < 1 || cartLines.length > 50 || cartLines.some((line) =>
       !line || typeof line.itemId !== "string" || !line.itemId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_LINE_QUANTITY
     )) {
@@ -280,13 +281,15 @@ export async function validatePromoCode(
     if (promotionLoad.error) return invalidCode();
     const now = new Date();
     const currency = resolveStorefrontCurrency(website.metadata, business?.country ?? null);
-    const pricing = calculatePromotionCartPricing(pricingLines, promotionLoad.promotions, { code: rawCode.toUpperCase(), now, currency, organizerId });
+    const pricing = calculatePromotionCartPricing(pricingLines, promotionLoad.promotions, { code: rawCode ? rawCode.toUpperCase() : null, now, currency, organizerId });
     if (!pricing.validCode) return invalidCode();
     return {
       success: true,
       valid: true,
       subtotal: pricing.subtotal,
+      freeDeliveryPromotionApplied: pricing.lines.some((line) => line.appliedPromotion?.offer_type === "free_delivery"),
       lines: pricing.lines.map((line, index) => ({
+        lineIndex: index,
         itemId: pricingLines[index].item.id || cartLines[index].itemId,
         name: (itemsById.get(cartLines[index].itemId) as any).name,
         unitPrice: line.unitPrice,

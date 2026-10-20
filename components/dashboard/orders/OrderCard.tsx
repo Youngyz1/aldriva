@@ -23,6 +23,14 @@ export interface DashboardOrderItem {
   unit_price: number;
   quantity: number;
   line_total: number;
+  promotion?: {
+    id: string;
+    name: string;
+    offer_type: string;
+    code?: string;
+    original_unit_price: number;
+    discount_per_unit: number;
+  };
   chosen_options?: Array<{
     id?: string;
     name: string;
@@ -811,6 +819,11 @@ export function OrderCard({
                         ))}
                       </div>
                     )}
+                    {item.promotion?.name ? (
+                      <p className="mt-1 text-[11px] font-medium text-emerald-700">
+                        {item.promotion.name}{item.promotion.discount_per_unit > 0 ? ` · saved ${formatCurrency(item.promotion.discount_per_unit * item.quantity, order.currency || "XOF", locale)}` : " applied"}
+                      </p>
+                    ) : null}
                   </div>
                   <span className="font-medium text-zinc-800 tabular-nums ml-4">
                     {formatCurrency(item.line_total, order.currency || "XOF", locale)}

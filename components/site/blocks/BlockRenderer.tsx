@@ -46,6 +46,7 @@ import {
   FundraiserEmbedBlock,
   ServicesEmbedBlock,
   MenuEmbedBlock,
+  PromotionsEmbedBlock,
   RichTextBlock,
   CtaBannerBlock,
   isBlockVisible,
@@ -70,6 +71,7 @@ import {
   resolveFundraiserEmbed,
   resolveServicesEmbed,
   resolveMenuEmbed,
+  resolvePromotionsEmbed,
   resolveShopPrices,
   ResolvedEventItem,
   ResolvedProductItem,
@@ -2114,6 +2116,120 @@ async function ServicesEmbedBlockRenderer({
   );
 }
 
+async function PromotionsEmbedBlockRenderer({
+  block,
+  tenantId,
+  siteSlug,
+  hasPublishedMenuPage,
+  hasMenuEmbedOnPage,
+  scopeInternalLinks,
+}: {
+  block: PromotionsEmbedBlock;
+  tenantId?: string;
+  siteSlug?: string;
+  hasPublishedMenuPage?: boolean;
+  hasMenuEmbedOnPage?: boolean;
+  scopeInternalLinks?: boolean;
+}) {
+  if (!tenantId || block.enabled === false) return null;
+  const promotions = await resolvePromotionsEmbed(block, tenantId, {
+    hasMenuEmbedOnPage,
+    hasPublishedMenuPage,
+  });
+  if (promotions.length === 0) return null;
+
+  const layoutFor = (promotion: (typeof promotions)[number]) =>
+    block.layout && block.layout !== "auto" ? block.layout : promotion.layout ?? "banner";
+  const safeHrefFor = (promotion: (typeof promotions)[number]) => {
+    const href = promotion.destination_href;
+    if (!href) return null;
+    return !promotion.destination_external && href.startsWith("/") && scopeInternalLinks && siteSlug
+      ? resolveSiteHref(siteSlug, href)
+      : href;
+  };
+  const offerLabel = (promotion: (typeof promotions)[number]) =>
+    promotion.offer_type === "percent_off" && promotion.percent_off
+      ? `${promotion.percent_off}% off`
+      : promotion.offer_type === "special_price"
+        ? "Special price"
+        : promotion.offer_type === "free_delivery"
+          ? "Free delivery"
+          : "Promotion";
+  const cta = (promotion: (typeof promotions)[number], className: string) => {
+    const href = safeHrefFor(promotion);
+    if (!href || !promotion.cta_label?.trim()) return null;
+    return (
+      <a
+        href={href}
+        {...(promotion.destination_external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className={className}
+      >
+        {promotion.cta_label}
+      </a>
+    );
+  };
+  const imageFor = (promotion: (typeof promotions)[number]) => promotion.image_url ? safeImageSrc(promotion.image_url) : "";
+
+  return (
+    <section aria-label="Restaurant promotions" className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-[var(--ps-space-4)] px-[var(--ps-space-6)] sm:grid-cols-2 lg:grid-cols-3">
+      {promotions.map((promotion) => {
+        const layout = layoutFor(promotion);
+        const safeImage = imageFor(promotion);
+        const eyebrow = <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--ps-accent-hover)]">{offerLabel(promotion)}</p>;
+        const heading = promotion.headline || promotion.name;
+        const actionClass = "ps-button ps-button-primary inline-flex min-h-11 items-center justify-center px-5 text-sm font-bold";
+
+        if (layout === "announcement_bar") {
+          return (
+            <article key={promotion.id} className="col-span-full flex flex-col gap-3 rounded-xl border border-[var(--ps-border)] bg-[var(--ps-accent-light)] p-[var(--ps-space-4)] text-[var(--ps-text)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                {eyebrow}
+                <h2 className="mt-1 text-base font-bold">{heading}</h2>
+                {promotion.description ? <p className="mt-1 text-sm leading-6 text-[var(--ps-muted)]">{promotion.description}</p> : null}
+              </div>
+              {cta(promotion, actionClass)}
+            </article>
+          );
+        }
+
+        if (layout === "dish_card") {
+          return (
+            <article key={promotion.id} className="min-w-0 overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs">
+              {safeImage ? (
+                <div className="aspect-[4/3] overflow-hidden bg-[var(--ps-neutral)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={safeImage} alt={heading} className="h-full w-full object-cover" loading="lazy" />
+                </div>
+              ) : null}
+              <div className="space-y-3 p-[var(--ps-space-4)]">
+                {eyebrow}<h2 className="text-lg font-bold text-[var(--ps-text)]">{heading}</h2>
+                {promotion.description ? <p className="text-sm leading-6 text-[var(--ps-muted)]">{promotion.description}</p> : null}
+                {cta(promotion, actionClass)}
+              </div>
+            </article>
+          );
+        }
+
+        return (
+          <article key={promotion.id} className="col-span-full grid min-w-0 overflow-hidden rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xs md:grid-cols-12">
+            {safeImage ? (
+              <div className="aspect-[16/9] overflow-hidden bg-[var(--ps-neutral)] md:col-span-5 md:aspect-auto">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={safeImage} alt={heading} className="h-full min-h-56 w-full object-cover" loading="lazy" />
+              </div>
+            ) : null}
+            <div className={`flex flex-col items-start justify-center gap-3 p-[var(--ps-space-6)] md:p-[var(--ps-space-8)] ${safeImage ? "md:col-span-7" : "md:col-span-12"}`}>
+              {eyebrow}<h2 className="font-[var(--v2-heading-font)] text-2xl font-bold leading-tight text-[var(--ps-text)] md:text-3xl">{heading}</h2>
+              {promotion.description ? <p className="max-w-2xl text-sm leading-6 text-[var(--ps-muted)] md:text-base">{promotion.description}</p> : null}
+              {cta(promotion, actionClass)}
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 // ── 12. Menu Embed Block (Live Data) ───────────────────────────────────────
 
 async function MenuEmbedBlockRenderer({
@@ -2214,14 +2330,12 @@ async function MenuEmbedBlockRenderer({
     id: sec.id,
     title: sec.name,
     items: sec.items.map((it) => {
-      const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
-      const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
-      const priceLabel = isPromo
-        ? formatCurrency(Number(it.promo_price), displayCurrency, locale)
-        : formatCurrency(Number(it.price), displayCurrency, locale);
-      const originalPriceLabel = isPromo
-        ? formatCurrency(Number(it.price), displayCurrency, locale)
-        : null;
+      const effectivePrice = Number(it.effective_price ?? it.price);
+      const originalPrice = Number(it.original_price ?? it.price);
+      const isPromo = Number.isFinite(effectivePrice) && Number.isFinite(originalPrice) && effectivePrice < originalPrice;
+      const priceLabel = formatCurrency(effectivePrice, displayCurrency, locale);
+      const originalPriceLabel = isPromo ? formatCurrency(originalPrice, displayCurrency, locale) : null;
+      const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
       const formattedOptionGroups = (it.option_groups || []).map((og) => ({
         id: og.id,
         name: og.name,
@@ -2256,8 +2370,16 @@ async function MenuEmbedBlockRenderer({
         description: it.description,
         image: safeImageSrc(it.image_url) || null,
         priceLabel,
-        numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
+        numericPrice: effectivePrice,
+        rawPrice: Number(it.price),
+        promoPrice: it.promo_price ?? null,
+        organizerId: tenantId,
+        sectionId: it.section_id,
+        createdAt: it.created_at ?? null,
+        isActive: it.is_active,
+        promotions: it.promotions ?? [],
         originalPriceLabel,
+        discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
         isSoldOut: Boolean(it.is_sold_out),
         tags: it.dietary_tags,
         detailRows: [
@@ -2327,20 +2449,21 @@ async function MenuEmbedBlockRenderer({
                   <CatalogCarousel
                     items={sec.items.map((it) => {
                       const safeImg = safeImageSrc(it.image_url);
-                      const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
-                      const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+                      const effectivePrice = Number(it.effective_price ?? it.price);
+                      const originalPrice = Number(it.original_price ?? it.price);
+                      const isPromo = effectivePrice < originalPrice;
+                      const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
                       return {
                         id: it.id,
                         name: it.name,
                         description: it.description,
                         image: safeImg,
-                        priceLabel: isPromo
-                          ? formatCurrency(Number(it.promo_price), displayCurrency, locale)
-                          : formatCurrency(Number(it.price), displayCurrency, locale),
-                        numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
+                        priceLabel: formatCurrency(effectivePrice, displayCurrency, locale),
+                        numericPrice: effectivePrice,
                         originalPriceLabel: isPromo
-                          ? formatCurrency(Number(it.price), displayCurrency, locale)
+                          ? formatCurrency(originalPrice, displayCurrency, locale)
                           : null,
+                        discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
                         isSoldOut: Boolean(it.is_sold_out),
                         isFeatured: Boolean(it.is_featured),
                       };
@@ -2351,8 +2474,10 @@ async function MenuEmbedBlockRenderer({
                 ) : (
                   sec.items.map((it) => {
                     const safeImg = safeImageSrc(it.image_url);
-                    const hasVariant = (it.option_groups || []).some((group) => group.kind === "variant");
-                    const isPromo = !hasVariant && it.promo_price != null && it.promo_price < it.price && it.promo_price >= 0;
+                    const effectivePrice = Number(it.effective_price ?? it.price);
+                    const originalPrice = Number(it.original_price ?? it.price);
+                    const isPromo = effectivePrice < originalPrice;
+                    const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
                     return (
                       <div
                         key={it.id}
@@ -2393,11 +2518,12 @@ async function MenuEmbedBlockRenderer({
                           <div className="mt-[var(--ps-space-1)] text-xs font-semibold">
                             {isPromo ? (
                               <>
-                                <span className="text-[var(--ps-accent-hover)] font-bold">{formatCurrency(Number(it.promo_price), displayCurrency, locale)}</span>
-                                <span className="ml-[var(--ps-space-1)] text-xs font-normal text-[var(--ps-muted)] line-through">{formatCurrency(Number(it.price), displayCurrency, locale)}</span>
+                                <span className="text-[var(--ps-accent-hover)] font-bold">{formatCurrency(effectivePrice, displayCurrency, locale)}</span>
+                                <span className="ml-[var(--ps-space-1)] text-xs font-normal text-[var(--ps-muted)] line-through">{formatCurrency(originalPrice, displayCurrency, locale)}</span>
+                                {discountPercent > 0 ? <span className="ml-2 inline-flex rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--ps-accent-foreground)]">-{discountPercent}%</span> : null}
                               </>
                             ) : (
-                              formatCurrency(Number(it.price), displayCurrency, locale)
+                              formatCurrency(effectivePrice, displayCurrency, locale)
                             )}
                             {it.modifiers.length > 0 && <span className="font-normal text-[var(--ps-muted)]"> + {it.modifiers.length} modifiers</span>}
                             {it.option_groups && it.option_groups.length > 0 && <span className="font-normal text-[var(--ps-muted)]"> • {it.option_groups.length} {t("options").toLowerCase()}</span>}
@@ -2701,6 +2827,7 @@ export async function BlockRenderer({
   reservationConfig,
   siteSlug,
   hasPublishedMenuPage,
+  hasMenuEmbedOnPage,
   scopeInternalLinks,
   accentColor,
   siteTemplateId,
@@ -2720,6 +2847,7 @@ export async function BlockRenderer({
   reservationConfig?: StorefrontReservationConfig;
   siteSlug?: string;
   hasPublishedMenuPage?: boolean;
+  hasMenuEmbedOnPage?: boolean;
   scopeInternalLinks?: boolean;
   accentColor?: string;
   siteTemplateId?: string;
@@ -2837,6 +2965,16 @@ export async function BlockRenderer({
           ? await MenuEmbedBlockRenderer(menuProps)
           : <MenuEmbedBlockRenderer {...menuProps} />;
       }
+      break;
+    case "promotions_embed":
+      content = <PromotionsEmbedBlockRenderer
+        block={b}
+        tenantId={tenantId}
+        siteSlug={siteSlug}
+        hasPublishedMenuPage={hasPublishedMenuPage}
+        hasMenuEmbedOnPage={hasMenuEmbedOnPage}
+        scopeInternalLinks={scopeInternalLinks}
+      />;
       break;
     case "rich_text":
       content = <RichTextBlockRenderer block={b} />;

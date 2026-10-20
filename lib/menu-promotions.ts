@@ -18,6 +18,9 @@ export interface MenuPromotion {
   id: string;
   organizer_id: string;
   name: string;
+  headline?: string | null;
+  description?: string | null;
+  image_url?: string | null;
   offer_type: MenuPromotionOfferType;
   percent_off?: number | null;
   special_price?: number | null;
@@ -28,10 +31,53 @@ export interface MenuPromotion {
   starts_at?: string | null;
   ends_at?: string | null;
   priority?: number | null;
+  layout?: "banner" | "dish_card" | "announcement_bar" | null;
+  cta_label?: string | null;
+  destination_type?: "item" | "section" | "menu" | "external" | "none" | null;
+  destination_item_id?: string | null;
+  destination_section_id?: string | null;
+  destination_url?: string | null;
   created_at?: string | null;
   targets?: readonly MenuPromotionTarget[];
   target_item_ids?: readonly string[];
   target_section_ids?: readonly string[];
+}
+
+export interface MenuPromotionDestinationContext {
+  hasMenuEmbedOnPage?: boolean;
+  hasPublishedMenuPage?: boolean;
+}
+
+/** Return a route only when the destination can be reached from the rendered site. */
+export function getMenuPromotionDestination(
+  promotion: Pick<MenuPromotion, "destination_type" | "destination_item_id" | "destination_section_id" | "destination_url">,
+  context: MenuPromotionDestinationContext = {}
+): string | null {
+  const menuPath = (parameter: "item" | "section", id: string) => {
+    const query = `${parameter}=${encodeURIComponent(id)}`;
+    if (context.hasMenuEmbedOnPage) return `?${query}`;
+    if (context.hasPublishedMenuPage) return `/menu?${query}`;
+    return null;
+  };
+  switch (promotion.destination_type) {
+    case "item":
+      return promotion.destination_item_id ? menuPath("item", promotion.destination_item_id) : null;
+    case "section":
+      return promotion.destination_section_id ? menuPath("section", promotion.destination_section_id) : null;
+    case "menu":
+      return context.hasPublishedMenuPage ? "/menu" : null;
+    case "external": {
+      const value = promotion.destination_url?.trim();
+      if (!value) return null;
+      try {
+        return new URL(value).protocol === "https:" ? value : null;
+      } catch {
+        return null;
+      }
+    }
+    default:
+      return null;
+  }
 }
 
 export interface PromotionPricedItem {

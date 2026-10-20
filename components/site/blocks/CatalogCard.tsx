@@ -13,6 +13,7 @@ export interface CatalogCardItem {
   priceLabel?: string | null;
   numericPrice?: number | null;
   originalPriceLabel?: string | null;
+  discountLabel?: string | null;
   isSoldOut?: boolean;
   isFeatured?: boolean;
   canQuickAdd?: boolean;
@@ -70,16 +71,17 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           {item.description || ""}
         </p>
         {item.priceLabel || item.numericPrice != null ? (
-          <div className="mt-auto pt-1 text-[16px] font-semibold text-[var(--tf-on-soft)]">
+          <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1 text-[16px] font-semibold text-[var(--tf-on-soft)]">
             {item.priceLabel ??
               (typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
                 ? formatCurrency(item.numericPrice, currency, locale)
                 : null)}
             {item.originalPriceLabel ? (
-              <span className="ml-2 text-xs font-normal text-[var(--tf-on-soft)]/75 line-through">
+              <span className="text-xs font-normal text-[var(--tf-on-soft)]/75 line-through">
                 {item.originalPriceLabel}
               </span>
             ) : null}
+            {item.discountLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[11px] font-bold leading-none text-[var(--ps-accent-foreground)]">{item.discountLabel}</span> : null}
           </div>
         ) : null}
       </div>

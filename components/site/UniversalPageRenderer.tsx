@@ -56,6 +56,7 @@ export function UniversalPageRenderer(props: UniversalPageRendererProps) {
   const layout = compilePageBlocksLayoutTheme(props.layout);
   const context = props.websiteContext ?? {};
   const websiteAction = context.mode === "live" ? context.onAction : undefined;
+  const hasMenuEmbedOnPage = layout.layout_blocks.some((block) => block.type === "menu_embed");
   return (
     <div
       className={layout.global_theme.classes.page ?? ""}
@@ -100,6 +101,7 @@ export function UniversalPageRenderer(props: UniversalPageRendererProps) {
             orderConfig={context.orderConfig}
             reservationConfig={context.reservationConfig}
             siteSlug={context.siteSlug}
+            hasMenuEmbedOnPage={hasMenuEmbedOnPage}
             scopeInternalLinks={context.scopeInternalLinks}
             accentColor={context.accentColor}
           />

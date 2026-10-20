@@ -23,6 +23,7 @@ import {
 } from "./FundraiserEmbedInspector";
 import { RichTextInspector } from "./RichTextInspector";
 import { CtaBannerInspector } from "./CtaBannerInspector";
+import { PromotionsEmbedInspector } from "./PromotionsEmbedInspector";
 import { Sliders, X } from "lucide-react";
 import { getFieldDef, isEditablePath, getElementValue } from "@/lib/website-block-edit-schema";
 import type { BlockType } from "@/lib/website-blocks";
@@ -56,6 +57,7 @@ const BLOCK_TITLES: Record<string, string> = {
   fundraiser_embed: "Fundraisers Live Embed",
   rich_text: "Rich Text Content",
   cta_banner: "Call-to-Action Banner",
+  promotions_embed: "Restaurant Promotions",
 };
 
 export function BlockInspector({
@@ -285,6 +287,8 @@ export function BlockInspector({
                   tenantId={tenantId}
                 />
               );
+            case "promotions_embed":
+              return <PromotionsEmbedInspector block={block} onChange={onChange} />;
             default:
               return (
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-xs text-zinc-500">

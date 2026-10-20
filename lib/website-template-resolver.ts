@@ -1032,6 +1032,8 @@ function buildSectionBlock(
       }
       return buildMenuEmbed(ctx, ctx.template.id === "restaurant-savannah" ? "Best sellers" : "Featured dishes", 6, true); // menu.featured — picks only
     }
+    case "promotions_embed":
+      return { type: "promotions_embed", enabled: true, layout: "auto" };
     case "products_embed": {
       if (ctx.template.id !== "store") return null;
       if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;

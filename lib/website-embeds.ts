@@ -19,7 +19,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
 import { fromMinorUnits } from "@/lib/money";
-import { resolveBasePrice, isPromotionActive } from "@/lib/menu-promotions";
+import { resolveBasePrice, isPromotionActive, getMenuPromotionDestination } from "@/lib/menu-promotions";
 import { loadMenuPromotions } from "@/lib/menu-promotion-data";
 import { resolveItemOptionGroups, type NormalizedOptionAssignmentRow, type ResolvedOptionGroup } from "@/lib/menu-pricing";
 import type { MenuPromotion } from "@/lib/menu-promotions";
@@ -30,6 +30,7 @@ import type {
   FundraiserEmbedBlock,
   ServicesEmbedBlock,
   MenuEmbedBlock,
+  PromotionsEmbedBlock,
 } from "./website-blocks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -92,6 +93,8 @@ export interface ResolvedServiceItem {
 
 export interface ResolvedMenuItem {
   id: string;
+  section_id?: string;
+  created_at?: string | null;
   name: string;
   description: string | null;
   price: number;
@@ -121,6 +124,11 @@ export interface ResolvedMenuSection {
   items: ResolvedMenuItem[];
   hasMoreItems?: boolean;
   hasMoreItemsOverall?: boolean;
+}
+
+export interface ResolvedMenuPromotion extends MenuPromotion {
+  destination_href: string | null;
+  destination_external: boolean;
 }
 
 export const EMBED_LIMIT_MAX = 12;
@@ -377,7 +385,7 @@ export async function resolveMenuEmbed(
     ? block.selectedItemIds.filter((id) => typeof id === "string" && id.length > 0)
     : [];
   const buildItemQuery = (includeOptionsSource: boolean) => {
-    let query = supabase.from("menu_items").select(`id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured${includeOptionsSource ? ", options_source" : ""}`).in("section_id", sectionIds);
+    let query = supabase.from("menu_items").select(`id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured, created_at${includeOptionsSource ? ", options_source" : ""}`).in("section_id", sectionIds);
     if (!isTeamMember) query = query.eq("is_active", true);
     if (pickedItemIds.length > 0) query = query.in("id", pickedItemIds);
     return query.order("position", { ascending: true }).limit(MENU_ITEMS_OVERALL_LIMIT + 1);
@@ -479,6 +487,8 @@ export async function resolveMenuEmbed(
     }, itemPromotions, { now: promotionNow, subtotal: 0, currency, variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined });
     const mapped: ResolvedMenuItem = {
       id: it.id,
+      section_id: it.section_id,
+      created_at: it.created_at ?? null,
       name: it.name,
       description: it.description ?? null,
       price: Number(it.price),
@@ -516,6 +526,37 @@ export async function resolveMenuEmbed(
     hasMoreItems: sectionsWithMoreItems.has(sec.id),
     hasMoreItemsOverall,
   }));
+}
+
+/** Public-safe promotion section. The loader omits the code column entirely. */
+export async function resolvePromotionsEmbed(
+  block: PromotionsEmbedBlock,
+  tenantId: string,
+  options: {
+    hasMenuEmbedOnPage?: boolean;
+    hasPublishedMenuPage?: boolean;
+  } = {},
+  client?: SupabaseClient
+): Promise<ResolvedMenuPromotion[]> {
+  if (block.enabled === false || !tenantId) return [];
+  const supabase = client ?? createSupabaseAdmin();
+  const result = await loadMenuPromotions(supabase, tenantId, {
+    includeCodes: false,
+    status: "active",
+    context: "resolvePromotionsEmbed",
+  });
+  if (result.error) return [];
+  const now = new Date();
+  return result.promotions
+    .filter((promotion) => isPromotionActive(promotion, now) && (promotion.targets?.length ?? 0) > 0)
+    .map((promotion) => {
+      const href = getMenuPromotionDestination(promotion, options);
+      return {
+        ...promotion,
+        destination_href: href,
+        destination_external: promotion.destination_type === "external" && Boolean(href),
+      };
+    });
 }
 
 /**

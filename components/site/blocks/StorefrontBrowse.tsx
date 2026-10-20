@@ -43,14 +43,18 @@ import {
   type StoreCartLabels,
 } from "@/components/site/v2/StoreCartDrawer";
 import { addStoreCartItem } from "@/lib/store-cart";
-import { submitOrderRequest } from "@/lib/actions/orders";
+import { submitOrderRequest, validatePromoCode, type ValidatePromoCodeResult } from "@/lib/actions/orders";
 import { formatMoney } from "@/lib/money";
 import {
   calculateMenuLineTotal,
+  calculatePromotionCartPricing,
   calculateSelectedMenuUnitPrice,
   isOptionGroupSelectionSatisfied,
   MAX_LINE_QUANTITY,
+  type MenuPricingItem,
+  type OptionGroupSelection,
 } from "@/lib/menu-pricing";
+import type { MenuPromotion } from "@/lib/menu-promotions";
 import {
   createStorefrontCartLineId,
   createStorefrontPriceVersion,
@@ -222,9 +226,10 @@ export function TableFlameMenuRows({
             <span className="flex items-baseline gap-2">
               <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
               <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[var(--tf-menu-leader)]" />
-              {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+              <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span>
             </span>
             {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+            {item.originalPriceLabel || item.discountLabel ? <span className="mt-1 flex flex-wrap items-center gap-2">{item.originalPriceLabel ? <span className="text-xs font-normal text-[var(--ps-muted)] line-through">{item.originalPriceLabel}</span> : null}{item.discountLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--ps-accent-foreground)]">{item.discountLabel}</span> : null}</span> : null}
             {item.isSoldOut && soldOutLabel ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{soldOutLabel}</span> : null}
           </span>
           {item.image ? (
@@ -267,18 +272,30 @@ function optionQuantityKey(groupId: string, optionId: string): string {
 function browseLineUnitPrice(
   item: BrowseItem,
   selectedOptionIds: readonly string[],
-  selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]
+  selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[],
+  currency = "USD",
+  subtotal = 0
 ): number {
+  return calculateSelectedMenuUnitPrice(browsePricingItem(item), browseOptionSelection(item, selectedOptionIds, selectedOptions), {
+    currency,
+    subtotal,
+    organizerId: item.organizerId,
+    promotions: item.promotions ?? [],
+  }).unitPrice;
+}
+
+function browsePricingItem(item: BrowseItem): MenuPricingItem {
   const groups = item.optionGroups || [];
-  const selected = groups.map((group) => {
-    const options = selectedOptions?.filter((entry) =>
-      entry.groupId ? entry.groupId === group.id : group.options.some((option) => option.id === entry.optionId)
-    ) || selectedOptionIds.filter((optionId) => group.options.some((option) => option.id === optionId)).map((optionId) => ({ optionId, qty: 1 }));
-    return { groupId: group.id, optionIds: options.map((entry) => entry.optionId), selectedOptions: options };
-  }).filter((group) => group.optionIds.length > 0);
-  const pricingItem = {
-    price: typeof item.numericPrice === "number" ? item.numericPrice : 0,
-    promo_price: null,
+  return {
+    id: item.id,
+    organizer_id: item.organizerId,
+    section_id: item.sectionId,
+    created_at: item.createdAt,
+    price: typeof item.rawPrice === "number" ? item.rawPrice : typeof item.numericPrice === "number" ? item.numericPrice : 0,
+    promo_price: item.promoPrice ?? null,
+    is_active: item.isActive !== false,
+    is_sold_out: Boolean(item.isSoldOut),
+    promotions: item.promotions ?? [],
     option_groups: groups.map((group) => ({
       id: group.id,
       name: group.name,
@@ -296,7 +313,34 @@ function browseLineUnitPrice(
       })),
     })),
   };
-  return calculateSelectedMenuUnitPrice(pricingItem, selected).unitPrice;
+}
+
+function browseOptionSelection(
+  item: BrowseItem,
+  selectedOptionIds: readonly string[],
+  selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]
+): OptionGroupSelection[] {
+  return (item.optionGroups || []).map((group) => {
+    const selected = selectedOptions?.filter((entry) =>
+      entry.groupId ? entry.groupId === group.id : group.options.some((option) => option.id === entry.optionId)
+    ) || selectedOptionIds.filter((optionId) => group.options.some((option) => option.id === optionId)).map((optionId) => ({ optionId, qty: 1 }));
+    return { groupId: group.id, optionIds: selected.map((entry) => entry.optionId), selectedOptions: selected };
+  }).filter((group) => group.optionIds.length > 0);
+}
+
+function browseCartPricing(cart: CartItem[], allItems: BrowseItem[], currency: string) {
+  const itemsById = new Map(allItems.map((item) => [item.id, item]));
+  const lines = cart.flatMap((line) => {
+    const item = itemsById.get(line.itemId);
+    return item ? [{ item: browsePricingItem(item), selection: browseOptionSelection(item, line.selectedOptionIds, line.selectedOptions), quantity: line.quantity }] : [];
+  });
+  const promotionsById = new Map<string, MenuPromotion>();
+  for (const item of allItems) for (const promotion of item.promotions ?? []) promotionsById.set(promotion.id, promotion);
+  return calculatePromotionCartPricing(lines, [...promotionsById.values()], {
+    currency,
+    organizerId: allItems.find((item) => item.organizerId)?.organizerId,
+    now: new Date(),
+  });
 }
 
 export function StorefrontBrowse({
@@ -349,6 +393,7 @@ export function StorefrontBrowse({
 
   const triggerRef = useRef<HTMLElement | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handledDeepLinkRef = useRef("");
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
   const sectionRefs = useRef(new Map<string, HTMLElement>());
   const searchId = useId();
@@ -454,6 +499,35 @@ export function StorefrontBrowse({
     setSelectedId(id);
   };
 
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const itemId = params.get("item");
+    const sectionId = params.get("section");
+    const key = `${itemId ?? ""}|${sectionId ?? ""}`;
+    if (!itemId && !sectionId || handledDeepLinkRef.current === key) return;
+    const item = itemId ? allItems.find((candidate) => candidate.id === itemId) : undefined;
+    const section = sectionId ? groups.find((candidate) => candidate.id === sectionId) : undefined;
+    if (!item && !section) return;
+    handledDeepLinkRef.current = key;
+    if (item) {
+      setEditingLineId(null);
+      setSelectedId(item.id);
+      params.delete("item");
+      const query = params.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    }
+    if (section) {
+      activeGroupRef.current = section.id;
+      setActiveGroup(section.id);
+      setRenderedGroupIds((current) => new Set(current).add(section.id));
+      window.setTimeout(() => {
+        tabRefs.current.get(section.id)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        sectionRefs.current.get(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  }, [mounted, allItems, groups]);
+
   const closeSheet = () => {
     const editedLineId = editingLineId;
     setSelectedId(null);
@@ -474,14 +548,9 @@ export function StorefrontBrowse({
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Compute cart subtotal from items
-  const itemsMap = new Map(allItems.map((it) => [it.id, it]));
-  const cartSubtotal = cart.reduce((sum, line) => {
-    const it = itemsMap.get(line.itemId);
-    if (!it) return sum;
-    return sum + calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
-  }, 0);
-
-  const formattedCartSubtotal = `${orderConfig?.currency || "USD"} ${cartSubtotal.toFixed(2)}`;
+  const cartPricing = useMemo(() => browseCartPricing(cart, allItems, orderConfig?.currency || currency || "USD"), [cart, allItems, orderConfig?.currency, currency]);
+  const cartSubtotal = cartPricing.subtotal;
+  const formattedCartSubtotal = `${orderConfig?.currency || currency || "USD"} ${cartSubtotal.toFixed(2)}`;
 
   const handleAddToOrder = (
     itemId: string,
@@ -489,17 +558,22 @@ export function StorefrontBrowse({
     quantity: number,
     selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
   ) => {
-    const item = allItems.find((candidate) => candidate.id === itemId);
     const candidate: CartItem = {
       lineId: editingLineId ?? createStorefrontCartLineId(),
       itemId,
       selectedOptionIds,
       selectedOptions,
       quantity,
-      ...(item ? { priceVersion: createStorefrontPriceVersion(browseLineUnitPrice(item, selectedOptionIds, selectedOptions)) } : {}),
     };
     const result = upsertStorefrontCartLine(cart, candidate, editingLineId);
-    updateCart(result.lines);
+    const pricedCart = browseCartPricing(result.lines, allItems, orderConfig?.currency || currency || "USD");
+    let priceIndex = 0;
+    const nextCart = result.lines.map((line) => {
+      if (!allItems.some((candidateItem) => candidateItem.id === line.itemId)) return line;
+      const calculated = pricedCart.lines[priceIndex++];
+      return calculated ? { ...line, priceVersion: createStorefrontPriceVersion(calculated.unitPrice + calculated.optionsDelta) } : line;
+    });
+    updateCart(nextCart);
     closeSheet();
     announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? "Order updated" : "Added to order");
   };
@@ -529,6 +603,7 @@ export function StorefrontBrowse({
         {groups.map((group) => (
           <section
             key={group.id}
+            id={`menu-section-${group.id}`}
             data-menu-group-id={group.id}
             ref={(node) => { if (node) sectionRefs.current.set(group.id, node); else sectionRefs.current.delete(group.id); }}
             className="space-y-[var(--ps-space-3)]"
@@ -544,7 +619,8 @@ export function StorefrontBrowse({
                 image: item.image,
                 priceLabel: item.priceLabel,
                 numericPrice: item.numericPrice,
-                originalPriceLabel: item.optionGroups?.some((group) => group.kind === "variant") ? null : item.originalPriceLabel,
+                originalPriceLabel: item.originalPriceLabel,
+                discountLabel: item.discountLabel,
                 isSoldOut: item.isSoldOut,
                 canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
               }))}
@@ -571,6 +647,8 @@ export function StorefrontBrowse({
             priceLabel={selected.priceLabel}
             originalPriceLabel={selected.originalPriceLabel}
             numericPrice={selected.numericPrice}
+            pricingItem={selected}
+            pricingSubtotal={cartPricing.preDiscountSubtotal}
             isSoldOut={selected.isSoldOut}
             optionGroups={selected.optionGroups}
             tags={selected.tags}
@@ -965,9 +1043,13 @@ export function StorefrontBrowse({
                     className={`savannah-button group flex min-h-12 min-w-0 flex-1 items-start gap-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ps-accent-hover)] ${item.isSoldOut ? "opacity-60" : ""}`}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-4">
+                      <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                         <span className="font-[var(--v2-heading-font)] text-lg font-bold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
-                        {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                        <span className="flex flex-wrap items-baseline gap-2">
+                          {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+                          {item.originalPriceLabel ? <span className="shrink-0 text-xs font-normal text-[var(--ps-muted)] line-through">{item.originalPriceLabel}</span> : null}
+                          {item.discountLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--ps-accent-foreground)]">{item.discountLabel}</span> : null}
+                        </span>
                       </span>
                       {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
                       {item.isSoldOut && labels.soldOut ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{labels.soldOut}</span> : null}
@@ -1016,11 +1098,12 @@ export function StorefrontBrowse({
                       {item.description ? (
                         <span className="mt-[var(--ps-space-1)] line-clamp-2 block text-xs text-[var(--ps-muted)]">{item.description}</span>
                       ) : null}
-                      <span className="mt-[var(--ps-space-1)] flex items-baseline gap-[var(--ps-space-2)]">
+                      <span className="mt-[var(--ps-space-1)] flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
                         {item.priceLabel ? (
-                          <span className={item.originalPriceLabel && !item.optionGroups?.some((group) => group.kind === "variant") ? "text-xs font-bold text-[var(--ps-accent-hover)]" : "text-xs font-bold text-[var(--ps-text)]"}>{item.priceLabel}</span>
+                          <span className={item.originalPriceLabel ? "text-xs font-bold text-[var(--ps-accent-hover)]" : "text-xs font-bold text-[var(--ps-text)]"}>{item.priceLabel}</span>
                         ) : null}
-                        {item.originalPriceLabel && !item.optionGroups?.some((group) => group.kind === "variant") ? <span className="text-xs font-normal text-[var(--ps-muted)] line-through">{item.originalPriceLabel}</span> : null}
+                        {item.originalPriceLabel ? <span className="text-xs font-normal text-[var(--ps-muted)] line-through">{item.originalPriceLabel}</span> : null}
+                        {item.discountLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--ps-accent-foreground)]">{item.discountLabel}</span> : null}
                       </span>
                     </span>
                   </button>
@@ -1057,6 +1140,8 @@ export function StorefrontBrowse({
           priceLabel={selected.priceLabel}
           originalPriceLabel={selected.originalPriceLabel}
           numericPrice={selected.numericPrice}
+          pricingItem={selected}
+          pricingSubtotal={cartPricing.preDiscountSubtotal}
           isSoldOut={selected.isSoldOut}
           optionGroups={selected.optionGroups}
           tags={selected.tags}
@@ -1175,8 +1260,9 @@ function ItemDetailSheet({
   image,
   description,
   priceLabel,
-  originalPriceLabel,
   numericPrice,
+  pricingItem,
+  pricingSubtotal,
   isSoldOut,
   optionGroups,
   tags,
@@ -1200,6 +1286,8 @@ function ItemDetailSheet({
   priceLabel: string | null;
   originalPriceLabel?: string | null;
   numericPrice?: number;
+  pricingItem?: BrowseItem;
+  pricingSubtotal?: number;
   isSoldOut?: boolean;
   optionGroups?: BrowseOptionGroup[];
   tags: string[];
@@ -1229,7 +1317,6 @@ function ItemDetailSheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef(new Map<string, HTMLDivElement>());
   const titleId = useId();
-  const hasVariantGroup = (optionGroups || []).some((group) => group.kind === "variant");
   const [quantity, setQuantity] = useState(initialCartLine?.quantity ?? 1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => {
     if (!initialCartLine) return defaultBrowseOptionSelections(availableOptionGroups);
@@ -1340,27 +1427,46 @@ function ItemDetailSheet({
     const selected = selectedOptions[group.id] || [];
     return { groupId: group.id, optionIds: selected, selectedOptions: selected.map((optionId) => ({ optionId, qty: selectedOptionQtys[optionQuantityKey(group.id, optionId)] || 1 })) };
   }).filter((group) => group.optionIds.length > 0);
-  const totalUnitPrice = calculateSelectedMenuUnitPrice({
-    price: typeof numericPrice === "number" ? numericPrice : 0,
-    promo_price: null,
-    option_groups: availableOptionGroups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      required: group.required,
-      min: group.min,
-      max: group.max,
-      kind: group.kind || "addon",
-      options: group.options.map((option) => ({
-        id: option.id,
-        name: option.name,
-        price_delta: group.kind === "variant" ? 0 : Number(option.priceDelta) || 0,
-        price: Number(option.price ?? option.priceDelta) || 0,
-        max_qty: option.maxQty ?? 1,
-        is_available: option.isAvailable !== false,
-      })),
-    })),
-  }, selectedGroupInputs).unitPrice;
-  const lineTotalFormatted = formatMoney(calculateMenuLineTotal(totalUnitPrice, quantity), orderConfig?.currency ?? "USD", locale);
+  const fallbackPricingItem: BrowseItem = pricingItem ?? {
+    id: itemId,
+    name: title,
+    priceLabel,
+    numericPrice,
+    tags,
+    detailRows,
+    optionGroups: availableOptionGroups,
+  };
+  const currencyCode = orderConfig?.currency ?? "USD";
+  const unpromotedItem = { ...browsePricingItem(fallbackPricingItem), promo_price: null, promotions: [] };
+  const unpromotedUnitPrice = calculateSelectedMenuUnitPrice(unpromotedItem, selectedGroupInputs, { currency: currencyCode }).unitPrice;
+  const oldUnpromotedUnitPrice = initialCartLine
+    ? calculateSelectedMenuUnitPrice(
+        unpromotedItem,
+        browseOptionSelection(fallbackPricingItem, initialCartLine.selectedOptionIds, initialCartLine.selectedOptions),
+        { currency: currencyCode }
+      ).unitPrice
+    : 0;
+  const existingLinePreDiscount = initialCartLine
+    ? calculateMenuLineTotal(oldUnpromotedUnitPrice, initialCartLine.quantity, currencyCode)
+    : 0;
+  const eligibleSubtotal = Math.max(
+    0,
+    (pricingSubtotal ?? 0) - existingLinePreDiscount + calculateMenuLineTotal(unpromotedUnitPrice, quantity, currencyCode)
+  );
+  const livePricing = calculateSelectedMenuUnitPrice(
+    browsePricingItem(fallbackPricingItem),
+    selectedGroupInputs,
+    { currency: currencyCode, subtotal: eligibleSubtotal, promotions: fallbackPricingItem.promotions ?? [], organizerId: fallbackPricingItem.organizerId }
+  );
+  const totalUnitPrice = livePricing.unitPrice;
+  const formattedBasePrice = formatMoney(livePricing.baseUnitPrice, orderConfig?.currency ?? "USD", locale);
+  const formattedOriginalBasePrice = livePricing.discountPerUnit > 0
+    ? formatMoney(livePricing.originalPrice, orderConfig?.currency ?? "USD", locale)
+    : null;
+  const discountPercent = livePricing.originalPrice > 0
+    ? Math.round((livePricing.discountPerUnit / livePricing.originalPrice) * 100)
+    : 0;
+  const lineTotalFormatted = formatMoney(calculateMenuLineTotal(totalUnitPrice, quantity, orderConfig?.currency ?? "USD"), orderConfig?.currency ?? "USD", locale);
   const selectedOptionQuantities = availableOptionGroups.flatMap((group) =>
     (selectedOptions[group.id] || []).map((optionId) => ({
       groupId: group.id,
@@ -1470,15 +1576,12 @@ function ItemDetailSheet({
                       </span>
                     ) : null}
                   </div>
-                  {priceLabel ? (
-                    <p className="mt-1.5 text-[18px] font-bold text-[var(--tf-on-base)]">
-                      {priceLabel}
-                      {originalPriceLabel && !hasVariantGroup ? (
-                        <span className="ml-2 text-sm font-normal text-[var(--ps-muted)] line-through">
-                          {originalPriceLabel}
-                        </span>
-                      ) : null}
-                    </p>
+                  {priceLabel || typeof numericPrice === "number" ? (
+                    <div className="mt-1.5 flex flex-wrap items-baseline gap-2 text-[18px] font-bold text-[var(--tf-on-base)]">
+                      <span>{formattedBasePrice}</span>
+                      {formattedOriginalBasePrice ? <span className="text-sm font-normal text-[var(--ps-muted)] line-through">{formattedOriginalBasePrice}</span> : null}
+                      {discountPercent > 0 ? <span className="rounded-full bg-[var(--tf-accent)] px-2 py-1 text-[11px] font-bold leading-none text-[var(--tf-on-accent)]">-{discountPercent}%</span> : null}
+                    </div>
                   ) : null}
                 </div>
 
@@ -1591,16 +1694,9 @@ function ItemDetailSheet({
               </div>
               <div className={image ? "lg:col-span-1" : "lg:col-span-2"}>
                 <div className="flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
-                  {priceLabel ? (
-                    <p className="text-base font-bold text-[var(--ps-text)]">
-                      {priceLabel}
-                    </p>
-                  ) : null}
-                  {originalPriceLabel && !hasVariantGroup ? (
-                    <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
-                      {originalPriceLabel}
-                    </span>
-                  ) : null}
+                  {priceLabel || typeof numericPrice === "number" ? <p className="text-base font-bold text-[var(--ps-text)]">{formattedBasePrice}</p> : null}
+                  {formattedOriginalBasePrice ? <span className="text-sm font-normal text-[var(--ps-muted)] line-through">{formattedOriginalBasePrice}</span> : null}
+                  {discountPercent > 0 ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[11px] font-bold leading-none text-[var(--ps-accent-foreground)]">-{discountPercent}%</span> : null}
                 </div>
                 {description ? <p className="text-sm leading-6 text-[var(--ps-muted)]">{description}</p> : null}
                 {tags.length > 0 ? (
@@ -1803,6 +1899,28 @@ function OrderDrawer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [promoExpanded, setPromoExpanded] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidation, setPromoValidation] = useState<Extract<ValidatePromoCodeResult, { success: true; valid: true }> | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+
+  useEffect(() => {
+    try {
+      const remembered = localStorage.getItem(`aldriva_promo_${orderConfig.slug}`);
+      if (remembered) {
+        setPromoCode(remembered);
+        setPromoExpanded(true);
+      }
+    } catch {
+      // Storage may be unavailable in private browsing.
+    }
+  }, [orderConfig.slug]);
+
+  useEffect(() => {
+    setPromoValidation(null);
+    setPromoError(null);
+  }, [cart]);
 
   // Esc key closes drawer
   useEffect(() => {
@@ -1822,18 +1940,16 @@ function OrderDrawer({
   }, [onClose]);
 
   // Subtotal calculation
-  const subtotal = cart.reduce((sum, line) => {
-    const it = itemsMap.get(line.itemId);
-    if (!it) return sum;
-    return sum + calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
-  }, 0);
+  const cartPricing = useMemo(() => browseCartPricing(cart, allItems, orderConfig.currency), [cart, allItems, orderConfig.currency]);
+  const automaticSubtotal = cartPricing.subtotal;
+  const subtotal = promoValidation?.subtotal ?? automaticSubtotal;
 
   // Delivery fee preview (client-side only; server recomputes authoritatively on submit)
   const rawDeliveryFee = orderConfig.deliveryFee ?? 0;
   const freeAbove = orderConfig.freeDeliveryAbove ?? null;
   const displayDeliveryFee =
     fulfilment === "delivery"
-      ? freeAbove !== null && subtotal >= freeAbove
+      ? promoValidation?.freeDeliveryPromotionApplied || (freeAbove !== null && subtotal >= freeAbove)
         ? 0
         : rawDeliveryFee
       : 0;
@@ -1842,9 +1958,49 @@ function OrderDrawer({
   const formattedSubtotal = `${orderConfig.currency} ${subtotal.toFixed(2)}`;
   const formattedDeliveryFee =
     displayDeliveryFee === 0
-      ? orderConfig.currency + " 0.00"
+      ? `${orderConfig.currency} 0.00`
       : `${orderConfig.currency} ${displayDeliveryFee.toFixed(2)}`;
   const formattedTotal = `${orderConfig.currency} ${grandTotal.toFixed(2)}`;
+
+  const toOrderPayloadLines = () => cart.map((line) => ({
+    itemId: line.itemId,
+    selectedOptionIds: line.selectedOptionIds,
+    selectedOptions: line.selectedOptions?.map((option) => ({
+      ...(option.groupId ? { groupId: option.groupId } : {}),
+      optionId: option.optionId,
+      qty: option.qty,
+    })),
+    quantity: line.quantity,
+  }));
+
+  const applyPromoCode = async () => {
+    const code = promoCode.trim();
+    if (!code) {
+      setPromoError("Enter a promo code.");
+      return;
+    }
+    setIsValidatingPromo(true);
+    setPromoError(null);
+    try {
+      const result = await validatePromoCode(orderConfig.slug, code, toOrderPayloadLines());
+      if (!result.success || !result.valid) {
+        setPromoValidation(null);
+        setPromoError(result.success ? result.message : result.message);
+        return;
+      }
+      setPromoValidation(result);
+      try {
+        localStorage.setItem(`aldriva_promo_${orderConfig.slug}`, code);
+      } catch {
+        // Storage is only a convenience; the server validates again at submit.
+      }
+    } catch {
+      setPromoValidation(null);
+      setPromoError("Promo code could not be checked. Please try again.");
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1871,16 +2027,43 @@ function OrderDrawer({
       ? new Date(customScheduleTime).toISOString()
       : null;
 
-    const payloadItems = cart.map((c) => ({
-      itemId: c.itemId,
-      selectedOptionIds: c.selectedOptionIds,
-      selectedOptions: c.selectedOptions?.map((option) => ({
-        ...(option.groupId ? { groupId: option.groupId } : {}),
-        optionId: option.optionId,
-        qty: option.qty,
-      })),
-      quantity: c.quantity,
-    }));
+    const payloadItems = toOrderPayloadLines();
+    const submittedCode = promoCode.trim();
+    setIsValidatingPromo(true);
+    let latestPreview: Extract<ValidatePromoCodeResult, { success: true; valid: true }>;
+    try {
+      const previewResult = await validatePromoCode(orderConfig.slug, submittedCode, payloadItems);
+      if (!previewResult.success || !previewResult.valid) {
+        const message = previewResult.success ? previewResult.message : previewResult.message;
+        setPromoError(message);
+        setErrorMessage(message);
+        setIsValidatingPromo(false);
+        return;
+      }
+      latestPreview = previewResult;
+    } catch {
+      setPromoError("Promo code could not be checked. Please try again.");
+      setErrorMessage("Prices could not be checked. Please try again.");
+      setIsValidatingPromo(false);
+      return;
+    }
+    setIsValidatingPromo(false);
+    const displayedLineTotals = cart.map((_, index) => promoValidation?.lines[index]?.lineTotal ?? cartPricing.lines[index]?.lineTotal ?? 0);
+    const linePricesChanged = latestPreview.lines.some((line, index) => Math.abs((displayedLineTotals[index] ?? 0) - line.lineTotal) > 0.0001);
+    const freeDeliveryForPreview = latestPreview.freeDeliveryPromotionApplied || (freeAbove !== null && latestPreview.subtotal >= freeAbove);
+    const latestDeliveryFee = fulfilment === "delivery" ? (freeDeliveryForPreview ? 0 : rawDeliveryFee) : 0;
+    const checkoutPriceChanged = linePricesChanged || Math.abs(latestPreview.subtotal - subtotal) > 0.0001 || Math.abs(latestDeliveryFee - displayDeliveryFee) > 0.0001;
+    setPromoValidation(latestPreview);
+    setPromoError(null);
+    if (checkoutPriceChanged) {
+      setErrorMessage("Price updated. We refreshed the item prices and discounts. Review your order, then place it again.");
+      return;
+    }
+    if (submittedCode) {
+      try { localStorage.setItem(`aldriva_promo_${orderConfig.slug}`, submittedCode); } catch { /* Best-effort reference only. */ }
+    } else {
+      try { localStorage.removeItem(`aldriva_promo_${orderConfig.slug}`); } catch { /* Storage is optional. */ }
+    }
     // Idempotency key per submission attempt
     const idempotencyKey = `cart_${orderConfig.slug}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -1901,6 +2084,7 @@ function OrderDrawer({
             deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
             customerNote: customerNote.trim() || null,
             items: payloadItems,
+            promoCode: submittedCode || null,
             idempotencyKey,
             hp: honeypot || null,
             scheduledFor: scheduledForPayload,
@@ -1937,6 +2121,7 @@ function OrderDrawer({
         deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
         customerNote: customerNote.trim() || null,
         items: payloadItems,
+        promoCode: submittedCode || null,
         idempotencyKey,
         hp: honeypot || null,
         scheduledFor: scheduledForPayload,
@@ -2097,8 +2282,13 @@ function OrderDrawer({
                   return [{ group, option, qty: selected.qty }];
                 })
               );
-              const itemTotal = calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
-              const priceUpdated = Boolean(line.priceVersion && line.priceVersion !== createStorefrontPriceVersion(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions)));
+              const automaticLine = cartPricing.lines[index];
+              const codeLine = promoValidation?.lines[index];
+              const itemTotal = codeLine?.lineTotal ?? automaticLine?.lineTotal ?? calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions, orderConfig.currency), line.quantity, orderConfig.currency);
+              const lineUnitPrice = automaticLine ? automaticLine.unitPrice + automaticLine.optionsDelta : browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions, orderConfig.currency);
+              const priceUpdated = Boolean(line.priceVersion && line.priceVersion !== createStorefrontPriceVersion(lineUnitPrice));
+              const discountPerUnit = codeLine?.discountPerUnit ?? automaticLine?.discountPerUnit ?? 0;
+              const promotionName = codeLine?.promotionName ?? automaticLine?.appliedPromotion?.name ?? null;
 
               return (
                 <div key={line.lineId} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
@@ -2118,6 +2308,7 @@ function OrderDrawer({
                     <p className="text-xs font-semibold text-[var(--ps-accent-hover)] mt-[var(--ps-space-1)]">
                       {orderConfig.currency} {itemTotal.toFixed(2)}
                     </p>
+                    {discountPerUnit > 0 ? <p className="mt-1 text-xs font-medium text-emerald-700">{promotionName || "Discount applied"} · save {orderConfig.currency} {calculateMenuLineTotal(discountPerUnit, line.quantity, orderConfig.currency).toFixed(2)}</p> : null}
                     <button type="button" data-cart-edit-id={line.lineId} onClick={(event) => onEditItem(line, event.currentTarget)} className="mt-2 min-h-11 rounded-lg px-3 text-xs font-semibold text-[var(--ps-accent-hover)] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">Edit</button>
                   </div>
                   <div className="flex items-center gap-[var(--ps-space-2)]">
@@ -2161,6 +2352,37 @@ function OrderDrawer({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-[var(--ps-space-4)] pt-[var(--ps-space-2)]">
+            <div className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)]">
+              <button
+                type="button"
+                aria-expanded={promoExpanded}
+                onClick={() => setPromoExpanded((expanded) => !expanded)}
+                className="min-h-11 w-full text-left text-xs font-semibold text-[var(--ps-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+              >
+                {promoExpanded ? "Promo code" : "Have a promo code?"}
+              </button>
+              {promoExpanded ? (
+                <div className="space-y-[var(--ps-space-2)]">
+                  <label htmlFor={`promo-code-${orderConfig.slug}`} className="block text-xs font-semibold text-[var(--ps-muted)]">Enter promo code</label>
+                  <div className="flex flex-wrap gap-[var(--ps-space-2)]">
+                    <input
+                      id={`promo-code-${orderConfig.slug}`}
+                      type="text"
+                      autoComplete="off"
+                      value={promoCode}
+                      onChange={(event) => { setPromoCode(event.currentTarget.value); setPromoValidation(null); setPromoError(null); }}
+                      className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] text-xs uppercase text-[var(--ps-text)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
+                    />
+                    <button type="button" disabled={isValidatingPromo || !promoCode.trim()} onClick={applyPromoCode} className="ps-button ps-button-secondary min-h-11 px-4 text-xs font-bold disabled:opacity-50">
+                      {isValidatingPromo ? "Checking…" : "Apply"}
+                    </button>
+                    {promoCode ? <button type="button" onClick={() => { setPromoCode(""); setPromoValidation(null); setPromoError(null); try { localStorage.removeItem(`aldriva_promo_${orderConfig.slug}`); } catch { /* Optional storage. */ } }} className="min-h-11 px-3 text-xs font-semibold text-[var(--ps-muted)] underline">Remove</button> : null}
+                  </div>
+                  {promoError ? <p role="alert" className="text-xs font-medium text-red-700">{promoError}</p> : null}
+                  {promoValidation ? <p role="status" className="text-xs font-medium text-emerald-700">Code checked. Promotion prices are shown in your order.</p> : null}
+                </div>
+              ) : null}
+            </div>
             {/* Fulfilment selector */}
             {allowsDelivery && allowsPickup ? (
               <div className="space-y-[var(--ps-space-2)]">

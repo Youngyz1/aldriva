@@ -418,6 +418,11 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                         {item.chosen_options.map(formatChosenMenuOption).join(", ")}
                       </p>
                     )}
+                    {item.promotion?.name ? (
+                      <p className="mt-[var(--ps-space-1)] text-[11px] font-medium text-emerald-700">
+                        {item.promotion.name}{item.promotion.discount_per_unit > 0 ? ` · saved ${formatMoney(item.promotion.discount_per_unit * item.quantity, order.currency, locale)}` : " applied"}
+                      </p>
+                    ) : null}
                   </div>
                   <p className="font-semibold text-[var(--ps-text)] tabular-nums ml-[var(--ps-space-4)]">
                     {formatMoney(item.line_total, order.currency, locale)}

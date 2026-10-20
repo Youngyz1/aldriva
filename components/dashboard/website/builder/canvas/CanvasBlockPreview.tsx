@@ -23,6 +23,7 @@ import {
   FundraiserEmbedBlock,
   RichTextBlock,
   CtaBannerBlock,
+  PromotionsEmbedBlock,
 } from "@/lib/website-blocks";
 import { BuilderEmbedOptions } from "@/lib/actions/website-builder";
 import { sanitizeArticleHtml } from "@/lib/sanitize-html";
@@ -563,6 +564,17 @@ export function CanvasBlockPreview({ block, embedOptions, selectedElementPath, o
               </Hit>
             )}
           </div>
+        </section>
+      );
+    }
+
+    case "promotions_embed": {
+      const b = block as PromotionsEmbedBlock;
+      return (
+        <section className="rounded-xl border border-dashed border-orange-300 bg-orange-50 px-6 py-8 text-center dark:border-orange-800 dark:bg-orange-950/20">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-300">Restaurant promotions</p>
+          <h2 className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">{b.enabled === false ? "Promotions section is off" : "Dashboard promotions appear here"}</h2>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Layout: {b.layout === "auto" || !b.layout ? "Use each promotion’s setting" : b.layout.replaceAll("_", " ")}</p>
         </section>
       );
     }

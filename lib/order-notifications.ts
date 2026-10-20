@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import { Resend } from "resend";
 import { formatChosenMenuOption } from "@/lib/order-option-display";
+import { formatMoney } from "@/lib/money";
 
 export type OrderNotificationChannel = "bell" | "email" | "whatsapp";
 
@@ -27,6 +28,14 @@ export interface OrderNotificationPayload {
     quantity: number;
     unit_price: number;
     line_total: number;
+    promotion?: {
+      id: string;
+      name: string;
+      offer_type: string;
+      code?: string;
+      original_unit_price: number;
+      discount_per_unit: number;
+    };
     chosen_options?: Array<{
       name: string;
       price_delta?: number;
@@ -81,7 +90,12 @@ export async function dispatchOrderNotifications(
     const title = `New order #${order.order_number}`;
     const formattedTotal = `${order.currency} ${Number(order.total_amount).toFixed(2)}`;
     const fulfilmentText = order.fulfilment_type === "delivery" ? "Delivery" : "Pickup";
-    const body = `${order.customer_name} placed an order (${fulfilmentText}) for ${formattedTotal}.`;
+    const promotionSummary = (order.items || [])
+      .filter((item) => item.promotion?.name)
+      .slice(0, 3)
+      .map((item) => `${item.name}: ${item.promotion!.name}${item.promotion!.discount_per_unit > 0 ? ` (saved ${formatMoney(item.promotion!.discount_per_unit * item.quantity, order.currency, "en")})` : ""}`)
+      .join("; ");
+    const body = `${order.customer_name} placed an order (${fulfilmentText}) for ${formattedTotal}.${promotionSummary ? ` Promotions: ${promotionSummary}.` : ""}`;
     const showFeeBreakdown =
       order.fulfilment_type === "delivery" &&
       typeof order.subtotal === "number" &&
@@ -122,10 +136,14 @@ export async function dispatchOrderNotifications(
             const optionsList = (item.chosen_options || [])
               .map(formatChosenMenuOption)
               .join(", ");
+            const promotionLine = item.promotion?.name
+              ? `<div style="color: #047857; font-size: 13px;">Promotion: ${escapeHtml(item.promotion.name)}${item.promotion.discount_per_unit > 0 ? ` · saved ${escapeHtml(formatMoney(item.promotion.discount_per_unit * item.quantity, order.currency, "en"))}` : ""}</div>`
+              : "";
             return `<tr>
               <td style="padding: 6px 0; border-bottom: 1px solid #f4f4f5;">
                 <strong>${item.quantity}x ${escapeHtml(item.name)}</strong>
                 ${optionsList ? `<div style="color: #71717a; font-size: 13px;">${escapeHtml(optionsList)}</div>` : ""}
+                ${promotionLine}
               </td>
               <td style="padding: 6px 0; border-bottom: 1px solid #f4f4f5; text-align: right; vertical-align: top;">
                 ${order.currency} ${Number(item.line_total).toFixed(2)}

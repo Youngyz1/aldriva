@@ -20,6 +20,7 @@ import {
   HeartHandshake,
   FileText,
   Megaphone,
+  BadgePercent,
   Plus,
   Layers,
   ChevronUp,
@@ -55,6 +56,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   HeartHandshake: <HeartHandshake className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
   FileText: <FileText className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />,
   Megaphone: <Megaphone className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+  BadgePercent: <BadgePercent className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
 };
 
 function getBlockTitle(block: Block, index: number): string {

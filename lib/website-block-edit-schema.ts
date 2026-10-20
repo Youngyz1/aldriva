@@ -106,6 +106,7 @@ export const BLOCK_EDIT_SCHEMA: Record<BlockType, Record<string, EditFieldDef>> 
     "heading": { type: "text", label: "Heading" },
     "subheading": { type: "textarea", label: "Subheading" },
   },
+  promotions_embed: {},
   menu_order: {},
   reservation_form: {},
 };

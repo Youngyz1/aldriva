@@ -11,6 +11,8 @@
  * the server, which owns currency + locale).
  */
 
+import type { MenuPromotion } from "./menu-promotions";
+
 export const BROWSE_ALL_GROUP = "all";
 
 export interface BrowseDetailRow {
@@ -51,6 +53,15 @@ export interface BrowseItem {
   priceLabel: string | null;
   /** Numeric price value for client total calculations. */
   numericPrice?: number;
+  /** Raw base price and promotion data for the shared menu pricing preview. */
+  rawPrice?: number;
+  promoPrice?: number | null;
+  organizerId?: string;
+  sectionId?: string | null;
+  isActive?: boolean;
+  promotions?: MenuPromotion[];
+  /** Discount badge copied from the server's shared price resolution. */
+  discountLabel?: string | null;
   /** ISO timestamp for newest-first sorting. Absent sorts last. */
   createdAt?: string | null;
   /** Regular price crossed out when promo price is active. */

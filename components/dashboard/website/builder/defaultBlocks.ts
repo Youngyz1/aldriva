@@ -234,6 +234,18 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
     }),
   },
   {
+    type: "promotions_embed",
+    label: "Restaurant Promotions",
+    category: "embeds",
+    description: "Show active restaurant promotions managed from the dashboard menu Promotions page.",
+    iconName: "BadgePercent",
+    createDefault: (): Block => normalizeBlock({
+      type: "promotions_embed",
+      enabled: true,
+      layout: "auto",
+    }),
+  },
+  {
     type: "rich_text",
     label: "Rich Text Prose",
     category: "legacy",

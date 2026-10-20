@@ -574,6 +574,9 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
   }
 
   const rawBlocks = (targetPage.blocks as unknown[]) || [];
+  const hasMenuEmbedOnPage = rawBlocks.some((value) =>
+    Boolean(value && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).type === "menu_embed")
+  );
   const tableFlame = v2Template?.id === "restaurant-table-flame";
   const savannah = v2Template?.id === "restaurant-savannah";
   const backgroundPattern = tableFlame && v2Template
@@ -679,6 +682,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               reservationConfig={reservationConfig}
               siteSlug={website.slug}
               hasPublishedMenuPage={hasPublishedMenuPage}
+              hasMenuEmbedOnPage={hasMenuEmbedOnPage}
               accentColor={v2Template
                 ? v2ThemeStyle(v2Template, website.metadata)["--ps-accent"]
                 : (typeof website.theme_config?.primaryColor === "string" ? website.theme_config.primaryColor : undefined)}

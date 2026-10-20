@@ -27,6 +27,11 @@ export function CtaBannerInspector({
 
   return (
     <div className="space-y-4">
+      {block.variant === "promo" ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="note">
+          Legacy manual promotion banner. Its content and link stay as entered here; use the Restaurant Promotions section for dashboard-managed offers.
+        </p>
+      ) : null}
       <InspectorSection title="Banner Style" defaultOpen>
         <InspectorField label="Color Theme">
           <div className="grid grid-cols-3 gap-2">
