@@ -428,8 +428,18 @@
   - Reusable groups and options are organizer-scoped and assigned per menu item. `menu_items.options_source` is the source-of-truth marker: `json` keeps legacy `option_groups`, and `normalized` uses assignments even when none remain. This prevents deleted/unassigned normalized options from being resurrected and prevents assignment rows from changing JSON items. Legacy `modifiers` are not migrated.
   - Add-ons add non-negative option deltas, including bounded per-option quantity. Variants require exactly one option whose price replaces the item's base price. Existing negative deltas remain accepted only through the legacy path.
   - The storefront preselects a variant default or first visible option. It preselects only free add-on defaults; paid defaults wait for the Phase 2 dashboard. These are client selections, not server defaults. `promo_price` and its strikethrough are hidden for variant items in this phase. Existing order snapshots are not rewritten; new snapshots include group identity/label/kind and quantity.
-  - Owner/admin/manager and active platform admins can DELETE groups, options, and assignments. Editors retain create/update access; editor DELETE is not needed without the Phase 2 dashboard. Actions use the same delete roles as RLS.
+  - Phase 1 allowed DELETE for owner/admin/manager and active platform admins on groups, options, and assignments. DEC-0047 amends assignment deletion for the Phase 2 dashboard: editors can detach assignments, but group and option deletion remain manager+.
   - The backfill uses deterministic IDs and remains opt-in; `--apply` marks only items it migrates as `normalized`. Read-only `--verify` is tested on the staging seed mirror fixture and an independent test fixture. Public embeds and order-submit fall back to JSON and log once if the new schema is missing.
+
+### DEC-0047: Menu option dashboard edits preserve the JSON path and use guarded actions
+- **Decision Date**: 2026-10-20
+- **Status**: Implemented in working tree; migration 183 is authored and awaits staging review. No migration or database operation has been run.
+- **Key Tenets**:
+  - The option library and item assignment controls are dashboard-only. Every mutation passes through tenant-authorized server actions; owner/admin/manager/editor can create and update, editors can detach item assignments, and only owner/admin/manager plus active platform admins can delete shared groups or options.
+  - JSON-backed items keep the current JSON editor until the owner chooses upgrade. Upgrade conversion calls the same deterministic converter as the backfill, writes normalized rows and switches `options_source` through one PostgreSQL function call, and leaves `option_groups` JSON untouched. Invalid legacy groups are rejected with a reason.
+  - Group, option, and assignment edits compare `updated_at` values so stale dashboard submissions fail with a reload message. Migration 183 adds assignment `updated_at`, removes a deleted option ID from every assignment's hidden IDs and price overrides, and permits editor DELETE on assignments only.
+  - Code-owned templates are fully editable and create only zero-priced example options. Paid add-on defaults receive an honest notice; customer-side default behavior and pricing logic stay unchanged.
+  - `DIETARY_TAGS` and `MENU_ALLERGENS` are the shared code definitions used by UI and server validation. Tests parse the existing SQL CHECK arrays to prevent drift. Custom tags, custom allergens, image optimization, bulk import, promotions, popups, analytics, and customer-side Phase 3 polish remain deferred.
 
 ## 2. Proposed & Under Review Decisions
 

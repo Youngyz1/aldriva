@@ -1,5 +1,12 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Menu option groups Phase 2 dashboard (2026-10-20)
+
+- **Status: IMPLEMENTED IN WORKING TREE; migration 183 is authored and awaits staging approval.** The dashboard adds a reusable group library, six editable bilingual starter templates, option editing, normalized item assignment/override controls, legacy JSON upgrade, and read-only legacy modifiers. JSON remains unchanged after upgrade.
+- Migration 183 adds assignment `updated_at`, cleans deleted option IDs from assignment hidden/override values, permits editor DELETE on assignments only, and defines a service-role-only atomic JSON upgrade function. The forward SQL and timestamped Supabase mirror are byte-identical (SHA-256 `5D9AC6E6275DF6FFF3E20E6CE7788AB1B65E6BE4512D285421DAC8C283210F44`). Rollback restores manager-only assignment DELETE and removes Phase 2 objects. No migration or database operation has been run.
+- **Verification:** `npm run test:chunked` passed 2,496/2,496 across 196 registered files in 7 chunks; Phase 2 focused regressions passed 12/12; affected menu/action suites passed 63/63; Stage 17 passed 14/14; `npx tsc --noEmit --pretty false` passed; touched-file ESLint had 0 errors and one unused-variable warning in `lib/__tests__/storefront-browse.test.cjs:1248`; `git diff --check` is rerun before handoff. No UI screenshot session was available; responsive descriptions in `docs/phase-2-report.md` are code-reviewed, not screenshot-verified.
+- Full migration SQL, rollback, RLS summary, files changed, and the staging application procedure are recorded in `docs/phase-2-report.md`.
+
 ## Active Worktree Update — Menu option groups Phase 1 (2026-10-20)
 
 - **Status: IMPLEMENTED IN WORKING TREE; revised Checkpoint B review complete.** Migration 182 adds organizer-scoped reusable option groups/options and item assignments, plus the additive `menu_items.options_source` marker, constraints, tenant guards, indexes, and RLS. The `db/` SQL and timestamped Supabase mirror are byte-identical (SHA-256 `D0101E512031C84BDFB91222241CBC3193C8A1A4DC0B429922BB6D7B4E825303`); rollback removes only these objects and the marker. No migration, seed, or database operation has been run.

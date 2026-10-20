@@ -82,3 +82,10 @@ Phase 6 — Unified Commerce (planned). Do NOT start until Phase 5 is documented
 - The backfill is deterministic and opt-in; `--apply` marks only items it migrated normalized. `--verify` is tested on a JSON mirror of the staging seed and a separate suite fixture. Public embeds and order-submit fall back to JSON and log once when the new schema is missing. Staging seed and cleanup files were authored but not run.
 - Phase 2 backlog: deleting an option must remove its ID from `hidden_option_ids` and `price_overrides` on every assignment, or relax the trigger to validate only IDs changed by the current write.
 - Verification: final revised Checkpoint B test, TypeScript, ESLint, and diff-check results are recorded in `docs/CURRENT-STATE.md`. No database access or migration execution occurred.
+
+## 15. Menu option groups Phase 2 dashboard (2026-10-20; authored, migration not applied)
+
+- Added the group library, six editable bilingual starter templates, option editor, per-item group picker/reordering, hidden-option and price-override controls, JSON upgrade banner/action, and read-only legacy modifiers. JSON stays authoritative until an explicit upgrade action completes.
+- The server action uses the shared backfill converter and invokes `upgrade_menu_item_option_groups` once; migration 183 defines that invoker-security function so group, option, assignment inserts and the source-marker update share one transaction. The function is callable only by `service_role` and has an explicit `search_path`.
+- Migration 183 also cleans deleted option IDs from assignment overrides/hidden lists, adds assignment `updated_at` for optimistic concurrency, and changes DELETE RLS only for item assignments: editors may detach; group/options deletion remains manager+.
+- The current report and verification state are in `docs/phase-2-report.md`. No SQL, migration, seed, or database operation has been run.
