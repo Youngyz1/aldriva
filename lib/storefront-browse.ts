@@ -51,8 +51,6 @@ export interface BrowseItem {
   priceLabel: string | null;
   /** Numeric price value for client total calculations. */
   numericPrice?: number;
-  /** Menu item update token used to flag a potentially changed cart price. */
-  updatedAt?: string | null;
   /** ISO timestamp for newest-first sorting. Absent sorts last. */
   createdAt?: string | null;
   /** Regular price crossed out when promo price is active. */

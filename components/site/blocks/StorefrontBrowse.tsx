@@ -53,6 +53,7 @@ import {
 } from "@/lib/menu-pricing";
 import {
   createStorefrontCartLineId,
+  createStorefrontPriceVersion,
   migrateStorefrontCart,
   reconcileStorefrontCart,
   STOREFRONT_CART_VERSION,
@@ -495,7 +496,7 @@ export function StorefrontBrowse({
       selectedOptionIds,
       selectedOptions,
       quantity,
-      ...(item?.updatedAt ? { itemUpdatedAt: item.updatedAt } : {}),
+      ...(item ? { priceVersion: createStorefrontPriceVersion(browseLineUnitPrice(item, selectedOptionIds, selectedOptions)) } : {}),
     };
     const result = upsertStorefrontCartLine(cart, candidate, editingLineId);
     updateCart(result.lines);
@@ -2097,7 +2098,7 @@ function OrderDrawer({
                 })
               );
               const itemTotal = calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
-              const priceUpdated = Boolean(line.itemUpdatedAt && it.updatedAt && line.itemUpdatedAt !== it.updatedAt);
+              const priceUpdated = Boolean(line.priceVersion && line.priceVersion !== createStorefrontPriceVersion(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions)));
 
               return (
                 <div key={line.lineId} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">

@@ -1,7 +1,7 @@
 import { isOptionGroupSelectionSatisfied, MAX_LINE_QUANTITY } from "./menu-pricing";
 import type { BrowseItem } from "./storefront-browse";
 
-export const STOREFRONT_CART_VERSION = 3;
+export const STOREFRONT_CART_VERSION = 4;
 
 export interface StorefrontCartLine {
   lineId: string;
@@ -9,8 +9,20 @@ export interface StorefrontCartLine {
   selectedOptionIds: string[];
   selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>;
   quantity: number;
-  /** Item update token only; prices are always recalculated from the live menu. */
-  itemUpdatedAt?: string | null;
+  /** Opaque fingerprint of the selected live unit price; no price is stored. */
+  priceVersion?: string;
+}
+
+/** Stable fingerprint used only to detect live price changes. */
+export function createStorefrontPriceVersion(unitPrice: number): string {
+  const cents = Number.isFinite(unitPrice) ? Math.round(unitPrice * 100) : 0;
+  let hash = 0x811c9dc5;
+  const input = String(cents);
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `p1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 export function migrateStorefrontCart(
@@ -22,7 +34,7 @@ export function migrateStorefrontCart(
     : null;
   const rawLines = Array.isArray(value)
     ? value
-    : wrapped && [1, 2, STOREFRONT_CART_VERSION].includes(Number(wrapped.version)) && Array.isArray(wrapped.items)
+    : wrapped && [1, 2, 3, STOREFRONT_CART_VERSION].includes(Number(wrapped.version)) && Array.isArray(wrapped.items)
       ? wrapped.items
       : [];
   let needsSave = !Array.isArray(value) && (!wrapped || wrapped.version !== STOREFRONT_CART_VERSION);
@@ -52,7 +64,9 @@ export function migrateStorefrontCart(
       selectedOptionIds: [...line.selectedOptionIds],
       selectedOptions,
       quantity: Number(line.quantity),
-      ...(typeof line.itemUpdatedAt === "string" ? { itemUpdatedAt: line.itemUpdatedAt } : {}),
+      ...(typeof line.priceVersion === "string" && /^p1-[0-9a-f]{8}$/.test(line.priceVersion)
+        ? { priceVersion: line.priceVersion }
+        : {}),
     });
   }
   if (lines.length !== rawLines.length) needsSave = true;

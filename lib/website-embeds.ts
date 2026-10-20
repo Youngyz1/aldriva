@@ -99,7 +99,6 @@ export interface ResolvedMenuItem {
   allergens: string[];
   modifiers: { name: string; price_delta: number }[];
   option_groups?: ResolvedOptionGroup[];
-  updated_at?: string | null;
   is_active: boolean;
   is_featured: boolean;
   isDraft: boolean;
@@ -369,7 +368,7 @@ export async function resolveMenuEmbed(
     ? block.selectedItemIds.filter((id) => typeof id === "string" && id.length > 0)
     : [];
   const buildItemQuery = (includeOptionsSource: boolean) => {
-    let query = supabase.from("menu_items").select(`id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured, updated_at${includeOptionsSource ? ", options_source" : ""}`).in("section_id", sectionIds);
+    let query = supabase.from("menu_items").select(`id, section_id, name, description, price, promo_price, is_sold_out, option_groups, image_url, dietary_tags, allergens, modifiers, is_active, is_featured${includeOptionsSource ? ", options_source" : ""}`).in("section_id", sectionIds);
     if (!isTeamMember) query = query.eq("is_active", true);
     if (pickedItemIds.length > 0) query = query.in("id", pickedItemIds);
     return query.order("position", { ascending: true }).limit(MENU_ITEMS_OVERALL_LIMIT + 1);
@@ -461,7 +460,6 @@ export async function resolveMenuEmbed(
       ),
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
-      updated_at: it.updated_at ?? null,
       isDraft: !it.is_active,
     };
     // For public, filter items where parent section is inactive already handled by sectionQuery, but double-check

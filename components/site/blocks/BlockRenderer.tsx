@@ -2257,7 +2257,6 @@ async function MenuEmbedBlockRenderer({
         image: safeImageSrc(it.image_url) || null,
         priceLabel,
         numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
-        updatedAt: it.updated_at ?? null,
         originalPriceLabel,
         isSoldOut: Boolean(it.is_sold_out),
         tags: it.dietary_tags,
