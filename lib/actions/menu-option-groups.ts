@@ -485,6 +485,12 @@ export async function upgradeMenuItemOptions(itemId: string, organizerId: string
   const plan = buildMenuOptionBackfillPlan([item]);
   if (plan.skipped.length) return fail(`This item cannot be upgraded: ${plan.skipped[0].reason}`);
   if (!plan.groups.length) return fail("This item has no valid JSON option groups to upgrade");
+  if (plan.assignments.some((assignment: any) =>
+    (Array.isArray(assignment.hidden_option_ids) && assignment.hidden_option_ids.length > 0) ||
+    (assignment.price_overrides && Object.keys(assignment.price_overrides).length > 0)
+  )) {
+    return fail("Cannot reuse an option group while legacy option IDs have per-item overrides; reload and try again");
+  }
   const { error } = await auth.admin.rpc("upgrade_menu_item_option_groups", {
     p_item_id: itemId,
     p_organizer_id: organizerId,
