@@ -1,9 +1,9 @@
 # Aldriva — Database Architecture, Schema Reference & Migrations
 
 > **Status**: Verified Technical Reference  
-> **Canonical Migration Source**: `db/` (Migrations 1 to 138)  
+> **Canonical Migration Source**: `db/` (Migrations 1 to **185**)  
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Verified**: 2026-09-24 — 684/684 tests, `npx tsc --noEmit --skipLibCheck` 0, build Pass. Migrations **130–131 (Business Mini Website)** + **132–135 (taxonomy/promotions/i18n)** + **136 (services/menus)** + **137 (business moderation guard + business_moderation_events, screening columns)** present in repository; **136 corrected live applied 2026-09-24** (23514 verified), **137 written 2026-09-24 not yet applied live (manual apply required)**.
+> **Last Verified**: 2026-10-20 (handoff docs pass). Latest forward migration in the repository: **185** (kitchen worker access — **uncommitted**, `docs/phases/phase-kitchen-delivery.md`). **There is no `schema_migrations` table**, so "applied" is only known where the owner verified it: **134, 136, 170, 171, 177, 181, 182, 183** are verified applied on staging; **184** is owner-approved but **NOT applied**; **185** is authored but not applied; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
 
 ---
 
@@ -124,9 +124,102 @@ Aldriva maintains two migration tracks:
 
 ## 4. Future Planned Database Schema
 
-The following tables are planned for future phases (DO NOT create before respective phase commences):
-- **Services & Menus (Phase 5 — next migration 136)**: `services`, `service_tiers`, `menu_sections`, `menu_items`.
-- **Bookings (Phase 7)**: `booking_resources`, `booking_slots`, `reservations`.
-- **POS Integration (Phase 11)**: `pos_connectors`, `pos_sync_logs`, `normalized_sales`.
+The following tables are planned for future phases (DO NOT create before respective phase commences). **Numbers here are indicative only — always assign the real number from the register in §5.**
+- **Bookings scheduling (Phase 7 — see `docs/phases/phase-07-bookings.md`)**: `booking_resources`, `availability_rules`, `time_slots`. (`reservations` already exists via migration 176.)
+- **Developer platform (Phase 9)**: `api_keys` + scopes.
+- **Webhooks (Phase 10)**: `webhook_subscriptions`, delivery attempts/dead-letter.
+- **POS Integration (Phase 11)**: `pos_connections`, normalized sales (per vendor adapter).
+- **Custom domains (Phase 12)**: domain + verification records per tenant.
+- **Business ERP (Phase 8)**: shift rosters, inventory movements.
+- **External AI (Phase 14)**: third-party app/OAuth registry, tool manifests.
 
-> **Note:** Migrations 130–136 are **present in repository** (`db/` canonical + `supabase/migrations/` mirrors without rollbacks, 136 byte-identical per test). **136 corrected live applied 2026-09-24** (valid insert succeeds; bad dietary tag and malformed modifier rejected 23514; position uniqueness removed, `menu_modifiers_valid(jsonb)` added, constraints renamed). RLS and `check_menu_item_organizer_match` 23503 **not yet** non-admin tested. 130–133 earlier applied; 134–135 (promotions, locale) still pending live (hermetic only).
+> **Historical note (pre-2026-10-20):** the original text here said "Services & Menus (Phase 5 — next migration 136)" and described 130–136 as pending/partially applied. That is now **out of date**: 136 is verified applied on staging, 137+ exist, and the latest forward migration is **185**. The old planned names `migration_128`–`139` are **all consumed** by unrelated migrations (VERIFIED — e.g. 128 = website drafts, 130 = website category, 132 = business branches, 139 = AI tool registry).
+
+---
+
+## 5. Migration Register & Number Reservations (139 → 185)
+
+**Rule:** before writing a migration, list `db/` and `supabase/migrations/` **in every worktree and on every branch** (`git worktree list`, `git ls-tree`), take the next free number, and add a row to this table and to `docs/HANDOFF.md` §6.
+
+**Applied-on-staging status** (owner-verified only; there is no `schema_migrations` table): **134, 136, 170, 171, 177, 181, 182, 183 = applied.** **184 = approved, not applied.** **185 = authored, not applied.** Everything else = **UNKNOWN**.
+
+| # | Forward file (`db/`) | Rollback twin | Supabase mirror | Applied on staging |
+|---|---|---|---|---|
+| 139 | `migration_139_tool_registry.sql` | yes | yes | UNKNOWN |
+| 140 | `migration_140_agent_registry.sql` | yes | yes | UNKNOWN |
+| 141 | `migration_141_knowledge_foundation.sql` | yes | yes | UNKNOWN |
+| 142 | `migration_142_agent_runtime.sql` | yes | yes | UNKNOWN |
+| 143 | `migration_143_sentinel_events.sql` | yes | yes | UNKNOWN |
+| 144 | `migration_144_sentinel_events_fixes.sql` | yes | yes | UNKNOWN |
+| 145 | `migration_145_qa_execution.sql` | yes | yes | UNKNOWN |
+| 146 | `migration_146_background_execution.sql` | yes | yes | UNKNOWN |
+| 147 | `migration_147_exec_smoke_notify.sql` | yes | yes | UNKNOWN |
+| 148 | `migration_148_approval_gated_call_text.sql` | yes | yes | UNKNOWN |
+| 149 | `migration_149_agent_memory.sql` | yes | yes | UNKNOWN |
+| 150 | `migration_150_memory_hardening.sql` | yes | yes | UNKNOWN |
+| 151 | `migration_151_workforce_rls_narrowing.sql` | yes | yes | UNKNOWN |
+| 152 | `migration_152_studio_chat_persistence.sql` | yes | yes | UNKNOWN |
+| 153 | `migration_153_workforce_grant_hardening.sql` | yes | yes | UNKNOWN |
+| 154 | `migration_154_invitation_pages.sql` | yes | yes | UNKNOWN |
+| 155 | `migration_155_event_kind.sql` | yes | yes | UNKNOWN |
+| 156 | `migration_156_invitation_share_link.sql` | yes | yes | UNKNOWN |
+| 157 | `migration_157_public_media_r2.sql` | yes | yes | UNKNOWN |
+| 158 | `migration_158_media_buckets_setup.sql` | yes | yes | UNKNOWN |
+| 159 | `migration_159_product_asset_storage_provider.sql` | yes | yes | UNKNOWN |
+| 160 | `migration_160_public_media_quota_and_targets.sql` | yes | yes | UNKNOWN |
+| 161 | `migration_161_configurable_public_media_quota.sql` | yes | yes | UNKNOWN |
+| 162 | `migration_162_event_memories.sql` | yes | yes | UNKNOWN |
+| 163 | `migration_163_unified_template_rpc.sql` | yes | yes | UNKNOWN |
+| 164 | `migration_164_event_staff_labels_badges.sql` | yes | yes | UNKNOWN |
+| 165 | `migration_165_event_staff_badge_hardening.sql` | yes | yes | UNKNOWN |
+| 166 | `migration_166_invite_token_hash.sql` | yes | yes | UNKNOWN |
+| 167 | `migration_167_invitation_music_links.sql` | yes | yes | UNKNOWN |
+| 168 | `migration_168_website_content_store.sql` | yes | yes | UNKNOWN |
+| 169 | `migration_169_business_offerings.sql` | yes | yes | UNKNOWN |
+| 170 | `migration_170_menu_ordering_data.sql` | yes | yes | **applied** |
+| 171 | `migration_171_orders.sql` | yes | yes | **applied** |
+| 172 | `migration_172_notification_checks_widen.sql` | yes | yes | UNKNOWN |
+| 173 | `migration_173_order_online_payment.sql` | yes | yes | UNKNOWN |
+| 174 | `migration_174_order_timing.sql` | yes | yes | UNKNOWN |
+| 175 | `migration_175_owner_managed_delivery.sql` | yes | yes | UNKNOWN — forward+rollback have **uncommitted edits** (idempotent forward, guard rollback); `db/migration_175_rollback.sql` is an untracked duplicate |
+| 176 | `migration_176_reservations.sql` | yes | yes | UNKNOWN |
+| 177 | `migration_177_store_promo_codes.sql` | yes | yes | **applied** |
+| 178 | `migration_178_universal_page_blocks.sql` | yes | yes | UNKNOWN |
+| 179 | `migration_179_romantic_envelope_presets.sql` | yes | yes | UNKNOWN |
+| 180 | `migration_180_botanical_reverie.sql` | yes | yes | UNKNOWN |
+| 181 | `migration_181_luxe_editorial_invitation_card.sql` | yes | yes | **applied** |
+| 182 | `migration_182_menu_option_groups.sql` | **NO ROLLBACK TWIN** | yes | **applied** |
+| 183 | `migration_183_menu_option_assignment_cleanup.sql` | yes | yes | **applied** |
+| 184 | `migration_184_menu_promotions.sql` | yes | yes | **approved, not applied** (SHA-256 `30fb2d16…5482`) |
+| 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **authored, not applied** — work is **uncommitted** (`docs/phases/phase-kitchen-delivery.md`) |
+| 186+ | — | — | — | **free** as of 2026-10-20 |
+
+**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery. Next free = **186**.
+
+### Read-only verification queries (no `schema_migrations` table)
+
+Run these on staging to confirm live state before trusting the UNKNOWN rows (SELECT-only; they make no changes):
+
+```sql
+-- Which of our known tables actually exist (proves selected migrations ran)
+SELECT c.relname AS table_name
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('orders','reservations','store_promo_codes','menu_option_groups',
+                    'menu_options','menu_item_option_groups','menu_promotions',
+                    'business_kitchens','business_workers','business_worker_invitations',
+                    'business_worker_sessions','business_kitchen_display_links')
+ORDER BY c.relname;
+
+-- Migration 175 CHECK shape (proves which 175 variant is live)
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'public.orders'::regclass
+  AND conname LIKE 'orders_rider%';
+
+-- RLS posture on the newest tables (should be enabled; no anon/authenticated DML grants)
+SELECT c.relname, c.relrowsecurity AS rls_enabled
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname LIKE 'business_worker%';
+```
+
