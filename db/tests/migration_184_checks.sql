@@ -76,6 +76,14 @@ BEGIN
   IF NOT v_rejected THEN RAISE EXCEPTION 'cross-organizer promotion target was not rejected'; END IF;
 
   INSERT INTO public.promotion_targets(organizer_id, promotion_id, item_id) VALUES (v_org_a, v_auto_promo, v_item_a);
+
+  v_rejected := false;
+  BEGIN
+    UPDATE public.promotions SET organizer_id = v_org_b WHERE id = v_auto_promo;
+  EXCEPTION WHEN foreign_key_violation THEN v_rejected := true;
+  END;
+  IF NOT v_rejected THEN RAISE EXCEPTION 'promotion organizer change was allowed after targets existed'; END IF;
+
   FOR i IN 1..51 LOOP
     INSERT INTO public.menu_items(organizer_id, section_id, name, price)
       VALUES (v_org_a, v_section_a, 'migration-184-limit-' || i, 10) RETURNING id INTO v_target_item;

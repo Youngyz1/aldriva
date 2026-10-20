@@ -138,6 +138,21 @@ CREATE TRIGGER trg_promotion_targets_organizer_match
   BEFORE INSERT OR UPDATE ON public.promotion_targets
   FOR EACH ROW EXECUTE FUNCTION public.check_menu_promotion_organizer_match();
 
+CREATE OR REPLACE FUNCTION public.prevent_menu_promotion_organizer_change()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.organizer_id IS DISTINCT FROM OLD.organizer_id
+    AND EXISTS (SELECT 1 FROM public.promotion_targets WHERE promotion_id = OLD.id) THEN
+    RAISE EXCEPTION 'Cannot change the organizer of a promotion with targets' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_promotions_organizer_change
+  BEFORE UPDATE OF organizer_id ON public.promotions
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_menu_promotion_organizer_change();
+
 ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promotion_targets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.promotions, public.promotion_targets FROM anon, authenticated;
