@@ -156,13 +156,15 @@ export interface CatalogCarouselProps {
 
 export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [ends, setEnds] = useState({ canPrev: false, canNext: true });
+  const [ends, setEnds] = useState({ canPrev: false, canNext: false });
+  const [overflowing, setOverflowing] = useState(false);
 
   const measure = useCallback(() => {
     const element = trackRef.current;
     if (!element) return;
     const next = computeCarouselEnds(element.scrollLeft, element.scrollWidth, element.clientWidth);
     setEnds(next);
+    setOverflowing(hasCatalogCarouselOverflow(element.scrollWidth, element.clientWidth));
   }, []);
 
   useEffect(() => {
@@ -202,7 +204,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
 
   return (
     <div className="relative">
-      <button
+      {overflowing ? <button
         type="button"
         aria-label={prevLabel}
         disabled={!ends.canPrev}
@@ -210,8 +212,8 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
         className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
       >
         <ChevronLeft className="h-5 w-5" />
-      </button>
-      <button
+      </button> : null}
+      {overflowing ? <button
         type="button"
         aria-label={nextLabel}
         disabled={!ends.canNext}
@@ -219,16 +221,16 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
         className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
       >
         <ChevronRight className="h-5 w-5" />
-      </button>
+      </button> : null}
       <div
         ref={trackRef}
-        tabIndex={0}
+        tabIndex={overflowing ? 0 : undefined}
         onKeyDown={handleKeyDown}
         onScroll={measure}
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] [&::-webkit-scrollbar]:hidden"
+        className={overflowing ? "flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] [&::-webkit-scrollbar]:hidden" : "flex gap-4 overflow-x-hidden px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"}
       >
         {items.map((item) => (
-          <div key={item.id} className="flex w-64 shrink-0 snap-start flex-col sm:w-72">
+          <div key={item.id} className={overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72"}>
             <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} />
           </div>
         ))}
