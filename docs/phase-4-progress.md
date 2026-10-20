@@ -1,1 +1,2 @@
 | 1 — Migration 184 | `6ee2ee3` | COMMITTED — forward SQL, rollback, SQL checks, timestamped mirror SHA-256 verified; no DB operation run | Next: item 2 — shared promotion pricing engine |
+| 2 — Shared pricing engine | `472e6e1`, `667d916` | COMMITTED — shared resolver, optional promoCode input, 8 promotion tests, focused suites 121/121, TypeScript and ESLint passed | Next: item 3 — batched reads, authoritative order pricing, code validation, promotion actions |
