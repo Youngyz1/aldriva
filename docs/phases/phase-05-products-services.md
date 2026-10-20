@@ -36,6 +36,9 @@ Service/menu core is **built**; the **menu options & promotions workstream** is 
 3. Author the missing migration-182 rollback twin (or accept forward-only). (Open — `docs/HANDOFF.md` §7.)
 4. Multi-currency: resolve the hardcoded-USD TODO when the owner prioritises it.
 
+### PLANNED — Table & Menu QR Codes (owner-decided, not built)
+A **menu QR per business** and a **QR per table**, printed and pointing at a stable short redirect (`/q/<code>`). The menu QR is a thin front door to the Phase-5 menu catalogue; the per-business **ordering mode** (menu only / order now-pay-later [DEFAULT] / pay online first) decides what the code opens. **Nothing exists today** (VERIFIED NOT FOUND — no table/menu QR, no `/q/` route). Full spec, anti-fake-table design, and the Phase-12 domain link: **`docs/phases/phase-table-menu-qr-codes.md`**. Reuse the events QR pattern/library (`docs/technical/events/qr-system.md`, `components/cards/ExpandableQr.tsx`, `qrcode` dependency).
+
 ---
 
 ## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)

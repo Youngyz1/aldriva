@@ -52,6 +52,7 @@
 | 12 | Custom domains & SSL | **NOT STARTED** | `proxy.ts` has no host routing (VERIFIED — grep empty) | `docs/phases/phase-12-advanced-web.md` |
 | 13 | Aldriva AI | **PARTIAL** | AI OS built (agents/sentinel/QA/exec/memory/studio, migrations 139–168, admin-only); WhatsApp/IG auto-responder and tenant AI assistant NOT built | `docs/phases/phase-13-aldriva-ai.md` |
 | 14 | External AI ecosystem | **NOT STARTED** | Nothing found (NOT FOUND) | `docs/phases/phase-14-external-ai.md` |
+| — | **Table & Menu QR Codes** *(planned, under Phases 5–6)* | **PLANNED (not started)** | Owner-decided feature: menu QR per business + per-table QR with secret tokens, dine-in/pickup/delivery order types, table sessions + mandatory staff confirmation, running table bill; split bills deferred. Nothing exists today (VERIFIED — see doc) | `docs/phases/phase-table-menu-qr-codes.md` |
 | ∥ | Events / Fundraising / Products / Articles / Organizations | **DONE** | Pre-phase domains, complete with tests (VERIFIED — routes + registered suites) | `docs/technical/events/*`, `docs/events/*` … |
 | ∥ | R2 media storage | **PARTIAL** | Driver + quota built; rollout incomplete | `docs/phases/phase-r2-media-storage.md` |
 | ∥ | Server-only boundaries | **DONE** | Server-only markers + bundle scan tests | `docs/phases/phase-server-only-boundaries.md` |
@@ -91,8 +92,9 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | 182 | Menu options — reusable option groups | **Applied on staging**; forward only — **NO rollback twin** (VERIFIED — `ls db/migration_182*`) | `feat/menu-options-phase-0-1` |
 | 183 | Menu options — assignment cleanup | **Applied on staging**; rollback exists | `feat/menu-options-phase-2` |
 | 184 | Menu promotions | Authored + owner-approved; **NOT applied**; rollback + `db/tests/migration_184_checks.sql` exist; SHA-256 `30fb2d16…5482` (both copies identical, VERIFIED 2026-10-20) | `feat/menu-promotions-phase-4` |
-| 185 | Kitchen & delivery — worker access | Authored (**uncommitted in this worktree**); NOT applied; rollback + staging-only cleanup script exist | **Owner to confirm** |
+| 185 | Kitchen & delivery — worker access | Authored (**uncommitted in this worktree**); NOT applied; rollback + staging-only cleanup script exist | **Owner to confirm** — **owner of migration 185 is the kitchen/delivery agent** (not this docs pass) |
 | 186+ | unassigned | free as of 2026-10-20 | — |
+| **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
 
 ---
 
@@ -106,6 +108,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 6. **Backup risk** — the entire menu workstream (4 branches), kitchen work, 5 stashes and all checkpoints exist **only on this machine** (VERIFIED — no remote counterparts). Push somewhere.
 7. **Reservations (Phase 7) navigation** — un-hide now, or only after slots exist? (VERIFIED hidden: no nav entry, route live.)
 8. **`PrivacySafeGoogleAnalytics` + layout edits** (uncommitted, unrelated to kitchen — INFERRED): keep, or split out? (VERIFIED files modified.)
+9. **Table & Menu QR Codes (planned)** — three decisions recorded in `docs/phases/phase-table-menu-qr-codes.md` §9: (a) does the staff **confirmation screen** belong on the existing owner dashboard or the lightweight kitchen/driver dashboard? (b) how does a **table session expire**? (c) what happens to **unpaid sessions at closing**? None of this is built. (PLANNED — feature spec, not code.)
 
 ---
 

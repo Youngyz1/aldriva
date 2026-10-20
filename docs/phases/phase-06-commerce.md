@@ -40,6 +40,18 @@ Store commerce path (cart → checkout → delivery) is **built**; tax, a unifie
 4. Decide the migration-175 rollback question.
 5. Then move to Phase 7 (below).
 
+### PLANNED — Table & Menu QR Codes + dine-in ordering (owner-decided, not built)
+Owned by the same commerce surface as this phase, because it rides the order model and the kitchen flow. **Not built** — spec only:
+- **Two QR kinds** — one menu QR per business, one QR per table; printed codes point at a stable short redirect **`/q/<code>`** (survives site-address/custom-domain changes → Phase 12).
+- **Ordering modes per business** — *menu only*, *order now / pay later* (**DEFAULT**), *pay online first*.
+- **Three order types** — **dine-in, pickup, delivery**. Only dine-in carries a table label, a table session and a confirmation state. Pickup/delivery **never** show a table and **never** need table confirmation; they use the existing owner flow (accept → preparing → ready → out for delivery → completed).
+- **Mandatory dine-in confirmation** — the first order of a table session is *pending staff confirmation* and reaches the kitchen only after a waiter confirms; later orders in a confirmed session auto-accept; staff can decline; the kitchen view has a **"needs confirmation"** lane; the table label appears only on dine-in tickets/notifications.
+- **Anti-fake-table** — secret random token in each table QR (never a bare table number), validated server-side against the business's own tables; session tied to the browser; token regeneration; caps on unconfirmed orders; rate limits; optional customer name/phone; optional reservation name shown beside the table (never a gate).
+- **Running table bill (v1 in scope)** — one itemised bill per table session with a running total, shown to the customer and staff; pay online or cash; staff "mark table paid" closes the session; a "request bill" action notifies staff.
+- **Split bills — OUT OF SCOPE for v1** (later enhancement).
+
+Dependencies: depends on this phase's order model **and** the kitchen/delivery workstream (migration 185). **Before writing any new migration, read migration 185** (`db/migration_185_kitchen_worker_access.sql` and the kitchen files) to learn whether a dine-in type, table fields or confirmation states already exist. Migration number assigned at build time from the register (`docs/HANDOFF.md` §6). **Owner to confirm:** (a) does the staff confirmation screen live on the existing owner dashboard or the lightweight kitchen dashboard? (b) how does a table session expire? (c) what happens to unpaid sessions at closing? Full spec: `docs/phases/phase-table-menu-qr-codes.md`.
+
 ---
 
 ## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
