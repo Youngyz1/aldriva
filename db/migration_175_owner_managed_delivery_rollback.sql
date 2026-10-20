@@ -1,20 +1,31 @@
--- migration_175_owner_managed_delivery_rollback.sql
--- Rollback for Phase 6: Owner-managed delivery.
+-- migration_175_rollback.sql
+-- Non-destructive status rollback for migration 175.
 --
--- 1. Remap active rows in new delivery statuses before restoring the old CHECK constraint:
---    'delivered' -> 'completed'
---    'out_for_delivery' -> 'ready'
---    This prevents the constraint recreation from failing if rows exist in new statuses.
--- 2. Restore the original 6-status CHECK constraint from migration 171.
--- 3. Drop newly added rider columns (delivery_fee was originally created in 171 and remains).
+-- This rollback intentionally retains delivery_fee, rider_name, rider_phone,
+-- and their checks. delivery_fee predates migration 175, and the rider fields
+-- may contain data after deployment. No column or row data is dropped or
+-- rewritten here.
+--
+-- If any current order uses out_for_delivery or delivered, the guard aborts
+-- before changing the constraint. Review/export those orders, resolve each
+-- status through an approved operational decision, then retry. Do not silently
+-- map delivered to completed or out_for_delivery to ready: that loses the
+-- delivery-specific state.
 
-UPDATE public.orders
-  SET status = 'completed'
-  WHERE status = 'delivered';
+BEGIN;
 
-UPDATE public.orders
-  SET status = 'ready'
-  WHERE status = 'out_for_delivery';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE status IN ('out_for_delivery', 'delivered')
+  ) THEN
+    RAISE EXCEPTION
+      'MIGRATION_175_ROLLBACK_BLOCKED: orders still use out_for_delivery or delivered; review and resolve them before retrying';
+  END IF;
+END;
+$$;
 
 ALTER TABLE public.orders
   DROP CONSTRAINT IF EXISTS orders_status_check;
@@ -30,6 +41,6 @@ ALTER TABLE public.orders
     'cancelled'
   ));
 
-ALTER TABLE public.orders
-  DROP COLUMN IF EXISTS rider_name,
-  DROP COLUMN IF EXISTS rider_phone;
+COMMIT;
+
+NOTIFY pgrst, 'reload schema';
