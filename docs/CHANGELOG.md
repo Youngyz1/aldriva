@@ -6,10 +6,11 @@
 ## [2026-10] — Menu option groups Phase 2 dashboard (2026-10-20; authored, migration not applied)
 
 - Added a reusable option-group library, bilingual starter templates, option editing with images/allergens/defaults/availability/reordering, and normalized item assignment controls with hidden-option and price-override editing.
-- Added an explicit JSON-to-library upgrade that uses the backfill converter and an atomic database function; the legacy JSON snapshot remains unchanged. Legacy modifiers are now displayed read-only.
-- Migration 183 adds assignment-delete cleanup for deleted option IDs, an `updated_at` concurrency token for assignment rows, editor DELETE on assignments only, and the transaction-only upgrade function. Its rollback restores manager-only assignment deletion and removes the added objects.
+- Added an explicit JSON-to-library upgrade that uses the backfill converter and an atomic database function; the legacy JSON snapshot remains unchanged. The function reuses an active same-organizer group when its normalized name, selection rules, and ordered option configuration match. Legacy modifiers are now displayed read-only.
+- Migration 183 now returns early during option cascades after its parent group has been deleted, validates all input group/assignment organizer and item IDs, adds assignment-delete cleanup for deleted option IDs, and retains the `updated_at` concurrency token plus editor DELETE on assignments only. Its rollback restores manager-only assignment deletion and removes both functions, both triggers, and the added column.
+- Added `db/tests/migration_183_checks.sql`, a `BEGIN`/`ROLLBACK` SQL harness for direct-option cleanup, group cascade, identical-group reuse, and upgrade tenant/item guards. It is authored but not executed.
 - Shared menu allergens and dietary tags now feed form and action validation; tests compare them against the existing SQL CHECK values.
-- **Verification:** Phase 2 focused suite passed 12/12, touched-file ESLint passed with 0 errors and 1 existing unused-variable warning, and `npx tsc --noEmit --pretty false` passed. The repository-wide chunked test run exposed four legacy assertions, which were updated to reflect shared taxonomy, migration 183, and editor assignment deletion; final full-suite results are in `docs/phase-2-report.md`. No database operation or migration execution occurred.
+- **Verification:** `npm run test:chunked` passed 2,497/2,497; Phase 2 regression suite passed 13/13; `npx tsc --noEmit --pretty false` passed; targeted ESLint had 0 errors and 1 unused-variable warning; `git diff --check` passed. The SQL harness was not run. No database operation or migration execution occurred; details are in `docs/phase-2-report.md`.
 
 ## [2026-10] — Menu option groups Phase 1 (2026-10-20; authored, awaiting migration rollout)
 
