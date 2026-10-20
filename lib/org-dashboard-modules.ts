@@ -57,6 +57,7 @@ export const ORG_NAV_MODULES: readonly OrgNavModule[] = [
   { key: "shop", label: "Shop", hrefSuffix: "products", icon: "ShoppingBag", visibility: { kind: "count", flag: "products" }, routeExists: true },
   { key: "services", label: "Services", hrefSuffix: "services", icon: "Briefcase", visibility: { kind: "capability", capabilities: ["SERVICES"], existence: "serviceRows" }, routeExists: true },
   { key: "menu", label: "Menu", hrefSuffix: "menu", icon: "Utensils", visibility: { kind: "capability", capabilities: ["MENU"], existence: "menuRows" }, routeExists: true },
+  { key: "promotions", label: "Promotions", hrefSuffix: "promotions", icon: "Tag", visibility: { kind: "capability", capabilities: ["MENU"], existence: "menuRows" }, routeExists: true },
   { key: "orders", label: "Orders", hrefSuffix: "orders", icon: "Store", visibility: { kind: "capability", capabilities: ["ORDERS", "ONLINE_ORDERING"], existence: "menuRows" }, routeExists: true },
   { key: "reservations", label: "Reservations", hrefSuffix: "reservations", icon: "CalendarCheck", visibility: { kind: "capability", capabilities: ["RESERVATIONS", "TABLES"], existence: "reservationRows" }, routeExists: true },
   { key: "fleet", label: "Fleet", hrefSuffix: "fleet", icon: "Car", visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "menuRows" }, routeExists: false },

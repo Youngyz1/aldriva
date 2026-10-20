@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { createMenuItem, updateMenuItem, createMenuSection } from "@/lib/actions
 import { upgradeMenuItemOptions } from "@/lib/actions/menu-option-groups";
 import { DIETARY_TAGS, MENU_ALLERGENS } from "@/lib/menu-option-taxonomy";
 import { useRouter } from "next/navigation";
+import { listPromotions } from "@/lib/actions/promotions";
+import { getMenuPromotionDisplayStatus } from "@/lib/menu-promotions";
 
 export function MenuItemForm({
   sectionId,
@@ -58,7 +60,23 @@ export function MenuItemForm({
   const [isSoldOut, setIsSoldOut] = useState(item?.is_sold_out ?? false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [targetingPromotions, setTargetingPromotions] = useState<Array<{ id: string; name: string }>>([]);
   const usesNormalizedOptions = item?.options_source === "normalized";
+
+  useEffect(() => {
+    if (!item?.id) return;
+    let cancelled = false;
+    void listPromotions(organizerId).then((result) => {
+      if (!cancelled && result.success && result.data) {
+        const now = new Date();
+        setTargetingPromotions(result.data.promotions.filter((promotion: any) =>
+          getMenuPromotionDisplayStatus(promotion, now) === "active" &&
+          (promotion.targets || []).some((target: any) => target.item_id === item.id || target.section_id === item.section_id)
+        ).map((promotion: any) => ({ id: promotion.id, name: promotion.name })));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [item?.id, item?.section_id, organizerId]);
 
   function toggle(list: string[], value: string, setter: (v: string[]) => void) {
     if (list.includes(value)) setter(list.filter(v=>v!==value));
@@ -177,6 +195,7 @@ export function MenuItemForm({
             onChange={e=>setPromoPrice(e.target.value)}
             placeholder="Sale price (less than regular)"
           />
+          {targetingPromotions.length > 0 && <p className="text-xs text-zinc-600" aria-live="polite">Active promotions also target this item: {targetingPromotions.map((promotion) => promotion.name).join(", ")}. The lowest price wins; promotions do not stack.</p>}
         </div>
       </div>
       <div className="space-y-1">
