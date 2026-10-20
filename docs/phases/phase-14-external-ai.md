@@ -1,5 +1,38 @@
 # Phase 14: External AI & Developer Ecosystem
 
+---
+
+## STATUS (verified 2026-10-20)
+
+**NOT STARTED.** No developer portal, no OAuth app registry, no MCP server registration, no tool-invocation gateway for third parties. (VERIFIED — globs/greps empty; the only AI tooling is Aldriva's own internal registry under `lib/ai/tools/`.)
+
+## What it is and why it matters (no prior context needed)
+Phase 13 gives the *business* an Aldriva AI assistant. **Phase 14 opens the door the other way**: outside AI tools — a merchant's own ChatGPT-style assistant, an agency's automation, or a third-party MCP server — connect to a business's Aldriva data and act on it, with the business's explicit permission.
+
+It means a developer directory/portal, OAuth-style consent so a business can authorize an external tool to read its orders or bookings, and a sandboxed gateway that meters and audits every call an outside tool makes.
+
+**Why it matters:** it turns Aldriva's data into an ecosystem other builders extend, instead of a walled garden — the same "platform" step as Phase 9, but for AI agents. **Depends on Phase 9 (Public API), Phase 10 (Webhooks) and Phase 13 (the AI engine)**; it is the last phase because it needs all three.
+
+## Prerequisites
+- Phase **9** (API keys/scopes/OAuth foundations), Phase **10** (eventing), Phase **13** (AI engine + output guard).
+- A trust/safety model for third-party tool scopes and audit logging (ADR-0002 guardrails must extend to external callers).
+
+## Risks
+- **Data exposure**: external agents reading tenant data is the highest-stakes permission model on the platform.
+- **Abuse/billing**: unmetered tool calls can be weaponized or run up cost; needs per-call metering and rate limits.
+- **Sandbox escape**: third-party code/tools must never reach raw SQL or another tenant (the internal registry already uses `SAFE_COLUMNS` allowlists — external tools must reuse that, not bypass it).
+- Premature openness before Phases 9–13 are solid multiplies every earlier gap.
+
+## Proposed first task
+Author the external-apps migration (app registry, granted scopes, tool manifest) and a consent screen stub, then route **one** external read call through the existing output guard + allowlist, with an isolation/audit test.
+
+## Migration numbers
+Old plan names `migration_134_external_ai_apps` — **consumed** (actual 134 = store/ops work). **Assign at build time from the register.** Next free as of 2026-10-20: **186**.
+
+---
+
+## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+
 ## 1. Objective
 Establish an open developer ecosystem and marketplace for third-party AI agents, specialized tools, Model Context Protocol (MCP) servers, and custom business automation extensions.
 

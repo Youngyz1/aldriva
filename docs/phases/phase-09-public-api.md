@@ -1,5 +1,37 @@
 # Phase 9: Public Developer API
 
+---
+
+## STATUS (verified 2026-10-20)
+
+**NOT STARTED.** No `app/api/v1/` directory, no API-key table, no `lib/api-auth.ts`, no OpenAPI docs. (VERIFIED — globs/greps empty.) What exists today is an **internal** API (session-cookie protected, `app/api/`), which is a separate thing.
+
+## What it is and why it matters (no prior context needed)
+Right now, only Aldriva's own web pages can talk to Aldriva's data — a logged-in human with a browser session. There is **no way for an outside system** (a partner's booking tool, a merchant's ERP, a mobile app, an agency's dashboard) to read or write a tenant's data programmatically.
+
+A **Public Developer API** changes that: businesses generate **API keys**, and external software calls versioned endpoints like `GET /v1/orders` or `POST /v1/products` with those keys. It includes **scopes** (a key can be read-only for orders), **rate limits** per key, **pagination**, **standard error formats**, and **OpenAPI/Swagger docs** so developers can self-serve.
+
+**Why it matters:** it turns Aldriva from a closed website into a *platform* — the foundation other integrations (including our own POS sync and external AI tools) build on. **This is distinct from the mini-websites** (Phase 2): mini-websites are human-facing pages; the public API is machine-facing endpoints.
+
+## Prerequisites
+- Stable domain models for the resources to expose (Events, Products, Orders, Bookings — Bookings still partial, Phase 7).
+- A decision on API-key storage/rotation policy (hashed keys, scopes).
+
+## Risks
+- **Tenant isolation**: an API key must never see another tenant's data — highest-risk area; needs the same RLS/scope discipline as the app.
+- **Key leakage**: keys are long-lived credentials; must be hashed at rest and revocable.
+- Starting it before Phase 7/8 settle could force breaking changes to exposed schemas.
+
+## Proposed first task
+Author the API-key migration (hashed keys + scopes) and `lib/api-auth.ts` (key verification + rate limiting), then expose **one** read-only endpoint (`GET /v1/events`) behind a scope, with a test proving cross-tenant isolation fails closed.
+
+## Migration numbers
+The old plan names `migration_130_api_keys`, which is **consumed** (actual 130 = website category). **Assign at build time from the register** (`docs/HANDOFF.md` §6 / `docs/DATABASE.md`). Next free number as of 2026-10-20: **186**.
+
+---
+
+## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+
 ## 1. Objective
 Design, build, and document the official versioned Aldriva Public Developer API (`/v1/*`), enabling external software developers, merchants, and third-party systems to securely query and manage tenant resources.
 

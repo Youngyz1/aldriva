@@ -1,5 +1,38 @@
 # Phase 10: Outbound Webhooks
 
+---
+
+## STATUS (verified 2026-10-20)
+
+**NOT STARTED.** No webhook-subscription tables, no dispatch service, no signing. (VERIFIED — `grep webhook_subscription|outbound_webhook` across `db/`/`lib/`/`app/` empty; the only webhook code is the **inbound** Stripe handler.)
+
+## What it is and why it matters (no prior context needed)
+Today, when something happens in Aldriva (an order is placed, a payment lands, a ticket is scanned), nothing tells the merchant's *other* systems. The merchant has to poll or check manually.
+
+**Outbound webhooks** flip that: Aldriva pushes a small JSON message to a URL the business configures the instant the event happens. It includes **subscriptions** (which events, which URL), **HMAC signatures** (`X-Aldriva-Signature`) so the receiver can verify it really came from Aldriva, and **automatic retries** with backoff if the receiver is down.
+
+**Why it matters:** it's how Aldriva becomes a real-time citizen of a business's stack — inventory systems, accounting, custom dashboards, and our own POS sync (Phase 11) all consume these events. **Depends on Phase 9** (API-key/tenant auth primitives and the shared request/response conventions).
+
+## Prerequisites
+- Phase **9** (auth/scopes/standard formats) — the dispatcher needs the same tenant/auth model.
+- A domain-event definition (naming and payload shapes for order/ticket/donation/booking events).
+
+## Risks
+- **Delivery reliability**: retries + dead-letter handling must not double-charge or double-notify.
+- **Signature/secret management**: per-tenant signing secrets must be stored and rotatable.
+- **Abuse**: outbound calls to tenant-supplied URLs → SSRF risk (must allow-list/validate destinations; the app already has SSRF guards for AI tools to reuse).
+- Doing this before Phase 9 means re-plumbing auth later.
+
+## Proposed first task
+Author the webhook-subscriptions migration (endpoint URL, event list, signing secret) and a dispatch service that signs with HMAC-SHA256, then wire **one** event (`order.paid`) end-to-end with a retry/dead-letter test.
+
+## Migration numbers
+Old plan names `migration_131_webhook_subscriptions` — **consumed** (actual 131 = website atomic creation). **Assign at build time from the register.** Next free as of 2026-10-20: **186**.
+
+---
+
+## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+
 ## 1. Objective
 Build a reliable, retry-backed outbound webhook dispatcher allowing tenants and third-party integrations to receive real-time notifications for critical platform events.
 

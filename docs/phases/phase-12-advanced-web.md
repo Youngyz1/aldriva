@@ -1,5 +1,37 @@
 # Phase 12: Custom Domains & Advanced Web
 
+---
+
+## STATUS (verified 2026-10-20)
+
+**NOT STARTED.** `proxy.ts` has no `Host`-header/custom-domain handling (VERIFIED — grep returns 0 matches), and there is no domain-verification table or SSL code.
+
+## What it is and why it matters (no prior context needed)
+Every Aldriva business site currently lives at a path like `aldriva.com/site/my-restaurant`. That's fine to start, but a real business wants `www.myrestaurant.com` on its own domain, with a padlock (HTTPS).
+
+**Custom Domains** let a business point its own domain at Aldriva: the platform verifies the business controls the domain (a DNS record check), issues an SSL certificate automatically, and then `proxy.ts` matches the incoming request's `Host` header to the right tenant and serves that tenant's website.
+
+**Why it matters:** it's a trust/exclusivity feature — businesses won't run serious marketing on a shared-path URL. It's independent of the API work, **depends only on Phase 2** (the website engine), and `proxy.ts` already exists as the routing point (it just doesn't look at `Host` yet).
+
+## Prerequisites
+- Phase **2** website engine (done).
+- A hosting decision for SSL issuance (Vercel Custom Domains API or Cloudflare for SaaS — per the plan).
+
+## Risks
+- **Routing regression**: `proxy.ts` is load-bearing for auth/404s; Host-based routing must not break existing paths.
+- **SSL/DNS edge cases**: verification failures need clear diagnostics or support load rises.
+- **Cache/SEO**: serving the same content on two hostnames → duplicate-content issues (needs canonical redirects).
+
+## Proposed first task
+Author the custom-domains migration (domain, tenant, verification state) and add a **guarded** `Host`-resolution branch in `proxy.ts` behind a feature flag, defaulting to current behavior — with a test that existing `aldriva.com` routing is unchanged.
+
+## Migration numbers
+Old plan names `migration_133_custom_domains` — **consumed** (actual 133 = moderation guard). **Assign at build time from the register.** Next free as of 2026-10-20: **186**.
+
+---
+
+## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+
 ## 1. Objective
 Enable businesses and organizers to serve their Aldriva business websites under their own custom root domains or subdomains (e.g., `www.mybrand.com`) with automated SSL provisioning, DNS verification, and edge caching.
 
