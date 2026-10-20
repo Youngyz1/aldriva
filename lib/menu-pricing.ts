@@ -1,3 +1,6 @@
+import { resolveBasePrice, roundToCurrencyMinorUnit } from "./menu-promotions";
+import type { MenuPromotion } from "./menu-promotions";
+
 /**
  * lib/menu-pricing.ts
  *
@@ -60,11 +63,15 @@ export interface NormalizedOptionAssignmentRow {
 
 export interface MenuPricingItem {
   id?: string;
+  organizer_id?: string;
+  section_id?: string | null;
+  created_at?: string | null;
   price: number;
   promo_price?: number | null;
   is_sold_out?: boolean;
   options_source?: "json" | "normalized" | null;
   option_groups?: readonly MenuItemOptionGroup[] | null;
+  promotions?: readonly import("./menu-promotions").MenuPromotion[];
 }
 
 export interface OptionGroupSelection {
@@ -291,45 +298,46 @@ export function validateOptionGroups(groups: unknown): string | null {
  * otherwise returns price.
  */
 export function effectiveUnitPrice(
-  item: Pick<MenuPricingItem, "price" | "promo_price" | "option_groups">,
-  selection?: readonly OptionGroupSelection[] | null
+  item: Pick<MenuPricingItem, "price" | "promo_price" | "option_groups"> & Partial<Pick<MenuPricingItem, "id" | "organizer_id" | "section_id" | "created_at" | "promotions">>,
+  selection?: readonly OptionGroupSelection[] | null,
+  pricingContext: MenuPricingContext = {}
 ): number {
-  const base = Number(item.price);
   const variantGroup = (item.option_groups || []).find((group) => group.kind === "variant");
+  let variantPrice: number | undefined;
   if (variantGroup) {
     const selectedGroup = selection?.find((entry) => entry.groupId === variantGroup.id);
     const selected = selectedGroup ? selectedQuantities(selectedGroup) : [];
     const option = variantGroup.options.find((candidate) => candidate.id === selected[0]?.optionId);
-    // Variant price is the full unit price, and menu_items.promo_price is ignored.
-    if (option && Number.isFinite(Number(option.price))) {
-      return Math.round(Number(option.price) * 100) / 100;
-    }
-    return Math.round(base * 100) / 100;
+    if (option && Number.isFinite(Number(option.price))) variantPrice = Number(option.price);
   }
-  if (
-    item.promo_price !== null &&
-    item.promo_price !== undefined &&
-    typeof item.promo_price === "number" &&
-    Number.isFinite(item.promo_price) &&
-    item.promo_price >= 0 &&
-    item.promo_price < base
-  ) {
-    return Math.round(item.promo_price * 100) / 100;
-  }
-  return Math.round(base * 100) / 100;
+  const sourceItem = item as MenuPricingItem;
+  return resolveBasePrice(sourceItem, pricingContext.promotions ?? item.promotions ?? [], {
+    ...pricingContext,
+    variantPrice,
+  }).basePrice;
 }
 
-export function calculateOptionAdjustedUnitPrice(unitPrice: number, optionsDelta: number): number {
-  const roundedUnitPrice = Math.round(unitPrice * 100) / 100;
-  const roundedOptionsDelta = Math.round(optionsDelta * 100) / 100;
-  return Math.max(0, roundedUnitPrice + roundedOptionsDelta);
+export function calculateOptionAdjustedUnitPrice(unitPrice: number, optionsDelta: number, currency = "USD"): number {
+  const roundedUnitPrice = roundToCurrencyMinorUnit(unitPrice, currency);
+  const roundedOptionsDelta = roundToCurrencyMinorUnit(optionsDelta, currency);
+  return Math.max(0, roundToCurrencyMinorUnit(roundedUnitPrice + roundedOptionsDelta, currency));
 }
 
 export function calculateSelectedMenuUnitPrice(
   item: MenuPricingItem,
-  selection?: readonly OptionGroupSelection[] | null
-): { baseUnitPrice: number; optionsDelta: number; unitPrice: number } {
-  const baseUnitPrice = effectiveUnitPrice(item, selection);
+  selection?: readonly OptionGroupSelection[] | null,
+  pricingContext: MenuPricingContext = {}
+): { baseUnitPrice: number; optionsDelta: number; unitPrice: number; appliedPromotion: MenuPromotion | null; source: "promo_price" | "promotion" | "none"; originalPrice: number; discountPerUnit: number } {
+  const variantGroup = (item.option_groups || []).find((group) => group.kind === "variant");
+  const selectedVariantGroup = variantGroup && selection?.find((entry) => entry.groupId === variantGroup.id);
+  const selectedVariant = selectedVariantGroup
+    ? variantGroup!.options.find((option) => option.id === selectedQuantities(selectedVariantGroup)[0]?.optionId)
+    : undefined;
+  const baseResolution = resolveBasePrice(item, pricingContext.promotions ?? item.promotions ?? [], {
+    ...pricingContext,
+    variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined,
+  });
+  const baseUnitPrice = baseResolution.basePrice;
   let optionsDelta = 0;
   if (selection && item.option_groups) {
     const groupMap = new Map(item.option_groups.map((group) => [group.id, group]));
@@ -343,16 +351,21 @@ export function calculateSelectedMenuUnitPrice(
       }
     }
   }
-  optionsDelta = Math.round(optionsDelta * 100) / 100;
+  optionsDelta = roundToCurrencyMinorUnit(optionsDelta, pricingContext.currency);
   return {
     baseUnitPrice,
     optionsDelta,
-    unitPrice: calculateOptionAdjustedUnitPrice(baseUnitPrice, optionsDelta),
+    unitPrice: calculateOptionAdjustedUnitPrice(baseUnitPrice, optionsDelta, pricingContext.currency),
+    appliedPromotion: baseResolution.appliedPromotion,
+    source: baseResolution.source,
+    originalPrice: baseResolution.originalPrice,
+    discountPerUnit: baseResolution.discountPerUnit,
   };
 }
 
-export function calculateMenuLineTotal(unitPrice: number, quantity: number): number {
-  return Math.round(unitPrice * quantity * 100) / 100;
+export function calculateMenuLineTotal(unitPrice: number, quantity: number, currency = "USD"): number {
+  const roundedUnitPrice = roundToCurrencyMinorUnit(unitPrice, currency);
+  return roundToCurrencyMinorUnit(roundedUnitPrice * quantity, currency);
 }
 
 export interface SelectionValidationResult {
@@ -477,6 +490,19 @@ export interface LineTotalCalculation {
   unitPrice: number;
   optionsDelta: number;
   lineTotal: number;
+  appliedPromotion?: import("./menu-promotions").MenuPromotion | null;
+  source?: import("./menu-promotions").MenuPromotionSource;
+  originalPrice?: number;
+  discountPerUnit?: number;
+}
+
+export interface MenuPricingContext {
+  promotions?: readonly import("./menu-promotions").MenuPromotion[];
+  organizerId?: string;
+  code?: string | null;
+  now?: Date;
+  subtotal?: number;
+  currency?: string;
 }
 
 /**
@@ -489,6 +515,12 @@ export function computeLineTotal(params: {
   item: MenuPricingItem;
   selection?: readonly OptionGroupSelection[] | null;
   quantity: number;
+  promotions?: readonly MenuPromotion[];
+  code?: string | null;
+  now?: Date;
+  subtotal?: number;
+  currency?: string;
+  organizerId?: string;
 }): LineTotalCalculation {
   const { item, selection, quantity } = params;
 
@@ -506,12 +538,33 @@ export function computeLineTotal(params: {
     throw new Error(validation.error || "Invalid option selection");
   }
 
-  const price = calculateSelectedMenuUnitPrice(item, selection);
-  const lineTotal = calculateMenuLineTotal(price.unitPrice, quantity);
+  const price = calculateSelectedMenuUnitPrice(item, selection, {
+    promotions: params.promotions,
+    code: params.code,
+    now: params.now,
+    subtotal: params.subtotal,
+    currency: params.currency,
+    organizerId: params.organizerId,
+  });
+  const lineTotal = calculateMenuLineTotal(price.unitPrice, quantity, params.currency);
+  const exposePromotionDetails =
+    params.promotions !== undefined ||
+    params.code !== undefined ||
+    params.now !== undefined ||
+    params.subtotal !== undefined ||
+    params.currency !== undefined ||
+    params.organizerId !== undefined ||
+    item.promotions !== undefined;
 
   return {
     unitPrice: price.baseUnitPrice,
     optionsDelta: price.optionsDelta,
     lineTotal,
+    ...(exposePromotionDetails ? {
+      appliedPromotion: price.appliedPromotion,
+      source: price.source,
+      originalPrice: price.originalPrice,
+      discountPerUnit: price.discountPerUnit,
+    } : {}),
   };
 }

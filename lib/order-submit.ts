@@ -50,6 +50,8 @@ export interface SubmitOrderRequestInput {
   deliveryAddress?: string | null;
   customerNote?: string | null;
   items: OrderItemInput[];
+  /** Customer-entered code only; all amounts are reloaded and calculated server-side. */
+  promoCode?: string | null;
   idempotencyKey?: string | null;
   hp?: string | null;
   scheduledFor?: string | null;
