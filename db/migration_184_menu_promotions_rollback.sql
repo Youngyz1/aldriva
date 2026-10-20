@@ -1,6 +1,7 @@
 -- Rollback for migration 184. Removes only menu-promotion objects.
 BEGIN;
 
+REVOKE ALL ON public.promotions, public.promotion_targets FROM anon, authenticated;
 DROP TRIGGER IF EXISTS trg_promotion_targets_organizer_match ON public.promotion_targets;
 DROP TRIGGER IF EXISTS trg_promotions_organizer_match ON public.promotions;
 DROP TRIGGER IF EXISTS trg_promotion_targets_updated_at ON public.promotion_targets;

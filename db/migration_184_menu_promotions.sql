@@ -140,6 +140,7 @@ CREATE TRIGGER trg_promotion_targets_organizer_match
 
 ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promotion_targets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.promotions, public.promotion_targets FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.promotions, public.promotion_targets TO authenticated, service_role;
 GRANT SELECT ON public.promotions, public.promotion_targets TO anon;
 
