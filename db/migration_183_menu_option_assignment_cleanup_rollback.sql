@@ -1,4 +1,5 @@
 -- Rollback migration 183: restore the Phase 1 assignment-delete policy.
+-- Drop both migration functions and their triggers before removing assignment updated_at.
 
 BEGIN;
 
