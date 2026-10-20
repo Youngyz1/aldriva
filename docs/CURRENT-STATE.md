@@ -1,5 +1,13 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Menu option groups Phase 3 customer ordering (2026-10-20)
+
+- **Status: IMPLEMENTED IN WORKING TREE; Checkpoint D review pending.** The customer menu now supports a required-first customization sheet with live totals, direct add for option-free items, editable and mergeable cart lines, category tabs/search/lazy rendering, and consistent option labels in new and legacy order snapshots. The sheet is limited to 520px on desktop and fills the mobile viewport width.
+- **Carry-over:** HEAD includes commit `3663011` (`fix: dedupe legacy menu option upgrades`), which deduplicates identical JSON groups during conversion, leaves per-item hidden/override data empty, guards reuse with legacy option IDs, and tests those invariants.
+- **Visual QA:** a local static fixture was reviewed at 375px and 1440px in light mode across five flows. The public-site token system does not define a customer dark palette; dark mode is not claimed as verified. Screenshots are in `docs/phase-3-screenshots/`.
+- **Verification:** `npm run test:chunked` passed 2,506/2,506 tests across 196 files; focused storefront tests passed 46/46; `npx tsc --noEmit --pretty false` passed; touched-file ESLint passed with no diagnostics; `git diff --check` is run before handoff. Full-project ESLint reports 8 errors in untouched `app/dashboard/DashboardView.tsx` and `e2e/fixtures.ts`, with 299 warnings. A production build in an isolated copy compiled but page generation ran out of memory; route bundle figures are directional because baseline used Turbopack and the feature build used Webpack.
+- No database work or migration was run. Full details, screenshots, bundle measurements, manual QA flows, and open product questions are in `docs/phase-3-report.md`.
+
 ## Active Worktree Update — Menu option groups Phase 2 dashboard (2026-10-20)
 
 - **Status: IMPLEMENTED IN WORKING TREE; migration 183 is authored and awaits staging approval.** The dashboard adds a reusable group library, six editable bilingual starter templates, option editing, normalized item assignment/override controls, legacy JSON upgrade, and read-only legacy modifiers. JSON remains unchanged after upgrade.

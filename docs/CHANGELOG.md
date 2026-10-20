@@ -3,6 +3,14 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Menu option groups Phase 3 customer ordering (2026-10-20; working tree)
+
+- Added a responsive customization sheet with shared-rule badges, required-group validation/focus, option details, quantity controls, defaults, and live customer totals. The server remains the pricing authority.
+- Added one-tap add for option-free items; cart v3 references current menu data, reconciles removed options, edits and merges lines, and reports quantity caps and changed prices.
+- Added keyboard-operable category tabs with scroll-spy/lazy sections and loaded-item search. New option snapshot labels now render group name, kind, and quantity in staff/customer tracking and notifications; old snapshots retain their fallback.
+- Added local Playwright screenshots for five ordering flows at 375px and 1440px in light mode. Public-site tokens have no customer dark palette, so dark-theme storefront coverage is not claimed.
+- **Verification:** focused storefront suite passed 46/46; `npm run test:chunked` passed 2,506/2,506 across 196 files; standalone TypeScript and changed-file ESLint passed. Full ESLint retains 8 errors in untouched dashboard/e2e files. The isolated production build compiled, then page generation ran out of memory; bundle measurements are directional because the baseline was Turbopack and the feature build was Webpack. No database operation was run.
+
 ## [2026-10] — Menu option groups Phase 2 dashboard (2026-10-20; authored, migration not applied)
 
 - Added a reusable option-group library, bilingual starter templates, option editing with images/allergens/defaults/availability/reordering, and normalized item assignment controls with hidden-option and price-override editing.

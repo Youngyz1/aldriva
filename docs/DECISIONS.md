@@ -423,11 +423,12 @@
 
 ### DEC-0046: Menu options use additive normalized groups with legacy dual-read
 - **Decision Date**: 2026-10-20
-- **Status**: Implemented in working tree; migration 182 and staging QA seed are authored but have not been run.
+- **Status**: Phase 1 schema and staging QA seed remain authored but unapplied; Phase 3 customer ordering is implemented in the working tree.
 - **Key Tenets**:
   - Reusable groups and options are organizer-scoped and assigned per menu item. `menu_items.options_source` is the source-of-truth marker: `json` keeps legacy `option_groups`, and `normalized` uses assignments even when none remain. This prevents deleted/unassigned normalized options from being resurrected and prevents assignment rows from changing JSON items. Legacy `modifiers` are not migrated.
   - Add-ons add non-negative option deltas, including bounded per-option quantity. Variants require exactly one option whose price replaces the item's base price. Existing negative deltas remain accepted only through the legacy path.
   - The storefront preselects a variant default or first visible option. It preselects only free add-on defaults; paid defaults wait for the Phase 2 dashboard. These are client selections, not server defaults. `promo_price` and its strikethrough are hidden for variant items in this phase. Existing order snapshots are not rewritten; new snapshots include group identity/label/kind and quantity.
+  - The Phase 3 customer menu keeps the server authoritative for pricing and defaults, uses a versioned reference-only local cart, supports one-tap add only for items with no available groups, and uses the shared selection/pricing helpers for customer previews. New snapshot display includes group label, kind, and quantity while retaining the old-format fallback. Public-site tokens currently do not supply a separate dark palette.
   - Phase 1 allowed DELETE for owner/admin/manager and active platform admins on groups, options, and assignments. DEC-0047 amends assignment deletion for the Phase 2 dashboard: editors can detach assignments, but group and option deletion remain manager+.
   - The backfill uses deterministic IDs and remains opt-in; `--apply` marks only items it migrates as `normalized`. Read-only `--verify` is tested on the staging seed mirror fixture and an independent test fixture. Public embeds and order-submit fall back to JSON and log once if the new schema is missing.
 
@@ -439,7 +440,7 @@
   - JSON-backed items keep the current JSON editor until the owner chooses upgrade. Upgrade conversion calls the same deterministic converter as the backfill, writes normalized rows and switches `options_source` through one PostgreSQL function call, and leaves `option_groups` JSON untouched. It reuses an active same-organizer group only when its whitespace/case-normalized name, selection rules, and full ordered option configuration match. The existing backfill is deterministic for repeated runs of the same item/group but does not deduplicate across items. Invalid legacy groups are rejected with a reason.
   - Group, option, and assignment edits compare `updated_at` values so stale dashboard submissions fail with a reload message. Migration 183 adds assignment `updated_at`, removes a deleted option ID from every assignment's hidden IDs and price overrides, returns before that cleanup when a cascaded option's parent group is already gone, validates upgrade payload organizer/item scope, and permits editor DELETE on assignments only.
   - Code-owned templates are fully editable and create only zero-priced example options. Paid add-on defaults receive an honest notice; customer-side default behavior and pricing logic stay unchanged.
-  - `DIETARY_TAGS` and `MENU_ALLERGENS` are the shared code definitions used by UI and server validation. Tests parse the existing SQL CHECK arrays to prevent drift. Custom tags, custom allergens, image optimization, bulk import, promotions, popups, analytics, and customer-side Phase 3 polish remain deferred.
+  - `DIETARY_TAGS` and `MENU_ALLERGENS` are the shared code definitions used by UI and server validation. Tests parse the existing SQL CHECK arrays to prevent drift. Custom tags, custom allergens, image optimization, bulk import, paid add-on defaults, promotions, popups, and analytics remain deferred.
 
 ## 2. Proposed & Under Review Decisions
 
