@@ -10,6 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Aldriva — Universal Agent Engineering Reference
 
+> **Read `docs/HANDOFF.md` FIRST.** It is the start-here document: what Aldriva is, the status board for every phase and workstream, the execution order, and the exact next task.
+
 > **For all AI agents: Claude Code, OpenAI Codex, Google Antigravity, OpenCode.**
 > The repository is the single source of truth. Any agent must be able to resume work with ZERO access to previous conversations.
 
@@ -21,7 +23,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **Proxy**: Root `proxy.ts` (NOT `middleware.ts`) handles session refresh, protected-route redirects (`/dashboard/*`, `/admin`), account suspension blocks, and pre-stream status gates for articles/businesses/products (real 404s before streaming begins). See `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`.
 - **Auth/RBAC**: Use `getCurrentUser()`, `getCurrentUserProfile()`, `isAdmin()`, `isOrganizer()`, `requireAuth()`, `requireAdmin()` from `lib/auth.ts` (all `React.cache()`-memoized). Client session: `lib/supabase.ts`; server: `lib/supabase-server.ts`; admin service-role: `lib/supabase-admin.ts` (bypasses RLS — admin ops only).
 - **Tenant Model**: Tenant identity is rooted in `organizers.id`. Entity memberships and roles via `entity_members`; resolved in `lib/entity-auth.ts` / `lib/tenant-context.ts`.
-- **Migrations**: `db/` is canonical (`migration_NNN_*.sql` + `_rollback` twin; never put rollbacks in `supabase/migrations/`). `supabase/migrations/` mirrors a subset. Latest migration: `migration_126`. Always check the latest number before drafting a new migration.
+- **Migrations**: `db/` is canonical (`migration_NNN_*.sql` + `_rollback` twin; never put rollbacks in `supabase/migrations/`). `supabase/migrations/` mirrors a subset. Latest migration: **`migration_185`** (kitchen worker access, uncommitted). Always assign the next number from the register in `docs/HANDOFF.md` §6 before drafting a new migration — the old planned numbers 128–139 are consumed.
 - **Storage**: Private `product-assets` bucket (200 MB, signed URLs ~120s) + public buckets (`event-banners`, `profile-images`, `cms-media`, `videos`). Entitlement checks: `lib/product-access.ts` + `lib/digital-products.ts`. Never trust client payment state.
 - **Testing**: `npm test` runs `node --test` against an **explicit file list** in `package.json` (~38 test files, 304 tests). New `.test.cjs` files MUST be appended to that list or they silently never run.
 - **Run order after changes**: `npx eslint <files>` → `npx tsc --noEmit` → `npm run build` → `npm test`.

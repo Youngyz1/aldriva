@@ -2,6 +2,8 @@
 
 This file provides guidance specific to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Read `docs/HANDOFF.md` FIRST.** It is the start-here document: what Aldriva is, the status board for every phase and workstream, the execution order, and the exact next task. `docs/DATABASE.md` §5 holds the migration register (latest forward migration: **185**, uncommitted).
+
 @AGENTS.md
 
 ---
