@@ -6,6 +6,7 @@ import { formatMoney as formatCurrency } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { resolveDetailedPaymentBadge } from "@/lib/order-payment-label";
 import { computeOrderOverdue } from "@/lib/order-overdue";
+import { formatChosenMenuOption } from "@/lib/order-option-display";
 import {
   updateOrderStatus,
   adjustEstimatedReadyTime,
@@ -805,7 +806,7 @@ export function OrderCard({
                             key={oIdx}
                             className="inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600"
                           >
-                            {opt.group_name ? `${opt.group_name}: ` : ""}{opt.name}{opt.qty && opt.qty > 1 ? ` × ${opt.qty}` : ""}
+                            {formatChosenMenuOption(opt)}
                           </span>
                         ))}
                       </div>

@@ -2,6 +2,7 @@ import { createNotification } from "@/lib/notifications";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import { Resend } from "resend";
+import { formatChosenMenuOption } from "@/lib/order-option-display";
 
 export type OrderNotificationChannel = "bell" | "email" | "whatsapp";
 
@@ -119,7 +120,7 @@ export async function dispatchOrderNotifications(
         const itemsHtml = (order.items || [])
           .map((item) => {
             const optionsList = (item.chosen_options || [])
-              .map((opt) => `${opt.group_name ? `${opt.group_name}: ` : ""}${opt.name}${opt.qty && opt.qty > 1 ? ` × ${opt.qty}` : ""}`)
+              .map(formatChosenMenuOption)
               .join(", ");
             return `<tr>
               <td style="padding: 6px 0; border-bottom: 1px solid #f4f4f5;">
