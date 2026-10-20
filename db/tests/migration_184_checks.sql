@@ -23,8 +23,10 @@ BEGIN
     RAISE EXCEPTION 'migration_184_checks requires one auth.users row to create rollback-only organizers';
   END IF;
 
-  INSERT INTO public.organizers(user_id, name) VALUES (v_user_id, 'migration-184-check-a') RETURNING id INTO v_org_a;
-  INSERT INTO public.organizers(user_id, name) VALUES (v_user_id, 'migration-184-check-b') RETURNING id INTO v_org_b;
+  INSERT INTO public.organizers(user_id, name, slug)
+    VALUES (v_user_id, 'migration-184-check-a', 'migration-184-check-a-' || gen_random_uuid()::text) RETURNING id INTO v_org_a;
+  INSERT INTO public.organizers(user_id, name, slug)
+    VALUES (v_user_id, 'migration-184-check-b', 'migration-184-check-b-' || gen_random_uuid()::text) RETURNING id INTO v_org_b;
   INSERT INTO public.menu_sections(organizer_id, name) VALUES (v_org_a, 'migration-184-section-a') RETURNING id INTO v_section_a;
   INSERT INTO public.menu_sections(organizer_id, name) VALUES (v_org_b, 'migration-184-section-b') RETURNING id INTO v_section_b;
   INSERT INTO public.menu_items(organizer_id, section_id, name, price) VALUES (v_org_a, v_section_a, 'migration-184-item-a', 10) RETURNING id INTO v_item_a;
