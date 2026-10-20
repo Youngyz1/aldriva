@@ -35,7 +35,7 @@ BEGIN
   INSERT INTO public.promotions(organizer_id, name, offer_type, percent_off, code, status, layout)
     VALUES (v_org_a, 'code hidden', 'percent_off', 10, 'CHECK10', 'active', 'banner') RETURNING id INTO v_code_promo;
   INSERT INTO public.promotions(organizer_id, name, offer_type, percent_off, status, layout)
-    VALUES (v_org_a, 'draft hidden', 'percent_off', 10, 'draft', 'draft', 'banner') RETURNING id INTO v_draft_promo;
+    VALUES (v_org_a, 'draft hidden', 'percent_off', 10, 'draft', 'banner') RETURNING id INTO v_draft_promo;
   INSERT INTO public.promotions(organizer_id, name, offer_type, percent_off, status, layout)
     VALUES (v_org_a, 'target cap', 'percent_off', 10, 'draft', 'dish_card') RETURNING id INTO v_limit_promo;
 
