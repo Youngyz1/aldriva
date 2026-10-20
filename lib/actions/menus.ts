@@ -10,6 +10,7 @@ import {
   validateOptionGroups,
   type MenuItemOptionGroup,
 } from "@/lib/menu-pricing";
+import { DIETARY_TAGS, MENU_ALLERGENS } from "@/lib/menu-option-taxonomy";
 
 const NAME_MAX = 80;
 const DESC_MAX = 500;
@@ -17,8 +18,6 @@ const PRICE_MAX = 999999.99;
 const POSITION_MIN = 0;
 const POSITION_MAX = 999;
 const MAX_ARRAY = 12;
-const DIETARY_TAGS = ["vegan", "vegetarian", "gluten_free", "halal", "kosher", "dairy_free", "nut_free"] as const;
-const ALLERGENS = ["nuts", "dairy", "gluten", "soy", "eggs", "shellfish"] as const;
 
 function validateName(v: unknown): string | null {
   if (typeof v !== "string" || v.trim().length < 1 || v.trim().length > NAME_MAX) return `Name must be 1–${NAME_MAX}`;
@@ -214,7 +213,7 @@ export async function createMenuItem(
   if (imgErr) return { success: false, error: imgErr };
   const dtErr = validateTags(input.dietary_tags, DIETARY_TAGS, "dietary_tags");
   if (dtErr) return { success: false, error: dtErr };
-  const alErr = validateTags(input.allergens, ALLERGENS, "allergens");
+  const alErr = validateTags(input.allergens, MENU_ALLERGENS, "allergens");
   if (alErr) return { success: false, error: alErr };
   const modErr = validateModifiers(input.modifiers);
   if (modErr) return { success: false, error: modErr };
@@ -343,7 +342,7 @@ export async function updateMenuItem(
     updates.dietary_tags = input.dietary_tags;
   }
   if (input.allergens !== undefined) {
-    const e = validateTags(input.allergens, ALLERGENS, "allergens");
+    const e = validateTags(input.allergens, MENU_ALLERGENS, "allergens");
     if (e) return { success: false, error: e };
     updates.allergens = input.allergens;
   }

@@ -6,12 +6,23 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/auth";
 import { requireTenantContext } from "@/lib/tenant-context";
 import { safeImageSrc } from "@/lib/image-url";
+import { MENU_ALLERGENS } from "@/lib/menu-option-taxonomy";
+import { validateMenuOptionGroupRules } from "@/lib/menu-option-dashboard";
+
+const { buildMenuOptionBackfillPlan } = require("../menu-option-backfill.cjs") as {
+  buildMenuOptionBackfillPlan: (items: unknown[]) => {
+    groups: unknown[];
+    options: unknown[];
+    assignments: unknown[];
+    skipped: Array<{ itemId: string; reason: string }>;
+  };
+};
 
 const MAX_NAME = 80;
 const MAX_PRICE = 999999.99;
 const MAX_GROUPS = 8;
 const MAX_OPTIONS = 20;
-const ALLOWED_ALLERGENS = ["nuts", "dairy", "gluten", "soy", "eggs", "shellfish"] as const;
+const ALLOWED_ALLERGENS = MENU_ALLERGENS;
 
 type WriteRole = "owner" | "admin" | "manager" | "editor";
 type DeleteRole = "owner" | "admin" | "manager";
@@ -24,6 +35,7 @@ interface GroupInput {
   is_required?: unknown;
   position?: unknown;
   is_active?: unknown;
+  updated_at?: unknown;
 }
 
 interface OptionInput {
@@ -36,12 +48,14 @@ interface OptionInput {
   is_available?: unknown;
   allergens?: unknown;
   position?: unknown;
+  updated_at?: unknown;
 }
 
 interface AssignmentInput {
   hidden_option_ids?: unknown;
   price_overrides?: unknown;
   position?: unknown;
+  updated_at?: unknown;
 }
 
 function fail(error: string) {
@@ -64,15 +78,14 @@ function validateGroup(group: Record<string, any>): string | null {
   const nameError = validateName(group.name);
   if (nameError) return nameError;
   if (group.kind !== "variant" && group.kind !== "addon") return "Group kind must be variant or addon";
-  if (!Number.isInteger(group.min_select) || group.min_select < 0) return "Minimum selections must be an integer of at least 0";
-  if (!Number.isInteger(group.max_select) || group.max_select < 1 || group.max_select < group.min_select || group.max_select > MAX_OPTIONS) {
-    return `Maximum selections must be between 1 and ${MAX_OPTIONS} and at least the minimum`;
-  }
   if (typeof group.is_required !== "boolean") return "Required must be a boolean";
-  if (group.is_required && group.min_select < 1) return "Required groups need a minimum of at least 1";
-  if (group.kind === "variant" && (group.min_select !== 1 || group.max_select !== 1 || !group.is_required)) {
-    return "Variant groups must be required and allow exactly one selection";
-  }
+  const rulesError = validateMenuOptionGroupRules({
+    kind: group.kind,
+    is_required: group.is_required,
+    min_select: group.min_select,
+    max_select: group.max_select,
+  }, 0);
+  if (rulesError) return rulesError;
   if (group.is_active !== undefined && typeof group.is_active !== "boolean") return "Active must be a boolean";
   return validatePosition(group.position);
 }
@@ -153,7 +166,11 @@ export async function listMenuOptionGroups(organizerId: string) {
     ? await auth.admin.from("menu_options").select("*").in("group_id", groupIds).order("position", { ascending: true })
     : { data: [], error: null };
   if (optionsError) return fail("Failed to load menu options");
-  return { success: true as const, data: { groups: groups || [], options: options || [] } };
+  const { data: assignments, error: assignmentsError } = groupIds.length
+    ? await auth.admin.from("menu_item_option_groups").select("*").eq("organizer_id", organizerId).in("group_id", groupIds).order("position", { ascending: true })
+    : { data: [], error: null };
+  if (assignmentsError) return fail("Failed to load menu item option groups");
+  return { success: true as const, data: { groups: groups || [], options: options || [], assignments: assignments || [] } };
 }
 
 export async function createMenuOptionGroup(organizerId: string, input: GroupInput) {
@@ -187,15 +204,53 @@ export async function updateMenuOptionGroup(groupId: string, organizerId: string
   const payload = { ...existing, ...input };
   const validationError = validateGroup(payload);
   if (validationError) return fail(validationError);
+  const { data: optionRows, error: optionError } = await auth.admin.from("menu_options").select("id").eq("group_id", groupId);
+  if (optionError) return fail("Failed to check group options");
+  const optionCount = (optionRows || []).length;
+  const optionCountError = validateMenuOptionGroupRules(payload, optionCount);
+  if (optionCountError) return fail(optionCountError);
+  if (input.updated_at !== undefined && input.updated_at !== existing.updated_at) return fail("This group changed by someone else. Reload and try again.");
   const updates: Record<string, unknown> = {};
   for (const key of ["name", "kind", "min_select", "max_select", "is_required", "position", "is_active"] as const) {
     if (input[key] !== undefined) updates[key] = key === "name" && typeof input[key] === "string" ? input[key].trim() : input[key];
   }
   const { data, error } = await auth.admin.from("menu_option_groups").update(updates)
-    .eq("id", groupId).eq("organizer_id", organizerId).select("*").single();
-  if (error) return fail("Failed to update option group");
+    .eq("id", groupId).eq("organizer_id", organizerId)
+    .eq("updated_at", input.updated_at ?? existing.updated_at).select("*").maybeSingle();
+  if (error || !data) return fail("This group changed by someone else. Reload and try again.");
   revalidateMenu(organizerId);
   return { success: true as const, data };
+}
+
+export async function duplicateMenuOptionGroup(groupId: string, organizerId: string) {
+  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  if ("error" in auth && auth.error) return fail(auth.error);
+  const { data: source, error: groupError } = await auth.admin.from("menu_option_groups").select("*")
+    .eq("id", groupId).eq("organizer_id", organizerId).maybeSingle();
+  if (groupError || !source) return fail("Option group not found");
+  const { data: sourceOptions, error: optionsError } = await auth.admin.from("menu_options").select("*")
+    .eq("group_id", groupId).eq("organizer_id", organizerId).order("position", { ascending: true });
+  if (optionsError) return fail("Failed to load options for duplicate");
+  const sourceFields = { ...source };
+  delete sourceFields.id;
+  delete sourceFields.created_at;
+  delete sourceFields.updated_at;
+  const groupPayload = { ...sourceFields, name: `${source.name} copy`.slice(0, MAX_NAME), legacy_source_item_id: null, legacy_group_id: null };
+  const { data: duplicate, error } = await auth.admin.from("menu_option_groups").insert(groupPayload).select("*").single();
+  if (error || !duplicate) return fail("Failed to duplicate option group");
+  if ((sourceOptions || []).length) {
+    const rows = sourceOptions.map((option: Record<string, unknown>, position: number) => {
+      const copy = { ...option };
+      delete copy.id;
+      delete copy.created_at;
+      delete copy.updated_at;
+      return { ...copy, group_id: duplicate.id, position };
+    });
+    const { error: copyError } = await auth.admin.from("menu_options").insert(rows);
+    if (copyError) return fail("Group copied, but its options could not be copied. Remove the incomplete copy and retry.");
+  }
+  revalidateMenu(organizerId);
+  return { success: true as const, data: duplicate };
 }
 
 export async function deleteMenuOptionGroup(groupId: string, organizerId: string) {
@@ -225,6 +280,10 @@ export async function createMenuOption(groupId: string, organizerId: string, inp
   if ("error" in auth && auth.error) return fail(auth.error);
   const group = await getOwnedGroup(auth.admin, groupId, organizerId);
   if (!group) return fail("Option group not found");
+  const { data: existingOptions, error: existingOptionsError } = await auth.admin.from("menu_options").select("id, is_default")
+    .eq("group_id", groupId).eq("organizer_id", organizerId);
+  if (existingOptionsError) return fail("Failed to check existing options");
+  if ((existingOptions || []).length >= MAX_OPTIONS) return fail(`A group can have at most ${MAX_OPTIONS} options`);
   if (!input || typeof input !== "object") return fail("Menu option input is required");
   const payload = {
     name: typeof input.name === "string" ? input.name.trim() : input.name,
@@ -239,6 +298,9 @@ export async function createMenuOption(groupId: string, organizerId: string, inp
   };
   const validationError = validateOption(payload);
   if (validationError) return fail(validationError);
+  if (group.kind === "variant" && payload.is_default && (existingOptions || []).some((option: { is_default: boolean }) => option.is_default)) {
+    return fail("A variant group can have at most one default option");
+  }
   const { data, error } = await auth.admin.from("menu_options")
     .insert({ ...payload, group_id: groupId, organizer_id: organizerId }).select("*").single();
   if (error) return fail("Failed to create menu option");
@@ -257,13 +319,21 @@ export async function updateMenuOption(optionId: string, groupId: string, organi
   const payload = { ...existing, ...input };
   const validationError = validateOption(payload);
   if (validationError) return fail(validationError);
+  if (input.updated_at !== undefined && input.updated_at !== existing.updated_at) return fail("This option changed by someone else. Reload and try again.");
+  if (group.kind === "variant" && payload.is_default) {
+    const { data: defaults, error: defaultsError } = await auth.admin.from("menu_options").select("id")
+      .eq("group_id", groupId).eq("is_default", true);
+    if (defaultsError) return fail("Failed to check variant defaults");
+    if ((defaults || []).some((option: { id: string }) => option.id !== optionId)) return fail("A variant group can have at most one default option");
+  }
   const updates: Record<string, unknown> = {};
   for (const key of ["name", "description", "price", "image_url", "is_default", "max_qty", "is_available", "allergens", "position"] as const) {
     if (input[key] !== undefined) updates[key] = key === "name" && typeof input[key] === "string" ? input[key].trim() : input[key];
   }
   const { data, error } = await auth.admin.from("menu_options").update(updates)
-    .eq("id", optionId).eq("group_id", groupId).eq("organizer_id", organizerId).select("*").single();
-  if (error) return fail("Failed to update menu option");
+    .eq("id", optionId).eq("group_id", groupId).eq("organizer_id", organizerId)
+    .eq("updated_at", input.updated_at ?? existing.updated_at).select("*").maybeSingle();
+  if (error || !data) return fail("This option changed by someone else. Reload and try again.");
   revalidateMenu(organizerId);
   return { success: true as const, data };
 }
@@ -292,7 +362,7 @@ export async function assignMenuOptionGroup(itemId: string, groupId: string, org
   ]);
   if (!item || !group) return fail("Menu item or option group not found in this organizer");
   const { data: assignments, error: assignmentsError } = await auth.admin.from("menu_item_option_groups")
-    .select("group_id").eq("item_id", itemId);
+    .select("group_id").eq("item_id", itemId).eq("organizer_id", organizerId);
   if (assignmentsError) return fail("Failed to check existing option group assignments");
   const existingGroupIds = (assignments || []).map((assignment: { group_id: string }) => assignment.group_id);
   if (existingGroupIds.includes(groupId)) return fail("Option group is already assigned to this item");
@@ -340,15 +410,18 @@ export async function updateMenuItemOptionGroup(assignmentId: string, organizerI
   };
   const validationError = validateAssignment(payload, optionIds);
   if (validationError) return fail(validationError);
+  if (input.updated_at !== undefined && input.updated_at !== existing.updated_at) return fail("This assignment changed by someone else. Reload and try again.");
   const { data, error } = await auth.admin.from("menu_item_option_groups").update(payload)
-    .eq("id", assignmentId).eq("organizer_id", organizerId).select("*").single();
-  if (error) return fail("Failed to update menu item option group assignment");
+    .eq("id", assignmentId).eq("organizer_id", organizerId)
+    .eq("updated_at", input.updated_at ?? existing.updated_at).select("*").maybeSingle();
+  if (error || !data) return fail("This assignment changed by someone else. Reload and try again.");
+  if (!(await markItemsOptionsNormalized(auth.admin, organizerId, [existing.item_id]))) return fail("Failed to mark menu item options as normalized");
   revalidateMenu(organizerId);
   return { success: true as const, data };
 }
 
 export async function unassignMenuOptionGroup(assignmentId: string, organizerId: string) {
-  const auth = await authorize(organizerId, ["owner", "admin", "manager"]);
+  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
   if ("error" in auth && auth.error) return fail(auth.error);
   const { data: assignment, error: assignmentError } = await auth.admin.from("menu_item_option_groups")
     .select("item_id").eq("id", assignmentId).eq("organizer_id", organizerId).maybeSingle();
@@ -361,4 +434,65 @@ export async function unassignMenuOptionGroup(assignmentId: string, organizerId:
   if (error) return fail("Failed to remove option group from menu item");
   revalidateMenu(organizerId);
   return { success: true as const };
+}
+
+export async function reorderMenuItemOptionGroups(itemId: string, organizerId: string, rows: Array<{ id: string; updated_at: string }>) {
+  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  if ("error" in auth && auth.error) return fail(auth.error);
+  if (!Array.isArray(rows) || rows.length > MAX_GROUPS || rows.some((row) => !row || typeof row.id !== "string" || typeof row.updated_at !== "string") || new Set(rows.map((row) => row.id)).size !== rows.length) return fail("Invalid option group order");
+  const { data: current, error } = await auth.admin.from("menu_item_option_groups").select("id, updated_at")
+    .eq("organizer_id", organizerId).eq("item_id", itemId);
+  if (error) return fail("Failed to load item option groups");
+  if ((current || []).length !== rows.length || rows.some((row) => !(current || []).some((entry: { id: string; updated_at: string }) => entry.id === row.id && entry.updated_at === row.updated_at))) {
+    return fail("These option groups changed by someone else. Reload and try again.");
+  }
+  for (const [position, row] of rows.entries()) {
+    const { data, error: updateError } = await auth.admin.from("menu_item_option_groups").update({ position })
+      .eq("id", row.id).eq("organizer_id", organizerId).eq("updated_at", row.updated_at).select("id").maybeSingle();
+    if (updateError || !data) return fail("These option groups changed by someone else. Reload and try again.");
+  }
+  if (!(await markItemsOptionsNormalized(auth.admin, organizerId, [itemId]))) return fail("Failed to mark menu item options as normalized");
+  revalidateMenu(organizerId);
+  return { success: true as const };
+}
+
+export async function reorderMenuOptions(groupId: string, organizerId: string, rows: Array<{ id: string; updated_at: string }>) {
+  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  if ("error" in auth && auth.error) return fail(auth.error);
+  if (!Array.isArray(rows) || rows.length > MAX_OPTIONS || rows.some((row) => !row || typeof row.id !== "string" || typeof row.updated_at !== "string") || new Set(rows.map((row) => row.id)).size !== rows.length) return fail("Invalid option order");
+  const { data: current, error } = await auth.admin.from("menu_options").select("id, updated_at")
+    .eq("organizer_id", organizerId).eq("group_id", groupId);
+  if (error) return fail("Failed to load menu options");
+  if ((current || []).length !== rows.length || rows.some((row) => !(current || []).some((entry: { id: string; updated_at: string }) => entry.id === row.id && entry.updated_at === row.updated_at))) {
+    return fail("These options changed by someone else. Reload and try again.");
+  }
+  for (const [position, row] of rows.entries()) {
+    const { data, error: updateError } = await auth.admin.from("menu_options").update({ position })
+      .eq("id", row.id).eq("group_id", groupId).eq("organizer_id", organizerId).eq("updated_at", row.updated_at).select("id").maybeSingle();
+    if (updateError || !data) return fail("These options changed by someone else. Reload and try again.");
+  }
+  revalidateMenu(organizerId);
+  return { success: true as const };
+}
+
+export async function upgradeMenuItemOptions(itemId: string, organizerId: string) {
+  const auth = await authorize(organizerId, ["owner", "admin", "manager", "editor"]);
+  if ("error" in auth && auth.error) return fail(auth.error);
+  const { data: item, error: itemError } = await auth.admin.from("menu_items")
+    .select("id, organizer_id, option_groups, options_source").eq("id", itemId).eq("organizer_id", organizerId).maybeSingle();
+  if (itemError || !item) return fail("Menu item not found");
+  if (item.options_source === "normalized") return fail("This item already uses reusable option groups");
+  const plan = buildMenuOptionBackfillPlan([item]);
+  if (plan.skipped.length) return fail(`This item cannot be upgraded: ${plan.skipped[0].reason}`);
+  if (!plan.groups.length) return fail("This item has no valid JSON option groups to upgrade");
+  const { error } = await auth.admin.rpc("upgrade_menu_item_option_groups", {
+    p_item_id: itemId,
+    p_organizer_id: organizerId,
+    p_groups: plan.groups,
+    p_options: plan.options,
+    p_assignments: plan.assignments,
+  });
+  if (error) return fail(error.message || "Failed to upgrade item options");
+  revalidateMenu(organizerId);
+  return { success: true as const, data: { groups: plan.groups.length, options: plan.options.length } };
 }
