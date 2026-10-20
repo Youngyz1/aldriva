@@ -1,5 +1,45 @@
 # Phase 5: Products, Services & Menus
 
+---
+
+## STATUS (verified 2026-10-20)
+
+Service/menu core is **built**; the **menu options & promotions workstream** is built on a branch and awaiting application/QA; multi-currency is a known gap.
+
+### Built
+- `db/migration_136_services_and_menus.sql` + rollback: tables `services`, `service_tiers`, `menu_sections`, `menu_items` with RLS, indexes, bounds, and the `check_menu_item_organizer_match` trigger. (VERIFIED — file exists; applied live 2026-09-24 per §7.)
+- Server actions `lib/actions/services.ts`, `lib/actions/menus.ts`; dashboard `app/dashboard/org/[id]/services/`, `services/[serviceId]/`, `menu/`; public `services_embed` / `menu_embed` blocks. (VERIFIED — paths exist; §8.)
+- **Menu options & promotions workstream** (Phases 0–4 of that workstream): migrations **182** (`menu_option_groups`/`menu_options`/`menu_item_option_groups`), **183** (`upgrade_menu_item_option_groups` RPC + cleanup), **184** (`menu promotions`). Code: `lib/actions/menu-option-groups.ts`, `lib/actions/promotions.ts`, `lib/menu-promotions.ts`, `components/dashboard/menu/PromotionsManager.tsx`, `app/dashboard/org/[id]/promotions/page.tsx`. Tests registered: `phase0-menu-options-regressions.test.cjs`, `menu-promotions.test.cjs`. (VERIFIED — files exist 2026-10-20.)
+- Test suite `lib/__tests__/services-and-menus.test.cjs` registered in `package.json`. (VERIFIED)
+
+### Partly built
+- **Menu options & promotions are unverified in a running app.** Per `docs/phase-4-report.md` and `docs/CURRENT-STATE.md`: the new order snapshot fields (`group_name`, `group_kind`, `qty`, promotion) are not confirmed in a live app, 375px visual QA is not done, and a production data inventory is not done. (VERIFIED as unverified.)
+- **Migration application state:** 182 and 183 applied on staging; **184 approved but NOT applied**. (VERIFIED — task owner statement + `docs/CURRENT-STATE.md`; no DB op run by this doc pass.)
+- Browser/visual QA and live RLS/trigger testing as a non-admin user. (VERIFIED as unverified — §9.)
+
+### Not built
+- **Multi-currency** for services — prices are hardcoded USD. (VERIFIED — `components/site/blocks/BlockRenderer.tsx:2082` `TODO: multi-currency not in Phase 5`; also dashboard `services/page.tsx`.)
+- QR generation for menus — intentionally out of scope; menu is published as a Menu block on the site. (VERIFIED — §10.)
+- No `service_categories` table (intentionally omitted). (VERIFIED — §7 note.)
+
+### Known bugs / risks
+- Migration **182 has no rollback twin** (`ls db/migration_182*` shows only the forward file) — the "rollback twin" is missing even though Phase-1/2 notes describe one. (VERIFIED 2026-10-20.)
+- Public embed queries historically lacked a `LIMIT` (menu items) — flagged in `docs/audit-menu-options-promotions.md`; remediation tracked in that workstream. (VERIFIED — audit doc.)
+
+### Test coverage
+- `lib/__tests__/services-and-menus.test.cjs` (26 checks, registered). (VERIFIED — registered in `package.json`.)
+- Menu options/promotions: `phase0-menu-options-regressions.test.cjs`, `menu-promotions.test.cjs` (registered). (VERIFIED)
+
+### Continue from here
+1. Owner applies migration **184** on staging, then runs `db/tests/migration_184_checks.sql`. (Owner action.)
+2. Verify order snapshot fields in the running app; do 375px visual QA; take a production data inventory. (Both pending per §"Partly built".)
+3. Author the missing migration-182 rollback twin (or accept forward-only). (Open — `docs/HANDOFF.md` §7.)
+4. Multi-currency: resolve the hardcoded-USD TODO when the owner prioritises it.
+
+---
+
+## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+
 ## 1. Objective
 Expand the business catalog beyond digital marketplace goods to support physical products, bookable services, and structured restaurant/hospitality digital menus.
 
