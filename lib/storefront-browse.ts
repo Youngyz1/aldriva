@@ -62,6 +62,10 @@ export interface BrowseItem {
   promotions?: MenuPromotion[];
   /** Discount badge copied from the server's shared price resolution. */
   discountLabel?: string | null;
+  /** End time of the applied public menu promotion. */
+  promotionEndsAt?: string | null;
+  /** Separate delivery badge; it never changes the displayed item price. */
+  freeDeliveryLabel?: string | null;
   /** ISO timestamp for newest-first sorting. Absent sorts last. */
   createdAt?: string | null;
   /** Regular price crossed out when promo price is active. */

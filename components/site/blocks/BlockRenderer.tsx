@@ -2380,6 +2380,8 @@ async function MenuEmbedBlockRenderer({
         promotions: it.promotions ?? [],
         originalPriceLabel,
         discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
+        promotionEndsAt: it.applied_promotion?.ends_at ?? null,
+        freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? browseLabels.freeDelivery : null,
         isSoldOut: Boolean(it.is_sold_out),
         tags: it.dietary_tags,
         detailRows: [
@@ -2464,6 +2466,8 @@ async function MenuEmbedBlockRenderer({
                           ? formatCurrency(originalPrice, displayCurrency, locale)
                           : null,
                         discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
+                        promotionEndsAt: it.applied_promotion?.ends_at ?? null,
+                        freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? t("freeDelivery") : null,
                         isSoldOut: Boolean(it.is_sold_out),
                         isFeatured: Boolean(it.is_featured),
                       };

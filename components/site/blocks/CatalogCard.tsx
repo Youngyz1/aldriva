@@ -14,6 +14,8 @@ export interface CatalogCardItem {
   numericPrice?: number | null;
   originalPriceLabel?: string | null;
   discountLabel?: string | null;
+  promotionEndsAt?: string | null;
+  freeDeliveryLabel?: string | null;
   isSoldOut?: boolean;
   isFeatured?: boolean;
   canQuickAdd?: boolean;
@@ -32,6 +34,23 @@ export interface CatalogCardProps {
   imageFit?: "cover" | "contain";
 }
 
+export function hasCatalogCarouselOverflow(scrollWidth: number, clientWidth: number, tolerance = 1): boolean {
+  return scrollWidth > clientWidth + tolerance;
+}
+
+function formatPromotionEndDate(value: string | null | undefined, locale: "en" | "fr"): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const dateLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+  return "Ends " + dateLabel;
+}
+
 function InitialFallback({ name }: { name: string }) {
   const initial = name?.trim().charAt(0)?.toUpperCase() || "";
   return (
@@ -44,6 +63,10 @@ function InitialFallback({ name }: { name: string }) {
 }
 
 export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit }: CatalogCardProps) {
+  const effectivePriceLabel = typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
+    ? formatCurrency(item.numericPrice, currency, locale)
+    : item.priceLabel;
+  const promotionEndLabel = formatPromotionEndDate(item.promotionEndsAt, locale);
   const content = (
     <div
       className={`flex h-full flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
@@ -70,18 +93,25 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
         <p className="min-h-[2.5rem] text-[16px] text-[var(--tf-on-soft)]/90 line-clamp-2">
           {item.description || ""}
         </p>
-        {item.priceLabel || item.numericPrice != null ? (
+        {effectivePriceLabel || item.originalPriceLabel ? (
           <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1 text-[16px] font-semibold text-[var(--tf-on-soft)]">
-            {item.priceLabel ??
-              (typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
-                ? formatCurrency(item.numericPrice, currency, locale)
-                : null)}
             {item.originalPriceLabel ? (
               <span className="text-xs font-normal text-[var(--tf-on-soft)]/75 line-through">
                 {item.originalPriceLabel}
               </span>
             ) : null}
+            {effectivePriceLabel ? (
+              <span className={item.originalPriceLabel ? "text-[var(--ps-accent-hover)]" : undefined}>
+                {effectivePriceLabel}
+              </span>
+            ) : null}
             {item.discountLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 text-[11px] font-bold leading-none text-[var(--ps-accent-foreground)]">{item.discountLabel}</span> : null}
+          </div>
+        ) : null}
+        {item.freeDeliveryLabel || promotionEndLabel ? (
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            {item.freeDeliveryLabel ? <span className="rounded-full bg-[var(--ps-accent)] px-2 py-1 font-semibold text-[var(--ps-accent-foreground)]">{item.freeDeliveryLabel}</span> : null}
+            {promotionEndLabel ? <span className="text-[var(--tf-on-soft)]/75">{promotionEndLabel}</span> : null}
           </div>
         ) : null}
       </div>

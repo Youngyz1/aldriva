@@ -621,6 +621,8 @@ export function StorefrontBrowse({
                 numericPrice: item.numericPrice,
                 originalPriceLabel: item.originalPriceLabel,
                 discountLabel: item.discountLabel,
+                promotionEndsAt: item.promotionEndsAt,
+                freeDeliveryLabel: item.freeDeliveryLabel,
                 isSoldOut: item.isSoldOut,
                 canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
               }))}
