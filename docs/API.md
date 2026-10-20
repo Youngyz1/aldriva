@@ -1,7 +1,7 @@
 # Aldriva — API Reference & Endpoint Catalog
 
 > **Status**: Verified Technical Reference  
-> **Last Verified**: September 2026
+> **Last Verified**: 2026-10-20 (handoff docs pass). **177 internal route handlers** under `app/api/`; **no public `/v1` API exists yet** (Phase 9 — NOT STARTED, see §3).
 
 ---
 
@@ -49,8 +49,18 @@ All internal routes live under `app/api/` and utilize Next.js 16 Route Handlers.
 
 ### F. Growth Studio & Background Jobs
 - `POST /api/ai/chat`: Admin interactive AI chat with tool dispatch and guard screening.
+- `POST /api/ai/gateway`: Tenant/admin AI gateway entrypoint (rate-limited); the canonical non-UI AI entry.
 - `GET /api/cron/daily-post`: Vercel Cron (14:00 UTC) for platform and grounded social spotlight generation.
 - `GET /api/cron/promotion-engine`: Vercel Cron (18:00 UTC) for multi-channel campaign rotation.
+- `GET /api/cron/memory-retention`, `GET /api/cron/invitation-retention`, `GET /api/cron/invitation-drafts`, `GET /api/cron/purge-accounts`, `GET /api/cron/sentinel-sweep`: background maintenance crons (AI memory retention, invitation cleanup, account purge, sentinel sweep).
+
+### G. Store Cart, Ordering & Kitchen (newer routes, previously undocumented here)
+- `POST /api/checkout/cart`: Multi-line Store Stripe Checkout Session (server re-prices every line; never trusts client totals).
+- `POST /api/checkout/cart/validate`: Priced cart review with no writes (pre-checkout validation).
+- `POST /api/create-payment-intent`: Stripe PaymentIntent creation for menu/order online payment.
+- `GET|POST /api/kitchen/accept/bootstrap`, `POST /api/kitchen/accept`, `GET|POST /api/kitchen/session`, `POST /api/kitchen/logout`, `GET|POST /api/kitchen/display/bootstrap`: **kitchen worker access** (invite-link → phone-last4 accept → session cookie; display token bootstrap). **Uncommitted work** — see `docs/phases/phase-kitchen-delivery.md`.
+
+> Count: **177** `route.ts` handlers exist under `app/api/` (VERIFIED 2026-10-20). This catalog lists the high-signal ones; it is not exhaustive.
 
 ---
 
@@ -63,6 +73,8 @@ All internal routes live under `app/api/` and utilize Next.js 16 Route Handlers.
 ---
 
 ## 3. Future Public Developer API (`/v1/*` — Planned for Phase 9)
+
+> **There is no public API today.** Every route in §1 is **internal**: it is reached by Aldriva's own pages and authenticates with a Supabase **session cookie**. There are no API keys, no scopes, no versioning, no OpenAPI spec, and no `/v1/*` route (VERIFIED — `app/api/v1/` does not exist, 2026-10-20). Phase 9 (`docs/phases/phase-09-public-api.md`) is **NOT STARTED**; Phase 10 webhooks and Phase 11 POS depend on it. The public API is a separate product from the mini-websites.
 
 The public developer API will be released in Phase 9 with API Key authentication (`X-Aldriva-Key`), tenant scoping, and OpenAPI 3.1 documentation:
 
