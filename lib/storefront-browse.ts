@@ -21,10 +21,14 @@ export interface BrowseDetailRow {
 export interface BrowseOption {
   id: string;
   name: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  allergens?: string[];
   priceDeltaLabel?: string | null;
   priceDelta?: number;
   price?: number;
   isDefault?: boolean;
+  isAvailable?: boolean;
   maxQty?: number;
 }
 
@@ -47,6 +51,8 @@ export interface BrowseItem {
   priceLabel: string | null;
   /** Numeric price value for client total calculations. */
   numericPrice?: number;
+  /** Menu item update token used to flag a potentially changed cart price. */
+  updatedAt?: string | null;
   /** ISO timestamp for newest-first sorting. Absent sorts last. */
   createdAt?: string | null;
   /** Regular price crossed out when promo price is active. */
@@ -78,17 +84,52 @@ export function defaultBrowseOptionSelections(
 ): Record<string, string[]> {
   const selected: Record<string, string[]> = {};
   for (const group of groups) {
+    const availableOptions = group.options.filter((candidate) => candidate.isAvailable !== false);
     if (group.kind === "variant") {
-      const option = group.options.find((candidate) => candidate.isDefault) ?? group.options[0];
+      const option = availableOptions.find((candidate) => candidate.isDefault) ?? availableOptions[0];
       if (option) selected[group.id] = [option.id];
       continue;
     }
-    const freeDefaults = group.options
+    const freeDefaults = availableOptions
       .filter((option) => option.isDefault && Number(option.priceDelta ?? option.price) === 0)
+      .slice(0, Math.max(0, group.max))
       .map((option) => option.id);
     if (freeDefaults.length > 0) selected[group.id] = freeDefaults;
   }
   return selected;
+}
+
+/** Keep only groups and options that can be presented to a customer. */
+export function availableBrowseOptionGroups(
+  groups: readonly BrowseOptionGroup[]
+): BrowseOptionGroup[] {
+  return groups
+    .map((group) => ({ ...group, options: group.options.filter((option) => option.isAvailable !== false) }))
+    .filter((group) => group.options.length > 0);
+}
+
+/** Customer-facing summary of the actual selection bounds shared by the server. */
+export function describeBrowseOptionGroupRules(
+  group: Pick<BrowseOptionGroup, "required" | "min" | "max" | "kind">,
+  labels?: { required?: string; optional?: string }
+): string {
+  const required = group.kind === "variant" || group.required;
+  const minimum = group.kind === "variant" ? 1 : group.required ? Math.max(1, group.min) : group.min;
+  let rule: string;
+  if (group.kind === "variant" || (minimum === 1 && group.max === 1)) {
+    rule = "Choose 1";
+  } else if (minimum > 0) {
+    rule = `Choose ${minimum}–${group.max}`;
+  } else {
+    rule = `up to ${group.max}`;
+  }
+  return `${required ? labels?.required || "Required" : labels?.optional || "Optional"} · ${rule}`;
+}
+
+export function hasAvailableBrowseOptionGroups(
+  groups: readonly BrowseOptionGroup[] | null | undefined
+): boolean {
+  return availableBrowseOptionGroups(groups || []).length > 0;
 }
 
 /** Sort orders for storefront browse grids. `featured` keeps server order. */

@@ -2232,9 +2232,13 @@ async function MenuEmbedBlockRenderer({
         options: og.options.map((opt) => ({
           id: opt.id,
           name: opt.name,
+          description: opt.description ?? null,
+          imageUrl: safeImageSrc(opt.image_url) || null,
+          allergens: Array.isArray(opt.allergens) ? opt.allergens : [],
           priceDelta: og.kind === "variant" ? 0 : Number(opt.price_delta) || 0,
           price: Number(opt.price) || 0,
           isDefault: Boolean(opt.is_default),
+          isAvailable: opt.is_available !== false,
           maxQty: opt.max_qty ?? 1,
           priceDeltaLabel: og.kind === "variant"
             ? formatCurrency(Number(opt.price), displayCurrency, locale)
@@ -2253,6 +2257,7 @@ async function MenuEmbedBlockRenderer({
         image: safeImageSrc(it.image_url) || null,
         priceLabel,
         numericPrice: isPromo ? Number(it.promo_price) : Number(it.price),
+        updatedAt: it.updated_at ?? null,
         originalPriceLabel,
         isSoldOut: Boolean(it.is_sold_out),
         tags: it.dietary_tags,

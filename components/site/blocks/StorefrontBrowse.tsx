@@ -14,12 +14,15 @@
  * takes over the grids.
  */
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import {
   BROWSE_ALL_GROUP,
   defaultBrowseOptionSelections,
+  availableBrowseOptionGroups,
+  describeBrowseOptionGroupRules,
+  hasAvailableBrowseOptionGroups,
   filterBrowseGroups,
   sortBrowseItems,
   type BrowseGroup,
@@ -44,10 +47,18 @@ import { submitOrderRequest } from "@/lib/actions/orders";
 import { formatMoney } from "@/lib/money";
 import {
   calculateMenuLineTotal,
-  calculateOptionAdjustedUnitPrice,
+  calculateSelectedMenuUnitPrice,
   isOptionGroupSelectionSatisfied,
   MAX_LINE_QUANTITY,
 } from "@/lib/menu-pricing";
+import {
+  createStorefrontCartLineId,
+  migrateStorefrontCart,
+  reconcileStorefrontCart,
+  STOREFRONT_CART_VERSION,
+  upsertStorefrontCartLine,
+  type StorefrontCartLine,
+} from "@/lib/storefront-cart";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
 
@@ -84,6 +95,7 @@ export interface StorefrontBrowseLabels {
   optional?: string;
   options?: string;
   addToOrder?: string;
+  updateOrder?: string;
   quantityLimit?: string;
   viewOrder?: string;
   yourOrder?: string;
@@ -128,14 +140,7 @@ export interface StorefrontBrowseLabels {
   loadMore?: string;
 }
 
-export interface CartItem {
-  itemId: string;
-  selectedOptionIds: string[];
-  selectedOptions?: Array<{ groupId?: string; optionId: string; qty: number }>;
-  quantity: number;
-}
-
-const STOREFRONT_CART_VERSION = 2;
+export type CartItem = StorefrontCartLine;
 
 interface StorefrontBrowseProps {
   groups: BrowseGroup[];
@@ -194,72 +199,54 @@ interface StorefrontBrowseProps {
 export function TableFlameMenuRows({
   items,
   onSelect,
+  onQuickAdd,
   soldOutLabel,
 }: {
   items: BrowseItem[];
   onSelect: (item: BrowseItem, trigger: HTMLButtonElement) => void;
+  onQuickAdd?: (item: BrowseItem, trigger: HTMLButtonElement) => void;
   soldOutLabel?: string;
 }) {
   return <>
     {items.map((item) => (
-      <button
-        key={item.id}
-        data-menu-row="true"
-        type="button"
-        aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
-        onClick={(event) => onSelect(item, event.currentTarget)}
-        className="group flex min-h-11 w-full items-center gap-5 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline gap-2">
-            <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
-            <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[var(--tf-menu-leader)]" />
-            {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+      <div key={item.id} className="flex min-h-11 items-center gap-2">
+        <button
+          data-menu-row="true"
+          type="button"
+          aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
+          onClick={(event) => onSelect(item, event.currentTarget)}
+          className="group flex min-h-11 min-w-0 flex-1 items-center gap-5 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <span className="shrink-0 text-base font-semibold text-[var(--ps-text)] group-hover:text-[var(--ps-accent-hover)]">{item.name}</span>
+              <span aria-hidden="true" className="min-w-3 flex-1 border-b border-dotted border-[var(--tf-menu-leader)]" />
+              {item.priceLabel ? <span className="shrink-0 text-base font-semibold tabular-nums text-[var(--ps-text)]">{item.priceLabel}</span> : null}
+            </span>
+            {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
+            {item.isSoldOut && soldOutLabel ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{soldOutLabel}</span> : null}
           </span>
-          {item.description ? <span className="mt-1 block text-sm leading-6 text-[var(--ps-muted)]">{item.description}</span> : null}
-          {item.isSoldOut && soldOutLabel ? <span className="mt-1 inline-block text-xs font-semibold text-[var(--ps-muted)]">{soldOutLabel}</span> : null}
-        </span>
-        {item.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[var(--tf-border)] object-cover" loading="lazy" />
+          {item.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.image} alt="" width={88} height={88} className="h-[88px] w-[88px] shrink-0 rounded-xl border border-[var(--tf-border)] object-cover" loading="lazy" />
+          ) : null}
+        </button>
+        {onQuickAdd && !item.isSoldOut ? (
+          <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item, event.currentTarget)} className="min-h-11 min-w-11 rounded-full border border-[var(--tf-border)] text-lg font-semibold text-[var(--ps-text)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
         ) : null}
-      </button>
+      </div>
     ))}
   </>;
 }
 
-function loadCart(slug: string): CartItem[] {
-  if (typeof window === "undefined" || !slug) return [];
+function loadCart(slug: string): { lines: CartItem[]; needsSave: boolean } {
+  if (typeof window === "undefined" || !slug) return { lines: [], needsSave: false };
   try {
     const raw = localStorage.getItem(`aldriva_cart_${slug}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed)
-      ? parsed
-      : parsed?.version === STOREFRONT_CART_VERSION && Array.isArray(parsed.items)
-        ? parsed.items
-        : [];
-    return rows.filter(
-      (item: any) =>
-        item &&
-        typeof item.itemId === "string" &&
-        Array.isArray(item.selectedOptionIds) &&
-        typeof item.quantity === "number" &&
-        item.quantity > 0
-    ).map((item: any) => ({
-      ...item,
-      selectedOptions: Array.isArray(item.selectedOptions)
-        ? item.selectedOptions.filter((option: any) =>
-            option && typeof option.optionId === "string" && Number.isInteger(option.qty) && option.qty >= 1
-          ).map((option: any) => ({
-            ...(typeof option.groupId === "string" ? { groupId: option.groupId } : {}),
-            optionId: option.optionId,
-            qty: option.qty,
-          }))
-        : undefined,
-    }));
+    if (!raw) return { lines: [], needsSave: false };
+    return migrateStorefrontCart(JSON.parse(raw), createStorefrontCartLineId);
   } catch {
-    return [];
+    return { lines: [], needsSave: false };
   }
 }
 
@@ -272,13 +259,6 @@ function saveCart(slug: string, cart: CartItem[]): void {
   }
 }
 
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const sortedA = [...a].sort();
-  const sortedB = [...b].sort();
-  return sortedA.every((val, index) => val === sortedB[index]);
-}
-
 function optionQuantityKey(groupId: string, optionId: string): string {
   return `${groupId}:${optionId}`;
 }
@@ -288,39 +268,34 @@ function browseLineUnitPrice(
   selectedOptionIds: readonly string[],
   selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]
 ): number {
-  let basePrice = typeof item.numericPrice === "number" ? item.numericPrice : 0;
-  let addOnDelta = 0;
-  const selectedIds = new Set(selectedOptionIds);
-  for (const group of item.optionGroups || []) {
-    for (const option of group.options) {
-      if (!selectedIds.has(option.id)) continue;
-      const selected = selectedOptions?.find((entry) =>
-        entry.optionId === option.id && (!entry.groupId || entry.groupId === group.id)
-      );
-      const qty = selected?.qty ?? 1;
-      if (group.kind === "variant") {
-        basePrice = Number(option.price) || 0;
-      } else {
-        addOnDelta += (Number(option.priceDelta) || 0) * qty;
-      }
-    }
-  }
-  return calculateOptionAdjustedUnitPrice(basePrice, addOnDelta);
-}
-
-function selectedOptionSummary(option: BrowseOption, groupId: string, selectedOptions?: readonly { groupId?: string; optionId: string; qty: number }[]): string {
-  const qty = selectedOptions?.find((entry) => entry.optionId === option.id && (!entry.groupId || entry.groupId === groupId))?.qty ?? 1;
-  return qty > 1 ? `${option.name} × ${qty}` : option.name;
-}
-
-function cartOptionsEqual(left: CartItem, right: { selectedOptionIds: string[]; selectedOptions: Array<{ groupId: string; optionId: string; qty: number }> }): boolean {
-  if (!arraysEqual(left.selectedOptionIds, right.selectedOptionIds)) return false;
-  const normalizedLeft: Array<{ groupId?: string; optionId: string; qty: number }> = left.selectedOptions || left.selectedOptionIds.map((optionId) => ({ optionId, qty: 1 }));
-  const normalizedLeftKeys = normalizedLeft
-    .map((entry) => `${entry.groupId || ""}:${entry.optionId}:${entry.qty}`)
-    .sort();
-  const normalizedRight = right.selectedOptions.map((entry) => `${entry.groupId}:${entry.optionId}:${entry.qty}`).sort();
-  return normalizedLeftKeys.length === normalizedRight.length && normalizedLeftKeys.every((entry, index) => entry === normalizedRight[index]);
+  const groups = item.optionGroups || [];
+  const selected = groups.map((group) => {
+    const options = selectedOptions?.filter((entry) =>
+      entry.groupId ? entry.groupId === group.id : group.options.some((option) => option.id === entry.optionId)
+    ) || selectedOptionIds.filter((optionId) => group.options.some((option) => option.id === optionId)).map((optionId) => ({ optionId, qty: 1 }));
+    return { groupId: group.id, optionIds: options.map((entry) => entry.optionId), selectedOptions: options };
+  }).filter((group) => group.optionIds.length > 0);
+  const pricingItem = {
+    price: typeof item.numericPrice === "number" ? item.numericPrice : 0,
+    promo_price: null,
+    option_groups: groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      required: group.required,
+      min: group.min,
+      max: group.max,
+      kind: group.kind || "addon" as const,
+      options: group.options.map((option) => ({
+        id: option.id,
+        name: option.name,
+        price_delta: group.kind === "variant" ? 0 : Number(option.priceDelta) || 0,
+        price: Number(option.price ?? option.priceDelta) || 0,
+        max_qty: option.maxQty ?? 1,
+        is_available: option.isAvailable !== false,
+      })),
+    })),
+  };
+  return calculateSelectedMenuUnitPrice(pricingItem, selected).unitPrice;
 }
 
 export function StorefrontBrowse({
@@ -344,12 +319,16 @@ export function StorefrontBrowse({
   const isEditorial = variant === "editorial";
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
-  const [activeGroup, setActiveGroup] = useState<string>(BROWSE_ALL_GROUP);
+  const [activeGroup, setActiveGroup] = useState<string>(() => groups[0]?.id ?? BROWSE_ALL_GROUP);
+  const activeGroupRef = useRef(groups[0]?.id ?? BROWSE_ALL_GROUP);
   const [sortKey, setSortKey] = useState<BrowseSortKey>("featured");
   const [visibleItemCount, setVisibleItemCount] = useState(Math.max(1, pageSize ?? 12));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [renderedGroupIds, setRenderedGroupIds] = useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.id)));
   const [orderSuccess, setOrderSuccess] = useState<{
     orderNumber: string;
     trackingToken?: string | null;
@@ -368,13 +347,32 @@ export function StorefrontBrowse({
   } | null>(null);
 
   const triggerRef = useRef<HTMLElement | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+  const sectionRefs = useRef(new Map<string, HTMLElement>());
   const searchId = useId();
   const chipsId = useId();
+
+  const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);
+  const visible = useMemo(() => filterBrowseGroups(groups, query, BROWSE_ALL_GROUP), [groups, query]);
+
+  const announce = useCallback((message: string) => {
+    setFeedbackMessage(message);
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setFeedbackMessage(null);
+      feedbackTimeoutRef.current = null;
+    }, 2500);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
     if (orderConfig?.enabled && orderConfig.slug) {
-      setCart(loadCart(orderConfig.slug));
+      const loaded = loadCart(orderConfig.slug);
+      const reconciled = reconcileStorefrontCart(loaded.lines, allItems);
+      setCart(reconciled.lines);
+      if (loaded.needsSave || reconciled.removed > 0) saveCart(orderConfig.slug, reconciled.lines);
+      if (reconciled.removed > 0) announce("Your menu changed. Unavailable items or options were removed from your order.");
       try {
         const raw = localStorage.getItem(`aldriva_active_order_${orderConfig.slug}`);
         if (raw) {
@@ -387,11 +385,52 @@ export function StorefrontBrowse({
         // Storage unavailable (private browsing)
       }
     }
-  }, [orderConfig?.enabled, orderConfig?.slug]);
+  }, [orderConfig?.enabled, orderConfig?.slug, allItems, announce]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setRenderedGroupIds(new Set(visible.map((group) => group.id)));
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const groupId = (entry.target as HTMLElement).dataset.menuGroupId;
+        if (groupId) setRenderedGroupIds((current) => new Set(current).add(groupId));
+      }
+    }, { rootMargin: "500px 0px 500px 0px" });
+    for (const group of visible) {
+      const section = sectionRefs.current.get(group.id);
+      if (section) observer.observe(section);
+    }
+    return () => observer.disconnect();
+  }, [mounted, visible]);
+
+  useEffect(() => {
+    if (!mounted || typeof IntersectionObserver === "undefined") return;
+    const visibleCategoryIds = new Set(visible.map((group) => group.id));
+    const observer = new IntersectionObserver((entries) => {
+      const selectedSection = sectionRefs.current.get(activeGroupRef.current);
+      const selectedRect = selectedSection?.getBoundingClientRect();
+      if (selectedRect && selectedRect.bottom > 0 && selectedRect.top < window.innerHeight) return;
+      const current = entries.filter((entry) => entry.isIntersecting)
+        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+      const groupId = (current?.target as HTMLElement | undefined)?.dataset.menuGroupId;
+      if (groupId && visibleCategoryIds.has(groupId)) {
+        activeGroupRef.current = groupId;
+        setActiveGroup(groupId);
+        setRenderedGroupIds((rendered) => new Set(rendered).add(groupId));
+      }
+    }, { rootMargin: "-120px 0px -65% 0px", threshold: 0 });
+    for (const group of visible) {
+      const section = sectionRefs.current.get(group.id);
+      if (section) observer.observe(section);
+    }
+    return () => observer.disconnect();
+  }, [mounted, visible]);
 
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
-
-  const allItems = groups.flatMap((group) => group.items);
 
   const updateCart = (nextCart: CartItem[]) => {
     setCart(nextCart);
@@ -399,9 +438,6 @@ export function StorefrontBrowse({
       saveCart(orderConfig.slug, nextCart);
     }
   };
-
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
@@ -411,14 +447,22 @@ export function StorefrontBrowse({
     };
   }, []);
 
-  const openSheet = (id: string, trigger: HTMLElement | null) => {
+  const openSheet = (id: string, trigger: HTMLElement | null, line?: CartItem) => {
     triggerRef.current = trigger;
+    setEditingLineId(line?.lineId ?? null);
     setSelectedId(id);
   };
 
   const closeSheet = () => {
+    const editedLineId = editingLineId;
     setSelectedId(null);
-    triggerRef.current?.focus();
+    setEditingLineId(null);
+    if (editedLineId) {
+      setIsCartOpen(true);
+      setTimeout(() => document.querySelector<HTMLElement>(`[data-cart-edit-id="${editedLineId}"]`)?.focus(), 0);
+    } else {
+      triggerRef.current?.focus();
+    }
     triggerRef.current = null;
   };
 
@@ -444,28 +488,25 @@ export function StorefrontBrowse({
     quantity: number,
     selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
   ) => {
-    const selected = { selectedOptionIds, selectedOptions };
-    const existingIndex = cart.findIndex(
-      (c) => c.itemId === itemId && cartOptionsEqual(c, selected)
-    );
-    let nextCart: CartItem[];
-    if (existingIndex >= 0) {
-      nextCart = cart.map((c, i) =>
-        i === existingIndex ? { ...c, quantity: Math.min(MAX_LINE_QUANTITY, c.quantity + quantity) } : c
-      );
-    } else {
-      nextCart = [...cart, { itemId, selectedOptionIds, selectedOptions, quantity }];
-    }
-    updateCart(nextCart);
+    const item = allItems.find((candidate) => candidate.id === itemId);
+    const candidate: CartItem = {
+      lineId: editingLineId ?? createStorefrontCartLineId(),
+      itemId,
+      selectedOptionIds,
+      selectedOptions,
+      quantity,
+      ...(item?.updatedAt ? { itemUpdatedAt: item.updatedAt } : {}),
+    };
+    const result = upsertStorefrontCartLine(cart, candidate, editingLineId);
+    updateCart(result.lines);
     closeSheet();
-    setFeedbackMessage("Added to order");
-    if (feedbackTimeoutRef.current) {
-      clearTimeout(feedbackTimeoutRef.current);
-    }
-    feedbackTimeoutRef.current = setTimeout(() => {
-      setFeedbackMessage(null);
-      feedbackTimeoutRef.current = null;
-    }, 2000);
+    announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? "Order updated" : "Added to order");
+  };
+
+  const handleQuickMenuAdd = (item: BrowseItem, trigger: HTMLButtonElement) => {
+    if (item.isSoldOut || hasAvailableBrowseOptionGroups(item.optionGroups)) return;
+    triggerRef.current = trigger;
+    handleAddToOrder(item.id, [], 1, []);
   };
 
   // Catalog carousel (Savannah): render per-category scrollable carousels
@@ -487,12 +528,14 @@ export function StorefrontBrowse({
         {groups.map((group) => (
           <section
             key={group.id}
+            data-menu-group-id={group.id}
+            ref={(node) => { if (node) sectionRefs.current.set(group.id, node); else sectionRefs.current.delete(group.id); }}
             className="space-y-[var(--ps-space-3)]"
           >
             <h3 id={`group-title-${group.id}`} className="text-base font-bold text-[var(--ps-text)]">
               {group.title}
             </h3>
-            <CatalogCarousel
+            {!mounted || renderedGroupIds.has(group.id) ? <CatalogCarousel
               items={group.items.map((item) => ({
                 id: item.id,
                 name: item.name,
@@ -500,21 +543,26 @@ export function StorefrontBrowse({
                 image: item.image,
                 priceLabel: item.priceLabel,
                 numericPrice: item.numericPrice,
-                originalPriceLabel: item.originalPriceLabel,
+                originalPriceLabel: item.optionGroups?.some((group) => group.kind === "variant") ? null : item.originalPriceLabel,
                 isSoldOut: item.isSoldOut,
+                canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
               }))}
               prevLabel={carousel?.prevLabel ?? labels.all}
               nextLabel={carousel?.nextLabel ?? labels.all}
               currency={currency}
               locale={locale}
               imageFit={carousel?.imageFit}
-              onSelect={(id) => openSheet(id, null)}
-            />
+              onSelect={(id, trigger) => openSheet(id, trigger ?? null)}
+              onQuickAdd={(id, trigger) => {
+                const item = allItems.find((candidate) => candidate.id === id);
+                if (item) handleQuickMenuAdd(item, trigger);
+              }}
+            /> : <div aria-hidden="true" style={{ minHeight: `${Math.max(1, Math.min(group.items.length, 4)) * 14}rem` }} />}
           </section>
         ))}
         {selected ? (
           <ItemDetailSheet
-            key={selected.id}
+            key={`${selected.id}-${editingLineId ?? "new"}`}
             itemId={selected.id}
             title={selected.name}
             image={selected.image ?? null}
@@ -533,6 +581,8 @@ export function StorefrontBrowse({
             labels={labels}
             orderConfig={orderConfig}
             locale={locale}
+            initialCartLine={cart.find((line) => line.lineId === editingLineId)}
+            isEditing={Boolean(editingLineId)}
             onAddToOrder={handleAddToOrder}
             onClose={closeSheet}
           />
@@ -581,6 +631,10 @@ export function StorefrontBrowse({
             onRemoveItem={(index) => {
               updateCart(cart.filter((_, i) => i !== index));
             }}
+            onEditItem={(line, trigger) => {
+              setIsCartOpen(false);
+              openSheet(line.itemId, trigger, line);
+            }}
             onOrderSuccess={(result) => {
               updateCart([]);
               setIsCartOpen(false);
@@ -621,12 +675,10 @@ export function StorefrontBrowse({
 
   if (groups.length === 0) return <>{children}</>;
 
-  const visible = filterBrowseGroups(groups, query, activeGroup);
   const sortedVisible = sort
     ? visible.map((group) => ({ ...group, items: sortBrowseItems(group.items, sortKey) }))
     : visible;
-  const engaged = query.trim() !== "" || activeGroup !== BROWSE_ALL_GROUP;
-  const categoryGroups = categoryTiles ? groups.filter((group) => group.id !== "uncategorized") : groups;
+  const engaged = query.trim() !== "";
   const visibleCount = itemMode === "links" ? visibleItemCount : Number.POSITIVE_INFINITY;
   let remaining = visibleCount;
   const pagedVisible = sortedVisible.flatMap((group) => {
@@ -634,6 +686,8 @@ export function StorefrontBrowse({
     remaining -= items.length;
     return items.length ? [{ ...group, items }] : [];
   });
+  const categoryGroups = categoryTiles ? pagedVisible.filter((group) => group.id !== "uncategorized") : pagedVisible;
+  const selectedTabGroup = categoryGroups.some((group) => group.id === activeGroup) ? activeGroup : categoryGroups[0]?.id;
   const totalVisibleItems = sortedVisible.reduce((count, group) => count + group.items.length, 0);
 
   const handleSortChange = (next: BrowseSortKey) => {
@@ -690,13 +744,35 @@ export function StorefrontBrowse({
   );
   const reset = () => {
     setQuery("");
-    setActiveGroup(BROWSE_ALL_GROUP);
+    const firstGroupId = groups[0]?.id ?? BROWSE_ALL_GROUP;
+    activeGroupRef.current = firstGroupId;
+    setActiveGroup(firstGroupId);
     setSortKey("featured");
     setVisibleItemCount(Math.max(1, pageSize ?? 12));
   };
 
+  const scrollToGroup = (groupId: string) => {
+    activeGroupRef.current = groupId;
+    setActiveGroup(groupId);
+    setRenderedGroupIds((current) => new Set(current).add(groupId));
+    const section = sectionRefs.current.get(groupId);
+    if (section) section.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  };
+
+  const moveCategoryTab = (event: React.KeyboardEvent<HTMLButtonElement>, groupId: string) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const index = categoryGroups.findIndex((group) => group.id === groupId);
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const next = categoryGroups[(index + direction + categoryGroups.length) % categoryGroups.length];
+    if (!next) return;
+    tabRefs.current.get(next.id)?.focus();
+    scrollToGroup(next.id);
+  };
+
   return (
     <>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
       {/* Active order persistent banner */}
       {activeOrder && !orderSuccess && orderConfig?.slug ? (
         <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
@@ -735,23 +811,26 @@ export function StorefrontBrowse({
       {showGroups && categoryGroups.length > 1 ? (
         <div
           className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : isEditorial ? "bg-[var(--tf-base)]" : "bg-[var(--ps-surface)]/95"}`}
-          role="group"
+          role="tablist"
           aria-label={labels.categories}
           id={chipsId}
         >
           <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
-            {[BROWSE_ALL_GROUP, ...categoryGroups.map((group) => group.id)].map((groupId) => {
-              const active = activeGroup === groupId;
-              const title =
-                groupId === BROWSE_ALL_GROUP
-                  ? labels.all
-                  : groups.find((group) => group.id === groupId)?.title ?? groupId;
+            {categoryGroups.map((group) => {
+              const groupId = group.id;
+              const active = selectedTabGroup === groupId;
+              const title = group.title;
               return (
                 <button
                   key={groupId}
                   type="button"
-                  aria-pressed={active}
-                  onClick={() => setActiveGroup(groupId)}
+                  ref={(node) => { if (node) tabRefs.current.set(groupId, node); else tabRefs.current.delete(groupId); }}
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls={`menu-section-${groupId}`}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => scrollToGroup(groupId)}
+                  onKeyDown={(event) => moveCategoryTab(event, groupId)}
                   className={isEditorial
                     ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
                     : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
@@ -839,6 +918,10 @@ export function StorefrontBrowse({
           {pagedVisible.map((group) => (
             <section
               key={group.id}
+              id={`menu-section-${group.id}`}
+              data-menu-group-id={group.id}
+              ref={(node) => { if (node) sectionRefs.current.set(group.id, node); else sectionRefs.current.delete(group.id); }}
+              style={{ scrollMarginTop: "calc(var(--site-header-h, 0px) + 4rem)" }}
               {...(categoryTiles && group.id === "uncategorized" ? {} : { "aria-labelledby": `group-title-${group.id}` })}
               className="space-y-[var(--ps-space-3)]"
             >
@@ -847,7 +930,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+              {renderedGroupIds.has(group.id) || group.id === selectedTabGroup ? <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -873,12 +956,12 @@ export function StorefrontBrowse({
                     </article>
                   )
                 ) : isEditorial ? (
+                  <div key={item.id} className="flex min-w-0 items-center gap-2">
                   <button
-                    key={item.id}
                     type="button"
                     aria-label={`${item.name}${item.priceLabel ? `, ${item.priceLabel}` : ""}`}
                     onClick={(event) => openSheet(item.id, event.currentTarget)}
-                    className={`savannah-button group flex min-h-12 w-full items-start gap-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ps-accent-hover)] ${item.isSoldOut ? "opacity-60" : ""}`}
+                    className={`savannah-button group flex min-h-12 min-w-0 flex-1 items-start gap-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--ps-accent-hover)] ${item.isSoldOut ? "opacity-60" : ""}`}
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-4">
@@ -893,25 +976,32 @@ export function StorefrontBrowse({
                       <img src={item.image} alt="" className="h-[88px] w-[88px] shrink-0 object-cover" loading="lazy" />
                     ) : null}
                   </button>
+                  {orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups) ? (
+                    <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => handleQuickMenuAdd(item, event.currentTarget)} className="min-h-11 min-w-11 self-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
+                  ) : null}
+                  </div>
                 ) : variant === "rows" ? (
                   <TableFlameMenuRows
                     items={[item]}
                     soldOutLabel={labels.soldOut}
                     onSelect={(selectedItem, trigger) => openSheet(selectedItem.id, trigger)}
+                    {...(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)
+                      ? { onQuickAdd: (selectedItem: BrowseItem, trigger: HTMLButtonElement) => handleQuickMenuAdd(selectedItem, trigger) }
+                      : {})}
                   />
                 ) : (
+                  <div key={item.id} className="flex items-stretch gap-2">
                   <button
-                    key={item.id}
                     type="button"
                     aria-label={`${item.name}`}
                     onClick={(event) => openSheet(item.id, event.currentTarget)}
-                    className={`group flex min-h-11 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                    className={`group flex min-h-11 min-w-0 flex-1 items-start gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-left shadow-xs transition hover:border-[var(--ps-border)] hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] motion-reduce:transition-none ${
                       item.isSoldOut ? "opacity-60" : ""
                     }`}
                   >
                     {item.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                      <img src={item.image} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-lg object-cover" loading="lazy" />
                     ) : null}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-[var(--ps-space-2)]">
@@ -927,26 +1017,18 @@ export function StorefrontBrowse({
                       ) : null}
                       <span className="mt-[var(--ps-space-1)] flex items-baseline gap-[var(--ps-space-2)]">
                         {item.priceLabel ? (
-                          <span
-                            className={
-                              item.originalPriceLabel
-                                ? "text-xs font-bold text-[var(--ps-accent-hover)]"
-                                : "text-xs font-bold text-[var(--ps-text)]"
-                            }
-                          >
-                            {item.priceLabel}
-                          </span>
+                          <span className={item.originalPriceLabel && !item.optionGroups?.some((group) => group.kind === "variant") ? "text-xs font-bold text-[var(--ps-accent-hover)]" : "text-xs font-bold text-[var(--ps-text)]"}>{item.priceLabel}</span>
                         ) : null}
-                        {item.originalPriceLabel ? (
-                          <span className="text-xs font-normal text-[var(--ps-muted)] line-through">
-                            {item.originalPriceLabel}
-                          </span>
-                        ) : null}
+                        {item.originalPriceLabel && !item.optionGroups?.some((group) => group.kind === "variant") ? <span className="text-xs font-normal text-[var(--ps-muted)] line-through">{item.originalPriceLabel}</span> : null}
                       </span>
                     </span>
                   </button>
+                  {orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups) ? (
+                    <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => handleQuickMenuAdd(item, event.currentTarget)} className="min-h-11 min-w-11 self-center rounded-full border border-[var(--ps-border)] bg-[var(--ps-surface)] text-lg font-semibold text-[var(--ps-text)] hover:bg-[var(--ps-neutral)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
+                  ) : null}
+                  </div>
                 ))}
-              </div>
+              </div> : <div aria-hidden="true" style={{ minHeight: `${Math.max(1, Math.min(group.items.length, 4)) * 8}rem` }} />}
             </section>
           ))}
         </div>
@@ -966,7 +1048,7 @@ export function StorefrontBrowse({
 
       {selected ? (
         <ItemDetailSheet
-          key={selected.id}
+          key={`${selected.id}-${editingLineId ?? "new"}`}
           itemId={selected.id}
           title={selected.name}
           image={selected.image ?? null}
@@ -984,8 +1066,10 @@ export function StorefrontBrowse({
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
-            locale={locale}
-            onAddToOrder={handleAddToOrder}
+          locale={locale}
+          initialCartLine={cart.find((line) => line.lineId === editingLineId)}
+          isEditing={Boolean(editingLineId)}
+          onAddToOrder={handleAddToOrder}
           onClose={closeSheet}
         />
       ) : null}
@@ -1034,6 +1118,10 @@ export function StorefrontBrowse({
           }}
           onRemoveItem={(index) => {
             updateCart(cart.filter((_, i) => i !== index));
+          }}
+          onEditItem={(line, trigger) => {
+            setIsCartOpen(false);
+            openSheet(line.itemId, trigger, line);
           }}
           onOrderSuccess={(result) => {
             updateCart([]);
@@ -1099,6 +1187,8 @@ function ItemDetailSheet({
   labels,
   orderConfig,
   locale = "en",
+  initialCartLine,
+  isEditing = false,
   onAddToOrder,
   onClose,
 }: {
@@ -1120,6 +1210,8 @@ function ItemDetailSheet({
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
   locale?: Locale;
+  initialCartLine?: CartItem;
+  isEditing?: boolean;
   onAddToOrder?: (
     itemId: string,
     selectedOptionIds: string[],
@@ -1129,11 +1221,28 @@ function ItemDetailSheet({
   onClose: () => void;
 }) {
   void _tableFlame;
+  const availableOptionGroups = availableBrowseOptionGroups(optionGroups || []);
+  const orderedOptionGroups = availableOptionGroups.map((group, index) => ({ group, index }))
+    .sort((left, right) => Number(right.group.required || right.group.kind === "variant") - Number(left.group.required || left.group.kind === "variant") || left.index - right.index)
+    .map(({ group }) => group);
   const panelRef = useRef<HTMLDivElement>(null);
+  const groupRefs = useRef(new Map<string, HTMLDivElement>());
   const titleId = useId();
-  const [quantity, setQuantity] = useState(1);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => defaultBrowseOptionSelections(optionGroups || []));
-  const [selectedOptionQtys, setSelectedOptionQtys] = useState<Record<string, number>>({});
+  const hasVariantGroup = (optionGroups || []).some((group) => group.kind === "variant");
+  const [quantity, setQuantity] = useState(initialCartLine?.quantity ?? 1);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => {
+    if (!initialCartLine) return defaultBrowseOptionSelections(availableOptionGroups);
+    const selected: Record<string, string[]> = {};
+    for (const entry of initialCartLine.selectedOptions) {
+      const group = availableOptionGroups.find((candidate) => candidate.id === entry.groupId && candidate.options.some((option) => option.id === entry.optionId));
+      if (group) selected[group.id] = [...(selected[group.id] || []), entry.optionId];
+    }
+    return selected;
+  });
+  const [selectedOptionQtys, setSelectedOptionQtys] = useState<Record<string, number>>(() => Object.fromEntries(
+    (initialCartLine?.selectedOptions || []).filter((entry) => entry.qty > 1).map((entry) => [optionQuantityKey(entry.groupId, entry.optionId), entry.qty])
+  ));
+  const [missingGroupId, setMissingGroupId] = useState<string | null>(null);
 
   // Esc to close + scroll lock; focus the panel on open for screen readers.
   useEffect(() => {
@@ -1172,18 +1281,21 @@ function ItemDetailSheet({
   }, [onClose, itemId]);
 
   // Handle option choice change
-  const handleOptionToggle = (groupId: string, optionId: string, max: number) => {
+  const handleOptionToggle = (group: BrowseOptionGroup, optionId: string) => {
+    const groupId = group.id;
     const current = selectedOptions[groupId] || [];
-    const removing = max !== 1 && current.includes(optionId);
+    const isSingle = group.kind === "variant" || group.max === 1;
+    const removing = !isSingle && current.includes(optionId);
+    setMissingGroupId(null);
     setSelectedOptions((prev) => {
       const current = prev[groupId] || [];
-      if (max === 1) {
+      if (isSingle) {
         return { ...prev, [groupId]: [optionId] };
       }
       if (current.includes(optionId)) {
         return { ...prev, [groupId]: current.filter((id) => id !== optionId) };
       }
-      if (current.length < max) {
+      if (current.length < group.max) {
         return { ...prev, [groupId]: [...current, optionId] };
       }
       return prev;
@@ -1200,6 +1312,7 @@ function ItemDetailSheet({
   const handleOptionQuantityChange = (group: BrowseOptionGroup, option: BrowseOption, nextQty: number) => {
     const key = optionQuantityKey(group.id, option.id);
     const qty = Math.max(0, Math.min(option.maxQty ?? 1, nextQty));
+    setMissingGroupId(null);
     if (qty === 0) {
       setSelectedOptions((prev) => ({
         ...prev,
@@ -1221,30 +1334,33 @@ function ItemDetailSheet({
     setSelectedOptionQtys((prev) => ({ ...prev, [key]: qty }));
   };
 
-  // Match the shared server selection rules for every group, including optional groups with a minimum.
-  const areOptionGroupsSatisfied = (optionGroups || []).every((group) => {
-    const selected = selectedOptions[group.id] || [];
-    return isOptionGroupSelectionSatisfied(group, selected.length);
-  });
-
   // Calculate live item line price
-  let basePrice = typeof numericPrice === "number" ? numericPrice : 0;
-  let optionsDelta = 0;
-  for (const group of optionGroups || []) {
+  const selectedGroupInputs = availableOptionGroups.map((group) => {
     const selected = selectedOptions[group.id] || [];
-    for (const opt of group.options) {
-      if (selected.includes(opt.id)) {
-        if (group.kind === "variant") {
-          basePrice = Number(opt.price) || 0;
-        } else if (typeof opt.priceDelta === "number") {
-          optionsDelta += opt.priceDelta * (selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1);
-        }
-      }
-    }
-  }
-  const totalUnitPrice = calculateOptionAdjustedUnitPrice(basePrice, optionsDelta);
+    return { groupId: group.id, optionIds: selected, selectedOptions: selected.map((optionId) => ({ optionId, qty: selectedOptionQtys[optionQuantityKey(group.id, optionId)] || 1 })) };
+  }).filter((group) => group.optionIds.length > 0);
+  const totalUnitPrice = calculateSelectedMenuUnitPrice({
+    price: typeof numericPrice === "number" ? numericPrice : 0,
+    promo_price: null,
+    option_groups: availableOptionGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      required: group.required,
+      min: group.min,
+      max: group.max,
+      kind: group.kind || "addon",
+      options: group.options.map((option) => ({
+        id: option.id,
+        name: option.name,
+        price_delta: group.kind === "variant" ? 0 : Number(option.priceDelta) || 0,
+        price: Number(option.price ?? option.priceDelta) || 0,
+        max_qty: option.maxQty ?? 1,
+        is_available: option.isAvailable !== false,
+      })),
+    })),
+  }, selectedGroupInputs).unitPrice;
   const lineTotalFormatted = formatMoney(calculateMenuLineTotal(totalUnitPrice, quantity), orderConfig?.currency ?? "USD", locale);
-  const selectedOptionQuantities = (optionGroups || []).flatMap((group) =>
+  const selectedOptionQuantities = availableOptionGroups.flatMap((group) =>
     (selectedOptions[group.id] || []).map((optionId) => ({
       groupId: group.id,
       optionId,
@@ -1252,7 +1368,23 @@ function ItemDetailSheet({
     }))
   );
 
-  const canAddToOrder = !isSoldOut && areOptionGroupsSatisfied && !orderConfig?.blocked;
+  const canAddToOrder = !isSoldOut && !orderConfig?.blocked;
+
+  const addOrUpdateOrderLine = () => {
+    if (!canAddToOrder || !onAddToOrder) return;
+    const unsatisfied = availableOptionGroups.find((group) =>
+      !isOptionGroupSelectionSatisfied(group, (selectedOptions[group.id] || []).length)
+    );
+    if (unsatisfied) {
+      setMissingGroupId(unsatisfied.id);
+      const groupElement = groupRefs.current.get(unsatisfied.id);
+      groupElement?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+      groupElement?.querySelector<HTMLElement>("input")?.focus();
+      return;
+    }
+    const allSelected = selectedOptionQuantities.map((option) => option.optionId);
+    onAddToOrder(itemId, allSelected, quantity, selectedOptionQuantities);
+  };
 
   return (
     <div
@@ -1268,8 +1400,8 @@ function ItemDetailSheet({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={savannah
-          ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none"
-          : "max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl sm:rounded-2xl outline-none"}
+          ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none motion-reduce:transition-none"
+          : "relative flex max-h-[90dvh] w-full max-w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl outline-none motion-reduce:transition-none sm:max-w-[520px] sm:rounded-xl"}
       >
         {savannah ? (
           /* Savannah: Close button overlaid on top-right, no separate header bar */
@@ -1308,17 +1440,19 @@ function ItemDetailSheet({
         )}
 
         {/* Body - single scrollable container */}
-        <div className={`overflow-y-auto ${savannah ? "flex-1 p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
+        <div className={`min-h-0 flex-1 overflow-y-auto ${savannah ? "p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
           {savannah ? (
             /* Savannah Stacked Layout: edge-to-edge image on top, clean text below */
             <div className="flex flex-col">
               {image ? (
-                <div className="relative w-full max-h-[45dvh] sm:max-h-[55dvh] overflow-hidden bg-[var(--tf-soft)] flex items-center justify-center">
+                <div className="relative aspect-[16/9] w-full max-h-[45dvh] sm:max-h-[55dvh] overflow-hidden bg-[var(--tf-soft)] flex items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={image}
                     alt={title}
-                    className="w-full h-auto max-h-[45dvh] sm:max-h-[55dvh] object-contain"
+                    width={1200}
+                    height={675}
+                    className="h-full w-full object-contain"
                     loading="lazy"
                   />
                 </div>
@@ -1338,7 +1472,7 @@ function ItemDetailSheet({
                   {priceLabel ? (
                     <p className="mt-1.5 text-[18px] font-bold text-[var(--tf-on-base)]">
                       {priceLabel}
-                      {originalPriceLabel ? (
+                      {originalPriceLabel && !hasVariantGroup ? (
                         <span className="ml-2 text-sm font-normal text-[var(--ps-muted)] line-through">
                           {originalPriceLabel}
                         </span>
@@ -1364,26 +1498,27 @@ function ItemDetailSheet({
                 ) : null}
 
                 {/* Option groups */}
-                {optionGroups && optionGroups.length > 0 ? (
+                {orderedOptionGroups.length > 0 ? (
                   <div className="space-y-3 pt-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
                       {labels.options || "Options"}
                     </h3>
                     <div className="space-y-3">
-                      {optionGroups.map((group) => {
+                      {orderedOptionGroups.map((group) => {
                         const currentSelected = selectedOptions[group.id] || [];
-                        const isSingle = group.max === 1;
+                        const isSingle = group.kind === "variant" || group.max === 1;
 
                         return (
-                          <div key={group.id} className="rounded-none border border-[var(--ps-border)] bg-[var(--tf-soft)] p-3">
+                          <div key={group.id} ref={(node) => { if (node) groupRefs.current.set(group.id, node); else groupRefs.current.delete(group.id); }} className={`rounded-none border bg-[var(--tf-soft)] p-3 ${missingGroupId === group.id ? "border-2 border-[var(--tf-accent)] ring-2 ring-[var(--tf-accent)]" : "border-[var(--ps-border)]"}`}>
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold text-[var(--tf-on-base)]">{group.name}</span>
                               <span
                                 className={`px-2 py-0.5 text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-subtle)] text-[var(--tf-on-soft)]"}`}
                               >
-                                {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+                                {describeBrowseOptionGroupRules(group, labels)}
                               </span>
                             </div>
+                            {missingGroupId === group.id ? <p id={`group-error-${group.id}`} role="alert" className="mt-2 border-l-4 border-[var(--tf-accent)] pl-2 text-xs font-semibold text-[var(--tf-on-base)]">Choose {Math.max(1, group.min)} to continue</p> : null}
                             <div className="mt-2.5 space-y-2">
                               {group.options.map((opt) => {
                                 const isChecked = currentSelected.includes(opt.id);
@@ -1392,15 +1527,21 @@ function ItemDetailSheet({
                                 return (
                                   <div key={opt.id} className="flex items-center gap-2">
                                     <label
-                                      className={`flex min-w-0 flex-1 items-center justify-between text-xs p-2 rounded-none border transition cursor-pointer ${
+                                      className={`flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 text-xs p-2 rounded-none border transition cursor-pointer motion-reduce:transition-none ${
                                         isChecked
                                           ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
                                           : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
                                       }`}
                                     >
                                       <div className="flex min-w-0 items-center gap-2">
-                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
-                                        <span>{opt.name}</span>
+                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group, opt.id)} aria-describedby={missingGroupId === group.id ? `group-error-${group.id}` : undefined} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                        {opt.imageUrl ? (
+                                          <>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={opt.imageUrl} alt={opt.name} width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                                          </>
+                                        ) : null}
+                                        <span className="min-w-0"><span className="block">{opt.name}</span>{opt.description ? <span className="mt-0.5 block text-[11px] font-normal text-[var(--tf-muted)]">{opt.description}</span> : null}{opt.allergens?.length ? <span className="mt-0.5 block text-[10px] font-medium text-[var(--tf-muted)]">Allergens: {opt.allergens.join(", ")}</span> : null}</span>
                                       </div>
                                       {opt.priceDeltaLabel ? (
                                         <span className="ml-2 shrink-0 font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
@@ -1408,9 +1549,9 @@ function ItemDetailSheet({
                                     </label>
                                     {isChecked && (opt.maxQty ?? 1) > 1 ? (
                                       <div className="flex items-center gap-1">
-                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
+                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-11 w-11 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
                                         <span className="min-w-5 text-center text-xs tabular-nums">{optionQty}</span>
-                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
+                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-11 w-11 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
                                       </div>
                                     ) : null}
                                   </div>
@@ -1439,22 +1580,22 @@ function ItemDetailSheet({
           ) : (
             /* Non-Savannah two columns on desktop */
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--ps-space-6)]">
-              <div className="lg:col-span-1">
+              <div className={image ? "lg:col-span-1" : "hidden"}>
                 {image ? (
                   <div className="aspect-[16/9] lg:aspect-[4/3] w-full overflow-hidden rounded-none bg-[var(--tf-soft)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={image} alt="" className="h-full w-full object-cover object-center" loading="lazy" />
+                    <img src={image} alt={title} width={1200} height={900} className="h-full w-full object-cover object-center" loading="lazy" />
                   </div>
                 ) : null}
               </div>
-              <div className="lg:col-span-1">
+              <div className={image ? "lg:col-span-1" : "lg:col-span-2"}>
                 <div className="flex flex-wrap items-baseline gap-[var(--ps-space-2)]">
                   {priceLabel ? (
                     <p className="text-base font-bold text-[var(--ps-text)]">
                       {priceLabel}
                     </p>
                   ) : null}
-                  {originalPriceLabel ? (
+                  {originalPriceLabel && !hasVariantGroup ? (
                     <span className="text-sm font-normal text-[var(--ps-muted)] line-through">
                       {originalPriceLabel}
                     </span>
@@ -1471,26 +1612,27 @@ function ItemDetailSheet({
                   </div>
                 ) : null}
 
-                {optionGroups && optionGroups.length > 0 ? (
+                {orderedOptionGroups.length > 0 ? (
                   <div className="space-y-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--ps-muted)]">
                       {labels.options || "Options"}
                     </h3>
                     <div className="space-y-[var(--ps-space-3)]">
-                      {optionGroups.map((group) => {
+                      {orderedOptionGroups.map((group) => {
                         const currentSelected = selectedOptions[group.id] || [];
-                        const isSingle = group.max === 1;
+                        const isSingle = group.kind === "variant" || group.max === 1;
 
                         return (
-                          <div key={group.id} className="rounded-none border border-[var(--ps-border)] bg-[var(--tf-soft)] p-[var(--ps-space-3)]">
+                          <div key={group.id} ref={(node) => { if (node) groupRefs.current.set(group.id, node); else groupRefs.current.delete(group.id); }} className={`rounded-none border bg-[var(--tf-soft)] p-[var(--ps-space-3)] ${missingGroupId === group.id ? "border-2 border-[var(--tf-accent)] ring-2 ring-[var(--tf-accent)]" : "border-[var(--ps-border)]"}`}>
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold text-[var(--tf-on-base)]">{group.name}</span>
                               <span
                                 className={`rounded-full px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-subtle)] text-[var(--tf-on-soft)]"}`}
                               >
-                                {group.required ? labels.required || "Required" : labels.optional || "Optional"}
+                                {describeBrowseOptionGroupRules(group, labels)}
                               </span>
                             </div>
+                            {missingGroupId === group.id ? <p id={`group-error-${group.id}`} role="alert" className="mt-2 border-l-4 border-[var(--tf-accent)] pl-2 text-xs font-semibold text-[var(--tf-on-base)]">Choose {Math.max(1, group.min)} to continue</p> : null}
                             <div className="mt-[var(--ps-space-3)] space-y-[var(--ps-space-2)]">
                               {group.options.map((opt) => {
                                 const isChecked = currentSelected.includes(opt.id);
@@ -1499,15 +1641,21 @@ function ItemDetailSheet({
                                 return (
                                   <div key={opt.id} className="flex items-center gap-[var(--ps-space-2)]">
                                     <label
-                                      className={`flex min-w-0 flex-1 items-center justify-between text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer ${
+                                      className={`flex min-h-11 min-w-0 flex-1 items-center justify-between gap-[var(--ps-space-2)] text-xs p-[var(--ps-space-2)] rounded-none border transition cursor-pointer motion-reduce:transition-none ${
                                         isChecked
                                           ? "border-[var(--tf-accent)] bg-[var(--tf-accent-light)]/50 text-[var(--tf-on-accent)]"
                                           : "border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] hover:border-[var(--ps-border)]"
                                       }`}
                                     >
                                       <div className="flex min-w-0 items-center gap-[var(--ps-space-2)]">
-                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group.id, opt.id, group.max)} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
-                                        <span>{opt.name}</span>
+                                        <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group, opt.id)} aria-describedby={missingGroupId === group.id ? `group-error-${group.id}` : undefined} className="text-[var(--tf-on-accent)] focus:ring-[var(--tf-accent-hover)]" />
+                                        {opt.imageUrl ? (
+                                          <>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={opt.imageUrl} alt={opt.name} width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                                          </>
+                                        ) : null}
+                                        <span className="min-w-0"><span className="block">{opt.name}</span>{opt.description ? <span className="mt-0.5 block text-[11px] font-normal text-[var(--tf-muted)]">{opt.description}</span> : null}{opt.allergens?.length ? <span className="mt-0.5 block text-[10px] font-medium text-[var(--tf-muted)]">Allergens: {opt.allergens.join(", ")}</span> : null}</span>
                                       </div>
                                       {opt.priceDeltaLabel ? (
                                         <span className="ml-2 shrink-0 font-medium text-[var(--tf-on-base)]">{opt.priceDeltaLabel}</span>
@@ -1515,9 +1663,9 @@ function ItemDetailSheet({
                                     </label>
                                     {isChecked && (opt.maxQty ?? 1) > 1 ? (
                                       <div className="flex items-center gap-1">
-                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
+                                        <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-11 w-11 rounded-none border border-[var(--ps-border)] disabled:opacity-40">−</button>
                                         <span className="min-w-5 text-center text-xs tabular-nums">{optionQty}</span>
-                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-7 w-7 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
+                                        <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-11 w-11 rounded-none border border-[var(--ps-border)] disabled:opacity-40">+</button>
                                       </div>
                                     ) : null}
                                   </div>
@@ -1556,18 +1704,20 @@ function ItemDetailSheet({
                   <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
                     <button
                       type="button"
+                      aria-label="Decrease quantity"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
                     >
                       -
                     </button>
                     <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
                     <button
                       type="button"
+                      aria-label="Increase quantity"
                       onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
                       disabled={quantity >= MAX_LINE_QUANTITY}
-                      className="flex h-7 w-7 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
                     >
                       +
                     </button>
@@ -1578,8 +1728,9 @@ function ItemDetailSheet({
                 <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
               ) : null}
 
-              <button type="button" disabled={!canAddToOrder} onClick={() => { if (canAddToOrder && onAddToOrder) { const allSelected = selectedOptionQuantities.map((option) => option.optionId); onAddToOrder(itemId, allSelected, quantity, selectedOptionQuantities); } }} className={`ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition ${isSoldOut ? "opacity-60" : ""}`}>
-                {isSoldOut ? labels.soldOut || "Sold out" : `${labels.addToOrder || "Add to order"} • ${lineTotalFormatted}`}
+              <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
+              <button type="button" disabled={!canAddToOrder} onClick={addOrUpdateOrderLine} className={`ps-button ps-button-primary min-h-11 w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${isSoldOut ? "opacity-60" : ""}`}>
+                {isSoldOut ? labels.soldOut || "Sold out" : `${isEditing ? labels.updateOrder || "Update order" : labels.addToOrder || "Add to order"} · ${lineTotalFormatted}`}
               </button>
             </div>
           ) : action ? (
@@ -1602,6 +1753,7 @@ function OrderDrawer({
   onClose,
   onUpdateQuantity,
   onRemoveItem,
+  onEditItem,
   onOrderSuccess,
 }: {
   cart: CartItem[];
@@ -1613,6 +1765,7 @@ function OrderDrawer({
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
+  onEditItem: (line: CartItem, trigger: HTMLButtonElement) => void;
   onOrderSuccess: (result: { orderNumber: string; trackingToken?: string | null; scheduledFor?: string | null; subtotal?: number | null; deliveryFee?: number | null; total?: number | null; fulfilmentType?: string | null; currency?: string | null }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -1936,43 +2089,53 @@ function OrderDrawer({
               const it = itemsMap.get(line.itemId);
               if (!it) return null;
 
-              const chosenOptionNames: string[] = [];
-              const optSet = new Set(line.selectedOptionIds);
-              for (const group of it.optionGroups || []) {
-                for (const opt of group.options) {
-                  if (optSet.has(opt.id)) {
-                    chosenOptionNames.push(selectedOptionSummary(opt, group.id, line.selectedOptions));
-                  }
-                }
-              }
+              const chosenOptions = (it.optionGroups || []).flatMap((group) =>
+                group.options.flatMap((option) => {
+                  const selected = line.selectedOptions.find((entry) => entry.optionId === option.id && entry.groupId === group.id);
+                  if (!selected) return [];
+                  return [{ group, option, qty: selected.qty }];
+                })
+              );
               const itemTotal = calculateMenuLineTotal(browseLineUnitPrice(it, line.selectedOptionIds, line.selectedOptions), line.quantity);
+              const priceUpdated = Boolean(line.itemUpdatedAt && it.updatedAt && line.itemUpdatedAt !== it.updatedAt);
 
               return (
-                <div key={`${line.itemId}-${index}`} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
+                <div key={line.lineId} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[var(--ps-text)]">{it.name}</p>
-                    {chosenOptionNames.length > 0 ? (
-                      <p className="text-xs text-[var(--ps-muted)] mt-[var(--ps-space-1)]">{chosenOptionNames.join(", ")}</p>
+                    {chosenOptions.length > 0 ? (
+                      <div className="mt-[var(--ps-space-1)] flex flex-wrap gap-1.5">
+                        {chosenOptions.map(({ group, option, qty }) => (
+                          <span key={`${group.id}:${option.id}`} className="inline-flex flex-wrap items-baseline gap-1 rounded-md bg-[var(--ps-surface)] px-2 py-1 text-xs text-[var(--ps-text)]">
+                            <span className="text-[10px] font-semibold text-[var(--ps-muted)]">{group.name}</span>
+                            <span>{option.name}{qty > 1 ? ` × ${qty}` : ""}</span>
+                          </span>
+                        ))}
+                      </div>
                     ) : null}
+                    {priceUpdated ? <p className="mt-1 text-xs font-semibold text-[var(--ps-accent-hover)]">Price updated</p> : null}
                     <p className="text-xs font-semibold text-[var(--ps-accent-hover)] mt-[var(--ps-space-1)]">
                       {orderConfig.currency} {itemTotal.toFixed(2)}
                     </p>
+                    <button type="button" data-cart-edit-id={line.lineId} onClick={(event) => onEditItem(line, event.currentTarget)} className="mt-2 min-h-11 rounded-lg px-3 text-xs font-semibold text-[var(--ps-accent-hover)] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">Edit</button>
                   </div>
                   <div className="flex items-center gap-[var(--ps-space-2)]">
                     <div className="flex items-center rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-1)] shadow-xs">
                       <button
                         type="button"
+                        aria-label={`Decrease ${it.name} quantity`}
                         onClick={() => onUpdateQuantity(index, line.quantity - 1)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
+                        className="h-11 w-11 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                       >
                         -
                       </button>
                       <span className="w-6 text-center text-xs font-bold text-[var(--ps-text)]">{line.quantity}</span>
                       <button
                         type="button"
+                        aria-label={`Increase ${it.name} quantity`}
                         onClick={() => onUpdateQuantity(index, line.quantity + 1)}
                         disabled={line.quantity >= MAX_LINE_QUANTITY}
-                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
+                        className="h-11 w-11 rounded flex items-center justify-center text-xs font-bold text-[var(--ps-muted)] hover:bg-[var(--ps-neutral)] disabled:opacity-40"
                       >
                         +
                       </button>
@@ -1983,7 +2146,7 @@ function OrderDrawer({
                     <button
                       type="button"
                       onClick={() => onRemoveItem(index)}
-                      className="text-[var(--ps-muted)] hover:text-red-500 p-[var(--ps-space-1)]"
+                      className="flex min-h-11 min-w-11 items-center justify-center text-[var(--ps-muted)] hover:text-red-500 p-[var(--ps-space-1)]"
                       aria-label="Remove item"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

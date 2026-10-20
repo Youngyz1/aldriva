@@ -15,11 +15,13 @@ export interface CatalogCardItem {
   originalPriceLabel?: string | null;
   isSoldOut?: boolean;
   isFeatured?: boolean;
+  canQuickAdd?: boolean;
 }
 
 export interface CatalogCardProps {
   item: CatalogCardItem;
-  onSelect?: (id: string) => void;
+  onSelect?: (id: string, trigger?: HTMLButtonElement) => void;
+  onQuickAdd?: (id: string, trigger: HTMLButtonElement) => void;
   className?: string;
   /** ISO 4217 currency code for price display (e.g. "XOF"). Defaults to "USD". */
   currency?: string;
@@ -40,7 +42,7 @@ function InitialFallback({ name }: { name: string }) {
   );
 }
 
-export function CatalogCard({ item, onSelect, className, currency = "USD", locale = "en", imageFit }: CatalogCardProps) {
+export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit }: CatalogCardProps) {
   const content = (
     <div
       className={`flex h-full flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
@@ -84,14 +86,19 @@ export function CatalogCard({ item, onSelect, className, currency = "USD", local
 
   if (onSelect) {
     return (
-      <button
-        type="button"
-        className="group flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
-        onClick={() => onSelect(item.id)}
-        aria-label={item.name}
-      >
-        {content}
-      </button>
+      <div className="relative h-full">
+        <button
+          type="button"
+          className="group flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+          onClick={(event) => onSelect(item.id, event.currentTarget)}
+          aria-label={item.name}
+        >
+          {content}
+        </button>
+        {item.canQuickAdd && onQuickAdd ? (
+          <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
+        ) : null}
+      </div>
     );
   }
 
@@ -109,10 +116,11 @@ export interface CatalogCarouselProps {
   /** How the menu item image fits its 4:3 container ('cover' | 'contain'). Defaults to 'cover'. */
   imageFit?: "cover" | "contain";
   /** When set, cards render as buttons that call this handler on click. */
-  onSelect?: (id: string) => void;
+  onSelect?: (id: string, trigger?: HTMLButtonElement) => void;
+  onQuickAdd?: (id: string, trigger: HTMLButtonElement) => void;
 }
 
-export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect }: CatalogCarouselProps) {
+export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: true });
 
@@ -187,7 +195,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
       >
         {items.map((item) => (
           <div key={item.id} className="flex w-64 shrink-0 snap-start flex-col sm:w-72">
-            <CatalogCard item={item} onSelect={onSelect} currency={currency} locale={locale} imageFit={imageFit} />
+            <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} />
           </div>
         ))}
       </div>

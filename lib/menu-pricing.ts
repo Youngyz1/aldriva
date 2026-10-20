@@ -10,6 +10,9 @@ export interface MenuItemOption {
   id: string;
   name: string;
   price_delta: number;
+  description?: string | null;
+  image_url?: string | null;
+  allergens?: readonly string[];
   /** Full unit price for variants; add-on amount for normalized add-ons. */
   price?: number;
   is_default?: boolean;
@@ -121,6 +124,9 @@ export function resolveItemOptionGroups(
             price,
             is_default: option.is_default === true,
             price_delta: group.kind === "addon" ? price : 0,
+            description: option.description == null ? null : String(option.description),
+            image_url: option.image_url == null ? null : String(option.image_url),
+            allergens: Array.isArray(option.allergens) ? option.allergens.map(String) : [],
             max_qty: Number(option.max_qty) || 1,
             is_available: option.is_available !== false,
           };
@@ -319,6 +325,32 @@ export function calculateOptionAdjustedUnitPrice(unitPrice: number, optionsDelta
   return Math.max(0, roundedUnitPrice + roundedOptionsDelta);
 }
 
+export function calculateSelectedMenuUnitPrice(
+  item: MenuPricingItem,
+  selection?: readonly OptionGroupSelection[] | null
+): { baseUnitPrice: number; optionsDelta: number; unitPrice: number } {
+  const baseUnitPrice = effectiveUnitPrice(item, selection);
+  let optionsDelta = 0;
+  if (selection && item.option_groups) {
+    const groupMap = new Map(item.option_groups.map((group) => [group.id, group]));
+    for (const selectedGroup of selection) {
+      const group = groupMap.get(selectedGroup.groupId);
+      if (!group || group.kind === "variant") continue;
+      const optionMap = new Map(group.options.map((option) => [option.id, option]));
+      for (const { optionId, qty } of selectedQuantities(selectedGroup)) {
+        const option = optionMap.get(optionId);
+        if (option) optionsDelta += Number(option.price_delta) * qty;
+      }
+    }
+  }
+  optionsDelta = Math.round(optionsDelta * 100) / 100;
+  return {
+    baseUnitPrice,
+    optionsDelta,
+    unitPrice: calculateOptionAdjustedUnitPrice(baseUnitPrice, optionsDelta),
+  };
+}
+
 export function calculateMenuLineTotal(unitPrice: number, quantity: number): number {
   return Math.round(unitPrice * quantity * 100) / 100;
 }
@@ -468,32 +500,12 @@ export function computeLineTotal(params: {
     throw new Error(validation.error || "Invalid option selection");
   }
 
-  const unitPrice = effectiveUnitPrice(item, selection);
-
-  // Compute option deltas
-  let optionsDelta = 0;
-  if (selection && item.option_groups) {
-    const groupMap = new Map(item.option_groups.map((g) => [g.id, g]));
-    for (const sel of selection) {
-      const group = groupMap.get(sel.groupId);
-      if (!group) continue;
-      const optionMap = new Map(group.options.map((o) => [o.id, o]));
-      for (const { optionId: optId, qty } of selectedQuantities(sel)) {
-        const opt = optionMap.get(optId);
-        if (opt && group.kind !== "variant") {
-          optionsDelta += Number(opt.price_delta) * qty;
-        }
-      }
-    }
-  }
-
-  optionsDelta = Math.round(optionsDelta * 100) / 100;
-  const singleItemPrice = calculateOptionAdjustedUnitPrice(unitPrice, optionsDelta);
-  const lineTotal = calculateMenuLineTotal(singleItemPrice, quantity);
+  const price = calculateSelectedMenuUnitPrice(item, selection);
+  const lineTotal = calculateMenuLineTotal(price.unitPrice, quantity);
 
   return {
-    unitPrice,
-    optionsDelta,
+    unitPrice: price.baseUnitPrice,
+    optionsDelta: price.optionsDelta,
     lineTotal,
   };
 }
