@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
-  ChevronLeft, Globe, Tag,
+  ChevronLeft, Globe, Tag, ChefHat,
   LayoutDashboard, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag,
 } from "lucide-react";
 import { getOrgNavItems } from "./org-nav-items";
@@ -25,7 +25,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {

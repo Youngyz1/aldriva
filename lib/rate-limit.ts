@@ -217,6 +217,18 @@ export const RATE_LIMITS = {
    * Keyed per-IP AND per-token by callers. Fail-open.
    */
   reservationCustomerCancel: { limit: 10, windowSeconds: 600 },
+
+  /** Kitchen invitation bootstrap: secret-link probing is denied on limiter failure. */
+  kitchenInviteBootstrap: { limit: 12, windowSeconds: 600 },
+
+  /** Cook acceptance attempts, keyed by both caller IP and invitation hash. */
+  kitchenAccept: { limit: 10, windowSeconds: 3600 },
+
+  /** Reserved for the stage-2 display-link bootstrap route; fail closed. */
+  kitchenDisplayBootstrap: { limit: 12, windowSeconds: 600 },
+
+  /** Worker session validation/polling endpoint. */
+  kitchenSession: { limit: 120, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -303,6 +315,42 @@ export async function checkRateLimit(
       err instanceof Error ? err.message : String(err)
     );
     return { allowed: true, remaining: limit, retryAfter: 0 };
+  }
+}
+
+/**
+ * Security-sensitive secret-link endpoints must fail closed. Unlike the
+ * general payment-friendly limiter above, an unavailable or malformed RPC
+ * result denies the request. Identifiers must be IPs or token hashes; never
+ * pass plaintext tokens, cookies, or request bodies here.
+ */
+export async function checkRateLimitFailClosed(
+  name: RateLimitName,
+  identifier: string
+): Promise<RateLimitResult> {
+  const { limit, windowSeconds } = RATE_LIMITS[name];
+
+  try {
+    const admin = createSupabaseAdmin();
+    const { data, error } = await admin.rpc("check_rate_limit", {
+      p_key: `${name}:${identifier}`,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+
+    if (error) return { allowed: false, remaining: 0, retryAfter: 60 };
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row.allowed !== "boolean") {
+      return { allowed: false, remaining: 0, retryAfter: 60 };
+    }
+
+    return {
+      allowed: row.allowed,
+      remaining: Number(row.remaining ?? 0),
+      retryAfter: Number(row.retry_after ?? 0),
+    };
+  } catch {
+    return { allowed: false, remaining: 0, retryAfter: 60 };
   }
 }
 

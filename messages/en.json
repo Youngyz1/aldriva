@@ -789,6 +789,7 @@
     "email": "Email (optional)",
     "orderNote": "Order note (optional)",
     "orderNotePlaceholder": "Special requests, allergies…",
+    "orderNoteHint": "Food preferences and preparation instructions only. Phone and address have separate fields.",
     "paymentOnFulfilment": "Payment upon pickup/delivery",
     "paymentMethod": "Payment method",
     "payOnline": "Pay online",

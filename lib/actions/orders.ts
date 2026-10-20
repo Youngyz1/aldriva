@@ -11,26 +11,22 @@ import {
   type SubmitOrderRequestInput,
   type SubmitOrderResult,
 } from "@/lib/order-submit";
-import { dispatchCustomerOrderStatusEmail } from "@/lib/order-notifications";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { calculatePromotionCartPricing, MAX_LINE_QUANTITY, resolveItemOptionGroups, validateSelection, type MenuPricingItem, type MenuItemOptionGroup, type NormalizedOptionAssignmentRow, type OptionGroupSelection } from "@/lib/menu-pricing";
 import { loadMenuPromotions } from "@/lib/menu-promotion-data";
 import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
 import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import {
+  executeOrderStatusTransitionCore,
+  type OrderRowRecord,
+  type OrderStatus,
+  type CancellationReasonCode,
+  type UpdateOrderStatusInput,
+  type UpdateOrderStatusResult,
+} from "@/lib/orders/transition-core";
 
 export type { OrderItemInput, SubmitOrderRequestInput, SubmitOrderResult };
-
-export type OrderStatus =
-  | "pending"
-  | "accepted"
-  | "preparing"
-  | "ready"
-  | "out_for_delivery"
-  | "delivered"
-  | "completed"
-  | "cancelled";
-
-export type CancellationReasonCode = "out_of_stock" | "kitchen_closed" | "cannot_deliver_there" | "other";
+export type { OrderStatus, CancellationReasonCode, UpdateOrderStatusInput, UpdateOrderStatusResult } from "@/lib/orders/transition-core";
 
 const PICKUP_TRANSITION_GRAPH: Record<OrderStatus, OrderStatus[]> = {
   pending: ["accepted", "cancelled"],
@@ -60,46 +56,6 @@ const CANCELLATION_REASONS: readonly CancellationReasonCode[] = [
   "cannot_deliver_there",
   "other",
 ] as const;
-
-export interface UpdateOrderStatusInput {
-  orderId: string;
-  organizerId: string;
-  expectedCurrentStatus: OrderStatus;
-  nextStatus: OrderStatus;
-  estimatedReadyAt?: string | null;
-  cancellationReason?: CancellationReasonCode | null;
-  cancellationNote?: string | null;
-  markPaymentCollected?: boolean;
-  riderName?: string | null;
-  riderPhone?: string | null;
-}
-
-export type UpdateOrderStatusResult =
-  | {
-      success: true;
-      nextStatus: OrderStatus;
-      paymentStatus?: string;
-      warning?: "online_refund_required";
-      providerReference?: string | null;
-    }
-  | {
-      success: false;
-      error:
-        | "unauthorized"
-        | "forbidden"
-        | "not_found"
-        | "invalid_transition"
-        | "order_already_updated"
-        | "missing_ready_time"
-        | "missing_cancellation_reason"
-        | "missing_rider_name"
-        | "invalid_rider_phone"
-        | "payment_collection_required"
-        | "online_payment_cannot_be_manually_marked_paid"
-        | "db_error"
-        | "unexpected";
-      message?: string;
-    };
 
 export interface AdjustEstimatedReadyTimeInput {
   orderId: string;
@@ -449,235 +405,18 @@ export async function updateOrderStatusWithClient(
       }
     }
 
-    return executeUpdateOnRow(input, admin, userId, targetOrder, supports174, supports175);
+    return executeOrderStatusTransitionCore(
+      input,
+      admin,
+      userId,
+      targetOrder,
+      supports174,
+      supports175
+    );
   } catch (err) {
     console.error("[updateOrderStatus] Unexpected error:", err instanceof Error ? err.name : "unknown");
     return { success: false, error: "unexpected", message: "An unexpected error occurred." };
   }
-}
-
-interface OrderRowRecord {
-  id: string;
-  order_number: string;
-  status: string;
-  payment_method: string;
-  payment_status: string;
-  provider?: string | null;
-  provider_reference?: string | null;
-  customer_email?: string | null;
-  customer_name: string;
-  fulfilment_type: "pickup" | "delivery" | string;
-  currency: string;
-  total_amount: number;
-  tracking_token: string;
-  website_id?: string | null;
-  status_history?: unknown;
-  estimated_ready_at?: string | null;
-  rider_name?: string | null;
-  rider_phone?: string | null;
-}
-
-async function executeUpdateOnRow(
-  input: UpdateOrderStatusInput,
-  admin: ReturnType<typeof createSupabaseAdmin>,
-  userId: string,
-  order: OrderRowRecord,
-  supports174Columns: boolean,
-  supports175Columns: boolean = true
-): Promise<UpdateOrderStatusResult> {
-  // Concurrency check
-  if (order.status !== input.expectedCurrentStatus) {
-    return {
-      success: false,
-      error: "order_already_updated",
-      message: "Order was already updated by another team member.",
-    };
-  }
-
-  // Payment completion / delivery guard
-  let nextPaymentStatus: string | undefined = undefined;
-  const isTerminalSuccess = input.nextStatus === "completed" || input.nextStatus === "delivered";
-  if (isTerminalSuccess && order.payment_status !== "paid") {
-    if (order.payment_method === "online") {
-      return {
-        success: false,
-        error: "online_payment_cannot_be_manually_marked_paid",
-        message: "Unpaid online orders cannot be manually marked as paid.",
-      };
-    }
-    if (!input.markPaymentCollected) {
-      return {
-        success: false,
-        error: "payment_collection_required",
-        message: "Please confirm that payment was collected before completing this order.",
-      };
-    }
-    nextPaymentStatus = "paid";
-  }
-
-  const isPaidOnlineCancel =
-    input.nextStatus === "cancelled" &&
-    order.payment_method === "online" &&
-    order.payment_status === "paid";
-
-  const nowIso = new Date().toISOString();
-
-  let updatePayload: Record<string, unknown> = {
-    status: input.nextStatus,
-    updated_at: nowIso,
-  };
-
-  if (nextPaymentStatus) {
-    updatePayload.payment_status = nextPaymentStatus;
-  }
-
-  if (supports175Columns) {
-    if (input.nextStatus === "out_for_delivery") {
-      if (input.riderName) updatePayload.rider_name = input.riderName.trim().slice(0, 80);
-      if (input.riderPhone) updatePayload.rider_phone = input.riderPhone.trim().slice(0, 32);
-    }
-  }
-
-  if (supports174Columns) {
-    const existingHistory = Array.isArray(order.status_history) ? (order.status_history as unknown[]) : [];
-    const newHistoryEvent = {
-      status: input.nextStatus,
-      at: nowIso,
-      by_user_id: userId,
-      reason: input.cancellationReason ?? null,
-      note: input.cancellationNote?.trim().slice(0, 300) || null,
-      estimated_ready_at: input.estimatedReadyAt ?? order.estimated_ready_at ?? null,
-      rider_name: input.riderName?.trim() ?? order.rider_name ?? null,
-      rider_phone: input.riderPhone?.trim() ?? order.rider_phone ?? null,
-    };
-    updatePayload.status_history = [...existingHistory, newHistoryEvent];
-
-    if (input.nextStatus === "accepted" && input.estimatedReadyAt) {
-      updatePayload.estimated_ready_at = input.estimatedReadyAt;
-    }
-    if (input.nextStatus === "cancelled") {
-      updatePayload.cancellation_reason = input.cancellationReason;
-    }
-  }
-
-  const { data: updated, error: updateErr } = await admin
-    .from("orders")
-    .update(updatePayload)
-    .eq("id", input.orderId)
-    .eq("organizer_id", input.organizerId)
-    .eq("status", input.expectedCurrentStatus)
-    .select("id, status, payment_status")
-    .maybeSingle();
-
-  if (updateErr) {
-    // Retry without 175 rider columns if they caused the error.
-    // Exception: an out_for_delivery transition REQUIRES persisted rider
-    // details — a save that drops them must report failure, never success.
-    if (supports175Columns) {
-      if (input.nextStatus === "out_for_delivery") {
-        return { success: false, error: "db_error", message: "Rider details could not be saved. Please try again." };
-      }
-      delete updatePayload.rider_name;
-      delete updatePayload.rider_phone;
-      const { data: retry175, error: retry175Err } = await admin
-        .from("orders")
-        .update(updatePayload)
-        .eq("id", input.orderId)
-        .eq("organizer_id", input.organizerId)
-        .eq("status", input.expectedCurrentStatus)
-        .select("id, status, payment_status")
-        .maybeSingle();
-
-      if (retry175Err || !retry175) {
-        // Fallback to base
-        const fallbackPayload: Record<string, unknown> = {
-          status: input.nextStatus,
-          updated_at: nowIso,
-        };
-        if (nextPaymentStatus) fallbackPayload.payment_status = nextPaymentStatus;
-        const { data: retryUpdated, error: retryErr } = await admin
-          .from("orders")
-          .update(fallbackPayload)
-          .eq("id", input.orderId)
-          .eq("organizer_id", input.organizerId)
-          .eq("status", input.expectedCurrentStatus)
-          .select("id, status, payment_status")
-          .maybeSingle();
-
-        if (retryErr || !retryUpdated) {
-          return { success: false, error: "db_error", message: "Failed to update order status." };
-        }
-      }
-    } else {
-      return { success: false, error: "db_error", message: "Failed to update order status." };
-    }
-  } else if (!updated) {
-    return {
-      success: false,
-      error: "order_already_updated",
-      message: "Order was already updated by another team member.",
-    };
-  }
-
-  try {
-    revalidatePath(`/dashboard/org/${input.organizerId}/orders`);
-  } catch {
-    // Non-fatal outside request context (e.g. hermetic tests)
-  }
-
-  // Customer status email notification (fire-and-forget, non-blocking)
-  const customerEmail = order.customer_email;
-  const notifyStatuses = ["accepted", "ready", "out_for_delivery", "delivered", "cancelled"];
-  if (customerEmail && notifyStatuses.includes(input.nextStatus)) {
-    (async () => {
-      try {
-        let slug = "";
-        let timeZone = "Africa/Abidjan";
-        if (order.website_id) {
-          const { data: ws } = await admin
-            .from("tenant_websites")
-            .select("slug, metadata")
-            .eq("id", order.website_id)
-            .maybeSingle();
-          if (ws?.slug) slug = ws.slug;
-          const meta = ws?.metadata && typeof ws.metadata === "object" ? (ws.metadata as Record<string, unknown>) : {};
-          if (typeof meta.timezone === "string") timeZone = meta.timezone;
-        }
-
-        if (slug) {
-          await dispatchCustomerOrderStatusEmail({
-            orderId: order.id,
-            orderNumber: order.order_number,
-            customerName: order.customer_name,
-            customerEmail,
-            status: input.nextStatus,
-            fulfilmentType: order.fulfilment_type as "pickup" | "delivery",
-            currency: order.currency,
-            totalAmount: order.total_amount,
-            trackingToken: order.tracking_token,
-            websiteSlug: slug,
-            estimatedReadyAt: input.estimatedReadyAt,
-            cancellationReason: input.cancellationReason,
-            cancellationNote: input.cancellationNote,
-            riderName: input.riderName ?? order.rider_name,
-            riderPhone: input.riderPhone ?? order.rider_phone,
-            timeZone,
-          });
-        }
-      } catch (notifyErr) {
-        console.error("[updateOrderStatus] Failed to dispatch customer status email:", notifyErr);
-      }
-    })();
-  }
-
-  return {
-    success: true,
-    nextStatus: input.nextStatus,
-    paymentStatus: nextPaymentStatus || order.payment_status,
-    ...(isPaidOnlineCancel
-      ? { warning: "online_refund_required" as const, providerReference: order.provider_reference }
-      : {}),
-  };
 }
 
 /**

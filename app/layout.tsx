@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import BrandMark from "@/components/BrandMark";
 import CookieConsent from "@/components/CookieConsent";
 import PwaRegister from "@/components/PwaRegister";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import { PrivacySafeGoogleAnalytics } from "@/components/PrivacySafeGoogleAnalytics";
 import { rootMetadata, getWebsiteJsonLd } from "@/lib/root-metadata";
 import { PlatformThemeBootstrap } from "@/components/PlatformThemeBootstrap";
 import { PlatformThemeProvider } from "@/components/PlatformThemeProvider";
@@ -80,11 +80,13 @@ export default function RootLayout({
                   bottom on short pages, while workspace layouts fill the space. */}
               <div className="flex min-h-0 flex-1 flex-col">{children}</div>
               <CookieConsent />
+              <Suspense fallback={null}>
+                <PrivacySafeGoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+              </Suspense>
             </LocaleProvider>
           </Suspense>
         </PlatformThemeProvider>
       </body>
-      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!} />
     </html>
   );
 }

@@ -22,9 +22,13 @@ export interface OrgNavOpts extends OrgNavSignalCounts {
 }
 
 export function getOrgNavItems(base: string, opts: OrgNavOpts): NavItem[] {
-  return getOrgNavModules(opts.capabilities, opts).map((module) => ({
+  const items = getOrgNavModules(opts.capabilities, opts).map((module) => ({
     label: module.label,
     href: `${base}/${module.hrefSuffix}`,
     icon: module.icon,
   }));
+  if (opts.hasMenuRows || opts.capabilities.includes("MENU")) {
+    items.push({ label: "Kitchen", href: `${base}/kitchen`, icon: "ChefHat" });
+  }
+  return items;
 }

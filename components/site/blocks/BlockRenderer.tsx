@@ -2303,6 +2303,7 @@ async function MenuEmbedBlockRenderer({
     email: t("email"),
     orderNote: t("orderNote"),
     orderNotePlaceholder: t("orderNotePlaceholder"),
+    orderNoteHint: t("orderNoteHint"),
     paymentOnFulfilment: t("paymentOnFulfilment"),
     paymentMethod: t("paymentMethod"),
     payOnline: t("payOnline"),

@@ -122,6 +122,7 @@ export interface StorefrontBrowseLabels {
   email?: string;
   orderNote?: string;
   orderNotePlaceholder?: string;
+  orderNoteHint?: string;
   paymentOnFulfilment?: string;
   paymentMethod?: string;
   payOnline?: string;
@@ -2546,6 +2547,9 @@ function OrderDrawer({
                   placeholder={labels.orderNotePlaceholder || "Special requests, allergies…"}
                   className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs shadow-xs focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-1 focus:ring-[var(--ps-accent-hover)]"
                 />
+                <p className="text-xs text-[var(--ps-muted)]">
+                  {labels.orderNoteHint || "Food preferences and preparation instructions only. Phone and address have separate fields."}
+                </p>
               </div>
             </div>
 
