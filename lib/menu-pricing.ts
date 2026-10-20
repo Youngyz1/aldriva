@@ -1,4 +1,4 @@
-import { resolveBasePrice, roundToCurrencyMinorUnit } from "./menu-promotions";
+import { eligiblePromotionsForItem, findEligibleCodePromotion, resolveBasePrice, roundToCurrencyMinorUnit } from "./menu-promotions";
 import type { MenuPromotion } from "./menu-promotions";
 
 /**
@@ -68,6 +68,7 @@ export interface MenuPricingItem {
   created_at?: string | null;
   price: number;
   promo_price?: number | null;
+  is_active?: boolean;
   is_sold_out?: boolean;
   options_source?: "json" | "normalized" | null;
   option_groups?: readonly MenuItemOptionGroup[] | null;
@@ -505,6 +506,20 @@ export interface MenuPricingContext {
   currency?: string;
 }
 
+export interface PromotionCartLineInput {
+  item: MenuPricingItem;
+  selection?: readonly OptionGroupSelection[] | null;
+  quantity: number;
+}
+
+export interface PromotionCartPricingResult {
+  validCode: boolean;
+  codePromotion: MenuPromotion | null;
+  preDiscountSubtotal: number;
+  subtotal: number;
+  lines: LineTotalCalculation[];
+}
+
 /**
  * Authoritative server calculation for line total:
  * - Validates quantity is integer in [1, MAX_LINE_QUANTITY].
@@ -566,5 +581,51 @@ export function computeLineTotal(params: {
       originalPrice: price.originalPrice,
       discountPerUnit: price.discountPerUnit,
     } : {}),
+  };
+}
+
+/** Shared cart calculation used by order submission and promo-code preview. */
+export function calculatePromotionCartPricing(
+  lines: readonly PromotionCartLineInput[],
+  promotions: readonly MenuPromotion[],
+  context: MenuPricingContext = {}
+): PromotionCartPricingResult {
+  const preDiscountSubtotal = roundToCurrencyMinorUnit(lines.reduce((sum, line) => sum + computeLineTotal({
+    item: { ...line.item, promo_price: null },
+    selection: line.selection,
+    quantity: line.quantity,
+    promotions: [],
+    now: context.now,
+    currency: context.currency,
+    organizerId: context.organizerId,
+  }).lineTotal, 0), context.currency);
+  const normalizedContext = { ...context, subtotal: preDiscountSubtotal };
+  const codePromotion = context.code
+    ? findEligibleCodePromotion(context.code, promotions, {
+        organizerId: context.organizerId,
+        subtotal: preDiscountSubtotal,
+        now: context.now,
+      })
+    : null;
+  const validCode = !context.code || Boolean(codePromotion && lines.some((line) =>
+    eligiblePromotionsForItem(line.item, promotions, { ...normalizedContext, code: context.code })
+      .some((promotion) => promotion.id === codePromotion.id)
+  ));
+  if (!validCode) return { validCode: false, codePromotion: null, preDiscountSubtotal, subtotal: 0, lines: [] };
+  const calculatedLines = lines.map((line) => computeLineTotal({
+    ...line,
+    promotions,
+    code: context.code,
+    now: context.now,
+    subtotal: preDiscountSubtotal,
+    currency: context.currency,
+    organizerId: context.organizerId,
+  }));
+  return {
+    validCode,
+    codePromotion,
+    preDiscountSubtotal,
+    subtotal: roundToCurrencyMinorUnit(calculatedLines.reduce((sum, line) => sum + line.lineTotal, 0), context.currency),
+    lines: calculatedLines,
   };
 }

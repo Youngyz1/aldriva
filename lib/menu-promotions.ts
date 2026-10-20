@@ -66,6 +66,18 @@ export interface ResolvedBasePrice {
   discountPerUnit: number;
 }
 
+export type MenuPromotionDisplayStatus = "draft" | "scheduled" | "active" | "expired" | "paused";
+
+export function getMenuPromotionDisplayStatus(promo: MenuPromotion, now = new Date()): MenuPromotionDisplayStatus {
+  if (promo.status === "draft") return "draft";
+  if (promo.status === "paused") return "paused";
+  const starts = safeDate(promo.starts_at);
+  const ends = safeDate(promo.ends_at);
+  if (ends !== null && (!Number.isFinite(ends) || ends < now.getTime())) return "expired";
+  if (starts !== null && (!Number.isFinite(starts) || starts > now.getTime())) return "scheduled";
+  return "active";
+}
+
 function safeDate(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);

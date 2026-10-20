@@ -18,8 +18,7 @@ import { normalizeContent } from "@/lib/website-content";
 import { resolveOrderSchedule, validateScheduledOrderTime } from "@/lib/website-hours";
 import {
   MAX_LINE_QUANTITY,
-  computeLineTotal,
-  effectiveUnitPrice,
+  calculatePromotionCartPricing,
   resolveItemOptionGroups,
   validateSelection,
   type NormalizedOptionAssignmentRow,
@@ -27,6 +26,7 @@ import {
   type MenuPricingItem,
   type OptionGroupSelection,
 } from "@/lib/menu-pricing";
+import { loadMenuPromotions } from "@/lib/menu-promotion-data";
 import { dispatchOrderNotifications } from "@/lib/order-notifications";
 import { isValidPhoneNumber, normalizePhone } from "@/lib/order-phone";
 import { getOrgApproval } from "@/lib/server-approval";
@@ -75,6 +75,7 @@ export type SubmitOrderResult =
         | "fulfilment_unavailable"
         | "invalid_customer_info"
         | "invalid_items"
+        | "invalid_promo_code"
         | "item_not_found"
         | "item_inactive"
         | "item_sold_out"
@@ -180,6 +181,18 @@ export async function submitOrderRequestWithClient(
       ) {
         return { success: false, error: "invalid_items", message: "Invalid item quantity." };
       }
+    }
+
+    let promoCode: string | null = null;
+    if (input.promoCode !== undefined && input.promoCode !== null) {
+      if (typeof input.promoCode !== "string") {
+        return { success: false, error: "invalid_promo_code", message: "This promo code is invalid or cannot be applied to this order." };
+      }
+      const rawCode = input.promoCode.trim();
+      if (rawCode && !/^[A-Za-z0-9_-]{3,40}$/.test(rawCode)) {
+        return { success: false, error: "invalid_promo_code", message: "This promo code is invalid or cannot be applied to this order." };
+      }
+      promoCode = rawCode ? rawCode.toUpperCase() : null;
     }
 
     // 4. Resolve slug -> website -> organizer_id (server-side, reject unpublished)
@@ -312,7 +325,7 @@ export async function submitOrderRequestWithClient(
     const itemIds = Array.from(new Set(input.items.map((i) => i.itemId)));
     const loadItems = (includeOptionsSource: boolean) => admin
       .from("menu_items")
-      .select(`id, name, price, promo_price, is_active, is_sold_out, option_groups, organizer_id${includeOptionsSource ? ", options_source" : ""}`)
+      .select(`id, section_id, name, price, promo_price, is_active, is_sold_out, option_groups, organizer_id, created_at${includeOptionsSource ? ", options_source" : ""}`)
       .eq("organizer_id", organizerId)
       .in("id", itemIds);
     let normalizedSchemaAvailable = true;
@@ -330,6 +343,12 @@ export async function submitOrderRequestWithClient(
     }
 
     const itemsById = new Map(dbItems.map((item) => [item.id, item]));
+    const promotionLoad = await loadMenuPromotions(admin, organizerId, { includeCodes: true, status: "active", context: "order-submit" });
+    if (promotionLoad.error) {
+      return { success: false, error: "db_error", message: "Failed to validate menu promotions." };
+    }
+    const promotions = promotionLoad.promotions;
+    const pricingNow = new Date();
 
     let assignments: NormalizedOptionAssignmentRow[] = [];
     if (normalizedSchemaAvailable) {
@@ -387,7 +406,13 @@ export async function submitOrderRequestWithClient(
       assignmentsByItem.set(assignment.item_id, list);
     }
 
-    let subtotal = 0;
+    const preparedLines: Array<{
+      line: OrderItemInput;
+      item: any;
+      groups: MenuItemOptionGroup[];
+      selection: OptionGroupSelection[];
+      itemPricing: MenuPricingItem;
+    }> = [];
     const orderItemsSnapshot: Array<{
       item_id: string;
       name: string;
@@ -406,6 +431,14 @@ export async function submitOrderRequestWithClient(
       }>;
       quantity: number;
       line_total: number;
+      promotion?: {
+        id: string;
+        name: string;
+        offer_type: string;
+        code?: string;
+        original_unit_price: number;
+        discount_per_unit: number;
+      };
     }> = [];
 
     for (const line of input.items) {
@@ -476,8 +509,14 @@ export async function submitOrderRequestWithClient(
         .filter((entry) => entry.optionIds.length > 0);
 
       const itemPricing: MenuPricingItem = {
+        id: item.id,
+        organizer_id: organizerId,
+        section_id: item.section_id,
+        created_at: item.created_at,
         price: Number(item.price),
         promo_price: item.promo_price != null ? Number(item.promo_price) : null,
+        is_active: Boolean(item.is_active),
+        is_sold_out: Boolean(item.is_sold_out),
         option_groups: groups,
       };
 
@@ -492,11 +531,23 @@ export async function submitOrderRequestWithClient(
         };
       }
 
-      const calc = computeLineTotal({
-        item: itemPricing,
-        selection,
-        quantity: line.quantity,
-      });
+      preparedLines.push({ line, item, groups, selection, itemPricing });
+    }
+
+    const cartPricing = calculatePromotionCartPricing(
+      preparedLines.map(({ itemPricing, selection, line }) => ({ item: itemPricing, selection, quantity: line.quantity })),
+      promotions,
+      { code: promoCode, now: pricingNow, currency, organizerId }
+    );
+    if (!cartPricing.validCode) {
+      return { success: false, error: "invalid_promo_code", message: "This promo code is invalid or cannot be applied to this order." };
+    }
+    const subtotal = cartPricing.subtotal;
+    let freeDeliveryPromotionApplied = false;
+    for (let index = 0; index < preparedLines.length; index++) {
+      const prepared = preparedLines[index];
+      const { line, item, groups, selection } = prepared;
+      const calc = cartPricing.lines[index];
       const chosenOptions = selection.flatMap((groupSelection) => {
         const group = groups.find((candidate) => candidate.id === groupSelection.groupId)!;
         return (groupSelection.selectedOptions || []).flatMap((selected) => {
@@ -515,10 +566,9 @@ export async function submitOrderRequestWithClient(
         });
       });
       const hasVariant = groups.some((group) => group.kind === "variant");
-      const unitPrice = effectiveUnitPrice(itemPricing, selection);
+      const unitPrice = calc.unitPrice;
 
-      subtotal += calc.lineTotal;
-      orderItemsSnapshot.push({
+      const snapshotLine = {
         item_id: item.id,
         name: item.name,
         unit_price: unitPrice,
@@ -527,11 +577,24 @@ export async function submitOrderRequestWithClient(
         chosen_options: chosenOptions,
         quantity: line.quantity,
         line_total: calc.lineTotal,
-      });
+        ...(calc.appliedPromotion ? {
+          promotion: {
+            id: calc.appliedPromotion.id,
+            name: calc.appliedPromotion.name,
+            offer_type: calc.appliedPromotion.offer_type,
+            ...(promoCode && calc.appliedPromotion.code?.toUpperCase() === promoCode ? { code: calc.appliedPromotion.code } : {}),
+            original_unit_price: calc.originalPrice ?? unitPrice,
+            discount_per_unit: calc.discountPerUnit ?? 0,
+          },
+        } : {}),
+      };
+      orderItemsSnapshot.push(snapshotLine);
+      if (calc.appliedPromotion?.offer_type === "free_delivery") freeDeliveryPromotionApplied = true;
     }
 
     const deliverySettings = extractDeliverySettings(website.metadata);
-    const deliveryFee = computeOrderDeliveryFee(input.fulfilmentType, subtotal, deliverySettings);
+    const computedDeliveryFee = computeOrderDeliveryFee(input.fulfilmentType, subtotal, deliverySettings);
+    const deliveryFee = input.fulfilmentType === "delivery" && freeDeliveryPromotionApplied ? 0 : computedDeliveryFee;
     const totalAmount = subtotal + deliveryFee;
 
     // 8. Collision-safe human-readable order number generation

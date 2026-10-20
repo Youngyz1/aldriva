@@ -36,6 +36,7 @@ export interface CreateOnlineOrderPaymentResult {
     | "fulfilment_unavailable"
     | "invalid_customer_info"
     | "invalid_items"
+    | "invalid_promo_code"
     | "item_not_found"
     | "item_inactive"
     | "item_sold_out"

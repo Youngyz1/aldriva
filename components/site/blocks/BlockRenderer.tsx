@@ -2146,10 +2146,10 @@ async function MenuEmbedBlockRenderer({
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
 }) {
-  const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const tableFlameRows = siteTemplateId === "restaurant-table-flame" && block.variant === "rows";
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
+  const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
   const browseLabels = {

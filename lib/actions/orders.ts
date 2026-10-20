@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -11,6 +12,11 @@ import {
   type SubmitOrderResult,
 } from "@/lib/order-submit";
 import { dispatchCustomerOrderStatusEmail } from "@/lib/order-notifications";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { calculatePromotionCartPricing, MAX_LINE_QUANTITY, resolveItemOptionGroups, validateSelection, type MenuPricingItem, type MenuItemOptionGroup, type NormalizedOptionAssignmentRow, type OptionGroupSelection } from "@/lib/menu-pricing";
+import { loadMenuPromotions } from "@/lib/menu-promotion-data";
+import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
+import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
 
 export type { OrderItemInput, SubmitOrderRequestInput, SubmitOrderResult };
 
@@ -121,6 +127,179 @@ export async function submitOrderRequest(
 ): Promise<SubmitOrderResult> {
   const admin = createSupabaseAdmin();
   return submitOrderRequestWithClient(input, admin);
+}
+
+export interface ValidatePromoCodeLine {
+  itemId: string;
+  name: string;
+  unitPrice: number;
+  optionsDelta: number;
+  lineTotal: number;
+  originalUnitPrice: number;
+  discountPerUnit: number;
+  promotionName: string | null;
+}
+
+export type ValidatePromoCodeResult =
+  | { success: true; valid: true; subtotal: number; lines: ValidatePromoCodeLine[] }
+  | { success: true; valid: false; message: string }
+  | { success: false; error: "rate_limited" | "invalid_cart" | "unavailable"; message: string };
+
+const INVALID_PROMO_CODE_MESSAGE = "This promo code is invalid or cannot be applied to this order.";
+
+/** Public code validation. Input contains menu references and choices only; all prices are loaded here. */
+export async function validatePromoCode(
+  slug: string,
+  code: string,
+  cartLines: OrderItemInput[]
+): Promise<ValidatePromoCodeResult> {
+  const invalidCode = (): ValidatePromoCodeResult => ({ success: true, valid: false, message: INVALID_PROMO_CODE_MESSAGE });
+  try {
+    const rawCode = typeof code === "string" ? code.trim() : "";
+    if (!rawCode || !/^[A-Za-z0-9_-]{3,40}$/.test(rawCode)) return invalidCode();
+    if (!Array.isArray(cartLines) || cartLines.length < 1 || cartLines.length > 50 || cartLines.some((line) =>
+      !line || typeof line.itemId !== "string" || !line.itemId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_LINE_QUANTITY
+    )) {
+      return { success: false, error: "invalid_cart", message: "Please review the items in your order and try again." };
+    }
+
+    const headerList = await headers();
+    const forwarded = headerList.get("x-forwarded-for");
+    const ip = headerList.get("x-real-ip") || (forwarded ? forwarded.split(",")[0]?.trim() : null) || "unknown";
+    const ipLimit = await checkRateLimit("orderRequestIp", `ip:${ip}`);
+    if (!ipLimit.allowed) return { success: false, error: "rate_limited", message: "Too many requests. Please wait a moment." };
+
+    const admin = createSupabaseAdmin();
+    const { data: website, error: websiteError } = await admin.from("tenant_websites")
+      .select("id, slug, status, tenant_id, metadata").eq("slug", slug).maybeSingle();
+    if (websiteError || !website || website.status !== "published" || !website.tenant_id) return invalidCode();
+    const organizerId = website.tenant_id as string;
+    const { data: business } = await admin.from("businesses").select("country")
+      .eq("organizer_id", organizerId).order("created_at", { ascending: true }).limit(1).maybeSingle();
+    const itemIds = [...new Set(cartLines.map((line) => line.itemId))];
+    const loadItems = (includeOptionsSource: boolean) => admin.from("menu_items")
+      .select(`id, section_id, name, price, promo_price, is_active, is_sold_out, option_groups, organizer_id, created_at${includeOptionsSource ? ", options_source" : ""}`)
+      .eq("organizer_id", organizerId).in("id", itemIds);
+    let normalizedSchemaAvailable = true;
+    let itemResult = await loadItems(true);
+    if (itemResult.error && isMissingMenuOptionSchema(itemResult.error)) {
+      warnMissingMenuOptionSchemaOnce("validatePromoCode", itemResult.error);
+      normalizedSchemaAvailable = false;
+      itemResult = await loadItems(false) as typeof itemResult;
+    }
+    if (itemResult.error || !Array.isArray(itemResult.data)) return invalidCode();
+    const itemsById = new Map(itemResult.data.map((item: any) => [item.id, item]));
+    let assignments: NormalizedOptionAssignmentRow[] = [];
+    if (normalizedSchemaAvailable) {
+      const assignmentResult = await admin.from("menu_item_option_groups")
+        .select("id, organizer_id, item_id, group_id, position, hidden_option_ids, price_overrides")
+        .in("item_id", itemIds);
+      if (assignmentResult.error && isMissingMenuOptionSchema(assignmentResult.error)) {
+        warnMissingMenuOptionSchemaOnce("validatePromoCode", assignmentResult.error);
+        normalizedSchemaAvailable = false;
+      } else if (assignmentResult.error) {
+        return invalidCode();
+      } else {
+        assignments = (assignmentResult.data || []) as NormalizedOptionAssignmentRow[];
+      }
+    }
+    const groupIds = [...new Set(assignments.map((row) => row.group_id).filter(Boolean))];
+    const groupsById = new Map<string, any>();
+    const optionsByGroupId = new Map<string, any[]>();
+    if (normalizedSchemaAvailable && groupIds.length > 0) {
+      const [groupsResult, optionsResult] = await Promise.all([
+        admin.from("menu_option_groups").select("id, organizer_id, name, kind, min_select, max_select, is_required, position, is_active").in("id", groupIds).eq("is_active", true),
+        admin.from("menu_options").select("id, group_id, organizer_id, name, description, price, image_url, is_default, max_qty, is_available, allergens, position").in("group_id", groupIds).eq("is_available", true),
+      ]);
+      const missingSchema = [groupsResult.error, optionsResult.error].find(isMissingMenuOptionSchema);
+      if (missingSchema) {
+        warnMissingMenuOptionSchemaOnce("validatePromoCode", missingSchema);
+        normalizedSchemaAvailable = false;
+        assignments = [];
+      } else if (groupsResult.error || optionsResult.error) {
+        return invalidCode();
+      } else {
+        for (const group of groupsResult.data || []) groupsById.set(group.id, group);
+        for (const option of optionsResult.data || []) {
+          const options = optionsByGroupId.get(option.group_id) || [];
+          options.push(option);
+          optionsByGroupId.set(option.group_id, options);
+        }
+      }
+    }
+    const assignmentsByItem = new Map<string, NormalizedOptionAssignmentRow[]>();
+    for (const assignment of assignments) {
+      const group = groupsById.get(assignment.group_id);
+      const list = assignmentsByItem.get(assignment.item_id) || [];
+      list.push({ ...assignment, group: group ? { ...group, options: optionsByGroupId.get(group.id) || [] } : null });
+      assignmentsByItem.set(assignment.item_id, list);
+    }
+
+    const pricingLines: Array<{ item: MenuPricingItem; selection: OptionGroupSelection[]; quantity: number }> = [];
+    for (const line of cartLines) {
+      const item = itemsById.get(line.itemId) as any;
+      if (!item || !item.is_active || item.is_sold_out) return invalidCode();
+      const groups = resolveItemOptionGroups({
+        ...item,
+        id: item.id,
+        price: Number(item.price),
+        options_source: normalizedSchemaAvailable ? item.options_source : "json",
+        option_groups: Array.isArray(item.option_groups) ? item.option_groups : [],
+      }, normalizedSchemaAvailable ? assignmentsByItem.get(item.id) || [] : []) as MenuItemOptionGroup[];
+      const selectedIds = Array.isArray(line.selectedOptionIds) ? line.selectedOptionIds : [];
+      const requested: Array<{ groupId?: string; optionId: string; qty: number }> = Array.isArray(line.selectedOptions)
+        ? line.selectedOptions
+        : selectedIds.map((optionId) => ({ optionId, qty: 1 }));
+      if (Array.isArray(line.selectedOptions) && line.selectedOptionIds !== undefined) {
+        const actualIds = requested.map((entry) => entry.optionId).sort();
+        const expectedIds = [...selectedIds].sort();
+        if (actualIds.length !== expectedIds.length || actualIds.some((id, index) => id !== expectedIds[index])) return invalidCode();
+      }
+      const byGroup = new Map<string, Array<{ optionId: string; qty: number }>>();
+      for (const selected of requested) {
+        const matches = groups.filter((group) => (!selected.groupId || group.id === selected.groupId) && group.options.some((option) => option.id === selected.optionId));
+        if (matches.length !== 1) return invalidCode();
+        const list = byGroup.get(matches[0].id) || [];
+        list.push({ optionId: selected.optionId, qty: selected.qty });
+        byGroup.set(matches[0].id, list);
+      }
+      const selection = groups.map((group) => {
+        const selected = byGroup.get(group.id) || [];
+        return { groupId: group.id, optionIds: selected.map((entry) => entry.optionId), selectedOptions: selected };
+      }).filter((entry) => entry.optionIds.length > 0);
+      const itemPricing: MenuPricingItem = {
+        id: item.id, organizer_id: organizerId, section_id: item.section_id, created_at: item.created_at,
+        price: Number(item.price), promo_price: item.promo_price != null ? Number(item.promo_price) : null,
+        is_active: true, is_sold_out: false, option_groups: groups,
+      };
+      if (!validateSelection(itemPricing, selection).valid) return invalidCode();
+      pricingLines.push({ item: itemPricing, selection, quantity: line.quantity });
+    }
+
+    const promotionLoad = await loadMenuPromotions(admin, organizerId, { includeCodes: true, status: "active", context: "validatePromoCode" });
+    if (promotionLoad.error) return invalidCode();
+    const now = new Date();
+    const currency = resolveStorefrontCurrency(website.metadata, business?.country ?? null);
+    const pricing = calculatePromotionCartPricing(pricingLines, promotionLoad.promotions, { code: rawCode.toUpperCase(), now, currency, organizerId });
+    if (!pricing.validCode) return invalidCode();
+    return {
+      success: true,
+      valid: true,
+      subtotal: pricing.subtotal,
+      lines: pricing.lines.map((line, index) => ({
+        itemId: pricingLines[index].item.id || cartLines[index].itemId,
+        name: (itemsById.get(cartLines[index].itemId) as any).name,
+        unitPrice: line.unitPrice,
+        optionsDelta: line.optionsDelta,
+        lineTotal: line.lineTotal,
+        originalUnitPrice: line.originalPrice ?? line.unitPrice,
+        discountPerUnit: line.discountPerUnit ?? 0,
+        promotionName: line.appliedPromotion?.name ?? null,
+      })),
+    };
+  } catch {
+    return invalidCode();
+  }
 }
 
 /**

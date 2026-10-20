@@ -19,7 +19,10 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
 import { fromMinorUnits } from "@/lib/money";
+import { resolveBasePrice, isPromotionActive } from "@/lib/menu-promotions";
+import { loadMenuPromotions } from "@/lib/menu-promotion-data";
 import { resolveItemOptionGroups, type NormalizedOptionAssignmentRow, type ResolvedOptionGroup } from "@/lib/menu-pricing";
+import type { MenuPromotion } from "@/lib/menu-promotions";
 import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
 import type {
   EventsEmbedBlock,
@@ -93,6 +96,11 @@ export interface ResolvedMenuItem {
   description: string | null;
   price: number;
   promo_price?: number | null;
+  effective_price?: number;
+  original_price?: number;
+  discount_per_unit?: number;
+  applied_promotion?: MenuPromotion | null;
+  promotions?: MenuPromotion[];
   is_sold_out?: boolean;
   image_url: string | null;
   dietary_tags: string[];
@@ -351,7 +359,8 @@ export async function resolveMenuEmbed(
   block: MenuEmbedBlock,
   tenantId: string,
   isTeamMember: boolean,
-  client?: SupabaseClient
+  client?: SupabaseClient,
+  currency = "USD"
 ): Promise<ResolvedMenuSection[]> {
   if (!tenantId || typeof tenantId !== "string") return [];
   const supabase = client ?? createSupabaseAdmin();
@@ -387,6 +396,11 @@ export async function resolveMenuEmbed(
   const hasMoreItemsOverall = queriedItems.length > MENU_ITEMS_OVERALL_LIMIT;
   const returnedItems = queriedItems.slice(0, MENU_ITEMS_OVERALL_LIMIT);
   const returnedItemIds = returnedItems.map((item) => item.id);
+  const promotionLoad = returnedItemIds.length > 0
+    ? await loadMenuPromotions(supabase, tenantId, { includeCodes: false, status: "active", context: "resolveMenuEmbed" })
+    : { promotions: [], error: null, missingSchema: false };
+  const promotionNow = new Date();
+  const publicPromotions = promotionLoad.promotions.filter((promotion) => isPromotionActive(promotion, promotionNow));
   let assignments: any[] = [];
   if (normalizedSchemaAvailable && returnedItemIds.length > 0) {
     const { data, error } = await supabase
@@ -443,21 +457,43 @@ export async function resolveMenuEmbed(
       sectionsWithMoreItems.add(it.section_id);
       continue;
     }
+    const optionGroups = resolveItemOptionGroups(
+      { id: it.id, price: Number(it.price), promo_price: it.promo_price != null ? Number(it.promo_price) : null, options_source: normalizedSchemaAvailable ? it.options_source : "json", option_groups: Array.isArray(it.option_groups) ? it.option_groups : [] },
+      normalizedSchemaAvailable ? assignmentsByItem.get(it.id) || [] : []
+    );
+    const itemPromotions = publicPromotions.filter((promotion) =>
+      promotion.organizer_id === tenantId && (promotion.targets || []).some((target) => target.item_id === it.id || target.section_id === it.section_id)
+    );
+    const variantGroup = optionGroups.find((group) => group.kind === "variant");
+    const selectedVariant = variantGroup?.options.find((option) => option.is_default === true && option.is_available !== false)
+      ?? variantGroup?.options.find((option) => option.is_available !== false);
+    const resolvedPrice = resolveBasePrice({
+      id: it.id,
+      organizer_id: tenantId,
+      section_id: it.section_id,
+      price: Number(it.price),
+      promo_price: it.promo_price != null ? Number(it.promo_price) : null,
+      is_active: Boolean(it.is_active),
+      is_sold_out: Boolean(it.is_sold_out),
+      option_groups: optionGroups,
+    }, itemPromotions, { now: promotionNow, subtotal: 0, currency, variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined });
     const mapped: ResolvedMenuItem = {
       id: it.id,
       name: it.name,
       description: it.description ?? null,
       price: Number(it.price),
       promo_price: it.promo_price != null ? Number(it.promo_price) : null,
+      effective_price: resolvedPrice.basePrice,
+      original_price: resolvedPrice.originalPrice,
+      discount_per_unit: resolvedPrice.discountPerUnit,
+      applied_promotion: resolvedPrice.appliedPromotion,
+      promotions: itemPromotions,
       is_sold_out: Boolean(it.is_sold_out),
       image_url: it.image_url ?? null,
       dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : [],
       allergens: Array.isArray(it.allergens) ? it.allergens : [],
       modifiers: Array.isArray(it.modifiers) ? it.modifiers : [],
-      option_groups: resolveItemOptionGroups(
-        { id: it.id, price: Number(it.price), promo_price: it.promo_price != null ? Number(it.promo_price) : null, options_source: normalizedSchemaAvailable ? it.options_source : "json", option_groups: Array.isArray(it.option_groups) ? it.option_groups : [] },
-        normalizedSchemaAvailable ? assignmentsByItem.get(it.id) || [] : []
-      ),
+      option_groups: optionGroups,
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
       isDraft: !it.is_active,
