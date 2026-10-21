@@ -27,7 +27,7 @@
 - **`db/` is canonical**; `supabase/migrations/` mirrors only some migrations. Before writing a migration, see the **Migration number register** in §6 — collisions have already burned the phase docs once. (VERIFIED — `docs/DATABASE.md`, §6.)
 - **Label every claim** VERIFIED / INFERRED / NOT FOUND with file paths, commit hashes or test names. If you can't establish a fact, write "Owner to confirm" — never guess. (VERIFIED — this is how the 2026-10-20 audit and this file were written.)
 - **Staging vs production:** staging is the only environment agents have ever touched (with approval). Production exists for `aldriva.com`; never act on it autonomously (`docs/GUARDRAILS-NO-AUTONOMOUS-PRODUCTION-ACTIONS.md`). (VERIFIED — exists, 2026-10-03.)
-- **Tests:** `npm test` runs `scripts/run-tests-chunked.cjs` against explicit `test-files.json` (200 files at this checkpoint). The runner batches direct Node child-process calls to stay below Windows command-line limits. Add every new test file to `test-files.json`. (VERIFIED — `package.json`, `test-files.json`, `scripts/run-tests-chunked.cjs`.)
+- **Tests:** `npm test` runs `scripts/run-tests-chunked.cjs` against explicit `test-files.json` (202 files at this checkpoint). The runner batches direct Node child-process calls to stay below Windows command-line limits. Add every new test file to `test-files.json`. (VERIFIED — `package.json`, `test-files.json`, `scripts/run-tests-chunked.cjs`.)
 - **Run order after changes:** `npx eslint <files>` → `npx tsc --noEmit` → `npm test` → `npm run build`. Last full green on committed code: build PASS, tsc 0 errors, 8 pre-existing lint errors in untouched files. (VERIFIED — 2026-10-20 audit, `work/status-review-*.log`.)
 
 ---
@@ -42,7 +42,7 @@
 | 3 | Website design system | **DONE** | 18 block types, embeds, 3 templates, dark mode | `docs/phases/phase-03-design-system.md` |
 | 4 | Website builder/editor | **DONE** | Draft/publish with RPC guard, block inspectors | `docs/phases/phase-04-website-builder.md` |
 | 5 | Products, services & menus | **PARTIAL** | Menus+services built; menu **options & promotions** workstream implemented on a branch (migrations 182–183 applied staging, 184 approved **not applied**); USD-hardcoded services | `docs/phases/phase-05-products-services.md` |
-| — | **Kitchen & delivery** (named workstream under Phase 6) | **PARTIAL** | Owner reports migrations 185/186 applied on staging; Part 1 and Stage B courier server, management, and owner picker work are implemented on `feat/phase-2-couriers`; Stage C courier dashboard remains | `docs/phases/phase-kitchen-delivery.md` |
+| — | **Kitchen & delivery** (named workstream under Phase 6) | **PARTIAL** | Owner reports migrations 185/186 applied on staging; Part 1, Stage B, and Stage C courier dashboard are implemented on `feat/phase-2-couriers`; browser visual/integration QA remains | `docs/phases/phase-kitchen-delivery.md` |
 | 6 | Unified commerce | **PARTIAL** | Store cart, promo codes (177), orders (171), payments (173/174), owner-managed delivery (175); missing tax, fulfillment dashboard, multi-item crypto cart | `docs/phases/phase-06-commerce.md` |
 | 7 | Bookings & reservations | **PARTIAL** | Reservation request engine built (176) but **hidden from nav**; no slots/scheduling/SMS/ics | `docs/phases/phase-07-bookings.md` |
 | 8 | Business management ERP | **PARTIAL** | Branches only (132); no shifts/rosters/inventory/cross-branch reports | `docs/phases/phase-08-business-management.md` |
@@ -78,7 +78,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 ## 5. Continue here
 
 - **If you are resuming the menu options & promotions work:** branch `feat/menu-promotions-phase-4` (tip `16265fb`). Next task: **apply migration 184 on staging (owner runs it), execute `db/tests/migration_184_checks.sql`, then 375px visual QA and production data inventory** — these three verifications are the only open items (VERIFIED — `docs/phase-4-report.md`, `docs/CURRENT-STATE.md`).
-- **If you are resuming kitchen & delivery:** Phase 1 is on `feat/phase-0-1-kitchen-worker-access`; courier Stage A, Part 1 fixes, and Stage B server/owner-management work are on `feat/phase-2-couriers` from that base. The owner reports migration 186 applied and verified; no database tools were used here. Next is Stage C courier dashboard and visual/integration QA. See `docs/phases/phase-kitchen-delivery.md`.
+- **If you are resuming kitchen & delivery:** Phase 1 is on `feat/phase-0-1-kitchen-worker-access`; courier Stage A, Part 1 fixes, Stage B server/owner-management work, and the Stage C dashboard are on `feat/phase-2-couriers` from that base. The owner reports migration 186 applied and verified; no database tools were used here. Next is browser visual/integration QA. See `docs/phases/phase-kitchen-delivery.md`.
 - **If you are starting new phase work:** start from `main` + whatever in-flight branch it depends on; check the Migration number register (§6) before writing any SQL.
 
 ---
@@ -118,7 +118,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 - Migration **184**: order snapshot fields (`group_name`, `group_kind`, `qty`, promotion) **not confirmed in a running app**; 375px visual QA not done; production data inventory not done. (VERIFIED as unverified — `docs/phase-4-report.md` "Owner Checkpoint E" list.)
 - Migrations **185 and 186**: applied on staging per owner report; no database query was made in this task. Application flows remain unverified against a live database.
 - Staging application status of all other migrations except 134, 136, 170, 171, 177, 181, 182, 183 is **UNKNOWN** (no `schema_migrations` table; SELECT checks in `docs/DATABASE.md`). (VERIFIED — 2026-10-20 audit; 185/186 status is owner-reported.)
-- Kitchen display page and kitchen order state flow are **NOT built**. Courier management, invitation, availability, owner picker, and Stage B server routes are implemented; the standalone courier dashboard remains Stage C. See `docs/phases/phase-kitchen-delivery.md`.
+- Kitchen display page and kitchen order state flow are implemented. Courier management, invitation, availability, owner picker, Stage B server routes, and the Stage C courier dashboard are implemented; browser visual/integration QA remains. See `docs/phases/phase-kitchen-delivery.md`.
 
 ---
 
@@ -132,7 +132,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | `feat/menu-options-phase-0-1` / `-phase-2` / `-phase-3` | `c160202` / `15bb0d9` / `251f523` | **NO** |
 | **`docs/handoff-roadmap`** (this docs branch) | created 2026-10-20 from `16265fb` | **NO** |
 | `feat/phase-0-1-kitchen-worker-access` | Phase 1 cook access base | **NO** |
-| `feat/phase-2-couriers` | Stage A migration 186 (owner-reported applied) + Part 1 + Stage B implemented in working tree; Stage C pending | **NO** |
+| `feat/phase-2-couriers` | Stage A migration 186 (owner-reported applied) + Part 1 + Stage B + Stage C implemented in working tree; browser visual/integration QA remains | **NO** |
 | `business-sites-checkpoint`, `full-recovery`, `integration/full-recovery`, `wip/phase7-checkpoint`, `wip/admin-baseline` | 2026-08 → 10 | **NO** |
 | 5 stashes (`stash@{0..4}`) | — | **NO** |
 | Other worktrees: `aldriva-head` (staff/invites), `aldriva-seating-test` (`feat/seat-picker-3d`), `fundraising-app` (invitations), `fundraising-app-entity-architecture`, `.codex/worktrees/r2-media-clean-head` | — | mixed |
@@ -150,7 +150,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 - **Stage B — endpoints:** bootstrap/accept, session/logout, orders feed, availability, offer accept/decline, and assigned-order delivery completion exist under `app/api/courier/`. Bootstrap and accept limiters fail closed by IP plus invitation hash; the orders feed limiter is fail-closed at 60 requests per 10 minutes keyed by the session hash. Offers expose pickup/delivery addresses, items, and amount to collect. Customer name/phone are exposed only for the winning courier's active assigned order. Taken/declined rows return metadata only.
 - **Stage B — owner flows:** `lib/actions/courier-management.ts` supports create, invite, resend, revoke, deactivate, reactivate, list, and availability with owner/admin/manager authorization plus organizer/business scope checks. The existing kitchen owner page has courier management. The Out for delivery picker allows an offline courier with a warning, disables On delivery couriers, handles unique-index conflicts, and retains typed rider fallback. Owner order cards show courier declines/messages and cash confirmer/time; the waiting-for-courier overdue state is connected to offer data.
 - **Stage B — transitions:** courier claims use migration 186's atomic RPC, then call the shared transition core's post-persist email/revalidation effects without a second order status update. Assigned courier completion reuses the core; explicit cash confirmation for unpaid pay-on-fulfilment orders records worker and timestamp and sets payment paid. Risk: a false confirmation records cash as collected. Unpaid online orders cannot use the override.
-- **Verification:** `npm test` passed **2,590/2,590 tests across 200 files** (0 failures, 0 skipped), +23 tests and +1 file over the 2,567/199 baseline. `npx tsc --noEmit --pretty false`, targeted changed-file ESLint, `npm run build`, and `git diff --check` passed. Mocked role-isolation and courier route/action tests are in `lib/courier/__tests__/courier-server.test.cjs` and `lib/kitchen/__tests__/`.
+- **Verification:** `npm test` passed **2,599/2,599 tests across 202 files** (0 failures, 0 skipped), +32 tests and +3 files over the 2,567/199 baseline. `npx tsc --noEmit --pretty false`, changed-file ESLint, and `npm run build` passed. Mocked dashboard, role-isolation, and courier route/action tests are in `lib/courier/__tests__/` and `lib/kitchen/__tests__/`.
 - **Owner-run SQL only:** `db/tests/migration_186_claim_race_tab_a.sql`, `...tab_b.sql`, `...verify.sql`, and `migration_186_business_delete_test.sql` are not run here. The business-delete harness is staging-only and says never run on production.
-- **Stage C remains:** standalone courier dashboard/offer polling and visual/integration QA, live tracking, WhatsApp sending, and push are not included.
+- **Stage C:** courier dashboard/offer polling is implemented. Browser visual/integration QA remains; live tracking, WhatsApp sending, and push are not included.
 *This file is maintained by documentation agents. Last updated: 2026-10-21. Evidence audit: `docs/project-status.md`.*

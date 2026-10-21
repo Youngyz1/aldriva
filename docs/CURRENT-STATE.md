@@ -3,9 +3,9 @@
 ## Active Worktree Update — Kitchen & Delivery, 2026-10-21
 
 - Owner reports migration 185 applied and migration 186 applied and verified on staging; no database tools were used to independently query staging.
-- Phase 1 reactivation and cook accept-page fixes and Stage B courier server routes/actions are implemented on `feat/phase-2-couriers`. The Reactivate action has a five-second repeat-rotation guard; courier reactivation stays offline.
-- **Verification:** full suite passed 2,590/2,590 across 200 files (0 failures, 0 skipped); changed-file ESLint, `npx tsc --noEmit --pretty false`, `npm run build`, and `git diff --check` passed. The full result is 23 tests and one file above the 2,567/199 baseline.
-- SQL race and business-delete harnesses are authored for owner-run staging only and were not executed. No database tools were used. The standalone courier dashboard remains Stage C and is not built.
+- Phase 1 reactivation and cook accept-page fixes, Stage B courier server routes/actions, and the Stage C dashboard are implemented on `feat/phase-2-couriers`. Reactivate has a five-second repeat-rotation guard; courier reactivation stays offline. Browser visual/integration QA remains.
+- **Verification:** full suite passed 2,599/2,599 across 202 files (0 failures, 0 skipped); changed-file ESLint, `npx tsc --noEmit --pretty false`, and `npm run build` passed. This is 32 tests and three files above the 2,567/199 baseline.
+- SQL race and business-delete harnesses are authored for owner-run staging only and were not executed. No database tools were used. Live tracking, WhatsApp sending, and push remain out of scope.
 
 > **2026-10-20 (handoff docs pass):** A fresh agent should start at **`docs/HANDOFF.md`** (status board, execution order, continue-here, migration register). The verified phase-by-phase state lives in the STATUS blocks of `docs/phases/*`, with full evidence in `docs/project-status.md`. Two corrections to the entries below: (1) **migration 184's SHA-256 was wrong** — the correct value for both copies is `30fb2d164cfbc0315230c8f72b7d91d21c551c6ed30c84bdebe21686cf255482` (VERIFIED — `sha256sum` of `db/migration_184_menu_promotions.sql` and `supabase/migrations/20261020010000_migration_184_menu_promotions.sql`, both identical, 2026-10-20); (2) a **Kitchen & Delivery workstream** (migration 185) now exists **uncommitted in this worktree** — see `docs/phases/phase-kitchen-delivery.md`. No database operation was run by this docs pass.
 

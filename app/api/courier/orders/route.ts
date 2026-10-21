@@ -12,7 +12,21 @@ export async function GET(request: Request) {
   if (!limit.allowed) return courierJson({ error: "Too many requests. Try again shortly." }, 429);
 
   const admin = createSupabaseAdmin();
-  const [offersResult, assignedResult, resolvedOffersResult] = await Promise.all([
+  const [workerResult, businessResult, offersResult, assignedResult, resolvedOffersResult] = await Promise.all([
+    admin
+      .from("business_workers")
+      .select("id, is_available")
+      .eq("id", session.workerId)
+      .eq("business_id", session.businessId)
+      .eq("role", "courier")
+      .eq("is_active", true)
+      .is("deactivated_at", null)
+      .maybeSingle(),
+    admin
+      .from("businesses")
+      .select("id, name, address")
+      .eq("id", session.businessId)
+      .maybeSingle(),
     admin
       .from("business_courier_offer_feed")
       .select("offer_id, order_id, business_id, courier_worker_id, offered_at, pickup_name, pickup_address, delivery_address, items, amount_to_collect, currency")
@@ -36,10 +50,11 @@ export async function GET(request: Request) {
       .order("updated_at", { ascending: false })
       .limit(50),
   ]);
-  if (offersResult.error || assignedResult.error || resolvedOffersResult.error) {
+  if (workerResult.error || !workerResult.data || businessResult.error || offersResult.error || assignedResult.error || resolvedOffersResult.error) {
     return courierJson({ error: "Courier orders are temporarily unavailable." }, 503);
   }
 
+  const isAvailable = workerResult.data.is_available === true;
   const assigned = assignedResult.data;
   const resolvedOfferRows = resolvedOffersResult.data ?? [];
   const resolvedOffers = resolvedOfferRows.map((offer) => ({
@@ -52,6 +67,8 @@ export async function GET(request: Request) {
     }));
   const response = courierJson({
     ok: true,
+    isAvailable,
+    state: assigned ? (isAvailable ? "On delivery" : "Offline, delivery in progress") : (isAvailable ? "Available" : "Offline"),
     offers: offersResult.data ?? [],
     resolvedOffers,
     assignedOrder: assigned
@@ -61,12 +78,15 @@ export async function GET(request: Request) {
           status: assigned.status,
           customerName: assigned.customer_name,
           customerPhone: assigned.customer_phone,
+          pickupName: businessResult.data?.name ?? null,
+          pickupAddress: businessResult.data?.address ?? null,
           deliveryAddress: assigned.delivery_address,
           items: assigned.items,
           amountToCollect:
             assigned.payment_method === "on_fulfilment" && assigned.payment_status === "unpaid"
               ? assigned.total_amount
               : 0,
+          requiresCashCollection: assigned.payment_method === "on_fulfilment" && assigned.payment_status === "unpaid",
           currency: assigned.currency,
           updatedAt: assigned.updated_at,
         }

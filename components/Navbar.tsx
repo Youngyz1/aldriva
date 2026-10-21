@@ -81,6 +81,19 @@ export default function Navbar() {
     return null;
   }
 
+  const normalizedPath = pathname?.replace(/^\/(en|fr)(?=\/|$)/, "") ?? pathname;
+  if (normalizedPath?.startsWith("/courier") || normalizedPath?.startsWith("/kitchen")) {
+    return (
+      <header className="border-b border-border bg-background">
+        <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center px-3 sm:h-16 sm:px-6">
+          <Link href="/" className="text-zinc-950 dark:text-white" aria-label="Aldriva home">
+            <BrandMark className="[&>img]:h-7 [&>img]:max-w-[6rem] sm:[&>img]:h-9 sm:[&>img]:max-w-none" priority />
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
       {/*

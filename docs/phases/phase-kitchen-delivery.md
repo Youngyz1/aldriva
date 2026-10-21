@@ -1,8 +1,8 @@
 # Kitchen & Delivery Workstream (under Phase 6: Unified Commerce)
 
-> **STATUS (2026-10-21):** Part 1 and Stage B are implemented in the working tree on `feat/phase-2-couriers`. The owner reports migrations 185 and 186 applied on staging; no database tools were used to independently verify them. The standalone courier dashboard is Stage C and remains unbuilt.
+> **STATUS (2026-10-21):** Part 1, Stage B, and the Stage C courier dashboard are implemented in the working tree on `feat/phase-2-couriers`. The owner reports migrations 185 and 186 applied on staging; no database tools were used to independently verify them. Browser visual/integration QA remains.
 
-## Phase 2 courier checkpoint — Stage A applied, Part 1 and Stage B implemented
+## Phase 2 courier checkpoint — Stage A applied, Part 1, Stage B, and Stage C implemented
 
 **Stage A (owner-applied SQL):** Migration 186 and its rollback, staging-only cleanup, pre/post-checks, claim-race SQL, and business-delete SQL are present. The owner reports application and verification. None of these SQL scripts was executed in this Stage B turn; the owner runs them manually.
 
@@ -35,9 +35,11 @@ Bootstrap and accept limits fail closed by IP plus invitation hash. The feed ret
 
 **Transitions and payment:** A successful claim RPC is followed by the shared core's post-persist customer email and revalidation effects without a second status update. The assigned courier may mark an active order delivered through that core. Unpaid `on_fulfilment` orders require explicit cash-collected confirmation; the core sets payment to paid and status history records confirmer and event time. Unpaid online orders cannot use this override. Risk: a false courier confirmation marks cash as collected.
 
-**Verification:** full suite passed 2,590/2,590 across 200 files (0 failed, 0 skipped; +23 tests and +1 file over the 2,567/199 baseline). TypeScript, changed-file ESLint, `npm run build`, and `git diff --check` passed. Mocked courier and cross-role coverage is in `lib/courier/__tests__/courier-server.test.cjs` and `lib/kitchen/__tests__/`.
+**Stage C dashboard:** `/courier` renders no order data until `GET /api/courier/orders` succeeds, polls every 15 seconds while visible, and provides loading, empty, session-ended, and retryable error states. It shows availability and derived state, offer actions, pickup/drop-off and item details, navigation links, and the assigned delivery/cash confirmation flow. Courier acceptance redirects to this page. `/courier` and `/kitchen` use a brand-only header.
 
-**Owner-run SQL and remaining scope:** the migration 186 claim-race scripts and `db/tests/migration_186_business_delete_test.sql` are authored but not run here; the latter is staging-only and must never run on production. No database tools were used. Stage C (standalone courier dashboard/polling and visual/integration QA) remains. Live tracking, WhatsApp sending, and push are out of scope.
+**Verification:** full suite passed 2,599/2,599 across 202 files (0 failed, 0 skipped; +32 tests and +3 files over the 2,567/199 baseline). TypeScript, changed-file ESLint, `npm run build`, and `git diff --check` passed. Dashboard and route tests are mocked in `lib/courier/__tests__/`; cross-role coverage is in `lib/kitchen/__tests__/`.
+
+**Owner-run SQL and remaining scope:** the migration 186 claim-race scripts and `db/tests/migration_186_business_delete_test.sql` are authored but not run here; the latter is staging-only and must never run on production. No database tools were used. The Stage C dashboard polls every 15 seconds while visible; browser visual/integration QA remains. Live tracking, WhatsApp sending, and push are out of scope.
 ## What this workstream is
 
 Restaurants on Aldriva need their orders to reach a human who cooks them, and cooked food to reach the customer. This workstream adds: (1) **cook worker access** — invite staff to a kitchen screen without giving them a full account; (2) a **kitchen display** where incoming orders show up; (3) the **order state flow** (accepted → preparing → ready → notify customer); (4) **courier/driver registration** and a **lightweight driver dashboard** (accept/decline job, availability, pickup, delivery). It builds on the earlier owner-managed delivery work (migration 175).
