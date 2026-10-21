@@ -1,51 +1,55 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
-type ScreenState = "checking" | "phone" | "invalid" | "unavailable" | "accepted";
+type ScreenState = "checking" | "phone" | "invalid" | "unavailable";
 
 export default function CourierAcceptPage() {
   const [state, setState] = useState<ScreenState>("checking");
   const [phoneLast4, setPhoneLast4] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [capturedToken] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.hash.slice(1),
+  );
+  const tokenCapture = useRef(capturedToken);
+  const flowStarted = useRef(false);
 
   useEffect(() => {
-    const token = window.location.hash.slice(1);
+    if (flowStarted.current) return;
+    flowStarted.current = true;
+    const token = tokenCapture.current;
     window.history.replaceState(null, "", window.location.pathname);
-    const hasToken = /^[0-9a-f]{64}$/i.test(token);
-    let cancelled = false;
 
-    async function checkSessionAndInvitation() {
-      let sessionResponse: Response | null = null;
+    async function checkExistingSession() {
+      let sessionResponse: Response;
       try {
         sessionResponse = await fetch("/api/courier/session", { cache: "no-store" });
       } catch {
-        // Continue to token bootstrap when a valid invitation is present.
+        setError("Courier access could not be checked. Refresh this page and try again.");
+        setState("unavailable");
+        return;
       }
-      if (cancelled) return;
-
       if (sessionResponse?.ok) {
         const session = await sessionResponse.json().catch(() => null);
         if (session?.role === "courier") {
-          setState("accepted");
+          window.location.replace("/courier");
           return;
         }
         setError("This browser has an active session for a different worker role.");
         setState("unavailable");
         return;
       }
-      if (sessionResponse && sessionResponse.status !== 401 && !hasToken) {
+      if (sessionResponse.status !== 401) {
         setError("Courier access could not be checked. Refresh this page and try again.");
         setState("unavailable");
         return;
       }
-      if (!hasToken) {
-        setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
-        setState("invalid");
-        return;
-      }
+      setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
+      setState("invalid");
+    }
 
+    async function bootstrapInvitation() {
       try {
         const response = await fetch("/api/courier/accept/bootstrap", {
           method: "POST",
@@ -53,7 +57,6 @@ export default function CourierAcceptPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
         });
-        if (cancelled) return;
         if (response.ok) setState("phone");
         else if (response.status === 400) {
           setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
@@ -63,14 +66,13 @@ export default function CourierAcceptPage() {
           setState("unavailable");
         }
       } catch {
-        if (cancelled) return;
         setError("Courier access could not be checked. Refresh this page and try again.");
         setState("unavailable");
       }
     }
 
-    void checkSessionAndInvitation();
-    return () => { cancelled = true; };
+    if (token) void bootstrapInvitation();
+    else void checkExistingSession();
   }, []);
 
   async function accept(event: FormEvent<HTMLFormElement>) {
@@ -90,7 +92,7 @@ export default function CourierAcceptPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to accept this invitation.");
-      setState("accepted");
+      window.location.replace("/courier");
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Unable to accept this invitation.");
     } finally {
@@ -128,11 +130,6 @@ export default function CourierAcceptPage() {
         )}
         {state === "invalid" && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
         {state === "unavailable" && <p role="alert" className="mt-4 text-sm text-amber-800">{error}</p>}
-        {state === "accepted" && (
-          <p role="status" className="mt-4 text-sm text-zinc-700">
-            Your courier access is ready. Keep this browser private. The courier dashboard will be added in the next stage.
-          </p>
-        )}
       </section>
     </main>
   );

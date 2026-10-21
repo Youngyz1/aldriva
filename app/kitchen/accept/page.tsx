@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type ScreenState = "checking" | "phone" | "invalid" | "unavailable" | "accepted";
 
@@ -9,24 +9,28 @@ export default function KitchenAcceptPage() {
   const [phoneLast4, setPhoneLast4] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [capturedToken] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.hash.slice(1),
+  );
+  const tokenCapture = useRef(capturedToken);
+  const flowStarted = useRef(false);
 
   useEffect(() => {
-    const token = window.location.hash.slice(1);
+    if (flowStarted.current) return;
+    flowStarted.current = true;
+    const token = tokenCapture.current;
     // The invite secret is in the fragment, never the request URL or referrer.
     // Remove it before the page becomes interactive or any client analytics can run.
     window.history.replaceState(null, "", window.location.pathname);
-    const hasToken = /^[0-9a-f]{64}$/i.test(token);
-    let cancelled = false;
-
-    async function checkSessionAndInvitation() {
-      let sessionResponse: Response | null = null;
+    async function checkExistingSession() {
+      let sessionResponse: Response;
       try {
         sessionResponse = await fetch("/api/kitchen/session", { cache: "no-store" });
       } catch {
-        // A valid invitation can still be checked below; without one, a failed
-        // session check is not evidence that the link is invalid.
+        setError("Kitchen access could not be checked. Refresh this page and try again.");
+        setState("unavailable");
+        return;
       }
-      if (cancelled) return;
 
       if (sessionResponse?.ok) {
         let session: unknown;
@@ -46,18 +50,17 @@ export default function KitchenAcceptPage() {
         return;
       }
 
-      if (sessionResponse && sessionResponse.status !== 401 && !hasToken) {
+      if (sessionResponse.status !== 401) {
         setError("Kitchen access could not be checked. Refresh this page and try again.");
         setState("unavailable");
         return;
       }
 
-      if (!hasToken) {
-        setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
-        setState("invalid");
-        return;
-      }
+      setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
+      setState("invalid");
+    }
 
+    async function bootstrapInvitation() {
       try {
         const response = await fetch("/api/kitchen/accept/bootstrap", {
           method: "POST",
@@ -65,7 +68,6 @@ export default function KitchenAcceptPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
         });
-        if (cancelled) return;
         if (response.ok) {
           setState("phone");
           return;
@@ -78,14 +80,13 @@ export default function KitchenAcceptPage() {
         setError("Kitchen access could not be checked. Refresh this page and try again.");
         setState("unavailable");
       } catch {
-        if (cancelled) return;
         setError("Kitchen access could not be checked. Refresh this page and try again.");
         setState("unavailable");
       }
     }
 
-    void checkSessionAndInvitation();
-    return () => { cancelled = true; };
+    if (token) void bootstrapInvitation();
+    else void checkExistingSession();
   }, []);
 
   async function accept(event: FormEvent<HTMLFormElement>) {
