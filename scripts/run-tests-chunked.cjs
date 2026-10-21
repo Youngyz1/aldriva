@@ -1,126 +1,98 @@
 /**
- * scripts/run-tests-chunked.cjs
- *
- * Runs the full test suite in chunks to avoid Windows command-line length limits.
- * Reads the "test" script from package.json, extracts the --test file list,
- * splits it into chunks of 30 files, runs each chunk with the same node flags,
- * and reports pass/fail counts per chunk plus a final summary.
+ * Run the explicit full test list in bounded child-process argument batches.
+ * Direct spawn (no cmd.exe shell) and a conservative command-size cap keep the
+ * runner within Windows CreateProcess limits while preserving exact totals.
  */
 
-const fs = require("fs");
-const path = require("path");
-const { execFileSync } = require("child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const PKG = path.join(ROOT, "package.json");
-const pkg = JSON.parse(fs.readFileSync(PKG, "utf8"));
-const testScript = pkg.scripts.test || "";
+const TEST_FILES = JSON.parse(fs.readFileSync(path.join(ROOT, "test-files.json"), "utf8"));
+const ALIAS_SETUP = path.join(__dirname, "test-server-only-alias.cjs");
+const MAX_ARGUMENT_CHARS = 6_000;
+const BASE_ARGS = ["--require", ALIAS_SETUP, "--test", "--test-reporter=tap"];
 
-// Extract the node flags (everything before --test) and the file list
-const testFlagIdx = testScript.indexOf("--test");
-if (testFlagIdx === -1) {
-  console.error("ERROR: Could not find '--test' in package.json test script");
+if (!Array.isArray(TEST_FILES) || TEST_FILES.length === 0 || TEST_FILES.some((file) => typeof file !== "string")) {
+  console.error("Invalid test-files.json: expected a non-empty array of paths.");
   process.exit(1);
 }
 
-let nodeFlags = testScript.slice(0, testFlagIdx).trim();
-// Strip leading "node " if present, since we use process.execPath explicitly
-if (nodeFlags.startsWith("node ")) {
-  nodeFlags = nodeFlags.slice(5).trim();
+const missingFiles = TEST_FILES.filter((file) => !fs.existsSync(path.join(ROOT, file)));
+if (missingFiles.length) {
+  console.error(`Missing test files: ${missingFiles.join(", ")}`);
+  process.exit(1);
 }
-const nodeFlagArgs = nodeFlags ? nodeFlags.split(/\s+/) : [];
 
-const fileListPart = testScript.slice(testFlagIdx + "--test".length).trim();
-const testFiles = fileListPart.split(/\s+/).filter(Boolean);
-
-console.log(`Total test files: ${testFiles.length}`);
-
-const CHUNK_SIZE = 30;
 const chunks = [];
-for (let i = 0; i < testFiles.length; i += CHUNK_SIZE) {
-  chunks.push(testFiles.slice(i, i + CHUNK_SIZE));
+let chunk = [];
+let chunkChars = BASE_ARGS.reduce((sum, arg) => sum + arg.length + 1, process.execPath.length + 1);
+for (const file of TEST_FILES) {
+  const fileChars = file.length + 1;
+  if (chunk.length && chunkChars + fileChars > MAX_ARGUMENT_CHARS) {
+    chunks.push(chunk);
+    chunk = [];
+    chunkChars = BASE_ARGS.reduce((sum, arg) => sum + arg.length + 1, process.execPath.length + 1);
+  }
+  chunk.push(file);
+  chunkChars += fileChars;
 }
+if (chunk.length) chunks.push(chunk);
 
-console.log(`Number of chunks: ${chunks.length}\n`);
-
+let totalTests = 0;
 let totalPass = 0;
 let totalFail = 0;
-const failingTests = [];
+let totalSkipped = 0;
+let executionErrors = 0;
 
-for (let i = 0; i < chunks.length; i++) {
-  const chunk = chunks[i];
-  const cmdArgs = [...nodeFlagArgs, "--test", ...chunk];
+console.log(`Full test suite: ${TEST_FILES.length} files in ${chunks.length} bounded batches.`);
 
-  console.log(`--- Chunk ${i + 1}/${chunks.length} (${chunk.length} files) ---`);
+for (let index = 0; index < chunks.length; index += 1) {
+  const files = chunks[index];
+  const args = [...BASE_ARGS, ...files];
+  const result = spawnSync(process.execPath, args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 300_000,
+    windowsHide: true,
+  });
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const count = (label) => {
+    const match = output.match(new RegExp(`^# ${label} (\\d+)$`, "m"));
+    return match ? Number(match[1]) : null;
+  };
+  const tests = count("tests");
+  const pass = count("pass");
+  const fail = count("fail");
+  const skipped = count("skipped");
 
-  try {
-    const result = execFileSync(process.execPath, cmdArgs, {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 50 * 1024 * 1024,
-      timeout: 300000,
-    });
-
-    const output = typeof result === "string" ? result : (String(result.stdout || "") + String(result.stderr || ""));
-
-    // Parse pass/fail counts
-    const passMatches = output.match(/ℹ pass (\d+)/g) || [];
-    const failMatches = output.match(/ℹ fail (\d+)/g) || [];
-    const passCount = passMatches.reduce((sum, s) => sum + parseInt(s.replace(/\D/g, ""), 10), 0);
-    const failCount = failMatches.reduce((sum, s) => sum + parseInt(s.replace(/\D/g, ""), 10), 0);
-
-    totalPass += passCount;
-    totalFail += failCount;
-
-    // Extract failing test names
-    const failLines = output.match(/✖[^\n]*/g) || [];
-    for (const line of failLines) {
-      const trimmed = line.replace(/✖\s*/, "").trim();
-      const nameMatch = trimmed.match(/^(.*?)\s*\(\d/);
-      const testName = nameMatch ? nameMatch[1].trim() : trimmed;
-      failingTests.push(`[chunk ${i + 1}] ${testName}`);
-    }
-
-    console.log(`  Pass: ${passCount}, Fail: ${failCount}`);
-  } catch (err) {
-    const output = String(err.stdout || "") + String(err.stderr || "");
-
-    const passMatches = output.match(/ℹ pass (\d+)/g) || [];
-    const failMatches = output.match(/ℹ fail (\d+)/g) || [];
-    const passCount = passMatches.reduce((sum, s) => sum + parseInt(s.replace(/\D/g, ""), 10), 0);
-    const failCount = failMatches.length > 0
-      ? failMatches.reduce((sum, s) => sum + parseInt(s.replace(/\D/g, ""), 10), 0)
-      : chunk.length;
-
-    totalPass += passCount;
-    totalFail += failCount;
-
-    const failLines = output.match(/✖[^\n]*/g) || [];
-    for (const line of failLines) {
-      const trimmed = line.replace(/✖\s*/, "").trim();
-      const nameMatch = trimmed.match(/^(.*?)\s*\(\d/);
-      const testName = nameMatch ? nameMatch[1].trim() : trimmed;
-      failingTests.push(`[chunk ${i + 1}] ${testName}`);
-    }
-
-    console.log(`  Pass: 0, Fail: ${failCount} (chunk execution error)`);
-    console.log(`  Error: ${err.message}`);
+  if (tests === null || pass === null || fail === null || skipped === null || result.error) {
+    executionErrors += 1;
+    totalFail += fail ?? 1;
+    console.error(`Batch ${index + 1}/${chunks.length}: execution/counting error (${files.length} files).`);
+    if (result.error) console.error(result.error.message);
+    if (output) console.error(output);
+    continue;
   }
 
-  console.log("");
+  totalTests += tests;
+  totalPass += pass;
+  totalFail += fail;
+  totalSkipped += skipped;
+  console.log(`Batch ${index + 1}/${chunks.length}: ${files.length} files, ${pass} passed, ${fail} failed, ${skipped} skipped.`);
+  if (result.status !== 0 || fail > 0) console.error(output);
 }
 
-// Summary
-console.log("========================================");
-console.log(`TOTAL PASS: ${totalPass}`);
-console.log(`TOTAL FAIL: ${totalFail}`);
-console.log("========================================");
+console.log("\nFull suite summary");
+console.log(`Files: ${TEST_FILES.length}`);
+console.log(`Tests: ${totalTests}`);
+console.log(`Passed: ${totalPass}`);
+console.log(`Failed: ${totalFail}`);
+console.log(`Skipped: ${totalSkipped}`);
+console.log(`Batch execution/count errors: ${executionErrors}`);
 
-if (failingTests.length > 0) {
-  console.log("\nFailing tests:");
-  for (const name of failingTests) {
-    console.log(`  ✖ ${name}`);
-  }
+if (executionErrors > 0 || totalFail > 0 || totalTests !== totalPass + totalFail + totalSkipped) {
+  process.exitCode = 1;
 }
-
-process.exit(totalFail > 0 ? 1 : 0);

@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Kitchen & Delivery Part 1 and courier Stage B (2026-10-21; working tree)
+
+- Added Reactivate for deactivated cooks/couriers: rotates the hashed invitation with a 14-day expiry, revokes sessions, returns the plaintext link once, keeps couriers offline, disables the pending UI action, and blocks repeat rotation within five seconds.
+- Added the courier server flow: role-specific cookies/session validation, invitation acceptance, availability, scoped offers, atomic claim/decline routes, and assigned-courier delivery completion. Offer claims reuse post-persist email/revalidation without a second status update; cash collection requires confirmation for unpaid pay-on-fulfilment orders and is attributed in history.
+- Added owner courier management and registered-courier picker with offline warning, on-delivery disablement, and manual rider fallback. Analytics excludes courier paths; courier responses are no-store/no-referrer.
+- **Verification:** full suite passed 2,590/2,590 across 200 files (0 failures, 0 skipped), +23 tests and +1 file over the 2,567/199 baseline. TypeScript, changed-file ESLint, `git diff --check`, and `npm run build` passed. SQL race/business-delete scripts are authored for owner-run staging and were not executed; migration 186 is owner-reported applied/verified, with no database tools used here.
+
 ## [2026-10] — Restaurant menu promotions Phase 4 (2026-10-20; implementation committed, migration unapplied)
 
 - Added organizer-scoped restaurant promotions in the dashboard, shared promotion pricing, batched public-safe promotion reads, server-side code/order revalidation, and additive optional promotion snapshot details. Migration 184 is authored with rollback, RLS, target limits and a rollback-only SQL check harness; it has not been applied.

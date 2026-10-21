@@ -452,6 +452,17 @@
   - Browser storage contains only a promo-code reference. Optional promotion details are additive order snapshot fields, and old snapshots keep their existing rendering fallback.
   - Anonymous public reads expose active, in-window automatic promotions only; code promotions are not publicly listable. Dashboard roles follow the migration's read/write/delete policy matrix.
 
+### DEC-0049: Courier sessions are role-isolated and claims use the shared transition effects
+- **Decision Date**: 2026-10-21
+- **Status**: Stage B implemented in the working tree on `feat/phase-2-couriers`; full suite passed 2,590/2,590 across 200 files. Migration 186 application is owner-reported and was not independently queried here.
+- **Key Tenets**:
+  - Cook and courier cookies are distinct. Session validation receives an expected role; kitchen session/order/logout routes and cook transitions require `cook`, courier routes require `courier`, and a null kitchen scope is valid only for couriers.
+  - Service-role routes/actions recheck the session worker/business or organizer/business scope on every request. Owner actions are limited to owner/admin/manager. Invitation tokens are hashed at rest and plaintext is returned once.
+  - Open offer responses contain delivery work details only. Customer name/phone are exposed only to the courier that won the atomic claim and only while its assignment is active. Taken/declined responses contain no customer data.
+  - Claim RPC owns the order status write; the route invokes shared post-persist notification/revalidation without a second status update. Manual owner assignment uses the same transition core and rider snapshots. A ready delivery is offered only to available couriers without an active delivery.
+  - An unpaid pay-on-fulfilment delivery can be marked paid only after an explicit courier cash-collected confirmation; the history records worker and timestamp. Incorrect confirmation remains an operational risk. Online-unpaid orders cannot use this override.
+  - The standalone courier dashboard and visual/live integration QA remain Stage C. WhatsApp sending, live tracking, and push are excluded from this phase.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

@@ -1,13 +1,20 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Kitchen & Delivery, 2026-10-21
+
+- Owner reports migration 185 applied and migration 186 applied and verified on staging; no database tools were used to independently query staging.
+- Phase 1 reactivation and cook accept-page fixes and Stage B courier server routes/actions are implemented on `feat/phase-2-couriers`. The Reactivate action has a five-second repeat-rotation guard; courier reactivation stays offline.
+- **Verification:** full suite passed 2,590/2,590 across 200 files (0 failures, 0 skipped); changed-file ESLint, `npx tsc --noEmit --pretty false`, `npm run build`, and `git diff --check` passed. The full result is 23 tests and one file above the 2,567/199 baseline.
+- SQL race and business-delete harnesses are authored for owner-run staging only and were not executed. No database tools were used. The standalone courier dashboard remains Stage C and is not built.
+
 > **2026-10-20 (handoff docs pass):** A fresh agent should start at **`docs/HANDOFF.md`** (status board, execution order, continue-here, migration register). The verified phase-by-phase state lives in the STATUS blocks of `docs/phases/*`, with full evidence in `docs/project-status.md`. Two corrections to the entries below: (1) **migration 184's SHA-256 was wrong** — the correct value for both copies is `30fb2d164cfbc0315230c8f72b7d91d21c551c6ed30c84bdebe21686cf255482` (VERIFIED — `sha256sum` of `db/migration_184_menu_promotions.sql` and `supabase/migrations/20261020010000_migration_184_menu_promotions.sql`, both identical, 2026-10-20); (2) a **Kitchen & Delivery workstream** (migration 185) now exists **uncommitted in this worktree** — see `docs/phases/phase-kitchen-delivery.md`. No database operation was run by this docs pass.
 
-## Active Worktree Update — Kitchen & Delivery workstream, uncommitted (2026-10-20)
+## Historical worktree note — Kitchen & Delivery Phase 1 (2026-10-20; superseded above for current status)
 
 - **Status: PARTIAL and UNCOMMITTED.** Migration 185 (`db/migration_185_kitchen_worker_access.sql` + rollback + `db/migration_185_staging_test_data_cleanup.sql`) and the cook worker-access stack (`lib/kitchen/`, `lib/actions/kitchen-management.ts`, `app/api/kitchen/*`, `app/kitchen/accept/`, `app/dashboard/org/[id]/kitchen/`, `components/dashboard/kitchen/KitchenManagementClient.tsx`) exist only as untracked files in `C:/Users/Youngyz/aldriva-staging`. `git log --all --grep=kitchen -i` is empty → **nothing committed anywhere**. (VERIFIED 2026-10-20.)
 - Also modified by that work: `lib/rate-limit.ts` (4 kitchen buckets), `next.config.ts` (kitchen `no-store`/`no-referrer` headers), `org-nav-items.ts` (Kitchen nav item), `package.json` (worker-access test registered), and the migration-175 hardening (idempotent forward + guard-based rollback) with `phase6-owner-managed-delivery.test.cjs` updated to match (**38/38 PASS**). `lib/kitchen/__tests__/worker-access.test.cjs` is **20/20 PASS**.
-- **Not built:** kitchen order state flow, `/kitchen/display` page, courier registration UI, driver dashboard, ready-notification. Full detail: `docs/phases/phase-kitchen-delivery.md`.
-- **No branch exists for this work** — owner decision required (`docs/HANDOFF.md` §7 item 1).
+- **Not built at this historical point:** kitchen order state flow, `/kitchen/display` page, courier registration UI, driver dashboard, ready-notification. Courier registration and Stage B server routes are implemented in the later checkpoint above; kitchen order flow/display and standalone courier dashboard remain open.
+- The branch note below is a historical snapshot; current branch is `feat/phase-2-couriers` as recorded in `docs/HANDOFF.md` §10.
 
 ## Active Worktree Update — Menu promotions Phase 4 (2026-10-20)
 

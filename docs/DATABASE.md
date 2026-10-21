@@ -1,9 +1,9 @@
 # Aldriva — Database Architecture, Schema Reference & Migrations
 
 > **Status**: Verified Technical Reference  
-> **Canonical Migration Source**: `db/` (Migrations 1 to **185**)  
+> **Canonical Migration Source**: `db/` (Migrations 1 to **186**)
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Verified**: 2026-10-20 (handoff docs pass). Latest forward migration in the repository: **185** (kitchen worker access — **uncommitted**, `docs/phases/phase-kitchen-delivery.md`). **There is no `schema_migrations` table**, so "applied" is only known where the owner verified it: **134, 136, 170, 171, 177, 181, 182, 183** are verified applied on staging; **184** is owner-approved but **NOT applied**; **185** is authored but not applied; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
+> **Last Updated**: 2026-10-21 (migration 186 application/verification is owner-reported, not independently queried). Latest forward migration in the repository: **186** (courier offers). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but **NOT applied**; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
 
 ---
 
@@ -141,7 +141,7 @@ The following tables are planned for future phases (DO NOT create before respect
 
 **Rule:** before writing a migration, list `db/` and `supabase/migrations/` **in every worktree and on every branch** (`git worktree list`, `git ls-tree`), take the next free number, and add a row to this table and to `docs/HANDOFF.md` §6.
 
-**Applied-on-staging status** (owner-verified only; there is no `schema_migrations` table): **134, 136, 170, 171, 177, 181, 182, 183 = applied.** **184 = approved, not applied.** **185 = authored, not applied.** Everything else = **UNKNOWN**.
+**Applied-on-staging status** (owner-reported; no `schema_migrations` table): **134, 136, 170, 171, 177, 181, 182, 183, 185, 186 = reported applied.** The owner specifically confirms migration 186 was verified. **184 = approved, not applied.** Everything else = **UNKNOWN**.
 
 | # | Forward file (`db/`) | Rollback twin | Supabase mirror | Applied on staging |
 |---|---|---|---|---|
@@ -191,10 +191,11 @@ The following tables are planned for future phases (DO NOT create before respect
 | 182 | `migration_182_menu_option_groups.sql` | **NO ROLLBACK TWIN** | yes | **applied** |
 | 183 | `migration_183_menu_option_assignment_cleanup.sql` | yes | yes | **applied** |
 | 184 | `migration_184_menu_promotions.sql` | yes | yes | **approved, not applied** (SHA-256 `30fb2d16…5482`) |
-| 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **authored, not applied** — work is **uncommitted** (`docs/phases/phase-kitchen-delivery.md`) |
-| 186+ | — | — | — | **free** as of 2026-10-20 |
+| 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **Applied on staging per owner report**; not independently queried (owner applies SQL manually) |
+| 186 | `migration_186_courier_offers.sql` | yes | yes (`20261021000000_migration_186_courier_offers.sql`) | **Applied and verified on staging per owner report**; not independently queried (owner applies SQL manually); rollback, staging cleanup, pre/post-checks, and claim-race SQL included |
+| 187+ | — | — | — | **free** as of 2026-10-21 |
 
-**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery. Next free = **186**.
+**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery; 186 = courier offers. Next free = **187**.
 
 ### Read-only verification queries (no `schema_migrations` table)
 
