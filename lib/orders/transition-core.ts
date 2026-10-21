@@ -27,6 +27,8 @@ export interface UpdateOrderStatusInput {
   markPaymentCollected?: boolean;
   riderName?: string | null;
   riderPhone?: string | null;
+  courierWorkerId?: string | null;
+  historyNote?: string | null;
 }
 
 export type UpdateOrderStatusResult =
@@ -51,6 +53,7 @@ export type UpdateOrderStatusResult =
         | "invalid_rider_phone"
         | "payment_collection_required"
         | "online_payment_cannot_be_manually_marked_paid"
+        | "courier_already_on_delivery"
         | "db_error"
         | "unexpected";
       message?: string;
@@ -75,6 +78,7 @@ export interface OrderRowRecord {
   estimated_ready_at?: string | null;
   rider_name?: string | null;
   rider_phone?: string | null;
+  courier_worker_id?: string | null;
 }
 
 export interface WorkerHistoryAttribution {
@@ -146,6 +150,7 @@ export async function executeOrderStatusTransitionCore(
   if (supports175Columns && input.nextStatus === "out_for_delivery") {
     if (input.riderName) updatePayload.rider_name = input.riderName.trim().slice(0, 80);
     if (input.riderPhone) updatePayload.rider_phone = input.riderPhone.trim().slice(0, 32);
+    if (input.courierWorkerId) updatePayload.courier_worker_id = input.courierWorkerId;
   }
 
   if (supports174Columns) {
@@ -155,7 +160,7 @@ export async function executeOrderStatusTransitionCore(
       at: nowIso,
       by_user_id: userId,
       reason: input.cancellationReason ?? null,
-      note: input.cancellationNote?.trim().slice(0, 300) || null,
+      note: input.historyNote?.trim().slice(0, 300) || input.cancellationNote?.trim().slice(0, 300) || null,
       estimated_ready_at: input.estimatedReadyAt ?? order.estimated_ready_at ?? null,
       rider_name: input.riderName?.trim() ?? order.rider_name ?? null,
       rider_phone: input.riderPhone?.trim() ?? order.rider_phone ?? null,
@@ -163,6 +168,9 @@ export async function executeOrderStatusTransitionCore(
     if (workerAttribution) {
       newHistoryEvent.worker_id = workerAttribution.workerId;
       newHistoryEvent.worker_name = workerAttribution.workerName;
+    }
+    if (input.nextStatus === "delivered" && input.markPaymentCollected && order.payment_status !== "paid") {
+      newHistoryEvent.cash_collected_confirmed = true;
     }
     updatePayload.status_history = [...existingHistory, newHistoryEvent];
 
@@ -186,6 +194,18 @@ export async function executeOrderStatusTransitionCore(
     .maybeSingle();
 
   if (updateErr) {
+    const updateError = updateErr as { code?: string; message?: string; constraint?: string };
+    if (
+      input.courierWorkerId &&
+      (updateError.code === "23505" || updateError.constraint === "idx_orders_one_active_order_per_courier" ||
+        updateError.message?.includes("idx_orders_one_active_order_per_courier"))
+    ) {
+      return {
+        success: false,
+        error: "courier_already_on_delivery",
+        message: "That courier was just assigned another delivery. Choose a different courier or refresh the order.",
+      };
+    }
     // Retry without 175 rider columns if they caused the error. Delivery
     // assignment must never report success if rider details were not persisted.
     if (supports175Columns) {
@@ -237,6 +257,25 @@ export async function executeOrderStatusTransitionCore(
     };
   }
 
+  await runOrderStatusPostPersistEffects(input, admin, order, additionalRevalidationPaths);
+
+  return {
+    success: true,
+    nextStatus: input.nextStatus,
+    paymentStatus: nextPaymentStatus || order.payment_status,
+    ...(isPaidOnlineCancel
+      ? { warning: "online_refund_required" as const, providerReference: order.provider_reference }
+      : {}),
+  };
+}
+
+/** Run notification and cache side effects after a status write already persisted. */
+export async function runOrderStatusPostPersistEffects(
+  input: UpdateOrderStatusInput,
+  admin: AdminClient,
+  order: OrderRowRecord,
+  additionalRevalidationPaths: string[] = []
+): Promise<void> {
   for (const path of [`/dashboard/org/${input.organizerId}/orders`, ...additionalRevalidationPaths]) {
     try {
       revalidatePath(path);
@@ -284,17 +323,8 @@ export async function executeOrderStatusTransitionCore(
           });
         }
       } catch (notifyErr) {
-        console.error("[updateOrderStatus] Failed to dispatch customer status email:", notifyErr);
+        console.error("[order-transition] Failed to dispatch customer status email:", notifyErr);
       }
     })();
   }
-
-  return {
-    success: true,
-    nextStatus: input.nextStatus,
-    paymentStatus: nextPaymentStatus || order.payment_status,
-    ...(isPaidOnlineCancel
-      ? { warning: "online_refund_required" as const, providerReference: order.provider_reference }
-      : {}),
-  };
 }

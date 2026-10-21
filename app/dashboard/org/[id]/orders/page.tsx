@@ -16,6 +16,7 @@ import { getTranslations } from "next-intl/server";
 import { OrdersClient } from "@/components/dashboard/orders/OrdersClient";
 import type { DashboardOrderRow } from "@/components/dashboard/orders/OrderCard";
 import { extractDeliverySettings } from "@/lib/delivery-settings";
+import { listCouriersForAssignment } from "@/lib/actions/courier-management";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager", "editor", "finance"] as const;
 const MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
@@ -43,7 +44,7 @@ export default async function OrdersPage({
   const { data: deliveryOrders, error: deliveryError } = await admin
     .from("orders")
     .select(
-      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference, rider_name, rider_phone"
+      "id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference, rider_name, rider_phone"
     )
     .eq("organizer_id", organizerId)
     .order("created_at", { ascending: false })
@@ -56,7 +57,7 @@ export default async function OrdersPage({
     const { data: timingOrders, error: timingError } = await admin
       .from("orders")
       .select(
-        "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference"
+        "id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference"
       )
       .eq("organizer_id", organizerId)
       .order("created_at", { ascending: false })
@@ -73,7 +74,7 @@ export default async function OrdersPage({
       const { data: baselineOrders, error: baselineError } = await admin
         .from("orders")
         .select(
-          "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, items, created_at, provider, provider_reference"
+          "id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, items, created_at, provider, provider_reference"
         )
         .eq("organizer_id", organizerId)
         .order("created_at", { ascending: false })
@@ -119,6 +120,61 @@ export default async function OrdersPage({
     offerings.includes("delivery") || offerings.includes("delivery_to_customer");
 
   const orderCurrency = orders[0]?.currency || "XOF";
+  let registeredCouriers: Array<{
+    id: string;
+    businessId: string;
+    fullName: string;
+    phone: string;
+    isAvailable: boolean;
+    hasActiveOrder: boolean;
+    state: string;
+  }> = [];
+  if (canManage) {
+    const courierResult = await listCouriersForAssignment(organizerId);
+    if (courierResult.ok) registeredCouriers = courierResult.couriers;
+  }
+
+  const orderIds = orders.map((order) => order.id).filter(Boolean);
+  const businessIds = Array.from(new Set(orders.map((order) => order.business_id).filter((id): id is string => Boolean(id))));
+  const courierOfferRows: Array<{ order_id: string; courier_worker_id: string; status: string; decline_message: string | null; declined_at: string | null }> = [];
+  if (orderIds.length && businessIds.length) {
+    const { data: offers } = await admin
+      .from("business_courier_offers")
+      .select("order_id, courier_worker_id, status, decline_message, declined_at")
+      .in("order_id", orderIds)
+      .in("business_id", businessIds)
+      .in("status", ["offered", "declined"]);
+    courierOfferRows.push(...((offers ?? []) as typeof courierOfferRows));
+  }
+  const declinedWorkerIds = Array.from(new Set(courierOfferRows.filter((offer) => offer.status === "declined").map((offer) => offer.courier_worker_id)));
+  const courierNames = new Map<string, string>();
+  if (declinedWorkerIds.length && businessIds.length) {
+    const { data: workers } = await admin
+      .from("business_workers")
+      .select("id, full_name")
+      .in("id", declinedWorkerIds)
+      .in("business_id", businessIds)
+      .eq("role", "courier");
+    for (const worker of workers ?? []) courierNames.set(worker.id, worker.full_name);
+  }
+  const declinesByOrder = new Map<string, DashboardOrderRow["courierDeclines"]>();
+  const openOffersByOrder = new Map<string, number>();
+  for (const offer of courierOfferRows) {
+    if (offer.status === "offered") openOffersByOrder.set(offer.order_id, (openOffersByOrder.get(offer.order_id) ?? 0) + 1);
+    if (offer.status !== "declined") continue;
+    const existing = declinesByOrder.get(offer.order_id) ?? [];
+    existing.push({
+      courierName: courierNames.get(offer.courier_worker_id) ?? "Courier",
+      message: offer.decline_message,
+      declinedAt: offer.declined_at,
+    });
+    declinesByOrder.set(offer.order_id, existing);
+  }
+  orders = orders.map((order) => ({
+    ...order,
+    courierDeclines: declinesByOrder.get(order.id) ?? [],
+    courierOpenOfferCount: openOffersByOrder.get(order.id) ?? 0,
+  }));
   const t = await getTranslations("Orders");
 
   return (
@@ -143,6 +199,7 @@ export default async function OrdersPage({
         initialDeliverySettings={deliverySettings}
         hasDeliveryOffering={hasDeliveryOffering}
         currency={orderCurrency}
+        registeredCouriers={registeredCouriers}
       />
     </div>
   );

@@ -23,6 +23,15 @@ interface OrdersClientProps {
   initialDeliverySettings?: DeliverySettings | null;
   hasDeliveryOffering?: boolean;
   currency?: string;
+  registeredCouriers?: Array<{
+    id: string;
+    businessId: string;
+    fullName: string;
+    phone: string;
+    isAvailable: boolean;
+    hasActiveOrder: boolean;
+    state: string;
+  }>;
 }
 
 export function OrdersClient({
@@ -38,6 +47,7 @@ export function OrdersClient({
   initialDeliverySettings,
   hasDeliveryOffering = true,
   currency = "XOF",
+  registeredCouriers = [],
 }: OrdersClientProps) {
   const t = useTranslations("Orders");
   const router = useRouter();
@@ -312,6 +322,7 @@ export function OrdersClient({
               businessAddress={businessAddress}
               businessPhone={businessPhone}
               recentRiderSuggestions={recentRiderSuggestions}
+              registeredCouriers={registeredCouriers}
               onRefresh={handleManualRefresh}
             />
           ))}

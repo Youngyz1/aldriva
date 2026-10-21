@@ -229,6 +229,18 @@ export const RATE_LIMITS = {
 
   /** Worker session validation/polling endpoint. */
   kitchenSession: { limit: 120, windowSeconds: 600 },
+
+  /** Courier invitation bootstrap: fail-closed, IP and invitation-hash keyed. */
+  courierInviteBootstrap: { limit: 12, windowSeconds: 600 },
+
+  /** Courier acceptance attempts, keyed by IP and invitation hash. */
+  courierAccept: { limit: 10, windowSeconds: 3600 },
+
+  /** Courier session validation/polling endpoint. */
+  courierSession: { limit: 120, windowSeconds: 600 },
+
+  /** Courier order feed: 60 requests per 10 minutes, keyed by session hash. */
+  courierFeed: { limit: 60, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

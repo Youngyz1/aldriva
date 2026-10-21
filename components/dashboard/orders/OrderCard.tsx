@@ -11,6 +11,7 @@ import {
   updateOrderStatus,
   adjustEstimatedReadyTime,
   updateRiderDetails,
+  assignRegisteredCourier,
   type OrderStatus,
   type CancellationReasonCode,
 } from "@/lib/actions/orders";
@@ -45,6 +46,7 @@ export interface DashboardOrderItem {
 
 export interface DashboardOrderRow {
   id: string;
+  business_id?: string | null;
   order_number: string;
   customer_name: string;
   customer_phone: string;
@@ -74,7 +76,12 @@ export interface DashboardOrderRow {
     estimated_ready_at?: string | null;
     rider_name?: string | null;
     rider_phone?: string | null;
+    worker_id?: string | null;
+    worker_name?: string | null;
+    cash_collected_confirmed?: boolean;
   }> | unknown;
+  courierDeclines?: Array<{ courierName: string; message: string | null; declinedAt: string | null }>;
+  courierOpenOfferCount?: number;
   items: unknown;
   created_at: string;
   provider?: string | null;
@@ -90,6 +97,15 @@ interface OrderCardProps {
   businessAddress?: string | null;
   businessPhone?: string | null;
   recentRiderSuggestions?: string[];
+  registeredCouriers?: Array<{
+    id: string;
+    businessId: string;
+    fullName: string;
+    phone: string;
+    isAvailable: boolean;
+    hasActiveOrder: boolean;
+    state: string;
+  }>;
   onRefresh?: () => void;
 }
 
@@ -102,6 +118,7 @@ export function OrderCard({
   businessAddress,
   businessPhone,
   recentRiderSuggestions = [],
+  registeredCouriers = [],
   onRefresh,
 }: OrderCardProps) {
   const t = useTranslations("Orders");
@@ -131,6 +148,9 @@ export function OrderCard({
   // Rider modal state
   const [riderNameInput, setRiderNameInput] = useState<string>(order.rider_name || "");
   const [riderPhoneInput, setRiderPhoneInput] = useState<string>(order.rider_phone || "");
+  const [registeredCourierId, setRegisteredCourierId] = useState("");
+  const [registeredCourierWarning, setRegisteredCourierWarning] = useState("");
+  const eligibleCouriers = registeredCouriers.filter((courier) => courier.businessId === order.business_id);
 
   // Address copy state
   const [addressCopied, setAddressCopied] = useState(false);
@@ -152,6 +172,9 @@ export function OrderCard({
         estimated_ready_at?: string | null;
         rider_name?: string | null;
         rider_phone?: string | null;
+        worker_id?: string | null;
+        worker_name?: string | null;
+        cash_collected_confirmed?: boolean;
       }>)
     : [];
 
@@ -180,6 +203,8 @@ export function OrderCard({
     if (nextStatus === "out_for_delivery") {
       setRiderNameInput(order.rider_name || "");
       setRiderPhoneInput(order.rider_phone || "");
+      setRegisteredCourierId("");
+      setRegisteredCourierWarning("");
       setRiderError(null);
       setShowRiderModal(true);
       return;
@@ -323,6 +348,9 @@ export function OrderCard({
           return t("riderWrongStatus");
         case "order_already_updated":
           return t("orderAlreadyUpdated");
+        case "courier_on_delivery":
+        case "courier_already_on_delivery":
+          return "This courier already has a delivery in progress. Refresh and choose someone else.";
         case "forbidden":
         case "unauthorized":
           return t("riderNotAllowed");
@@ -332,6 +360,23 @@ export function OrderCard({
     };
     try {
       if (order.status === "ready") {
+        if (registeredCourierId) {
+          const result = await assignRegisteredCourier({
+            orderId: order.id,
+            organizerId,
+            courierWorkerId: registeredCourierId,
+          });
+          if (!result.success) {
+            setRiderError(riderErrorMessage(result.error, result.message));
+          } else {
+            setShowRiderModal(false);
+            setActionError(result.offlineWarning
+              ? "Courier is offline. The order is assigned, but the courier may not receive an offer until they go online."
+              : null);
+            onRefresh?.();
+          }
+          return;
+        }
         // Transition to out_for_delivery
         const res = await updateOrderStatus({
           orderId: order.id,
@@ -459,7 +504,7 @@ export function OrderCard({
               )}
               {overdue.isWaitingForCourier && (
                 <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-300 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                  {t("waitingForRiderBadge")} ({overdue.waitingMinutes}m)
+                  {t("waitingForRiderBadge")} ({overdue.waitingMinutes}m) · {order.courierOpenOfferCount ?? 0} open offers
                 </span>
               )}
             </div>
@@ -675,6 +720,33 @@ export function OrderCard({
       {/* EXPANDED DETAILS */}
       {isExpanded && (
         <div className="border-t border-zinc-100 bg-zinc-50/50 p-4 sm:p-5 space-y-5">
+          {order.courierDeclines && order.courierDeclines.length > 0 && (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5" aria-label="Courier responses">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">Courier responses</h3>
+              <ul className="mt-2 space-y-2">
+                {order.courierDeclines.map((decline, index) => (
+                  <li key={`${decline.courierName}-${decline.declinedAt ?? index}`} className="text-xs text-amber-950">
+                    <span className="font-semibold">{decline.courierName}</span>
+                    {decline.message ? <span>: {decline.message}</span> : <span>: declined without a message.</span>}
+                    {decline.declinedAt && <span className="ml-1 text-amber-800">· {new Date(decline.declinedAt).toLocaleString()}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {statusHistory.some((entry) => entry.status === "delivered" && entry.cash_collected_confirmed) && (
+            <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5" aria-label="Cash collection confirmation">
+              {(() => {
+                const confirmation = [...statusHistory].reverse().find((entry) => entry.status === "delivered" && entry.cash_collected_confirmed);
+                return confirmation ? (
+                  <p className="text-xs text-emerald-900">
+                    Cash collection confirmed by <strong>{confirmation.worker_name || "the assigned courier"}</strong>
+                    {confirmation.at ? ` · ${new Date(confirmation.at).toLocaleString()}` : ""}.
+                  </p>
+                ) : null;
+              })()}
+            </section>
+          )}
           {/* Contact & Fulfilment Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 text-sm">
             {/* Customer Details & Tap-To-Call */}
@@ -1101,6 +1173,40 @@ export function OrderCard({
                 : "Update the rider details for this order."}
             </p>
 
+            {order.status === "ready" && eligibleCouriers.length > 0 && (
+              <div className="space-y-1.5">
+                <label htmlFor={`registered-courier-${order.id}`} className="text-xs text-zinc-600 font-semibold">
+                  Registered couriers (or enter a manual rider below)
+                </label>
+                <select
+                  id={`registered-courier-${order.id}`}
+                  value={registeredCourierId}
+                  onChange={(event) => {
+                    const selected = eligibleCouriers.find((courier) => courier.id === event.target.value);
+                    setRegisteredCourierId(selected?.id ?? "");
+                    setRegisteredCourierWarning(selected && !selected.isAvailable
+                      ? "This courier is offline. The order can still be assigned; offers are sent only while available."
+                      : "");
+                    if (selected) {
+                      setRiderNameInput(selected.fullName);
+                      setRiderPhoneInput(selected.phone);
+                    }
+                  }}
+                  className="w-full min-h-[44px] rounded-lg border border-zinc-200 bg-white px-3 text-xs focus:outline-none focus:border-orange-500"
+                >
+                  <option value="">Manual rider</option>
+                  {eligibleCouriers.map((courier) => (
+                    <option key={courier.id} value={courier.id} disabled={courier.hasActiveOrder}>
+                      {courier.fullName} · {courier.state}{courier.hasActiveOrder ? " (unavailable)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {registeredCourierWarning && (
+                  <p role="status" className="text-xs text-amber-800">{registeredCourierWarning}</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-xs text-zinc-600 font-semibold">{t("riderName")} *</label>
               <input
@@ -1108,7 +1214,7 @@ export function OrderCard({
                 required
                 maxLength={80}
                 value={riderNameInput}
-                onChange={(e) => setRiderNameInput(e.target.value)}
+                onChange={(e) => { setRegisteredCourierId(""); setRiderNameInput(e.target.value); }}
                 placeholder="e.g. Kouamé, Moussa…"
                 className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs focus:outline-none focus:border-orange-500"
               />
@@ -1135,7 +1241,7 @@ export function OrderCard({
                 type="tel"
                 maxLength={32}
                 value={riderPhoneInput}
-                onChange={(e) => setRiderPhoneInput(e.target.value)}
+                onChange={(e) => { setRegisteredCourierId(""); setRiderPhoneInput(e.target.value); }}
                 placeholder="e.g. +225 07000000"
                 className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs focus:outline-none focus:border-orange-500"
               />

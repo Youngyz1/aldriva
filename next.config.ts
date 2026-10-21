@@ -242,8 +242,8 @@ const nextConfig: NextConfig = {
         ],
       },
       // Keep these overrides after the site-wide Referrer-Policy so the
-      // stronger kitchen policy wins for both pages and API responses.
-      ...["/kitchen", "/kitchen/:path*", "/api/kitchen", "/api/kitchen/:path*", "/dashboard/org/:id/kitchen", "/dashboard/org/:id/kitchen/:path*"].map((source) => ({
+      // stronger worker privacy policy wins for pages and API responses.
+      ...["/kitchen", "/kitchen/:path*", "/api/kitchen", "/api/kitchen/:path*", "/courier", "/courier/:path*", "/api/courier", "/api/courier/:path*", "/dashboard/org/:id/kitchen", "/dashboard/org/:id/kitchen/:path*"].map((source) => ({
         source,
         headers: [
           { key: "Cache-Control", value: "no-store, max-age=0" },

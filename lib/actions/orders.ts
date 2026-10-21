@@ -406,7 +406,7 @@ export async function updateOrderStatusWithClient(
     }
 
     return executeOrderStatusTransitionCore(
-      input,
+      { ...input, courierWorkerId: undefined },
       admin,
       userId,
       targetOrder,
@@ -417,6 +417,90 @@ export async function updateOrderStatusWithClient(
     console.error("[updateOrderStatus] Unexpected error:", err instanceof Error ? err.name : "unknown");
     return { success: false, error: "unexpected", message: "An unexpected error occurred." };
   }
+}
+
+export type AssignRegisteredCourierResult =
+  | { success: true; offlineWarning: boolean }
+  | { success: false; error: "unauthorized" | "forbidden" | "not_found" | "invalid_status" | "courier_on_delivery" | "courier_already_on_delivery" | "db_error"; message: string };
+
+/** Assign a registered courier from the owner picker using the shared transition core. */
+export async function assignRegisteredCourier(input: {
+  organizerId: string;
+  orderId: string;
+  courierWorkerId: string;
+}): Promise<AssignRegisteredCourierResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized", message: "Sign in to assign a courier." };
+  const access = await checkTenantAccess(user.id, input.organizerId, ["owner", "admin", "manager"]);
+  if (!access.hasAccess) return { success: false, error: "forbidden", message: "You cannot assign couriers for this business." };
+
+  const admin = createSupabaseAdmin();
+  const { data: order, error: orderError } = await admin
+    .from("orders")
+    .select("id, organizer_id, business_id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, status_history, estimated_ready_at, rider_name, rider_phone, courier_worker_id")
+    .eq("id", input.orderId)
+    .eq("organizer_id", input.organizerId)
+    .maybeSingle();
+  if (orderError || !order || !order.business_id || order.organizer_id !== input.organizerId) {
+    return { success: false, error: "not_found", message: "Order not found." };
+  }
+  if (order.status !== "ready" || order.fulfilment_type !== "delivery") {
+    return { success: false, error: "invalid_status", message: "A registered courier can only be assigned to a ready delivery order." };
+  }
+
+  const { data: courier, error: courierError } = await admin
+    .from("business_workers")
+    .select("id, business_id, role, full_name, phone, is_active, deactivated_at, is_available")
+    .eq("id", input.courierWorkerId)
+    .eq("business_id", order.business_id)
+    .eq("role", "courier")
+    .eq("is_active", true)
+    .is("deactivated_at", null)
+    .maybeSingle();
+  if (courierError || !courier || !courier.full_name?.trim()) {
+    return { success: false, error: "forbidden", message: "This courier is not active for this business." };
+  }
+
+  const { data: activeOrder, error: activeError } = await admin
+    .from("orders")
+    .select("id")
+    .eq("courier_worker_id", courier.id)
+    .eq("status", "out_for_delivery")
+    .maybeSingle();
+  if (activeError) return { success: false, error: "db_error", message: "Courier availability could not be checked." };
+  if (activeOrder) {
+    return { success: false, error: "courier_on_delivery", message: "This courier already has a delivery in progress." };
+  }
+
+  const result = await executeOrderStatusTransitionCore(
+    {
+      orderId: order.id,
+      organizerId: input.organizerId,
+      expectedCurrentStatus: "ready",
+      nextStatus: "out_for_delivery",
+      riderName: courier.full_name.trim(),
+      riderPhone: courier.phone,
+      courierWorkerId: courier.id,
+    },
+    admin,
+    user.id,
+    order as unknown as OrderRowRecord,
+    true,
+    true,
+    undefined,
+    [],
+    order.business_id
+  );
+  if (!result.success) {
+    if (result.error === "courier_already_on_delivery") {
+      return { success: false, error: "courier_already_on_delivery", message: result.message ?? "This courier has just been assigned another delivery. Choose someone else." };
+    }
+    if (result.error === "order_already_updated") {
+      return { success: false, error: "invalid_status", message: "The order changed. Refresh before assigning a courier." };
+    }
+    return { success: false, error: "db_error", message: result.message ?? "The courier could not be assigned." };
+  }
+  return { success: true, offlineWarning: courier.is_available !== true };
 }
 
 /**
