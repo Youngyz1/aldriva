@@ -30,8 +30,8 @@ export function getCookInvitationState(
   return "invited";
 }
 
-/** Kitchen routes are private: never bootstrap third-party analytics there. */
+/** Cook and courier access routes are private: do not bootstrap analytics. */
 export function isKitchenPrivatePath(pathname: string | null | undefined): boolean {
   const withoutLocale = (pathname ?? "").replace(/^\/(?:en|fr)(?=\/|$)/, "");
-  return /^\/(?:api\/)?kitchen(?:\/|$)/.test(withoutLocale);
+  return /^\/(?:api\/)?(?:kitchen|courier)(?:\/|$)/.test(withoutLocale);
 }

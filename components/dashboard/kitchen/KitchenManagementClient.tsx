@@ -3,11 +3,13 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { CourierManagementClient } from "@/components/dashboard/kitchen/CourierManagementClient";
 import {
   createKitchen,
   deactivateCook,
   inviteCook,
   regenerateKitchenDisplayLink,
+  reactivateWorker,
   resendCookInvitation,
   revokeCookInvitation,
   revokeKitchenDisplayLink,
@@ -36,6 +38,18 @@ type Business = {
 type Props = {
   organizerId: string;
   businesses: Business[];
+  courierBusinesses?: Array<{ id: string; name: string; couriers: Array<{
+    id: string;
+    fullName: string;
+    phone: string;
+    whatsappNumber: string;
+    active: boolean;
+    isAvailable: boolean;
+    hasActiveOrder: boolean;
+    state: string;
+    invitationState: "not_invited" | "invited" | "expired" | "accepted" | "revoked";
+    expiresAt: string | null;
+  }> }>;
   unavailable?: boolean;
 };
 
@@ -55,10 +69,12 @@ function friendlyError(code: string) {
   if (code === "unauthorized") return "Sign in to manage kitchen access.";
   if (code === "forbidden") return "You do not have permission to manage this business kitchen.";
   if (code === "inactive") return "Reactivate this cook before sending a new invitation.";
+  if (code === "already_active") return "This worker is already active.";
+  if (code === "reactivation_cooldown") return "Please wait a few seconds before requesting another invitation.";
   return "The change could not be saved. Please try again.";
 }
 
-export function KitchenManagementClient({ organizerId, businesses, unavailable = false }: Props) {
+export function KitchenManagementClient({ organizerId, businesses, courierBusinesses = [], unavailable = false }: Props) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState("");
   const [error, setError] = useState("");
@@ -120,6 +136,18 @@ export function KitchenManagementClient({ organizerId, businesses, unavailable =
     else {
       // The action's raw token is returned once and held only in this component's
       // memory; it is never reconstructed from or persisted to the workspace data.
+      revealLink(`New invitation for ${cook.fullName}`, result.path, result.token);
+      router.refresh();
+    }
+    setBusyKey("");
+  }
+
+  async function handleReactivate(cook: Cook) {
+    setBusyKey(`reactivate:${cook.id}`);
+    setError("");
+    const result = await reactivateWorker(organizerId, cook.id);
+    if (!result.ok) setError(friendlyError(result.error ?? "unavailable"));
+    else {
       revealLink(`New invitation for ${cook.fullName}`, result.path, result.token);
       router.refresh();
     }
@@ -249,9 +277,15 @@ export function KitchenManagementClient({ organizerId, businesses, unavailable =
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="outline" disabled={!cook.active || busyKey === `resend:${cook.id}`} onClick={() => handleResend(cook)}>
-                        Resend invitation
-                      </Button>
+                      {cook.active ? (
+                        <Button type="button" size="sm" variant="outline" disabled={busyKey === `resend:${cook.id}`} onClick={() => handleResend(cook)}>
+                          Resend invitation
+                        </Button>
+                      ) : (
+                        <Button type="button" size="sm" variant="outline" disabled={busyKey === `reactivate:${cook.id}`} onClick={() => handleReactivate(cook)}>
+                          {busyKey === `reactivate:${cook.id}` ? "Reactivating…" : "Reactivate"}
+                        </Button>
+                      )}
                       {cook.invitationState !== "revoked" && (
                         <Button type="button" size="sm" variant="outline" disabled={busyKey === `revoke:${cook.id}`} onClick={() => runAction(`revoke:${cook.id}`, () => revokeCookInvitation(organizerId, cook.id))}>
                           Revoke
@@ -270,6 +304,7 @@ export function KitchenManagementClient({ organizerId, businesses, unavailable =
           )}
         </section>
       ))}
+      <CourierManagementClient organizerId={organizerId} businesses={courierBusinesses} />
     </div>
   );
 }

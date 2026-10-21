@@ -57,6 +57,22 @@ async function authorizeCook(organizerId: string, workerId: string) {
   return { ...scope, worker };
 }
 
+async function authorizeReactivateWorker(organizerId: string, workerId: string) {
+  const base = await authorizeOrganizer(organizerId);
+  if (!base.ok) return base;
+  const { data: worker, error } = await base.admin
+    .from("business_workers")
+    .select("id, business_id, role, is_active, deactivated_at, updated_at")
+    .eq("id", workerId)
+    .maybeSingle();
+  if (error || !worker || !["cook", "courier"].includes(worker.role)) {
+    return { ok: false as const, error: "forbidden" as const };
+  }
+  const scope = await authorizeBusiness(organizerId, worker.business_id);
+  if (!scope.ok) return scope;
+  return { ...scope, worker };
+}
+
 async function authorizeKitchen(organizerId: string, kitchenId: string) {
   const base = await authorizeOrganizer(organizerId);
   if (!base.ok) return base;
@@ -326,6 +342,88 @@ export async function deactivateCook(organizerId: string, workerId: string) {
   if (invitationResult.error || sessionResult.error) return { ok: false as const, error: "unavailable" as const };
   revalidateKitchenPage(organizerId);
   return { ok: true as const };
+}
+
+export async function reactivateWorker(organizerId: string, workerId: string) {
+  const scope = await authorizeReactivateWorker(organizerId, workerId);
+  if (!scope.ok) return { ok: false as const, error: scope.error };
+  if (scope.worker.is_active) {
+    const lastChangedAt = Date.parse(scope.worker.updated_at ?? "");
+    if (Number.isFinite(lastChangedAt) && Date.now() - lastChangedAt < 5_000) {
+      return { ok: false as const, error: "reactivation_cooldown" as const };
+    }
+    return { ok: false as const, error: "already_active" as const };
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const token = generateWorkerToken();
+  const workerUpdate: Record<string, unknown> = {
+    is_active: true,
+    deactivated_at: null,
+    updated_at: nowIso,
+  };
+  if (scope.worker.role === "courier") workerUpdate.is_available = false;
+
+  const { error: sessionError } = await scope.admin
+    .from("business_worker_sessions")
+    .update({ revoked_at: nowIso, updated_at: nowIso })
+    .eq("worker_id", workerId)
+    .is("revoked_at", null);
+  if (sessionError) return { ok: false as const, error: "unavailable" as const };
+
+  // Claim the inactive-to-active transition before rotating credentials. This
+  // compare-and-set makes concurrent reactivation requests single-winner.
+  let workerClaim = scope.admin
+    .from("business_workers")
+    .update(workerUpdate)
+    .eq("id", workerId)
+    .eq("business_id", scope.worker.business_id)
+    .eq("role", scope.worker.role)
+    .eq("is_active", false);
+  workerClaim = scope.worker.deactivated_at == null
+    ? workerClaim.is("deactivated_at", null)
+    : workerClaim.eq("deactivated_at", scope.worker.deactivated_at);
+  const { data: claimedWorker, error: claimError } = await workerClaim.select("id").maybeSingle();
+  if (claimError) return { ok: false as const, error: "unavailable" as const };
+  if (!claimedWorker) return { ok: false as const, error: "reactivation_cooldown" as const };
+
+  const { error: invitationError } = await scope.admin
+    .from("business_worker_invitations")
+    .upsert(
+      {
+        worker_id: workerId,
+        token_hash: hashWorkerToken(token),
+        expires_at: new Date(now.getTime() + INVITE_LIFETIME_MS).toISOString(),
+        token_consumed_at: null,
+        accepted_at: null,
+        revoked_at: null,
+        updated_at: nowIso,
+      },
+      { onConflict: "worker_id" }
+    );
+  if (invitationError) {
+    await scope.admin
+      .from("business_workers")
+      .update({
+        is_active: false,
+        deactivated_at: scope.worker.deactivated_at ?? nowIso,
+        updated_at: new Date().toISOString(),
+        ...(scope.worker.role === "courier" ? { is_available: false } : {}),
+      })
+      .eq("id", workerId)
+      .eq("business_id", scope.worker.business_id)
+      .eq("role", scope.worker.role)
+      .eq("is_active", true);
+    return { ok: false as const, error: "unavailable" as const };
+  }
+
+  revalidateKitchenPage(organizerId);
+  return {
+    ok: true as const,
+    token,
+    path: scope.worker.role === "courier" ? "/courier/accept" : "/kitchen/accept",
+  };
 }
 
 export async function regenerateKitchenDisplayLink(organizerId: string, kitchenId: string) {

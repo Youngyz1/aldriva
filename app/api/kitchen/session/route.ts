@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   if (!ipLimit.allowed) return kitchenJson({ error: "Too many requests. Try again shortly." }, 429);
 
   const token = readRequestCookie(request, KITCHEN_SESSION_COOKIE);
-  const session = token ? await validateAndRenewWorkerSession(token) : null;
+  const session = token ? await validateAndRenewWorkerSession(token, "cook") : null;
   if (!session) {
     const response = kitchenJson({ error: "Kitchen session is no longer valid." }, 401);
     clearSessionCookie(response);

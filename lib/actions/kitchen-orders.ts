@@ -43,11 +43,10 @@ export async function transitionKitchenOrder(
 ): Promise<KitchenTransitionResult> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(KITCHEN_SESSION_COOKIE)?.value;
-  const session = sessionToken ? await validateAndRenewWorkerSession(sessionToken) : null;
-  if (!session || !sessionToken) return { success: false, error: "unauthorized" };
+  const session = sessionToken ? await validateAndRenewWorkerSession(sessionToken, "cook") : null;
+  if (!session || !sessionToken || session.role !== "cook" || !session.kitchenId) return { success: false, error: "unauthorized" };
   renewSessionCookie(cookieStore, sessionToken, session.expiresAt);
 
-  if (session.role !== "cook") return { success: false, error: "forbidden" };
   const allowedTransition =
     (expectedCurrentStatus === "accepted" && nextStatus === "preparing") ||
     (expectedCurrentStatus === "preparing" && nextStatus === "ready");

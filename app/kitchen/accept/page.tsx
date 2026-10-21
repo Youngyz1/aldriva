@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-type ScreenState = "checking" | "phone" | "invalid" | "accepted";
+type ScreenState = "checking" | "phone" | "invalid" | "unavailable" | "accepted";
 
 export default function KitchenAcceptPage() {
   const [state, setState] = useState<ScreenState>("checking");
@@ -15,25 +15,77 @@ export default function KitchenAcceptPage() {
     // The invite secret is in the fragment, never the request URL or referrer.
     // Remove it before the page becomes interactive or any client analytics can run.
     window.history.replaceState(null, "", window.location.pathname);
-    if (!/^[0-9a-f]{64}$/i.test(token)) {
-      setState("invalid");
-      return;
+    const hasToken = /^[0-9a-f]{64}$/i.test(token);
+    let cancelled = false;
+
+    async function checkSessionAndInvitation() {
+      let sessionResponse: Response | null = null;
+      try {
+        sessionResponse = await fetch("/api/kitchen/session", { cache: "no-store" });
+      } catch {
+        // A valid invitation can still be checked below; without one, a failed
+        // session check is not evidence that the link is invalid.
+      }
+      if (cancelled) return;
+
+      if (sessionResponse?.ok) {
+        let session: unknown;
+        try {
+          session = await sessionResponse.json();
+        } catch {
+          setError("Kitchen access could not be checked. Refresh this page and try again.");
+          setState("unavailable");
+          return;
+        }
+        if (session && typeof session === "object" && "role" in session && session.role === "cook") {
+          window.location.replace("/kitchen");
+          return;
+        }
+        setError("This browser has an active session for a different worker role.");
+        setState("unavailable");
+        return;
+      }
+
+      if (sessionResponse && sessionResponse.status !== 401 && !hasToken) {
+        setError("Kitchen access could not be checked. Refresh this page and try again.");
+        setState("unavailable");
+        return;
+      }
+
+      if (!hasToken) {
+        setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
+        setState("invalid");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/kitchen/accept/bootstrap", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (cancelled) return;
+        if (response.ok) {
+          setState("phone");
+          return;
+        }
+        if (response.status === 400) {
+          setError("This invitation link is invalid or expired. Ask the business owner for a new link.");
+          setState("invalid");
+          return;
+        }
+        setError("Kitchen access could not be checked. Refresh this page and try again.");
+        setState("unavailable");
+      } catch {
+        if (cancelled) return;
+        setError("Kitchen access could not be checked. Refresh this page and try again.");
+        setState("unavailable");
+      }
     }
 
-    fetch("/api/kitchen/accept/bootstrap", {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("This invitation link is invalid or expired.");
-        setState("phone");
-      })
-      .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : "This invitation link is invalid or expired.");
-        setState("invalid");
-      });
+    void checkSessionAndInvitation();
+    return () => { cancelled = true; };
   }, []);
 
   async function accept(event: FormEvent<HTMLFormElement>) {
@@ -54,6 +106,7 @@ export default function KitchenAcceptPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to accept this invitation.");
       setState("accepted");
+      window.location.replace("/kitchen");
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "Unable to accept this invitation.");
     } finally {
@@ -96,6 +149,11 @@ export default function KitchenAcceptPage() {
         {state === "invalid" && (
           <p role="alert" className="mt-4 text-sm text-red-700">
             {error || "This invitation link is invalid or expired. Ask the business owner for a new link."}
+          </p>
+        )}
+        {state === "unavailable" && (
+          <p role="alert" className="mt-4 text-sm text-amber-800">
+            {error || "Kitchen access could not be checked. Refresh this page and try again."}
           </p>
         )}
         {state === "accepted" && (

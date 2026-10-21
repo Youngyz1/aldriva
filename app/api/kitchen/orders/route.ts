@@ -87,10 +87,7 @@ function toKitchenOrder(row: KitchenOrderRow, readyAt: string | null) {
 
 export async function GET(request: Request) {
   const sessionToken = readRequestCookie(request, KITCHEN_SESSION_COOKIE);
-  const workerSession = sessionToken ? await validateAndRenewWorkerSession(sessionToken) : null;
-  if (workerSession && workerSession.role !== "cook") {
-    return kitchenJson({ error: "This kitchen session cannot view cook orders." }, 403);
-  }
+  const workerSession = sessionToken ? await validateAndRenewWorkerSession(sessionToken, "cook") : null;
 
   let viewer: "cook" | "display";
   let businessId: string;
