@@ -9,6 +9,8 @@ const ROOT = path.resolve(__dirname, "../..");
 const COOKIE_CONSENT_PATH = path.join(ROOT, "components/CookieConsent.tsx");
 const WORKER_VALIDATION_PATH = path.join(ROOT, "lib/kitchen/worker-validation.ts");
 const CONSENT_KEY = "Aldriva-cookie-consent";
+const EN_MESSAGES = JSON.parse(fs.readFileSync(path.join(ROOT, "messages/en.json"), "utf8"));
+const FR_MESSAGES = JSON.parse(fs.readFileSync(path.join(ROOT, "messages/fr.json"), "utf8"));
 
 function loadTypeScript(filePath, mocks = {}) {
   const source = fs.readFileSync(filePath, "utf8");
@@ -43,7 +45,7 @@ function loadTypeScript(filePath, mocks = {}) {
 
 const workerValidation = loadTypeScript(WORKER_VALIDATION_PATH);
 
-function createCookieConsentRuntime(initialPathname) {
+function createCookieConsentRuntime(initialPathname, locale = "en") {
   let pathname = initialPathname;
   let hookIndex = 0;
   let pendingEffects = [];
@@ -106,11 +108,15 @@ function createCookieConsentRuntime(initialPathname) {
     jsx: (type, props, key) => ({ type, props: props ?? {}, key }),
     jsxs: (type, props, key) => ({ type, props: props ?? {}, key }),
   };
+  const messages = locale === "fr" ? FR_MESSAGES : EN_MESSAGES;
   const mocks = {
     react: { useEffect, useState },
     "react/jsx-runtime": jsxRuntime,
     "next/link": { __esModule: true, default: "Link" },
     "next/navigation": { usePathname: () => pathname },
+    "next-intl": {
+      useTranslations: (namespace) => (key) => messages[namespace][key],
+    },
     "lucide-react": { Cookie: "CookieIcon" },
     "framer-motion": { motion: { div: "motion.div" }, AnimatePresence: "AnimatePresence" },
     "@/lib/kitchen/worker-validation": workerValidation,
@@ -168,8 +174,28 @@ function createCookieConsentRuntime(initialPathname) {
 function hasCookieBanner(node) {
   if (Array.isArray(node)) return node.some(hasCookieBanner);
   if (!node || typeof node !== "object") return false;
-  if (node.props?.role === "dialog" && node.props?.["aria-label"] === "Cookie preferences") return true;
+  if (node.props?.role === "dialog") return true;
   return hasCookieBanner(node.props?.children);
+}
+
+function findNode(node, predicate) {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findNode(child, predicate);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!node || typeof node !== "object") return null;
+  if (predicate(node)) return node;
+  return findNode(node.props?.children, predicate);
+}
+
+function nodeText(node) {
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (!node || typeof node !== "object") return "";
+  return nodeText(node.props?.children);
 }
 
 test("mocked: cookie banner stays hidden without storage access or timers on worker routes", () => {
@@ -276,6 +302,64 @@ test("mocked: invitation and website preview routes keep the compact banner", ()
         return findBanner(node.props?.children);
       };
       assert.match(findBanner(output)?.props?.className ?? "", /fixed bottom-4 left-4/);
+    } finally {
+      runtime.dispose();
+    }
+  }
+});
+
+test("mocked: banner copy, labels, and aria-label render from EN and FR messages", () => {
+  for (const [locale, messages] of [["en", EN_MESSAGES], ["fr", FR_MESSAGES]]) {
+    const runtime = createCookieConsentRuntime("/", locale);
+    try {
+      runtime.render();
+      runtime.advance(800);
+      const output = runtime.render();
+      const banner = findNode(output, (node) => node.props?.role === "dialog");
+      const decline = findNode(output, (node) => node.props?.id === "cookie-decline");
+      const accept = findNode(output, (node) => node.props?.id === "cookie-accept");
+
+      assert.ok(banner, locale);
+      assert.ok(
+        nodeText(banner).includes(messages.Common.cookieBannerDescription),
+        `${locale}: ${JSON.stringify(nodeText(banner))}`,
+      );
+      assert.equal(banner.props["aria-label"], messages.Common.cookieBannerAriaLabel);
+      assert.equal(decline?.props?.children, messages.Common.cookieBannerDecline);
+      assert.equal(accept?.props?.children, messages.Common.cookieBannerAccept);
+      assert.ok(nodeText(banner).includes(messages.Common.cookies), locale);
+    } finally {
+      runtime.dispose();
+    }
+  }
+});
+
+test("mocked: banner copy contains no invitation-specific wording on public and invitation routes", () => {
+  for (const pathname of ["/", "/events/example", "/invitation/example"]) {
+    const runtime = createCookieConsentRuntime(pathname);
+    try {
+      runtime.render();
+      runtime.advance(800);
+      const banner = findNode(runtime.render(), (node) => node.props?.role === "dialog");
+      assert.ok(banner, pathname);
+      assert.doesNotMatch(nodeText(banner), /invitation/i, pathname);
+    } finally {
+      runtime.dispose();
+    }
+  }
+});
+
+test("mocked: Accept and Decline save their respective consent choices", () => {
+  for (const [id, choice] of [["cookie-accept", "accepted"], ["cookie-decline", "declined"]]) {
+    const runtime = createCookieConsentRuntime("/");
+    try {
+      runtime.render();
+      runtime.advance(800);
+      const button = findNode(runtime.render(), (node) => node.props?.id === id);
+      assert.ok(button, id);
+      button.props.onClick();
+      assert.deepEqual(runtime.storageWrites, [[CONSENT_KEY, choice]]);
+      assert.equal(hasCookieBanner(runtime.render()), false);
     } finally {
       runtime.dispose();
     }

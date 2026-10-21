@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Cookie } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isKitchenPrivatePath } from "@/lib/kitchen/worker-validation";
@@ -10,6 +11,7 @@ import { isKitchenPrivatePath } from "@/lib/kitchen/worker-validation";
 const CONSENT_KEY = "Aldriva-cookie-consent";
 
 export default function CookieConsent() {
+  const t = useTranslations("Common");
   const pathname = usePathname();
   const isWorkerPath = pathname === null || isKitchenPrivatePath(pathname);
   const [isVisible, setIsVisible] = useState(false);
@@ -57,7 +59,7 @@ export default function CookieConsent() {
           }
           role="dialog"
           aria-modal="false"
-          aria-label="Cookie preferences"
+          aria-label={t("cookieBannerAriaLabel")}
         >
           <div
             className={
@@ -71,12 +73,12 @@ export default function CookieConsent() {
                 <Cookie className="h-4 w-4" />
               </div>
               <p className="text-xs leading-4 text-zinc-600 dark:text-zinc-400">
-                We use essential cookies to support this invitation.{" "}
+                {t("cookieBannerDescription")} {" "}
                 <Link
                   href="/cookies"
                   className="font-semibold text-orange-600 underline hover:text-orange-700 dark:text-orange-400"
                 >
-                  Cookie Policy
+                  {t("cookies")}
                 </Link>
                 .
               </p>
@@ -89,7 +91,7 @@ export default function CookieConsent() {
                 onClick={() => dismiss("declined")}
                 className="rounded-full border border-zinc-300 px-3.5 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                Decline
+                {t("cookieBannerDecline")}
               </button>
 
               {/* Accept — primary */}
@@ -98,7 +100,7 @@ export default function CookieConsent() {
                 onClick={() => dismiss("accepted")}
                 className="rounded-full bg-orange-600 px-4 py-1.5 text-xs font-black text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-orange-700 active:scale-[0.98]"
               >
-                Accept
+                {t("cookieBannerAccept")}
               </button>
             </div>
           </div>

@@ -46,7 +46,12 @@
       "required": "Ce champ est requis",
       "invalidEmail": "Veuillez saisir une adresse e-mail valide"
     },
-    "language": "Langue"
+    "language": "Langue",
+    "cookies": "Politique des cookies",
+    "cookieBannerDescription": "Choisissez votre préférence en matière de cookies. Votre choix sera enregistré dans ce navigateur, sans modifier les services chargés.",
+    "cookieBannerAccept": "Accepter",
+    "cookieBannerDecline": "Refuser",
+    "cookieBannerAriaLabel": "Préférences en matière de cookies"
   },
   "Navigation": {
     "home": "Accueil",

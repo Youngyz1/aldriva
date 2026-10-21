@@ -473,6 +473,9 @@
   - Cooks and couriers receive no access. The owner panel preserves function ordering, shows no rankings, and does not execute SQL.
 Scaling note: each Cook Performance panel fetches on mount (N calls for N kitchen businesses); the SQL function has no date pre-filter. Revisit with lazy loading, a client cache, then a date pre-filter migration if any organizer has 3+ kitchen businesses or the function is slow.
 
+### DEC-0051: Cookie consent behavior and policy wording
+- Cookie banner records a choice in localStorage but gates no loader; Google Analytics loads on public routes regardless. Cookie policy page says visitors opt in via the banner, which doesn't match behavior. Both need a legal decision before marketing in regulated regions.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

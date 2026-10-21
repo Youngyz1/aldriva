@@ -46,7 +46,12 @@
       "required": "This field is required",
       "invalidEmail": "Please enter a valid email"
     },
-    "language": "Language"
+    "language": "Language",
+    "cookies": "Cookie Policy",
+    "cookieBannerDescription": "Choose your cookie preference. We'll save your choice in this browser; it won't change which services load.",
+    "cookieBannerAccept": "Accept",
+    "cookieBannerDecline": "Decline",
+    "cookieBannerAriaLabel": "Cookie preferences"
   },
   "Navigation": {
     "home": "Home",
