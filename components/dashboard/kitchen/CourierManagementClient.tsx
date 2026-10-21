@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ function actionError(code: string) {
 }
 
 export function CourierManagementClient({ organizerId, businesses }: Props) {
+  const tOrganizer = useTranslations("Organizer");
   const router = useRouter();
   const [busyKey, setBusyKey] = useState("");
   const [error, setError] = useState("");
@@ -88,7 +90,7 @@ export function CourierManagementClient({ organizerId, businesses }: Props) {
   return (
     <section className="space-y-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-xs sm:p-6" aria-labelledby="courier-management-title">
       <div>
-        <h2 id="courier-management-title" className="text-lg font-semibold text-zinc-900">Couriers</h2>
+        <h2 id="courier-management-title" className="text-lg font-semibold text-zinc-900">{tOrganizer("couriers")}</h2>
         <p className="mt-1 text-sm text-zinc-500">Invite registered couriers. WhatsApp numbers are stored for reference; nothing is sent.</p>
       </div>
 
