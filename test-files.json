@@ -199,6 +199,7 @@
   "lib/kitchen/__tests__/worker-access.test.cjs",
   "lib/kitchen/__tests__/kitchen-orders.test.cjs",
   "lib/actions/__tests__/cook-performance.test.cjs",
+  "components/__tests__/cookie-consent.test.cjs",
   "components/dashboard/kitchen/__tests__/cook-performance-panel.test.cjs",
   "lib/courier/__tests__/courier-server.test.cjs",
   "lib/courier/__tests__/courier-dashboard.test.cjs",

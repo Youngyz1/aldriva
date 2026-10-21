@@ -5,11 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { isKitchenPrivatePath } from "@/lib/kitchen/worker-validation";
 
 const CONSENT_KEY = "Aldriva-cookie-consent";
 
 export default function CookieConsent() {
   const pathname = usePathname();
+  const isWorkerPath = pathname === null || isKitchenPrivatePath(pathname);
   const [isVisible, setIsVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
   const isInvitation = pathname?.includes("/invitation");
@@ -19,20 +21,26 @@ export default function CookieConsent() {
 
   useEffect(() => {
     setMounted(true);
+    if (isWorkerPath) {
+      setIsVisible(false);
+      return;
+    }
+
     const consent = window.localStorage.getItem(CONSENT_KEY);
     if (!consent) {
       // Small delay for better transition effect after page load
       const timer = setTimeout(() => setIsVisible(true), 800);
       return () => clearTimeout(timer);
     }
-  }, []);
+    setIsVisible(false);
+  }, [isWorkerPath, pathname]);
 
   function dismiss(choice: "accepted" | "declined") {
     window.localStorage.setItem(CONSENT_KEY, choice);
     setIsVisible(false);
   }
 
-  if (!mounted) return null;
+  if (!mounted || isWorkerPath) return null;
 
   return (
     <AnimatePresence>
