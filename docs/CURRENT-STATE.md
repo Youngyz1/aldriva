@@ -2,6 +2,8 @@
 
 ## Active Worktree Update — Kitchen & Delivery, 2026-10-21
 
+- **Cook performance Stage 3B/3C:** the server-only owner Kitchen loader and bilingual panel are implemented in the working tree. Each business with a kitchen has its own panel in the existing business card, so no separate business selector is needed. The panel supports UTC ranges, preserves previous results during range loads, retains function ordering, and suppresses medians below n=3 while showing counts. Migration 187 is owner-reported applied; no SQL was run in these stages.
+- **Verification:** Stage 3C passed 2,615/2,615 tests across 204 files (0 failures, 0 skipped; seven mocked UI tests added). Changed-file ESLint, `npx tsc --noEmit --pretty false`, `npm test`, `npm run build`, and `git diff --check` passed. No SQL was run.
 - Owner reports migration 185 applied and migration 186 applied and verified on staging; no database tools were used to independently query staging.
 - Phase 1 reactivation and cook accept-page fixes, Stage B courier server routes/actions, and the Stage C dashboard are implemented on `feat/phase-2-couriers`. Reactivate has a five-second repeat-rotation guard; courier reactivation stays offline. Browser visual/integration QA remains.
 - **Verification:** full suite passed 2,599/2,599 across 202 files (0 failures, 0 skipped); changed-file ESLint, `npx tsc --noEmit --pretty false`, and `npm run build` passed. This is 32 tests and three files above the 2,567/199 baseline.

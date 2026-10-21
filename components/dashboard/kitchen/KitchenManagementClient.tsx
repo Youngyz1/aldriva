@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CourierManagementClient } from "@/components/dashboard/kitchen/CourierManagementClient";
+import { CookPerformancePanel } from "@/components/dashboard/kitchen/CookPerformancePanel";
 import {
   createKitchen,
   deactivateCook,
@@ -242,6 +243,7 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
 
           {business.kitchen && (
             <>
+              <CookPerformancePanel organizerId={organizerId} businessId={business.id} />
               <form className="mt-5 grid gap-3 rounded-xl border border-zinc-200 p-4 sm:grid-cols-2" onSubmit={(event) => handleInvite(event, business)}>
                 <div className="sm:col-span-2">
                   <h3 className="font-semibold text-foreground">Invite a cook</h3>

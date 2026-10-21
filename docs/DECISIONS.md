@@ -463,6 +463,16 @@
   - An unpaid pay-on-fulfilment delivery can be marked paid only after an explicit courier cash-collected confirmation; the history records worker and timestamp. Incorrect confirmation remains an operational risk. Online-unpaid orders cannot use this override.
   - The standalone courier dashboard and visual/live integration QA remain Stage C. WhatsApp sending, live tracking, and push are excluded from this phase.
 
+### DEC-0050: Cook performance reads require an explicit tenant-verified business selection
+- **Decision Date**: 2026-10-21
+- **Status**: Stages 3B and 3C implemented and verified in the working tree; visual/staging QA remains.
+- **Key Tenets**:
+  - Every loader call rechecks `owner`/`admin`/`manager` access for the organizer and verifies the requested business belongs to that organizer using a service-role lookup before calling the read-only performance function. The organizer ID sent to the function comes from that verified row, not browser input.
+  - The server loader requires an explicit business ID and never silently chooses the first. The Kitchen page renders a panel inside each kitchen-enabled business card and calls the loader with that card's business ID, so no separate selector is needed.
+  - Range bounds are computed server-side in UTC (`today` begins at 00:00 UTC); only `today`, `7-days`, and `30-days` are accepted. The response contains only function fields. Median values are hidden below n=3 while counts remain visible.
+  - Cooks and couriers receive no access. The owner panel preserves function ordering, shows no rankings, and does not execute SQL.
+Scaling note: each Cook Performance panel fetches on mount (N calls for N kitchen businesses); the SQL function has no date pre-filter. Revisit with lazy loading, a client cache, then a date pre-filter migration if any organizer has 3+ kitchen businesses or the function is slow.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |

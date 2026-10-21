@@ -78,7 +78,7 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 ## 5. Continue here
 
 - **If you are resuming the menu options & promotions work:** branch `feat/menu-promotions-phase-4` (tip `16265fb`). Next task: **apply migration 184 on staging (owner runs it), execute `db/tests/migration_184_checks.sql`, then 375px visual QA and production data inventory** — these three verifications are the only open items (VERIFIED — `docs/phase-4-report.md`, `docs/CURRENT-STATE.md`).
-- **If you are resuming kitchen & delivery:** Phase 1 is on `feat/phase-0-1-kitchen-worker-access`; courier Stage A, Part 1 fixes, Stage B server/owner-management work, and the Stage C dashboard are on `feat/phase-2-couriers` from that base. The owner reports migration 186 applied and verified; no database tools were used here. Next is browser visual/integration QA. See `docs/phases/phase-kitchen-delivery.md`.
+- **If you are resuming kitchen & delivery:** Phase 1 is on `feat/phase-0-1-kitchen-worker-access`; courier Stage A, Part 1 fixes, Stage B server/owner-management work, and the Stage C dashboard are on `feat/phase-2-couriers` from that base. The owner reports migration 186 applied and verified; no database tools were used here. Cook performance Stage 3A is owner-reported applied; Stages 3B and 3C are implemented and verified in the working tree. Next is browser visual QA and owner staging validation. See `docs/phases/phase-kitchen-delivery.md`.
 - **If you are starting new phase work:** start from `main` + whatever in-flight branch it depends on; check the Migration number register (§6) before writing any SQL.
 
 ---

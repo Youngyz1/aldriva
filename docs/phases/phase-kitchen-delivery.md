@@ -2,6 +2,22 @@
 
 > **STATUS (2026-10-21):** Part 1, Stage B, and the Stage C courier dashboard are implemented in the working tree on `feat/phase-2-couriers`. The owner reports migrations 185 and 186 applied on staging; no database tools were used to independently verify them. Browser visual/integration QA remains.
 
+## Phase 3 — Cook performance records
+
+### Stage 3B — server data and access (implemented in working tree)
+
+- `lib/actions/cook-performance.ts` is a server-only loader. It rechecks owner/admin/manager tenant access on each call, verifies the selected business-to-organizer relationship through the service-role client before invoking `get_business_cook_performance`, and forwards the organizer ID read from that verified business row.
+- The caller must supply a business ID; the loader does not silently choose one for organizers with multiple businesses. Stage 3C places a separate panel inside each existing business card, so each card supplies its own business ID without a second selector.
+- Supported ranges are `today` (00:00 UTC to request time), `7-days`, and `30-days`; the loader rejects other range values and supplies explicit UTC timestamps. It returns only the function's eight declared fields and no customer data. Medians are nulled when their sample count is below three, while each count remains present. Locale messages label the intervals “Wait before starting” and “Prep time”.
+- Mocked tests cover owner/admin/manager access, role and tenant denial, invalid ranges, safe RPC errors, output projection, n<3 handling, null medians, and locale keys. Full suite passed 2,608/2,608 across 203 files; ESLint, TypeScript, and the production build passed. The static migration-order assertion was updated to recognize migration 187. No SQL was executed.
+### Stage 3C — owner Kitchen panel (implemented in working tree)
+
+- `components/dashboard/kitchen/CookPerformancePanel.tsx` is embedded only for businesses with a kitchen. The existing Kitchen page loads all organizer businesses and their kitchens; the panel is rendered within each business card and uses that card's business ID, so multiple kitchen-enabled businesses stay clearly separated without a global selector.
+- The panel defaults to 7 days and offers Today / 7 days / 30 days. It keeps the prior rows visible while a new range loads, and shows first-load loading, empty, retryable error, and inactive-cook states. It displays each cook's order count and both medians with sample counts, preserves the function's alphabetical order, and adds no ranking or speed-based styling.
+- English and French Organizer messages include the UTC/interval-credit note, labels, empty/loading/error/retry states, inactive badge, and median/count formatting. No SQL was executed.
+- **Verification:** seven mocked UI tests pass, including range switching with prior-result retention, median suppression/count display, empty/error/retry states, preserved ordering, and the inactive badge. Changed-file ESLint, TypeScript, full suite (2,615/2,615 across 204 files), production build, and `git diff --check` pass.
+- **Remaining:** browser visual QA and owner staging validation of the panel. No SQL was run.
+
 ## Phase 2 courier checkpoint — Stage A applied, Part 1, Stage B, and Stage C implemented
 
 **Stage A (owner-applied SQL):** Migration 186 and its rollback, staging-only cleanup, pre/post-checks, claim-race SQL, and business-delete SQL are present. The owner reports application and verification. None of these SQL scripts was executed in this Stage B turn; the owner runs them manually.

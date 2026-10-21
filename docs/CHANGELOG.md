@@ -5,6 +5,18 @@
 
 ## [2026-10] — Kitchen & Delivery Part 1 and courier Stage B (2026-10-21; working tree)
 
+### Phase 3 cook performance — Stage 3C (2026-10-21; working tree)
+
+- Added the owner Kitchen cook-performance panel with UTC range tabs, per-cook medians and sample counts, inactive badges, empty/loading/error/retry states, and prior-result retention during range changes.
+- Embedded one panel in each kitchen-enabled business card, preserving the function's alphabetical order with no ranking. Added a client-callable server-action wrapper and English/French UI messages for the UTC and interval-credit notes.
+- **Verification:** seven mocked UI tests pass; full suite passed 2,615/2,615 across 204 files; changed-file ESLint, TypeScript, production build, and `git diff --check` pass. No SQL was run and no migration file was changed.
+
+### Phase 3 cook performance — Stage 3B (2026-10-21; working tree)
+
+- Added a server-only performance loader with per-call owner/admin/manager authorization, service-role business/organizer verification, explicit UTC date bounds, a narrow RPC-field projection, and median suppression below three samples while retaining n.
+- Added English and French Organizer panel labels. The loader requires an explicit business ID; Stage 3C supplies it from each existing business card.
+- Mocked loader tests cover role/tenant boundaries, invalid ranges, safe RPC errors, projection and median shaping. Updated the existing static latest-migration assertion for migration 187. Verification passed: 2,608/2,608 tests across 203 files, ESLint, TypeScript, and production build. Migration 187 is owner-reported applied; no SQL was executed for this stage.
+
 - Added Reactivate for deactivated cooks/couriers: rotates the hashed invitation with a 14-day expiry, revokes sessions, returns the plaintext link once, keeps couriers offline, disables the pending UI action, and blocks repeat rotation within five seconds.
 - Added the courier server flow: role-specific cookies/session validation, invitation acceptance, availability, scoped offers, atomic claim/decline routes, and assigned-courier delivery completion. Offer claims reuse post-persist email/revalidation without a second status update; cash collection requires confirmation for unpaid pay-on-fulfilment orders and is attributed in history.
 - Added owner courier management and registered-courier picker with offline warning, on-delivery disablement, and manual rider fallback. Analytics excludes courier paths; courier responses are no-store/no-referrer.
