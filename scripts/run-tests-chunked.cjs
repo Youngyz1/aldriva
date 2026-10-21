@@ -40,6 +40,54 @@ for (const file of TEST_FILES) {
 }
 if (chunk.length) chunks.push(chunk);
 
+function unquoteTapScalar(value) {
+  const scalar = value.trim();
+  if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
+  if (scalar.startsWith('"') && scalar.endsWith('"')) {
+    try { return JSON.parse(scalar); } catch { return scalar.slice(1, -1); }
+  }
+  return scalar;
+}
+
+function summarizeTapFailures(output) {
+  const lines = output.split(/\r?\n/);
+  const failures = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const start = lines[index].match(/^not ok \d+ - (.*)$/);
+    if (!start) continue;
+    let end = index + 1;
+    while (end < lines.length && lines[end].trim() !== "..." && !/^not ok \d+ - /.test(lines[end])) end += 1;
+    const block = lines.slice(index + 1, end).join("\n");
+    const location = block.match(/^\s*location:\s*(.+)$/m)?.[1];
+    const error = block.match(/^\s*error:\s*(.+)$/m)?.[1];
+    failures.push({ name: start[1], location: location ? unquoteTapScalar(location) : "location unavailable", error: error ? unquoteTapScalar(error) : "assertion details unavailable" });
+    index = end;
+  }
+  return failures;
+}
+
+function reportBatchFailure(output, batchNumber, batchCount) {
+  const failures = summarizeTapFailures(output);
+  if (failures.length) {
+    console.error(`Batch ${batchNumber}/${batchCount} failing tests (${failures.length}):`);
+    for (const failure of failures) {
+      console.error(`- ${failure.name}`);
+      console.error(`  File: ${failure.location}`);
+      console.error(`  Error: ${failure.error}`);
+    }
+    return;
+  }
+
+  const testNames = output.split(/\r?\n/).filter((line) => /^not ok \d+ - /.test(line));
+  if (testNames.length) {
+    console.error(`Batch ${batchNumber}/${batchCount} failing test names:`);
+    for (const name of testNames) console.error(`- ${name}`);
+  } else {
+    console.error(`Batch ${batchNumber}/${batchCount} failed without TAP test details. Last output lines:`);
+    console.error(output.split(/\r?\n/).slice(-30).join("\n"));
+  }
+}
+
 let totalTests = 0;
 let totalPass = 0;
 let totalFail = 0;
@@ -73,7 +121,7 @@ for (let index = 0; index < chunks.length; index += 1) {
     totalFail += fail ?? 1;
     console.error(`Batch ${index + 1}/${chunks.length}: execution/counting error (${files.length} files).`);
     if (result.error) console.error(result.error.message);
-    if (output) console.error(output);
+    if (output) reportBatchFailure(output, index + 1, chunks.length);
     continue;
   }
 
@@ -82,7 +130,7 @@ for (let index = 0; index < chunks.length; index += 1) {
   totalFail += fail;
   totalSkipped += skipped;
   console.log(`Batch ${index + 1}/${chunks.length}: ${files.length} files, ${pass} passed, ${fail} failed, ${skipped} skipped.`);
-  if (result.status !== 0 || fail > 0) console.error(output);
+  if (result.status !== 0 || fail > 0) reportBatchFailure(output, index + 1, chunks.length);
 }
 
 console.log("\nFull suite summary");
