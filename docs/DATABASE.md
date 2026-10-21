@@ -192,7 +192,7 @@ The following tables are planned for future phases (DO NOT create before respect
 | 183 | `migration_183_menu_option_assignment_cleanup.sql` | yes | yes | **applied** |
 | 184 | `migration_184_menu_promotions.sql` | yes | yes | **approved, not applied** (SHA-256 `30fb2d16…5482`) |
 | 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **Applied on staging per owner report**; not independently queried (owner applies SQL manually) |
-| 186 | `migration_186_courier_offers.sql` | yes | yes (`20261021000000_migration_186_courier_offers.sql`) | **Applied and verified on staging per owner report**; not independently queried (owner applies SQL manually); rollback, staging cleanup, pre/post-checks, and claim-race SQL included |
+| 186 | `migration_186_courier_offers.sql` | yes | **no mirror** | **Applied and verified on staging per owner report**; not independently queried (owner applies SQL manually); rollback, staging cleanup, pre/post-checks, and claim-race SQL included |
 | 187+ | — | — | — | **free** as of 2026-10-21 |
 
 **Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery; 186 = courier offers. Next free = **187**.
