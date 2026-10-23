@@ -8,8 +8,8 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Block } from "@/lib/website-blocks";
-import { CanvasBlockPreview } from "./CanvasBlockPreview";
 import { BuilderEmbedOptions } from "@/lib/actions/website-builder";
 import { ValidationErrorIssue } from "../types";
 import {
@@ -24,6 +24,25 @@ import {
   IconDeviceMobile as Smartphone,
 } from "@tabler/icons-react";
 import { getBackgroundStyle, getContainerClass, getSpacingClass } from "@/lib/section-helpers";
+
+// The rich-text preview uses the HTML sanitizer, whose server-side dependency
+// chain includes jsdom. Keep that editor-only renderer out of the route's SSR
+// bundle while retaining the same sanitized preview in the browser.
+const CanvasBlockPreview = dynamic(
+  () => import("./CanvasBlockPreview").then((module) => module.CanvasBlockPreview),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="flex min-h-24 items-center justify-center rounded-lg bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
+        role="status"
+        aria-live="polite"
+      >
+        Loading section preview…
+      </div>
+    ),
+  }
+);
 
 interface CanvasBlockWrapperProps {
   block: Block;
