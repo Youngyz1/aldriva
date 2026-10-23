@@ -2,7 +2,7 @@
 
 Date: 2026-10-23
 
-Status: the first Website Builder fix was insufficient. The remaining Vercel runtime cause is now confirmed, and a targeted dependency fix plus regression test and route error boundary are implemented locally. The follow-up has not yet been pushed or deployed; post-fix staging verification remains pending.
+Status: the first Website Builder fix was insufficient. The remaining Vercel runtime cause is now confirmed, and a targeted dependency fix plus regression test and route error boundary are committed and deployed. Authenticated post-fix UI verification remains pending.
 
 ## Findings
 
@@ -39,6 +39,8 @@ Status: the first Website Builder fix was insufficient. The remaining Vercel run
 - `npm run build` (configured Next.js 16.3.4 Turbopack build): passed; TypeScript completed and all 386 static pages generated.
 - The previously reported ESLint error remains at `app/m/[token]/page.tsx:54` (`react-hooks/error-boundaries`, JSX inside a `try/catch`). That Phase 1A-touched file's diff is an icon import; it is unchanged in this follow-up. `npx eslint 'app/m/[token]/page.tsx'` reproduces the error.
 - Post-follow-up authenticated staging browser checks have not run: browser use is disabled in this Codex Work session. No website data was created or changed.
+- Commit `0ed6548c053ac543caa1ff4ef3d80cce22fd4539` (`fix(website-builder): pin compatible jsdom runtime`) was pushed to `staging`. Vercel deployment `dpl_Hg6gUNRdsPj1ib3ah7u36maLoLFp` is `READY` for that exact commit at `https://aldriva-5sday95ti-ofiliyoungyz-specs-projects.vercel.app`.
+- A post-deploy 10-minute Vercel error-log query returned zero records, but it also showed no authenticated builder invocation. This does not establish that the deployed route works.
 
 ## Verification
 
@@ -55,4 +57,4 @@ Status: the first Website Builder fix was insufficient. The remaining Vercel run
 
 ## Completion boundary
 
-**Post-follow-up Vercel verification is pending.** Staging can only be called fixed after a deployment containing the dependency fix is tested with authenticated organization and invitation data, including direct navigation, dashboard navigation, refresh, browser errors, failed requests, and Vercel function logs. The prior inventory did not find populated legacy canvas/rich-text content; check again after deployment, and ask before creating a disposable test draft if no suitable existing content is available. The current session also has browser use disabled, so authenticated UI verification needs an enabled browser session.
+**Post-follow-up authenticated Vercel verification is pending.** Staging can only be called fixed after the deployed code is tested with authenticated organization and invitation data, including direct navigation, dashboard navigation, refresh, browser errors, failed requests, and Vercel function logs. The prior inventory did not find populated legacy canvas/rich-text content; check again after deployment, and ask before creating a disposable test draft if no suitable existing content is available. The current session also has browser use disabled, so authenticated UI verification needs an enabled browser session.

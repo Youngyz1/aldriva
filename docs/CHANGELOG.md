@@ -3,12 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-10-23] — Phase 2 Website Builder Vercel runtime follow-up (local fix; deployment pending)
+## [2026-10-23] — Phase 2 Website Builder Vercel runtime follow-up (deployed; authenticated QA pending)
 
 - Traced the remaining blank builder response to the server-rendered template-switch preview importing `BlockRenderer` → `sanitize-html` → `isomorphic-dompurify` → `jsdom@29.1.1` → `html-encoding-sniffer@6` → ESM-only `@exodus/bytes` through CommonJS. This was a separate server import path from the earlier client-only canvas preview change.
 - Pinned transitive jsdom to 27.3.0, whose lockfile resolves `html-encoding-sniffer@4.0.0`, while keeping DOMPurify sanitization and template previews intact. Added a runtime dependency-chain/security regression and a logged, retryable Website Builder route error boundary.
 - **Local verification:** full suite 2,734/2,734; production TypeScript check passed; focused ESLint passed; configured Turbopack build generated all 386 static pages; `git diff --check` passed. The pre-existing focused lint error at `app/m/[token]/page.tsx:54` remains unchanged.
-- The fix is not yet deployed. Authenticated Vercel UI checks remain pending because browser use is disabled in this session. Rich-text verification requires suitable existing staging content or approval for a disposable draft.
+- Commit `0ed6548c053ac543caa1ff4ef3d80cce22fd4539` is deployed READY as `dpl_Hg6gUNRdsPj1ib3ah7u36maLoLFp` at `https://aldriva-5sday95ti-ofiliyoungyz-specs-projects.vercel.app`. Its initial 10-minute error-log query returned zero records but included no authenticated Website Builder request, so deployed runtime behavior remains unverified.
+- Authenticated Vercel UI checks remain pending because browser use is disabled in this session. Rich-text verification requires suitable existing staging content or approval for a disposable draft.
 
 ## [2026-10-23] — Phase 1A information density, interaction, typography, and Tabler icons (staging working tree)
 
