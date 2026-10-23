@@ -14,6 +14,8 @@ export type BuilderSectionId =
   | "story"
   | "details"
   | "gallery"
+  | "evergreen"
+  | "photos"
   | "music"
   | "extras"
   | "publish";
@@ -29,6 +31,7 @@ const EXACT_FIELD_SECTIONS: Record<string, BuilderSectionId> = {
 };
 
 const PREFIX_SECTION_RULES: { prefix: string; section: BuilderSectionId }[] = [
+  { prefix: "blocks_layout", section: "photos" },
   { prefix: "hero_image", section: "hero" },
   { prefix: "story_", section: "story" },
   { prefix: "scroll_prompt", section: "hero" },
@@ -59,6 +62,10 @@ const PREFIX_SECTION_RULES: { prefix: string; section: BuilderSectionId }[] = [
 ];
 
 export function sectionForPublishField(field: string): BuilderSectionId {
+  if (field.startsWith("blocks_layout.template_data.")) {
+    const key = field.split(".")[2];
+    return key?.includes("photo") || key === "photo_focal_points" ? "photos" : "evergreen";
+  }
   if (EXACT_FIELD_SECTIONS[field]) return EXACT_FIELD_SECTIONS[field];
   const base = field.split(".")[0];
   if (EXACT_FIELD_SECTIONS[base]) return EXACT_FIELD_SECTIONS[base];

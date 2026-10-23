@@ -24,11 +24,13 @@ import {
   StoryBlock,
 } from "@/components/invitation/blocks/InvitationPresentationBlocks";
 import { resolveInvitationBindings } from "@/lib/invitation-page-layout";
+import { usesEvergreenRsvpForm } from "@/lib/invitation-rsvp";
 
 interface InvitationBlockRenderContext {
   block: PageLayoutBlock;
   data: InvitationPageData;
   layout: PageBlocksLayout;
+  templateId: string;
   onAction?: PageActionHandler;
   shared: boolean;
   romanticEnvelope: boolean;
@@ -71,34 +73,35 @@ const BLOCK_COMPONENTS = {
     const content = resolvedContent(block, data);
     return <DetailsBlock data={{ ...data, ...content } as InvitationPageData} theme={layout.global_theme} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} presentation={detailsPresentation} showOverview={detailsPresentation !== "luxe-editorial"} />;
   },
-  countdown: ({ block, data, layout, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
+  countdown: ({ block, data, layout, templateId, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
     const content = resolvedContent(block, data);
-    return <CountdownBlock targetDate={text(content.targetDate) ?? data.eventDate} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} luxeEditorial={detailsPresentation === "luxe-editorial"} />;
+    return <CountdownBlock targetDate={text(content.targetDate) ?? data.eventDate} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} evergreenEnvelope={templateId === "evergreen-envelope"} showRomanticTagline={templateId !== "evergreen-envelope" && romanticEnvelope} botanicalReverie={botanicalReverie} luxeEditorial={detailsPresentation === "luxe-editorial"} />;
   },
   location_map: ({ block, data, layout }) => {
     const content = resolvedContent(block, data);
     return <LocationMapBlock latitude={content.latitude} longitude={content.longitude} venue={text(content.venue)} address={text(content.address)} city={text(content.city)} theme={layout.global_theme} locale={data.locale} />;
   },
-  schedule: ({ block, data, layout, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
+  schedule: ({ block, data, layout, templateId, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
     const content = resolvedContent(block, data);
-    return <ScheduleBlock timeline={Array.isArray(content.timeline) ? content.timeline as InvitationPageData["schedule"] : null} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} presentation={detailsPresentation} />;
+    const timeline = Array.isArray(content.timeline) ? content.timeline as InvitationPageData["schedule"] : templateId === "evergreen-envelope" ? data.schedule : null;
+    return <ScheduleBlock timeline={timeline} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} evergreenEnvelope={templateId === "evergreen-envelope"} presentation={detailsPresentation} />;
   },
-  gallery: ({ block, data, layout, botanicalReverie, galleryPresentation }) => {
+  gallery: ({ block, data, layout, templateId, botanicalReverie, galleryPresentation }) => {
     const content = resolvedContent(block, data);
     // Organizer override wins over the template's code-owned default.
     const requested = text(content.presentation);
     const presentation = isInvitationGalleryPresentation(requested) ? requested : galleryPresentation;
-    return <GalleryBlock images={Array.isArray(content.images) ? content.images as InvitationPageData["gallery"] : null} theme={layout.global_theme} locale={data.locale} botanicalReverie={botanicalReverie} presentation={presentation} />;
+    return <GalleryBlock images={Array.isArray(content.images) ? content.images as InvitationPageData["gallery"] : null} theme={layout.global_theme} locale={data.locale} botanicalReverie={botanicalReverie} evergreenEnvelope={templateId === "evergreen-envelope"} presentation={presentation} />;
   },
   music: ({ block, data }) => {
     const content = resolvedContent(block, data);
     return <MusicBlock data={{ ...data, musicAudioUrl: text(content.audioUrl), musicTitle: text(content.title), musicLinks: Array.isArray(content.links) ? content.links as InvitationPageData["musicLinks"] : null }} />;
   },
-  action_portal: ({ block, data, layout, onAction, shared }) => {
+  action_portal: ({ block, data, layout, templateId, onAction, shared }) => {
     const content = resolvedContent(block, data);
     if (content.actionType !== "RSVP_SUBMISSION" && content.actionType !== "BUSINESS_LEAD") return null;
     const actionType: ActionPortalType = content.actionType;
-    return <ActionPortalBlock actionType={actionType} title={text(content.title) ?? undefined} description={text(content.description) ?? undefined} guestName={data.guest.name} currentResponse={data.guest.rsvpStatus} invitationData={data} theme={layout.global_theme} onAction={onAction} shared={shared} />;
+    return <ActionPortalBlock actionType={actionType} title={text(content.title) ?? undefined} description={text(content.description) ?? undefined} guestName={data.guest.name} currentResponse={data.guest.rsvpStatus} invitationData={data} theme={layout.global_theme} onAction={onAction} shared={shared} evergreenRsvp={usesEvergreenRsvpForm(templateId)} showQrContext={templateId === "evergreen-envelope"} />;
   },
 } satisfies Record<InvitationBlockType, BlockComponent>;
 

@@ -49,14 +49,16 @@ interface Props {
   onChange: (focal: FocalPoint) => void;
   /** Template whose real frame shape drives the live preview. */
   templateId?: string | null;
+  /** Optional slot-specific crop frame for templates with several photo shapes. */
+  frameShapeOverride?: InvitationFrameShape;
   disabled?: boolean;
 }
 
-export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, disabled }: Props) {
+export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, frameShapeOverride, disabled }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const normalized = normalizeFocalPoint(focal.x, focal.y);
-  const shape = frameShapeForTemplate(templateId);
+  const shape = frameShapeOverride ?? frameShapeForTemplate(templateId);
 
   const pickFromPointer = useCallback(
     (clientX: number, clientY: number) => {

@@ -14,7 +14,7 @@
  * preferences.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogClose,
@@ -32,15 +32,32 @@ interface DialogShellProps {
   openLabel: string;
   title: string;
   hint: string;
+  context?: readonly string[];
+  portalIntoNearestDialog?: boolean;
   trigger: React.ReactNode;
   children: React.ReactNode;
 }
 
-function ExpandableQrDialog({ openLabel, title, hint, trigger, children }: DialogShellProps) {
+function ExpandableQrDialog({ openLabel, title, hint, context, portalIntoNearestDialog = false, trigger, children }: DialogShellProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (portalIntoNearestDialog) {
+      setPortalContainer(nextOpen ? triggerRef.current?.closest("dialog") ?? null : null);
+    }
+    setOpen(nextOpen);
+  }
+
   return (
-    <Dialog>
+    <Dialog
+      open={portalIntoNearestDialog ? open : undefined}
+      onOpenChange={portalIntoNearestDialog ? handleOpenChange : undefined}
+    >
       <DialogTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={openLabel}
           title={openLabel}
@@ -49,11 +66,17 @@ function ExpandableQrDialog({ openLabel, title, hint, trigger, children }: Dialo
           {trigger}
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-[36rem] bg-white text-center motion-reduce:animate-none">
+      <DialogContent
+        portalContainer={portalIntoNearestDialog ? portalContainer : null}
+        className="w-[min(100vw,29rem)] max-w-none bg-white p-3 text-center motion-reduce:animate-none"
+      >
         <DialogTitle className="text-sm font-black uppercase tracking-wider text-zinc-700">
           {title}
         </DialogTitle>
-        <div className="mx-auto w-full max-w-[512px] rounded-xl bg-white p-4 shadow-xs" data-qr-panel>
+        {context?.filter(Boolean).length ? (
+          <p className="text-sm font-semibold text-zinc-800">{context.filter(Boolean).join(" · ")}</p>
+        ) : null}
+        <div className="mx-auto w-full max-w-[512px] rounded-xl bg-white p-2 shadow-xs" data-qr-panel>
           <DialogClose asChild>
             <button
               type="button"
@@ -81,6 +104,10 @@ interface QrSvgProps {
   title: string;
   /** Brightness hint shown under the enlarged code. */
   hint: string;
+  /** Optional guest/event context for templates that need it in the expanded pass. */
+  context?: readonly string[];
+  /** Portal into an enclosing native dialog to preserve its top-layer focus trap. */
+  portalIntoNearestDialog?: boolean;
   /** Small (trigger) pixel size. Defaults to 200. */
   triggerSize?: number;
   /** Enlarged pixel size. Defaults to 512. */
@@ -101,6 +128,8 @@ export function ExpandableSvgQr({
   openLabel,
   title,
   hint,
+  context,
+  portalIntoNearestDialog = false,
   triggerSize = 200,
   largeSize = EXPANDABLE_QR_LARGE_SIZE,
   dark = "#09090b",
@@ -139,6 +168,8 @@ export function ExpandableSvgQr({
       openLabel={openLabel}
       title={title}
       hint={hint}
+      context={context}
+      portalIntoNearestDialog={portalIntoNearestDialog}
       trigger={
         <span
           className={`inline-block ${className}`}

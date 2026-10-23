@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,9 @@ interface Props {
   imageClassName?: string;
   /** Mobile page-edge gutter; set only for unframed gallery photos. */
   mobileBleedGutter?: InvitationGalleryBleedGutter;
+  /** Optional presentation classes used by the shared block renderer. */
+  gridClassName?: string;
+  figureClassName?: (index: number) => string;
 }
 
 export function InvitationGalleryGrid({
@@ -44,7 +48,10 @@ export function InvitationGalleryGrid({
   lightboxCaptionClassName = "text-xs text-white/80",
   imageClassName = "",
   mobileBleedGutter,
+  gridClassName = "columns-1 gap-4 sm:columns-2 md:columns-3",
+  figureClassName,
 }: Props) {
+  const t = useTranslations("Events");
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const touchStartX = useRef<number | null>(null);
 
@@ -84,23 +91,26 @@ export function InvitationGalleryGrid({
   return (
     <>
       <div className={cn(
-        "columns-1 gap-4 sm:columns-2 md:columns-3",
+        gridClassName,
         mobileBleedGutter ? invitationMobileGalleryBleedClassName(mobileBleedGutter) : "",
       )}>
         {images.map((img, idx) => {
           const visibleCaption = img.caption || img.alt || null;
+          const fallbackAlt = t("invitationGalleryPhotoAlt", { index: idx + 1 });
           return (
-            <figure key={idx} className="mb-4 break-inside-avoid">
+            <figure key={idx} className={cn("mb-4 break-inside-avoid", figureClassName?.(idx))}>
               <button
                 type="button"
                 onClick={() => setActiveIdx(idx)}
                 className="block w-full cursor-pointer text-left"
-                aria-label={`Open photo ${idx + 1}${visibleCaption ? `: ${visibleCaption}` : ""}`}
+                aria-label={visibleCaption
+                  ? t("invitationGalleryOpenPhotoCaption", { index: idx + 1, caption: visibleCaption })
+                  : t("invitationGalleryOpenPhoto", { index: idx + 1 })}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={img.url}
-                  alt={img.alt || img.caption || `Gallery photo ${idx + 1}`}
+                  alt={img.alt || img.caption || fallbackAlt}
                   loading="lazy"
                   className={cn(invitationImageClassName("contained"), imageClassName)}
                 />
@@ -124,7 +134,7 @@ export function InvitationGalleryGrid({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Photo ${activeIdx + 1} of ${images.length}`}
+          aria-label={t("invitationGalleryDialogLabel", { index: activeIdx + 1, total: images.length })}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm touch-none select-none"
           onClick={() => setActiveIdx(null)}
           onTouchStart={handleTouchStart}
@@ -134,7 +144,7 @@ export function InvitationGalleryGrid({
             type="button"
             onClick={() => setActiveIdx(null)}
             className="absolute top-4 right-4 p-3 rounded-full text-white bg-white/10 hover:bg-white/20 z-50"
-            aria-label="Close photo preview"
+            aria-label={t("invitationGalleryClose")}
           >
             <X className="w-5 h-5" />
           </button>
@@ -173,7 +183,7 @@ export function InvitationGalleryGrid({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={images[activeIdx].url}
-              alt={images[activeIdx].alt || images[activeIdx].caption || "Gallery preview"}
+              alt={images[activeIdx].alt || images[activeIdx].caption || t("invitationGalleryPhotoAlt", { index: activeIdx + 1 })}
               className={invitationImageClassName("contained", "max-h-[70vh] w-auto")}
             />
             {(images[activeIdx].caption || images[activeIdx].alt) && (

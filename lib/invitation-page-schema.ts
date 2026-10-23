@@ -12,6 +12,7 @@ import { MAX_MUSIC_LINKS, validateMusicLink } from "@/lib/invitation-music-links
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 import { InvitationBlocksLayoutSchema } from "@/lib/invitation-template-schema";
 import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
+import { isValidStorageImageUrl } from "@/lib/invitation-image-url";
 
 // Helpers for safe URLs
 const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
@@ -22,18 +23,7 @@ export function isValidHttpUrl(url: string | null | undefined): boolean {
   return HTTP_OR_HTTPS_REGEX.test(url.trim());
 }
 
-export function isValidStorageImageUrl(url: string | null | undefined): boolean {
-  if (!url || typeof url !== "string") return false;
-  const trimmed = url.trim();
-  // Allow project storage public URL, relative project paths (/images/...), or standard data URLs if needed
-  return (
-    trimmed.includes("/storage/v1/object/public/cms-media/") ||
-    trimmed.includes("/storage/v1/object/public/event-banners/") ||
-    trimmed.startsWith("/images/") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://")
-  );
-}
+export { isValidStorageImageUrl } from "@/lib/invitation-image-url";
 
 export function isValidStorageAudioUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== "string") return false;
@@ -71,6 +61,7 @@ export const ScheduleItemSchema = z.object({
   badge: z.string().max(40, "Badge must be at most 40 characters").optional().nullable(),
   day: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
   dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
+  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift", "hand"]).optional().nullable(),
 }).refine((item) => Boolean(item.title || item.label), {
   message: "Event title is required",
   path: ["title"],
@@ -87,8 +78,15 @@ export const GalleryItemSchema = z.object({
 
 export const VenueItemSchema = z.object({
   label: z.string().min(1, "Venue label is required (e.g. Ceremony)").max(30, "Label must be at most 30 characters"),
-  name: z.string().min(1, "Venue name is required").max(150, "Name must be at most 150 characters"),
+  name: z.string().max(150, "Name must be at most 150 characters").optional().nullable(),
   address: z.string().max(200, "Address must be at most 200 characters").optional().nullable(),
+  time: z.string().max(40, "Venue time must be at most 40 characters").optional().nullable(),
+  mapUrl: z.string().max(500, "Map URL must be at most 500 characters")
+    .url("Map URL must be a valid HTTPS URL")
+    .refine((value) => {
+      try { return new URL(value).protocol === "https:"; } catch { return false; }
+    }, "Map URL must use HTTPS")
+    .optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
 });
@@ -185,12 +183,26 @@ export const InvitationPageDraftSchema = z.object({
 
   schedule: z.array(ScheduleItemSchema).max(15, "Schedule can have at most 15 items").optional().nullable(),
   gallery: z.array(GalleryItemSchema).max(12, "Gallery can have at most 12 photos").optional().nullable(),
-  venues: z.array(VenueItemSchema).max(3, "Multiple venues list can have at most 3 locations").optional().nullable(),
+  venues: z.array(VenueItemSchema).optional().nullable(),
   accommodations: z.array(AccommodationItemSchema).max(6, "Accommodations list can have at most 6 stays").optional().nullable(),
   colors_of_the_day: z.array(ColorOfTheDaySchema).max(5, "Colors of the day can have at most 5 swatches").optional().nullable(),
-  wedding_story: z.array(WeddingStoryItemSchema).max(4, "Our story can have at most 4 chapters").optional().nullable(),
+  wedding_story: z.array(WeddingStoryItemSchema).optional().nullable(),
 }).superRefine((draft, ctx) => {
   const definition = getInvitationTemplateDefinition(draft.template_id);
+  const isEvergreen = draft.template_id === "evergreen-envelope";
+  if ((draft.venues?.length ?? 0) > (isEvergreen ? 8 : 3)) {
+    ctx.addIssue({ code: "custom", path: ["venues"], message: `This template supports at most ${isEvergreen ? 8 : 3} venue locations.` });
+  }
+  if (!isEvergreen) {
+    draft.venues?.forEach((venue, index) => {
+      if (!venue.name?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["venues", index, "name"], message: "Venue name is required." });
+      }
+    });
+  }
+  if ((draft.wedding_story?.length ?? 0) > (isEvergreen ? 8 : 4)) {
+    ctx.addIssue({ code: "custom", path: ["wedding_story"], message: `This template supports at most ${isEvergreen ? 8 : 4} story moments.` });
+  }
   if (!definition || !draft.blocks_layout) return;
 
   const theme = draft.blocks_layout.global_theme;

@@ -262,7 +262,13 @@ export async function publishInvitationPage(
 
   // 3. Validate for publishing
   const publishMusic = filterSupportedMusicLinks(draftRow.music_links);
-  const publishDraft = { ...draftRow, music_links: publishMusic.links };
+  const publishDraft = {
+    ...draftRow,
+    music_links: publishMusic.links,
+    blocks_layout: draftRow.template_id === "evergreen-envelope"
+      ? legacyInvitationTemplateToLayout(draftRow.template_id, draftRow.blocks_layout)
+      : draftRow.blocks_layout,
+  };
   const validation = validateForPublish(publishDraft, event, locale);
   if (!validation.valid) {
     return {

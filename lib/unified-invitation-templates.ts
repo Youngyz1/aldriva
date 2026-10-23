@@ -69,6 +69,18 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
     pageId: "botanical-reverie",
     blurb: "Layered garden stationery with an envelope reveal and editorial wedding details.",
   },
+  // TODO: Revisit the share-preview card slug; Evergreen currently uses botanical-reverie.
+  {
+    id: "evergreen-envelope@1.0.0",
+    baseId: "evergreen-envelope",
+    name: "Evergreen Envelope",
+    nameKey: "unifiedEvergreenEnvelopeName",
+    categoryLabel: "Wedding & Formal",
+    occasion: "wedding",
+    cardSlug: "botanical-reverie",
+    pageId: "evergreen-envelope",
+    blurb: "An olive and cream envelope reveal with layered photo stationery and wedding details.",
+  },
   {
     id: "luxe-editorial@1.0.0",
     baseId: "luxe-editorial",
@@ -131,6 +143,7 @@ export const UNIFIED_TEMPLATE_NAME_KEYS = {
   "royal-elegance": "unifiedRoyalEleganceName",
   "romantic-envelope": "unifiedRomanticEnvelopeName",
   "botanical-reverie": "unifiedBotanicalReverieName",
+  "evergreen-envelope": "unifiedEvergreenEnvelopeName",
   "luxe-editorial": "unifiedLuxeEditorialName",
   "festive-gold-noir": "unifiedFestiveGoldNoirName",
   "grand-gala-noir": "unifiedGrandGalaNoirName",

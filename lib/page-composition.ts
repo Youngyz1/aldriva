@@ -64,6 +64,16 @@ export const PAGE_THEME_PRESETS = {
       button: "bg-[#365746] text-[#fffdf7] hover:bg-[#284434]",
     },
   },
+  evergreen: {
+    classes: {
+      page: "min-h-screen bg-[#f7f5e9] text-[#48533a]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#48533a]",
+      body: "font-serif text-[#68705d]",
+      card: "border border-[#d9ddc6] bg-[#fffdf4] shadow-sm",
+      button: "rounded-full bg-[#7d8b48] text-white hover:bg-[#69763a]",
+    },
+  },
   birthday: {
     classes: {
       page: "min-h-screen bg-amber-50 text-zinc-950",
@@ -323,6 +333,10 @@ export function themeForInvitationTemplate(templateId: string): PageGlobalTheme 
     ...(templateId === "botanical-reverie" ? {
       palette_id: "palette-botanical",
       font_pack_id: "font-serif-editorial",
+    } : {}),
+    ...(templateId === "evergreen-envelope" ? {
+      palette_id: "palette-evergreen",
+      font_pack_id: "font-script",
     } : {}),
   };
 }

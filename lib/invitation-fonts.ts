@@ -96,5 +96,12 @@ export async function loadInvitationFonts(fontFamilies: string[] = ["Cinzel", "P
     );
   }
 
+  // Great Vibes (SIL OFL 1.1) — script accent face for the Evergreen
+  // Envelope template card. Single 400 weight; no bold file ships.
+  if (requested.has("great vibes") || requested.has("greatvibes")) {
+    const greatVibes = await loadFontFile("GreatVibes-Regular.ttf");
+    fonts.push({ name: "Great Vibes", data: greatVibes, weight: 400, style: "normal" });
+  }
+
   return fonts;
 }

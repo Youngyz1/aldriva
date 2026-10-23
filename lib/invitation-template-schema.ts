@@ -1,6 +1,7 @@
 /** Invitation-only validation layered over the shared business/page envelope. */
 import { z } from "zod";
 import { isRecord, PageBlocksLayoutSchema } from "@/lib/page-composition";
+import { isValidCmsMediaPublicImageUrl } from "@/lib/invitation-image-url";
 import {
   INVITATION_DETAILS_PRESENTATIONS,
   INVITATION_BINDING_PATHS,
@@ -111,6 +112,76 @@ const InvitationEffectSchema = z.discriminatedUnion("type", [
   }).strict(),
 ]);
 
+const CmsMediaPhotoSchema = z.string().max(1200).refine(
+  isValidCmsMediaPublicImageUrl,
+  "Evergreen photos must use an HTTPS public cms-media URL.",
+).nullable().optional();
+
+const FocalPointSchema = z.object({
+  x: z.number().int().min(0).max(100),
+  y: z.number().int().min(0).max(100),
+}).strict();
+
+const EvergreenEnvelopeTemplateDataSchema = z.object({
+  show_gate: z.boolean().optional(),
+  show_cover: z.boolean().optional(),
+  show_invitation_card: z.boolean().optional(),
+  show_countdown_photos: z.boolean().optional(),
+  show_venues: z.boolean().optional(),
+  show_schedule: z.boolean().optional(),
+  show_dress_code: z.boolean().optional(),
+  show_story: z.boolean().optional(),
+  show_accommodations_photos: z.boolean().optional(),
+  show_closing_photo: z.boolean().optional(),
+  show_rsvp: z.boolean().optional(),
+  show_location_map: z.boolean().optional(),
+  gate_intro: z.string().max(200).nullable().optional(),
+  gate_heading: z.string().max(100).nullable().optional(),
+  envelope_card_one_type: z.enum(["photo", "text"]).optional(),
+  envelope_card_two_type: z.enum(["photo", "text"]).optional(),
+  envelope_card_one_title: z.string().max(100).nullable().optional(),
+  envelope_card_one_body: z.string().max(300).nullable().optional(),
+  envelope_card_two_title: z.string().max(100).nullable().optional(),
+  envelope_card_two_body: z.string().max(300).nullable().optional(),
+  invitation_line: z.string().max(200).nullable().optional(),
+  venues_heading: z.string().max(100).nullable().optional(),
+  wishing_well_note: z.string().max(500).nullable().optional(),
+  story_forever_word: z.string().max(40).nullable().optional(),
+  closing_caption: z.string().max(200).nullable().optional(),
+  rsvp_intro: z.string().max(500).nullable().optional(),
+  rsvp_deadline: z.string().max(80).nullable().optional(),
+  parents_line: z.string().max(200).nullable().optional(),
+  dress_code_swatches: z.array(z.object({
+    name: z.string().max(30).nullable().optional(),
+    hex: z.string().regex(/^#?[0-9a-fA-F]{6}$/),
+  }).strict()).max(5).nullable().optional(),
+  adults_only_note: z.string().max(300).nullable().optional(),
+  monogram_initials: z.string().max(8).nullable().optional(),
+  album_url: z.string().max(500).url().nullable().optional(),
+  show_wishing_well: z.boolean().optional(),
+  show_adults_only: z.boolean().optional(),
+  envelope_photo_url: CmsMediaPhotoSchema,
+  envelope_photo_two_url: CmsMediaPhotoSchema,
+  cover_photo_url: CmsMediaPhotoSchema,
+  polaroid_photo_one_url: CmsMediaPhotoSchema,
+  polaroid_photo_two_url: CmsMediaPhotoSchema,
+  story_photo_one_url: CmsMediaPhotoSchema,
+  story_photo_two_url: CmsMediaPhotoSchema,
+  closing_photo_url: CmsMediaPhotoSchema,
+  rsvp_photo_url: CmsMediaPhotoSchema,
+  photo_focal_points: z.object({
+    envelope_photo_url: FocalPointSchema.optional(),
+    envelope_photo_two_url: FocalPointSchema.optional(),
+    cover_photo_url: FocalPointSchema.optional(),
+    polaroid_photo_one_url: FocalPointSchema.optional(),
+    polaroid_photo_two_url: FocalPointSchema.optional(),
+    story_photo_one_url: FocalPointSchema.optional(),
+    story_photo_two_url: FocalPointSchema.optional(),
+    closing_photo_url: FocalPointSchema.optional(),
+    rsvp_photo_url: FocalPointSchema.optional(),
+  }).strict().nullable().optional(),
+}).strict();
+
 /**
  * Versioned JSON configuration accepted for invitation pages. The generic
  * PageBlocksLayoutSchema remains broader for business-site block adapters.
@@ -119,6 +190,7 @@ export const InvitationBlocksLayoutSchema = PageBlocksLayoutSchema
   .extend({
     layout_blocks: z.array(InvitationBlockSchema).max(120),
     effects: z.array(InvitationEffectSchema).max(INVITATION_EFFECT_TYPES.length).optional(),
+    template_data: EvergreenEnvelopeTemplateDataSchema.optional(),
   })
   .superRefine((layout, ctx) => {
     const effectTypes = new Set<string>();

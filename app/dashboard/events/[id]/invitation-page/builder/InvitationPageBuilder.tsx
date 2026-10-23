@@ -45,6 +45,8 @@ import { HeroSection } from "./sections/HeroSection";
 import { StorySection } from "./sections/StorySection";
 import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
+import { EvergreenPhotosSection } from "./sections/EvergreenPhotosSection";
+import { EvergreenDetailsSection } from "./sections/EvergreenDetailsSection";
 import { MusicSection } from "./sections/MusicSection";
 import { ExtrasSection } from "./sections/ExtrasSection";
 import { DesignSection } from "./sections/DesignSection";
@@ -65,7 +67,9 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
   return {
     template_id: d.template_id ?? "gala-editorial",
     locale: d.locale ?? "en",
-    blocks_layout: d.blocks_layout ?? null,
+    blocks_layout: d.template_id === "evergreen-envelope" && d.blocks_layout
+      ? legacyInvitationTemplateToLayout(d.template_id, d.blocks_layout)
+      : d.blocks_layout ?? null,
     display_title: d.display_title ?? null,
     eyebrow: d.eyebrow ?? null,
     host_names: d.host_names ?? null,
@@ -106,6 +110,7 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
           badge: s.badge ?? null,
           day: s.day ?? s.dayLabel ?? null,
           dayLabel: s.dayLabel ?? s.day ?? null,
+          icon: s.icon ?? null,
         }))
       : null,
     gallery: d.gallery ?? null,
@@ -124,6 +129,8 @@ const SECTION_IDS = [
   "hero",
   "story",
   "details",
+  "evergreen",
+  "photos",
   "gallery",
   "music",
   "extras",
@@ -140,6 +147,8 @@ const SECTION_TITLES: Record<SectionId, string> = {
   hero: "Hero",
   story: "Story",
   details: "Details & Schedule",
+  evergreen: "Evergreen details",
+  photos: "Photos",
   gallery: "Gallery",
   music: "Music",
   extras: "Special fields",
@@ -168,6 +177,7 @@ const TYPE_FIELD_MESSAGE_KEYS = {
   "Age milestone": "invitationTypeFieldAgeMilestone",
   "Party theme": "invitationTypeFieldPartyTheme",
   "Gift note": "invitationTypeFieldGiftNote",
+  "Evergreen details and photos": "invitationTypeFieldEvergreenDetails",
 } as const;
 
 interface SectionBodyProps {
@@ -202,6 +212,10 @@ function SectionBody({
       return <StorySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "details":
       return <DetailsSection draft={draft} event={event} updateDraft={updateDraft} />;
+    case "evergreen":
+      return <EvergreenDetailsSection draft={draft} updateDraft={updateDraft} />;
+    case "photos":
+      return <EvergreenPhotosSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "gallery":
       return <GallerySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "music":
@@ -260,6 +274,17 @@ function summaryFor(
       return draft.venue_name || draft.address || "No venue override";
     case "gallery":
       return `${draft.gallery?.length ?? 0} / 12 photos`;
+    case "evergreen":
+      return "Template-specific details";
+    case "photos": {
+      const photos = draft.blocks_layout?.template_data;
+      const count = [
+        photos?.envelope_photo_url, photos?.cover_photo_url, photos?.polaroid_photo_one_url,
+        photos?.polaroid_photo_two_url, photos?.story_photo_one_url, photos?.story_photo_two_url,
+        photos?.closing_photo_url, photos?.rsvp_photo_url,
+      ].filter(Boolean).length;
+      return `${count} / 8 photos`;
+    }
     case "music":
       return musicSummary;
     case "extras":
@@ -481,19 +506,27 @@ export function InvitationPageBuilder({
     setInvitationType(pendingTypeChange.type);
     // Confirmation is the type save point; until now only the iframe used
     // the candidate page. Values remain on the draft while visibility changes.
-    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: null });
+    const evergreenData = draft.blocks_layout?.template_data;
+    const blocksLayout = evergreenData
+      ? { ...legacyInvitationTemplateToLayout(pendingTypeChange.pageId), template_data: evergreenData }
+      : null;
+    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: blocksLayout });
     setCandidatePreviewTemplateId(null);
     setPendingTypeChange(null);
     setOpenSection(null);
     requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
-  }, [pendingTypeChange, updateDraft]);
+  }, [draft.blocks_layout, pendingTypeChange, updateDraft]);
 
   const handleUnifiedTemplateApplied = useCallback((pageId: string) => {
     setInvitationType(invitationTypeForTemplate(pageId));
-    if (pageId !== "romantic-envelope") {
+    if (pageId !== "romantic-envelope" && pageId !== "evergreen-envelope") {
       if (draft.template_id === pageId) return;
       skipTemplateAutosaveRef.current = pageId;
-      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: null }));
+      const evergreenData = draft.blocks_layout?.template_data;
+      const blocksLayout = evergreenData
+        ? { ...legacyInvitationTemplateToLayout(pageId), template_data: evergreenData }
+        : null;
+      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: blocksLayout }));
       return;
     }
 
@@ -707,12 +740,12 @@ export function InvitationPageBuilder({
             mobileView === "preview" && "hidden lg:block"
           )}
         >
-          {SECTION_IDS.map((id, i) => (
+          {SECTION_IDS.filter((id) => (id !== "photos" && id !== "evergreen") || draft.template_id === "evergreen-envelope").map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
               index={i}
-              title={SECTION_TITLES[id]}
+              title={id === "photos" ? t("evergreenPhotosGroup") : id === "evergreen" ? t("evergreenDetailsGroup") : SECTION_TITLES[id]}
               summary={summaryFor(draft, id, typeSummary, templateSummary, musicSummary)}
               open={openSection === id}
               onToggle={toggleSection}

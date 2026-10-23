@@ -7,6 +7,7 @@
  */
 
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import type { InvitationScheduleItem, InvitationVenueItem } from "@/types/invitation-template";
@@ -19,8 +20,14 @@ interface Props {
 }
 
 export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
+  const t = useTranslations("Events");
+  const isEvergreen = draft.template_id === "evergreen-envelope";
   const schedule = draft.schedule || [];
-  const venues = draft.venues || [];
+  const venues = draft.venues ?? (isEvergreen ? [
+    { label: t("evergreenCeremony"), name: event.venue ?? "", address: event.street_address ?? "" },
+    { label: t("evergreenReception"), name: "" },
+  ] : []);
+  const maxVenues = isEvergreen ? 8 : 3;
 
   const handleAddScheduleItem = () => {
     if (schedule.length >= 15) return;
@@ -46,10 +53,12 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
   };
 
   const handleAddVenueItem = () => {
-    if (venues.length >= 3) return;
+    if (venues.length >= maxVenues) return;
     const newItem: InvitationVenueItem = {
-      label: "Ceremony",
-      name: "Grand Ballroom",
+      label: isEvergreen
+        ? venues.length === 0 ? t("evergreenCeremony") : venues.length === 1 ? t("evergreenReception") : t("evergreenVenueNumber", { number: venues.length + 1 })
+        : "Ceremony",
+      name: isEvergreen ? "" : "Grand Ballroom",
       address: "",
     };
     updateDraft({ venues: [...venues, newItem] });
@@ -134,17 +143,17 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
       <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-bold text-zinc-900">Multiple Locations (Max 3)</h3>
-            <p className="text-[11px] text-zinc-500">For events split across multiple venues (e.g. Ceremony & Reception).</p>
+            <h3 className="text-xs font-bold text-zinc-900">{isEvergreen ? t("evergreenVenuesBuilderHeading") : "Multiple Locations (Max 3)"}</h3>
+            <p className="text-[11px] text-zinc-500">{isEvergreen ? t("evergreenVenuesBuilderHelp") : "For events split across multiple venues (e.g. Ceremony & Reception)."}</p>
           </div>
-          {venues.length < 3 && (
+          {venues.length < maxVenues && (
             <button
               type="button"
               disabled={disabled}
               onClick={handleAddVenueItem}
               className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
             >
-              <Plus size={13} /> Add Venue
+              <Plus size={13} /> {isEvergreen ? t("evergreenAddVenue") : "Add Venue"}
             </button>
           )}
         </div>
@@ -165,7 +174,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
               maxLength={150}
               disabled={disabled}
               placeholder="Venue Name (e.g. St. Patrick Cathedral)"
-              value={v.name}
+              value={v.name ?? ""}
               onChange={(e) => handleUpdateVenueItem(i, { name: e.target.value })}
               className="w-full sm:w-1/3 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
             />
@@ -178,6 +187,34 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
               onChange={(e) => handleUpdateVenueItem(i, { address: e.target.value })}
               className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
             />
+            {draft.template_id === "evergreen-envelope" ? (
+              <>
+                <label className="sr-only" htmlFor={`evergreen-venue-time-${i}`}>{t("evergreenVenueTime")}</label>
+                <input
+                  id={`evergreen-venue-time-${i}`}
+                  type="text"
+                  maxLength={40}
+                  disabled={disabled}
+                  placeholder={t("evergreenVenueTime")}
+                  value={v.time ?? ""}
+                  onChange={(e) => handleUpdateVenueItem(i, { time: e.target.value || null })}
+                  className="w-full sm:w-28 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+                />
+                <label className="sr-only" htmlFor={`evergreen-venue-map-${i}`}>{t("evergreenVenueMapUrl")}</label>
+                <input
+                  id={`evergreen-venue-map-${i}`}
+                  type="url"
+                  maxLength={500}
+                  disabled={disabled}
+                  placeholder={t("evergreenVenueMapUrl")}
+                  title={t("evergreenMapUrlError")}
+                  pattern="https://.*"
+                  value={v.mapUrl ?? ""}
+                  onChange={(e) => handleUpdateVenueItem(i, { mapUrl: e.target.value || null })}
+                  className="w-full sm:w-44 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+                />
+              </>
+            ) : null}
             <button
               type="button"
               disabled={disabled}
@@ -258,6 +295,25 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
                 <Trash2 size={14} />
               </button>
             </div>
+            {draft.template_id === "evergreen-envelope" ? (
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-600">
+                <span>{t("evergreenScheduleIconLabel")}</span>
+                <select
+                  value={item.icon ?? ""}
+                  disabled={disabled}
+                  onChange={(event) => handleUpdateScheduleItem(i, { icon: (event.target.value || null) as InvitationScheduleItem["icon"] })}
+                  className="min-w-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+                >
+                  <option value="">{t("evergreenScheduleIconNone")}</option>
+                  <option value="dining">{t("evergreenScheduleIconDining")}</option>
+                  <option value="champagne">{t("evergreenScheduleIconChampagne")}</option>
+                  <option value="cake">{t("evergreenScheduleIconCake")}</option>
+                  <option value="dancing">{t("evergreenScheduleIconDancing")}</option>
+                  <option value="gift">{t("evergreenScheduleIconGift")}</option>
+                  <option value="hand">{t("evergreenScheduleIconHand")}</option>
+                </select>
+              </label>
+            ) : null}
             <input
               type="text"
               maxLength={200}

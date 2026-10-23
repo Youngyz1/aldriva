@@ -2,6 +2,8 @@ import type { InvitationPageData } from "@/types/invitation-template";
 import {
   BOTANICAL_REVERIE_SAMPLE_DATA,
   BIRTHDAY_INVITATION_SAMPLE_DATA,
+  EVERGREEN_ENVELOPE_SAMPLE_DATA,
+  EVERGREEN_ENVELOPE_SAMPLE_DATA_FR,
   FULL_INVITATION_SAMPLE_DATA,
   WEDDING_INVITATION_SAMPLE_DATA,
 } from "@/components/invitation/templates/invitation-sample-data";
@@ -9,6 +11,7 @@ import { assembleInvitationPageData, type EventLiveFields, type InvitationPageSn
 import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
 
 const SAMPLE_DATA_BY_TEMPLATE: Record<string, InvitationPageData> = {
+  "evergreen-envelope": EVERGREEN_ENVELOPE_SAMPLE_DATA,
   "botanical-reverie": BOTANICAL_REVERIE_SAMPLE_DATA,
   "luxe-editorial": WEDDING_INVITATION_SAMPLE_DATA,
   "wedding-romantic": WEDDING_INVITATION_SAMPLE_DATA,
@@ -27,9 +30,21 @@ const NON_CONTENT_FIELDS = new Set([
   "locale",
 ]);
 
-// A builder draft with an empty story must stay empty in preview. Sample
-// stories made the editor show paragraphs and images that were not saved.
-const STORY_FIELDS = new Set(["storyHeadline", "storyText", "storyImage", "weddingStory"]);
+const PHOTO_FIELDS = new Set([
+  "heroImage",
+  "storyImage",
+  "gallery",
+  "weddingStory",
+  "envelopePhoto",
+  "envelopePhotoTwo",
+  "coverPhoto",
+  "polaroidPhotoOne",
+  "polaroidPhotoTwo",
+  "storyPhotoOne",
+  "storyPhotoTwo",
+  "closingPhoto",
+  "rsvpPhoto",
+]);
 
 function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
@@ -52,13 +67,52 @@ export function mergeInvitationTemplatePreviewData(
   templateId: string,
   realData: InvitationPageData
 ): InvitationTemplatePreviewData {
-  const sample = SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
+  const sample = templateId === "evergreen-envelope" && realData.locale === "fr"
+    ? EVERGREEN_ENVELOPE_SAMPLE_DATA_FR
+    : SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
   const data: Record<string, unknown> = { ...realData };
   const sampleFields: string[] = [];
   const hasMusicLink = Array.isArray(data.musicLinks) && data.musicLinks.length > 0;
+  const hasOrganizerPhoto = Boolean(
+    [
+      data.heroImage,
+      data.storyImage,
+      data.envelopePhoto,
+      data.envelopePhotoTwo,
+      data.coverPhoto,
+      data.polaroidPhotoOne,
+      data.polaroidPhotoTwo,
+      data.storyPhotoOne,
+      data.storyPhotoTwo,
+      data.closingPhoto,
+      data.rsvpPhoto,
+      ...(Array.isArray(data.gallery) ? data.gallery.map((item) => (item as { url?: unknown })?.url) : []),
+      ...(Array.isArray(data.weddingStory)
+        ? data.weddingStory.map((item) => (item as { image?: unknown })?.image)
+        : []),
+    ].some((value) => typeof value === "string" && value.trim().length > 0)
+  );
+  const hasOrganizerVenue = Boolean(
+    realData.venue?.trim()
+    || realData.address?.trim()
+    || realData.venues?.some((venue) => [venue.name, venue.address, venue.time, venue.mapUrl]
+      .some((value) => typeof value === "string" && value.trim().length > 0))
+  );
+  const hasOrganizerPartnerNames = Boolean(realData.partner1Name?.trim() || realData.partner2Name?.trim());
 
   for (const [key, sampleValue] of Object.entries(sample)) {
-    if (NON_CONTENT_FIELDS.has(key) || STORY_FIELDS.has(key) || isEmpty(sampleValue)) continue;
+    if (NON_CONTENT_FIELDS.has(key) || isEmpty(sampleValue)) continue;
+    // Venue arrays and event-level venue fields are one semantic field. A
+    // sample Ceremony/Reception pair must never hide an organizer's flat venue.
+    if (templateId === "evergreen-envelope" && key === "venues" && hasOrganizerVenue) continue;
+    // Avoid mixing one real partner name with one sample name, and let the
+    // template derive its monogram from organizer names when no override exists.
+    if (templateId === "evergreen-envelope" && hasOrganizerPartnerNames
+      && ["partner1Name", "partner2Name", "monogramInitials"].includes(key)) continue;
+    // A single organizer upload disables every sample photo fallback. Empty
+    // frames can then resolve to another real upload according to template
+    // precedence instead of silently displaying unrelated sample art.
+    if (hasOrganizerPhoto && PHOTO_FIELDS.has(key)) continue;
     // Sample audio would take precedence over a real provider link in the
     // floating control, making the builder preview appear unable to play it.
     if (hasMusicLink && (key === "musicAudioUrl" || key === "musicTitle")) continue;
@@ -70,10 +124,13 @@ export function mergeInvitationTemplatePreviewData(
     sampleFields.push(key);
   }
 
+  data.sampleFields = sampleFields;
+
   return { data: data as unknown as InvitationPageData, sampleFields };
 }
 
-export function getInvitationTemplateSampleData(templateId: string): InvitationPageData {
+export function getInvitationTemplateSampleData(templateId: string, locale: "en" | "fr" = "en"): InvitationPageData {
+  if (templateId === "evergreen-envelope" && locale === "fr") return EVERGREEN_ENVELOPE_SAMPLE_DATA_FR;
   return SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
 }
 

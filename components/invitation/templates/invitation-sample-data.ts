@@ -22,6 +22,7 @@
  */
 
 import { InvitationPageData, InvitationGalleryItem } from "@/types/invitation-template";
+import { INVITATION_SAMPLE_MEDIA } from "@/components/invitation/templates/invitation-sample-media";
 
 // ── Gala / Corporate Full Dataset ────────────────────────────────────────────
 export const FULL_INVITATION_SAMPLE_DATA: InvitationPageData = {
@@ -32,7 +33,7 @@ export const FULL_INVITATION_SAMPLE_DATA: InvitationPageData = {
   eyebrow: "An Exclusive Evening Celebration",
   hostNames: "Hosted by The Vanguard Foundation & Cultural Arts Guild",
   heroImage:
-    "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1511795409834,
   heroImageFocus: { x: 50, y: 40 },
   heroImageAlt: "Evening gala pavilion terrace floral arrangement",
   scrollPrompt: "Explore Invitation",
@@ -41,7 +42,7 @@ export const FULL_INVITATION_SAMPLE_DATA: InvitationPageData = {
   storyText:
     "We cordially invite you to join us for an extraordinary evening of music, contemporary arts, and philanthropy. Set within the iconic Glass Pavilion, this year's gala marks ten years of supporting emerging multidisciplinary artists.\n\nWe look forward to sharing this unforgettable milestone with our closest patrons and friends.",
   storyImage:
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1534528741775,
 
   venue: "The Glass Pavilion at Skyline Gardens",
   address: "742 Evergreen Promenade, Suite 1200",
@@ -84,27 +85,27 @@ export const FULL_INVITATION_SAMPLE_DATA: InvitationPageData = {
 
   gallery: [
     {
-      url: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1519741497674,
       caption: "The Grand Conservatory Dining Hall",
       aspect: "landscape",
     },
     {
-      url: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1469371670807,
       caption: "Evening ambiance and cocktail terrace",
       aspect: "portrait",
     },
     {
-      url: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1464366400600,
       caption: "The illuminated glass walkway at night",
       aspect: "landscape",
     },
     {
-      url: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1520854221256,
       caption: "Patron tables overlooking the city skyline",
       aspect: "square",
     },
     {
-      url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1533174072545,
       caption: "Live acoustic performances throughout the evening",
       aspect: "square",
     },
@@ -172,7 +173,7 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
   eyebrow: "The Holy Matrimony Of",
   hostNames: "Elena Vance & David Sterling",
   heroImage:
-    "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1519741497674,
   heroImageFocus: { x: 50, y: 30 },
   heroImageAlt: "Elena and David engagement portrait in golden hour sunlight",
   scrollPrompt: "Celebrate With Us",
@@ -181,18 +182,18 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
   storyText:
     "What started over a shared pot of pour-over coffee in Seattle grew into countless trail miles, shared laughter, and a love we are overjoyed to seal forever.\n\nWe would be honored by your presence as we make our vows before our dearest family and friends.",
   storyImage:
-    "https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=800&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1583939003579,
 
   weddingStory: [
     {
       title: "How We Met",
       text: "A rainy Tuesday afternoon at a quiet coffee house in Pike Place Market where a conversation about architecture lasted four hours.",
-      image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=600&auto=format&fit=crop",
+      image: INVITATION_SAMPLE_MEDIA.photo1511285560929,
     },
     {
       title: "The Proposal",
       text: "At twilight overlooking the Pacific bluffs in Big Sur, surrounded by coastal fog and our favorite music.",
-      image: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?q=80&w=600&auto=format&fit=crop",
+      image: INVITATION_SAMPLE_MEDIA.photo1469371670807,
     },
   ],
 
@@ -266,17 +267,17 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
 
   gallery: [
     {
-      url: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1519741497674,
       caption: "Elena and David in Big Sur",
       aspect: "portrait",
     },
     {
-      url: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1469371670807,
       caption: "Sunset along the coastal ridge",
       aspect: "landscape",
     },
     {
-      url: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1520854221256,
       caption: "Floral tasting preview",
       aspect: "square",
     },
@@ -320,6 +321,124 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
   token: "weddingtoken0123456789abcdef0123456789abcdef0123456789abcdef012345",
 };
 
+const EVERGREEN_SAMPLE_GUEST = {
+  name: "Honored Guest",
+  rsvpStatus: "pending" as const,
+  isVip: false,
+};
+
+const EVERGREEN_SAMPLE_PHOTO = "/images/invitations/evergreen-envelope/photo-placeholder.svg";
+const EVERGREEN_PHOTOS = {
+  envelopePhoto: EVERGREEN_SAMPLE_PHOTO,
+  coverPhoto: EVERGREEN_SAMPLE_PHOTO,
+  polaroidPhotoOne: EVERGREEN_SAMPLE_PHOTO,
+  polaroidPhotoTwo: EVERGREEN_SAMPLE_PHOTO,
+  storyPhotoOne: EVERGREEN_SAMPLE_PHOTO,
+  storyPhotoTwo: EVERGREEN_SAMPLE_PHOTO,
+  closingPhoto: EVERGREEN_SAMPLE_PHOTO,
+  rsvpPhoto: EVERGREEN_SAMPLE_PHOTO,
+};
+
+/** Sample-only English data for Evergreen Envelope. Never used for published guest data. */
+export const EVERGREEN_ENVELOPE_SAMPLE_DATA: InvitationPageData = {
+  ...WEDDING_INVITATION_SAMPLE_DATA,
+  ...EVERGREEN_PHOTOS,
+  heroImage: EVERGREEN_SAMPLE_PHOTO,
+  storyImage: EVERGREEN_SAMPLE_PHOTO,
+  gallery: [{ url: EVERGREEN_SAMPLE_PHOTO, alt: "Sample photo placeholder" }],
+  musicAudioUrl: null,
+  musicTitle: null,
+  musicLinks: [],
+  title: "A Wedding in the Garden",
+  partner1Name: "Mira Okafor",
+  partner2Name: "Tunde Adeyemi",
+  familyNote: "Together with their families",
+  parentsLine: "The Okafor and Adeyemi families",
+  eyebrow: "Our Wedding",
+  hostNames: "Mira Okafor & Tunde Adeyemi",
+  eventDate: "2027-02-20T14:00:00+01:00",
+  endDate: "2027-02-20T22:00:00+01:00",
+  timezone: "Africa/Lagos",
+  venue: "The Palm Courtyard",
+  address: "18 Oniru Road",
+  city: "Lagos, Nigeria",
+  latitude: undefined,
+  longitude: undefined,
+  venues: [
+    { label: "Ceremony", name: "The Palm Courtyard", address: "18 Oniru Road, Lagos, Nigeria", time: "2:00 PM" },
+    { label: "Reception", name: "Palm Courtyard Garden", address: "18 Oniru Road, Lagos, Nigeria", time: "4:00 PM" },
+  ],
+  dressCode: "Garden formal",
+  dressCodeNotes: "Soft natural tones are welcome.",
+  dressCodeSwatches: [
+    { name: "Sage", hex: "#879276" },
+    { name: "Ivory", hex: "#f3eddc" },
+    { name: "Olive", hex: "#667146" },
+  ],
+  schedule: [
+    { time: "2:00 PM", title: "Dinner", icon: "dining" },
+    { time: "3:00 PM", title: "Toast", icon: "champagne" },
+    { time: "4:00 PM", title: "Cake cutting", icon: "cake" },
+    { time: "5:00 PM", title: "Dancing", icon: "dancing" },
+    { time: "6:00 PM", title: "Thanks for coming!", icon: "hand" },
+  ],
+  storyHeadline: "Love wrote our story, and we’ll celebrate its most beautiful chapter in:",
+  storyText: "We met through friends, kept finding reasons to meet again, and are grateful to celebrate this next chapter with you.",
+  adultsOnlyNote: "We love your little ones, but this celebration is for adults.",
+  wishingWellNote: "Your presence is the greatest gift. If you wish, you may share a gift with us.",
+  storyForeverWord: "forever",
+  closingCaption: "We cannot wait to celebrate with you.",
+  rsvpIntro: "We are so excited to celebrate one of the most important days of our lives with you.",
+  rsvpDeadline: "February 1, 2027",
+  monogramInitials: "M & T",
+  albumUrl: "https://example.com/mira-and-tunde-album",
+  showWishingWell: true,
+  showAdultsOnly: true,
+  weddingStory: [
+    { title: "The beginning", text: "A conversation that turned into a friendship, then into home.", image: EVERGREEN_SAMPLE_PHOTO },
+    { title: "The question", text: "A quiet evening became a promise for every season ahead.", image: EVERGREEN_SAMPLE_PHOTO },
+  ],
+  guest: EVERGREEN_SAMPLE_GUEST,
+  token: "preview-sample-token",
+};
+
+/** French sample content for the same layout and photo frames. */
+export const EVERGREEN_ENVELOPE_SAMPLE_DATA_FR: InvitationPageData = {
+  ...EVERGREEN_ENVELOPE_SAMPLE_DATA,
+  locale: "fr",
+  title: "Un mariage au jardin",
+  eyebrow: "Le cœur rempli de joie",
+  hostNames: "Mira Okafor et Tunde Adeyemi",
+  familyNote: "Entourés de leurs familles",
+  parentsLine: "Avec l’amour et la bénédiction de nos familles",
+  dressCode: "Tenue élégante de jardin",
+  dressCodeNotes: "Les tons naturels et doux sont les bienvenus.",
+  dressCodeSwatches: [
+    { name: "Sauge", hex: "#879276" },
+    { name: "Ivoire", hex: "#f3eddc" },
+    { name: "Olive", hex: "#667146" },
+  ],
+  schedule: [
+    { time: "14 h 00", title: "Dîner", icon: "dining" },
+    { time: "15 h 00", title: "Toast", icon: "champagne" },
+    { time: "16 h 00", title: "Découpe du gâteau", icon: "cake" },
+    { time: "17 h 00", title: "Danse", icon: "dancing" },
+    { time: "18 h 00", title: "Merci d’être venus !", icon: "gift" },
+  ],
+  storyHeadline: "Notre histoire nous a menés à ce beau chapitre à célébrer ensemble :",
+  storyText: "Une rencontre par des amis, puis mille raisons de se revoir. Nous avons hâte de célébrer ce nouveau chapitre avec vous.",
+  adultsOnlyNote: "Nous aimons vos enfants, mais cette célébration est réservée aux adultes.",
+  wishingWellNote: "Votre présence est le plus beau des cadeaux. Si vous le souhaitez, vous pouvez nous offrir un cadeau.",
+  storyForeverWord: "pour toujours",
+  closingCaption: "Nous avons hâte de célébrer avec vous.",
+  rsvpIntro: "Nous sommes ravis de célébrer avec vous. Merci de répondre avant le 1er février 2027.",
+  albumUrl: "https://example.com/mira-and-tunde-album",
+  weddingStory: [
+    { title: "Le début", text: "Une conversation devenue amitié, puis un foyer.", image: EVERGREEN_PHOTOS.storyPhotoOne },
+    { title: "La demande", text: "Une soirée paisible devenue une promesse pour toutes les saisons.", image: EVERGREEN_PHOTOS.storyPhotoTwo },
+  ],
+};
+
 /** Local-art preview fixture for Botanical Reverie; no remote stock assets. */
 export const BOTANICAL_REVERIE_SAMPLE_DATA: InvitationPageData = {
   ...WEDDING_INVITATION_SAMPLE_DATA,
@@ -352,7 +471,7 @@ export const BIRTHDAY_INVITATION_SAMPLE_DATA: InvitationPageData = {
   eyebrow: "Let's Celebrate Maya!",
   hostNames: "Hosted by Maya, Sam & The Crew",
   heroImage:
-    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1514525253161,
   heroImageFocus: { x: 50, y: 50 },
   heroImageAlt: "Maya disco party lights and celebration setup",
   scrollPrompt: "Party Lineup & RSVP",
@@ -361,7 +480,7 @@ export const BIRTHDAY_INVITATION_SAMPLE_DATA: InvitationPageData = {
   storyText:
     "30 years of chaos, love, adventures, and bad karaoke choices! Come help me celebrate entering my favorite decade yet with disco beats, signature cocktails, and late-night tacos.\n\nNo gifts necessary — your energy on the dance floor is all I want!",
   storyImage:
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1534528741775,
 
   venue: "The Electric Palm Lounge & Rooftop",
   address: "420 Mission Boulevard",
@@ -411,17 +530,17 @@ export const BIRTHDAY_INVITATION_SAMPLE_DATA: InvitationPageData = {
 
   gallery: [
     {
-      url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1514525253161,
       caption: "Disco lights ready",
       aspect: "square",
     },
     {
-      url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1533174072545,
       caption: "Party vibes with the squad",
       aspect: "portrait",
     },
     {
-      url: "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?q=80&w=800&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1519671482749,
       caption: "Dancing under the lights",
       aspect: "landscape",
     },
@@ -464,7 +583,7 @@ export const MINIMAL_INVITATION_SAMPLE_DATA: InvitationPageData = {
   timezone: "America/Los_Angeles",
   eyebrow: "You're Invited",
   heroImage:
-    "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1506377247377,
 
   storyHeadline: "Harvest Gathering Welcome",
   storyText:
@@ -543,7 +662,7 @@ export const PORTRAIT_HERO_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   title: "Elena & Marcus — Wedding Celebration",
   heroImage:
-    "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1519741497674,
   heroImageFocus: { x: 50, y: 25 },
 };
 
@@ -551,7 +670,7 @@ export const LANDSCAPE_HERO_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   title: "Sunset Terrace Dedication",
   heroImage:
-    "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1600&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1506377247377,
   heroImageFocus: { x: 50, y: 60 },
 };
 
@@ -559,7 +678,7 @@ export const BRIGHT_PHOTO_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   title: "Midsummer White Party & Luncheon",
   heroImage:
-    "https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1519225421980,
   heroImageFocus: { x: 50, y: 50 },
 };
 
@@ -567,7 +686,7 @@ export const DARK_PHOTO_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   title: "Midnight Noir Philanthropy Gala",
   heroImage:
-    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1200&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1514525253161,
   heroImageFocus: { x: 50, y: 50 },
 };
 
@@ -575,7 +694,7 @@ export const LOWRES_PHOTO_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   title: "Intimate Fireside Dinner",
   heroImage:
-    "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=40&w=300&auto=format&fit=crop",
+    INVITATION_SAMPLE_MEDIA.photo1511285560929,
 };
 
 export const NO_HERO_IMAGE_SAMPLE_DATA: InvitationPageData = {
@@ -594,7 +713,7 @@ export const ONE_GALLERY_IMAGE_SAMPLE_DATA: InvitationPageData = {
   ...FULL_INVITATION_SAMPLE_DATA,
   gallery: [
     {
-      url: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop",
+      url: INVITATION_SAMPLE_MEDIA.photo1519741497674,
       caption: "The Grand Conservatory at Twilight",
       aspect: "landscape",
     },
@@ -602,18 +721,18 @@ export const ONE_GALLERY_IMAGE_SAMPLE_DATA: InvitationPageData = {
 };
 
 const TWELVE_IMAGES: InvitationGalleryItem[] = [
-  { url: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop", caption: "The Grand Conservatory", aspect: "landscape" },
-  { url: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?q=80&w=800&auto=format&fit=crop", caption: "Cocktail Terrace", aspect: "portrait" },
-  { url: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=800&auto=format&fit=crop", caption: "Glass Walkway", aspect: "landscape" },
-  { url: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?q=80&w=800&auto=format&fit=crop", caption: "Patron Tables", aspect: "square" },
-  { url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?q=80&w=800&auto=format&fit=crop", caption: "Live Acoustic Performance", aspect: "square" },
-  { url: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop", caption: "Floral Installations", aspect: "portrait" },
-  { url: "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?q=80&w=800&auto=format&fit=crop", caption: "Evening Guests", aspect: "landscape" },
-  { url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=800&auto=format&fit=crop", caption: "Crystal Chandelier", aspect: "portrait" },
-  { url: "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=800&auto=format&fit=crop", caption: "Vineyard Setting", aspect: "landscape" },
-  { url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop", caption: "Midnight Lighting", aspect: "square" },
-  { url: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=800&auto=format&fit=crop", caption: "Daylight Reception", aspect: "portrait" },
-  { url: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop", caption: "Grand Finale", aspect: "landscape" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1519741497674, caption: "The Grand Conservatory", aspect: "landscape" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1469371670807, caption: "Cocktail Terrace", aspect: "portrait" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1464366400600, caption: "Glass Walkway", aspect: "landscape" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1520854221256, caption: "Patron Tables", aspect: "square" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1533174072545, caption: "Live Acoustic Performance", aspect: "square" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1511795409834, caption: "Floral Installations", aspect: "portrait" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1519671482749, caption: "Evening Guests", aspect: "landscape" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1511285560929, caption: "Crystal Chandelier", aspect: "portrait" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1506377247377, caption: "Vineyard Setting", aspect: "landscape" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1514525253161, caption: "Midnight Lighting", aspect: "square" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1519225421980, caption: "Daylight Reception", aspect: "portrait" },
+  { url: INVITATION_SAMPLE_MEDIA.photo1470225620780, caption: "Grand Finale", aspect: "landscape" },
 ];
 
 export const TWELVE_GALLERY_IMAGES_SAMPLE_DATA: InvitationPageData = {

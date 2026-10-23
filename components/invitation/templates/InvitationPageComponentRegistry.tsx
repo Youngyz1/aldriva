@@ -33,6 +33,10 @@ const CUSTOM_INVITATION_PAGE_COMPONENTS = {
     import("@/components/invitation/templates/luxe-editorial/LuxeEditorialPageTemplate")
       .then((module) => ({ default: module.LuxeEditorialPageTemplate }))
   ),
+  "evergreen-envelope": lazy(() =>
+    import("@/components/invitation/templates/evergreen-envelope/EvergreenEnvelopePageTemplate")
+      .then((module) => ({ default: module.EvergreenEnvelopePageTemplate }))
+  ),
 } satisfies Record<CustomInvitationPageComponentId, LazyExoticComponent<ComponentType<InvitationCustomPageProps>>>;
 
 class InvitationTemplateErrorBoundary extends Component<

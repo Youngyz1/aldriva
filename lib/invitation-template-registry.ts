@@ -56,7 +56,7 @@ export type InvitationEffectConfig =
   | { type: "scroll-reveal"; enabled: boolean; durationMs: number }
   | { type: "falling-petals"; enabled: boolean; density: number };
 
-export type CustomInvitationPageComponentId = "romantic-envelope" | "botanical-reverie" | "luxe-editorial";
+export type CustomInvitationPageComponentId = "romantic-envelope" | "botanical-reverie" | "luxe-editorial" | "evergreen-envelope";
 export type InvitationPageRenderer =
   | { kind: "blocks" }
   | { kind: "custom"; componentId: CustomInvitationPageComponentId };
@@ -80,6 +80,10 @@ export const INVITATION_BINDING_PATHS = [
   "guest.title", "guest.organization", "guest.rsvpStatus", "guest.rsvpAt", "guest.isVip", "seat.label",
   "seat.tableNumber", "seat.tableName", "seat.isVip", "ticketInstance.qrCode", "ticketInstance.status",
   "ticketInstance.checkedInAt", "token",
+  "parents_line", "dress_code_swatches", "adults_only_note", "monogram_initials", "album_url",
+  "show_wishing_well", "show_adults_only", "envelope_photo_url", "envelope_photo_two_url", "cover_photo_url",
+  "polaroid_photo_one_url", "polaroid_photo_two_url", "story_photo_one_url", "story_photo_two_url",
+  "closing_photo_url", "rsvp_photo_url", "photo_focal_points",
 ] as const;
 
 export type InvitationBindingPath = (typeof INVITATION_BINDING_PATHS)[number];
@@ -100,7 +104,7 @@ export interface InvitationTemplateDefinition {
   detailsPresentation: InvitationDetailsPresentation;
   /** Optional image composition for the shared, data-bound gallery block. */
   galleryPresentation?: InvitationGalleryPresentation;
-  composition: "standard" | "romantic-envelope" | "botanical-reverie";
+  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope";
   defaultBlockTypes: readonly InvitationBlockType[];
   supportedBlockTypes: readonly InvitationBlockType[];
   /** Blocks restored when a legacy/saved layout omitted a required section. */
@@ -132,6 +136,11 @@ const STANDARD_SUPPORTED_BLOCKS = [
 
 const ROMANTIC_SUPPORTED_BLOCKS = [
   ...STANDARD_SUPPORTED_BLOCKS, "interactive_envelope", "romantic_hero",
+] as const satisfies readonly InvitationBlockType[];
+
+const EVERGREEN_SUPPORTED_BLOCKS = [
+  "interactive_envelope", "romantic_hero", "countdown", "story", "details",
+  "schedule", "gallery", "music", "action_portal",
 ] as const satisfies readonly InvitationBlockType[];
 
 /**
@@ -206,6 +215,25 @@ export const INVITATION_TEMPLATE_REGISTRY = {
       { type: "envelope-reveal", enabled: true, transitionDurationMs: 900 },
       { type: "scroll-reveal", enabled: true, durationMs: 650 },
       { type: "falling-petals", enabled: true, density: 4 },
+    ],
+  },
+  "evergreen-envelope": {
+    id: "evergreen-envelope", version: "1.0.0", name: "Evergreen Envelope", category: "wedding",
+    categoryLabel: "Wedding", description: "An olive and cream envelope reveal with layered photo stationery and wedding details.",
+    publicationStatus: "published", preview: { kind: "rendered-sample", sampleId: "evergreen-envelope" },
+    defaultThemePreset: "evergreen", detailsPresentation: "botanical", galleryPresentation: "botanical", composition: "evergreen-envelope",
+    pageRenderer: { kind: "custom", componentId: "evergreen-envelope" },
+    defaultBlockTypes: [
+      "interactive_envelope", "romantic_hero", "countdown", "story", "details", "schedule",
+      "gallery", "music", "action_portal",
+    ],
+    supportedBlockTypes: EVERGREEN_SUPPORTED_BLOCKS,
+    requiredBlockTypes: ["interactive_envelope", "romantic_hero", "countdown", "story", "details", "schedule"],
+    supportedCustomizations: STANDARD_CUSTOMIZATIONS,
+    supportedEffects: ["envelope-reveal", "scroll-reveal"],
+    defaultEffects: [
+      { type: "envelope-reveal", enabled: true, transitionDurationMs: 1000 },
+      { type: "scroll-reveal", enabled: true, durationMs: 650 },
     ],
   },
   "birthday-bold": {

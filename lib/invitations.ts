@@ -9,6 +9,19 @@ import { randomBytes, randomUUID } from "crypto";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
+import {
+  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
+  GuestInvitationColumnsUnavailableError,
+  isMissingGuestInvitationColumnsError,
+  LEGACY_GUEST_INVITATION_SELECT,
+  withEmptyGuestInvitationColumns,
+} from "@/lib/guest-invitation-columns";
+import {
+  buildRsvpInvitationUpdate,
+  InvitationNotFoundError,
+  normalizeRsvpDetails,
+  type InvitationRsvpResponse,
+} from "@/lib/invitation-rsvp";
 
 export type InvitationStatus = "draft" | "sent" | "cancelled" | "revoked" | "expired";
 export type RsvpStatus = "pending" | "accepted" | "declined";
@@ -21,6 +34,7 @@ export interface CreateInvitationParams {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  guestAllowance?: number | null;
   createdBy?: string | null;
 }
 
@@ -37,6 +51,10 @@ export interface InvitationResult {
     invitation_status: InvitationStatus;
     rsvp_status: RsvpStatus;
     rsvp_at: string | null;
+    guest_allowance: number | null;
+    rsvp_guest_count: number | null;
+    rsvp_guest_names: string | null;
+    rsvp_message: string | null;
     notes: string | null;
     created_at: string;
   };
@@ -64,23 +82,37 @@ export async function createInvitationCredential(
   const qrCode = randomUUID().replace(/-/g, "").toUpperCase();
 
   // 3. Insert event_invitations row
-  const { data: invitation, error: inviteErr } = await admin
-    .from("event_invitations")
-    .insert({
-      event_id: params.eventId,
-      guest_name: params.guestName.trim(),
-      guest_title: params.guestTitle?.trim() || null,
-      organization: params.organization?.trim() || null,
-      email: params.email?.trim().toLowerCase() || null,
-      phone: params.phone?.trim() || null,
-      token,
-      invitation_status: "draft",
-      rsvp_status: "pending",
-      notes: params.notes?.trim() || null,
-      created_by: params.createdBy || null,
-    })
-    .select()
+  const invitationValues = {
+    event_id: params.eventId,
+    guest_name: params.guestName.trim(),
+    guest_title: params.guestTitle?.trim() || null,
+    organization: params.organization?.trim() || null,
+    email: params.email?.trim().toLowerCase() || null,
+    phone: params.phone?.trim() || null,
+    token,
+    invitation_status: "draft",
+    rsvp_status: "pending",
+    notes: params.notes?.trim() || null,
+    created_by: params.createdBy || null,
+  };
+
+  const invitationTable = (admin as any).from("event_invitations");
+  let { data: invitation, error: inviteErr } = await invitationTable
+    .insert({ ...invitationValues, guest_allowance: params.guestAllowance ?? null })
+    .select(`${GUEST_INVITATION_SELECT_WITH_OPTIONAL}, token`)
     .single();
+
+  if (inviteErr && isMissingGuestInvitationColumnsError(inviteErr)) {
+    if (params.guestAllowance != null) throw new GuestInvitationColumnsUnavailableError();
+    const fallback = await invitationTable
+      .insert(invitationValues)
+      .select(`${LEGACY_GUEST_INVITATION_SELECT}, token`)
+      .single();
+    invitation = fallback.data
+      ? withEmptyGuestInvitationColumns(fallback.data) as unknown as typeof invitation
+      : null;
+    inviteErr = fallback.error;
+  }
 
   if (inviteErr || !invitation) {
     throw new Error(`Failed to create event invitation: ${inviteErr?.message || "Unknown error"}`);
@@ -181,9 +213,27 @@ export async function getInvitationByToken(token: string) {
   };
 }
 
+/** Fetch only the personalized Evergreen count cap; OG and shared views omit it. */
+export async function getInvitationGuestAllowanceByToken(token: string): Promise<number | null> {
+  if (!token || typeof token !== "string" || token.length !== 64) return null;
+
+  const admin = createSupabaseAdmin();
+  const { data, error } = await (admin as any)
+    .from("event_invitations")
+    .select("guest_allowance")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (error || !data || typeof data.guest_allowance !== "number") return null;
+  return data.guest_allowance;
+}
+
 export interface RsvpInvitationParams {
   token: string;
-  response: "accepted" | "declined";
+  response: InvitationRsvpResponse;
+  guestCount?: number;
+  guestNames?: string;
+  message?: string;
 }
 
 export interface RsvpInvitationResult {
@@ -215,13 +265,16 @@ export async function rsvpInvitation(
   // 1. Fetch invitation by token
   const { data: invitation, error: invErr } = await admin
     .from("event_invitations")
-    .select("id, event_id, invitation_status, rsvp_status, rsvp_at")
+    .select("id, event_id, invitation_status, rsvp_status, rsvp_at, guest_allowance")
     .eq("token", token)
     .maybeSingle();
 
   if (invErr || !invitation) {
-    throw new Error("Invitation not found.");
+    throw new InvitationNotFoundError();
   }
+
+  const guestAllowance = (invitation as { guest_allowance?: number | null }).guest_allowance ?? null;
+  const details = normalizeRsvpDetails(response, params, guestAllowance);
 
   if (["cancelled", "revoked", "expired"].includes(invitation.invitation_status)) {
     throw new Error(`This invitation is ${invitation.invitation_status} and cannot be updated.`);
@@ -243,11 +296,7 @@ export async function rsvpInvitation(
   // 3. Update RSVP status
   const { error: updateErr } = await admin
     .from("event_invitations")
-    .update({
-      rsvp_status: response,
-      rsvp_at: now,
-      updated_at: now,
-    })
+    .update(buildRsvpInvitationUpdate(response, details, now))
     .eq("id", invitation.id);
 
   if (updateErr) {
@@ -705,6 +754,7 @@ export interface UpdateInvitationGuestParams {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  guestAllowance?: number | null;
 }
 
 /**
@@ -727,14 +777,31 @@ export async function updateInvitationGuest(params: UpdateInvitationGuestParams)
   if (params.email !== undefined) updates.email = params.email?.trim().toLowerCase() || null;
   if (params.phone !== undefined) updates.phone = params.phone?.trim() || null;
   if (params.notes !== undefined) updates.notes = params.notes?.trim() || null;
+  if (params.guestAllowance !== undefined) updates.guest_allowance = params.guestAllowance;
 
-  const { data: updated, error } = await admin
-    .from("event_invitations")
+  const invitationTable = (admin as any).from("event_invitations");
+  let { data: updated, error } = await invitationTable
     .update(updates)
     .eq("id", params.invitationId)
     .eq("event_id", params.eventId)
-    .select("id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, notes, updated_at")
+    .select(GUEST_INVITATION_SELECT_WITH_OPTIONAL)
     .single();
+
+  if (error && isMissingGuestInvitationColumnsError(error)) {
+    if (params.guestAllowance != null) throw new GuestInvitationColumnsUnavailableError();
+    const fallbackUpdates = { ...updates };
+    delete fallbackUpdates.guest_allowance;
+    const fallback = await invitationTable
+      .update(fallbackUpdates)
+      .eq("id", params.invitationId)
+      .eq("event_id", params.eventId)
+      .select(LEGACY_GUEST_INVITATION_SELECT)
+      .single();
+    updated = fallback.data
+      ? withEmptyGuestInvitationColumns(fallback.data) as unknown as typeof updated
+      : null;
+    error = fallback.error;
+  }
 
   if (error || !updated) {
     throw new Error(`Failed to update guest information: ${error?.message || "Not found"}`);

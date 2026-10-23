@@ -26,6 +26,73 @@ export interface InvitationScheduleItem {
   day?: string | null;
   /** Optional day alias for schema compatibility */
   dayLabel?: string | null;
+  /** Optional Evergreen Envelope line-art icon key. */
+  icon?: "dining" | "champagne" | "cake" | "dancing" | "gift" | "hand" | null;
+}
+
+export type EvergreenPhotoSlot =
+  | "envelope_photo_url"
+  | "envelope_photo_two_url"
+  | "cover_photo_url"
+  | "polaroid_photo_one_url"
+  | "polaroid_photo_two_url"
+  | "story_photo_one_url"
+  | "story_photo_two_url"
+  | "closing_photo_url"
+  | "rsvp_photo_url";
+
+export interface InvitationPhotoFocalPoint {
+  x: number;
+  y: number;
+}
+
+/** Data persisted in event_invitation_pages.blocks_layout.template_data. */
+export interface EvergreenEnvelopeTemplateData {
+  show_gate?: boolean;
+  show_cover?: boolean;
+  show_invitation_card?: boolean;
+  show_countdown_photos?: boolean;
+  show_venues?: boolean;
+  show_schedule?: boolean;
+  show_dress_code?: boolean;
+  show_story?: boolean;
+  show_accommodations_photos?: boolean;
+  show_closing_photo?: boolean;
+  show_rsvp?: boolean;
+  /** Legacy flag retained so old saved snapshots still parse. */
+  show_location_map?: boolean;
+  gate_intro?: string | null;
+  gate_heading?: string | null;
+  envelope_card_one_type?: "photo" | "text";
+  envelope_card_two_type?: "photo" | "text";
+  envelope_card_one_title?: string | null;
+  envelope_card_one_body?: string | null;
+  envelope_card_two_title?: string | null;
+  envelope_card_two_body?: string | null;
+  invitation_line?: string | null;
+  venues_heading?: string | null;
+  wishing_well_note?: string | null;
+  story_forever_word?: string | null;
+  closing_caption?: string | null;
+  rsvp_intro?: string | null;
+  rsvp_deadline?: string | null;
+  parents_line?: string | null;
+  dress_code_swatches?: { name?: string | null; hex: string }[] | null;
+  adults_only_note?: string | null;
+  monogram_initials?: string | null;
+  album_url?: string | null;
+  show_wishing_well?: boolean;
+  show_adults_only?: boolean;
+  envelope_photo_url?: string | null;
+  envelope_photo_two_url?: string | null;
+  cover_photo_url?: string | null;
+  polaroid_photo_one_url?: string | null;
+  polaroid_photo_two_url?: string | null;
+  story_photo_one_url?: string | null;
+  story_photo_two_url?: string | null;
+  closing_photo_url?: string | null;
+  rsvp_photo_url?: string | null;
+  photo_focal_points?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
 }
 
 // ── Photo Gallery Item ───────────────────────────────────────────────────────
@@ -71,10 +138,14 @@ export interface InvitationAccommodationItem {
 export interface InvitationVenueItem {
   /** [REQUIRED in item] Short label, e.g. "Ceremony", "Reception", "After-Party" */
   label: string;
-  /** [REQUIRED in item] Venue name */
-  name: string;
+  /** [HIDE-IF-EMPTY] Venue name */
+  name?: string | null;
   /** [HIDE-IF-EMPTY] Street address */
   address?: string | null;
+  /** Venue-specific time; Evergreen falls back to the event's formatted time when empty. */
+  time?: string | null;
+  /** Optional custom map destination; must use HTTPS. */
+  mapUrl?: string | null;
   /** [HIDE-IF-EMPTY] Latitude for map */
   latitude?: number | null;
   /** [HIDE-IF-EMPTY] Longitude for map */
@@ -93,6 +164,8 @@ export interface InvitationGuestData {
   rsvpStatus: "pending" | "accepted" | "declined";
   /** [HIDE-IF-EMPTY] ISO timestamp of RSVP decision */
   rsvpAt?: string | null;
+  /** Personalized Evergreen RSVP cap; not exposed on shared or OG views. */
+  guestAllowance?: number | null;
   /** [HIDE-IF-EMPTY] Explicit VIP boolean flag. VIP status is NEVER inferred from title strings. */
   isVip?: boolean;
 }
@@ -222,6 +295,35 @@ export interface InvitationPageData {
   /** Ordered story moments with optional image, caption, and text. */
   weddingStory?: { title?: string | null; text?: string | null; image?: string | null }[] | null;
 
+  // ── Evergreen Envelope-only optional content ────────────────────────────
+  /** [HIDE-IF-EMPTY] Parents/hosts line printed on the invitation card. */
+  parentsLine?: string | null;
+  /** [HIDE-IF-EMPTY] Organizer-chosen dress-code palette swatches. */
+  dressCodeSwatches?: { name?: string | null; hex: string }[] | null;
+  /** [HIDE-IF-EMPTY] Adults-only card note. */
+  adultsOnlyNote?: string | null;
+  /** [HIDE-IF-EMPTY] Small invitation-card monogram. */
+  monogramInitials?: string | null;
+  /** [HIDE-IF-EMPTY] Guest photo album URL. */
+  albumUrl?: string | null;
+  showWishingWell?: boolean;
+  showAdultsOnly?: boolean;
+  wishingWellNote?: string | null;
+  storyForeverWord?: string | null;
+  closingCaption?: string | null;
+  rsvpIntro?: string | null;
+  rsvpDeadline?: string | null;
+  envelopePhoto?: string | null;
+  envelopePhotoTwo?: string | null;
+  coverPhoto?: string | null;
+  polaroidPhotoOne?: string | null;
+  polaroidPhotoTwo?: string | null;
+  storyPhotoOne?: string | null;
+  storyPhotoTwo?: string | null;
+  closingPhoto?: string | null;
+  rsvpPhoto?: string | null;
+  photoFocalPoints?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
+
   // ── [HIDE-IF-EMPTY] Birthday-Specific Fields ─────────────────────────────
   /** Celebrant name (e.g. "Maya Rodriguez") */
   celebrantName?: string | null;
@@ -247,4 +349,6 @@ export interface InvitationPageData {
   // ── [REQUIRED] Token for Actions ──────────────────────────────────────────
   /** Unique 64-char token for submitting RSVP */
   token: string;
+  /** Render-only keys supplied from template sample data in builder preview. */
+  sampleFields?: string[];
 }

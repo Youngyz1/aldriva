@@ -46,6 +46,7 @@ export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
   "wedding-romantic": "wedding",
   "romantic-envelope": "wedding",
   "botanical-reverie": "wedding",
+  "evergreen-envelope": "wedding",
   "luxe-editorial": "wedding",
   "birthday-bold": "birthday",
   cover: "universal",
@@ -169,6 +170,20 @@ export function hiddenContentOnTemplateSwitch(
   for (const key of fromFields) {
     if (!toFields.has(key) && hasContent(draft[key])) {
       hidden.push(TYPE_FIELD_LABELS[key]);
+    }
+  }
+  if (fromTemplateId === "evergreen-envelope" && toTemplateId !== "evergreen-envelope") {
+    const blocksLayout = draft.blocks_layout;
+    const templateData = typeof blocksLayout === "object" && blocksLayout !== null
+      ? (blocksLayout as Record<string, unknown>).template_data
+      : null;
+    if (typeof templateData === "object" && templateData !== null && !Array.isArray(templateData)) {
+      const hasEvergreenContent = Object.entries(templateData as Record<string, unknown>).some(([key, value]) =>
+        key === "show_wishing_well" || key === "show_adults_only"
+          ? value === true
+          : hasContent(value)
+      );
+      if (hasEvergreenContent) hidden.push("Evergreen details and photos");
     }
   }
   return hidden;

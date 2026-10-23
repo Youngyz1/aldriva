@@ -51,7 +51,7 @@ export function InvitationBlocksLayoutClient({
   const renderedBlocks = compiledLayout.layout_blocks.map((block) => {
     if (block.type === "interactive_envelope" || block.type === "romantic_envelope_gate") return null;
     const content = renderInvitationBlock({
-      block, data, layout: compiledLayout, onAction, shared,
+      block, data, layout: compiledLayout, templateId, onAction, shared,
       romanticEnvelope: usesEnvelopeGate,
       botanicalReverie: templateId === "botanical-reverie",
       detailsPresentation,
@@ -75,9 +75,9 @@ export function InvitationBlocksLayoutClient({
           );
         }}
       >
-        <InvitationScrollReveal enabled={scrollRevealEnabled} durationMs={scrollRevealDurationMs}>
-          {content}
-        </InvitationScrollReveal>
+        {templateId === "evergreen-envelope" && block.type === "music"
+          ? content
+          : <InvitationScrollReveal enabled={scrollRevealEnabled} durationMs={scrollRevealDurationMs}>{content}</InvitationScrollReveal>}
       </div>
     );
   });

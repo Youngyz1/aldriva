@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import type {
   InvitationAccommodationItem,
   InvitationGalleryItem,
@@ -15,8 +16,9 @@ import {
 import { cn } from "@/lib/utils";
 import { formatLocalizedEventDate, getInvitationDictionary, localizeInvitationSystemCopy } from "@/lib/invitation-i18n";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
-import { invitationImageClassName, invitationMobileGalleryBleedClassName, invitationMobileGalleryCaptionClassName } from "@/lib/invitation-image-presentation";
+import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { InvitationImageAccordion } from "@/components/invitation/blocks/InvitationImageAccordion";
+import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
 import { FloatingMusicControl } from "@/components/invitation/FloatingMusicControl";
 
 const sectionBase = "mx-auto min-w-0 w-full max-w-5xl px-6 py-14 sm:py-20";
@@ -342,21 +344,24 @@ export function GalleryBlock({
   theme,
   locale = "en",
   botanicalReverie = false,
+  evergreenEnvelope = false,
   presentation = "editorial",
 }: {
   images?: InvitationGalleryItem[] | null;
   theme: PageGlobalTheme;
   locale?: InvitationPageData["locale"];
   botanicalReverie?: boolean;
+  evergreenEnvelope?: boolean;
   presentation?: InvitationGalleryPresentation;
 }) {
   const visibleImages = (images ?? []).filter((image) => image.url);
+  const t = useTranslations("Events");
   if (visibleImages.length === 0) return null;
   if (presentation === "accordion") {
     return (
       <section id="inv-gallery" className={theme.classes.section ?? ""}>
-        <div className="mx-auto min-w-0 w-full max-w-6xl px-6 py-14 sm:py-20">
-          <h2 className={`mb-8 text-center text-3xl ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy("Gallery", locale)}</h2>
+        <div className={`mx-auto min-w-0 w-full max-w-6xl px-6 ${evergreenEnvelope ? "py-10 sm:py-12" : "py-14 sm:py-20"}`}>
+          <h2 className={`mb-8 text-center text-3xl ${theme.classes.heading ?? ""}`}>{t("invitationGalleryHeading")}</h2>
           <InvitationImageAccordion images={visibleImages} theme={theme} locale={locale} />
         </div>
       </section>
@@ -370,40 +375,55 @@ export function GalleryBlock({
       : presentation === "birthday"
         ? "grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3"
         : "columns-1 gap-4 sm:columns-2 lg:columns-3";
-  const bleedClass = presentation === "romantic" || presentation === "birthday" ? "" : invitationMobileGalleryBleedClassName(gutter);
+  const isUnframed = presentation !== "romantic" && presentation !== "birthday";
+  const imageClassName = cn(
+    presentation === "black-tie" ? "contrast-110 grayscale" : "",
+    presentation === "romantic" ? "border border-[#e8d5c4]/50" : "",
+  );
+  const captionClassName = cn(
+    "break-words pt-2",
+    presentation === "editorial" ? "font-serif italic text-[#6a5c52]" : "",
+    theme.classes.body ?? "",
+  );
+  const galleryContainer = evergreenEnvelope
+    ? "mx-auto min-w-0 w-full max-w-5xl px-6 py-10 sm:py-12"
+    : sectionBase;
   return (
     <section id="inv-gallery" className={theme.classes.section ?? ""}>
-      <div className={sectionBase}>
-        <h2 className={`mb-8 text-center text-3xl ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy("Gallery", locale)}</h2>
-        <div className={cn(
-          "min-w-0",
-          gridClass,
-          bleedClass,
-        )}>
-          {visibleImages.map((image, index) => (
-            <figure key={`${image.url}-${index}`} className={cn(
-              "min-w-0",
-              presentation === "editorial" && index === 0 ? "sm:col-span-2 sm:row-span-2" : "",
-              presentation === "romantic" ? "mb-5 break-inside-avoid border border-[#e8d5c4]/70 bg-white p-2 shadow-sm" : "",
-              presentation === "birthday" ? "min-w-0 border border-amber-200 bg-white p-3 shadow-sm" : "",
-              (presentation === "black-tie" || presentation === "botanical" || presentation === "cover") ? "mb-4 break-inside-avoid" : "",
-            )}>
-              <img
-                src={image.url}
-                alt={image.alt || image.caption || localizeInvitationSystemCopy("Event gallery photo", locale)}
-                className={cn(
-                  invitationImageClassName("contained"),
-                  presentation === "black-tie" ? "contrast-110 grayscale" : "",
-                  presentation === "romantic" ? "border border-[#e8d5c4]/50" : "",
-                )}
-                loading="lazy"
-              />
-              {image.caption ? <figcaption className={cn("break-words pt-2 text-sm", bleedClass ? invitationMobileGalleryCaptionClassName(gutter) : "", presentation === "editorial" ? "font-serif italic text-[#6a5c52]" : "", theme.classes.body ?? "")}>{image.caption}</figcaption> : null}
-            </figure>
-          ))}
-        </div>
+      <div className={galleryContainer}>
+        <h2 className={`mb-8 text-center text-3xl ${theme.classes.heading ?? ""}`}>{t("invitationGalleryHeading")}</h2>
+        <InvitationGalleryGrid
+          images={visibleImages}
+          imageClassName={imageClassName}
+          captionClassName={captionClassName}
+          lightboxCaptionClassName={theme.classes.body ?? "text-xs text-white/80"}
+          gridClassName={cn("min-w-0", gridClass)}
+          figureClassName={(index) => cn(
+            "min-w-0",
+            presentation === "editorial" && index === 0 ? "sm:col-span-2 sm:row-span-2" : "",
+            presentation === "romantic" ? "mb-5 border border-[#e8d5c4]/70 bg-white p-2 shadow-sm" : "",
+            presentation === "birthday" ? "border border-amber-200 bg-white p-3 shadow-sm" : "",
+          )}
+          mobileBleedGutter={isUnframed ? gutter : undefined}
+        />
       </div>
     </section>
+  );
+}
+
+const EVERGREEN_SCHEDULE_ICON_FALLBACKS = ["dining", "champagne", "cake", "dancing", "hand"] as const;
+
+function EvergreenScheduleIcon({ icon, index }: { icon?: InvitationScheduleItem["icon"]; index: number }) {
+  const selected = icon || EVERGREEN_SCHEDULE_ICON_FALLBACKS[index % EVERGREEN_SCHEDULE_ICON_FALLBACKS.length];
+  return (
+    <svg viewBox="0 0 48 48" className="h-9 w-9 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {selected === "dining" ? <><circle cx="24" cy="24" r="15" /><circle cx="24" cy="24" r="10" /><path d="M8 7v13m-3-13v7c0 3 6 3 6 0V7m-3 13v21M40 7c-5 5-5 11-1 13v21M40 7v13" /></> : null}
+      {selected === "champagne" ? <><path d="M8 7h13v8a6.5 6.5 0 0 1-13 0V7Zm19 0h13v8a6.5 6.5 0 0 1-13 0V7ZM14.5 21v15m-5 0h10m11-15v15m-5 0h10M14.5 36v5m11-5v5m-7 0h14" /><path d="M8 12h13m6 0h13" /></> : null}
+      {selected === "cake" ? <><path d="M8 23h32v14H8zM5 41h38M12 23c0-5 5-5 5-10 0 5 5 5 5 10m3 0c0-5 5-5 5-10 0 5 5 5 5 10M15 29v3m9-3v3m9-3v3" /><path d="M17 9V6m12 3V6" /></> : null}
+      {selected === "dancing" ? <><circle cx="17" cy="10" r="3" /><circle cx="32" cy="9" r="3" /><path d="m17 14-3 11 8 4 4 12m-11-16-6 10m12-6 10-9 6 3m-11 2 6 7 6 1m-16-12 8-5" /><path d="M7 41h34" /></> : null}
+      {selected === "gift" ? <><path d="M7 20h34v21H7zM5 14h38v7H5zM24 14v27" /><path d="M24 14c-11 0-13-2-13-6 0-5 9-4 13 6Zm0 0c11 0 13-2 13-6 0-5-9-4-13 6Z" /></> : null}
+      {selected === "hand" ? <path d="M15 23v-9a2 2 0 0 1 4 0v7-11a2 2 0 0 1 4 0v11-9a2 2 0 0 1 4 0v10-6a2 2 0 0 1 4 0v12c0 6-4 10-10 10h-2c-4 0-6-2-8-5l-4-7a2.4 2.4 0 0 1 4-2l4 4v-5Z" /> : null}
+    </svg>
   );
 }
 
@@ -413,6 +433,7 @@ export function ScheduleBlock({
   locale = "en",
   romanticEnvelope = false,
   botanicalReverie = false,
+  evergreenEnvelope = false,
   presentation,
 }: {
   timeline?: InvitationScheduleItem[] | null;
@@ -420,10 +441,36 @@ export function ScheduleBlock({
   locale?: InvitationPageData["locale"];
   romanticEnvelope?: boolean;
   botanicalReverie?: boolean;
+  evergreenEnvelope?: boolean;
   presentation?: InvitationDetailsPresentation;
 }) {
   const entries = (timeline ?? []).filter((item) => item.time && (item.title || item.label));
+  const t = useTranslations("Events");
   if (entries.length === 0) return null;
+  if (evergreenEnvelope) {
+    return (
+      <section id="inv-schedule" data-evergreen-section="schedule" className="relative bg-[#52643a] px-5 py-10 text-[#fffdf2] sm:py-12">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-10 text-center font-serif text-2xl uppercase tracking-[.18em] text-[#fffdf2] sm:text-3xl">{t("evergreenScheduleHeading")}</h2>
+          <ol className="relative mx-auto max-w-5xl before:absolute before:bottom-6 before:left-1/2 before:top-6 before:w-px before:-translate-x-1/2 before:bg-[#f5f0d8]/70 before:content-['']">
+            {entries.map((item, index) => (
+              <li key={`${item.time}-${item.title}-${index}`} className="relative grid min-h-24 grid-cols-[minmax(0,1fr)_1.25rem_minmax(0,1fr)] items-center gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(0,1fr)] sm:gap-4">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                  <span className="grid size-10 shrink-0 place-items-center text-[#fffdf2] sm:size-12"><EvergreenScheduleIcon icon={item.icon} index={index} /></span>
+                  <p className="min-w-0 break-words font-serif text-sm tracking-wide text-white sm:text-lg">{item.time}</p>
+                </div>
+                <span aria-hidden="true" className="relative z-10 mx-auto size-3 rounded-full border border-[#f5f0d8] bg-[#fffdf2]" />
+                <article className="min-w-0 pl-2 sm:pl-4">
+                  <h3 className="break-words font-serif text-base text-[#fffdf2] sm:text-lg">{item.title || item.label}</h3>
+                  {item.description ? <p className="mt-1 break-words text-sm leading-6 text-[#f5f0d8]">{item.description}</p> : null}
+                </article>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    );
+  }
   const variant = presentation ?? (botanicalReverie ? "botanical" : romanticEnvelope ? "romantic" : "editorial");
   const isTrack = variant === "botanical" || variant === "romantic" || variant === "luxe-editorial" || variant === "black-tie" || variant === "birthday";
   const trackLine = variant === "botanical"
@@ -491,6 +538,8 @@ export function CountdownBlock({
   theme,
   locale = "en",
   romanticEnvelope = false,
+  evergreenEnvelope = false,
+  showRomanticTagline = romanticEnvelope,
   botanicalReverie = false,
   luxeEditorial = false,
 }: {
@@ -498,6 +547,8 @@ export function CountdownBlock({
   theme: PageGlobalTheme;
   locale?: InvitationPageData["locale"];
   romanticEnvelope?: boolean;
+  evergreenEnvelope?: boolean;
+  showRomanticTagline?: boolean;
   botanicalReverie?: boolean;
   luxeEditorial?: boolean;
 }) {
@@ -527,9 +578,12 @@ export function CountdownBlock({
   }, [targetTimestamp]);
 
   if (!Number.isFinite(targetTimestamp)) return null;
+  const countdownContainer = evergreenEnvelope
+    ? "mx-auto min-w-0 w-full max-w-3xl px-6 py-0 text-center"
+    : `${sectionBase} max-w-3xl text-center`;
   return (
     <section className={theme.classes.section ?? ""}>
-      <div className={`${sectionBase} max-w-3xl text-center`}>
+      <div className={countdownContainer}>
         <h2 className={`mb-8 text-2xl ${botanicalReverie ? theme.classes.heading ?? "font-serif text-[#365746]" : romanticEnvelope ? "font-serif text-[#4A3B32]" : luxeEditorial ? "font-serif font-normal tracking-[.14em] text-[#4a4a4a]" : theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy("Countdown to the celebration", locale)}</h2>
         {timeLeft.isPast ? (
           <p className={`font-serif italic ${theme.classes.body ?? ""}`}>{dictionary.celebrationUnderway}</p>
@@ -548,7 +602,7 @@ export function CountdownBlock({
             ))}
           </div>
         )}
-        {romanticEnvelope ? <p className="font-serif text-[10px] tracking-widest uppercase opacity-70 mt-2">{localizeInvitationSystemCopy("Counting the days until we say I do", locale)}</p> : null}
+        {showRomanticTagline ? <p className="font-serif text-[10px] tracking-widest uppercase opacity-70 mt-2">{localizeInvitationSystemCopy("Counting the days until we say I do", locale)}</p> : null}
       </div>
     </section>
   );

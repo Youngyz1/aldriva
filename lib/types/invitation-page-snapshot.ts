@@ -207,6 +207,7 @@ export interface GuestLiveRecord {
   email?: string | null;
   rsvp_status?: "pending" | "accepted" | "declined" | null;
   rsvp_at?: string | null;
+  guest_allowance?: number | null;
   token?: string | null;
   is_vip?: boolean;
 }
@@ -239,7 +240,14 @@ export function assembleInvitationPageData(
   ticketInstance?: TicketInstanceLiveRecord | null,
   seat?: SeatLiveRecord | null
 ): InvitationPageData {
+  const evergreen = snapshot.template_id === "evergreen-envelope"
+    ? snapshot.blocks_layout?.template_data
+    : undefined;
   const effectiveTitle = snapshot.display_title?.trim() || event.title;
+  const titlePartnerNames = snapshot.template_id === "evergreen-envelope"
+    ? effectiveTitle.trim().split(/\s*&\s*/).map((name) => name.trim()).filter(Boolean)
+    : [];
+  const titlePartnerPair = titlePartnerNames.length === 2 ? titlePartnerNames : [];
   const effectiveVenue = snapshot.venue_name?.trim() || event.venue || "";
   const effectiveAddress = snapshot.address?.trim() || event.street_address || undefined;
 
@@ -250,6 +258,7 @@ export function assembleInvitationPageData(
         organization: guest.organization ?? undefined,
         rsvpStatus: guest.rsvp_status ?? "pending",
         rsvpAt: guest.rsvp_at ?? undefined,
+        guestAllowance: guest.guest_allowance ?? null,
         isVip: Boolean(guest.is_vip || seat?.is_vip),
       }
     : {
@@ -326,8 +335,8 @@ export function assembleInvitationPageData(
     musicTitle: snapshot.music_title ?? undefined,
     musicLinks: filterSupportedMusicLinks(snapshot.music_links).links,
 
-    partner1Name: snapshot.partner1_name ?? undefined,
-    partner2Name: snapshot.partner2_name ?? undefined,
+    partner1Name: snapshot.partner1_name?.trim() || titlePartnerPair[0] || undefined,
+    partner2Name: snapshot.partner2_name?.trim() || titlePartnerPair[1] || undefined,
     familyNote: snapshot.family_note ?? undefined,
     weddingSubtype: snapshot.wedding_subtype ?? undefined,
     registryNote: snapshot.registry_note ?? undefined,
@@ -346,6 +355,29 @@ export function assembleInvitationPageData(
       hex: normalizeInvitationColorHex(color.hex) ?? color.hex,
     })) ?? undefined,
     weddingStory: snapshot.wedding_story ?? undefined,
+
+    parentsLine: evergreen?.parents_line ?? undefined,
+    dressCodeSwatches: evergreen?.dress_code_swatches ?? undefined,
+    adultsOnlyNote: evergreen?.adults_only_note ?? undefined,
+    monogramInitials: evergreen?.monogram_initials ?? undefined,
+    albumUrl: evergreen?.album_url ?? undefined,
+    showWishingWell: evergreen?.show_wishing_well,
+    showAdultsOnly: evergreen?.show_adults_only,
+    wishingWellNote: evergreen?.wishing_well_note ?? undefined,
+    storyForeverWord: evergreen?.story_forever_word ?? undefined,
+    closingCaption: evergreen?.closing_caption ?? undefined,
+    rsvpIntro: evergreen?.rsvp_intro ?? undefined,
+    rsvpDeadline: evergreen?.rsvp_deadline ?? undefined,
+    envelopePhoto: evergreen?.envelope_photo_url ?? undefined,
+    envelopePhotoTwo: evergreen?.envelope_photo_two_url ?? undefined,
+    coverPhoto: evergreen?.cover_photo_url ?? undefined,
+    polaroidPhotoOne: evergreen?.polaroid_photo_one_url ?? undefined,
+    polaroidPhotoTwo: evergreen?.polaroid_photo_two_url ?? undefined,
+    storyPhotoOne: evergreen?.story_photo_one_url ?? undefined,
+    storyPhotoTwo: evergreen?.story_photo_two_url ?? undefined,
+    closingPhoto: evergreen?.closing_photo_url ?? undefined,
+    rsvpPhoto: evergreen?.rsvp_photo_url ?? undefined,
+    photoFocalPoints: evergreen?.photo_focal_points ?? undefined,
 
     guest: guestData,
     seat: seatData,

@@ -51,6 +51,14 @@ const PALETTE_BOTANICAL: ThemeUtilityPreset = {
   heading: "text-[#263b31]",
   body: "text-[#53665a]",
 };
+const PALETTE_EVERGREEN: ThemeUtilityPreset = {
+  label: "Evergreen Envelope",
+  previewColors: ["#f7f5e9", "#48533a", "#a7b14b"],
+  page: "bg-[#f7f5e9] text-[#48533a]",
+  section: "bg-transparent",
+  heading: "text-[#48533a]",
+  body: "text-[#68705d]",
+};
 const PALETTE_OCEAN: ThemeUtilityPreset = {
     label: "Ocean Blue",
     previewColors: ["#f0f9ff", "#082f49", "#0284c7"],
@@ -113,6 +121,7 @@ export const COLOR_PALETTES: Record<string, ThemeUtilityPreset> = {
   "palette-rose": PALETTE_ROSE,
   "palette-emerald": PALETTE_EMERALD,
   "palette-botanical": PALETTE_BOTANICAL,
+  "palette-evergreen": PALETTE_EVERGREEN,
   "palette-ocean": PALETTE_OCEAN,
   "palette-amber": PALETTE_AMBER,
   "palette-slate": PALETTE_SLATE,
@@ -134,12 +143,14 @@ export interface ThemeFontPack {
   label: string;
   heading: string;
   body: string;
+  accent?: string;
 }
 
 /** Font pairings exposed by the typography pack picker. */
 export const FONT_PACKS: Record<string, ThemeFontPack> = {
   "font-serif-classic": { label: "Serif Elegant", heading: "font-serif", body: "font-serif" },
   "font-serif-editorial": { label: "Editorial Serif", heading: "font-serif font-medium", body: "font-serif" },
+  "font-script": { label: "Evergreen Script Accent", heading: "font-serif font-medium", body: "font-serif", accent: "font-script" },
   "font-sans-bold": { label: "Modern Bold", heading: "font-sans font-extrabold", body: "font-sans" },
   "font-sans-clean": { label: "Clean Sans", heading: "font-sans font-semibold", body: "font-sans" },
   "font-mono-editorial": { label: "Editorial Mono", heading: "font-mono font-bold", body: "font-mono" },
@@ -190,7 +201,10 @@ export function legacyInvitationTemplateToLayout(
 ): InvitationBlocksLayout {
   const templateDefinition = getInvitationTemplateDefinition(templateId);
   const hasSavedEffects = isRecord(savedLayout) && Array.isArray(savedLayout.effects);
-  const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope" || templateDefinition?.composition === "botanical-reverie";
+  const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope"
+    || templateDefinition?.composition === "botanical-reverie"
+    || templateDefinition?.composition === "evergreen-envelope";
+  const isEvergreen = templateDefinition?.composition === "evergreen-envelope";
   const blockCatalog: PageLayoutBlock[] = [
     { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },
     {
@@ -213,6 +227,9 @@ export function legacyInvitationTemplateToLayout(
         dressCodeNotes: bind("dressCodeNotes"), additionalNotes: bind("additionalNotes"), venues: bind("venues"),
         accommodations: bind("accommodations"), partner1Name: bind("partner1Name"), partner2Name: bind("partner2Name"),
         familyNote: bind("familyNote"), weddingSubtype: bind("weddingSubtype"), colorsOfTheDay: bind("colorsOfTheDay"),
+        parentsLine: bind("parents_line"), dressCodeSwatches: bind("dress_code_swatches"),
+        adultsOnlyNote: bind("adults_only_note"), monogramInitials: bind("monogram_initials"),
+        albumUrl: bind("album_url"), showWishingWell: bind("show_wishing_well"), showAdultsOnly: bind("show_adults_only"),
         registryNote: bind("registryNote"), celebrantName: bind("celebrantName"), ageMilestone: bind("ageMilestone"),
         theme: bind("theme"), giftNote: bind("giftNote"), hashtag: bind("hashtag"),
       },
@@ -223,7 +240,15 @@ export function legacyInvitationTemplateToLayout(
       content: { latitude: bind("latitude"), longitude: bind("longitude"), venue: bind("venue"), address: bind("address"), city: bind("city") },
     },
     { id: "invitation-schedule", type: "schedule", content: { timeline: bind("schedule") } },
-    { id: "invitation-gallery", type: "gallery", content: { images: bind("gallery") } },
+    { id: "invitation-gallery", type: "gallery", content: {
+      images: bind("gallery"),
+      envelopePhoto: bind("envelope_photo_url"), coverPhoto: bind("cover_photo_url"),
+      envelopePhotoTwo: bind("envelope_photo_two_url"),
+      polaroidPhotoOne: bind("polaroid_photo_one_url"), polaroidPhotoTwo: bind("polaroid_photo_two_url"),
+      storyPhotoOne: bind("story_photo_one_url"), storyPhotoTwo: bind("story_photo_two_url"),
+      closingPhoto: bind("closing_photo_url"), rsvpPhoto: bind("rsvp_photo_url"),
+      photoFocalPoints: bind("photo_focal_points"),
+    } },
     { id: "invitation-music", type: "music", content: { audioUrl: bind("musicAudioUrl"), title: bind("musicTitle"), links: bind("musicLinks") } },
     {
       id: "invitation-action-portal", type: "action_portal",
@@ -263,7 +288,20 @@ export function legacyInvitationTemplateToLayout(
   const locationMapBlock = layoutBlocks.find((block) => block.type === "location_map");
   const requiredTypes = templateDefinition?.requiredBlockTypes ?? [];
   const requiredTypeSet = new Set<string>(requiredTypes);
-  const authoredBlocks = isRomanticEnvelope
+  const authoredBlocks = isEvergreen
+    ? (() => {
+        const defaultsByType = new Map(layoutBlocks.map((block) => [block.type, block]));
+        const savedByType = new Map(savedBlocks.map((block) => [block.type, block]));
+        const canonicalTypes = new Set<string>(templateDefinition.defaultBlockTypes);
+        const canonicalBlocks = templateDefinition.defaultBlockTypes
+          .map((type) => savedByType.get(type) ?? defaultsByType.get(type))
+          .filter((block): block is PageLayoutBlock => Boolean(block));
+        const additionalSupportedBlocks = savedBlocks.filter((block) =>
+          templateDefinition.supportedBlockTypes.includes(block.type as never) && !canonicalTypes.has(block.type)
+        );
+        return [...canonicalBlocks, ...additionalSupportedBlocks];
+      })()
+    : isRomanticEnvelope
     ? (() => {
         const defaultsByType = new Map(layoutBlocks.map((block) => [block.type, block]));
         const savedByType = new Map(savedBlocks.map((block) => [block.type, block]));
@@ -294,7 +332,7 @@ export function legacyInvitationTemplateToLayout(
   // original premium presentation theme.
   return InvitationBlocksLayoutSchema.parse({
     ...normalizedSavedLayout,
-    layout_blocks: compatibleBlocks.some((block) => block.type === "location_map") || !locationMapBlock
+    layout_blocks: isEvergreen || compatibleBlocks.some((block) => block.type === "location_map") || !locationMapBlock
       ? compatibleBlocks
       : [...compatibleBlocks, locationMapBlock],
     global_theme: legacyTheme
@@ -357,6 +395,23 @@ const BINDING_READERS: Record<InvitationBindingPath, (data: InvitationPageData) 
   theme: (data) => data.theme,
   giftNote: (data) => data.giftNote,
   hashtag: (data) => data.hashtag,
+  parents_line: (data) => data.parentsLine,
+  dress_code_swatches: (data) => data.dressCodeSwatches,
+  adults_only_note: (data) => data.adultsOnlyNote,
+  monogram_initials: (data) => data.monogramInitials,
+  album_url: (data) => data.albumUrl,
+  show_wishing_well: (data) => data.showWishingWell,
+  show_adults_only: (data) => data.showAdultsOnly,
+  envelope_photo_url: (data) => data.envelopePhoto,
+  envelope_photo_two_url: (data) => data.envelopePhotoTwo,
+  cover_photo_url: (data) => data.coverPhoto,
+  polaroid_photo_one_url: (data) => data.polaroidPhotoOne,
+  polaroid_photo_two_url: (data) => data.polaroidPhotoTwo,
+  story_photo_one_url: (data) => data.storyPhotoOne,
+  story_photo_two_url: (data) => data.storyPhotoTwo,
+  closing_photo_url: (data) => data.closingPhoto,
+  rsvp_photo_url: (data) => data.rsvpPhoto,
+  photo_focal_points: (data) => data.photoFocalPoints,
   "guest.name": (data) => data.guest.name,
   "guest.title": (data) => data.guest.title,
   "guest.organization": (data) => data.guest.organization,

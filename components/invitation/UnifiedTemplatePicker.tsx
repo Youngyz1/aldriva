@@ -335,7 +335,9 @@ export function UnifiedTemplatePicker({
     () => selected ? buildInvitationTemplatePreviewData(selected.pageId, draft, event) : null,
     [selected, draft, event]
   );
-  const selectedSample = selected ? getInvitationTemplateSampleData(selected.pageId) : null;
+  const selectedSample = selected
+    ? getInvitationTemplateSampleData(selected.pageId, selectedPageData?.data.locale ?? "en")
+    : null;
   const cardHostNames =
     nonEmptyString(draft.host_names) ?? nonEmptyString(selectedPageData?.data.hostNames) ??
     nonEmptyString(selectedSample?.hostNames) ??
@@ -451,7 +453,7 @@ export function UnifiedTemplatePicker({
             {visiblePairs.map((pair) => {
               const card = cardBySlug(cardTemplates, pair.cardSlug)!;
               const pairPageData = buildInvitationTemplatePreviewData(pair.pageId, draft, event);
-              const sample = getInvitationTemplateSampleData(pair.pageId);
+              const sample = getInvitationTemplateSampleData(pair.pageId, pairPageData.data.locale ?? "en");
               const pairCardData = {
                 ...SAMPLE_CARD_GUEST,
                 eventTitle: nonEmptyString(draft.display_title) ?? nonEmptyString(event.title) ?? pairPageData.data.title,
@@ -459,8 +461,8 @@ export function UnifiedTemplatePicker({
                 eventDate: nonEmptyString(event.event_date) ?? pairPageData.data.eventDate ?? null,
                 venue: nonEmptyString(draft.venue_name) ?? nonEmptyString(event.venue) ?? pairPageData.data.venue ?? null,
                 city: nonEmptyString(event.city) ?? pairPageData.data.city ?? null,
-                backgroundImageUrl: pair.baseId === "cover" || pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial"
-                  ? nonEmptyString(draft.hero_image_url) ?? ((pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial") ? pairPageData.data.heroImage ?? null : null)
+                backgroundImageUrl: pair.baseId === "cover" || pair.baseId === "botanical-reverie" || pair.baseId === "evergreen-envelope" || pair.baseId === "luxe-editorial"
+                  ? nonEmptyString(draft.hero_image_url) ?? ((pair.baseId === "botanical-reverie" || pair.baseId === "evergreen-envelope" || pair.baseId === "luxe-editorial") ? pairPageData.data.heroImage ?? null : null)
                   : null,
                 locale: pairPageData.data.locale,
               };
@@ -486,7 +488,12 @@ export function UnifiedTemplatePicker({
           {selected && selectedPageData && selectedCard && (
             <div className="overflow-hidden rounded-xl border border-zinc-300 bg-white">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2">
-                <p className="min-w-0 text-xs font-bold text-zinc-900">{selectedName}</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-zinc-900">{selectedName}</p>
+                  {selected?.baseId === "evergreen-envelope" ? (
+                    <p className="mt-0.5 text-[11px] leading-snug text-zinc-600">{t("unifiedEvergreenEnvelopeDescription")}</p>
+                  ) : null}
+                </div>
                 <div className="flex rounded-lg border border-zinc-300 bg-zinc-50 p-0.5" role="group" aria-label={t("unifiedPreviewLabel")}>
                   {(["page", "card"] as const).map((tab) => (
                     <button

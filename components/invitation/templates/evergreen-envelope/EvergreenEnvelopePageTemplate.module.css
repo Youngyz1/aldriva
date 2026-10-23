@@ -1,0 +1,11 @@
+.evergreenMusic :global(.fixed.bottom-4.right-4) {
+  top: max(1rem, env(safe-area-inset-top, 0px));
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: auto;
+  left: auto;
+  z-index: 110;
+}
+
+.evergreenRsvpDialog::backdrop {
+  background: rgba(22, 30, 21, 0.64);
+}
