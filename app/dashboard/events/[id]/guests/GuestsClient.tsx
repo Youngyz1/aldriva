@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   Users,
   UserPlus,
@@ -21,6 +22,7 @@ import {
   Upload,
   FileSpreadsheet,
   Download,
+  Eye,
 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
@@ -38,6 +40,10 @@ export type GuestItem = {
   invitation_status: "draft" | "sent" | "cancelled" | "revoked" | "expired";
   rsvp_status: "pending" | "accepted" | "declined";
   rsvp_at: string | null;
+  guest_allowance: number | null;
+  rsvp_guest_count: number | null;
+  rsvp_guest_names: string | null;
+  rsvp_message: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -77,6 +83,7 @@ type Props = {
   eventTitle: string;
   initialGuests: GuestItem[];
   initialAvailableSeats: AvailableSeat[];
+  guestColumnsAvailable: boolean;
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
@@ -102,9 +109,12 @@ export default function GuestsClient({
   eventTitle,
   initialGuests,
   initialAvailableSeats,
+  guestColumnsAvailable: initialGuestColumnsAvailable,
 }: Props) {
+  const t = useTranslations("Events");
   const [guests, setGuests] = useState<GuestItem[]>(initialGuests);
   const [availableSeats, setAvailableSeats] = useState<AvailableSeat[]>(initialAvailableSeats);
+  const [guestColumnsAvailable, setGuestColumnsAvailable] = useState(initialGuestColumnsAvailable);
   const [loading, setLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
@@ -115,6 +125,7 @@ export default function GuestsClient({
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
   const [editingGuest, setEditingGuest] = useState<GuestItem | null>(null);
+  const [viewingRsvpGuest, setViewingRsvpGuest] = useState<GuestItem | null>(null);
   const [assigningSeatGuest, setAssigningSeatGuest] = useState<GuestItem | null>(null);
   const [cancellingGuest, setCancellingGuest] = useState<GuestItem | null>(null);
 
@@ -135,6 +146,7 @@ export default function GuestsClient({
       const data = await res.json();
       setGuests(data.guests || []);
       setAvailableSeats(data.availableSeats || []);
+      setGuestColumnsAvailable(Boolean(data.guestColumnsAvailable));
     } catch {
       showToast("error", "Failed to refresh guest list.");
     } finally {
@@ -297,6 +309,12 @@ export default function GuestsClient({
         }
       />
 
+      {!guestColumnsAvailable && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {t("guestColumnsUnavailable")}
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div
@@ -443,6 +461,11 @@ export default function GuestsClient({
                                 {[guest.guest_title, guest.organization].filter(Boolean).join(" · ")}
                               </p>
                             )}
+                            {guest.guest_allowance != null && (
+                              <span className="mt-1 inline-flex rounded-lg border border-violet-100 bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                                · {t("guestAllowanceBadge", { count: guest.guest_allowance })}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -539,6 +562,15 @@ export default function GuestsClient({
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewingRsvpGuest(guest)}
+                            title={t("viewGuestRsvpDetails")}
+                            aria-label={t("viewGuestRsvpDetailsFor", { name: guest.guest_name })}
+                            className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
+                          >
+                            <Eye size={13} />
+                          </button>
+
                           {/* Send / Resend Email Button */}
                           {guest.email && !isCancelled && (
                             <button
@@ -640,6 +672,14 @@ export default function GuestsClient({
         />
       )}
 
+      {/* ── Read-only RSVP Details Modal ── */}
+      {viewingRsvpGuest && (
+        <GuestRsvpDetailsModal
+          guest={viewingRsvpGuest}
+          onClose={() => setViewingRsvpGuest(null)}
+        />
+      )}
+
       {/* ── Assign Seat Modal ── */}
       {assigningSeatGuest && (
         <AssignSeatModal
@@ -711,12 +751,14 @@ function AddGuestModal({
   onSuccess: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("Events");
   const [guestName, setGuestName] = useState("");
   const [guestTitle, setGuestTitle] = useState("");
   const [organization, setOrganization] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [guestAllowance, setGuestAllowance] = useState("");
   const [seatId, setSeatId] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -748,6 +790,7 @@ function AddGuestModal({
           email: email.trim().toLowerCase() || null,
           phone: phone.trim() || null,
           notes: notes.trim() || null,
+          guestAllowance: guestAllowance === "" ? null : Number(guestAllowance),
           seatId: seatId || null,
           sendEmail: Boolean(sendEmail && email.trim()),
         }),
@@ -873,15 +916,32 @@ function AddGuestModal({
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
-            <input
-              type="text"
-              placeholder="e.g. VIP speaker dinner access"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
+              <input
+                type="text"
+                placeholder="e.g. VIP speaker dinner access"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-black text-zinc-700">{t("guestAllowanceLabel")}</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                step={1}
+                value={guestAllowance}
+                onChange={(e) => setGuestAllowance(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">
+                {t("guestAllowanceHint")}
+              </p>
+            </div>
           </div>
 
           {email.trim() && (
@@ -934,12 +994,16 @@ function EditGuestModal({
   onSuccess: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("Events");
   const [guestName, setGuestName] = useState(guest.guest_name);
   const [guestTitle, setGuestTitle] = useState(guest.guest_title || "");
   const [organization, setOrganization] = useState(guest.organization || "");
   const [email, setEmail] = useState(guest.email || "");
   const [phone, setPhone] = useState(guest.phone || "");
   const [notes, setNotes] = useState(guest.notes || "");
+  const [guestAllowance, setGuestAllowance] = useState(
+    guest.guest_allowance == null ? "" : String(guest.guest_allowance)
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -971,6 +1035,7 @@ function EditGuestModal({
           email: email.trim().toLowerCase() || null,
           phone: phone.trim() || null,
           notes: notes.trim() || null,
+          guestAllowance: guestAllowance === "" ? null : Number(guestAllowance),
         }),
       });
 
@@ -1064,14 +1129,31 @@ function EditGuestModal({
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-black text-zinc-700">{t("guestAllowanceLabel")}</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                step={1}
+                value={guestAllowance}
+                onChange={(e) => setGuestAllowance(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">
+                {t("guestAllowanceHint")}
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-2.5 pt-2 border-t border-zinc-100">
@@ -1092,6 +1174,88 @@ function EditGuestModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function GuestRsvpDetailsModal({
+  guest,
+  onClose,
+}: {
+  guest: GuestItem;
+  onClose: () => void;
+}) {
+  const t = useTranslations("Events");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guest-rsvp-details-title"
+        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl"
+      >
+        <div className="flex items-start justify-between border-b border-zinc-100 pb-3.5">
+          <div>
+            <p className="text-xs font-semibold text-zinc-500">{t("guestRsvpHeading")}</p>
+            <h3 id="guest-rsvp-details-title" className="mt-0.5 text-base font-black text-zinc-900">
+              {guest.guest_name}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("closeGuestRsvpDetails")}
+            className="rounded-lg p-1 text-zinc-400 hover:text-zinc-700"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <dl className="mt-4 space-y-4 text-sm">
+          <div>
+            <dt className="text-xs font-bold text-zinc-500">{t("guestRsvpResponseLabel")}</dt>
+            <dd className="mt-1 font-semibold capitalize text-zinc-900">{guest.rsvp_status}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-zinc-500">{t("guestRsvpCountLabel")}</dt>
+            <dd className="mt-1 font-semibold text-zinc-900">
+              {guest.rsvp_guest_count == null ? t("guestRsvpNotProvided") : guest.rsvp_guest_count}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-zinc-500">{t("guestRsvpNamesLabel")}</dt>
+            <dd className="mt-1 whitespace-pre-wrap break-words font-semibold text-zinc-900">
+              {guest.rsvp_guest_names?.trim() || t("guestRsvpNotProvided")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-zinc-500">{t("guestRsvpMessageLabel")}</dt>
+            {guest.rsvp_message?.trim() ? (
+              <details className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <summary className="cursor-pointer text-xs font-bold text-violet-700">
+                  {t("readGuestRsvpMessage")}
+                </summary>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
+                  {guest.rsvp_message}
+                </p>
+              </details>
+            ) : (
+              <dd className="mt-1 font-semibold text-zinc-500">{t("guestRsvpNoMessage")}</dd>
+            )}
+          </div>
+        </dl>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 w-full rounded-xl border border-zinc-200 py-2.5 text-xs font-black text-zinc-600 hover:bg-zinc-50"
+        >
+          {t("closeGuestRsvpDetails")}
+        </button>
+      </section>
     </div>
   );
 }

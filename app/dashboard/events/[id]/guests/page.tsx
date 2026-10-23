@@ -3,6 +3,12 @@ import { getDashboardContext } from "@/lib/dashboard-context";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { assertInvitationKindEvent } from "@/lib/actions/invitation-page";
+import {
+  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
+  isMissingGuestInvitationColumnsError,
+  LEGACY_GUEST_INVITATION_SELECT,
+  withEmptyGuestInvitationColumns,
+} from "@/lib/guest-invitation-columns";
 import GuestsClient from "./GuestsClient";
 
 export default async function EventGuestsPage({
@@ -46,12 +52,25 @@ export default async function EventGuestsPage({
     notFound();
   }
 
-  // 2. Fetch invitations (safe fields only — no token)
-  const { data: invitations } = await admin
+  // 2. Fetch invitations (safe fields only - no token). Migration 188 adds
+  // optional allowance/RSVP detail columns; tolerate the pre-migration schema.
+  const invitationResult = await (admin as any)
     .from("event_invitations")
-    .select("id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at")
+    .select(GUEST_INVITATION_SELECT_WITH_OPTIONAL)
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
+
+  let invitations = (invitationResult.data || []) as Array<Record<string, any>>;
+  let guestColumnsAvailable = true;
+  if (invitationResult.error && isMissingGuestInvitationColumnsError(invitationResult.error)) {
+    const fallback = await (admin as any)
+      .from("event_invitations")
+      .select(LEGACY_GUEST_INVITATION_SELECT)
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: false });
+    invitations = (fallback.data || []).map((row: Record<string, any>) => withEmptyGuestInvitationColumns(row)) as Array<Record<string, any>>;
+    guestColumnsAvailable = false;
+  }
 
   const invitationIds = (invitations || []).map((i) => i.id);
 
@@ -94,7 +113,7 @@ export default async function EventGuestsPage({
     .order("row_label")
     .order("seat_number");
 
-  const initialGuests = (invitations || []).map((inv) => {
+  const initialGuests: any[] = (invitations || []).map((inv) => {
     const ticket = ticketMap.get(inv.id) || null;
     const seat = seatMap.get(inv.id) || null;
     return {
@@ -129,6 +148,7 @@ export default async function EventGuestsPage({
       eventTitle={event.title || "Event"}
       initialGuests={initialGuests}
       initialAvailableSeats={availableSeats || []}
+      guestColumnsAvailable={guestColumnsAvailable}
     />
   );
 }

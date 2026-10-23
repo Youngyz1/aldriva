@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rsvpInvitation } from "@/lib/invitations";
 import { isRateLimited, rateLimitedResponse } from "@/lib/memories/guest-limits";
+import { InvitationNotFoundError, normalizeRsvpDetails, RsvpValidationError } from "@/lib/invitation-rsvp";
 
 export async function POST(
   req: NextRequest,
@@ -34,13 +35,27 @@ export async function POST(
     );
   }
 
+  let details;
   try {
-    const result = await rsvpInvitation({ token, response });
+    details = normalizeRsvpDetails(response, body);
+  } catch (err: unknown) {
+    if (err instanceof RsvpValidationError) {
+      return NextResponse.json({ error: "Invalid RSVP details." }, { status: 422 });
+    }
+    throw err;
+  }
+
+  try {
+    const result = await rsvpInvitation({ token, response, ...details });
     return NextResponse.json(result);
   } catch (err: unknown) {
+    if (err instanceof RsvpValidationError) {
+      return NextResponse.json({ error: "Invalid RSVP details." }, { status: 422 });
+    }
+    if (err instanceof InvitationNotFoundError) {
+      return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
+    }
     console.error("[invitation/rsvp]", err);
-    const raw = err instanceof Error ? err.message : "";
-    const status = raw.includes("not found") ? 404 : 409;
-    return NextResponse.json({ error: status === 404 ? "Invitation not found." : "Could not update RSVP." }, { status });
+    return NextResponse.json({ error: "Could not update RSVP." }, { status: 409 });
   }
 }

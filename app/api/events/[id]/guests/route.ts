@@ -13,6 +13,14 @@ import {
 } from "@/lib/invitations";
 import { logEventAction } from "@/lib/event-audit";
 import { isInvitationEvent } from "@/lib/invitation-events";
+import { validateGuestAllowance } from "@/lib/guest-allowance";
+import {
+  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
+  GuestInvitationColumnsUnavailableError,
+  isMissingGuestInvitationColumnsError,
+  LEGACY_GUEST_INVITATION_SELECT,
+  withEmptyGuestInvitationColumns,
+} from "@/lib/guest-invitation-columns";
 
 const admin = createSupabaseAdmin();
 
@@ -58,30 +66,44 @@ export async function GET(
   const perPage = parseInt(url.searchParams.get("per_page") || "50", 10);
   const usePagination = url.searchParams.has("page");
 
-  // 1. Fetch invitations (safe fields only — no token)
-  let query = admin
-    .from("event_invitations")
-    .select(
-      "id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at",
-      { count: "exact" }
-    )
-    .eq("event_id", eventId)
-    .order("created_at", { ascending: false });
+  // 1. Fetch invitations (safe fields only - no token). The optional fields
+  // are added by migration 188; fall back to the legacy projection until it is applied.
+  const fetchInvitations = async (selectFields: string) => {
+    let query = (admin as any)
+      .from("event_invitations")
+      .select(selectFields, { count: "exact" })
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: false });
 
-  if (rsvpFilter && ["pending", "accepted", "declined"].includes(rsvpFilter)) {
-    query = query.eq("rsvp_status", rsvpFilter);
+    if (rsvpFilter && ["pending", "accepted", "declined"].includes(rsvpFilter)) {
+      query = query.eq("rsvp_status", rsvpFilter);
+    }
+
+    if (statusFilter && ["draft", "sent", "cancelled", "revoked", "expired"].includes(statusFilter)) {
+      query = query.eq("invitation_status", statusFilter);
+    }
+
+    if (usePagination) {
+      const offset = (Math.max(page, 1) - 1) * perPage;
+      query = query.range(offset, offset + perPage - 1);
+    }
+
+    return query;
+  };
+
+  const initialInvitationResult = await fetchInvitations(GUEST_INVITATION_SELECT_WITH_OPTIONAL);
+  let invitations = (initialInvitationResult.data || []) as Array<Record<string, any>>;
+  let count = initialInvitationResult.count;
+  let invErr = initialInvitationResult.error;
+  let guestColumnsAvailable = true;
+
+  if (invErr && isMissingGuestInvitationColumnsError(invErr)) {
+    guestColumnsAvailable = false;
+    const fallback = await fetchInvitations(LEGACY_GUEST_INVITATION_SELECT);
+    invitations = (fallback.data || []).map((row: Record<string, any>) => withEmptyGuestInvitationColumns(row)) as Array<Record<string, any>>;
+    count = fallback.count;
+    invErr = fallback.error;
   }
-
-  if (statusFilter && ["draft", "sent", "cancelled", "revoked", "expired"].includes(statusFilter)) {
-    query = query.eq("invitation_status", statusFilter);
-  }
-
-  if (usePagination) {
-    const offset = (Math.max(page, 1) - 1) * perPage;
-    query = query.range(offset, offset + perPage - 1);
-  }
-
-  const { data: invitations, count, error: invErr } = await query;
 
   if (invErr) {
     return NextResponse.json({ error: "Failed to load guest list." }, { status: 500 });
@@ -128,7 +150,7 @@ export async function GET(
     .order("row_label")
     .order("seat_number");
 
-  let guests = (invitations || []).map((inv) => {
+  let guests: Array<Record<string, any>> = (invitations || []).map((inv) => {
     const ticket = ticketMap.get(inv.id) || null;
     const seat = seatMap.get(inv.id) || null;
     return {
@@ -176,6 +198,7 @@ export async function GET(
     page: usePagination ? page : 1,
     per_page: usePagination ? perPage : guests.length,
     availableSeats: availableSeats || [],
+    guestColumnsAvailable,
   });
 }
 
@@ -204,6 +227,11 @@ export async function POST(
   const notes = (body.notes as string)?.trim() || null;
   const seatId = (body.seatId as string)?.trim() || null;
   const sendEmail = Boolean(body.sendEmail);
+  const guestAllowanceResult = validateGuestAllowance(body.guestAllowance ?? null);
+
+  if (!guestAllowanceResult.valid) {
+    return NextResponse.json({ error: guestAllowanceResult.error }, { status: 422 });
+  }
 
   if (!guestName) {
     return NextResponse.json({ error: "Guest name is required." }, { status: 422 });
@@ -223,6 +251,7 @@ export async function POST(
       email,
       phone,
       notes,
+      guestAllowance: guestAllowanceResult.value,
       createdBy: userId,
     });
 
@@ -282,6 +311,10 @@ export async function POST(
         phone: credential.invitation.phone,
         invitation_status: emailSent ? "sent" : credential.invitation.invitation_status,
         rsvp_status: credential.invitation.rsvp_status,
+        guest_allowance: credential.invitation.guest_allowance,
+        rsvp_guest_count: credential.invitation.rsvp_guest_count,
+        rsvp_guest_names: credential.invitation.rsvp_guest_names,
+        rsvp_message: credential.invitation.rsvp_message,
         created_at: credential.invitation.created_at,
         seat_label: assignedSeatLabel,
       },
@@ -289,6 +322,12 @@ export async function POST(
       emailMessage,
     });
   } catch (err: unknown) {
+    if (err instanceof GuestInvitationColumnsUnavailableError) {
+      return NextResponse.json(
+        { error: "Guest allowance and RSVP details are unavailable until migration 188 is applied." },
+        { status: 409 }
+      );
+    }
     console.error("[events/[id]/guests]", err);
     return NextResponse.json({ error: "Failed to create guest invitation." }, { status: 500 });
   }
@@ -384,6 +423,14 @@ export async function PATCH(
         return NextResponse.json({ error: "Enter a valid email address." }, { status: 422 });
       }
 
+      const hasGuestAllowance = Object.prototype.hasOwnProperty.call(body, "guestAllowance");
+      const guestAllowanceResult = hasGuestAllowance
+        ? validateGuestAllowance(body.guestAllowance)
+        : { valid: true as const, value: undefined };
+      if (!guestAllowanceResult.valid) {
+        return NextResponse.json({ error: guestAllowanceResult.error }, { status: 422 });
+      }
+
       const result = await updateInvitationGuest({
         eventId,
         invitationId,
@@ -393,6 +440,7 @@ export async function PATCH(
         email,
         phone: body.phone as string | null | undefined,
         notes: body.notes as string | null | undefined,
+        guestAllowance: guestAllowanceResult.value,
       });
 
       await logEventAction({
@@ -407,6 +455,12 @@ export async function PATCH(
 
       return NextResponse.json(result);
     } catch (err: unknown) {
+      if (err instanceof GuestInvitationColumnsUnavailableError) {
+        return NextResponse.json(
+          { error: "Guest allowance and RSVP details are unavailable until migration 188 is applied." },
+          { status: 409 }
+        );
+      }
       console.error("[events/[id]/guests]", err);
       return NextResponse.json({ error: "Failed to update guest" }, { status: 400 });
     }

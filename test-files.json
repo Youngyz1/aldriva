@@ -211,5 +211,10 @@
   "lib/__tests__/evergreen-envelope-stage4b.test.cjs",
   "lib/__tests__/evergreen-envelope-fix-round.test.cjs",
   "lib/courier/__tests__/courier-location.test.cjs",
-  "lib/courier/__tests__/courier-performance.test.cjs"
+  "lib/courier/__tests__/courier-performance.test.cjs",
+  "lib/__tests__/seating-adapter.test.cjs",
+  "lib/__tests__/seating-fixture-scrub.test.cjs",
+  "lib/__tests__/seating-preview.test.cjs",
+  "lib/__tests__/seating-stress.test.cjs",
+  "lib/dashboard/__tests__/venue-fit-view.test.cjs"
 ]

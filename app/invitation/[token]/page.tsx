@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { MailX } from "lucide-react";
-import { getInvitationByToken } from "@/lib/invitations";
+import { getInvitationByToken, getInvitationGuestAllowanceByToken } from "@/lib/invitations";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
@@ -125,6 +125,10 @@ async function InvitationLoader({ token }: { token: string }) {
   const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
 
   if (publishedPage) {
+    const templateId = publishedPage.published_snapshot.template_id;
+    const guestAllowance = templateId === "evergreen-envelope"
+      ? await getInvitationGuestAllowanceByToken(token)
+      : null;
     // Assemble live data layers into the InvitationPageData contract.
     const guestRecord = {
       guest_name: invitation.guest_name,
@@ -132,6 +136,7 @@ async function InvitationLoader({ token }: { token: string }) {
       organization: invitation.organization,
       rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
       rsvp_at: invitation.rsvp_at,
+      ...(templateId === "evergreen-envelope" ? { guest_allowance: guestAllowance } : {}),
       token: invitation.token,
       is_vip: seat?.is_vip ?? false,
     };
@@ -180,14 +185,20 @@ async function InvitationLoader({ token }: { token: string }) {
       "use server";
       if (payload.actionType !== "RSVP_SUBMISSION") throw new Error("Unsupported invitation action.");
       const { rsvpInvitation } = await import("@/lib/invitations");
-      await rsvpInvitation({ token, response: payload.response });
+      await rsvpInvitation({
+        token,
+        response: payload.response,
+        guestCount: payload.guestCount,
+        guestNames: payload.guestNames,
+        message: payload.message,
+      });
     }
 
     const onAction: PageActionHandler = handlePageAction;
     return (
       <UniversalPageRenderer
         kind="invitation"
-        templateId={publishedPage.published_snapshot.template_id}
+        templateId={templateId}
         layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
         data={pageData}
         onAction={onAction}
