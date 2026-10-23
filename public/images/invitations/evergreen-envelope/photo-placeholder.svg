@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-labelledby="title">
+  <title id="title">Neutral botanical photo placeholder</title>
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#f3f0df"/><stop offset="1" stop-color="#dfe5ce"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#fffdf5" stop-opacity=".96"/><stop offset="1" stop-color="#fffdf5" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="900" height="1200" fill="url(#paper)"/>
+  <ellipse cx="450" cy="475" rx="390" ry="410" fill="url(#glow)"/>
+  <g fill="none" stroke="#70805a" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M451 890c-7-176 5-318 63-465M449 770c-99-120-161-214-191-331M475 680c104-81 168-158 204-257" stroke-width="7" opacity=".72"/>
+    <path d="M474 603c25-71 76-115 147-132-13 76-61 123-147 132ZM408 719c-65-70-132-101-208-97 42 73 107 105 208 97ZM489 795c59-71 130-103 216-97-41 76-113 109-216 97Z" fill="#aab48b" fill-opacity=".52" stroke-width="5"/>
+    <path d="M451 888c-2-79 8-145 25-201M449 810c-42-43-82-69-128-78M467 738c41-37 79-59 125-68" stroke-width="4" opacity=".52"/>
+    <path d="M450 1010c-108 0-196-88-196-196 0-108 88-196 196-196s196 88 196 196c0 108-88 196-196 196Z" stroke="#9b865c" stroke-width="3" opacity=".38"/>
+  </g>
+  <path d="M450 445c14-25 52-17 52 13 0 30-52 59-52 59s-52-29-52-59c0-30 38-38 52-13Z" fill="#a87870" opacity=".54"/>
+</svg>

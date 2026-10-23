@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <defs>
+    <pattern id="stitch" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="9" fill="#fffdf7"/>
+      <circle cx="12" cy="12" r="4" fill="#d9dccd"/>
+    </pattern>
+    <mask id="lace-ring">
+      <rect width="400" height="400" fill="#000"/>
+      <rect x="12" y="12" width="376" height="376" rx="64" fill="#fff"/>
+      <rect x="42" y="42" width="316" height="316" rx="48" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="400" height="400" fill="url(#stitch)" mask="url(#lace-ring)"/>
+  <rect x="28" y="28" width="344" height="344" rx="54" stroke="#fffdf7" stroke-width="3"/>
+</svg>
