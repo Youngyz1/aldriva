@@ -41,9 +41,9 @@ export async function POST(
     .eq("id", orderId)
     .eq("business_id", session.businessId)
     .eq("courier_worker_id", session.workerId)
-    .eq("status", "out_for_delivery")
+    .in("status", ["picked_up", "out_for_delivery"])
     .maybeSingle();
-  if (orderError || !order || order.status !== "out_for_delivery") {
+  if (orderError || !order || (order.status !== "out_for_delivery" && order.status !== "picked_up")) {
     return courierJson({ error: "This delivery is no longer assigned to you." }, 404);
   }
 
@@ -56,7 +56,7 @@ export async function POST(
     {
       orderId,
       organizerId: order.organizer_id,
-      expectedCurrentStatus: "out_for_delivery",
+      expectedCurrentStatus: order.status as "out_for_delivery" | "picked_up",
       nextStatus: "delivered",
       markPaymentCollected: unpaidOnFulfilment && cashCollectedConfirmed,
       historyNote: unpaidOnFulfilment && cashCollectedConfirmed ? "Cash collected; courier confirmation received." : null,

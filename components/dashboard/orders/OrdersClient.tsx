@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Search, RotateCw, ExternalLink, Inbox, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, RotateCw, ExternalLink, Inbox, CheckCircle2, AlertCircle, Bike } from "lucide-react";
 import { OrderCard, type DashboardOrderRow } from "./OrderCard";
 import { OrdersFilterTabs, type OrderTabKey } from "./OrdersFilterTabs";
 import { DeliverySettingsDialog } from "./DeliverySettingsDialog";
@@ -34,6 +34,34 @@ interface OrdersClientProps {
   }>;
 }
 
+/* ── Delivery status group ordering ─────────────────────────────────────── */
+const DELIVERY_STATUS_ORDER = [
+  "pending",
+  "accepted",
+  "preparing",
+  "ready",
+  "picked_up",
+  "out_for_delivery",
+  "delivered",
+  "completed",
+  "cancelled",
+] as const;
+
+function getDeliveryStatusLabel(status: string, t: (key: any) => string): string {
+  switch (status) {
+    case "pending": return t("statusPending");
+    case "accepted": return t("statusAccepted");
+    case "preparing": return t("statusPreparing");
+    case "ready": return t("statusReady");
+    case "picked_up": return t("statusPickedUp");
+    case "out_for_delivery": return t("statusOutForDelivery");
+    case "delivered": return t("statusDelivered");
+    case "completed": return t("statusCompleted");
+    case "cancelled": return t("statusCancelled");
+    default: return status.replace(/_/g, " ");
+  }
+}
+
 export function OrdersClient({
   initialOrders,
   organizerId,
@@ -59,6 +87,12 @@ export function OrdersClient({
       free_above: null,
       courier_whatsapp: courierWhatsapp || null,
     }
+  );
+
+  // Check if there are any delivery orders (to show/hide the deliveries tab)
+  const hasDeliveryOrders = useMemo(
+    () => initialOrders.some((o) => o.fulfilment_type === "delivery"),
+    [initialOrders]
   );
 
   // Determine initial tab: prefer needs_attention if any need attention
@@ -102,6 +136,7 @@ export function OrdersClient({
     let needsAttentionCount = 0;
     let activeCount = 0;
     let completedCount = 0;
+    let deliveriesCount = 0;
 
     for (const order of initialOrders) {
       const overdueRes = computeOrderOverdue(order);
@@ -114,12 +149,16 @@ export function OrdersClient({
       if (["completed", "delivered", "cancelled"].includes(order.status)) {
         completedCount += 1;
       }
+      if (order.fulfilment_type === "delivery") {
+        deliveriesCount += 1;
+      }
     }
 
     return {
       needs_attention: needsAttentionCount,
       active: activeCount,
       completed: completedCount,
+      deliveries: deliveriesCount,
       all: initialOrders.length,
     };
   }, [initialOrders]);
@@ -137,6 +176,9 @@ export function OrdersClient({
       }
       if (activeTab === "completed") {
         return ["completed", "delivered", "cancelled"].includes(order.status);
+      }
+      if (activeTab === "deliveries") {
+        return order.fulfilment_type === "delivery";
       }
       return true;
     });
@@ -203,11 +245,75 @@ export function OrdersClient({
       });
     }
 
+    if (activeTab === "deliveries") {
+      // Sort by status pipeline order, then by created_at within each group
+      return list.sort((a, b) => {
+        const aIdx = DELIVERY_STATUS_ORDER.indexOf(a.status as typeof DELIVERY_STATUS_ORDER[number]);
+        const bIdx = DELIVERY_STATUS_ORDER.indexOf(b.status as typeof DELIVERY_STATUS_ORDER[number]);
+        const aOrder = aIdx >= 0 ? aIdx : 99;
+        const bOrder = bIdx >= 0 ? bIdx : 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    }
+
     // Completed & All: newest first
     return list.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }, [searchedOrders, activeTab]);
+
+  // Group delivery orders by status for the deliveries tab
+  const deliveryGroups = useMemo(() => {
+    if (activeTab !== "deliveries") return null;
+
+    const groups: Array<{ status: string; label: string; orders: DashboardOrderRow[] }> = [];
+    let currentStatus = "";
+    let currentGroup: DashboardOrderRow[] = [];
+
+    for (const order of sortedOrders) {
+      if (order.status !== currentStatus) {
+        if (currentGroup.length > 0) {
+          groups.push({
+            status: currentStatus,
+            label: getDeliveryStatusLabel(currentStatus, t),
+            orders: currentGroup,
+          });
+        }
+        currentStatus = order.status;
+        currentGroup = [order];
+      } else {
+        currentGroup.push(order);
+      }
+    }
+
+    if (currentGroup.length > 0) {
+      groups.push({
+        status: currentStatus,
+        label: getDeliveryStatusLabel(currentStatus, t),
+        orders: currentGroup,
+      });
+    }
+
+    return groups;
+  }, [activeTab, sortedOrders, t]);
+
+  // Render order card helper
+  const renderOrderCard = (order: DashboardOrderRow) => (
+    <OrderCard
+      key={order.id}
+      order={order}
+      organizerId={organizerId}
+      canManage={canManage}
+      courierWhatsapp={deliverySettings.courier_whatsapp}
+      businessName={businessName}
+      businessAddress={businessAddress}
+      businessPhone={businessPhone}
+      recentRiderSuggestions={recentRiderSuggestions}
+      registeredCouriers={registeredCouriers}
+      onRefresh={handleManualRefresh}
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -218,6 +324,7 @@ export function OrdersClient({
             activeTab={activeTab}
             onTabChange={setActiveTab}
             counts={tabCounts}
+            showDeliveries={hasDeliveryOffering && hasDeliveryOrders}
           />
 
           <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
@@ -282,12 +389,39 @@ export function OrdersClient({
         </div>
       </div>
 
+      {/* Delivery summary strip (deliveries tab only) */}
+      {activeTab === "deliveries" && sortedOrders.length > 0 && (
+        <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
+          {DELIVERY_STATUS_ORDER.map((status) => {
+            const count = sortedOrders.filter((o) => o.status === status).length;
+            if (count === 0) return null;
+            const isActive = ["pending", "accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(status);
+            return (
+              <div
+                key={status}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium shrink-0 ${
+                  isActive
+                    ? "bg-orange-50 border-orange-200 text-orange-800"
+                    : "bg-zinc-50 border-zinc-200 text-zinc-600"
+                }`}
+              >
+                {(status === "picked_up" || status === "out_for_delivery") && <Bike className="w-3 h-3" />}
+                <span className="capitalize">{getDeliveryStatusLabel(status, t)}</span>
+                <span className="font-bold tabular-nums">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Orders List / Empty state */}
       {sortedOrders.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-8 py-16 text-center shadow-xs">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-100 text-zinc-400 mb-4">
             {activeTab === "needs_attention" ? (
               <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+            ) : activeTab === "deliveries" ? (
+              <Bike className="w-6 h-6 text-zinc-400" />
             ) : activeTab === "active" ? (
               <Inbox className="w-6 h-6 text-zinc-400" />
             ) : (
@@ -303,29 +437,36 @@ export function OrdersClient({
               ? t("emptyActive")
               : activeTab === "completed"
               ? t("emptyCompleted")
+              : activeTab === "deliveries"
+              ? t("emptyDeliveries")
               : t("emptyAll")}
           </p>
           <p className="mt-1 text-sm text-zinc-400">
             {searchQuery ? t("searchPlaceholder") : t("noOrdersDescription")}
           </p>
         </div>
+      ) : activeTab === "deliveries" && deliveryGroups ? (
+        /* Grouped delivery view */
+        <div className="space-y-6">
+          {deliveryGroups.map((group) => (
+            <div key={group.status}>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  {group.label}
+                </h3>
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-semibold tabular-nums min-w-[20px] bg-zinc-100 text-zinc-600">
+                  {group.orders.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {group.orders.map(renderOrderCard)}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
-          {sortedOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              organizerId={organizerId}
-              canManage={canManage}
-              courierWhatsapp={deliverySettings.courier_whatsapp}
-              businessName={businessName}
-              businessAddress={businessAddress}
-              businessPhone={businessPhone}
-              recentRiderSuggestions={recentRiderSuggestions}
-              registeredCouriers={registeredCouriers}
-              onRefresh={handleManualRefresh}
-            />
-          ))}
+          {sortedOrders.map(renderOrderCard)}
         </div>
       )}
 

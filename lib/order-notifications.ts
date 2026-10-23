@@ -264,7 +264,7 @@ export interface CustomerStatusNotificationInput {
   orderNumber: string;
   customerName: string;
   customerEmail: string;
-  status: "accepted" | "ready" | "out_for_delivery" | "delivered" | "cancelled" | string;
+  status: "accepted" | "ready" | "picked_up" | "out_for_delivery" | "delivered" | "cancelled" | string;
   fulfilmentType: "pickup" | "delivery";
   currency: string;
   totalAmount: number;
@@ -313,6 +313,13 @@ export async function dispatchCustomerOrderStatusEmail(
       body = isDelivery
         ? `<p>Your order is freshly prepared and will be handed to a rider shortly for delivery.</p>`
         : `<p>Your order is freshly prepared and ready for you to pick up.</p>`;
+    } else if (input.status === "picked_up") {
+      subject = `[${BRAND.name}] Order #${input.orderNumber} picked up by rider`;
+      heading = `Your order has been picked up!`;
+      const riderLine = input.riderName
+        ? `<p style="margin-top: 8px;"><strong>Rider:</strong> ${escapeHtml(input.riderName)}</p>`
+        : "";
+      body = `<p>Your order has been collected by the courier from the restaurant.</p>${riderLine}`;
     } else if (input.status === "out_for_delivery") {
       subject = `[${BRAND.name}] Order #${input.orderNumber} is on the way!`;
       heading = `Your order is out for delivery!`;

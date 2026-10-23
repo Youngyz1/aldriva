@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Bike } from "lucide-react";
 
-export type OrderTabKey = "needs_attention" | "active" | "completed" | "all";
+export type OrderTabKey = "needs_attention" | "active" | "completed" | "deliveries" | "all";
 
 interface OrdersFilterTabsProps {
   activeTab: OrderTabKey;
@@ -11,18 +12,21 @@ interface OrdersFilterTabsProps {
     needs_attention: number;
     active: number;
     completed: number;
+    deliveries?: number;
     all: number;
   };
+  showDeliveries?: boolean;
 }
 
 export function OrdersFilterTabs({
   activeTab,
   onTabChange,
   counts,
+  showDeliveries = false,
 }: OrdersFilterTabsProps) {
   const t = useTranslations("Orders");
 
-  const tabs: Array<{ key: OrderTabKey; label: string; count: number; alert?: boolean }> = [
+  const tabs: Array<{ key: OrderTabKey; label: string; count: number; alert?: boolean; icon?: React.ReactNode }> = [
     {
       key: "needs_attention",
       label: t("needsAttentionTab"),
@@ -39,6 +43,16 @@ export function OrdersFilterTabs({
       label: t("completedTab"),
       count: counts.completed,
     },
+    ...(showDeliveries
+      ? [
+          {
+            key: "deliveries" as OrderTabKey,
+            label: t("deliveriesTab"),
+            count: counts.deliveries ?? 0,
+            icon: <Bike className="w-3.5 h-3.5" />,
+          },
+        ]
+      : []),
     {
       key: "all",
       label: t("allTab"),
@@ -63,6 +77,7 @@ export function OrdersFilterTabs({
                 : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80 hover:text-zinc-900"
             }`}
           >
+            {tab.icon && <span className="shrink-0">{tab.icon}</span>}
             <span>{tab.label}</span>
             <span
               className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-semibold tabular-nums min-w-[20px] ${

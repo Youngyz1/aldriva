@@ -1,6 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { courierJson, validCourierOrderId, validateCourierRequestSession } from "@/lib/courier/http";
-import { runOrderStatusPostPersistEffects, type OrderRowRecord } from "@/lib/orders/transition-core";
+import { runOrderStatusPostPersistEffects, type OrderRowRecord, type OrderStatus } from "@/lib/orders/transition-core";
 
 export async function POST(
   request: Request,
@@ -16,11 +16,11 @@ export async function POST(
     p_order_id: orderId,
     p_worker_id: session.workerId,
     p_history_entry: {
-      status: "out_for_delivery",
+      status: "ready",
       at: new Date().toISOString(),
       by_user_id: null,
       reason: null,
-      note: null,
+      note: "Courier accepted delivery offer",
       estimated_ready_at: null,
       rider_name: null,
       rider_phone: null,
@@ -46,7 +46,7 @@ export async function POST(
     .eq("id", orderId)
     .eq("business_id", session.businessId)
     .eq("courier_worker_id", session.workerId)
-    .eq("status", "out_for_delivery")
+    .in("status", ["ready", "out_for_delivery"])
     .maybeSingle();
   if (orderError) return courierJson({ error: "The assigned delivery is temporarily unavailable." }, 503);
 
@@ -56,7 +56,7 @@ export async function POST(
         orderId,
         organizerId: activeOrder.organizer_id,
         expectedCurrentStatus: "ready",
-        nextStatus: "out_for_delivery",
+        nextStatus: activeOrder.status as OrderStatus,
         riderName: activeOrder.rider_name,
         riderPhone: activeOrder.rider_phone,
       },

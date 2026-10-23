@@ -9,6 +9,7 @@ export type OrderStatus =
   | "accepted"
   | "preparing"
   | "ready"
+  | "picked_up"
   | "out_for_delivery"
   | "delivered"
   | "completed"
@@ -79,6 +80,7 @@ export interface OrderRowRecord {
   rider_name?: string | null;
   rider_phone?: string | null;
   courier_worker_id?: string | null;
+  delivery_issue?: unknown;
 }
 
 export interface WorkerHistoryAttribution {
@@ -147,7 +149,7 @@ export async function executeOrderStatusTransitionCore(
 
   if (nextPaymentStatus) updatePayload.payment_status = nextPaymentStatus;
 
-  if (supports175Columns && input.nextStatus === "out_for_delivery") {
+  if (supports175Columns && (input.nextStatus === "out_for_delivery" || input.nextStatus === "picked_up")) {
     if (input.riderName) updatePayload.rider_name = input.riderName.trim().slice(0, 80);
     if (input.riderPhone) updatePayload.rider_phone = input.riderPhone.trim().slice(0, 32);
     if (input.courierWorkerId) updatePayload.courier_worker_id = input.courierWorkerId;
@@ -285,7 +287,7 @@ export async function runOrderStatusPostPersistEffects(
   }
 
   const customerEmail = order.customer_email;
-  const notifyStatuses = ["accepted", "ready", "out_for_delivery", "delivered", "cancelled"];
+  const notifyStatuses = ["accepted", "ready", "picked_up", "out_for_delivery", "delivered", "cancelled"];
   if (customerEmail && notifyStatuses.includes(input.nextStatus)) {
     void (async () => {
       try {

@@ -202,6 +202,9 @@
   "components/__tests__/cookie-consent.test.cjs",
   "components/dashboard/kitchen/__tests__/cook-performance-panel.test.cjs",
   "lib/courier/__tests__/courier-server.test.cjs",
+  "lib/courier/__tests__/courier-pickup.test.cjs",
   "lib/courier/__tests__/courier-dashboard.test.cjs",
-  "lib/courier/__tests__/courier-accept-page.test.cjs"
+  "lib/courier/__tests__/courier-accept-page.test.cjs",
+  "lib/courier/__tests__/courier-location.test.cjs",
+  "lib/courier/__tests__/courier-performance.test.cjs"
 ]

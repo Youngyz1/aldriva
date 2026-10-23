@@ -86,6 +86,12 @@ export interface DashboardOrderRow {
   created_at: string;
   provider?: string | null;
   provider_reference?: string | null;
+  delivery_issue?: {
+    category: string;
+    note?: string | null;
+    reported_at?: string;
+    worker_name?: string;
+  } | null;
 }
 
 interface OrderCardProps {
@@ -507,6 +513,11 @@ export function OrderCard({
                   {t("waitingForRiderBadge")} ({overdue.waitingMinutes}m) · {order.courierOpenOfferCount ?? 0} open offers
                 </span>
               )}
+              {order.delivery_issue && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 px-2.5 py-0.5 text-xs font-bold text-red-900 animate-pulse">
+                  ⚠️ {t("deliveryIssueReported")}: {order.delivery_issue.category.replace(/_/g, " ")}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -671,6 +682,27 @@ export function OrderCard({
                 </>
               )}
 
+              {order.status === "picked_up" && (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => handleAdvanceStatus("out_for_delivery")}
+                    className="min-h-[44px] flex-1 sm:flex-initial rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    <Bike className="w-4 h-4" />
+                    <span>{t("markOutForDelivery")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(true)}
+                    className="min-h-[44px] rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition"
+                  >
+                    {t("cancelOrder")}
+                  </button>
+                </>
+              )}
+
               {order.status === "out_for_delivery" && (
                 <>
                   <button
@@ -720,6 +752,24 @@ export function OrderCard({
       {/* EXPANDED DETAILS */}
       {isExpanded && (
         <div className="border-t border-zinc-100 bg-zinc-50/50 p-4 sm:p-5 space-y-5">
+          {order.delivery_issue && (
+            <section className="rounded-xl border border-red-300 bg-red-50 p-3.5" aria-label="Delivery issue report">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-red-900 flex items-center gap-1.5">
+                <span>⚠️ {t("deliveryIssueReported")}: {order.delivery_issue.category.replace(/_/g, " ")}</span>
+              </h3>
+              {order.delivery_issue.note && (
+                <p className="mt-1 text-xs text-red-950 font-medium">
+                  {order.delivery_issue.note}
+                </p>
+              )}
+              {order.delivery_issue.reported_at && (
+                <p className="mt-1 text-[11px] text-red-800">
+                  Reported {new Date(order.delivery_issue.reported_at).toLocaleString()}
+                  {order.delivery_issue.worker_name ? ` by courier ${order.delivery_issue.worker_name}` : ""}
+                </p>
+              )}
+            </section>
+          )}
           {order.courierDeclines && order.courierDeclines.length > 0 && (
             <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5" aria-label="Courier responses">
               <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">Courier responses</h3>
@@ -1291,14 +1341,17 @@ function StatusBadge({ status }: { status: string }) {
     accepted: "bg-blue-50 text-blue-700 border-blue-200 font-semibold",
     preparing: "bg-blue-50 text-blue-800 border-blue-200 font-semibold",
     ready: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold",
+    picked_up: "bg-amber-50 text-amber-900 border-amber-300 font-semibold",
     out_for_delivery: "bg-sky-50 text-sky-800 border-sky-200 font-semibold",
     delivered: "bg-zinc-100 text-zinc-600 border-zinc-200 font-medium",
     completed: "bg-zinc-100 text-zinc-600 border-zinc-200 font-medium",
     cancelled: "bg-red-50 text-red-600 border-red-200 font-medium",
   };
   const labelMap: Record<string, string> = {
-    out_for_delivery: t("outForDelivery"),
-    delivered: t("delivered"),
+    ready: t("statusReady"),
+    picked_up: t("statusPickedUp"),
+    out_for_delivery: t("statusOutForDelivery"),
+    delivered: t("statusDelivered"),
   };
   const cls = variants[status] ?? "bg-zinc-100 text-zinc-500 border-zinc-200";
   const label = labelMap[status] ?? status;

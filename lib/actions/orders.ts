@@ -33,6 +33,7 @@ const PICKUP_TRANSITION_GRAPH: Record<OrderStatus, OrderStatus[]> = {
   accepted: ["preparing", "ready", "cancelled"],
   preparing: ["ready", "cancelled"],
   ready: ["completed", "cancelled"],
+  picked_up: [],
   out_for_delivery: [],
   delivered: [],
   completed: [],
@@ -44,6 +45,7 @@ const DELIVERY_TRANSITION_GRAPH: Record<OrderStatus, OrderStatus[]> = {
   accepted: ["preparing", "ready", "cancelled"],
   preparing: ["ready", "cancelled"],
   ready: ["out_for_delivery", "cancelled"],
+  picked_up: ["out_for_delivery", "delivered", "cancelled"],
   out_for_delivery: ["delivered", "cancelled"],
   delivered: [],
   completed: [],
@@ -465,7 +467,7 @@ export async function assignRegisteredCourier(input: {
     .from("orders")
     .select("id")
     .eq("courier_worker_id", courier.id)
-    .eq("status", "out_for_delivery")
+    .in("status", ["ready", "picked_up", "out_for_delivery"])
     .maybeSingle();
   if (activeError) return { success: false, error: "db_error", message: "Courier availability could not be checked." };
   if (activeOrder) {

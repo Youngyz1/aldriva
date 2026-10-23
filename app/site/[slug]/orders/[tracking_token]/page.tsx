@@ -79,7 +79,7 @@ export default async function CustomerOrderTrackingPage({
   const { data: timingOrder, error: timingError } = await admin
     .from("orders")
     .select(
-      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, estimated_ready_at, status_history, cancellation_reason, rider_name, rider_phone, items, created_at, organizer_id"
+      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, estimated_ready_at, status_history, cancellation_reason, rider_name, rider_phone, items, created_at, organizer_id, delivery_rating"
     )
     .eq("tracking_token", trackingToken)
     .eq("organizer_id", website.tenant_id)
@@ -154,6 +154,11 @@ export default async function CustomerOrderTrackingPage({
     cancellationReason: orderRow.cancellation_reason ? String(orderRow.cancellation_reason) : null,
     riderName: isOutForDeliveryRow && orderRow.rider_name ? String(orderRow.rider_name) : null,
     riderPhone: isOutForDeliveryRow && orderRow.rider_phone ? String(orderRow.rider_phone) : null,
+    trackingToken,
+    deliveryRating:
+      orderRow.delivery_rating !== undefined && orderRow.delivery_rating !== null
+        ? Number(orderRow.delivery_rating)
+        : null,
     statusHistory: rawHistory,
     items: rawItems,
     createdAt: String(orderRow.created_at),
