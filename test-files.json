@@ -205,6 +205,11 @@
   "lib/courier/__tests__/courier-pickup.test.cjs",
   "lib/courier/__tests__/courier-dashboard.test.cjs",
   "lib/courier/__tests__/courier-accept-page.test.cjs",
+  "lib/__tests__/guest-allowance.test.cjs",
+  "lib/__tests__/invitation-rsvp-stage3.test.cjs",
+  "lib/__tests__/evergreen-envelope-stage4a.test.cjs",
+  "lib/__tests__/evergreen-envelope-stage4b.test.cjs",
+  "lib/__tests__/evergreen-envelope-fix-round.test.cjs",
   "lib/courier/__tests__/courier-location.test.cjs",
   "lib/courier/__tests__/courier-performance.test.cjs"
 ]

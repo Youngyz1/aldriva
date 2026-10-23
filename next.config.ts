@@ -141,7 +141,9 @@ const cspDirectives = [
     "https://www.google.com",
     "https://*.google.com",
   ],
-  ["media-src", "'self'", "blob:", supabaseOrigin],
+  // Spotify's iFrame API uses blob-backed workers; keep them scoped to the page's own origin.
+  ["worker-src", "'self'", "blob:"],
+  ["media-src", "'self'", "blob:", supabaseOrigin, mediaOrigin, r2EndpointOrigin],
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

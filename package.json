@@ -9,6 +9,8 @@
     "lint": "eslint",
     "test": "node scripts/run-tests-chunked.cjs",
     "test:chunked": "node scripts/run-tests-chunked.cjs",
+    "test:guest-allowance": "node --test lib/__tests__/guest-allowance.test.cjs",
+    "test:invitation-rsvp-stage3": "node --require ./scripts/test-server-only-alias.cjs --test --test-reporter=tap lib/__tests__/invitation-rsvp-stage3.test.cjs",
     "smoke:admin": "playwright test --config e2e/admin-smoke.config.ts",
     "supabase": "supabase",
     "verify:staging-db": "node scripts/verify-staging-db.cjs",
