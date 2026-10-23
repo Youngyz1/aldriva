@@ -12,10 +12,10 @@ export async function GET(request: Request) {
   if (!limit.allowed) return courierJson({ error: "Too many requests. Try again shortly." }, 429);
 
   const admin = createSupabaseAdmin();
-  const [workerResult, businessResult, offersResult, assignedResult, resolvedOffersResult] = await Promise.all([
+  const [workerResult, businessResult, offersResult, assignedResult, resolvedOffersResult, historyResult] = await Promise.all([
     admin
       .from("business_workers")
-      .select("id, is_available")
+      .select("id, full_name, is_available")
       .eq("id", session.workerId)
       .eq("business_id", session.businessId)
       .eq("role", "courier")
@@ -36,10 +36,10 @@ export async function GET(request: Request) {
       .limit(50),
     admin
       .from("orders")
-      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at")
+      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at, delivery_issue")
       .eq("courier_worker_id", session.workerId)
       .eq("business_id", session.businessId)
-      .eq("status", "out_for_delivery")
+      .in("status", ["ready", "picked_up", "out_for_delivery"])
       .maybeSingle(),
     admin
       .from("business_courier_offers")
@@ -49,6 +49,14 @@ export async function GET(request: Request) {
       .in("status", ["taken", "declined"])
       .order("updated_at", { ascending: false })
       .limit(50),
+    admin
+      .from("orders")
+      .select("id, order_number, status, delivery_address, total_amount, currency, payment_method, payment_status, updated_at")
+      .eq("courier_worker_id", session.workerId)
+      .eq("business_id", session.businessId)
+      .eq("status", "delivered")
+      .order("updated_at", { ascending: false })
+      .limit(10),
   ]);
   if (workerResult.error || !workerResult.data || businessResult.error || offersResult.error || assignedResult.error || resolvedOffersResult.error) {
     return courierJson({ error: "Courier orders are temporarily unavailable." }, 503);
@@ -65,12 +73,33 @@ export async function GET(request: Request) {
       offeredAt: offer.offered_at,
       declinedAt: offer.declined_at,
     }));
+
+  const completedOrders = historyResult?.data ?? [];
+  const cashCollectedTotal = completedOrders
+    .filter((o) => o.payment_method === "on_fulfilment" && o.payment_status === "paid")
+    .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+  const recentDeliveries = completedOrders.map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    deliveryAddress: o.delivery_address,
+    totalAmount: o.total_amount,
+    currency: o.currency,
+    paymentMethod: o.payment_method,
+    paymentStatus: o.payment_status,
+    deliveredAt: o.updated_at,
+  }));
+
   const response = courierJson({
     ok: true,
     isAvailable,
     state: assigned ? (isAvailable ? "On delivery" : "Offline, delivery in progress") : (isAvailable ? "Available" : "Offline"),
+    businessName: businessResult.data?.name ?? null,
+    courierName: workerResult.data.full_name ?? null,
     offers: offersResult.data ?? [],
     resolvedOffers,
+    recentDeliveries,
+    cashCollectedTotal,
     assignedOrder: assigned
       ? {
           id: assigned.id,
@@ -89,6 +118,7 @@ export async function GET(request: Request) {
           requiresCashCollection: assigned.payment_method === "on_fulfilment" && assigned.payment_status === "unpaid",
           currency: assigned.currency,
           updatedAt: assigned.updated_at,
+          deliveryIssue: assigned.delivery_issue ?? null,
         }
       : null,
   });
