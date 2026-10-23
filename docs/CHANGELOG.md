@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10-23] — Phase 2 Website Builder Vercel runtime follow-up (local fix; deployment pending)
+
+- Traced the remaining blank builder response to the server-rendered template-switch preview importing `BlockRenderer` → `sanitize-html` → `isomorphic-dompurify` → `jsdom@29.1.1` → `html-encoding-sniffer@6` → ESM-only `@exodus/bytes` through CommonJS. This was a separate server import path from the earlier client-only canvas preview change.
+- Pinned transitive jsdom to 27.3.0, whose lockfile resolves `html-encoding-sniffer@4.0.0`, while keeping DOMPurify sanitization and template previews intact. Added a runtime dependency-chain/security regression and a logged, retryable Website Builder route error boundary.
+- **Local verification:** full suite 2,734/2,734; production TypeScript check passed; focused ESLint passed; configured Turbopack build generated all 386 static pages; `git diff --check` passed. The pre-existing focused lint error at `app/m/[token]/page.tsx:54` remains unchanged.
+- The fix is not yet deployed. Authenticated Vercel UI checks remain pending because browser use is disabled in this session. Rich-text verification requires suitable existing staging content or approval for a disposable draft.
+
 ## [2026-10-23] — Phase 1A information density, interaction, typography, and Tabler icons (staging working tree)
 
 - Replaced application Lucide interface icons with verified Tabler exports, added a safe dynamic homepage-category icon map, and removed `lucide-react`. Added the permanent icon and readability rules to `DESIGN.md`, `AGENTS.md`, `CLAUDE.md`, and DEC-0055.

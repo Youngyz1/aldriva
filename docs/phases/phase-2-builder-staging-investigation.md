@@ -2,7 +2,7 @@
 
 Date: 2026-10-23
 
-Status: Website Builder root cause reproduced on Vercel and locally changed; configured production build and authenticated local production route checks pass. The changed code has not been deployed, so neither builder has been verified on a deployment containing the local change.
+Status: the first Website Builder fix was insufficient. The remaining Vercel runtime cause is now confirmed, and a targeted dependency fix plus regression test and route error boundary are implemented locally. The follow-up has not yet been pushed or deployed; post-fix staging verification remains pending.
 
 ## Findings
 
@@ -25,6 +25,21 @@ Status: Website Builder root cause reproduced on Vercel and locally changed; con
 - The lockfile resolves `isomorphic-dompurify@3.18.0` to `jsdom@29.1.1`, `html-encoding-sniffer@6.0.0`, and `@exodus/bytes@1.15.1`. The dependency is still loaded by the preview's SSR path despite the earlier URL-only sanitizer split.
 - The `vercel.live` feedback script blocked by `script-src` is separate from the server module failure. It is deployment feedback UI, not a builder dependency. The Content Security Policy was not weakened.
 
+## Phase 2 follow-up — remaining runtime failure
+
+- Vercel logs for the deployed `staging` builder route show the same `ERR_REQUIRE_ESM` chain even after `CanvasBlockPreview` became client-only. The route also statically imported `TemplateSwitchPreview`, which renders `BlockRenderer`; `BlockRenderer` imports `lib/sanitize-html.ts`, which loads `isomorphic-dompurify` and `jsdom` during server route module evaluation. The template-switch preview is part of the actual server module graph, so the earlier canvas boundary alone could not prevent the failure.
+- The lockfile resolved `jsdom@29.1.1` → `html-encoding-sniffer@6.0.0` → `@exodus/bytes@1.15.1`. The exact `ERR_REQUIRE_ESM` is documented in the upstream [`html-encoding-sniffer` issue](https://github.com/jsdom/html-encoding-sniffer/issues/23); Vercel's log stack matches it. `jsdom@27.3.0` resolves `html-encoding-sniffer@4.0.0` and does not include the offending dependency.
+- Added an npm override for `jsdom@27.3.0`, keeping the existing server HTML sanitizer and full template-switch rendering. Added a regression in `lib/dashboard/__tests__/website-builder-canvas.test.cjs` that inspects the actual nested manifests used by `isomorphic-dompurify` and runs malicious HTML through `sanitizeArticleHtml`. Added a route `error.tsx` boundary that logs the caught error and digest while presenting a retry UI; this does not replace server logs.
+- No invitation-builder or sanitizer policy code was changed. No CSP, permission, validation, or tenant-isolation control was weakened.
+
+### Follow-up local verification
+
+- Focused Website Builder + sanitizer tests: 21 passed, 0 failed. Full `npm test`: 2,734 passed, 0 failed, 0 skipped across 220 files.
+- `npx tsc --noEmit -p tsconfig.build.json --pretty false`: passed. Focused ESLint on the new error boundary and regression test: passed with no diagnostics. `git diff --check`: passed.
+- `npm run build` (configured Next.js 16.3.4 Turbopack build): passed; TypeScript completed and all 386 static pages generated.
+- The previously reported ESLint error remains at `app/m/[token]/page.tsx:54` (`react-hooks/error-boundaries`, JSX inside a `try/catch`). That Phase 1A-touched file's diff is an icon import; it is unchanged in this follow-up. `npx eslint 'app/m/[token]/page.tsx'` reproduces the error.
+- Post-follow-up authenticated staging browser checks have not run: browser use is disabled in this Codex Work session. No website data was created or changed.
+
 ## Verification
 
 - Focused Website Builder canvas tests: 12 passed, including the new client-only preview boundary regression check.
@@ -36,8 +51,8 @@ Status: Website Builder root cause reproduced on Vercel and locally changed; con
 - Authenticated local production browser checks used the existing QA session and real event/organization records. The Invitation Builder direct route and refresh returned HTTP 200, rendered its editor and preview iframe, and had no page errors or mobile horizontal overflow. On desktop, navigation from event Overview through the Invitation Page sidebar and Edit invitation action reached the editor. No write/save action was performed.
 - The local QA organization's Website Builder URL redirected to its website overview/setup page because that organization has no website. Using a real organization record from the authenticated staging list, the same isolated local production server rendered the Website Builder route with no browser page errors. That QA record had no canvas element hit targets, so this verifies the route's production render but does not exercise a rich-text block's client sanitizer call. The website dashboard navigation click was not completed in this check.
 - An optional `--webpack` build used during isolated-build troubleshooting failed TypeScript checks on unrelated route-module exports in `app/api/courier/orders/[orderId]/issue/route.ts`, `app/api/invitation/[token]/card.png/route.ts`, `app/api/webhooks/stripe/route.ts`, and `app/site/[slug]/[[...page]]/page.ts`. The project's configured Turbopack build passed; those files were not changed.
-- Vercel browser and function-log reproduction described above is from the deployed pre-change branch preview. The modified code has not been pushed or deployed.
+- Vercel browser and function-log reproduction described above is from the deployed pre-change branch preview. At that checkpoint, the first canvas-only change had not yet been pushed; it was later included in the Phase 2 commit and deployed, but did not address this remaining route-level import path.
 
 ## Completion boundary
 
-**Post-change Vercel verification is pending.** This report records the pre-change deployment findings and local production checks. It does not claim that the client-only preview change has been verified on Vercel. Staging can only be called fixed after a deployment containing the change is tested with authenticated organization and invitation data, including direct navigation, dashboard navigation, refresh, browser errors, failed requests, and Vercel function logs. The vanity alias also needs to be aligned with the intended current staging deployment before it can represent the latest branch state.
+**Post-follow-up Vercel verification is pending.** Staging can only be called fixed after a deployment containing the dependency fix is tested with authenticated organization and invitation data, including direct navigation, dashboard navigation, refresh, browser errors, failed requests, and Vercel function logs. The prior inventory did not find populated legacy canvas/rich-text content; check again after deployment, and ask before creating a disposable test draft if no suitable existing content is available. The current session also has browser use disabled, so authenticated UI verification needs an enabled browser session.

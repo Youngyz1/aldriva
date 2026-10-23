@@ -487,6 +487,17 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Personnel lists lead with name/status and reveal relevant contact, invitation, timestamp, and management data through keyboard-accessible disclosure. Preserve permissions, tenant isolation, and operationally necessary status.
   - Use readable 15–16px main/form-label text and 14–15px secondary text with WCAG AA contrast where applicable. Keep ordinary content unboxed under DEC-0054.
   - Scope excludes the separate Phase 2 blank Website/Invitation Builder investigation; retain it for its own workstream.
+
+### DEC-0056: Pin jsdom before the CommonJS-to-ESM regression
+
+- **Decision Date**: 2026-10-23
+- **Status**: Implemented and locally verified; Vercel staging verification pending.
+- **Key Tenets**:
+  - Keep the existing DOMPurify-based HTML sanitizer and its allowlists/hooks. The Website Builder server route imports the template-switch preview, which imports `BlockRenderer` and reaches `isomorphic-dompurify` through server rendering.
+  - Pin transitive `jsdom` to 27.3.0 until the Vercel external-module runtime can safely load the newer CommonJS `html-encoding-sniffer` dependency chain. The prior jsdom 29.1.1 lock resolved `html-encoding-sniffer` 6 and ESM-only `@exodus/bytes`, matching the deployed `ERR_REQUIRE_ESM` stack. The pin resolves sniffer 4.0.0.
+  - Keep the Node engine requirement and client-only legacy canvas preview boundary. The dependency regression test verifies the resolved nested versions and checks that malicious rich HTML remains sanitized. Revisit the pin only with deployed-runtime evidence and sanitizer regression coverage.
+  - The focused builder/sanitizer tests, full suite, production typecheck, focused lint, and configured Turbopack build pass on the pinned tree. Authenticated deployed behavior remains unverified until the staging deployment is inspected.
+
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |
