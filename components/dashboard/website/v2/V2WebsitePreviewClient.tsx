@@ -18,7 +18,7 @@ import { formatMoney as formatSharedMoney } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { isSameOriginWebsitePreviewMessage, isWebsitePreviewMessage, WEBSITE_PREVIEW_MESSAGE_SOURCE } from "@/lib/website-preview-channel";
 import { safeImageSrc } from "@/lib/image-url";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import { getSitePageSlug, resolveSiteHref } from "@/lib/site-paths";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";

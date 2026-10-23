@@ -16,6 +16,9 @@
     "verify:staging-db": "node scripts/verify-staging-db.cjs",
     "check:client-secrets": "node scripts/check-client-secrets.cjs"
   },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "overrides": {
     "postcss": "^8.5.23",
     "undici": "^7.29.0",

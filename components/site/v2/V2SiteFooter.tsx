@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import type { MouseEvent } from "react";
 import type { ContentDoc } from "@/lib/website-content";
 import { readableOn } from "@/lib/readable-on";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "work",
+    ".next/dev/types",
+    ".next-buildcheck/dev/types"
+  ]
+}

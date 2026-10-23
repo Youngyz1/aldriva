@@ -4,7 +4,7 @@
  * Tenant-branded site footer driven by footer_config (Phase 1).
  */
 
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import type { FooterConfig } from "@/lib/website-nav";
 
 interface SiteFooterProps {

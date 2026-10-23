@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import type { HeaderConfig } from "@/lib/website-nav";
 import type { NavigationItem } from "@/lib/website-nav";
 

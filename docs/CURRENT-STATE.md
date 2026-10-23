@@ -1,5 +1,11 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Organizer dashboard sanitizer and build types (2026-10-23)
+
+- **Status: locally verified.** URL sanitization now lives in `lib/sanitize-url.ts`; URL-only imports no longer evaluate `isomorphic-dompurify`/jsdom. HTML sanitization and its allowlists remain unchanged. `package.json` requires Node `>=22.13.0`, which Vercel resolves to its current compatible 24.x LTS runtime.
+- **Type error cause:** the failing `.next/dev/types/validator.ts` contained a truncated generated validator block (`out.js")`), while the tracked app route segments were ordinary. This was stale/corrupted development type output; no generated file was edited as a fix. Production type checking now uses `tsconfig.build.json` to exclude dev-generated output while the dev config continues to include it.
+- **Verification:** production build and production-config TypeScript check passed; focused sanitizer/security/website tests passed 18/18; changed-file ESLint and `git diff --check` passed. Local production route check returned the expected login redirect without the ESM exception; the route trace excludes the jsdom chain.
+
 ## Active Worktree Update — Evergreen Envelope Fix Round 2 (2026-10-23)
 
 - **Status: VERIFIED in the working tree for the staging QA fixture.** Evergreen now has a one-tap envelope opening, builder-configurable photo/text cards, preview-only replay/sample badges, reduced-motion and skip behavior, uploaded-audio controls, venue map link pass-through, and a larger shared QR dialog. Existing invitation templates retain their previous rendering paths.

@@ -493,3 +493,12 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
 - Add organizer controls for guest album visibility and upload-open/upload-close timestamps. Keep the existing `is_active` as the upload-link revoke/active control and `require_approval` as the moderation setting. A migration is required for `guest_album_enabled`, `upload_opens_at`, and `upload_closes_at` on `event_memory_settings`; enforce date boundaries in server routes.
 - Evergreen Photos card precedence: internal guest album when `guest_album_enabled` and valid invitation access are both true; otherwise the existing HTTPS `album_url`; otherwise hide the card. Never render a dead button.
 - Existing event Memories photos are in private Supabase Storage (`event-memories`) in local/staging and a separate private R2 bucket in production. The current upload path is public to holders of its event-level `mem_…` bearer token while `is_active=true`; it has no upload date window. Do not expose that bearer token as a gallery access credential.
+
+### DEC-0053: URL validation stays independent of HTML parsing
+
+- **Decision Date**: 2026-10-23
+- **Status**: Implemented and locally verified on Node 24.
+- **Key Tenets**:
+  - Keep the URL allowlist in `lib/sanitize-url.ts` so callers that only validate URLs do not load `isomorphic-dompurify` or its jsdom runtime dependency. `lib/sanitize-html.ts` re-exports `sanitizeUrl` for compatibility.
+  - Keep DOMPurify-backed HTML sanitization for rich content; it remains a production runtime requirement. Require Node `>=22.13.0` for Vercel builds and functions; Vercel honors the package engine range and currently resolves it to the compatible 24.x LTS runtime.
+  - Production builds use `tsconfig.build.json` to exclude generated `.next/dev/types` and `.next-buildcheck/dev/types` files. Development retains its normal generated type checks.

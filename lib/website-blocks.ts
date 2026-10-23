@@ -6,12 +6,13 @@
  * Defines:
  *  1. Complete TypeScript interfaces for all 10 standard block types + 2 legacy types.
  *  2. Write-time and load-time validation with length bounds, array item caps,
- *     UUID format checks, and strict URL safety backed directly by sanitizeUrl() from lib/sanitize-html.ts.
+ *     UUID format checks, and strict URL safety backed directly by sanitizeUrl() from lib/sanitize-url.ts.
  *  3. parseBlock / parseBlocks fallback parsers for robust, error-free rendering.
  *  4. Theme token presets & style mapping for tenant website palettes.
  */
 
-import { sanitizeUrl, MAX_ARTICLE_HTML_LENGTH } from "./sanitize-html";
+import { sanitizeUrl } from "./sanitize-url";
+import { MAX_ARTICLE_HTML_LENGTH } from "./sanitize-limits";
 import { safeImageSrc } from "./image-url";
 
 // ── 1. Block Component Types ──────────────────────────────────────────────────

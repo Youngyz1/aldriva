@@ -216,5 +216,6 @@
   "lib/__tests__/seating-fixture-scrub.test.cjs",
   "lib/__tests__/seating-preview.test.cjs",
   "lib/__tests__/seating-stress.test.cjs",
-  "lib/dashboard/__tests__/venue-fit-view.test.cjs"
+  "lib/dashboard/__tests__/venue-fit-view.test.cjs",
+  "lib/__tests__/sanitize-url.test.cjs"
 ]

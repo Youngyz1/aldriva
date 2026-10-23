@@ -14,7 +14,7 @@
  * (Sample-merge doctrine: lib/invitation-template-preview-data.ts.)
  */
 
-import { sanitizeUrl } from "./sanitize-html";
+import { sanitizeUrl } from "./sanitize-url";
 import { safeImageSrc } from "./image-url";
 import { BLOCK_LIMITS } from "./website-blocks";
 import { isValidWebsiteTime } from "./website-hours";

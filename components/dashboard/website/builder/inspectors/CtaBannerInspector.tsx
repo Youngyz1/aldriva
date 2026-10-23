@@ -2,7 +2,7 @@
 
 import React from "react";
 import { CtaBannerBlock, BLOCK_LIMITS } from "@/lib/website-blocks";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
 

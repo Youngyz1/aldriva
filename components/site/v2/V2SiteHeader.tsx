@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { safeImageSrc } from "@/lib/image-url";
 import { readableOn } from "@/lib/readable-on";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import { getSitePageSlug, getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import type { ContentDoc } from "@/lib/website-content";
 import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/website-template-resolver";

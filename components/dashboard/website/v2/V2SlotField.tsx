@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
-import { sanitizeUrl } from "@/lib/sanitize-html";
+import { sanitizeUrl } from "@/lib/sanitize-url";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
 import type { V2MenuItemChoice } from "@/lib/actions/website-v2";
 import type { WebsiteEditorControl } from "@/lib/website-v2-editor-schema";

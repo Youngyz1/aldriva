@@ -27,7 +27,7 @@ Develop the high-performance public rendering engine that dynamically serves bus
 - [x] Public site loads correct navigation, header, page body, and footer based on slug.
 - [x] Unpublished/draft sites return real HTTP 404 to unauthenticated visitors via pre-stream proxy gate, while allowing authenticated team members to preview drafts with `DraftPreviewBanner`.
 - [x] OpenGraph metadata and JSON-LD structured tags match tenant settings (`WebSite`, `Organization`, `WebPage`).
-- [x] Rich text block content and all URL-bearing fields (href, src, backgroundImage, avatar, customLinks) are sanitized server-side via `lib/sanitize-html.ts` (`isomorphic-dompurify` and `sanitizeUrl`) before rendering.
+- [x] Rich text block content is sanitized server-side via `lib/sanitize-html.ts` (`isomorphic-dompurify`); URL-bearing fields use the strict `sanitizeUrl()` allowlist in `lib/sanitize-url.ts`, also re-exported from `lib/sanitize-html.ts` for compatibility.
 - [x] Reserved slugs list (`RESERVED_WEBSITE_SLUGS`) prevents collisions with platform routes.
 - [x] Navigation tree staleness guard (`filterPublishedNavItems`) prunes links to unpublished pages at render time.
 - [x] 100% of test suites pass (312/312 tests passing), TypeScript passes with 0 errors, ESLint passes with 0 warnings/errors, and Next.js production build succeeds.
@@ -40,7 +40,7 @@ Develop the high-performance public rendering engine that dynamically serves bus
 - Implemented `checkWebsiteAccess` helper and `/site/:path*` pre-stream route gate in `proxy.ts`.
 - Created standalone route segment layout `app/site/[slug]/layout.tsx` (suppressing platform Navbar).
 - Created public SSR catch-all page `app/site/[slug]/[[...page]]/page.tsx` with deterministic homepage resolution hierarchy (`is_home` -> `slug = 'home'` -> `sort_order ASC, created_at ASC, id ASC`).
-- Built modular block renderer catalog in `components/site/blocks/BlockRenderer.tsx` supporting 7 block types (`hero`, `features`, `rich_text`, `gallery`, `cta_banner`, `faq`, `testimonials`) with server-side HTML sanitization via `lib/sanitize-html.ts`.
+- Built modular block renderer catalog in `components/site/blocks/BlockRenderer.tsx` supporting 7 block types (`hero`, `features`, `rich_text`, `gallery`, `cta_banner`, `faq`, `testimonials`) with server-side HTML sanitization via `lib/sanitize-html.ts` and strict URL sanitization via `lib/sanitize-url.ts`.
 - Built tenant-branded `SiteHeader.tsx` and `SiteFooter.tsx` components.
 - Built `DraftPreviewBanner.tsx` for team member draft previews.
 - Implemented structured JSON-LD generation (`WebSite`, `Organization`, `WebPage`), OpenGraph metadata generator, theme CSS variable mapper (`themeConfigToStyle`), and runtime nav-staleness filter (`filterPublishedNavItems`) in `lib/website-structured-data.ts`.

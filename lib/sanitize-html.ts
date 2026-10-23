@@ -19,6 +19,8 @@
 
 import DOMPurify from "isomorphic-dompurify";
 import { safeImageSrc } from "@/lib/image-url";
+export { sanitizeUrl } from "./sanitize-url";
+export { MAX_ARTICLE_HTML_LENGTH } from "./sanitize-limits";
 
 // Article <img> URLs follow the same strict display allowlist as structured
 // image fields. Video and source URLs remain governed by their existing rules.
@@ -124,9 +126,6 @@ const ARTICLE_FORBID_TAGS = [
   "noscript",
 ];
 
-/** Upper bound on stored/rendered article HTML (DoS guard). ~200k chars. */
-export const MAX_ARTICLE_HTML_LENGTH = 200_000;
-
 /**
  * Sanitize article body HTML. Always returns a string ("" for non-strings).
  * Safe to call on already-sanitized content (idempotent for clean input).
@@ -142,49 +141,4 @@ export function sanitizeArticleHtml(dirty: unknown): string {
     // benign `data:image/*` thumbnails).
     ALLOW_DATA_ATTR: false,
   });
-}
-
-/**
- * Strict allowlist-based URL sanitizer for href and src attributes.
- * Allows: http:, https:, mailto:, tel:, and relative paths (/, #, ?, ./, ../).
- * Strips dangerous schemes like javascript:, data:, vbscript:.
- * Always returns a safe URL string or the fallback string (default: "").
- */
-export function sanitizeUrl(url: unknown, fallback = ""): string {
-  if (typeof url !== "string") return fallback;
-  const trimmed = url.trim();
-  if (!trimmed) return fallback;
-
-  // Relative URLs and anchor targets are safe
-  if (
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("#") ||
-    trimmed.startsWith("?") ||
-    trimmed.startsWith("./") ||
-    trimmed.startsWith("../")
-  ) {
-    // Extra safety: block protocol-relative //evil.com if not intended or sanitize
-    if (trimmed.startsWith("//")) {
-      return fallback;
-    }
-    return trimmed;
-  }
-
-  // Absolute URLs must start with allowed protocols
-  const isAllowedScheme = /^(https?:|mailto:|tel:)/i.test(trimmed);
-  if (!isAllowedScheme) {
-    return fallback;
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    const proto = parsed.protocol.toLowerCase();
-    if (proto === "http:" || proto === "https:" || proto === "mailto:" || proto === "tel:") {
-      return trimmed;
-    }
-  } catch {
-    return fallback;
-  }
-
-  return fallback;
 }

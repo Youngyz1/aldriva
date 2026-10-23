@@ -158,6 +158,11 @@ const cspDirectives = [
   .join("; ");
 
 const nextConfig: NextConfig = {
+  // Dev and production builds share .next but generate different type files.
+  // Exclude development output from the production type-check config.
+  typescript: {
+    tsconfigPath: isDev ? "tsconfig.json" : "tsconfig.build.json",
+  },
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key",

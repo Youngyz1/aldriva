@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Organizer dashboard sanitizer/runtime and generated type incident (2026-10-23; staging fix)
+
+- Split strict URL validation and the article-size limit into dependency-free modules, moved URL-only imports to them, and kept the HTML sanitizer and its security profile intact. Added a Node `>=22.13.0` Vercel runtime requirement for the installed jsdom 29 chain.
+- Diagnosed the TypeScript failure as corrupted `.next/dev/types` output with a truncated validator block; no generated output or route source was changed to mask it.
+- Added a production-only TypeScript config so corrupted/stale dev type output cannot block production builds; development type checking keeps its existing generated type inputs.
+- **Verification:** `npm run build` passed (Next TypeScript phase included); `npx tsc --noEmit -p tsconfig.build.json --pretty false` passed; focused sanitizer/security/website tests passed 18/18; changed-file ESLint and `git diff --check` passed. The local production server returned the expected 307 login redirect for `/dashboard/org/test/overview` with no `ERR_REQUIRE_ESM` log, and the route trace contained none of the jsdom chain packages.
+
 ## [2026-10] — Evergreen Envelope Fix Round 2 (2026-10-23; staging QA, working tree)
 
 - Added the Evergreen-only one-tap envelope gate and CSS opening sequence, two builder-configurable cards, preview replay, reduced-motion and skip paths, uploaded-audio control, accessible expanded QR reuse, and preview-safe map links. Existing templates remain on their prior components and behavior.
