@@ -1,9 +1,9 @@
 # Aldriva — Database Architecture, Schema Reference & Migrations
 
 > **Status**: Verified Technical Reference  
-> **Canonical Migration Source**: `db/` (Migrations 1 to **186**)
+> **Canonical Migration Source**: `db/` (Migrations 1 to **190**)
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Updated**: 2026-10-21 (migration 186 application/verification is owner-reported, not independently queried). Latest forward migration in the repository: **186** (courier offers). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but **NOT applied**; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
+> **Last Updated**: 2026-10-21 (migration 186 application/verification and migration 187 application are owner-reported, not independently queried). Latest authored forward migration in the repository: **188** (Evergreen Envelope RSVP; not applied). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186, 187** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but **NOT applied**; **188** is authored and **NOT applied**; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
 
 ---
 
@@ -193,9 +193,14 @@ The following tables are planned for future phases (DO NOT create before respect
 | 184 | `migration_184_menu_promotions.sql` | yes | yes | **approved, not applied** (SHA-256 `30fb2d16…5482`) |
 | 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **Applied on staging per owner report**; not independently queried (owner applies SQL manually) |
 | 186 | `migration_186_courier_offers.sql` | yes | **no mirror** | **Applied and verified on staging per owner report**; not independently queried (owner applies SQL manually); rollback, staging cleanup, pre/post-checks, and claim-race SQL included |
-| 187+ | — | — | — | **free** as of 2026-10-21 |
+| 187 | `migration_187_cook_performance.sql` | yes | no mirror | Owner-reported applied; not independently queried |
+| 188 | `migration_188_evergreen_envelope_rsvp.sql` | yes | no mirror | Authored, not applied; paired rollback exists; owner applies manually |
+| 189 | `migration_189_courier_pickup_workflow.sql` | yes | `20261022120000_migration_189_courier_pickup_workflow.sql` | **Applied on staging per owner report** |
+| 190 | `migration_190_delivery_live_gps.sql` | yes | `20261022130000_migration_190_delivery_live_gps.sql` | Applied on staging per owner report |
+| 191 | `migration_191_courier_performance_and_rating.sql` | yes | `20261022140000_migration_191_courier_performance_and_rating.sql` | Authored forward + rollback; mirror exists; owner applies manually |
+| 192+ | — | — | — | **free** as of 2026-10-22 |
 
-**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery; 186 = courier offers. Next free = **187**.
+**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP; 189 = courier pickup workflow; 190 = live GPS and transit tracking; 191 = courier performance & customer rating. Next free = **192**.
 
 ### Read-only verification queries (no `schema_migrations` table)
 

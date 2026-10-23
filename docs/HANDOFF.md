@@ -94,7 +94,12 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | 184 | Menu promotions | Authored + owner-approved; **NOT applied**; rollback + `db/tests/migration_184_checks.sql` exist; SHA-256 `30fb2d16…5482` (both copies identical, VERIFIED 2026-10-20) | `feat/menu-promotions-phase-4` |
 | 185 | Kitchen & delivery — worker access | **Applied on staging per owner report**; not independently queried; rollback + staging-only cleanup exist | `feat/phase-0-1-kitchen-worker-access` |
 | 186 | Kitchen & delivery — couriers | **Applied and verified on staging per owner report**; rollback + staging cleanup + pre/post-checks + two-tab claim-race SQL exist | `feat/phase-2-couriers` |
-| 187+ | unassigned | free as of 2026-10-21 | — |
+| 187 | Kitchen & delivery — cook performance | **Owner-reported applied**; authored forward + rollback files exist; not independently queried | `feat/phase-2-couriers` |
+| 188 | Evergreen Envelope RSVP | Authored forward + rollback; **NOT applied**; owner will apply to staging | `feat/phase-2-couriers` |
+| 189 | Kitchen & delivery — courier pickup workflow | **Applied on staging per owner report**; rollback exists | `feat/phase-2-couriers` |
+| 190 | Kitchen & delivery — live GPS and transit tracking | **Applied on staging per owner report**; rollback + mirror exist | `feat/phase-2-couriers` |
+| 191 | Kitchen & delivery — courier performance & customer rating | Authored forward + rollback; mirror exists; owner will apply to staging | `feat/phase-2-couriers` |
+| 192+ | unassigned | free as of 2026-10-22 | — |
 | **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
 
 ---
@@ -154,3 +159,11 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 - **Owner-run SQL only:** `db/tests/migration_186_claim_race_tab_a.sql`, `...tab_b.sql`, `...verify.sql`, and `migration_186_business_delete_test.sql` are not run here. The business-delete harness is staging-only and says never run on production.
 - **Stage C:** courier dashboard/offer polling is implemented. Browser visual/integration QA remains; live tracking, WhatsApp sending, and push are not included.
 *This file is maintained by documentation agents. Last updated: 2026-10-21. Evidence audit: `docs/project-status.md`.*
+
+
+## 11. Evergreen Envelope Fix Round 2 (2026-10-23)
+
+- **VERIFIED — working tree:** Evergreen-specific gate, card, map, music, and QR changes are implemented without changing other invitation template paths. Builder preview and published guest route were checked separately using staging QA event 77456a7f-8cd1-4685-97a1-e443ab89e9be; protected event efa0de14-6368-4449-a2f8-0fbc092a77af was read-only and contains the venue label Cgeremony.
+- **Verification:** production build, full project TypeScript, changed-file ESLint, and git diff --check passed; focused Evergreen/QR regressions passed 47/47; full suite passed 2,678/2,678 across 213 files; Playwright passed 5/5 at 390×844, using localhost:3000 and normal/4× CPU video evidence.
+- **Unverified / owner action:** no physical Android handset was available. Spotify embed playback remains unavailable under the current CSP and falls back to the external Spotify URL. Memories album implementation is stopped at proposal DEC-0052 pending owner decision; implementing it requires a migration. No migration was authored or run for this fix round; no invitations were sent, protected data was not changed, and nothing was staged or committed.
+- Full user-facing report and visual/test evidence are in C:\Users\Youngyz\Documents\Codex\2026-10-22\files-pasted-by-the-user-fix\outputs\evergreen-fix-round-2\report.md.

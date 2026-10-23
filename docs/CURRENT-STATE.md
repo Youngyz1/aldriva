@@ -1,5 +1,13 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Update — Evergreen Envelope Fix Round 2 (2026-10-23)
+
+- **Status: VERIFIED in the working tree for the staging QA fixture.** Evergreen now has a one-tap envelope opening, builder-configurable photo/text cards, preview-only replay/sample badges, reduced-motion and skip behavior, uploaded-audio controls, venue map link pass-through, and a larger shared QR dialog. Existing invitation templates retain their previous rendering paths.
+- **Verification:** 5/5 Playwright checks passed on localhost:3000 against the production build at 390×844 touch emulation, including separate builder-preview and published-guest map tests, uploaded MP3 play/pause, accessible QR focus/Escape behavior, and payload decode. Normal and 4× CPU Playwright videos are 390×844 with 20fps frame extraction. Full suite 2,678/2,678 across 213 files; TypeScript, changed-file ESLint, and production build passed.
+- **Staging boundary:** used QA event 77456a7f-8cd1-4685-97a1-e443ab89e9be. Protected event efa0de14-6368-4449-a2f8-0fbc092a77af was read-only; stored label is Cgeremony. No invitations were sent, no migrations were authored or run for this fix round, and no Git staging or commit was performed.
+- **Album:** guest-facing Memories album is proposed only; it needs owner approval and a migration for album visibility/upload-window fields. See DEC-0052. Spotify iFrame playback does not initialize under the current CSP; the verified fallback opens Spotify externally. No physical Android handset was available.
+
+
 ## Active Worktree Update — Kitchen & Delivery, 2026-10-21
 
 - **Cook performance Stage 3B/3C:** the server-only owner Kitchen loader and bilingual panel are implemented in the working tree. Each business with a kitchen has its own panel in the existing business card, so no separate business selector is needed. The panel supports UTC ranges, preserves previous results during range loads, retains function ordering, and suppresses medians below n=3 while showing counts. Migration 187 is owner-reported applied; no SQL was run in these stages.

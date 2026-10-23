@@ -483,3 +483,13 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
 | **Custom Domain Routing** | Cloudflare for SaaS / Vercel Custom Domains API for wildcard CNAME routing. | `PROPOSED (Phase 12)` |
 | **Outbound Webhook Delivery** | QStash / Upstash or Postgres queue for reliable retry-backed webhook delivery. | `PROPOSED (Phase 10)` |
 | **OAuth Secret Storage** | Supabase Vault / AWS KMS encryption for third-party access tokens. | `PROPOSED (Phase 13/14)` |
+| **Guest-facing invitation album** | Invitation-token-gated gallery of approved Memories photos, with a scoped upload adapter that never reveals the event upload QR token. | `PROPOSED (2026-10-23; waiting for owner decision)` |
+
+### DEC-0052: Guest-facing invitation album
+
+- **Status: PROPOSED — not implemented; stop for owner decision.** Existing Memories uploads and organizer moderation remain unchanged.
+- The guest album route must validate a published invitation token and bind it to the same event. It returns approved photos only, uses keyset pagination (24 per page), lazy image loading, and a lightbox. Private image URLs are signed for 300 seconds and responses use `Cache-Control: no-store`.
+- “Add your photos” must use an invitation-token-scoped server adapter to the existing upload service. The `mem_…` Memories QR/upload token stays server-side and is never placed in the guest invitation URL or page markup. The adapter reuses current validation, HEIC conversion, EXIF/GPS stripping, approval mode, and limits; it adds invite/IP rate limiting and a report action.
+- Add organizer controls for guest album visibility and upload-open/upload-close timestamps. Keep the existing `is_active` as the upload-link revoke/active control and `require_approval` as the moderation setting. A migration is required for `guest_album_enabled`, `upload_opens_at`, and `upload_closes_at` on `event_memory_settings`; enforce date boundaries in server routes.
+- Evergreen Photos card precedence: internal guest album when `guest_album_enabled` and valid invitation access are both true; otherwise the existing HTTPS `album_url`; otherwise hide the card. Never render a dead button.
+- Existing event Memories photos are in private Supabase Storage (`event-memories`) in local/staging and a separate private R2 bucket in production. The current upload path is public to holders of its event-level `mem_…` bearer token while `is_active=true`; it has no upload date window. Do not expose that bearer token as a gallery access credential.

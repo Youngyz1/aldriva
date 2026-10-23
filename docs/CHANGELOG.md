@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10] — Evergreen Envelope Fix Round 2 (2026-10-23; staging QA, working tree)
+
+- Added the Evergreen-only one-tap envelope gate and CSS opening sequence, two builder-configurable cards, preview replay, reduced-motion and skip paths, uploaded-audio control, accessible expanded QR reuse, and preview-safe map links. Existing templates remain on their prior components and behavior.
+- **Verification:** production build passed; full project TypeScript passed; Evergreen focused regressions passed 47/47; full suite passed 2,678/2,678 across 213 files; changed-file ESLint and git diff --check passed. Playwright passed 5/5 using localhost:3000, 390×844 touch emulation, production build, and normal/4× CPU recordings at 390×844.
+- Evergreen Photos album work is audit/proposal only (DEC-0052). No database migrations were authored or run for this fix round; no event invitations were sent and the protected event remained read-only.
+
+
 ## [2026-10] — Kitchen & Delivery Part 1 and courier Stage B (2026-10-21; working tree)
 
 ### Phase 3 cook performance — Stage 3C (2026-10-21; working tree)
