@@ -9,7 +9,7 @@ Aldriva is an all-in-one business, creator, and community platform that enables 
 
 ## 🛠 Technology Stack
 
-- **Framework**: Next.js 16.3.4 (App Router, Turbopack, React 19.2.4)
+- **Framework**: Next.js 16.4.3 (App Router, Turbopack, React 19.2.4)
 - **Database & Auth**: Supabase (PostgreSQL 15+, Auth, Storage, Realtime)
 - **Styling**: Tailwind CSS v4, Zinc neutral palette, Orange brand accent (`--brand-700` / `#c2410c`)
 - **UI & Components**: Radix UI Primitives, Lucide React icons, Framer Motion v12

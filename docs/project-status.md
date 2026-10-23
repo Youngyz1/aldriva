@@ -38,7 +38,7 @@ The project's own numbering comes from `docs/ROADMAP.md` + `docs/phases/`. Two p
 
 ## 2. Environment & Technology
 
-**VERIFIED** (README.md:12-20, `package.json`, `proxy.ts`, `CLAUDE.md`): Next.js **16.3.4** (App Router, Turbopack) · React **19.2.4** · Tailwind **v4** (Zinc neutral + Orange `--brand-700` `#c2410c`) · Supabase (Postgres 15+ / Auth / Storage / Realtime) · Stripe + NOWPayments dual payment rails · Resend email · TipTap editor · next-intl · Framer Motion v12 · Cloudflare R2 media (partial milestone). Root `proxy.ts` (not `middleware.ts`) performs session refresh, protected-route redirects, and pre-stream 404 gates.
+**VERIFIED** (README.md:12-20, `package.json`, `proxy.ts`, `CLAUDE.md`): Next.js **16.4.3** (App Router, Turbopack) · React **19.2.4** · Tailwind **v4** (Zinc neutral + Orange `--brand-700` `#c2410c`) · Supabase (Postgres 15+ / Auth / Storage / Realtime) · Stripe + NOWPayments dual payment rails · Resend email · TipTap editor · next-intl · Framer Motion v12 · Cloudflare R2 media (partial milestone). Root `proxy.ts` (not `middleware.ts`) performs session refresh, protected-route redirects, and pre-stream 404 gates.
 
 ---
 

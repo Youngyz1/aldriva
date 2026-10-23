@@ -488,15 +488,16 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Use readable 15–16px main/form-label text and 14–15px secondary text with WCAG AA contrast where applicable. Keep ordinary content unboxed under DEC-0054.
   - Scope excludes the separate Phase 2 blank Website/Invitation Builder investigation; retain it for its own workstream.
 
-### DEC-0056: Pin jsdom before the CommonJS-to-ESM regression
+### DEC-0056: Keep server HTML sanitization on a CJS-compatible jsdom dependency line
 
 - **Decision Date**: 2026-10-23
-- **Status**: Implemented, locally verified, and deployed to a READY Vercel preview; authenticated staging verification pending.
+- **Status**: Revised after deployed runtime and security evidence; focused/full tests, production typecheck, focused lint, and configured build pass locally on the updated dependencies. Deployment and authenticated staging verification are pending.
 - **Key Tenets**:
-  - Keep the existing DOMPurify-based HTML sanitizer and its allowlists/hooks. The Website Builder server route imports the template-switch preview, which imports `BlockRenderer` and reaches `isomorphic-dompurify` through server rendering.
-  - Pin transitive `jsdom` to 27.3.0 until the Vercel external-module runtime can safely load the newer CommonJS `html-encoding-sniffer` dependency chain. The prior jsdom 29.1.1 lock resolved `html-encoding-sniffer` 6 and ESM-only `@exodus/bytes`, matching the deployed `ERR_REQUIRE_ESM` stack. The pin resolves sniffer 4.0.0.
-  - Keep the Node engine requirement and client-only legacy canvas preview boundary. The dependency regression test verifies the resolved nested versions and checks that malicious rich HTML remains sanitized. Revisit the pin only with deployed-runtime evidence and sanitizer regression coverage.
-  - The focused builder/sanitizer tests, full suite, production typecheck, focused lint, and configured Turbopack build pass on the pinned tree. A READY deployment and empty no-request error-log query are not proof of authenticated editor behavior; verify the editor directly before marking this workstream complete.
+  - Keep the existing DOMPurify-based HTML sanitizer and its allowlists/hooks. Update the DOMPurify package to 3.4.17 to include the security fixes; no sanitizer policy or application behavior changes. The Website Builder server route imports the template-switch preview, which imports `BlockRenderer` and reaches `isomorphic-dompurify` through server rendering.
+  - Pin transitive `jsdom` to 26.1.0. Vercel logs proved that the prior 27.3.0 pin still loaded `cssstyle@5.3.7` → `@asamuzakjp/css-color@4.1.2` → ESM-only `@csstools/css-calc@3.2.1` through CommonJS. The 26.1.0 tree resolves `cssstyle@4.6.0`, CSS color 3.2.0, CSS calc 2.1.4 with a CommonJS export, and `html-encoding-sniffer@4.0.0`.
+  - Update Next.js and `eslint-config-next` to 16.4.3 for the Cache Components security fixes while retaining the existing Node engine requirement and client-only legacy canvas preview boundary. The dependency regression verifies the complete nested runtime chain and checks that malicious rich HTML remains sanitized. Revisit the pins only with deployed-runtime evidence and sanitizer regression coverage.
+  - Cache Components intentionally prerenders a static shell and streams dynamic route content; the builder is marked Partial Prerender in the production build. Do not disable caching globally or alter authentication/tenant checks based on `x-nextjs-prerender` or `x-vercel-cache: HIT` alone.
+  - On the updated dependency set, 39 focused tests and the 2,734-test full suite pass; production typecheck, focused ESLint, and configured Next.js 16.4.3 Turbopack build pass. The build emits a warning to configure `partialPrefetching` alongside Cache Components. A READY deployment or local unauthenticated redirect is not proof of authenticated editor behavior; verify the editor directly before marking this workstream complete.
 
 ## 2. Proposed & Under Review Decisions
 

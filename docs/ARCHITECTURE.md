@@ -59,7 +59,7 @@
 ## 2. Frontend & Next.js 16 App Router Architecture
 
 ### A. Core Stack
-- **Framework**: Next.js 16.3.4 (App Router, Turbopack, React 19.2.4).
+- **Framework**: Next.js 16.4.3 (App Router, Turbopack, React 19.2.4).
 - **Styling**: Tailwind CSS v4, Zinc palette base with Orange-600 accents (`text-orange-600`, `bg-orange-600`).
 - **Component Primitives**: Radix UI primitives (`@radix-ui/react-*`), Lucide React icons, Framer Motion for animations.
 - **Rich Text & Media**: TipTap Editor 3.31 (`@tiptap/react`, `@tiptap/starter-kit`), Leaflet 1.9 for interactive venue maps, jsQR / IDB for offline barcode scanner.

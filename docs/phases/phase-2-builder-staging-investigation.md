@@ -2,7 +2,7 @@
 
 Date: 2026-10-23
 
-Status: the first Website Builder fix was insufficient. The remaining Vercel runtime cause is now confirmed, and a targeted dependency fix plus regression test and route error boundary are committed and deployed. Authenticated post-fix UI verification remains pending.
+Status: two successive Website Builder runtime fixes have been insufficient to date. New Vercel logs confirm a second `ERR_REQUIRE_ESM` failure in the JSDOM CSS dependency chain. A revised `jsdom@26.1.0` pin, related Next.js/DOMPurify security updates, and regression test pass focused/full tests, production typecheck, focused lint, and configured build locally. The revised fix has not yet been deployed. Authenticated post-fix UI verification remains pending.
 
 ## Findings
 
@@ -58,3 +58,29 @@ Status: the first Website Builder fix was insufficient. The remaining Vercel run
 ## Completion boundary
 
 **Post-follow-up authenticated Vercel verification is pending.** Staging can only be called fixed after the deployed code is tested with authenticated organization and invitation data, including direct navigation, dashboard navigation, refresh, browser errors, failed requests, and Vercel function logs. The prior inventory did not find populated legacy canvas/rich-text content; check again after deployment, and ask before creating a disposable test draft if no suitable existing content is available. The current session also has browser use disabled, so authenticated UI verification needs an enabled browser session.
+
+## Production incident follow-up 2 — JSDOM CSS dependency failure (2026-10-23)
+
+### New deployed evidence
+
+- Vercel CLI listed `https://aldriva-1zsrpxhpt-ofiliyoungyz-specs-projects.vercel.app` as the newest READY preview (`dpl_1216exwW5azwnT5wA3pMNAahb8Cq`), above the previous fix deployment. Its runtime error query returned two records with this stack head: `Failed to load external module jsdom… ERR_REQUIRE_ESM: require() of ES Module …/@csstools/css-calc/dist/index.mjs from …/@asamuzakjp/css-color/dist/cjs/index.cjs not supported.` The stack continues through `lib_sanitize-html` and the server `components_site_blocks` bundle. The runtime log record did not include a request path, so the exact browser request could not be correlated by request ID/path.
+- The route source imports `TemplateSwitchPreview`, which renders `BlockRenderer`; `BlockRenderer` statically imports `sanitizeArticleHtml`. The package tree in the earlier fix was `jsdom@27.3.0` → `cssstyle@5.3.7` → `@asamuzakjp/css-color@4.1.2` → ESM-only `@csstools/css-calc@3.2.1`. This is a concrete module-evaluation failure in the builder's server module graph and matches the reported stream closure. React's official error page decodes #412 as “Connection closed.”
+- The CSP rejection of Vercel's feedback script is a separate client feedback script and does not explain this server module exception. The stylesheet preload warning has no matching server stack evidence. Neither was changed.
+
+### Route rendering and cache findings
+
+- `next.config.ts` has `cacheComponents: true`. The configured production build marks `/dashboard/org/[id]/website/builder` with `◐` (Partial Prerender), meaning the build emits a static shell and streams dynamic server content. `proxy.ts` also documents `x-nextjs-prerender` / `x-nextjs-postponed` as markers used by that shell behavior. Thus `x-nextjs-prerender: 1` is expected for this route under the current build configuration; it does not by itself mean the authenticated page was fully statically generated.
+- The parent organization layout and builder page call `getCurrentUser()` and `checkTenantAccess()` before loading tenant website/builder data. The dynamic auth/data path is request-dependent. The Vercel cache HIT can represent the partial static shell; it is not proof that organization data is shared. The authenticated cached and fresh response bodies were not compared, so response-level tenant isolation was not independently confirmed in this session.
+- A source search found no service-worker registration or service-worker implementation under app/public. This makes an application-controlled document-navigation service worker unlikely, but the browser's installed worker state could not be inspected here.
+
+### Local corrective change and verification
+
+- Changed the npm `jsdom` override and test dependency from `27.3.0` to `26.1.0`. The installed tree now resolves `cssstyle@4.6.0`, `@asamuzakjp/css-color@3.2.0`, `@csstools/css-calc@2.1.4` with an explicit CommonJS export, and `html-encoding-sniffer@4.0.0`. Updated Next.js and `eslint-config-next` to 16.4.3 for related Cache Components security fixes and DOMPurify to 3.4.17 for sanitizer security fixes. Sanitizer code, policy, and allowlists remain unchanged.
+- Extended `lib/dashboard/__tests__/website-builder-canvas.test.cjs` to verify the nested JSDOM, CSS style/color/calc, and encoding-sniffer versions/entry point, and to confirm script/event-handler payloads remain removed.
+- On the updated dependencies, focused Website Builder, block-renderer, and template-switch suites passed 39 tests; `npm test` passed 2,734 across 220 files with no skips; production TypeScript and focused ESLint passed; configured Next.js 16.4.3 Turbopack `npm run build` passed and generated 386 static pages. The build emitted a warning that Cache Components lacks an explicit `partialPrefetching` setting. `git diff --check` will be rerun after report edits.
+- An unauthenticated request to the local production route returned 307 to `/login`, with no JSDOM/ESM error in the server output. This checks the local server module can load; it does not exercise authenticated editor rendering.
+- The updated dependencies are installed locally and match the lockfile (`next`/`eslint-config-next` 16.4.3, DOMPurify 3.4.17, jsdom 26.1.0). Focused/full tests, production typecheck, focused lint, and production build pass locally. Deployment and authenticated verification of the revised fix remain pending. No local data was written.
+
+### Remaining acceptance checks
+
+**The incident remains open.** Browser use is disabled in this Codex Work session, and the updated commit is not yet deployed. After deployment, an authenticated browser must verify the exact commit on staging: direct route, dashboard navigation, refresh, builder shell/canvas, selecting a block, a rich-text block through the existing sanitizer, preview loading, console/network/RSC errors, Invitation Builder health, and matching Vercel logs. Recheck for an existing authorized populated site. If no rich-text site exists, obtain approval before creating any disposable staging draft. Do not edit/publish a customer site or start Phase 3/First Strike before those checks.

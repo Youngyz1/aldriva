@@ -19,7 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Repo Facts (Verified, High-Signal)
 
-- **Stack**: Next.js 16.3.4 (App Router, Turbopack), React 19.2.4, Supabase (Postgres + Auth + Storage), Stripe + NOWPayments crypto, Tailwind v4, TipTap editor, Resend email, Framer Motion v12.
+- **Stack**: Next.js 16.4.3 (App Router, Turbopack), React 19.2.4, Supabase (Postgres + Auth + Storage), Stripe + NOWPayments crypto, Tailwind v4, TipTap editor, Resend email, Framer Motion v12.
 - **Proxy**: Root `proxy.ts` (NOT `middleware.ts`) handles session refresh, protected-route redirects (`/dashboard/*`, `/admin`), account suspension blocks, and pre-stream status gates for articles/businesses/products (real 404s before streaming begins). See `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`.
 - **Auth/RBAC**: Use `getCurrentUser()`, `getCurrentUserProfile()`, `isAdmin()`, `isOrganizer()`, `requireAuth()`, `requireAdmin()` from `lib/auth.ts` (all `React.cache()`-memoized). Client session: `lib/supabase.ts`; server: `lib/supabase-server.ts`; admin service-role: `lib/supabase-admin.ts` (bypasses RLS — admin ops only).
 - **Tenant Model**: Tenant identity is rooted in `organizers.id`. Entity memberships and roles via `entity_members`; resolved in `lib/entity-auth.ts` / `lib/tenant-context.ts`.

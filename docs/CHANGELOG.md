@@ -3,6 +3,13 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10-23] — Website Builder Vercel runtime follow-up 2 (local fix verified; staging verification pending)
+
+- Fresh errors from the newest READY preview show a second `ERR_REQUIRE_ESM` path: `jsdom@27.3.0` → `cssstyle@5.3.7` → `@asamuzakjp/css-color@4.1.2` CommonJS → ESM-only `@csstools/css-calc@3.2.1`. The server-rendered `TemplateSwitchPreview` imports `BlockRenderer`, which reaches `lib/sanitize-html` and this JSDOM chain. Vercel's log record omitted the request path, so exact request correlation remains unavailable.
+- Replaced the previous jsdom pin with `26.1.0`; its locked CSS color/calc chain exposes a CommonJS entry point. Extended the sanitizer regression to assert the exact compatible majors/entry point and retain the malicious-HTML sanitization check. Updated Next.js and matching ESLint config to `16.4.3` for Cache Components security fixes and DOMPurify to `3.4.17` for sanitizer security fixes; no sanitizer policy, permission, tenant, service-worker, CSP, or cache-policy code changed.
+- The build identifies the builder as Partial Prerender under the existing Cache Components setting. This explains the prerender shell header; a cache hit does not itself establish that tenant-specific data is cached or shared. A local unauthenticated production request redirected to `/login` and emitted no ESM error.
+- **Verification on updated packages:** focused builder/block/template-switch suites 39/39; `npm test` 2,734/2,734 across 220 files with no skips; production TypeScript and focused ESLint passed; configured Next.js 16.4.3 Turbopack build passed with 386 pages. Next emitted a warning that Cache Components lacks an explicit `partialPrefetching` setting. Authenticated Vercel browser verification remains blocked because browser access is disabled.
+
 ## [2026-10-23] — Phase 2 Website Builder Vercel runtime follow-up (deployed; authenticated QA pending)
 
 - Traced the remaining blank builder response to the server-rendered template-switch preview importing `BlockRenderer` → `sanitize-html` → `isomorphic-dompurify` → `jsdom@29.1.1` → `html-encoding-sniffer@6` → ESM-only `@exodus/bytes` through CommonJS. This was a separate server import path from the earlier client-only canvas preview change.

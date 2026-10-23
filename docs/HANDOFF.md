@@ -15,7 +15,7 @@
 6. Events: ticket tiers, seat maps, offline QR check-in scanner, invitations with template engine. (VERIFIED — `app/api/seats`, `app/api/verify-ticket`, `docs/technical/events/*`.)
 7. Fundraising: fundraisers with beneficiary ledgers, donations, payouts. Articles: TipTap CMS with AI assist. (VERIFIED — `app/fundraisers`, `app/articles`, `lib/ai`.)
 8. An AI operating system (agents, sentinel monitoring, QA workforce, background execution, memory, studio chat) is built and admin-only. (VERIFIED — `lib/ai`, `lib/workforce`, `lib/exec`, `db/migration_139`–`168`.)
-9. **Stack (VERIFIED — `package.json`, `README.md:12-20`):** Next.js **16.3.4** App Router + Turbopack, React **19.2.4**, Tailwind **v4**, Supabase (Postgres 15 + Auth + Storage), Stripe + NOWPayments, Resend email, TipTap, next-intl, Framer Motion, Cloudflare R2 (partial).
+9. **Stack (VERIFIED — `package.json`, `README.md:12-20`):** Next.js **16.4.3** App Router + Turbopack, React **19.2.4**, Tailwind **v4**, Supabase (Postgres 15 + Auth + Storage), Stripe + NOWPayments, Resend email, TipTap, next-intl, Framer Motion, Cloudflare R2 (partial).
 10. **The root `proxy.ts` is NOT `middleware.ts`** — it does session refresh, auth redirects and pre-stream 404s. Next 16 here differs from your training data; read `node_modules/next/dist/docs/` before touching routing/caching. (VERIFIED — `CLAUDE.md`, `proxy.ts`.)
 
 ---
