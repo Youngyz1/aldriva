@@ -13,7 +13,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { fetchReportDetail, buildReportDetailViewModel, isReportIdShape } from "@/lib/workforce/reports";
 
@@ -47,13 +47,13 @@ export default async function WorkforceReportDetailPage({ params }: { params: Pr
       />
 
       {/* Summary */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Summary</h2>
         <p className="text-sm text-zinc-600">{r.summary}</p>
       </section>
 
       {/* Findings / sections */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Findings</h2>
         {vm.empty.sections ? (
           <p className="text-sm text-zinc-500">No structured sections stored on this report.</p>
@@ -73,7 +73,7 @@ export default async function WorkforceReportDetailPage({ params }: { params: Pr
       </section>
 
       {/* Linkage */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Linked records</h2>
         <p className="text-sm text-zinc-600">
           agent:{" "}

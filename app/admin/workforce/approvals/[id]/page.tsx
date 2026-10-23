@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
 import {
@@ -92,7 +92,7 @@ export default async function WorkforceApprovalDetailPage({
       )}
 
       {/* Reason + evidence keys */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Request</h2>
         <p className="text-sm text-zinc-600">{raw.reason}</p>
         <p className="text-sm text-zinc-500">
@@ -169,8 +169,7 @@ export default async function WorkforceApprovalDetailPage({
           Wiring is byte-for-byte the pre-restyle forms: same server action,
           same hidden fields, same labels. Only the wrapper was restyled. */}
       {actionable ? (
-        <div className="rounded-xl border border-zinc-200 bg-white p-4">
-          <div className="flex gap-3">
+        <div className="flex gap-3">
             <form action={decideWorkforceApproval}>
               <input type="hidden" name="approvalId" value={raw.id} />
               <input type="hidden" name="decision" value="approved" />
@@ -185,7 +184,6 @@ export default async function WorkforceApprovalDetailPage({
                 Reject
               </button>
             </form>
-          </div>
         </div>
       ) : (
         <p className="text-sm text-zinc-500">

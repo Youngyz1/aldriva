@@ -1,4 +1,4 @@
-import { ShoppingBag } from "lucide-react";
+import { IconShoppingBag as ShoppingBag } from "@tabler/icons-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDashboardContext } from "@/lib/dashboard-context";
@@ -155,7 +155,7 @@ export default async function DashboardProductsPage({
 
       {/* Revenue summary — real paid-order totals only. */}
       {products && products.length > 0 && (
-        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-2xl border border-slate-100 bg-white px-6 py-4 shadow-sm shadow-slate-100/5">
+        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 border-y border-slate-200 py-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Gross sales</p>
             <p className="text-2xl font-black text-slate-900">
@@ -174,7 +174,7 @@ export default async function DashboardProductsPage({
       )}
 
       {/* Main List */}
-      {!products || products.length === 0 ? (        <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-100 bg-white p-12 text-center">
+      {!products || products.length === 0 ? (        <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 mb-4">
             <ShoppingBag className="h-6 w-6" />
           </div>
@@ -190,7 +190,7 @@ export default async function DashboardProductsPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm shadow-slate-100/5">
+        <div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm text-slate-500">
               <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">

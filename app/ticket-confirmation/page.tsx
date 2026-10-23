@@ -9,7 +9,7 @@ import {
   CardSeatInfo,
   CardStatusType,
 } from "@/components/cards/DigitalCardPrimitives";
-import { CheckCircle2, Clock, Loader2, RefreshCw } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconClock as Clock, IconLoader2 as Loader2, IconRefresh as RefreshCw } from "@tabler/icons-react";
 
 export default function TicketConfirmationPage() {
   return (

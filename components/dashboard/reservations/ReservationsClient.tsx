@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Search, RotateCw, CheckCircle2, Inbox, CalendarClock } from "lucide-react";
+import { IconSearch as Search, IconRotateClockwise as RotateCw, IconCircleCheck as CheckCircle2, IconInbox as Inbox, IconCalendarClock as CalendarClock } from "@tabler/icons-react";
 import { ReservationCard, type DashboardReservationRow } from "./ReservationCard";
 import { ReservationSettingsDialog } from "./ReservationSettingsDialog";
 import type { ReservationSettings } from "@/lib/reservation-settings";

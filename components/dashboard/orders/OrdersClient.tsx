@@ -3,7 +3,12 @@
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Search, RotateCw, ExternalLink, Inbox, CheckCircle2, AlertCircle, Bike } from "lucide-react";
+import {
+  IconSearch as Search,
+  IconRotateClockwise as RotateCw,
+  IconExternalLink as ExternalLink,
+  IconBike as Bike,
+} from "@tabler/icons-react";
 import { OrderCard, type DashboardOrderRow } from "./OrderCard";
 import { OrdersFilterTabs, type OrderTabKey } from "./OrdersFilterTabs";
 import { DeliverySettingsDialog } from "./DeliverySettingsDialog";
@@ -416,19 +421,8 @@ export function OrdersClient({
 
       {/* Orders List / Empty state */}
       {sortedOrders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-8 py-16 text-center shadow-xs">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-100 text-zinc-400 mb-4">
-            {activeTab === "needs_attention" ? (
-              <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-            ) : activeTab === "deliveries" ? (
-              <Bike className="w-6 h-6 text-zinc-400" />
-            ) : activeTab === "active" ? (
-              <Inbox className="w-6 h-6 text-zinc-400" />
-            ) : (
-              <AlertCircle className="w-6 h-6 text-zinc-400" />
-            )}
-          </div>
-          <p className="text-base font-medium text-zinc-800">
+        <div className="border-t border-zinc-200 py-10 text-center">
+          <p className="text-sm font-semibold text-zinc-900">
             {searchQuery
               ? t("emptyAll")
               : activeTab === "needs_attention"
@@ -441,7 +435,7 @@ export function OrdersClient({
               ? t("emptyDeliveries")
               : t("emptyAll")}
           </p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500">
             {searchQuery ? t("searchPlaceholder") : t("noOrdersDescription")}
           </p>
         </div>

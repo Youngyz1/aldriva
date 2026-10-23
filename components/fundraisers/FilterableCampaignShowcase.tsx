@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Search } from "lucide-react";
+import { IconHeart as Heart, IconSearch as Search } from "@tabler/icons-react";
 
 import { type CampaignShowcaseItem } from "@/components/fundraisers/CampaignShowcase";
 import CampaignShowcasePager from "@/components/fundraisers/CampaignShowcasePager";

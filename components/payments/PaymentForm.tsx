@@ -20,7 +20,7 @@
 
 import { useState } from "react";
 import { useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js";
-import { Lock } from "lucide-react";
+import { IconLock as Lock } from "@tabler/icons-react";
 
 type Props = {
   onSuccess: () => void;

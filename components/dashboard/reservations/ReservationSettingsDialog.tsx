@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { saveReservationSettings } from "@/lib/actions/reservations";
 import type { ReservationSettings } from "@/lib/reservation-settings";
-import { Settings, X } from "lucide-react";
+import { IconSettings as Settings, IconX as X } from "@tabler/icons-react";
 
 interface ReservationSettingsDialogProps {
   organizerId: string;

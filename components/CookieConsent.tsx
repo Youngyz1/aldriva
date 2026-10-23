@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Cookie } from "lucide-react";
+import { IconCookie as Cookie } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isKitchenPrivatePath } from "@/lib/kitchen/worker-validation";
 

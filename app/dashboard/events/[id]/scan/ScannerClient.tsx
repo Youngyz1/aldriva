@@ -4,18 +4,18 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import jsQR from "jsqr";
 import {
-  Camera,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  RotateCcw,
-  HelpCircle,
-  ArrowLeft,
-  Search,
-  RefreshCw,
-  WifiOff,
-  CloudUpload,
-} from "lucide-react";
+  IconCamera as Camera,
+  IconCircleCheck as CheckCircle2,
+  IconAlertTriangle as AlertTriangle,
+  IconCircleX as XCircle,
+  IconRotate as RotateCcw,
+  IconHelpCircle as HelpCircle,
+  IconArrowLeft as ArrowLeft,
+  IconSearch as Search,
+  IconRefresh as RefreshCw,
+  IconWifiOff as WifiOff,
+  IconCloudUpload as CloudUpload,
+} from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import ScannerPreparePanel from "@/components/scanner/ScannerPreparePanel";
 import {

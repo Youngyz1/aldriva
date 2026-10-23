@@ -11,7 +11,7 @@ import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { fetchTenantOptions } from "@/lib/workforce/knowledge";
 import RetrievalTestForm from "./retrieval-test-form";

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Download, Filter, Search } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconDownload as Download, IconFilter as Filter, IconSearch as Search } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export type SelectOption = { value: string; label: string };

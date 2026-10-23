@@ -8,7 +8,7 @@ import { MediaUploadField } from "@/components/dashboard/website/builder/inspect
 import type { V2MenuItemChoice } from "@/lib/actions/website-v2";
 import type { WebsiteEditorControl } from "@/lib/website-v2-editor-schema";
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
-import { UtensilsCrossed } from "lucide-react";
+import { IconToolsKitchen2 as UtensilsCrossed } from "@tabler/icons-react";
 
 interface V2SlotFieldProps {
   control: WebsiteEditorControl;

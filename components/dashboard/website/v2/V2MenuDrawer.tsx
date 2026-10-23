@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { X, AlertCircle, Loader2 } from "lucide-react";
+import { IconX as X, IconAlertCircle as AlertCircle, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { MenuManager } from "@/components/dashboard/menu/MenuManager";
 import { getFullMenu } from "@/lib/actions/menus";
 

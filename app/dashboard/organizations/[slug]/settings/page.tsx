@@ -7,8 +7,14 @@ import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import { MIN_BANNER_WIDTH, MIN_BANNER_HEIGHT } from "@/lib/image-dimensions";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import {
-  Globe, Mail, AlertTriangle, Check, ArrowRight, ShieldCheck, Loader2
-} from "lucide-react";
+  IconGlobe as Globe,
+  IconMail as Mail,
+  IconAlertTriangle as AlertTriangle,
+  IconCheck as Check,
+  IconArrowRight as ArrowRight,
+  IconShieldCheck as ShieldCheck,
+  IconLoader2 as Loader2,
+} from "@tabler/icons-react";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 
 type OrgForm = {

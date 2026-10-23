@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Loader2, AlertCircle, Award, Ticket, ArrowLeft, Download } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconLoader2 as Loader2, IconAlertCircle as AlertCircle, IconAward as Award, IconTicket as Ticket, IconArrowLeft as ArrowLeft, IconDownload as Download } from "@tabler/icons-react";
 
 function CryptoPendingContent() {
   const searchParams = useSearchParams();
@@ -224,7 +224,7 @@ function CryptoPendingContent() {
                   setEmailChecked(true);
                   checkStatus(email);
                 }}
-                className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-left"
+                className="border-l-2 border-zinc-200 pl-4 text-left"
               >
                 <label htmlFor="ticket-email" className="block text-xs font-black uppercase tracking-wider text-zinc-500">
                   Reveal your ticket
@@ -287,7 +287,7 @@ function CryptoPendingContent() {
         This page will automatically update once finalized.
       </p>
 
-      <div className="mt-6 rounded-2xl bg-zinc-50 border border-zinc-200/50 p-4 text-left space-y-2">
+      <div className="mt-6 border-l-2 border-zinc-200 pl-4 text-left space-y-2">
         <div className="flex justify-between text-xs">
           <span className="font-semibold text-zinc-400 uppercase">Payment Method</span>
           <span className="font-black text-zinc-700">Cryptocurrency</span>

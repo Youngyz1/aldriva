@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Share2, Check, Copy, AlertCircle } from "lucide-react";
+import { IconShare2 as Share2, IconCheck as Check, IconCopy as Copy, IconAlertCircle as AlertCircle } from "@tabler/icons-react";
 import { FaFacebookF, FaWhatsapp, FaXTwitter, FaLinkedinIn } from "react-icons/fa6";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";

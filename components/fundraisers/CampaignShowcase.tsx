@@ -17,7 +17,7 @@ export interface CampaignShowcaseItem {
   donorCount?: number;
 }
 
-import { type LucideIcon } from "lucide-react";
+import { type TablerIcon as LucideIcon } from "@tabler/icons-react";
 
 export interface CampaignShowcaseEmptyState {
   icon?: React.ReactNode | LucideIcon | React.ComponentType<{ className?: string }>;

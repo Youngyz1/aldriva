@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUp, ArrowDown, Trash2, Plus, Upload, Search, Loader2, X } from "lucide-react";
+import { IconArrowUp as ArrowUp, IconArrowDown as ArrowDown, IconTrash as Trash2, IconPlus as Plus, IconUpload as Upload, IconSearch as Search, IconLoader2 as Loader2, IconX as X } from "@tabler/icons-react";
 import { useImageUpload } from "@/hooks/use-image-upload";
 
 const MAX_IMAGES = 5;

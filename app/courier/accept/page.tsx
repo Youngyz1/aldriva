@@ -102,7 +102,7 @@ export default function CourierAcceptPage() {
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-lg items-center px-4 py-10">
-      <section className="w-full rounded-xl border border-zinc-200 bg-white p-6 shadow-xs sm:p-8">
+      <section className="w-full">
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Courier access</p>
         <h1 className="mt-2 text-2xl font-bold text-zinc-950">Accept your courier invitation</h1>
         {state === "checking" && <p className="mt-4 text-sm text-zinc-600">Checking this invitation…</p>}

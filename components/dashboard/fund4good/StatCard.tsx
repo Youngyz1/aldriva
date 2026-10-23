@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type LucideIcon } from "lucide-react";
+import { type TablerIcon as LucideIcon } from "@tabler/icons-react";
 
 interface StatCardProps {
   label: string;

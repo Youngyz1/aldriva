@@ -5,7 +5,7 @@ import { ImageUploader } from "@/components/shared/ImageUploader";
 import { InspectorField } from "./InspectorField";
 import { BLOCK_LIMITS } from "@/lib/website-blocks";
 import { safeImageSrc } from "@/lib/image-url";
-import { Link as LinkIcon, Upload, X, Images } from "lucide-react";
+import { IconLink as LinkIcon, IconUpload as Upload, IconX as X, IconPhoto as Images } from "@tabler/icons-react";
 import { MyMediaPicker } from "@/components/dashboard/website/builder/media/MyMediaPicker";
 
 interface MediaUploadFieldProps {

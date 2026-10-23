@@ -4,15 +4,15 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import {
-  CalendarCheck,
-  CheckCircle2,
-  Clock,
-  Phone,
-  XCircle,
-  RotateCw,
-  ArrowLeft,
-  Users,
-} from "lucide-react";
+  IconCalendarCheck as CalendarCheck,
+  IconCircleCheck as CheckCircle2,
+  IconClock as Clock,
+  IconPhone as Phone,
+  IconCircleX as XCircle,
+  IconRotateClockwise as RotateCw,
+  IconArrowLeft as ArrowLeft,
+  IconUsers as Users,
+} from "@tabler/icons-react";
 import { cancelReservationByToken } from "@/lib/actions/reservations";
 
 export interface ReservationTrackingData {

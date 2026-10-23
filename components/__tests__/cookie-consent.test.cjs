@@ -117,7 +117,7 @@ function createCookieConsentRuntime(initialPathname, locale = "en") {
     "next-intl": {
       useTranslations: (namespace) => (key) => messages[namespace][key],
     },
-    "lucide-react": { Cookie: "CookieIcon" },
+    "@tabler/icons-react": { IconCookie: "CookieIcon" },
     "framer-motion": { motion: { div: "motion.div" }, AnimatePresence: "AnimatePresence" },
     "@/lib/kitchen/worker-validation": workerValidation,
   };

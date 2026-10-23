@@ -117,10 +117,10 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-zinc-50 flex items-center justify-center p-4 sm:p-8">
+    <div className="w-full min-h-screen bg-background flex items-center justify-center p-4 sm:p-8">
 
       {/* Centered glass card */}
-      <div className="w-full max-w-md rounded-3xl bg-gradient-to-b from-white to-zinc-50/60 border border-zinc-200/70 shadow-2xl p-8">
+      <div className="w-full max-w-md py-8">
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-2 mb-8">

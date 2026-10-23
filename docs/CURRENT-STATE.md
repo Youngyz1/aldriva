@@ -1,5 +1,28 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Active Worktree Follow-up — Phase 1A UI system (2026-10-23)
+
+- **Status: implemented and locally verified.** Migrated application interface icons to Tabler, established progressive-disclosure patterns for kitchen/courier management, flattened the remaining Orders empty-state card, and raised navigation readability. Permanent rules are in `DESIGN.md`, `AGENTS.md`, `CLAUDE.md`, and DEC-0055.
+- **Verification:** production TypeScript and `npm run build` passed (386 static pages); `npm test` passed 2,732/2,732 tests across 220 files; focused ESLint on five representative changed files had 0 errors and 3 `<img>` advisories; `git diff --check` passed. The default development TypeScript pass was stopped after exceeding 2 GB on generated dev types.
+- Authenticated review: QA login passed; five admin screens passed screenshot/layout checks at 1440px and 1100px. The articles route returned HTTP 200 but had no row for the screenshot harness. Of 40 admin routes, 39 passed the read-only smoke; the dynamic Sentinel incident detail returned HTTP 200 but contained a body `500` marker. Organization Menu, Orders, Kitchen, and Promotions loaded; the QA data has no menu items/orders or linked kitchen business, so populated flows remain unreviewed. The final Orders empty-state change was rechecked after the build.
+- Phase 2 blank Website Builder and Invitation Builder investigation was not started. No database or migration work, commit, or push was performed. See `docs/phases/phase-1a-platform-ui.md` for details.
+
+## Active Worktree Follow-up — Menu layout and sidebar contrast (2026-10-23)
+
+- Flattened the organization Menu manager: section groups and menu items use open page space with separators; inline forms and the empty state no longer sit in decorative frames. Option groups remain distinct editable records, while their option rows use separators and their preview is unboxed.
+- Flattened Offer, Targets, and Schedule/presentation form group wrappers in promotions. The live promotion preview remains a distinct preview surface.
+- Raised contrast in shared desktop/mobile navigation, organization sidebars, personal settings navigation, the profile account menu, and admin navigation. Added keyboard focus rings to navigation links and set active personal settings text to the AA-safe brand color.
+- **Regression checks:** changed-file ESLint passed with 0 errors and 29 advisory warnings; the final navigation/menu/account focused lint pass had 0 errors and 7 warnings. Production TypeScript passed; `npm test` passed 2,730/2,730 across 219 files (0 skipped); `npm run build` passed and generated 386 pages; `git diff --check` passed.
+- Authenticated browser review remains unavailable in this environment: the existing e2e login requires `QA_TEST_EMAIL` and `QA_TEST_PASSWORD`, neither is configured in `.env.local`, and the out-of-repo admin storage-state file is absent. See `docs/UI-SIMPLIFICATION-AUDIT.md` for route and viewport coverage.
+
+## Active Worktree Update — Platform-wide UI simplification (2026-10-23)
+
+- **Status: implemented and locally verified in the working tree.** Audited the filesystem route inventory (217 `page.tsx` modules across the platform) and 808 TSX files under `app/` and `components/`; changed shared defaults and redundant wrappers in dashboard, account, event, fundraiser, menu, workforce, auth, ticket-search, kitchen, and courier surfaces.
+- The page background is now the documented default content surface. Shared `Section`, `Card`, `Button`, and `PageHeader` defaults no longer add decorative padding/surfaces/shadows; `DashboardTableCard` no longer frames ordinary data tables as cards. Functional order/delivery records, selectable items, meaningful metrics, map/preview canvases, status alerts, and template-owned content remain distinct where they support a workflow.
+- Permanent rule is in `DESIGN.md`, `AGENTS.md`, and `CLAUDE.md`; DEC-0054 records the decision. Audit detail and exceptions are in `docs/UI-SIMPLIFICATION-AUDIT.md`.
+- **Verification:** production TypeScript passed; changed-file ESLint passed with 0 errors and 22 warnings; full suite passed 2,730/2,730 tests across 219 files (0 skipped); production build compiled and generated 386 static pages; `git diff --check` passed. Playwright checked `/login`, `/find-tickets`, and `/events` at 375, 768, 1024, and 1440px: all 12 responses were 200 with no horizontal overflow or page errors.
+- **Visual coverage limit:** authenticated dashboard, kitchen, courier, and builder routes redirected to login in a fresh local browser context, so their visual appearance was not browser-verified. Their source and shared component changes were reviewed; route generation succeeded. The event page's CMS hero artwork has baked-in brand/tagline text that overlaps the live heading; this was visible before/independent of the card changes and needs separate content/art review.
+
 ## Active Worktree Update — Organizer dashboard sanitizer and build types (2026-10-23)
 
 - **Status: locally verified.** URL sanitization now lives in `lib/sanitize-url.ts`; URL-only imports no longer evaluate `isomorphic-dompurify`/jsdom. HTML sanitization and its allowlists remain unchanged. `package.json` requires Node `>=22.13.0`, which Vercel resolves to its current compatible 24.x LTS runtime.

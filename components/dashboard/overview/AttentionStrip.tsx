@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, Clock, FileEdit, ShieldAlert } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconClock as Clock, IconFilePencil as FileEdit, IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import type { AttentionItem } from "@/lib/overview-types";
 
 export interface AttentionStripProps {

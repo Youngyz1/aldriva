@@ -28,15 +28,15 @@ import {
 import { BuilderEmbedOptions } from "@/lib/actions/website-builder";
 import { sanitizeArticleHtml } from "@/lib/sanitize-html";
 import {
-  Calendar,
-  MapPin,
-  ShoppingBag,
-  Heart,
-  Mail,
-  Phone,
-  Clock,
-  Image as ImageIcon,
-} from "lucide-react";
+  IconCalendar as Calendar,
+  IconMapPin as MapPin,
+  IconShoppingBag as ShoppingBag,
+  IconHeart as Heart,
+  IconMail as Mail,
+  IconPhone as Phone,
+  IconClock as Clock,
+  IconPhoto as ImageIcon,
+} from "@tabler/icons-react";
 
 interface CanvasBlockPreviewProps {
   block: Block;

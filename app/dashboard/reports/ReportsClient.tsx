@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { IconLoader2 as Loader2 } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import DashboardToolbar from "@/components/dashboard/DashboardToolbar";

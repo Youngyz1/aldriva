@@ -5,22 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import {
-  Bike,
-  MapPin,
-  Store,
-  Phone,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  ShieldCheck,
-  Navigation,
-  RotateCw,
-  XCircle,
-  Package,
-  DollarSign,
-  Compass,
-  MessageCircle,
-} from "lucide-react";
+  IconBike as Bike,
+  IconMapPin as MapPin,
+  IconBuildingStore as Store,
+  IconPhone as Phone,
+  IconCircleCheck as CheckCircle2,
+  IconAlertCircle as AlertCircle,
+  IconAlertTriangle as AlertTriangle,
+  IconShieldCheck as ShieldCheck,
+  IconNavigation as Navigation,
+  IconRotateClockwise as RotateCw,
+  IconCircleX as XCircle,
+  IconPackage as Package,
+  IconCurrencyDollar as DollarSign,
+  IconCompass as Compass,
+  IconMessageCircle as MessageCircle,
+} from "@tabler/icons-react";
 import {
   COURIER_FEED_POLL_MS,
   courierNavigationUrls,
@@ -122,7 +122,7 @@ function ItemList({ value }: { value: unknown }) {
   const items = formatCourierItems(value);
   if (!items.length) return <p className="text-xs text-zinc-500">No item details provided.</p>;
   return (
-    <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-100 bg-zinc-50/50 text-xs text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200">
+    <ul className="divide-y divide-zinc-100 text-xs text-zinc-800 dark:divide-zinc-800 dark:text-zinc-200">
       {items.map((item, index) => (
         <li key={`${index}-${item}`} className="flex items-center gap-2 px-3 py-2 font-medium">
           <Package className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
@@ -470,7 +470,7 @@ export default function CourierDashboard({
   return (
     <main className="mx-auto w-full max-w-5xl space-y-5 px-3.5 py-4 sm:px-6 sm:py-8">
       {/* ── Top Header Bar (Driver Profile & Availability) ─────────────── */}
-      <header className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xs sm:p-5">
+      <header className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-700 text-white shadow-xs">
@@ -505,7 +505,7 @@ export default function CourierDashboard({
 
           {/* Availability Switch */}
           {screen === "ready" && feed && (
-            <div className="flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3.5 py-2">
+            <div className="flex items-center gap-3 py-2">
               <div className="text-right">
                 <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                   {isAvailable ? "Online" : "Offline"}
@@ -600,8 +600,7 @@ export default function CourierDashboard({
 
       {/* Session Ended State */}
       {screen === "session-ended" && (
-        <Card className="rounded-xl border-zinc-200 shadow-xs">
-          <CardContent className="space-y-3 p-6 text-center sm:p-8">
+        <section className="space-y-3 py-8 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
               <AlertCircle className="h-6 w-6" />
             </div>
@@ -614,14 +613,12 @@ export default function CourierDashboard({
                 <RotateCw className="mr-2 h-4 w-4" /> Check again
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </section>
       )}
 
       {/* Error State */}
       {screen === "error" && (
-        <Card className="rounded-xl border-red-200 bg-red-50/30 shadow-xs">
-          <CardContent className="space-y-3 p-6 text-center sm:p-8">
+        <section className="space-y-3 py-8 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
               <XCircle className="h-6 w-6" />
             </div>
@@ -632,8 +629,7 @@ export default function CourierDashboard({
                 <RotateCw className="mr-2 h-4 w-4" /> Retry
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </section>
       )}
 
       {/* ── Ready Screen: Responsive Multi-Column Layout ───────────────── */}
@@ -643,7 +639,7 @@ export default function CourierDashboard({
           <div className="space-y-5 lg:col-span-2">
             {/* Active Delivery Card */}
             {assigned && (
-              <Card className="rounded-xl border-2 border-orange-700/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+              <Card className="rounded-xl border-2 border-orange-700/80 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="bg-orange-700 px-4 py-3 text-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Bike className="h-4 w-4" />
@@ -692,7 +688,7 @@ export default function CourierDashboard({
                   )}
 
                   {/* Pickup & Destination Stepper Box */}
-                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-3.5 space-y-3">
+                  <div className="space-y-3 border-t border-zinc-200 pt-3.5 dark:border-zinc-800">
                     <div className="flex items-start gap-3">
                       <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                         assigned.status === "ready"
@@ -745,7 +741,7 @@ export default function CourierDashboard({
 
                   {/* Customer Contact & Quick Actions (visible in transit) */}
                   {assigned.status !== "ready" && (
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-900">
+                    <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Customer</span>
                         <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
@@ -935,7 +931,7 @@ export default function CourierDashboard({
               {feed.offers.map((offer) => {
                 const hasCashToCollect = offer.amount_to_collect && offer.amount_to_collect > 0;
                 return (
-                  <Card key={offer.offer_id} className="rounded-xl border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+                  <Card key={offer.offer_id} className="rounded-xl border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                     <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 pb-3 pt-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-sm font-bold text-zinc-950 dark:text-white flex items-center gap-2">
@@ -951,12 +947,12 @@ export default function CourierDashboard({
                     <CardContent className="space-y-3.5 pt-4">
                       {/* Pickup & Drop-off */}
                       <div className="grid gap-2 sm:grid-cols-2 text-xs">
-                        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-2.5">
+                        <div className="min-w-0">
                           <p className="text-[10px] font-bold uppercase text-zinc-400">Pickup</p>
                           <p className="font-bold text-zinc-900 dark:text-white mt-0.5 truncate">{offer.pickup_name || "Restaurant"}</p>
                           <p className="text-[11px] text-zinc-500 line-clamp-1">{offer.pickup_address || "Address not specified"}</p>
                         </div>
-                        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-2.5">
+                        <div className="min-w-0">
                           <p className="text-[10px] font-bold uppercase text-orange-700">Drop-off Destination</p>
                           <p className="font-semibold text-zinc-900 dark:text-white mt-0.5 line-clamp-2">{offer.delivery_address || "Address not provided"}</p>
                         </div>
@@ -966,7 +962,7 @@ export default function CourierDashboard({
                       <ItemList value={offer.items} />
 
                       {/* Payment */}
-                      <div className="rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 p-2.5 text-xs">
+                      <div className="border-t border-zinc-100 pt-3 text-xs dark:border-zinc-800">
                         {hasCashToCollect ? (
                           <div className="flex items-center justify-between font-bold text-amber-900 dark:text-amber-300">
                             <span>Amount to collect:</span>
@@ -1048,8 +1044,7 @@ export default function CourierDashboard({
 
               {/* Empty state when no offers and no assignment */}
               {!assigned && feed.offers.length === 0 && (
-                <Card className="rounded-xl border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs">
-                  <CardContent className="p-8 text-center sm:p-12 space-y-3">
+                <div className="space-y-3 py-8 text-center sm:py-12">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
                       <Bike className="h-6 w-6" />
                     </div>
@@ -1059,8 +1054,7 @@ export default function CourierDashboard({
                         ? "You’re marked as available. New delivery orders will appear here automatically when kitchen orders are ready."
                         : "You are currently offline. Turn your availability switch ON above to receive delivery offers."}
                     </p>
-                  </CardContent>
-                </Card>
+                </div>
               )}
             </div>
           </div>

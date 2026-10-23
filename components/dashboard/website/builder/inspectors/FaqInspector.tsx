@@ -4,7 +4,7 @@ import React from "react";
 import { FaqBlock, FaqItem, BLOCK_LIMITS } from "@/lib/website-blocks";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 
 interface FaqInspectorProps {
   block: FaqBlock;

@@ -2,16 +2,16 @@
 
 import { useState, useRef, useCallback } from "react";
 import {
-  Sparkles,
-  Send,
-  Loader2,
-  AlertCircle,
-  Check,
-  RefreshCcw,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
-} from "lucide-react";
+  IconSparkles as Sparkles,
+  IconSend as Send,
+  IconLoader2 as Loader2,
+  IconAlertCircle as AlertCircle,
+  IconCheck as Check,
+  IconRefresh as RefreshCcw,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+  IconArrowRight as ArrowRight,
+} from "@tabler/icons-react";
 import type { ManualSectionFormItem } from "./ManualBuilder";
 import type {
   AiSeatingProposal,

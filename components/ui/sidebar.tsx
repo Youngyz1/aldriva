@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Menu, X } from "lucide-react";
+import { IconMenu as Menu, IconX as X } from "@tabler/icons-react";
 
 type SidebarContextType = {
   open: boolean;

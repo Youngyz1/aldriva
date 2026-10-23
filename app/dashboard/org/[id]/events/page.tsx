@@ -1,7 +1,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Plus } from "lucide-react";
+import { IconCalendar as Calendar, IconPlus as Plus } from "@tabler/icons-react";
 import { CreateInvitationButton } from "@/components/events/CreateInvitationButton";
 
 export default async function OrgEventsPage({
@@ -43,7 +43,7 @@ export default async function OrgEventsPage({
       </div>
 
       {(events ?? []).length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
           <Calendar className="mb-3 h-10 w-10 text-zinc-300" />
           <p className="font-black text-zinc-900">No events yet</p>
           <p className="mt-1 text-sm text-zinc-500">Create your first event to get started.</p>
@@ -55,7 +55,7 @@ export default async function OrgEventsPage({
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-zinc-100 bg-zinc-50">
               <tr>

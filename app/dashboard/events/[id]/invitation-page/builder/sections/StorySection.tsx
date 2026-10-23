@@ -6,7 +6,7 @@
  * caption, and optional text; the old single story_image_url remains readable.
  */
 
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import { InvitationImageUploadField } from "@/components/invitation/InvitationImageUploadField";
 import type { WeddingStoryItem } from "@/lib/types/invitation-page-snapshot";
@@ -101,7 +101,7 @@ export function StorySection({ eventId, draft, updateDraft, disabled }: Props) {
               type="button"
               disabled={disabled}
               onClick={() => writeStories([...stories, { title: "", text: "", image: null }])}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
             >
               <Plus size={13} /> Add moment
             </button>
@@ -109,7 +109,7 @@ export function StorySection({ eventId, draft, updateDraft, disabled }: Props) {
         </div>
 
         {stories.map((story, index) => (
-          <article key={index} className="grid min-w-0 gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-xs">
+          <article key={index} className="grid min-w-0 gap-3 rounded-xl border border-zinc-200 bg-white p-3">
             <div className="flex min-w-0 items-center justify-between gap-2">
               <h4 className="truncate text-xs font-bold text-zinc-800">Story moment {index + 1}</h4>
               <div className="flex shrink-0 items-center gap-1">

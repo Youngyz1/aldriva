@@ -7,16 +7,16 @@ import {
 } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
 import {
-  Heart,
-  Megaphone,
-  Share2,
-  Trophy,
-  CircleDollarSign,
-  Flag,
-  Activity as ActivityIcon,
-  MessageCircle,
-  UserPlus,
-} from "lucide-react";
+  IconHeart as Heart,
+  IconSpeakerphone as Megaphone,
+  IconShare2 as Share2,
+  IconTrophy as Trophy,
+  IconCurrencyDollar as CircleDollarSign,
+  IconFlag as Flag,
+  IconActivity as ActivityIcon,
+  IconMessageCircle as MessageCircle,
+  IconUserPlus as UserPlus,
+} from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 const activityConfig = {

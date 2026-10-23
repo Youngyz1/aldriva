@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Music, Trash2, RefreshCw, AlertCircle, Play, Pause, Loader2 } from "lucide-react";
+import { IconMusic as Music, IconTrash as Trash2, IconRefresh as RefreshCw, IconAlertCircle as AlertCircle, IconPlayerPlay as Play, IconPlayerPause as Pause, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export interface AudioUploadFieldProps {

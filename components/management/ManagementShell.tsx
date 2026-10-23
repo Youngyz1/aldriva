@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { ReactNode, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import AppSidebar from "@/components/nav/AppSidebar";
 import SidebarNavList from "@/components/nav/SidebarNavList";
 import { MobileHamburgerButton, MobileDrawer } from "@/components/nav/MobileDrawer";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { IconCheck as Check, IconX as X } from "@tabler/icons-react";
 import RejectionReasonModal from "./RejectionReasonModal";
 
 export default function ApprovalActionButtons({

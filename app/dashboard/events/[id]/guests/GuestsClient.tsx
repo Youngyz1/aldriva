@@ -3,27 +3,27 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Users,
-  UserPlus,
-  Mail,
-  Send,
-  Search,
-  X,
-  Check,
-  AlertCircle,
-  Loader2,
-  Edit2,
-  Ban,
-  CheckCircle2,
-  Clock,
-  Armchair,
-  Star,
-  RefreshCw,
-  Upload,
-  FileSpreadsheet,
-  Download,
-  Eye,
-} from "lucide-react";
+  IconUsers as Users,
+  IconUserPlus as UserPlus,
+  IconMail as Mail,
+  IconSend as Send,
+  IconSearch as Search,
+  IconX as X,
+  IconCheck as Check,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconEdit as Edit2,
+  IconBan as Ban,
+  IconCircleCheck as CheckCircle2,
+  IconClock as Clock,
+  IconArmchair as Armchair,
+  IconStar as Star,
+  IconRefresh as RefreshCw,
+  IconUpload as Upload,
+  IconFileSpreadsheet as FileSpreadsheet,
+  IconDownload as Download,
+  IconEye as Eye,
+} from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 
@@ -424,7 +424,7 @@ export default function GuestsClient({
           </div>
         )
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-100 bg-zinc-50 text-[11px] font-black uppercase tracking-wider text-zinc-500">

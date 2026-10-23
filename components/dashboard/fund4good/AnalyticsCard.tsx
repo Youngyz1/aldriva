@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { formatCurrency, type DailyDonation } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { BarChart3, TrendingUp, Eye, MousePointerClick, Share2 } from "lucide-react";
+import { IconChartBar as BarChart3, IconTrendingUp as TrendingUp, IconEye as Eye, IconPointer as MousePointerClick, IconShare2 as Share2 } from "@tabler/icons-react";
 import { Skeleton } from "./Skeletons";
 import { EmptyState } from "./EmptyState";
 import type { ChartPoint } from "./MiniAreaChart";

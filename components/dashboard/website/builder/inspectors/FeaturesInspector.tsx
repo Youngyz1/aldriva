@@ -9,7 +9,7 @@ import {
 import { sanitizeUrl } from "@/lib/sanitize-url";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 
 interface FeaturesInspectorProps {
   block: FeaturesBlock;

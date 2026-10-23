@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ShoppingBag } from "lucide-react";
+import { IconShoppingBag as ShoppingBag } from "@tabler/icons-react";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";

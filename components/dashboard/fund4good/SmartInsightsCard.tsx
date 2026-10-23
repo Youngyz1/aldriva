@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { type Campaign, type Donation } from "@/lib/fund4good-data";
 import { buildFundraisingInsights, type Insight } from "@/lib/fundraising-insights";
 import { cn } from "@/lib/utils";
-import { Lightbulb, TrendingUp, AlertTriangle, Info } from "lucide-react";
+import { IconBulb as Lightbulb, IconTrendingUp as TrendingUp, IconAlertTriangle as AlertTriangle, IconInfoCircle as Info } from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 interface SmartInsightsCardProps {

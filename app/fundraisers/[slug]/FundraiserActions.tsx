@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, Share2 } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconCheck as Check, IconShare2 as Share2 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { money } from "@/lib/format";
 import { copyTextToClipboard } from "@/lib/clipboard";

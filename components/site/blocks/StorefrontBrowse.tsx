@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { IconX as X } from "@tabler/icons-react";
 import {
   BROWSE_ALL_GROUP,
   defaultBrowseOptionSelections,

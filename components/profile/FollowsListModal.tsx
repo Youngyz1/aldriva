@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Loader2, UserRound } from "lucide-react";
+import { IconX as X, IconLoader2 as Loader2, IconUser as UserRound } from "@tabler/icons-react";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 
 type FollowProfile = {

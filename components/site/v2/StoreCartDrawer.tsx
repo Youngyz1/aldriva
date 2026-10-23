@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { IconMinus as Minus, IconPlus as Plus, IconShoppingBag as ShoppingBag, IconTrash as Trash2, IconX as X } from "@tabler/icons-react";
 import { formatMoney } from "@/lib/money";
 import {
   useStoreCart,

@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import { Heart, Calendar, Building2, Store, Newspaper, User, Image as ImageIcon } from "lucide-react";
+import type { TablerIcon as LucideIcon } from "@tabler/icons-react";
+import { IconHeart as Heart, IconCalendar as Calendar, IconBuilding as Building2, IconBuildingStore as Store, IconNews as Newspaper, IconUser as User, IconPhoto as ImageIcon } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export type LocalBrandedPlaceholderVariant =

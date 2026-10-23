@@ -4,16 +4,16 @@ import Link from "next/link";
 import * as Avatar from "@radix-ui/react-avatar";
 import * as Separator from "@radix-ui/react-separator";
 import {
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  Ticket,
-  Heart,
-  DollarSign,
-  Calendar,
-  MoreHorizontal,
-  ChevronRight,
-} from "lucide-react";
+  IconTrendingUp as TrendingUp,
+  IconTrendingDown as TrendingDown,
+  IconArrowUpRight as ArrowUpRight,
+  IconTicket as Ticket,
+  IconHeart as Heart,
+  IconCurrencyDollar as DollarSign,
+  IconCalendar as Calendar,
+  IconDots as MoreHorizontal,
+  IconChevronRight as ChevronRight,
+} from "@tabler/icons-react";
 import {
   AreaChart,
   Area,

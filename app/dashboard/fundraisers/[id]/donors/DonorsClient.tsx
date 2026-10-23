@@ -3,14 +3,14 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Users,
-  ArrowUpDown,
-  ArrowRight,
-} from "lucide-react";
+  IconSearch as Search,
+  IconChevronLeft as ChevronLeft,
+  IconChevronRight as ChevronRight,
+  IconX as X,
+  IconUsers as Users,
+  IconArrowsUpDown as ArrowUpDown,
+  IconArrowRight as ArrowRight,
+} from "@tabler/icons-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
 import type { DonorRecord, DonorMetrics, DonorDonation } from "./page";
 import { formatMoney } from "@/lib/money";

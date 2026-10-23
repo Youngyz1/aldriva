@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { MapPin, Search, X } from "lucide-react";
+import { IconMapPin as MapPin, IconSearch as Search, IconX as X } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 

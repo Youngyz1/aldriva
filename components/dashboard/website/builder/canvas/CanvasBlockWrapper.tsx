@@ -13,16 +13,16 @@ import { CanvasBlockPreview } from "./CanvasBlockPreview";
 import { BuilderEmbedOptions } from "@/lib/actions/website-builder";
 import { ValidationErrorIssue } from "../types";
 import {
-  ChevronUp,
-  ChevronDown,
-  Copy,
-  Trash2,
-  AlertCircle,
-  Plus,
-  SlidersHorizontal,
-  EyeOff,
-  Smartphone,
-} from "lucide-react";
+  IconChevronUp as ChevronUp,
+  IconChevronDown as ChevronDown,
+  IconCopy as Copy,
+  IconTrash as Trash2,
+  IconAlertCircle as AlertCircle,
+  IconPlus as Plus,
+  IconAdjustmentsHorizontal as SlidersHorizontal,
+  IconEyeOff as EyeOff,
+  IconDeviceMobile as Smartphone,
+} from "@tabler/icons-react";
 import { getBackgroundStyle, getContainerClass, getSpacingClass } from "@/lib/section-helpers";
 
 interface CanvasBlockWrapperProps {

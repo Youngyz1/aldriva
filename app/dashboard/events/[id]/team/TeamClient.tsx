@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { UserPlus, Shield, Scan, Trash2, Mail, RefreshCw, Copy, Check, ChevronDown, ArrowLeft, Loader2 } from "lucide-react";
+import { IconUserPlus as UserPlus, IconShield as Shield, IconScan as Scan, IconTrash as Trash2, IconMail as Mail, IconRefresh as RefreshCw, IconCopy as Copy, IconCheck as Check, IconChevronDown as ChevronDown, IconArrowLeft as ArrowLeft, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 

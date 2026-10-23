@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle } from "lucide-react";
+import { IconAlertTriangle as AlertTriangle } from "@tabler/icons-react";
 import { isFulfilmentMissing } from "@/lib/storefront-features";
 
 export function OfferingsFulfilmentWarning({

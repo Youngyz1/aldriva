@@ -21,16 +21,16 @@ export default function MobileGlobalNav() {
           <Link
             href="/dashboard/create"
             onClick={() => setOpen(false)}
-            className="block rounded-xl bg-brand-700 px-3 py-2.5 text-center text-sm font-black text-white hover:bg-brand-800"
+            className="block rounded-xl bg-brand-700 px-3 py-2.5 text-center text-sm font-black text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
           >
             + Create New
           </Link>
           <MyOrganizersDropdown variant="sidebar" />
-          <SidebarNavList groups={dashboardNavGroups} tone="dark" ariaLabel="Dashboard navigation" className="space-y-5" />
+          <SidebarNavList groups={dashboardNavGroups} tone="light" ariaLabel="Dashboard navigation" className="space-y-5" />
           <Link
             href="/about"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
           >
             Help & Support
           </Link>

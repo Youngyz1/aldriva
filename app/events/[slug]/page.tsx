@@ -1,4 +1,4 @@
-import { Car, Bus, Bike, Footprints } from "lucide-react";
+import { IconCar as Car, IconBus as Bus, IconBike as Bike, IconWalk as Footprints } from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { cache } from "react";

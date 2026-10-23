@@ -1,13 +1,13 @@
 import { getDashboardContext, supabaseAdmin } from "@/lib/dashboard-context";
 import { redirect } from "next/navigation";
-import { BarChart2, Calendar, Heart, Award, DollarSign } from "lucide-react";
+import { IconChartBar as BarChart2, IconCalendar as Calendar, IconHeart as Heart, IconCurrencyDollar as DollarSign } from "@tabler/icons-react";
 import Link from "next/link";
 
 export default async function AccountAnalyticsPage() {
   const ctx = await getDashboardContext();
   if (!ctx) redirect("/login");
 
-  const { organizers, organizerIds } = ctx;
+  const { organizerIds } = ctx;
 
   let eventCount = 0;
   let fundraiserCount = 0;
@@ -41,32 +41,26 @@ export default async function AccountAnalyticsPage() {
         </p>
       </header>
 
-      {/* Stats cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm space-y-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-            <Calendar className="h-5 w-5" />
-          </div>
+      {/* Metrics use shared space and dividers instead of decorative cards. */}
+      <div className="grid gap-5 border-y border-zinc-200 py-5 sm:grid-cols-3 sm:divide-x sm:divide-zinc-200">
+        <div className="space-y-2">
+          <Calendar className="h-5 w-5 text-orange-600" aria-hidden="true" />
           <div>
             <p className="text-2xl font-black text-zinc-950">{eventCount}</p>
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Total Events Hosted</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm space-y-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <Heart className="h-5 w-5" />
-          </div>
+        <div className="space-y-2 sm:pl-5">
+          <Heart className="h-5 w-5 text-emerald-600" aria-hidden="true" />
           <div>
             <p className="text-2xl font-black text-zinc-950">{fundraiserCount}</p>
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Total Campaigns Launched</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm space-y-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-            <DollarSign className="h-5 w-5" />
-          </div>
+        <div className="space-y-2 sm:pl-5">
+          <DollarSign className="h-5 w-5 text-purple-600" aria-hidden="true" />
           <div>
             <p className="text-2xl font-black text-zinc-950">
               ${totalRaised.toLocaleString(undefined, { maximumFractionDigits: 0 })}

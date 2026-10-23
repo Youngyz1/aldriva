@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Heart } from "lucide-react";
+import { IconBookmark as Bookmark, IconHeart as Heart } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useLocalArticleActions } from "@/hooks/use-local-article-actions";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, Check, Copy, Download, QrCode, RefreshCw, Trash2, X } from "lucide-react";
+import { IconCamera as Camera, IconCheck as Check, IconCopy as Copy, IconDownload as Download, IconQrcode as QrCode, IconRefresh as RefreshCw, IconTrash as Trash2, IconX as X } from "@tabler/icons-react";
 import {
   bulkModerateMemories,
   deleteMemories,

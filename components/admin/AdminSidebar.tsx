@@ -14,39 +14,39 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  ShoppingBag,
-  Calendar,
-  HandHeart,
-  Home,
-  Grid3x3,
-  MessageSquareQuote,
-  Handshake,
-  CreditCard,
-  Send,
-  Settings,
-  Star,
-  ScrollText,
-  Sparkles,
-  ShieldAlert,
-  Bot,
-  ClipboardList,
-  CheckSquare,
-  FileText,
-  Activity,
-  BookOpen,
-  Radar,
-  FlaskConical,
-  CircleDot,
-  Brain,
-  ArrowLeft,
-  Menu,
-  X,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  IconLayoutDashboard as LayoutDashboard,
+  IconUsers as Users,
+  IconBuilding as Building2,
+  IconShoppingBag as ShoppingBag,
+  IconCalendar as Calendar,
+  IconHeartHandshake as HandHeart,
+  IconHome as Home,
+  IconGrid3x3 as Grid3x3,
+  IconQuote as MessageSquareQuote,
+  IconHeartHandshake as Handshake,
+  IconCreditCard as CreditCard,
+  IconSend as Send,
+  IconSettings as Settings,
+  IconStar as Star,
+  IconFileText as ScrollText,
+  IconSparkles as Sparkles,
+  IconShieldExclamation as ShieldAlert,
+  IconRobot as Bot,
+  IconClipboardList as ClipboardList,
+  IconCheckbox as CheckSquare,
+  IconFileText as FileText,
+  IconActivity as Activity,
+  IconBook as BookOpen,
+  IconRadar as Radar,
+  IconFlask2 as FlaskConical,
+  IconCircleDot as CircleDot,
+  IconBrain as Brain,
+  IconArrowLeft as ArrowLeft,
+  IconMenu2 as Menu,
+  IconX as X,
+  IconChevronLeft as ChevronLeft,
+  IconChevronRight as ChevronRight,
+} from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -192,7 +192,7 @@ function AdminNavStaticList({
       {adminNavGroups.map((group) => (
         <div key={group.label}>
           {!collapsed && (
-            <p className="mb-1 px-2.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <p className="mb-1 px-2.5 text-xs font-black uppercase tracking-widest text-slate-300">
               {group.label}
             </p>
           )}
@@ -208,14 +208,14 @@ function AdminNavStaticList({
                   aria-current={active ? "page" : undefined}
                   aria-label={collapsed ? item.label : undefined}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold transition",
+                    "flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
                     collapsed && "justify-center px-0",
                     active
                       ? "bg-white/10 text-white"
                       : "text-slate-300 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   {!collapsed && item.label}
                 </Link>
               );
@@ -316,7 +316,7 @@ function BackToDashboard({ collapsed = false }: { collapsed?: boolean }) {
       href="/dashboard"
       aria-label="Back to Dashboard"
       className={cn(
-        "mt-4 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-400 transition hover:bg-white/10 hover:text-white",
+        "mt-4 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
         collapsed && "justify-center px-0"
       )}
     >
@@ -440,7 +440,7 @@ export function AdminMobileNav() {
           </Link>
           <Link
             href="/dashboard"
-            className="ml-auto text-xs font-bold text-slate-400 hover:text-white"
+            className="ml-auto text-xs font-bold text-slate-300 hover:text-white"
           >
             ← Dashboard
           </Link>

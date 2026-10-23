@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
 import AdminTable from "@/components/admin/table/AdminTable";
@@ -58,7 +58,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
       />
 
       {/* Identity */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Identity</h2>
         <p className="text-sm text-zinc-600">{a.description}</p>
         <p className="text-sm text-zinc-500">
@@ -96,7 +96,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
       </section>
 
       {/* Permissions */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Permissions</h2>
         <ul className="space-y-1">
           {vm.permissions.map((p) => (
@@ -108,7 +108,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
       </section>
 
       {/* Knowledge */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Knowledge</h2>
         {vm.empty.knowledge ? (
           <p className="text-sm text-zinc-500">No approved platform knowledge documents.</p>
@@ -133,7 +133,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
 
       {/* Recent tasks + runs */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+        <section className="space-y-2 border-t border-zinc-200 pt-4">
           <h2 className="text-base font-bold text-zinc-950">Recent tasks</h2>
           {vm.empty.tasks ? (
             <p className="text-sm text-zinc-500">No tasks for this agent yet.</p>
@@ -147,7 +147,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
             </ul>
           )}
         </section>
-        <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+        <section className="space-y-2 border-t border-zinc-200 pt-4">
           <h2 className="text-base font-bold text-zinc-950">Recent runs</h2>
           {vm.empty.runs ? (
             <p className="text-sm text-zinc-500">No runs for this agent yet.</p>
@@ -165,7 +165,7 @@ export default async function WorkforceAgentDetailPage({ params }: { params: Pro
       </div>
 
       {/* Reports */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Reports</h2>
         {vm.empty.reports ? (
           <p className="text-sm text-zinc-500">No reports from this agent yet.</p>

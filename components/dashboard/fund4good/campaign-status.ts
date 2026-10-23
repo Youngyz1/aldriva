@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, AlertTriangle, TrendingUp, type LucideIcon } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconClock as Clock, IconAlertTriangle as AlertTriangle, IconTrendingUp as TrendingUp, type TablerIcon as LucideIcon } from "@tabler/icons-react";
 import type { CampaignStatus } from "@/lib/fund4good-data";
 
 export interface StatusMeta {

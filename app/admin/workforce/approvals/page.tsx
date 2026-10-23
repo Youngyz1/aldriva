@@ -13,7 +13,7 @@ import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import StatStrip from "@/components/admin/StatStrip";
 import { StatusBadge } from "@/components/admin/ModerationBadge";

@@ -10,20 +10,20 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  Monitor,
-  Tablet,
-  Smartphone,
-  Undo2,
-  Redo2,
-  Save,
-  Send,
-  Trash2,
-  CheckCircle2,
-  Loader2,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+  IconArrowLeft as ArrowLeft,
+  IconDeviceDesktop as Monitor,
+  IconDeviceTablet as Tablet,
+  IconDeviceMobile as Smartphone,
+  IconArrowBackUp as Undo2,
+  IconArrowForwardUp as Redo2,
+  IconDeviceFloppy as Save,
+  IconSend as Send,
+  IconTrash as Trash2,
+  IconCircleCheck as CheckCircle2,
+  IconLoader2 as Loader2,
+  IconEye as Eye,
+  IconEyeOff as EyeOff,
+} from "@tabler/icons-react";
 import { BuilderState, BuilderDevice } from "./types";
 
 interface BuilderToolbarProps {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { QrCode, Users, CheckCircle2, Edit3, ExternalLink, LayoutDashboard, Mail, Activity, Palette, BarChart3, Globe, Camera } from "lucide-react";
+import { IconQrcode as QrCode, IconUsers as Users, IconCircleCheck as CheckCircle2, IconEdit as Edit3, IconExternalLink as ExternalLink, IconLayoutDashboard as LayoutDashboard, IconMail as Mail, IconActivity as Activity, IconPalette as Palette, IconChartBar as BarChart3, IconGlobe as Globe, IconCamera as Camera } from "@tabler/icons-react";
 import {
   canShowEventPublicPage,
   getEventSubNavTabs,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Zap, Plus, ArrowRight } from "lucide-react";
+import { IconBolt as Zap, IconPlus as Plus, IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { VERTICAL_CONFIG, type VerticalStat, type VerticalPrompt } from "@/lib/dashboard-activity";
 import { Button } from "@/components/ui/button";
 

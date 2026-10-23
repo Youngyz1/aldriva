@@ -20,9 +20,20 @@ import ShareButton from "@/components/profile/ShareButton";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { getEnabledModules, type ProfileModuleId } from "@/lib/profile-modules";
 import {
-  Globe, Mail, Check, Share2, Heart, Users, Calendar, Target, DollarSign,
-  MapPin, ExternalLink, ArrowUpRight, Pencil,
-} from "lucide-react";
+  IconGlobe as Globe,
+  IconMail as Mail,
+  IconCheck as Check,
+  IconShare2 as Share2,
+  IconHeart as Heart,
+  IconUsers as Users,
+  IconCalendar as Calendar,
+  IconTarget as Target,
+  IconCurrencyDollar as DollarSign,
+  IconMapPin as MapPin,
+  IconExternalLink as ExternalLink,
+  IconArrowUpRight as ArrowUpRight,
+  IconPencil as Pencil,
+} from "@tabler/icons-react";
 import {
   FaFacebookF, FaXTwitter, FaInstagram, FaLinkedinIn,
   FaYoutube, FaTiktok

@@ -7,7 +7,7 @@ import {
   type ReservationStatus,
   type DeclineReasonCode,
 } from "@/lib/actions/reservations";
-import { Users } from "lucide-react";
+import { IconUsers as Users } from "@tabler/icons-react";
 
 export interface DashboardReservationRow {
   id: string;

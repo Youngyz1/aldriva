@@ -9,7 +9,7 @@
  * category decides. Hidden fields stay stored and reappear on switch-back.
  */
 
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 import { useState } from "react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { WeddingSubtype, ColorOfTheDayItem } from "@/lib/types/invitation-page-snapshot";

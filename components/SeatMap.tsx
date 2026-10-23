@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
-import { Star, Accessibility } from "lucide-react";
+import { IconStar as Star, IconAccessible as Accessibility } from "@tabler/icons-react";
 import { VenueObject, TicketTypeSummary } from "@/lib/seating";
 
 export type SeatStatus = "available" | "reserved" | "sold" | "selected" | "unavailable";

@@ -2,25 +2,25 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
-  LayoutDashboard,
-  Users,
-  Star,
-  StarOff,
-  Accessibility,
-  Filter,
-  Search,
-  X,
-  Check,
-  AlertCircle,
-  Loader2,
-  ChevronRight,
-  TableProperties,
-  List,
-  Sparkles,
-  Layers,
-  Sliders,
-  Bot,
-} from "lucide-react";
+  IconLayoutDashboard as LayoutDashboard,
+  IconUsers as Users,
+  IconStar as Star,
+  IconStarOff as StarOff,
+  IconAccessible as Accessibility,
+  IconFilter as Filter,
+  IconSearch as Search,
+  IconX as X,
+  IconCheck as Check,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconChevronRight as ChevronRight,
+  IconTableOptions as TableProperties,
+  IconList as List,
+  IconSparkles as Sparkles,
+  IconStack2 as Layers,
+  IconAdjustments as Sliders,
+  IconRobot as Bot,
+} from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import VenueBuilder from "./VenueBuilder";

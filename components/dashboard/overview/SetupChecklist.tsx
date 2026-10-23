@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconCircle as Circle, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconSparkles as Sparkles } from "@tabler/icons-react";
 import type { SetupChecklistItem } from "@/lib/overview-types";
 
 export interface SetupChecklistProps {

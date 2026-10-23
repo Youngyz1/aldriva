@@ -14,7 +14,7 @@
  */
 
 import { useId, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { IconCheck as Check, IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { INVITATION_TEMPLATES, type TemplateRegistryItem } from "@/components/invitation/templates/registry";
 import { orderTemplatesForType, type InvitationType } from "@/lib/invitation-type-fields";
 import { cn } from "@/lib/utils";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { IconMapPin as MapPin } from "@tabler/icons-react";
 
 /**
  * Reusable location autocomplete input. Filters a pre-fetched suggestion list

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, Ticket } from "lucide-react";
+import { IconHeart as Heart, IconTicket as Ticket } from "@tabler/icons-react";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";
 import { safeImageSrc } from "@/lib/image-url";

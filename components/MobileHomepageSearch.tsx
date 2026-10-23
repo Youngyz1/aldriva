@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { LocateFixed, MapPin, Search } from "lucide-react";
+import { IconCurrentLocation as LocateFixed, IconMapPin as MapPin, IconSearch as Search } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { slugifyCity } from "@/lib/city-slug";
 

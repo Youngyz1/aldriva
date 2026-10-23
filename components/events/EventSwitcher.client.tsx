@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ChevronDown, Check } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconCheck as Check } from "@tabler/icons-react";
 
 export type EventSwitcherItem = { id: string; title: string; status?: string | null };
 

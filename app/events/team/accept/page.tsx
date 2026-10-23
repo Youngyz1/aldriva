@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, AlertTriangle, XCircle, Clock, Loader2, ArrowRight, Shield, Scan } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconAlertTriangle as AlertTriangle, IconCircleX as XCircle, IconClock as Clock, IconLoader2 as Loader2, IconArrowRight as ArrowRight, IconShield as Shield, IconScan as Scan } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 import { BRAND } from "@/config/branding";
 

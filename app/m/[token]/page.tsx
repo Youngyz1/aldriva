@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { headers } from "next/headers";
-import { CameraOff } from "lucide-react";
+import { IconCameraOff as CameraOff } from "@tabler/icons-react";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { isMemoryTokenFormat } from "@/lib/memories/tokens";

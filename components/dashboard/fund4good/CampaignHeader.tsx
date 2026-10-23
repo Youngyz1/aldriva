@@ -11,7 +11,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import { getClientSiteUrl } from "@/lib/site-url-client";
 import { cn } from "@/lib/utils";
 import { getStatusMeta } from "./campaign-status";
-import { Share2, Pencil, ExternalLink, Check } from "lucide-react";
+import { IconShare2 as Share2, IconPencil as Pencil, IconExternalLink as ExternalLink, IconCheck as Check } from "@tabler/icons-react";
 
 interface CampaignHeaderProps {
   campaign: Campaign;

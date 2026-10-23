@@ -1,5 +1,5 @@
 import TrendingCarousel from "@/app/events/TrendingCarousel";
-import { Calendar } from "lucide-react";
+import { IconCalendar as Calendar } from "@tabler/icons-react";
 import DiscoverMoreCarousel from "@/app/events/DiscoverMoreCarousel";
 import ExternalEventsCarousel from "@/components/events/ExternalEventsCarousel";
 import PublicEmptyState from "@/components/public/PublicEmptyState";

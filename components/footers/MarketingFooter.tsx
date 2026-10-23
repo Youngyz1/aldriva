@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from 'next-intl';
 import {
-  Send,
-  Sun,
-  Moon,
-  ChevronDown,
-} from "lucide-react";
+  IconSend as Send,
+  IconSun as Sun,
+  IconMoon as Moon,
+  IconChevronDown as ChevronDown,
+} from "@tabler/icons-react";
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok } from "react-icons/fa6";
 import BrandMark from "@/components/BrandMark";
 import { BRAND } from "@/config/branding";

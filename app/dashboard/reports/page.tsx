@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import { IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { getDashboardContext } from "@/lib/dashboard-context";
 import ReportsClient from "./ReportsClient";
 

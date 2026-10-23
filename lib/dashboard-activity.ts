@@ -1,4 +1,4 @@
-import { Heart, Calendar, Newspaper, Store, ShoppingBag, type LucideIcon } from "lucide-react";
+import { IconHeart as Heart, IconCalendar as Calendar, IconNews as Newspaper, IconBuildingStore as Store, IconShoppingBag as ShoppingBag, type TablerIcon as LucideIcon } from "@tabler/icons-react";
 import { supabaseAdmin } from "@/lib/dashboard-context";
 import { money } from "@/lib/format";
 import { getTimeAgo } from "@/lib/fund4good-data";

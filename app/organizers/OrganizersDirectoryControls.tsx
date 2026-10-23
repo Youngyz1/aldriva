@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { IconSearch as Search } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 type OrganizersDirectoryControlsProps = {

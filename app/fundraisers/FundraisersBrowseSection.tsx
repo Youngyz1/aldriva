@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { IconHeart as Heart } from "@tabler/icons-react";
 import PublicPagination from "@/components/public/PublicPagination";
 import CampaignShowcase, {
   type CampaignShowcaseItem,

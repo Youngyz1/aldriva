@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import {
   fetchMemoryDetail,
@@ -64,7 +64,7 @@ export default async function WorkforceMemoryDetailPage({ params }: { params: Pr
       />
 
       {/* Current value */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Current value</h2>
         <p className="whitespace-pre-wrap text-sm text-zinc-600">{preview.text}</p>
         {preview.truncated && (
@@ -73,7 +73,7 @@ export default async function WorkforceMemoryDetailPage({ params }: { params: Pr
       </section>
 
       {/* Metadata */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Metadata</h2>
         <p className="text-sm text-zinc-600">status: {f.status}</p>
         <p className="text-sm text-zinc-600">source: {f.source}</p>
@@ -111,7 +111,7 @@ export default async function WorkforceMemoryDetailPage({ params }: { params: Pr
       </section>
 
       {/* Version history (append-only) */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Version history ({raw.versions.length})</h2>
         {raw.versions.length === 0 ? (
           <p className="text-sm text-zinc-500">No stored versions for this fact.</p>

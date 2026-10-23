@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createBranch, updateBranch, deleteBranch } from "@/lib/actions/business-branches";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 type Branch = {
   id: string;
@@ -68,9 +68,8 @@ export default function BranchesClient({ businessId, businessName, initialBranch
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
 
-      <Card>
-        <CardHeader><CardTitle className="text-sm">Add Branch</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <section className="space-y-3" aria-labelledby="add-branch-heading">
+        <h2 id="add-branch-heading" className="text-sm font-semibold">Add Branch</h2>
           <Input placeholder="Label e.g. Downtown" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
           <div className="grid gap-2 sm:grid-cols-2">
             <Input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
@@ -81,8 +80,7 @@ export default function BranchesClient({ businessId, businessName, initialBranch
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.is_main} onChange={(e) => setForm({ ...form, is_main: e.target.checked })} /> Main branch</label>
           </div>
           <Button onClick={handleCreate} disabled={loading || form.label.trim().length < 2}>{loading ? "Saving..." : "Add branch"}</Button>
-        </CardContent>
-      </Card>
+      </section>
 
       <div className="space-y-3">
         {branches.length === 0 ? <p className="text-sm text-zinc-500">No branches yet.</p> : branches.map((b) => (

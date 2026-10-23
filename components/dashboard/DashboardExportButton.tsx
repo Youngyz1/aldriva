@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { IconDownload as Download } from "@tabler/icons-react";
 
 type Props = {
   onExport?: () => void;

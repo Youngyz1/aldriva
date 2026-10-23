@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { VERTICAL_CONFIG, type VerticalPrompt } from "@/lib/dashboard-activity";
 
 export default function GetStartedPromptCard({ prompt }: { prompt: VerticalPrompt }) {

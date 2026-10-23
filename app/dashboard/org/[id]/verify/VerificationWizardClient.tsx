@@ -4,19 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ShieldCheck,
-  Clock,
-  AlertTriangle,
-  XCircle,
-  FileText,
-  Upload,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  Loader2,
-  Building2,
-  Info,
-} from "lucide-react";
+  IconShieldCheck as ShieldCheck,
+  IconClock as Clock,
+  IconAlertTriangle as AlertTriangle,
+  IconCircleX as XCircle,
+  IconFileText as FileText,
+  IconUpload as Upload,
+  IconCircleCheck as CheckCircle2,
+  IconArrowRight as ArrowRight,
+  IconArrowLeft as ArrowLeft,
+  IconLoader2 as Loader2,
+  IconBuilding as Building2,
+  IconInfoCircle as Info,
+} from "@tabler/icons-react";
 import {
   getRequirementsForOrgType,
   type DocRequirement,

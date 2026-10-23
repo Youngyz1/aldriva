@@ -1,22 +1,22 @@
-import type { LucideIcon } from "lucide-react";
+import type { TablerIcon as LucideIcon } from "@tabler/icons-react";
 import {
-  Briefcase,
-  GraduationCap,
-  HandHeart,
-  HeartHandshake,
-  Laptop,
-  Mic,
-  Stethoscope,
-  Users,
-  Tag,
-  Music,
-  Heart,
-  Star,
-  Globe,
-  Zap,
-  BookOpen,
-  Coffee,
-} from "lucide-react";
+  IconBriefcase as Briefcase,
+  IconSchool as GraduationCap,
+  IconHeartHandshake as HandHeart,
+  IconHeartHandshake as HeartHandshake,
+  IconDeviceLaptop as Laptop,
+  IconMicrophone as Mic,
+  IconStethoscope as Stethoscope,
+  IconUsers as Users,
+  IconTag as Tag,
+  IconMusic as Music,
+  IconHeart as Heart,
+  IconStar as Star,
+  IconGlobe as Globe,
+  IconBolt as Zap,
+  IconBook as BookOpen,
+  IconCoffee as Coffee,
+} from "@tabler/icons-react";
 import { unstable_cache } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -25,7 +25,7 @@ export type CategoryChip = { name: string; icon: LucideIcon };
 /**
  * Map of icon names the CMS may store in homepage_categories.icon.
  * Adding new icons here keeps the bundle tree-shakeable — never use
- * `import * as LucideIcons` which defeats tree-shaking.
+ * `import * as TablerIcons` which defeats tree-shaking.
  */
 const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   Mic, Briefcase, GraduationCap, HandHeart, HeartHandshake,

@@ -32,17 +32,17 @@ import { BlockInspector } from "./inspectors/BlockInspector";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  AlertCircle,
-  CheckCircle2,
-  X,
-  SlidersHorizontal,
-  Blocks,
-  Layers,
-  PanelRight,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  IconAlertCircle as AlertCircle,
+  IconCircleCheck as CheckCircle2,
+  IconX as X,
+  IconAdjustmentsHorizontal as SlidersHorizontal,
+  IconBlocks as Blocks,
+  IconStack2 as Layers,
+  IconLayoutSidebarRight as PanelRight,
+  IconEye as Eye,
+  IconChevronLeft as ChevronLeft,
+  IconChevronRight as ChevronRight,
+} from "@tabler/icons-react";
 
 interface WebsiteBuilderClientProps {
   initialData: PageBuilderData;
@@ -363,7 +363,7 @@ export default function WebsiteBuilderClient({
 
       {/* 2. Global Feedback / Notification Banners */}
       {state.errorMessage && (
-        <div className="bg-rose-600 px-4 py-2 text-xs font-medium text-white flex items-center justify-between shadow-xs">
+        <div className="bg-rose-600 px-4 py-2 text-xs font-medium text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{state.errorMessage}</span>
@@ -379,7 +379,7 @@ export default function WebsiteBuilderClient({
       )}
 
       {state.successMessage && (
-        <div className="bg-emerald-600 px-4 py-2 text-xs font-medium text-white flex items-center justify-between shadow-xs">
+        <div className="bg-emerald-600 px-4 py-2 text-xs font-medium text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{state.successMessage}</span>
@@ -610,11 +610,11 @@ export default function WebsiteBuilderClient({
             <SheetTitle>Preview</SheetTitle>
           </SheetHeader>
           <div className="max-h-[70vh] overflow-y-auto p-4">
-            <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4">
               <p className="text-xs text-muted-foreground mb-2">Live preview of your page — reflects current draft blocks.</p>
               <div className="space-y-2">
                 {state.present.map((b, i) => (
-                  <div key={`${b.type}-${i}`} className="rounded-lg border border-zinc-100 p-3 text-xs">
+                  <div key={`${b.type}-${i}`} className="border-t border-zinc-100 py-3 text-xs first:border-t-0">
                     <span className="font-semibold capitalize">{b.type.replace("_", " ")}</span>
                     {(b as { heading?: string }).heading && <span className="text-zinc-600"> — {(b as { heading?: string }).heading}</span>}
                   </div>

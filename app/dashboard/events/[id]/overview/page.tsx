@@ -37,28 +37,33 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-zinc-500">Scan</CardTitle></CardHeader><CardContent><p className="text-sm text-zinc-600">Door scanner for this event</p><Button asChild size="sm" className="mt-2"><Link href={`/dashboard/events/${id}/scan`}>Open scanner</Link></Button></CardContent></Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card><CardHeader><CardTitle className="text-sm">Quick actions</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">
+      <div className="grid gap-x-8 gap-y-6 border-t border-zinc-200 pt-5 sm:grid-cols-2">
+        <section className="space-y-3" aria-labelledby="quick-actions-heading">
+          <h2 id="quick-actions-heading" className="text-sm font-semibold">Quick actions</h2>
+          <div className="flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/team`}>Team</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/seating`}>Seating</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/operations`}>Operations</Link></Button>
-        </CardContent></Card>
+          </div>
+        </section>
         {/* Round 4 Rule 1: the Invitation page card renders for
             invitation-kind events only. kind='public' events show no
             Preview Invitation or invitation controls. */}
         {isInvitationEvent(event as { kind?: string | null }) && (
-        <Card><CardHeader><CardTitle className="text-sm">Invitation page</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">
+        <section className="space-y-3" aria-labelledby="invitation-page-heading">
+          <h2 id="invitation-page-heading" className="text-sm font-semibold">Invitation page</h2>
+          <div className="flex flex-wrap gap-2">
           {hasInvitationPage ? (
             <Button asChild size="sm"><Link href={`/invitation/builder-preview/${id}`}>{t("previewInvitation")}</Link></Button>
           ) : (
             <Button asChild size="sm"><Link href={`/dashboard/events/${id}/invitation-page`}>Invitation builder</Link></Button>
           )}
           <Button asChild size="sm" variant="outline"><Link href={`/dashboard/events/${id}/guests`}>Guests & RSVPs</Link></Button>
-        </CardContent></Card>
+          </div>
+        </section>
         )}
-        <Card>
-          <CardHeader><CardTitle className="text-sm">{event.visibility === "private" ? "Private page" : "Public page"}</CardTitle></CardHeader>
-          <CardContent>
+        <section className="space-y-3" aria-labelledby="event-page-heading">
+          <h2 id="event-page-heading" className="text-sm font-semibold">{event.visibility === "private" ? "Private page" : "Public page"}</h2>
             {event.visibility === "private" ? (
               <>
                 <p className="mb-3 text-xs font-medium text-zinc-500">{t("privatePageNote")}</p>
@@ -67,8 +72,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             ) : (
               <Button asChild size="sm" variant="outline"><Link href={`/events/${event.slug}`} target="_blank">{t("viewPublicEvent")} →</Link></Button>
             )}
-          </CardContent>
-        </Card>
+        </section>
       </div>
     </div>
   );

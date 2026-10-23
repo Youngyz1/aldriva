@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, X } from "lucide-react";
+import { IconPlus as Plus, IconX as X } from "@tabler/icons-react";
 
 export function ModifiersEditor({ modifiers, onChange }: { modifiers: { name: string; price_delta: number }[]; onChange: (mods: { name: string; price_delta: number }[]) => void }) {
   function update(idx: number, patch: Partial<{ name: string; price_delta: number }>) {

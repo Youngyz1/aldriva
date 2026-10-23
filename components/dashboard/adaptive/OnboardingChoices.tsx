@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { IconArrowRight as ArrowRight, IconSparkles as Sparkles } from "@tabler/icons-react";
 import { VERTICAL_CONFIG, type VerticalKey } from "@/lib/dashboard-activity";
 import { Button } from "@/components/ui/button";
 

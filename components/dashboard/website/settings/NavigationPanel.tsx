@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Menu, Edit2, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { IconPlus as Plus, IconMenu as Menu, IconEdit as Edit2, IconTrash as Trash2, IconArrowUp as ArrowUp, IconArrowDown as ArrowDown } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/state";
 import type { NavigationItem } from "@/lib/website-nav";

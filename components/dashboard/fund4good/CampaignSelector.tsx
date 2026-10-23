@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { type Campaign, formatCurrency } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
 import {

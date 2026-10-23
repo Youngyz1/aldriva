@@ -94,8 +94,8 @@ export function BasicsSection({ draft, event, eventId, updateDraft, disabled }: 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
       {isInvitationKind && (
-        <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4 sm:col-span-2">
-          <p className="text-xs font-black uppercase tracking-wide text-violet-700">
+        <div className="space-y-4 border-t border-zinc-200 pt-4 sm:col-span-2">
+          <p className="text-xs font-black uppercase tracking-wide text-zinc-700">
             Event details (required to publish)
           </p>
           <div className="space-y-1.5">

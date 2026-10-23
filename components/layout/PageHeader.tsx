@@ -74,8 +74,8 @@ export function PageHeaderLinkAction({
 }) {
   const cls =
     variant === "secondary"
-      ? "inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground hover:bg-muted shadow-xs"
-      : "inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 shadow-xs";
+      ? "inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground hover:bg-muted"
+      : "inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90";
   return (
     <Link href={href} className={cls}>
       {children}

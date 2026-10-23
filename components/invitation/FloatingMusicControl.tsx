@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { IconVolume2 as Volume2, IconVolumeOff as VolumeX } from "@tabler/icons-react";
 import {
   MUSIC_EMBED_ALLOW,
   MUSIC_PROVIDER_NAMES,

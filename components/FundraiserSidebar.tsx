@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { TrendingUp, Share2, Check, AlertCircle } from "lucide-react";
+import { IconTrendingUp as TrendingUp, IconShare2 as Share2, IconCheck as Check, IconAlertCircle as AlertCircle } from "@tabler/icons-react";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import ProgressRing from "@/components/ui/ProgressRing";
 import { calculateFundraisingPercentage } from "@/lib/fundraising-progress";

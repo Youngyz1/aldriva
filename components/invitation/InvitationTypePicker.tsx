@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Cake, ChevronDown, Gift, Heart, Sparkles } from "lucide-react";
+import { IconCake as Cake, IconChevronDown as ChevronDown, IconGift as Gift, IconHeart as Heart, IconSparkles as Sparkles } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import type { InvitationType } from "@/lib/invitation-type-fields";
 import { INVITATION_TYPES } from "@/lib/invitation-type-fields";

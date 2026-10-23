@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { IconLoader2 as Loader2 } from "@tabler/icons-react";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";

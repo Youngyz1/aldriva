@@ -26,17 +26,17 @@ import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/Inv
 import { InvitationPageData } from "@/types/invitation-template";
 import { InvitationLocale } from "@/lib/invitation-i18n";
 import {
-  Sparkles,
-  Smartphone,
-  Monitor,
-  Image as ImageIcon,
-  User,
-  Layers,
-  Tag,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+  IconSparkles as Sparkles,
+  IconDeviceMobile as Smartphone,
+  IconDeviceDesktop as Monitor,
+  IconPhoto as ImageIcon,
+  IconUser as User,
+  IconStack2 as Layers,
+  IconTag as Tag,
+  IconAdjustmentsHorizontal as SlidersHorizontal,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+} from "@tabler/icons-react";
 
 type ScenarioKey =
   | "default"

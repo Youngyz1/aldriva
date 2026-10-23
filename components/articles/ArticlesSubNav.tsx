@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PenSquare } from "lucide-react";
+import { IconEdit as PenSquare } from "@tabler/icons-react";
 import { cacheLife } from "next/cache";
 import { getDistinctArticleCategories } from "@/lib/articles-data";
 import CategoriesDropdown from "@/components/articles/CategoriesDropdown";

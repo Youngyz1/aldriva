@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Share2, Pencil, ExternalLink, Trash2, Check } from "lucide-react";
+import { IconShare2 as Share2, IconPencil as Pencil, IconExternalLink as ExternalLink, IconTrash as Trash2, IconCheck as Check } from "@tabler/icons-react";
 
 export default function FundraiserHeaderActions({
   fundraiserId,

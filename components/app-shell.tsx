@@ -8,26 +8,26 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Separator from "@radix-ui/react-separator";
 import {
-  LayoutDashboard,
-  Calendar,
-  Heart,
-  Users,
-  Settings,
-  DollarSign,
-  BarChart2,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  Bell,
-  Search,
-  LogOut,
-  User,
-  ChevronsUpDown,
-  Home,
-  Ticket,
-  Newspaper,
-  Package,
-} from "lucide-react";
+  IconLayoutDashboard as LayoutDashboard,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconUsers as Users,
+  IconSettings as Settings,
+  IconCurrencyDollar as DollarSign,
+  IconChartBar as BarChart2,
+  IconBuilding as Building2,
+  IconChevronLeft as ChevronLeft,
+  IconChevronRight as ChevronRight,
+  IconBell as Bell,
+  IconSearch as Search,
+  IconLogout as LogOut,
+  IconUser as User,
+  IconArrowsUpDown as ChevronsUpDown,
+  IconHome as Home,
+  IconTicket as Ticket,
+  IconNews as Newspaper,
+  IconPackage as Package,
+} from "@tabler/icons-react";
 
 const navGroups = [
   {

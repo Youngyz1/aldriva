@@ -1,4 +1,4 @@
-import { Mail } from "lucide-react";
+import { IconMail as Mail } from "@tabler/icons-react";
 import Link from "next/link";
 
 export default function AccountMessagesPage() {

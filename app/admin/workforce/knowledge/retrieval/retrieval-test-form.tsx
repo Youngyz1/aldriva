@@ -19,7 +19,7 @@ export default function RetrievalTestForm({ tenants }: { tenants: Array<{ id: st
 
   return (
     <div className="space-y-4">
-      <form action={submit} className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <form action={submit} className="space-y-3">
         <div>
           <label htmlFor="retrieval-query" className="text-sm font-semibold text-zinc-950">
             Query (max 300 characters)
@@ -70,7 +70,7 @@ export default function RetrievalTestForm({ tenants }: { tenants: Array<{ id: st
           )}
           <ul className="space-y-2">
             {state.chunks.map((c, i) => (
-              <li key={i} className="rounded-xl border border-zinc-200 bg-white p-3">
+              <li key={i} className="border-b border-zinc-200 py-3 last:border-0">
                 <p className="text-sm font-semibold text-zinc-950">
                   [{c.category}] {c.title}
                 </p>
@@ -79,7 +79,7 @@ export default function RetrievalTestForm({ tenants }: { tenants: Array<{ id: st
               </li>
             ))}
           </ul>
-          <div className="rounded-xl border border-zinc-200 bg-white p-4">
+          <div className="space-y-2 border-t border-zinc-200 pt-4">
             <h2 className="text-base font-bold text-zinc-950">Prompt block (exact)</h2>
             <p className="whitespace-pre-wrap text-xs text-zinc-600">{state.promptBlock}</p>
           </div>

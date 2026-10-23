@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
@@ -143,7 +143,7 @@ function OrderConfirmationContent() {
       )}
 
       {(order.quantity || formattedAmount) && (
-        <div className="mt-6 rounded-2xl bg-zinc-50 border border-zinc-200/50 p-4 text-left space-y-2">
+        <div className="mt-6 border-l-2 border-zinc-200 pl-4 text-left space-y-2">
           {order.quantity && (
             <div className="flex justify-between text-xs">
               <span className="font-semibold text-zinc-400 uppercase">Quantity</span>

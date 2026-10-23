@@ -26,16 +26,16 @@ import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 import { Great_Vibes, Playfair_Display, Lora } from "next/font/google";
 import {
-  CheckCircle2,
-  XCircle,
-  CalendarPlus,
-  Share2,
-  ExternalLink,
-  Check,
-  Loader2,
-  Gift,
-  Heart,
-} from "lucide-react";
+  IconCircleCheck as CheckCircle2,
+  IconCircleX as XCircle,
+  IconCalendarPlus as CalendarPlus,
+  IconShare2 as Share2,
+  IconExternalLink as ExternalLink,
+  IconCheck as Check,
+  IconLoader2 as Loader2,
+  IconGift as Gift,
+  IconHeart as Heart,
+} from "@tabler/icons-react";
 import {
   InvitationPageData,
   InvitationGalleryItem,

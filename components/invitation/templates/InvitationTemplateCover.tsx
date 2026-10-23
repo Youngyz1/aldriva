@@ -18,7 +18,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { InvitationStoryMoments } from "@/components/invitation/templates/InvitationStoryMoments";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import type { InvitationPageData } from "@/types/invitation-template";
 import {
   formatLocalizedEventDate,

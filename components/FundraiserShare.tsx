@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, Copy } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconCheck as Check, IconCopy as Copy } from "@tabler/icons-react";
 import { FaFacebookF, FaWhatsapp, FaXTwitter, FaLinkedinIn } from "react-icons/fa6";
 import { useState } from "react";
 import Link from "next/link";

@@ -5,17 +5,17 @@ import { type Campaign, type DailyDonation, formatCurrency } from "@/lib/fund4go
 import { cn } from "@/lib/utils";
 import { StatCard } from "./StatCard";
 import {
-  Wallet,
-  Target,
-  PiggyBank,
-  Users,
-  Receipt,
-  Zap,
-  Share2,
-  MousePointerClick,
-  Eye,
-  Heart,
-} from "lucide-react";
+  IconWallet as Wallet,
+  IconTarget as Target,
+  IconPigMoney as PiggyBank,
+  IconUsers as Users,
+  IconReceipt as Receipt,
+  IconBolt as Zap,
+  IconShare2 as Share2,
+  IconPointer as MousePointerClick,
+  IconEye as Eye,
+  IconHeart as Heart,
+} from "@tabler/icons-react";
 
 interface KpiGridProps {
   campaign: Campaign;

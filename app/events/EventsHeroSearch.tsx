@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket } from "lucide-react";
+import { IconSearch as Search, IconTicket as Ticket } from "@tabler/icons-react";
 
 /**
  * Standalone search section on /events and /events/search.
@@ -27,7 +27,7 @@ export default function EventsHeroSearch({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <form
         onSubmit={onSubmit}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-zinc-200 bg-white p-2 pl-5 shadow-md shadow-zinc-200/60"
+        className="flex min-w-0 flex-1 items-center gap-2"
       >
         <Search className="h-5 w-5 shrink-0 text-zinc-400" />
         <input
@@ -36,7 +36,7 @@ export default function EventsHeroSearch({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search events, categories, or organizers"
           aria-label="Search events, categories, or organizers"
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 sm:text-base"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-orange-500 sm:text-base"
         />
         <button
           type="submit"
@@ -47,7 +47,7 @@ export default function EventsHeroSearch({
       </form>
       <Link
         href="/find-tickets"
-        className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-900 shadow-md shadow-zinc-200/60 transition hover:border-orange-500 hover:text-orange-600 sm:w-auto sm:px-6"
+        className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-900 transition hover:border-orange-500 hover:text-orange-600 sm:w-auto sm:px-6"
       >
         <Ticket className="h-4 w-4 shrink-0" />
         Find Tickets

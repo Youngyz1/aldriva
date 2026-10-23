@@ -22,21 +22,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
-  Bot,
-  CheckCircle2,
-  Loader2,
-  Lock,
-  Menu,
-  Pencil,
-  Plus,
-  Send,
-  ShieldAlert,
-  Sparkles,
-  Terminal,
-  Trash2,
-  X,
-} from "lucide-react";
+  IconAlertTriangle as AlertTriangle,
+  IconRobot as Bot,
+  IconCircleCheck as CheckCircle2,
+  IconLoader2 as Loader2,
+  IconLock as Lock,
+  IconMenu as Menu,
+  IconPencil as Pencil,
+  IconPlus as Plus,
+  IconSend as Send,
+  IconShieldExclamation as ShieldAlert,
+  IconSparkles as Sparkles,
+  IconTerminal as Terminal,
+  IconTrash as Trash2,
+  IconX as X,
+} from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import {

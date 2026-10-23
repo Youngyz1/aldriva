@@ -3,7 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Lock, Bell, CreditCard, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  IconUser as User,
+  IconLock as Lock,
+  IconBell as Bell,
+  IconCreditCard as CreditCard,
+  IconShieldExclamation as ShieldAlert,
+  IconShieldCheck as ShieldCheck,
+} from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 const settingsNavItems = [
@@ -85,9 +92,9 @@ export default function SettingsLayout({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200",
+                    "group flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2",
                     active
-                      ? "bg-white text-orange-600 shadow-xs ring-1 ring-zinc-200/50"
+                      ? "bg-white text-brand-700 ring-1 ring-zinc-200/50"
                       : "text-zinc-600 hover:bg-white/50 hover:text-zinc-900"
                   )}
                 >
@@ -95,12 +102,12 @@ export default function SettingsLayout({
                     size={18}
                     className={cn(
                       "shrink-0 transition-colors duration-200",
-                      active ? "text-orange-500" : "text-zinc-400 group-hover:text-zinc-500"
+                      active ? "text-brand-700" : "text-zinc-600 group-hover:text-zinc-900"
                     )}
                   />
                   <div className="flex flex-col text-left">
                     <span className="leading-none">{item.label}</span>
-                    <span className="mt-1 text-[10px] font-medium text-zinc-400 leading-none">
+                    <span className="mt-1 text-[10px] font-medium text-zinc-600 leading-none">
                       {item.description}
                     </span>
                   </div>
@@ -121,9 +128,9 @@ export default function SettingsLayout({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0",
+                    "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2",
                     active
-                      ? "bg-white text-orange-600 shadow-xs ring-1 ring-zinc-200/50"
+                      ? "bg-white text-brand-700 ring-1 ring-zinc-200/50"
                       : "bg-white/40 text-zinc-600 hover:bg-white/70 hover:text-zinc-900"
                   )}
                 >
@@ -131,7 +138,7 @@ export default function SettingsLayout({
                     size={15}
                     className={cn(
                       "shrink-0",
-                      active ? "text-orange-500" : "text-zinc-400"
+                      active ? "text-brand-700" : "text-zinc-600"
                     )}
                   />
                   <span>{item.label}</span>

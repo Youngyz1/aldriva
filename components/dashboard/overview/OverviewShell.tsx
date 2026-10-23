@@ -2,7 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCw } from "lucide-react";
+import { IconRotateClockwise as RotateCw } from "@tabler/icons-react";
 
 export interface OverviewShellProps {
   title: string;

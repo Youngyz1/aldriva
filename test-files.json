@@ -201,6 +201,7 @@
   "lib/actions/__tests__/cook-performance.test.cjs",
   "components/__tests__/cookie-consent.test.cjs",
   "components/dashboard/kitchen/__tests__/cook-performance-panel.test.cjs",
+  "components/dashboard/kitchen/__tests__/personnel-management-ui.test.cjs",
   "lib/courier/__tests__/courier-server.test.cjs",
   "lib/courier/__tests__/courier-pickup.test.cjs",
   "lib/courier/__tests__/courier-dashboard.test.cjs",

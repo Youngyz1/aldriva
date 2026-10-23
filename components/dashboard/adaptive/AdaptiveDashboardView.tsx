@@ -1,17 +1,17 @@
 import Link from "next/link";
 import {
-  Building2,
-  Plus,
-  ArrowUpRight,
-  TrendingUp,
-  ShieldCheck,
-  Calendar,
-  Heart,
-  Newspaper,
-  ShoppingBag,
-  Store,
-  ArrowRight,
-} from "lucide-react";
+  IconBuilding as Building2,
+  IconPlus as Plus,
+  IconArrowUpRight as ArrowUpRight,
+  IconTrendingUp as TrendingUp,
+  IconShieldCheck as ShieldCheck,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconNews as Newspaper,
+  IconShoppingBag as ShoppingBag,
+  IconBuildingStore as Store,
+  IconArrowRight as ArrowRight,
+} from "@tabler/icons-react";
 import OnboardingChoices from "./OnboardingChoices";
 import AdaptiveActivityFeed from "./AdaptiveActivityFeed";
 import OrganizationsPanel from "./OrganizationsPanel";

@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import {
   fetchQaRunDetail,
@@ -74,7 +74,7 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
       />
 
       {/* Run record */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Run</h2>
         <p className="text-sm text-zinc-950 tabular-nums">
           <span className={STATUS_TONE[r.status] ?? "text-zinc-500"}>{r.status}</span>
@@ -118,7 +118,7 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
       )}
 
       {/* Per-test results */}
-      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-3 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Tests ({vm.results.length})</h2>
         {vm.empty.results ? (
           <p className="text-sm text-zinc-500">
@@ -172,7 +172,7 @@ export default async function WorkforceQaRunDetailPage({ params }: { params: Pro
       </section>
 
       {/* Linkage */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Linked records</h2>
         <p className="text-sm text-zinc-600">
           requested by:{" "}

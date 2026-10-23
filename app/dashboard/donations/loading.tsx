@@ -11,7 +11,7 @@ export default function DonationsLoading() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm space-y-3">
+          <div key={i} className="space-y-3 border-t border-zinc-200 pt-4 first:border-0 first:pt-0">
             <div className="h-2.5 w-24 rounded bg-zinc-200" />
             <div className="h-8 w-28 rounded bg-zinc-200" />
             <div className="h-2.5 w-20 rounded bg-zinc-200" />
@@ -19,7 +19,7 @@ export default function DonationsLoading() {
         ))}
       </div>
       {/* Table */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="overflow-x-auto">
         <div className="mb-4 flex gap-4 border-b border-zinc-100 pb-3">
           {[100, 120, 120, 70, 80, 80].map((w, i) => (
             <div key={i} className="h-2.5 rounded bg-zinc-200" style={{ width: w }} />

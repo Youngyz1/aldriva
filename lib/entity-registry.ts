@@ -1,5 +1,5 @@
-import { Calendar, Heart, Store, Newspaper, ShoppingBag, Building2 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { IconCalendar as Calendar, IconHeart as Heart, IconBuildingStore as Store, IconNews as Newspaper, IconShoppingBag as ShoppingBag, IconBuilding as Building2 } from "@tabler/icons-react";
+import type { TablerIcon as LucideIcon } from "@tabler/icons-react";
 
 export type EntityKind = "event" | "fundraiser" | "business" | "article" | "product" | "organizer";
 

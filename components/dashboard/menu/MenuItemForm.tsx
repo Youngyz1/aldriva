@@ -195,7 +195,7 @@ export function MenuItemForm({
             onChange={e=>setPromoPrice(e.target.value)}
             placeholder="Sale price (less than regular)"
           />
-          {targetingPromotions.length > 0 && <p className="text-xs text-zinc-600" aria-live="polite">Active promotions also target this item: {targetingPromotions.map((promotion) => promotion.name).join(", ")}. The lowest price wins; promotions do not stack.</p>}
+          {targetingPromotions.length > 0 && <p className="text-sm text-zinc-600" aria-live="polite">Active promotions also target this item: {targetingPromotions.map((promotion) => promotion.name).join(", ")}. The lowest price wins; promotions do not stack.</p>}
         </div>
       </div>
       <div className="space-y-1">
@@ -206,7 +206,7 @@ export function MenuItemForm({
         <Label>Dietary tags (max 12)</Label>
         <div className="flex flex-wrap gap-2">
           {DIETARY_TAGS.map(tag=> (
-            <label key={tag} className="flex items-center gap-1 text-xs border rounded-full px-2 py-1">
+            <label key={tag} className="flex min-h-11 items-center gap-2 text-sm border rounded-full px-3 py-2">
               <input type="checkbox" checked={dietary.includes(tag)} onChange={()=> toggle(dietary, tag, setDietary)} /> {tag.replace("_"," ")}
             </label>
           ))}
@@ -216,17 +216,17 @@ export function MenuItemForm({
         <Label>Allergens (max 12)</Label>
         <div className="flex flex-wrap gap-2">
           {MENU_ALLERGENS.map(a=> (
-            <label key={a} className="flex items-center gap-1 text-xs border rounded-full px-2 py-1">
+            <label key={a} className="flex min-h-11 items-center gap-2 text-sm border rounded-full px-3 py-2">
               <input type="checkbox" checked={allergens.includes(a)} onChange={()=> toggle(allergens, a, setAllergens)} /> {a}
             </label>
           ))}
         </div>
-        <div className="text-xs text-amber-600">{tOptions("allergenNote")}</div>
+        <div className="text-sm text-amber-700">{tOptions("allergenNote")}</div>
       </div>
       {Array.isArray(item?.modifiers) && item.modifiers.length > 0 && <section className="space-y-2 rounded-xl border p-3">
         <h3 className="text-sm font-medium">{tOptions("legacyModifiers")}</h3>
         <ul className="list-inside list-disc text-sm">{item.modifiers.map((modifier: { name?: string; price_delta?: number }, index: number) => <li key={`${modifier.name}-${index}`}>{modifier.name || "Modifier"} · {Number(modifier.price_delta || 0).toFixed(2)}</li>)}</ul>
-        <p className="text-xs text-muted-foreground">{tOptions("legacyModifiersNote")}</p>
+        <p className="text-sm text-muted-foreground">{tOptions("legacyModifiersNote")}</p>
       </section>}
       {usesNormalizedOptions && item?.id ? <MenuItemOptionsPanel
         itemId={item.id}

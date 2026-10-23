@@ -5,7 +5,7 @@ import {
   type WithdrawalStatus,
 } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { CircleDollarSign, CheckCircle2, Clock, AlertCircle, ChevronRight } from "lucide-react";
+import { IconCurrencyDollar as CircleDollarSign, IconCircleCheck as CheckCircle2, IconClock as Clock, IconAlertCircle as AlertCircle, IconChevronRight as ChevronRight } from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 const statusConfig = {

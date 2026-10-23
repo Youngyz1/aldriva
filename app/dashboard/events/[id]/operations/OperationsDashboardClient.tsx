@@ -3,26 +3,26 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
-  Activity,
-  Users,
-  CheckCircle2,
-  Armchair,
-  Ticket,
-  AlertTriangle,
-  Clock,
-  ArrowRight,
-  RefreshCw,
-  TrendingUp,
-  ShieldCheck,
-  Download,
-  QrCode,
-  Calendar,
-  MapPin,
-  Mail,
-  UserCheck,
-  AlertCircle,
-  FileSpreadsheet,
-} from "lucide-react";
+  IconActivity as Activity,
+  IconUsers as Users,
+  IconCircleCheck as CheckCircle2,
+  IconArmchair as Armchair,
+  IconTicket as Ticket,
+  IconAlertTriangle as AlertTriangle,
+  IconClock as Clock,
+  IconArrowRight as ArrowRight,
+  IconRefresh as RefreshCw,
+  IconTrendingUp as TrendingUp,
+  IconShieldCheck as ShieldCheck,
+  IconDownload as Download,
+  IconQrcode as QrCode,
+  IconCalendar as Calendar,
+  IconMapPin as MapPin,
+  IconMail as Mail,
+  IconUserCheck as UserCheck,
+  IconAlertCircle as AlertCircle,
+  IconFileSpreadsheet as FileSpreadsheet,
+} from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import type { OperationalMetrics } from "@/lib/event-metrics";

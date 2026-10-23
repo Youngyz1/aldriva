@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { IconHeart as Heart } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { getEventPlaceholder } from "@/lib/event-placeholder";

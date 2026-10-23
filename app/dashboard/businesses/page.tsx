@@ -1,4 +1,4 @@
-import { Store } from "lucide-react";
+import { IconBuildingStore as Store } from "@tabler/icons-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDashboardContext } from "@/lib/dashboard-context";
@@ -118,10 +118,8 @@ export default async function DashboardBusinessesPage({
 
       {/* Main List */}
       {!businesses || businesses.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-100 bg-white p-12 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 mb-4">
-            <Store className="h-6 w-6" />
-          </div>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <Store className="mb-4 h-6 w-6 text-orange-600" aria-hidden="true" />
           <h3 className="text-lg font-bold text-slate-900">No businesses yet</h3>
           <p className="mt-1 text-sm font-semibold text-slate-500 max-w-sm">
             Create a business listing to promote your company and publish related news articles.
@@ -134,7 +132,7 @@ export default async function DashboardBusinessesPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm shadow-slate-100/5">
+        <div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm text-slate-500">
               <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">

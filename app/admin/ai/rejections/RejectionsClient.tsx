@@ -9,7 +9,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { IconArrowLeft as ArrowLeft, IconRefresh as RefreshCw } from "@tabler/icons-react";
 import AdminTable from "@/components/admin/table/AdminTable";
 import type { AdminColumn } from "@/components/admin/table/types";
 import { tableStrings } from "@/components/admin/table/strings";

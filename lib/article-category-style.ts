@@ -1,19 +1,19 @@
-import type { LucideIcon } from "lucide-react";
+import type { TablerIcon as LucideIcon } from "@tabler/icons-react";
 import {
-  Laptop,
-  Briefcase,
-  Rocket,
-  HandHeart,
-  CalendarDays,
-  GraduationCap,
-  HeartPulse,
-  Sparkles,
-  Megaphone,
-  Landmark,
-  Users,
-  Lightbulb,
-  Tag,
-} from "lucide-react";
+  IconDeviceLaptop as Laptop,
+  IconBriefcase as Briefcase,
+  IconRocket as Rocket,
+  IconHeartHandshake as HandHeart,
+  IconCalendar as CalendarDays,
+  IconSchool as GraduationCap,
+  IconHeartbeat as HeartPulse,
+  IconSparkles as Sparkles,
+  IconSpeakerphone as Megaphone,
+  IconBuildingBank as Landmark,
+  IconUsers as Users,
+  IconBulb as Lightbulb,
+  IconTag as Tag,
+} from "@tabler/icons-react";
 
 export type CategoryStyle = { icon: LucideIcon; gradient: string };
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CAMPAIGN_CATEGORIES } from "@/lib/categories";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconChevronUp as ChevronUp } from "@tabler/icons-react";
 import { useState } from "react";
 
 const SORT_OPTIONS = [

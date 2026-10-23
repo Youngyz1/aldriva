@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  Volume2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+  IconPlayerPlay as Play,
+  IconPlayerPause as Pause,
+  IconRotate as RotateCcw,
+  IconVolume2 as Volume2,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+} from "@tabler/icons-react";
 import type { ArticleAudioTimingData } from "@/lib/audio/types";
 
 interface ArticleAudioPlayerProps {

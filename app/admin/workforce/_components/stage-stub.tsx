@@ -5,7 +5,7 @@
  * (_-prefixed) directory: shared component, not a route.
  */
 import Link from "next/link";
-import { Construction } from "lucide-react";
+import { IconTools as Construction } from "@tabler/icons-react";
 
 export default function StageStub({ title, stage, blurb }: { title: string; stage: string; blurb: string }) {
   return (

@@ -2,10 +2,22 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CourierManagementClient } from "@/components/dashboard/kitchen/CourierManagementClient";
 import { CookPerformancePanel } from "@/components/dashboard/kitchen/CookPerformancePanel";
 import { CourierPerformancePanel } from "@/components/dashboard/kitchen/CourierPerformancePanel";
+import { ExpandablePersonnelRecord } from "@/components/dashboard/kitchen/ExpandablePersonnelRecord";
+import { ProgressiveDisclosure } from "@/components/dashboard/kitchen/ProgressiveDisclosure";
 import {
   createKitchen,
   deactivateCook,
@@ -56,6 +68,7 @@ type Props = {
 };
 
 type OneTimeLink = { label: string; url: string };
+type PendingCookAction = { kind: "revoke" | "deactivate"; id: string; name: string } | null;
 
 const INVITATION_LABELS: Record<Cook["invitationState"], string> = {
   not_invited: "Not invited",
@@ -82,6 +95,8 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
   const [error, setError] = useState("");
   const [oneTimeLink, setOneTimeLink] = useState<OneTimeLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [addCookBusinessId, setAddCookBusinessId] = useState<string | null>(null);
+  const [pendingCookAction, setPendingCookAction] = useState<PendingCookAction>(null);
 
   function revealLink(label: string, path: string, token: string) {
     setOneTimeLink({ label, url: `${window.location.origin}${path}#${token}` });
@@ -101,11 +116,20 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
   async function runAction(key: string, action: () => Promise<{ ok: boolean; error?: string }>) {
     setBusyKey(key);
     setError("");
-    const result = await action();
-    if (!result.ok) setError(friendlyError(result.error ?? "unavailable"));
-    else router.refresh();
-    setBusyKey("");
-    return result.ok;
+    try {
+      const result = await action();
+      if (!result.ok) {
+        setError(friendlyError(result.error ?? "unavailable"));
+        return false;
+      }
+      router.refresh();
+      return true;
+    } catch {
+      setError(friendlyError("unavailable"));
+      return false;
+    } finally {
+      setBusyKey("");
+    }
   }
 
   async function handleInvite(event: FormEvent<HTMLFormElement>, business: Business) {
@@ -113,47 +137,67 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const key = `invite:${business.id}`;
+    if (busyKey === key) return;
     setBusyKey(key);
     setError("");
-    const result = await inviteCook(organizerId, business.id, {
-      fullName: String(form.get("fullName") ?? ""),
-      phone: String(form.get("phone") ?? ""),
-      whatsappNumber: String(form.get("whatsappNumber") ?? ""),
-    });
-    if (!result.ok) {
-      setError(friendlyError(result.error ?? "unavailable"));
-    } else {
+    try {
+      const result = await inviteCook(organizerId, business.id, {
+        fullName: String(form.get("fullName") ?? ""),
+        phone: String(form.get("phone") ?? ""),
+        whatsappNumber: String(form.get("whatsappNumber") ?? ""),
+      });
+      if (!result.ok) {
+        setError(friendlyError(result.error ?? "unavailable"));
+        return;
+      }
       revealLink(`Invitation for ${String(form.get("fullName") ?? "cook")}`, result.path, result.token);
       formElement.reset();
+      setAddCookBusinessId(null);
       router.refresh();
+    } catch {
+      setError(friendlyError("unavailable"));
+    } finally {
+      setBusyKey("");
     }
-    setBusyKey("");
   }
 
   async function handleResend(cook: Cook) {
-    setBusyKey(`resend:${cook.id}`);
-    setError("");
-    const result = await resendCookInvitation(organizerId, cook.id);
-    if (!result.ok) setError(friendlyError(result.error ?? "unavailable"));
-    else {
-      // The action's raw token is returned once and held only in this component's
-      // memory; it is never reconstructed from or persisted to the workspace data.
-      revealLink(`New invitation for ${cook.fullName}`, result.path, result.token);
-      router.refresh();
-    }
-    setBusyKey("");
+    await runTokenAction(
+      `resend:${cook.id}`,
+      `New invitation for ${cook.fullName}`,
+      () => resendCookInvitation(organizerId, cook.id),
+    );
   }
 
   async function handleReactivate(cook: Cook) {
-    setBusyKey(`reactivate:${cook.id}`);
+    await runTokenAction(
+      `reactivate:${cook.id}`,
+      `New invitation for ${cook.fullName}`,
+      () => reactivateWorker(organizerId, cook.id),
+    );
+  }
+
+  async function runTokenAction(
+    key: string,
+    label: string,
+    action: () => Promise<{ ok: boolean; error?: string; token?: string; path?: string }>,
+  ) {
+    if (busyKey === key) return;
+    setBusyKey(key);
     setError("");
-    const result = await reactivateWorker(organizerId, cook.id);
-    if (!result.ok) setError(friendlyError(result.error ?? "unavailable"));
-    else {
-      revealLink(`New invitation for ${cook.fullName}`, result.path, result.token);
+    try {
+      const result = await action();
+      if (!result.ok) {
+        setError(friendlyError(result.error ?? "unavailable"));
+        return;
+      }
+      if (result.token && result.path) revealLink(label, result.path, result.token);
       router.refresh();
+    } catch {
+      setError(friendlyError("unavailable"));
+    } finally {
+      setBusyKey("");
     }
-    setBusyKey("");
   }
 
   async function handleRegenerateDisplay(business: Business) {
@@ -169,22 +213,30 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
     setBusyKey("");
   }
 
+  async function confirmCookAction() {
+    if (!pendingCookAction) return;
+    const action = pendingCookAction;
+    await runAction(
+      `${action.kind}:${action.id}`,
+      () => action.kind === "revoke"
+        ? revokeCookInvitation(organizerId, action.id)
+        : deactivateCook(organizerId, action.id),
+    );
+    setPendingCookAction(null);
+  }
+
   if (unavailable) {
-    return <p role="alert" className="rounded-xl border border-zinc-200 bg-card p-5 text-sm text-muted-foreground">Kitchen information is unavailable. Refresh the page or check that migration 185 has been applied.</p>;
+    return <p role="alert" className="text-sm text-muted-foreground">Kitchen information is unavailable. Refresh the page or check that migration 185 has been applied.</p>;
   }
 
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-sm font-semibold text-muted-foreground">Business operations</p>
         <h1 className="mt-1 text-2xl font-bold text-foreground">Kitchen access</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Set up one kitchen per business, invite cooks individually, and rotate the read-only display link.
-          WhatsApp numbers are stored for a later phase; this phase sends no messages.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Manage kitchens and invite cooks for each business.</p>
       </header>
 
-      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {error && !addCookBusinessId && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
       {oneTimeLink && (
         <section className="rounded-xl border border-orange-200 bg-orange-50 p-4" aria-live="polite">
@@ -203,17 +255,16 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
       )}
 
       {businesses.length === 0 && (
-        <section className="rounded-xl border border-zinc-200 bg-card p-5 text-sm text-muted-foreground">
+        <section className="text-sm text-muted-foreground">
           No business is linked to this organizer yet.
         </section>
       )}
 
       {businesses.map((business) => (
-        <section key={business.id} className="rounded-xl border border-zinc-200 bg-card p-5 shadow-xs sm:p-6">
+        <section key={business.id} className="space-y-5 border-t border-border pt-5 first:border-0 first:pt-0">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-foreground">{business.name}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{business.kitchen ? "Kitchen created" : "Kitchen not created"}</p>
             </div>
             {!business.kitchen ? (
               <Button
@@ -244,71 +295,114 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
 
           {business.kitchen && (
             <>
-              <CookPerformancePanel organizerId={organizerId} businessId={business.id} />
-              <CourierPerformancePanel organizerId={organizerId} businessId={business.id} />
-              <form className="mt-5 grid gap-3 rounded-xl border border-zinc-200 p-4 sm:grid-cols-2" onSubmit={(event) => handleInvite(event, business)}>
-                <div className="sm:col-span-2">
-                  <h3 className="font-semibold text-foreground">Invite a cook</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Use phone numbers with at least four digits. No WhatsApp message will be sent.</p>
-                </div>
-                <label className="text-sm font-medium text-foreground">Name
-                  <input name="fullName" autoComplete="name" maxLength={100} required className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 font-normal" />
-                </label>
-                <label className="text-sm font-medium text-foreground">Phone
-                  <input name="phone" type="tel" autoComplete="tel" minLength={4} maxLength={24} required className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 font-normal" />
-                </label>
-                <label className="text-sm font-medium text-foreground">WhatsApp number
-                  <input name="whatsappNumber" type="tel" maxLength={24} required className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 font-normal" />
-                </label>
-                <div className="flex items-end">
-                  <Button type="submit" disabled={busyKey === `invite:${business.id}`} className="w-full sm:w-auto">
-                    {busyKey === `invite:${business.id}` ? "Creating invitation…" : "Create invitation"}
+              <ProgressiveDisclosure title="Cook performance" summary={`${business.cooks.length} cooks`}>
+                <CookPerformancePanel organizerId={organizerId} businessId={business.id} />
+              </ProgressiveDisclosure>
+              <ProgressiveDisclosure title="Courier performance" summary="View metrics">
+                <CourierPerformancePanel organizerId={organizerId} businessId={business.id} />
+              </ProgressiveDisclosure>
+
+              <section aria-labelledby={`cooks-heading-${business.id}`}>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                  <h3 id={`cooks-heading-${business.id}`} className="text-[15px] font-semibold text-foreground">Cooks ({business.cooks.length})</h3>
+                  <Button type="button" size="sm" onClick={() => { setError(""); setAddCookBusinessId(business.id); }}>
+                    <IconPlus aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                    Add cook
                   </Button>
                 </div>
-              </form>
-
-              <div className="mt-5 space-y-3">
-                <h3 className="font-semibold text-foreground">Cooks ({business.cooks.length})</h3>
-                {business.cooks.length === 0 && <p className="text-sm text-muted-foreground">No cooks have been invited.</p>}
-                {business.cooks.map((cook) => (
-                  <article key={cook.id} className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <h4 className="truncate font-medium text-foreground">{cook.fullName}</h4>
-                      <p className="mt-1 text-sm text-muted-foreground">Phone: {cook.phone} · WhatsApp: {cook.whatsappNumber}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {cook.active ? "Active" : "Deactivated"} · {INVITATION_LABELS[cook.invitationState]}
-                        {cook.expiresAt && cook.invitationState === "invited" ? ` · expires ${new Date(cook.expiresAt).toLocaleDateString()}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {cook.active ? (
-                        <Button type="button" size="sm" variant="outline" disabled={busyKey === `resend:${cook.id}`} onClick={() => handleResend(cook)}>
-                          Resend invitation
-                        </Button>
-                      ) : (
-                        <Button type="button" size="sm" variant="outline" disabled={busyKey === `reactivate:${cook.id}`} onClick={() => handleReactivate(cook)}>
-                          {busyKey === `reactivate:${cook.id}` ? "Reactivating…" : "Reactivate"}
-                        </Button>
-                      )}
-                      {cook.invitationState !== "revoked" && (
-                        <Button type="button" size="sm" variant="outline" disabled={busyKey === `revoke:${cook.id}`} onClick={() => runAction(`revoke:${cook.id}`, () => revokeCookInvitation(organizerId, cook.id))}>
-                          Revoke
-                        </Button>
-                      )}
-                      {cook.active && (
-                        <Button type="button" size="sm" variant="destructive" disabled={busyKey === `deactivate:${cook.id}`} onClick={() => runAction(`deactivate:${cook.id}`, () => deactivateCook(organizerId, cook.id))}>
-                          Deactivate cook
-                        </Button>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
+                {business.cooks.length === 0 ? (
+                  <p className="py-3 text-sm text-muted-foreground">No cooks yet.</p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {business.cooks.map((cook) => (
+                      <ExpandablePersonnelRecord
+                        key={cook.id}
+                        name={cook.fullName}
+                        status={!cook.active ? "Deactivated" : cook.invitationState === "accepted" ? "Active" : INVITATION_LABELS[cook.invitationState]}
+                        details={[
+                          { label: "Access", value: cook.active ? "Active" : "Deactivated" },
+                          { label: "Invitation", value: INVITATION_LABELS[cook.invitationState] },
+                          { label: "Phone", value: cook.phone },
+                          { label: "WhatsApp", value: cook.whatsappNumber },
+                          ...(cook.expiresAt && cook.invitationState === "invited"
+                            ? [{ label: "Invitation expires", value: new Date(cook.expiresAt).toLocaleDateString() }]
+                            : []),
+                        ]}
+                      >
+                        {cook.active ? (
+                          <Button type="button" size="sm" variant="outline" disabled={busyKey === `resend:${cook.id}`} onClick={() => handleResend(cook)}>
+                            {busyKey === `resend:${cook.id}` ? "Sending…" : "Resend invitation"}
+                          </Button>
+                        ) : (
+                          <Button type="button" size="sm" variant="outline" disabled={busyKey === `reactivate:${cook.id}`} onClick={() => handleReactivate(cook)}>
+                            {busyKey === `reactivate:${cook.id}` ? "Reactivating…" : "Reactivate"}
+                          </Button>
+                        )}
+                        {cook.invitationState !== "revoked" && (
+                          <Button type="button" size="sm" variant="outline" disabled={busyKey === `revoke:${cook.id}`} onClick={() => setPendingCookAction({ kind: "revoke", id: cook.id, name: cook.fullName })}>
+                            Revoke invitation
+                          </Button>
+                        )}
+                        {cook.active && (
+                          <Button type="button" size="sm" variant="destructive" disabled={busyKey === `deactivate:${cook.id}`} onClick={() => setPendingCookAction({ kind: "deactivate", id: cook.id, name: cook.fullName })}>
+                            Deactivate
+                          </Button>
+                        )}
+                      </ExpandablePersonnelRecord>
+                    ))}
+                  </ul>
+                )}
+                {business.kitchen && (
+                  <Dialog
+                    open={addCookBusinessId === business.id}
+                    onOpenChange={(open) => {
+                      if (busyKey !== `invite:${business.id}`) setAddCookBusinessId(open ? business.id : null);
+                    }}
+                  >
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add a cook</DialogTitle>
+                        <DialogDescription>Enter the cook’s contact details to create an invitation for {business.name}.</DialogDescription>
+                      </DialogHeader>
+                      <form className="space-y-4" onSubmit={(event) => handleInvite(event, business)}>
+                        {error && addCookBusinessId === business.id && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+                        <label className="block text-sm font-medium text-foreground">Name
+                          <input name="fullName" autoComplete="name" maxLength={100} required className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 font-normal" />
+                        </label>
+                        <label className="block text-sm font-medium text-foreground">Phone
+                          <input name="phone" type="tel" autoComplete="tel" minLength={4} maxLength={24} required className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 font-normal" />
+                        </label>
+                        <label className="block text-sm font-medium text-foreground">WhatsApp number
+                          <input name="whatsappNumber" type="tel" maxLength={24} required className="mt-1 min-h-11 w-full rounded-lg border border-input bg-background px-3 font-normal" />
+                          <span className="mt-1 block text-sm text-muted-foreground">Stored for reference. No message is sent.</span>
+                        </label>
+                        <DialogFooter>
+                          <Button type="submit" disabled={busyKey === `invite:${business.id}`}>
+                            {busyKey === `invite:${business.id}` ? "Creating invitation…" : "Create and invite"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </section>
             </>
           )}
         </section>
       ))}
       <CourierManagementClient organizerId={organizerId} businesses={courierBusinesses} />
+      <ConfirmDialog
+        open={pendingCookAction !== null}
+        onOpenChange={(open) => { if (!open) setPendingCookAction(null); }}
+        title={pendingCookAction?.kind === "deactivate" ? "Deactivate cook?" : "Revoke invitation?"}
+        description={pendingCookAction?.kind === "deactivate"
+          ? `${pendingCookAction.name} will lose access to the kitchen.`
+          : `The current invitation for ${pendingCookAction?.name ?? "this cook"} will stop working.`}
+        confirmLabel={pendingCookAction?.kind === "deactivate" ? "Deactivate" : "Revoke invitation"}
+        variant="destructive"
+        loading={pendingCookAction ? busyKey === `${pendingCookAction.kind}:${pendingCookAction.id}` : false}
+        onConfirm={confirmCookAction}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, DollarSign, Store, CalendarCheck } from "lucide-react";
+import { IconShoppingBag as ShoppingBag, IconCurrencyDollar as DollarSign, IconBuildingStore as Store, IconCalendarCheck as CalendarCheck } from "@tabler/icons-react";
 import { formatMoney } from "@/lib/money";
 import type { TodayMetrics } from "@/lib/overview-types";
 

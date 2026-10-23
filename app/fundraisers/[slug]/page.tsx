@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { recordDonationFromStripeSessionId } from "@/lib/donations";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Flag, Zap, HeartHandshake, ShieldCheck } from "lucide-react";
+import { IconFlag as Flag, IconBolt as Zap, IconHeartHandshake as HeartHandshake, IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import FundraiserFloatingActions, { ShareFundraiserButton } from "./FundraiserActions";
 import StarRating from "@/components/StarRating";
 import { safeImageSrc } from "@/lib/image-url";

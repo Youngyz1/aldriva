@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export type FeaturedTopicTone = "emerald-solid" | "emerald-soft" | "neutral";

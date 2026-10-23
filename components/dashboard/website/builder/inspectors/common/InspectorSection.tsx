@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconChevronUp as ChevronUp } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 interface InspectorSectionProps {

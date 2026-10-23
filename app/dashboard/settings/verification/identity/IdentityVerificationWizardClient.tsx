@@ -3,17 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
-  Upload,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  FileText,
-  ArrowRight,
-  ArrowLeft,
-  X,
-  Loader2,
-} from "lucide-react";
+  IconShieldCheck as ShieldCheck,
+  IconUpload as Upload,
+  IconCircleCheck as CheckCircle2,
+  IconClock as Clock,
+  IconAlertCircle as AlertCircle,
+  IconFileText as FileText,
+  IconArrowRight as ArrowRight,
+  IconArrowLeft as ArrowLeft,
+  IconX as X,
+  IconLoader2 as Loader2,
+} from "@tabler/icons-react";
 import type { UserIdentityVerificationRow, UserIdentityDoc } from "@/lib/identity-verifications";
 
 type ProfileData = {

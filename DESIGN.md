@@ -16,6 +16,8 @@ Tags used in this file:
 5. If this file conflicts with existing code, report the conflict. Do not silently pick one.
 6. Tailwind v4, CSS-first: there is no `tailwind.config.*`. Tokens live in `app/globals.css`.
 
+**Permanent platform rule:** Ordinary content belongs directly on the page background by default. Headings, descriptions, forms, filters, toolbars, tabs, tables, lists, and empty states use spacing, typography, and dividers instead of decorative wrappers. Reserve one card for a meaningful independent item, actionable record, selectable template, or metric. Nested cards require a clear functional justification, and new pages must follow these rules.
+
 ## 1. Visual theme and atmosphere [OWNER]
 
 Source material that exists today: brand voice is warm, trustworthy, empowering, and direct (`docs/marketing/brand-voice.md`). Visual foundation is zinc neutrals with one orange brand accent.
@@ -107,6 +109,7 @@ Business website block palettes (`lib/website-blocks.ts`): default, zinc_orange,
 - Orange is the only accent on platform surfaces. Green and lime belong to fundraising and the forest palette.
 - Status colors are semantic only (success, warning, destructive). Never use them as decoration.
 - Known mismatch to fix: the Business Starter template defaults to #ea580c, but solid buttons with white text should use #c2410c.
+- Sidebar navigation labels, group labels, descriptions, and badges must meet WCAG AA contrast (4.5:1) against their actual surface, including alpha-composited backgrounds. Icons and visible focus indicators must meet 3:1; use clear active, hover, and keyboard-focus states in both light and dark variants.
 
 ## 3. Typography
 
@@ -137,42 +140,60 @@ Websites and invitations may use their own fonts (section 9). Those fonts never 
 H1 40 to 48px, H2 32px, H3 24px, H4 20px, body 16px, small 14px, caption 12px. Weights: 400, 500, 600, 700. Heading font is chosen by the template: sans (loaded font) or a Georgia/Times serif stack.
 The rich-text editor has its own scale (h1 32px/800, h2 24px/700, h3 20px/600). Keep it as is until the editor is reviewed.
 
+### 3.4 Content, readability, and progressive disclosure
+
+- Give each page one clear title. Keep supporting copy short, task-oriented, and non-repeating; omit subtitles when they add no useful context.
+- Make the next required action easy to find. Keep information needed for the current task visible and disclose secondary details, history, and actions on request.
+- Use approximately 15–16px for main content and form labels, 14–15px for secondary information, and comfortable responsive sizes in dense tables. Avoid faint text and ornamental tiny copy; preserve contrast, focus indicators, and readable disabled states.
+- Add and invite forms start closed. Open them in the existing accessible dialog, sheet, or disclosure pattern. Preserve validation, loading, entered values after a recoverable failure, and success refresh/feedback.
+- Personnel rows lead with a person’s name and one operationally useful status. Reveal contact details, invitation state, timestamps, and secondary actions in a keyboard-accessible disclosure. Keep operationally necessary statuses visible and confirm destructive actions. Do not nest clickable controls inside the disclosure trigger.
+- Apply the same task-first approach to orders, kitchen, delivery, menu, promotions, settings, and builders without forcing every workflow into one layout.
+
+### 3.5 Interface icon system
+
+- Use @tabler/icons-react for platform interface icons. Import actual exported components such as IconSearch or IconChefHat; aliases may preserve a readable local name. The dashboard navigation semantic map lives in components/nav/platform-nav-icons.ts.
+- Prefer Tabler outline icons. Keep comparable controls at consistent 16–20px sizes and the default 2px stroke; use 24px only when the control or visual hierarchy calls for it. Icons inherit currentColor and use a neutral foreground by default.
+- Use Aldriva orange for active navigation or meaningful emphasis. Use success, warning, and destructive colors only when the icon communicates that state. Do not color ordinary icons individually or add multicolored decorative icon sets.
+- Give icon-only controls an accessible name and visible keyboard focus. Dynamic icon names must resolve through an explicit, verified mapping or safe fallback; never construct package imports from user data.
+- Keep the existing Aldriva logo and genuine brand marks. react-icons may remain for those brand assets; do not add another general-purpose interface icon library.
 ## 4. Components
 
 Canonical components. Reuse them. Do not create look-alikes.
 
 | Component | Path | Notes |
 |---|---|---|
-| Button | `components/ui/button.tsx` | Variants: default (orange), outline, secondary, ghost, link, destructive. rounded-xl, shadow-xs, active scale 0.98 |
-| Card | `components/ui/card.tsx` | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter |
+| Button | `components/ui/button.tsx` | Variants: default (orange), outline, secondary, ghost, link, destructive. rounded-xl, no default shadow, active scale 0.98 |
+| Card | `components/ui/card.tsx` | One border and background for meaningful standalone items; no default shadow. Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter |
 | Input, Label, Select, Textarea, Radio, Switch, Tabs | `components/ui/` | Focus ring and disabled styles built in |
 | Dialog, ConfirmDialog, Sheet, Dropdown, Tooltip | `components/ui/` | Shared overlays |
 | Badge, ProgressBar, ProgressRing | `components/ui/` | Use these for new work |
 | Container | `components/layout/Container.tsx` | sm 42rem, md 64rem, lg 72rem, xl 80rem; px-4 sm:px-6 lg:px-8 |
-| Section, PageHeader | `components/layout/` | Section is a bordered card surface, white in light mode and tokenized for dark mode |
+| Section, PageHeader | `components/layout/` | Section is an unboxed semantic group by default; opt into `bordered` only for a distinct surface |
 | Navbar | `components/Navbar.tsx` | Rendered globally by root layouts |
 
 These shared primitives are already consumed across app and dashboard surfaces. Existing custom/parallel patterns include `components/Hero.tsx`, `components/fundraisers/LandingHero.tsx`, and the public-site `HeroBlockRenderer` in `components/site/blocks/BlockRenderer.tsx`; card families include `components/FundraiserCard.tsx`, `components/fundraisers/CampaignShowcaseCard.tsx`, and `CampaignShowcaseMobileCard.tsx`.
 
 Rules:
 - New buttons use `components/ui/button.tsx`. The only exception is the frozen fundraising CTAs (2.3).
-- New pages compose Container, Section, PageHeader, Card.
+- New pages compose Container, PageHeader, and unboxed Section groups. Use Card only for independent actionable records, product/menu/event items, selectable templates, or meaningful metrics/charts.
+- Keep forms, filters, toolbars, tabs, tables, settings lists, headings, explanatory copy, and empty states directly on the page background. Use spacing, type hierarchy, alignment, and separators for structure.
+- Do not place a Card inside another Card. If an operational or editor workflow needs a nested surface, keep one outer card and make inner structure plain unless it has a distinct functional purpose such as a map canvas or selectable record.
 - Do not add a new hero, card, progress, or footer implementation. Extend an existing one or ask first.
 
 ## 5. Layout and spacing
 
 - Container widths and gutters as in section 4.
 - Public-site spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Section vertical padding: 48px normal, 64px spacious.
-- The shared `Section` component uses `p-5` (20px) and `sm:p-6` (24px); many page-specific sections still use local Tailwind padding.
-- Platform section rhythm [ASSUMED]: py-8 on mobile, py-16 from sm. Use one rhythm per page type, not a different value per page.
+- The shared `Section` component is unboxed and unpadded by default. Use `bordered` and `padded` only when the section is a distinct visual unit.
+- Platform section rhythm: use consistent vertical spacing between semantic sections (typically `space-y-6` to `space-y-8`) and compact internal spacing for controls; do not add a surface to create separation.
 - Primary mobile CTAs: min height 48px (as in the Donate button). Other touch targets at least 44px.
 
 ## 6. Radius and depth
 
-[ASSUMED] Platform standard: `rounded-xl` = 12px for buttons, inputs, and cards, matching `AGENTS.md` and the existing docs. The global token `--radius-xl: 20px` and the public-site override (8px on `.rounded-xl.border`) conflict with this and are in the cleanup backlog (section 11).
+[ASSUMED] Platform standard: `rounded-xl` = 12px for buttons, inputs, and justified cards, matching `AGENTS.md` and the existing docs. Ordinary sections have no radius because they have no container. The global token `--radius-xl: 20px` and the public-site override (8px on `.rounded-xl.border`) conflict with this and are in the cleanup backlog (section 11).
 Fundraising keeps its existing radii (rounded-full, rounded-2xl, rounded-xl as listed in 2.3).
 
-Shadows (`app/globals.css`):
+Shadow tokens remain available in `app/globals.css`, but they are not defaults for platform controls, sections, or cards. Use elevation for overlays and clearly elevated interaction states only.
 
 ```css
 --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.06);
@@ -231,10 +252,15 @@ Rules:
 Do:
 - Reuse `components/ui` and `components/layout`.
 - Use `--primary` for platform actions and `rounded-xl` for platform controls.
+- Put ordinary content directly on the page background; create hierarchy with typography, spacing, alignment, and separators.
+- Keep one surface around a genuinely independent item. Keep kitchen orders and delivery tasks individually identifiable and actionable.
 - Keep generated pages consistent with the nearest existing page of the same type.
 - Check reduced-motion, mobile width, and keyboard focus on every new screen.
 
 Don't:
+- Wrap ordinary text, forms, sections, lists, filters, tables, toolbars, or empty states in cards.
+- Stack decorative borders/backgrounds around the same content or place one card inside another without a documented functional reason.
+- Add default shadows to buttons or cards.
 - Recolor fundraising (2.3).
 - Use `bg-white`, `text-black`, or raw orange shades in platform UI.
 - Introduce new fonts, radii, shadows, or spacing values without adding them here first.
@@ -260,7 +286,7 @@ Don't:
 - Platform primary: #c2410c (`--primary`). Focus ring: #f97316.
 - Neutrals: zinc. Borders #e4e4e7. Muted text #71717a.
 - Radius: `rounded-xl` (12px) on platform controls.
-- Shadow: `shadow-xs` on buttons and cards, `shadow-md` on overlays.
+- Shadow: none on standard buttons, sections, and cards; use elevation for overlays or a justified elevated interaction.
 - Font: Geist Sans and Geist Mono [ASSUMED family choice; loaded in both root layouts, visual review pending].
 - Fundraising: green and lime stay untouched.
 - Prompt to start any UI task: "Read DESIGN.md first. Use existing components from components/ui and components/layout. Match the nearest existing page of this type. Do not change fundraising colors. Report any conflict with DESIGN.md instead of choosing silently."

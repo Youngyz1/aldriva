@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 
 type State = "loading" | "guest" | "no-org" | "has-org";

@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- preview media is already sanitized and this iframe uses direct browser rendering. */
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { Check } from "lucide-react";
+import { IconCheck as Check } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import type { V2BuilderState, V2MenuItemChoice } from "@/lib/actions/website-v2";

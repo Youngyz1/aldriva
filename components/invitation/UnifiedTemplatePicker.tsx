@@ -4,7 +4,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertCircle, Check, CheckCircle2, Loader2 } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconCheck as Check, IconCircleCheck as CheckCircle2, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import {
   DEFAULT_UNIFIED_FOR_OCCASION,
   UNIFIED_INVITATION_TEMPLATES,

@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  IconPlus as Plus,
+  IconTrash as Trash2,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import type { MenuItemOptionGroup, MenuItemOption } from "@/lib/menu-pricing";
 import { MAX_OPTION_GROUPS, MAX_OPTIONS_PER_GROUP } from "@/lib/menu-pricing";
@@ -106,13 +111,13 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 sm:p-4">
+    <div className="space-y-3 border-t border-zinc-200 py-4">
       <div className="flex items-center justify-between">
         <div>
           <Label className="text-sm font-semibold text-zinc-900">
             Option Groups ({groups.length}/{MAX_OPTION_GROUPS})
           </Label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-sm text-zinc-500">
             Choices like sides, cooking temp, or toppings (e.g. burger build).
           </p>
         </div>
@@ -122,14 +127,14 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
           variant="outline"
           onClick={addGroup}
           disabled={groups.length >= MAX_OPTION_GROUPS}
-          className="gap-1 text-xs"
+          className="gap-1 text-sm"
         >
           <Plus className="h-3.5 w-3.5" /> Add Group
         </Button>
       </div>
 
       {groups.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-200 p-4 text-center text-xs text-zinc-400">
+        <p className="py-2 text-center text-sm text-zinc-500">
           No option groups configured yet. Click &ldquo;Add Group&rdquo; to add customized choices.
         </p>
       ) : (
@@ -139,14 +144,14 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
             return (
               <div
                 key={group.id}
-                className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xs"
+                className="overflow-hidden rounded-xl border border-zinc-200 bg-white"
               >
                 {/* Header */}
                 <div className="flex items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2 sm:px-4">
                   <button
                     type="button"
                     onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold text-zinc-800"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-zinc-800"
                   >
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4 shrink-0 text-zinc-500" />
@@ -156,7 +161,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                     <span className="truncate">
                       {group.name ? group.name : `Untitled Group #${groupIndex + 1}`}
                     </span>
-                    <span className="shrink-0 rounded-full bg-zinc-200/70 px-1.5 py-0.5 text-[10px] text-zinc-600">
+                    <span className="shrink-0 rounded-full bg-zinc-200/70 px-1.5 py-0.5 text-xs text-zinc-600">
                       {group.required ? "Required" : "Optional"} • {group.options.length} opt
                     </span>
                   </button>
@@ -165,10 +170,10 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                     size="icon"
                     variant="ghost"
                     onClick={() => removeGroup(groupIndex)}
-                    className="h-7 w-7 text-zinc-400 hover:text-red-600"
-                    aria-label="Remove group"
+                    className="h-11 w-11 text-zinc-600 hover:text-red-600"
+                    aria-label={`Remove ${group.name || `group ${groupIndex + 1}`}`}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
 
@@ -177,19 +182,19 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                   <div className="space-y-4 p-3 sm:p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Group Name *</Label>
+                        <Label className="text-sm">Group Name *</Label>
                         <Input
                           value={group.name}
                           onChange={(e) => updateGroup(groupIndex, { name: e.target.value })}
                           placeholder="e.g. Choose Your Bun"
                           maxLength={80}
                           required
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                         />
                       </div>
 
                       <div className="flex items-end gap-3 pb-1">
-                        <label className="flex items-center gap-2 text-xs font-medium text-zinc-700">
+                        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
                           <Switch
                             checked={group.required}
                             onCheckedChange={(checked) =>
@@ -206,7 +211,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">Min Select</Label>
+                        <Label className="text-sm">Min Select</Label>
                         <Input
                           type="number"
                           min={group.required ? 1 : 0}
@@ -215,11 +220,11 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                           onChange={(e) =>
                             updateGroup(groupIndex, { min: Math.max(0, parseInt(e.target.value) || 0) })
                           }
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Max Select</Label>
+                        <Label className="text-sm">Max Select</Label>
                         <Input
                           type="number"
                           min={Math.max(1, group.min)}
@@ -228,7 +233,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                           onChange={(e) =>
                             updateGroup(groupIndex, { max: Math.max(1, parseInt(e.target.value) || 1) })
                           }
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                         />
                       </div>
                     </div>
@@ -236,7 +241,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                     {/* Options list */}
                     <div className="space-y-2 border-t border-zinc-100 pt-3">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs font-medium text-zinc-700">
+                        <Label className="text-sm font-medium text-zinc-700">
                           Choices ({group.options.length}/{MAX_OPTIONS_PER_GROUP})
                         </Label>
                         <Button
@@ -245,14 +250,14 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                           variant="outline"
                           onClick={() => addOption(groupIndex)}
                           disabled={group.options.length >= MAX_OPTIONS_PER_GROUP}
-                          className="h-7 gap-1 text-[11px]"
+                          className="min-h-11 gap-1 text-sm"
                         >
                           <Plus className="h-3 w-3" /> Add Choice
                         </Button>
                       </div>
 
                       {group.options.length === 0 ? (
-                        <p className="rounded border border-dashed border-zinc-200 py-2 text-center text-[11px] text-zinc-400">
+                        <p className="py-2 text-center text-sm text-zinc-500">
                           No choices yet. Click &ldquo;Add Choice&rdquo; to add options.
                         </p>
                       ) : (
@@ -260,7 +265,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                           {group.options.map((opt, optIndex) => (
                             <div
                               key={opt.id}
-                              className="flex items-center gap-2 rounded-lg border border-zinc-100 bg-zinc-50/70 p-2"
+                              className="flex items-center gap-2 border-t border-zinc-100 pt-2 first:border-0 first:pt-0"
                             >
                               <div className="min-w-0 flex-1">
                                 <Input
@@ -271,7 +276,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                                   placeholder="Choice name (e.g. Brioche Bun)"
                                   maxLength={80}
                                   required
-                                  className="h-7 text-xs"
+                                  className="h-10 text-sm"
                                 />
                               </div>
                               <div className="w-24 shrink-0">
@@ -287,7 +292,7 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                                     })
                                   }
                                   placeholder="+/- Price"
-                                  className="h-7 text-xs"
+                                  className="h-10 text-sm"
                                 />
                               </div>
                               <Button
@@ -295,10 +300,10 @@ export function OptionGroupsEditor({ groups, onChange }: OptionGroupsEditorProps
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => removeOption(groupIndex, optIndex)}
-                                className="h-7 w-7 shrink-0 text-zinc-400 hover:text-red-600"
-                                aria-label="Remove choice"
+                                className="h-11 w-11 shrink-0 text-zinc-600 hover:text-red-600"
+                                aria-label={`Remove ${opt.name || `choice ${optIndex + 1}`}`}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           ))}

@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import {
-  Plus,
-  Calendar,
-  Heart,
-  Store,
-  Newspaper,
-  ShoppingBag,
-  Building2,
-  Ticket,
-  Gift,
-} from "lucide-react";
+  IconPlus as Plus,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconBuildingStore as Store,
+  IconNews as Newspaper,
+  IconShoppingBag as ShoppingBag,
+  IconBuilding as Building2,
+  IconTicket as Ticket,
+  IconGift as Gift,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { MyThingsSection } from "@/lib/my-things";
 
 const iconMap: Record<string, typeof Calendar> = {
@@ -44,7 +43,7 @@ export function MyThingsView({
           <h1 className="text-2xl font-black tracking-tight sm:text-3xl text-zinc-950">Dashboard</h1>
           <p className="mt-1 text-sm text-zinc-500">Welcome, {displayName}. You haven&apos;t created or purchased anything yet.</p>
         </header>
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center shadow-xs">
+        <div className="py-8 text-center">
           <p className="text-sm font-semibold text-zinc-600">
             Create your first Event, Fundraiser, Business, Article, or Product.
           </p>
@@ -67,26 +66,26 @@ export function MyThingsView({
             What would you like to do today, {displayName}?
           </p>
         </div>
-        <Button asChild className="rounded-xl bg-brand-700 font-bold hover:bg-brand-800 shadow-xs">
+        <Button asChild className="rounded-xl bg-brand-700 font-bold hover:bg-brand-800">
           <Link href="/dashboard/create">
             <Plus className="mr-2 h-4 w-4" /> Create New
           </Link>
         </Button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
         {sections.map((section) => {
           const Icon = iconMap[section.key] ?? Calendar;
           const isOrganizer = section.key === "organizers";
 
           return (
-            <Card key={section.key} className="flex flex-col rounded-2xl border-zinc-200/80 shadow-xs">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <section key={section.key} className="min-w-0 border-b border-zinc-200 pb-6 last:border-b-0">
+              <header className="flex items-center justify-between gap-3 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-50 border border-zinc-200">
                     <Icon className="h-4 w-4 text-zinc-700" />
                   </div>
-                  <CardTitle className="text-base font-black text-zinc-950">{section.label}</CardTitle>
+                  <h2 className="text-base font-black text-zinc-950">{section.label}</h2>
                 </div>
                 <Link
                   href={section.listHref}
@@ -94,10 +93,10 @@ export function MyThingsView({
                 >
                   View all →
                 </Link>
-              </CardHeader>
-              <CardContent className="flex-1 pt-1">
+              </header>
+              <div>
                 {section.items.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-center">
+                  <div className="py-3">
                     <p className="text-xs font-semibold text-zinc-500">No {section.label.toLowerCase()} yet.</p>
                     {section.createHref && (
                       <Button asChild variant="outline" size="sm" className="mt-2 rounded-xl text-xs font-bold">
@@ -108,11 +107,11 @@ export function MyThingsView({
                     )}
                   </div>
                 ) : (
-                  <ul className="divide-y divide-zinc-100 -mx-6">
+                  <ul className="divide-y divide-zinc-100">
                     {section.items.slice(0, 5).map((item) => (
                       <li
                         key={item.id}
-                        className="px-6 py-3 flex items-center justify-between gap-3 hover:bg-zinc-50 transition"
+                        className="py-3 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0 flex-1">
                           <Link
@@ -142,7 +141,7 @@ export function MyThingsView({
                       </li>
                     ))}
                     {section.items.length > 5 && (
-                      <li className="px-6 py-2.5 text-xs text-zinc-500">
+                      <li className="py-2.5 text-xs text-zinc-500">
                         +{section.items.length - 5} more —{" "}
                         <Link
                           href={section.listHref}
@@ -154,8 +153,8 @@ export function MyThingsView({
                     )}
                   </ul>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           );
         })}
       </div>

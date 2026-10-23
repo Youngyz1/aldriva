@@ -31,7 +31,7 @@ export default function DashboardModulePage({
             <Link
               key={action.href}
               href={action.href}
-              className={`rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs sm:px-5 sm:py-3 sm:text-sm ${
+              className={`rounded-xl px-4 py-2.5 text-xs font-bold transition sm:px-5 sm:py-3 sm:text-sm ${
                 action.primary
                   ? "bg-orange-600 text-white hover:bg-orange-700"
                   : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50"
@@ -45,7 +45,7 @@ export default function DashboardModulePage({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4">
         {items.map((item) => (
-          <div key={item} className="rounded-xl border border-zinc-200/60 bg-white p-4 shadow-xs sm:rounded-2xl sm:p-5">
+          <div key={item} className="border-t border-zinc-200 py-4 first:border-0 sm:py-5">
             <p className="text-xs font-bold text-zinc-900 sm:text-sm">{item}</p>
           </div>
         ))}

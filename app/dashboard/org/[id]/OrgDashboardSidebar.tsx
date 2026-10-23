@@ -8,9 +8,25 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
-  ChevronLeft, Globe, Tag, ChefHat,
-  LayoutDashboard, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag,
-} from "lucide-react";
+  IconChevronLeft as ChevronLeft,
+  IconWorld as Globe,
+  IconTag as Tag,
+  IconChefHat as ChefHat,
+  IconLayoutDashboard as LayoutDashboard,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconPackage as Package,
+  IconBriefcase as Briefcase,
+  IconUsers as Users,
+  IconBook as BookOpen,
+  IconStar as Star,
+  IconPhoto as ImageIcon,
+  IconChartBar as BarChart2,
+  IconSettings as Settings,
+  IconToolsKitchen2 as Utensils,
+  IconBuildingStore as Store,
+  IconShoppingBag as ShoppingBag,
+} from "@tabler/icons-react";
 import { getOrgNavItems } from "./org-nav-items";
 import type { Capability } from "@/lib/business-taxonomy";
 import type { OrganizerDashboardTypeFlags } from "@/lib/organizer-dashboard-classifier";
@@ -89,7 +105,7 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
                 const Icon = ORG_ICON_MAP[item.icon] ?? Globe;
                 const active = isActive(item.href);
                 return (
-                  <Link key={item.href} href={item.href} title={item.label} className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? "bg-orange-50 text-orange-700" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"}`}>
+                  <Link key={item.href} href={item.href} title={item.label} aria-current={active ? "page" : undefined} className={`flex h-9 w-9 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
                     <Icon className="h-4 w-4" />
                   </Link>
                 );
@@ -99,7 +115,7 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
         ) : (
           <>
             <div className="border-b border-zinc-100 px-4 py-3">
-              <Link href="/dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900">
+              <Link href="/dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
                 <ChevronLeft className="h-3.5 w-3.5" />
                 {t('backToDashboard')}
               </Link>
@@ -124,10 +140,10 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
                 const active = isActive(item.href);
                 const Icon = ORG_ICON_MAP[item.icon] ?? Globe;
                 return (
-                  <Link key={item.href} href={item.href} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
+                  <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1 truncate">{item.label}</span>
-                    {item.comingSoon && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">Soon</span>}
+                    {item.comingSoon && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-700">Soon</span>}
                   </Link>
                 );
               })}

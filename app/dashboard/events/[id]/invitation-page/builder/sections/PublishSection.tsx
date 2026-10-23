@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, AlertCircle, Eye, Globe, Sparkles } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconAlertCircle as AlertCircle, IconEye as Eye, IconGlobe as Globe, IconSparkles as Sparkles } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { validateForPublish } from "@/lib/invitation-page-schema";

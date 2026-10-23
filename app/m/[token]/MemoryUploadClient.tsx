@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { IconCamera as Camera, IconCircleCheck as CheckCircle2, IconLoader2 as Loader2, IconTrash as Trash2, IconCloudUpload as UploadCloud } from "@tabler/icons-react";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 

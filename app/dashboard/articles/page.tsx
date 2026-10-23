@@ -121,7 +121,7 @@ export default async function DashboardArticlesPage({
 
       {/* Articles Table / List */}
       {articles && articles.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-xs sm:rounded-2xl">
+        <div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm text-slate-500">
               <thead className="border-b border-slate-150 bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-400">
@@ -231,7 +231,7 @@ export default async function DashboardArticlesPage({
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-200 py-16 text-center bg-white shadow-sm">
+        <div className="py-12 text-center">
           <p className="text-sm font-bold text-slate-500">No articles found.</p>
           <Link
             href="/dashboard/articles/new"

@@ -16,7 +16,7 @@ import {
   type CancellationReasonCode,
 } from "@/lib/actions/orders";
 import { buildCourierWhatsAppUrl } from "@/lib/courier/whatsapp-message";
-import { Bike, MessageSquare } from "lucide-react";
+import { IconBike as Bike, IconMessage as MessageSquare } from "@tabler/icons-react";
 
 export interface DashboardOrderItem {
   item_id: string;
@@ -480,14 +480,15 @@ export function OrderCard({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white shadow-xs overflow-hidden transition-colors">
+    <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden transition-colors">
       {/* CARD HEADER - Always displays all primary summary data */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="cursor-pointer p-4 sm:p-5 hover:bg-zinc-50/70 transition-colors select-none"
+        className="cursor-pointer p-4 transition-colors select-none hover:bg-zinc-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 sm:p-5"
         role="button"
         tabIndex={0}
         aria-expanded={isExpanded}
+        aria-controls={isExpanded ? `order-details-${order.id}` : undefined}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -751,7 +752,7 @@ export function OrderCard({
 
       {/* EXPANDED DETAILS */}
       {isExpanded && (
-        <div className="border-t border-zinc-100 bg-zinc-50/50 p-4 sm:p-5 space-y-5">
+        <div id={`order-details-${order.id}`} className="border-t border-zinc-100 bg-zinc-50/50 p-4 sm:p-5 space-y-5">
           {order.delivery_issue && (
             <section className="rounded-xl border border-red-300 bg-red-50 p-3.5" aria-label="Delivery issue report">
               <h3 className="text-xs font-bold uppercase tracking-wide text-red-900 flex items-center gap-1.5">

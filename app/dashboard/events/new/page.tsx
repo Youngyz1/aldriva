@@ -18,7 +18,7 @@ export default async function NewDashboardEventPage() {
 
   if (ctx.organizerIds.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-16 text-center shadow-sm">
+      <div className="py-10 text-center">
         <p className="text-2xl font-black text-zinc-950">Create an organizer profile first</p>
         <p className="mx-auto mt-2 max-w-md text-sm font-medium text-zinc-500">
           You need an organizer profile before you can create events.

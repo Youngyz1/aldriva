@@ -4,19 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SettingsCard } from "@/components/ui/settings-card";
 import {
-  Sparkles,
-  Building,
-  Landmark,
-  Calendar,
-  ArrowUpRight,
-  Wallet,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  X,
-  Loader2,
-} from "lucide-react";
+  IconSparkles as Sparkles,
+  IconBuilding as Building,
+  IconBuildingBank as Landmark,
+  IconCalendar as Calendar,
+  IconArrowUpRight as ArrowUpRight,
+  IconWallet as Wallet,
+  IconClock as Clock,
+  IconCircleCheck as CheckCircle2,
+  IconCircleX as XCircle,
+  IconAlertCircle as AlertCircle,
+  IconX as X,
+  IconLoader2 as Loader2,
+} from "@tabler/icons-react";
 import {
   getRecipientPaymentsOverview,
   requestRecipientPayout,

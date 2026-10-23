@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { UserCircle2 } from "lucide-react";
+import { IconUserCircle as UserCircle2 } from "@tabler/icons-react";
 import type { PublicTestimonial } from "@/types/homepage-cms";
 
 interface Props {

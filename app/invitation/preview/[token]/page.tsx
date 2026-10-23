@@ -25,7 +25,7 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { Eye, Clock, MailX } from "lucide-react";
+import { IconEye as Eye, IconClock as Clock, IconMailX as MailX } from "@tabler/icons-react";
 import { getInvitationPagePreviewByToken } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";

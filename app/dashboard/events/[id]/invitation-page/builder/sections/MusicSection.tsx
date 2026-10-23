@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Link2, Plus, Trash2, X } from "lucide-react";
+import { IconLink as Link2, IconPlus as Plus, IconTrash as Trash2, IconX as X } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import { AudioUploadField } from "@/components/invitation/AudioUploadField";
 import {

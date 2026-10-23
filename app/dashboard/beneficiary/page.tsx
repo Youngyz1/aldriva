@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Heart } from "lucide-react";
+import { IconHeart as Heart } from "@tabler/icons-react";
 // from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";

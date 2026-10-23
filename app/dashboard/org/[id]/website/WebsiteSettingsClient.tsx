@@ -4,18 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Globe,
-  Palette,
-  FileText,
-  Menu,
-  ExternalLink,
-  Loader2,
-  Save,
-  Eye,
-  Settings,
-  Sparkles,
-  LayoutTemplate,
-} from "lucide-react";
+  IconGlobe as Globe,
+  IconPalette as Palette,
+  IconFileText as FileText,
+  IconMenu as Menu,
+  IconExternalLink as ExternalLink,
+  IconLoader2 as Loader2,
+  IconDeviceFloppy as Save,
+  IconEye as Eye,
+  IconSettings as Settings,
+  IconSparkles as Sparkles,
+  IconTemplate as LayoutTemplate,
+} from "@tabler/icons-react";
 import {
   createTenantWebsite,
   updateTenantWebsite,

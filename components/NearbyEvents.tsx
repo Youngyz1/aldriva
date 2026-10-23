@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import EventCard from "@/components/EventCard";
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { IconCalendar as CalendarDays } from "@tabler/icons-react";
 import { slugifyCity } from "@/lib/city-slug";
 
 type TMEvent = {

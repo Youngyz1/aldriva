@@ -10,18 +10,17 @@ type SectionProps = React.HTMLAttributes<HTMLElement> & {
 };
 
 /**
- * Section — consistent vertical rhythm for dashboard/settings.
- * Do not force a template; verticals compose Section freely.
- * Default: card-like surface with border + shadow-xs + rounded-xl.
- * Use `bordered={false} padded={false}` for raw grouping.
+ * Section — semantic grouping with no decorative surface by default.
+ * Ordinary headings, descriptions, forms, lists, and data belong directly on
+ * the page background. Opt into a bordered surface only for a distinct unit.
  */
 export function Section({
   heading,
   description,
   eyebrow,
   actions,
-  padded = true,
-  bordered = true,
+  padded = false,
+  bordered = false,
   className,
   children,
   ...props
@@ -29,7 +28,7 @@ export function Section({
   return (
     <section
       className={cn(
-        bordered && "rounded-xl border border-border bg-card shadow-xs",
+        bordered && "rounded-xl border border-border bg-card",
         padded && "p-5 sm:p-6",
         className
       )}

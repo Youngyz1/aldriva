@@ -8,7 +8,7 @@ import { getClientSiteUrl } from "@/lib/site-url-client";
 import { cn } from "@/lib/utils";
 import { getStatusMeta } from "./campaign-status";
 import FundraisingProgressRing from "@/components/ui/FundraisingProgressRing";
-import { ArrowRight, Check } from "lucide-react";
+import { IconArrowRight as ArrowRight, IconCheck as Check } from "@tabler/icons-react";
 
 interface CampaignHealthCardProps {
   campaign: Campaign;

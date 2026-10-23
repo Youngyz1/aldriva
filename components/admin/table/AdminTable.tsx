@@ -9,7 +9,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconDots as MoreHorizontal } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,

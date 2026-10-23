@@ -4,15 +4,15 @@ import React, { useState } from "react";
 import { TicketCard } from "@/components/cards/TicketCard";
 import { CardEventInfo } from "@/components/cards/DigitalCardPrimitives";
 import {
-  Palette,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Sparkles,
-  Save,
-  Eye,
-  Check,
-} from "lucide-react";
+  IconPalette as Palette,
+  IconCircleCheck as CheckCircle2,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconSparkles as Sparkles,
+  IconDeviceFloppy as Save,
+  IconEye as Eye,
+  IconCheck as Check,
+} from "@tabler/icons-react";
 
 export type TemplateType = "modern" | "concert" | "premium" | "minimal";
 

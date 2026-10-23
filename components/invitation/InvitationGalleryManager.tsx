@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconTrash as Trash2 } from "@tabler/icons-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { canAddGalleryItem, INVITATION_GALLERY_MAX, moveGalleryItem } from "@/lib/invitation-images";
 import {

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { MailX } from "lucide-react";
+import { IconMailX as MailX } from "@tabler/icons-react";
 import { getInvitationByToken, getInvitationGuestAllowanceByToken } from "@/lib/invitations";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";

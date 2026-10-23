@@ -1,7 +1,7 @@
 import Link from "next/link";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
-import { CalendarDays, Heart, Users } from "lucide-react";
+import { IconCalendar as CalendarDays, IconHeart as Heart, IconUsers as Users } from "@tabler/icons-react";
 
 export type OrganizerCardData = {
   id: string;

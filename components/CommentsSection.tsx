@@ -118,7 +118,7 @@ function GatePrompt({
   }
 
   return (
-    <div className="mt-6 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
+    <div className="mt-6 text-center">
       <div className="flex justify-center mb-4">{gateIcon}</div>
       <h3 className="text-lg font-black text-zinc-900">
         Comments are for {targetType === "event" ? "ticket holders" : "donors"} only

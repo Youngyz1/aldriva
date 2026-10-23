@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { IconPlus as Plus } from "@tabler/icons-react";
 import { ServicesManager } from "@/components/dashboard/services/ServicesManager";
 
 export default async function ServicesPage({ params }: { params: Promise<{ id: string }> }) {

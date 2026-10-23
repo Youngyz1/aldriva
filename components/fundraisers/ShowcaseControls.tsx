@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Search } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconSearch as Search } from "@tabler/icons-react";
 
 interface SmartFilterOption {
   value: string;

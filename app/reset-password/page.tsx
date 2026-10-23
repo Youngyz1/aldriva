@@ -121,8 +121,8 @@ function ResetPasswordForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6">
-      <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-10">
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-md py-8">
         <h1 className="mb-2 text-4xl font-black">Choose new password</h1>
         <p className="mb-8 text-zinc-500">
           Enter a new password for your Aldriva account.

@@ -5,24 +5,24 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import DeliveryMap from "@/components/delivery/DeliveryMap";
 import {
-  Clock,
-  CheckCircle2,
-  Bike,
-  Store,
-  Phone,
-  XCircle,
-  RotateCw,
-  ArrowLeft,
-  Package,
-  MapPin,
-  ChefHat,
-  Utensils,
-  CalendarClock,
-  Star,
-  HelpCircle,
-  Sparkles,
-  Info,
-} from "lucide-react";
+  IconClock as Clock,
+  IconCircleCheck as CheckCircle2,
+  IconBike as Bike,
+  IconBuildingStore as Store,
+  IconPhone as Phone,
+  IconCircleX as XCircle,
+  IconRotateClockwise as RotateCw,
+  IconArrowLeft as ArrowLeft,
+  IconPackage as Package,
+  IconMapPin as MapPin,
+  IconChefHat as ChefHat,
+  IconToolsKitchen2 as Utensils,
+  IconCalendarClock as CalendarClock,
+  IconStar as Star,
+  IconHelpCircle as HelpCircle,
+  IconSparkles as Sparkles,
+  IconInfoCircle as Info,
+} from "@tabler/icons-react";
 import { formatMoney } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import type { DashboardOrderItem } from "@/components/dashboard/orders/OrderCard";

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { IconCircleCheck as CheckCircle2 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useEffect, Suspense } from "react";
@@ -168,7 +168,7 @@ function DonationConfirmationContent() {
                   This fundraiser is run by a registered nonprofit. Your contribution qualifies for tax-deductible benefits.
                 </div>
               ) : (
-                <div className="rounded-2xl bg-zinc-50 border border-zinc-200 p-4 text-left text-xs text-zinc-500 leading-relaxed">
+                <div className="border-l-2 border-zinc-200 pl-4 text-left text-xs text-zinc-500 leading-relaxed">
                   <span className="font-bold block mb-1">Standard Donation</span>
                   This is a standard donation receipt. Donations to individuals are generally not tax-deductible.
                 </div>

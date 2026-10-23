@@ -24,7 +24,7 @@ import {
 import { RichTextInspector } from "./RichTextInspector";
 import { CtaBannerInspector } from "./CtaBannerInspector";
 import { PromotionsEmbedInspector } from "./PromotionsEmbedInspector";
-import { Sliders, X } from "lucide-react";
+import { IconAdjustments as Sliders, IconX as X } from "@tabler/icons-react";
 import { getFieldDef, isEditablePath, getElementValue } from "@/lib/website-block-edit-schema";
 import type { BlockType } from "@/lib/website-blocks";
 import { InspectorField } from "./common/InspectorField";

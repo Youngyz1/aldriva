@@ -3,17 +3,17 @@
 import React, { useState } from "react";
 import { sanitizeArticleHtml } from "@/lib/sanitize-html";
 import {
-  Sparkles,
-  Bot,
-  Wand2,
-  Tag,
-  Share2,
-  Copy,
-  Check,
-  Loader2,
-  X,
-  AlertCircle,
-} from "lucide-react";
+  IconSparkles as Sparkles,
+  IconRobot as Bot,
+  IconWand as Wand2,
+  IconTag as Tag,
+  IconShare2 as Share2,
+  IconCopy as Copy,
+  IconCheck as Check,
+  IconLoader2 as Loader2,
+  IconX as X,
+  IconAlertCircle as AlertCircle,
+} from "@tabler/icons-react";
 
 interface ArticleAiAssistantModalProps {
   isOpen: boolean;

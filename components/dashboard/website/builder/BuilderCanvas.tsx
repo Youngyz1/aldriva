@@ -9,7 +9,7 @@
 import React from "react";
 import { CanvasBlockWrapper } from "./canvas/CanvasBlockWrapper";
 import { BuilderState } from "./types";
-import { LayoutTemplate, Plus } from "lucide-react";
+import { IconTemplate as LayoutTemplate, IconPlus as Plus } from "@tabler/icons-react";
 
 interface BuilderCanvasProps {
   state: BuilderState;
@@ -53,7 +53,7 @@ export function BuilderCanvas({
       >
         {blocks.length === 0 ? (
           /* Empty Page Canvas State */
-          <div className="rounded-2xl border-2 border-dashed border-zinc-300 bg-white p-12 text-center shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900 sm:p-12">
             <LayoutTemplate className="mx-auto h-12 w-12 text-zinc-400" />
             <h3 className="mt-4 text-base font-bold text-zinc-900 dark:text-zinc-100">
               Your page is currently empty
@@ -65,7 +65,7 @@ export function BuilderCanvas({
               <button
                 type="button"
                 onClick={() => onOpenAddModal(0)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-brand-800 active:bg-brand-900 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-700 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-800 active:bg-brand-900 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Your First Block</span>

@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, List, Loader2 } from "lucide-react";
+import { IconLayoutGrid as LayoutGrid, IconList as List, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import DashboardToolbar from "@/components/dashboard/DashboardToolbar";

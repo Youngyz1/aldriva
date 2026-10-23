@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { IconSearch as Search } from "@tabler/icons-react";
 
 type Props = {
   value: string;

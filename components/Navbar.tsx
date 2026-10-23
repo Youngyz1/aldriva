@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from 'next-intl';
-import { ChevronDown, UserRound } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconUser as UserRound } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 import BrandMark from "@/components/BrandMark";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -134,7 +134,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setAccountOpen((o) => !o)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white p-1 transition hover:border-orange-200 sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-3"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white p-1 transition hover:border-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-3"
                 aria-expanded={accountOpen}
                 aria-label="Account menu"
               >
@@ -147,7 +147,7 @@ export default function Navbar() {
                 <span className="hidden max-w-28 truncate text-sm font-bold text-zinc-800 sm:inline">
                   {accountName}
                 </span>
-                <ChevronDown className={cn("hidden h-4 w-4 text-zinc-400 sm:block transition-transform", accountOpen && "rotate-180")} />
+                <ChevronDown className={cn("hidden h-4 w-4 text-zinc-600 sm:block transition-transform", accountOpen && "rotate-180")} />
               </button>
 
               {accountOpen && (
@@ -156,7 +156,7 @@ export default function Navbar() {
                   <div className="my-1 border-t border-zinc-100" />
                   <Link
                     href={publicProfileHref}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-600"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
                     onClick={() => setAccountOpen(false)}
                   >
                     <UserRound className="h-4 w-4" />
@@ -164,7 +164,7 @@ export default function Navbar() {
                   </Link>
                   <div className="my-1 border-t border-zinc-100" />
                   <div className="px-4 py-2">
-                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-400">{tNav('language')}</p>
+                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-600">{tNav('language')}</p>
                     <LanguageSwitcher variant="dropdown" />
                   </div>
                 </div>

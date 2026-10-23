@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Check, Eye } from "lucide-react";
+import { IconSearch as Search, IconCheck as Check, IconEye as Eye } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

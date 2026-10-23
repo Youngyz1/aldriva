@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Copy } from "lucide-react";
+import { IconCheck as Check, IconCopy as Copy } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 import { ORGANIZER_PUBLIC_COLUMNS } from "@/lib/organizer-public-columns";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";

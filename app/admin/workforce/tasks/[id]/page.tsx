@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/ModerationBadge";
 import { fetchTaskDetail, buildTaskDetailViewModel, isTaskIdShape } from "@/lib/workforce/tasks";
@@ -49,7 +49,7 @@ export default async function WorkforceTaskDetailPage({ params }: { params: Prom
       />
 
       {/* Agent */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Assigned agent</h2>
         {vm.agent ? (
           <Link
@@ -64,7 +64,7 @@ export default async function WorkforceTaskDetailPage({ params }: { params: Prom
       </section>
 
       {/* Runs + steps */}
-      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-3 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Runs ({vm.runs.length})</h2>
         {vm.empty.runs ? (
           <p className="text-sm text-zinc-500">No runs recorded for this task yet.</p>
@@ -104,7 +104,7 @@ export default async function WorkforceTaskDetailPage({ params }: { params: Prom
       </section>
 
       {/* Report */}
-      <section className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-2 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Report</h2>
         {vm.empty.reports ? (
           <p className="text-sm text-zinc-500">

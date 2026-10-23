@@ -11,7 +11,7 @@ import {
   type Donation,
 } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { Heart } from "lucide-react";
+import { IconHeart as Heart } from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 interface DonationListProps {

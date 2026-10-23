@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, FileText, Trash2, Edit2, LayoutTemplate } from "lucide-react";
+import { IconPlus as Plus, IconFileText as FileText, IconTrash as Trash2, IconEdit as Edit2, IconTemplate as LayoutTemplate } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/state";
 import type { WebsiteData } from "./types";

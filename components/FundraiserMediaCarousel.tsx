@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IconChevronLeft as ChevronLeft, IconChevronRight as ChevronRight } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { safeImageSrc } from "@/lib/image-url";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";

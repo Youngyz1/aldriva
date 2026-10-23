@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Download,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  Wifi,
-  WifiOff,
-  ChevronDown,
-  ChevronUp,
-  DoorOpen,
-  Trash2,
-  CloudUpload,
-} from "lucide-react";
+  IconDownload as Download,
+  IconRefresh as RefreshCw,
+  IconCircleCheck as CheckCircle2,
+  IconAlertTriangle as AlertTriangle,
+  IconWifi as Wifi,
+  IconWifiOff as WifiOff,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+  IconDoorEnter as DoorOpen,
+  IconTrash as Trash2,
+  IconCloudUpload as CloudUpload,
+} from "@tabler/icons-react";
 import {
   getOfflineDataset,
   saveOfflineDataset,

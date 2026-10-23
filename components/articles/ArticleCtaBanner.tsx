@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Sparkles, HandHeart, Calendar, PenTool } from "lucide-react";
+import { IconSparkles as Sparkles, IconHeartHandshake as HandHeart, IconCalendar as Calendar, IconVectorBezier2 as PenTool } from "@tabler/icons-react";
 
 interface ArticleCtaBannerProps {
   categories?: string[];

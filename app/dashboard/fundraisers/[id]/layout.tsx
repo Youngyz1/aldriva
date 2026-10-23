@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { assertCanManageFundraiser } from "@/lib/entity-authz";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { ManagementShell } from "@/components/management/ManagementShell";

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CalendarDays, Star, StarOff } from "lucide-react";
+import { IconLoader2 as Loader2, IconCalendar as CalendarDays, IconStar as Star, IconStarOff as StarOff } from "@tabler/icons-react";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminTable from "@/components/admin/table/AdminTable";

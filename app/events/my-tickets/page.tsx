@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Ticket, Search, Mail, CalendarDays, MapPin, ArrowRight, Lock, CheckCircle2 } from "lucide-react";
+import { IconTicket as Ticket, IconSearch as Search, IconMail as Mail, IconCalendar as CalendarDays, IconMapPin as MapPin, IconArrowRight as ArrowRight, IconLock as Lock, IconCircleCheck as CheckCircle2 } from "@tabler/icons-react";
 
 type Order = {
   id: string;
@@ -282,7 +282,7 @@ export default function EventsMyTicketsPage() {
 
         {tab === "guest" && (
           <div className="max-w-xl mx-auto">
-            <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+            <div className="space-y-4">
               <h2 className="text-xl font-black text-zinc-900 mb-2">Guest Order Lookup</h2>
               <p className="text-zinc-500 text-sm mb-6">
                 Enter your Order ID (or QR Code) and the email address used during purchase to access your ticket.

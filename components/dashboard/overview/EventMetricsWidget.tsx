@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Heart, Users, DollarSign, Ticket, Star } from "lucide-react";
+import { IconCalendar as Calendar, IconHeart as Heart, IconUsers as Users, IconCurrencyDollar as DollarSign, IconTicket as Ticket, IconStar as Star } from "@tabler/icons-react";
 import type { EventMetrics, RecentEventSummary } from "@/lib/overview-types";
 
 export interface EventMetricsWidgetProps {

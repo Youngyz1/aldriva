@@ -2,7 +2,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Package, Plus } from "lucide-react";
+import { IconPackage as Package, IconPlus as Plus } from "@tabler/icons-react";
 
 export default async function OrgProductsPage({
   params,
@@ -48,7 +48,7 @@ export default async function OrgProductsPage({
       </div>
 
       {(products ?? []).length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
           <Package className="mb-3 h-10 w-10 text-zinc-300" />
           <p className="font-black text-zinc-900">No products yet</p>
           <p className="mt-1 text-sm text-zinc-500">Add merchandise, digital goods, or subscriptions.</p>
@@ -57,7 +57,7 @@ export default async function OrgProductsPage({
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-zinc-100 bg-zinc-50">
               <tr>

@@ -17,7 +17,7 @@ import FundraisingProgressRing from "@/components/ui/FundraisingProgressRing";
 import FundraiserAnalytics from "@/components/fundraisers/FundraiserAnalytics.client";
 import FundraiserQuickActions from "@/components/fundraisers/FundraiserQuickActions.client";
 import FundraiserHeaderActions from "@/components/fundraisers/FundraiserHeaderActions.client";
-import { CheckCircle2, AlertTriangle, TrendingUp, Clock, Heart, Users, Wallet, Receipt, Target, PiggyBank, Eye, MousePointerClick, Share2, Lightbulb, Info } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconAlertTriangle as AlertTriangle, IconTrendingUp as TrendingUp, IconClock as Clock, IconHeart as Heart, IconUsers as Users, IconWallet as Wallet, IconReceipt as Receipt, IconTarget as Target, IconPigMoney as PiggyBank, IconEye as Eye, IconPointer as MousePointerClick, IconShare2 as Share2, IconBulb as Lightbulb, IconInfoCircle as Info } from "@tabler/icons-react";
 
 function StatusBadge({ status, healthScore }: { status: ReturnType<typeof inferStatus>; healthScore: number }) {
   const meta =

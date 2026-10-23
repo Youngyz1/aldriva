@@ -3,14 +3,14 @@
 import React from "react";
 import { ARTICLE_TEMPLATES, type ArticleTemplate } from "@/lib/article-templates";
 import {
-  Building2,
-  HandHeart,
-  Calendar,
-  Sparkles,
-  Megaphone,
-  PenTool,
-  Bot,
-} from "lucide-react";
+  IconBuilding as Building2,
+  IconHeartHandshake as HandHeart,
+  IconCalendar as Calendar,
+  IconSparkles as Sparkles,
+  IconSpeakerphone as Megaphone,
+  IconVectorBezier2 as PenTool,
+  IconRobot as Bot,
+} from "@tabler/icons-react";
 
 interface ArticleTemplateSelectorProps {
   onSelectBlank: () => void;

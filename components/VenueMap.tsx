@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { IconExternalLink as ExternalLink } from "@tabler/icons-react";
 
 type Props = {
   lat?: number | null;

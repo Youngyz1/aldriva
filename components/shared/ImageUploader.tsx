@@ -32,7 +32,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { AlertCircle, CheckCircle2, Loader2, RotateCw, Upload, X } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconCircleCheck as CheckCircle2, IconLoader2 as Loader2, IconRotateClockwise as RotateCw, IconUpload as Upload, IconX as X } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { uploadImage, UploadImageError } from "@/lib/uploadImage";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/imageCompression";

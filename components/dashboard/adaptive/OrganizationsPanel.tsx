@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, Plus, ArrowRight, ShieldCheck } from "lucide-react";
+import { IconBuilding as Building2, IconPlus as Plus, IconArrowRight as ArrowRight, IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { Button } from "@/components/ui/button";
 

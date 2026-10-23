@@ -4,7 +4,7 @@ import React from "react";
 import { ProductsEmbedBlock, BLOCK_LIMITS } from "@/lib/website-blocks";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
-import { ShoppingBag, Check } from "lucide-react";
+import { IconShoppingBag as ShoppingBag, IconCheck as Check } from "@tabler/icons-react";
 
 export interface TenantProductOption {
   id: string;

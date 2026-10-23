@@ -9,7 +9,7 @@ import {
   type TopDonor,
 } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { Medal } from "lucide-react";
+import { IconMedal as Medal } from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 interface TopDonorsProps {

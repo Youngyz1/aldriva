@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { formatMoney } from "@/lib/money";
 
 interface StoreOrderConfirmationLabels {

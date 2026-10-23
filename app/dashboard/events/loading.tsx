@@ -12,7 +12,7 @@ export default function EventsLoading() {
         <div className="h-10 w-32 rounded-xl bg-zinc-200" />
       </div>
       {/* Table */}
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="overflow-x-auto">
         {/* Thead placeholder */}
         <div className="mb-4 flex gap-4 border-b border-zinc-100 pb-3">
           {[140, 80, 80, 80, 60, 80, 80].map((w, i) => (

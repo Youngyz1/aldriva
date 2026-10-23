@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { IconX as X } from "@tabler/icons-react";
 
 const OFFICE_PATH = "/admin/workforce/office";
 

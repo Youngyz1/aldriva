@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Loader2, X, HandHeart, Calendar, Building2, Plus } from "lucide-react";
+import { IconSearch as Search, IconLoader2 as Loader2, IconX as X, IconHeartHandshake as HandHeart, IconCalendar as Calendar, IconBuilding as Building2, IconPlus as Plus } from "@tabler/icons-react";
 
 export type AldrivaEntityResult = {
   type: "fundraiser" | "event" | "organization";

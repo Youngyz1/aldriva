@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { IconCheck as Check } from "@tabler/icons-react";
 import LandingHeroImagery from "@/components/fundraisers/LandingHeroImagery";
 
 export interface LandingHeroCta {

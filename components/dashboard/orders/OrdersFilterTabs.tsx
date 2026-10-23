@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Bike } from "lucide-react";
+import { IconBike as Bike } from "@tabler/icons-react";
 
 export type OrderTabKey = "needs_attention" | "active" | "completed" | "deliveries" | "all";
 

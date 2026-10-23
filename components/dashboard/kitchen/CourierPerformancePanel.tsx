@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Star, TrendingUp, ThumbsUp, MessageSquare } from "lucide-react";
+import {
+  IconStar as Star,
+  IconTrendingUp as TrendingUp,
+  IconThumbUp as ThumbsUp,
+  IconMessage as MessageSquare,
+} from "@tabler/icons-react";
 import { getCourierPerformancePanelData } from "@/lib/actions/courier-performance-panel";
 import type {
   CourierPerformanceRange,
@@ -106,7 +111,7 @@ export function CourierPerformancePanel({ organizerId, businessId }: Props) {
   const overallAvgRating = totalRatingCount > 0 ? totalRatingSum / totalRatingCount : null;
 
   return (
-    <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 text-zinc-950 shadow-xs sm:p-5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50" aria-labelledby={`courier-performance-${businessId}`}>
+    <section className="mt-6 text-zinc-950 dark:text-zinc-50" aria-labelledby={`courier-performance-${businessId}`}>
       {/* ── Header & Range Tabs ─────────────────────────────────────────── */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -173,15 +178,15 @@ export function CourierPerformancePanel({ organizerId, businessId }: Props) {
       )}
 
       {!loading && !hasError && displayed?.rows.length === 0 && (
-        <div className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <p className="mt-4 py-4 text-center text-xs text-zinc-500">
           {t("empty")}
-        </div>
+        </p>
       )}
 
       {/* ── Performance Table (Desktop View) ────────────────────────────── */}
       {displayed && displayed.rows.length > 0 && (
         <div className={`mt-4 space-y-4 ${showingPreviousRange ? "opacity-60" : ""}`} aria-busy={showingPreviousRange}>
-          <div className="hidden sm:block overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full text-left text-xs" aria-label={t("courierList")}>
               <thead className="border-b border-zinc-200 bg-zinc-50 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-400">
                 <tr>
@@ -252,7 +257,7 @@ export function CourierPerformancePanel({ organizerId, businessId }: Props) {
               <article
                 key={courier.courier_worker_id}
                 data-courier-row
-                className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -274,15 +279,15 @@ export function CourierPerformancePanel({ organizerId, businessId }: Props) {
                   </span>
                 </div>
 
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-zinc-50 p-2 border border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-800">
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                  <div>
                     <dt className="text-[10px] uppercase font-bold text-zinc-400">{t("deliveriesCompleted")}</dt>
                     <dd className="font-extrabold text-sm text-zinc-900 dark:text-white mt-0.5">
                       {courier.deliveries_completed}
                     </dd>
                   </div>
 
-                  <div className="rounded-lg bg-zinc-50 p-2 border border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-800">
+                  <div>
                     <dt className="text-[10px] uppercase font-bold text-zinc-400">{t("customerRating")}</dt>
                     <dd className="font-extrabold text-sm text-amber-600 dark:text-amber-400 mt-0.5">
                       {formatRating(courier.average_delivery_rating, courier.rating_count, locale)}
@@ -292,14 +297,14 @@ export function CourierPerformancePanel({ organizerId, businessId }: Props) {
                     </dd>
                   </div>
 
-                  <div className="rounded-lg bg-zinc-50 p-2 border border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-800">
+                  <div>
                     <dt className="text-[10px] uppercase font-bold text-zinc-400">{t("fullDeliveryTime")}</dt>
                     <dd className="font-medium text-zinc-700 dark:text-zinc-300 mt-0.5" title={courier.ready_to_delivered_n < 3 ? t("medianHidden") : undefined}>
                       {metricValue(courier.ready_to_delivered_median_minutes, courier.ready_to_delivered_n)}
                     </dd>
                   </div>
 
-                  <div className="rounded-lg bg-zinc-50 p-2 border border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-800">
+                  <div>
                     <dt className="text-[10px] uppercase font-bold text-zinc-400">{t("transitTime")}</dt>
                     <dd className="font-medium text-zinc-700 dark:text-zinc-300 mt-0.5" title={courier.picked_up_to_delivered_n < 3 ? t("medianHidden") : undefined}>
                       {metricValue(courier.picked_up_to_delivered_median_minutes, courier.picked_up_to_delivered_n)}

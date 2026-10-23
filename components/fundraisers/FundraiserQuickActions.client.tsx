@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Megaphone, Share2, Mail, Link as LinkIcon, UserPlus, Zap, Check, Download, ArrowRight, Loader2 } from "lucide-react";
+import { IconSpeakerphone as Megaphone, IconShare2 as Share2, IconMail as Mail, IconLink as LinkIcon, IconUserPlus as UserPlus, IconBolt as Zap, IconCheck as Check, IconDownload as Download, IconArrowRight as ArrowRight, IconLoader2 as Loader2 } from "@tabler/icons-react";
 
 export default function FundraiserQuickActions({ fundraiserId, slug, className }: { fundraiserId: string; slug: string; className?: string }) {
   const [copied, setCopied] = useState(false);

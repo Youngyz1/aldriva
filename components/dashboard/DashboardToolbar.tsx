@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter } from "lucide-react";
+import { IconFilter as Filter } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import DashboardSearch from "./DashboardSearch";
 import DashboardFilters, { type DashboardFilterSelect } from "./DashboardFilters";

@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { IconChevronLeft as ChevronLeft, IconChevronRight as ChevronRight, IconX as X } from "@tabler/icons-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { cn } from "@/lib/utils";
 import {

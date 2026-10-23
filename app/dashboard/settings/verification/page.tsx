@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ShieldCheck, Building2, ArrowRight } from "lucide-react";
+import { IconShieldCheck as ShieldCheck, IconBuilding as Building2, IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 

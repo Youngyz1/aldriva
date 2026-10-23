@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { IconLoader2 as Loader2 } from "@tabler/icons-react";
 import AdminPagination from "@/components/admin/AdminPagination";
 import RejectionReasonModal from "@/components/admin/RejectionReasonModal";
 import AdminTable from "@/components/admin/table/AdminTable";

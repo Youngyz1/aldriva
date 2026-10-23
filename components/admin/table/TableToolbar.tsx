@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown, Download, Filter, MoreHorizontal, Search } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconDownload as Download, IconFilter as Filter, IconDots as MoreHorizontal, IconSearch as Search } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,

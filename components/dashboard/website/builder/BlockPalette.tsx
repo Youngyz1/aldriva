@@ -8,27 +8,27 @@
 
 import React from "react";
 import {
-  LayoutTemplate,
-  Grid,
-  User,
-  Image as ImageIcon,
-  MessageSquareQuote,
-  PhoneCall,
-  HelpCircle,
-  Calendar,
-  ShoppingBag,
-  HeartHandshake,
-  FileText,
-  Megaphone,
-  BadgePercent,
-  Plus,
-  Layers,
-  ChevronUp,
-  ChevronDown,
-  Copy,
-  Trash2,
-  AlertCircle,
-} from "lucide-react";
+  IconTemplate as LayoutTemplate,
+  IconGrid3x3 as Grid,
+  IconUser as User,
+  IconPhoto as ImageIcon,
+  IconQuote as MessageSquareQuote,
+  IconPhoneCall as PhoneCall,
+  IconHelpCircle as HelpCircle,
+  IconCalendar as Calendar,
+  IconShoppingBag as ShoppingBag,
+  IconHeartHandshake as HeartHandshake,
+  IconFileText as FileText,
+  IconSpeakerphone as Megaphone,
+  IconDiscount as BadgePercent,
+  IconPlus as Plus,
+  IconStack2 as Layers,
+  IconChevronUp as ChevronUp,
+  IconChevronDown as ChevronDown,
+  IconCopy as Copy,
+  IconTrash as Trash2,
+  IconAlertCircle as AlertCircle,
+} from "@tabler/icons-react";
 import { Block } from "@/lib/website-blocks";
 import { BLOCK_CATALOG } from "./defaultBlocks";
 import { BuilderState } from "./types";
@@ -127,9 +127,9 @@ export function BlockPalette({
                     key={item.type}
                     type="button"
                     onClick={() => onAddBlock(item.createDefault())}
-                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-all hover:border-brand-500 hover:bg-white hover:shadow-xs dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
+                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-colors hover:border-brand-500 hover:bg-white dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
                   >
-                    <div className="rounded-lg bg-white p-2 shadow-xs border border-zinc-200/60 dark:bg-zinc-700 dark:border-zinc-600 shrink-0">
+                    <div className="shrink-0 pt-0.5 text-zinc-700 dark:text-zinc-200">
                       {ICON_MAP[item.iconName] || <LayoutTemplate className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -158,9 +158,9 @@ export function BlockPalette({
                     key={item.type}
                     type="button"
                     onClick={() => onAddBlock(item.createDefault())}
-                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-all hover:border-brand-500 hover:bg-white hover:shadow-xs dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
+                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-colors hover:border-brand-500 hover:bg-white dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
                   >
-                    <div className="rounded-lg bg-white p-2 shadow-xs border border-zinc-200/60 dark:bg-zinc-700 dark:border-zinc-600 shrink-0">
+                    <div className="shrink-0 pt-0.5 text-zinc-700 dark:text-zinc-200">
                       {ICON_MAP[item.iconName] || <Calendar className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -191,9 +191,9 @@ export function BlockPalette({
                     key={item.type}
                     type="button"
                     onClick={() => onAddBlock(item.createDefault())}
-                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-all hover:border-brand-500 hover:bg-white hover:shadow-xs dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
+                    className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 text-left transition-colors hover:border-brand-500 hover:bg-white dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:border-brand-500 dark:hover:bg-zinc-800"
                   >
-                    <div className="rounded-lg bg-white p-2 shadow-xs border border-zinc-200/60 dark:bg-zinc-700 dark:border-zinc-600 shrink-0">
+                    <div className="shrink-0 pt-0.5 text-zinc-700 dark:text-zinc-200">
                       {ICON_MAP[item.iconName] || <ImageIcon className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -216,7 +216,7 @@ export function BlockPalette({
           /* Page Structure Tab */
           <div className="space-y-2">
             {state.present.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-700">
+              <div className="py-4 text-center">
                 <Layers className="mx-auto h-8 w-8 text-zinc-400" />
                 <p className="mt-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   No blocks added yet
@@ -247,7 +247,7 @@ export function BlockPalette({
                       hasValidationError
                         ? "border-rose-500 bg-rose-50/40 dark:bg-rose-950/20"
                         : isSelected
-                          ? "border-brand-600 bg-brand-50/40 shadow-xs dark:border-brand-500 dark:bg-brand-950/20"
+                          ? "border-brand-600 bg-brand-50/40 dark:border-brand-500 dark:bg-brand-950/20"
                           : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-800/40"
                     }`}
                   >

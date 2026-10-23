@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createServiceTier, updateServiceTier, deleteServiceTier, reorderServiceTiers } from "@/lib/actions/services";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { IconChevronUp as ChevronUp, IconChevronDown as ChevronDown, IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 
 export function TierManager({ serviceId, organizerId, tiers, canEdit, canDelete }: { serviceId: string; organizerId: string; tiers: any[]; canEdit: boolean; canDelete: boolean }) {
   const router = useRouter();
@@ -74,7 +74,7 @@ export function TierManager({ serviceId, organizerId, tiers, canEdit, canDelete 
         {canEdit && <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1"/>Add Tier</Button>}
       </div>
       {sorted.length===0 ? (
-        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-zinc-500">No tiers yet. A service can have zero tiers — simple service with base price is valid.</div>
+        <p className="py-3 text-sm text-zinc-500">No tiers yet. A service can have zero tiers — simple service with base price is valid.</p>
       ) : (
         <div className="space-y-2">
           {sorted.map((tier, idx)=> (
@@ -96,7 +96,7 @@ export function TierManager({ serviceId, organizerId, tiers, canEdit, canDelete 
         </div>
       )}
       {showForm && (
-        <form onSubmit={handleSubmit} className="rounded-xl border p-4 space-y-3 bg-zinc-50">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-2"><Label>Name *</Label><Input value={name} onChange={e=>setName(e.target.value)} maxLength={80} required placeholder="Basic" /></div>
           <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={500} rows={2} /></div>
           <div className="grid grid-cols-2 gap-3">

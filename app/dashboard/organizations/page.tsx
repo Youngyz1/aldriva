@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
-import { Building2, Plus, ArrowRight, Globe, ShieldCheck } from "lucide-react";
+import { IconBuilding as Building2, IconPlus as Plus, IconArrowRight as ArrowRight, IconGlobe as Globe, IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 

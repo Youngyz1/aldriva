@@ -3,7 +3,7 @@
 import { memo, useMemo } from "react";
 import { type TimelineEvent } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { Flag, Trophy, Megaphone, TrendingUp, GitCommitHorizontal } from "lucide-react";
+import { IconFlag as Flag, IconTrophy as Trophy, IconSpeakerphone as Megaphone, IconTrendingUp as TrendingUp, IconGitCommit as GitCommitHorizontal } from "@tabler/icons-react";
 import { EmptyState } from "./EmptyState";
 
 const eventConfig = {

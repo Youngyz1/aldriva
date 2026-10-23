@@ -1,4 +1,4 @@
-import { Building2 } from "lucide-react";
+import { IconBuilding as Building2 } from "@tabler/icons-react";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { CallToAction } from "@/components/ui/call-to-action";

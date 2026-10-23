@@ -25,7 +25,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { IconCheck as Check } from "@tabler/icons-react";
 import { getTranslations } from "next-intl/server";
 import { sanitizeArticleHtml } from "@/lib/sanitize-html";
 import { sanitizeUrl } from "@/lib/sanitize-url";
@@ -81,17 +81,17 @@ import {
   ResolvedMenuSection,
 } from "@/lib/website-embeds";
 import {
-  Calendar,
-  MapPin,
-  Tag,
-  Heart,
-  ExternalLink,
-  Star,
-  Phone,
-  Mail,
-  Clock,
-  ArrowRight,
-} from "lucide-react";
+  IconCalendar as Calendar,
+  IconMapPin as MapPin,
+  IconTag as Tag,
+  IconHeart as Heart,
+  IconExternalLink as ExternalLink,
+  IconStar as Star,
+  IconPhone as Phone,
+  IconMail as Mail,
+  IconClock as Clock,
+  IconArrowRight as ArrowRight,
+} from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
 

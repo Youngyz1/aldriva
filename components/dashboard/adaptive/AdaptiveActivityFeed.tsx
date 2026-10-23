@@ -1,13 +1,13 @@
 import Link from "next/link";
 import {
-  Activity as ActivityIcon,
-  Heart,
-  Calendar,
-  Newspaper,
-  Store,
-  ShoppingBag,
-  ArrowRight,
-} from "lucide-react";
+  IconActivity as ActivityIcon,
+  IconHeart as Heart,
+  IconCalendar as Calendar,
+  IconNews as Newspaper,
+  IconBuildingStore as Store,
+  IconShoppingBag as ShoppingBag,
+  IconArrowRight as ArrowRight,
+} from "@tabler/icons-react";
 import { getTimeAgo, type DashboardActivity, type DashboardActivityType } from "@/lib/dashboard-activity";
 
 const ACTIVITY_META: Record<

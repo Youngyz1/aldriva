@@ -16,7 +16,7 @@ import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import StatStrip from "@/components/admin/StatStrip";
 import AdminTable from "@/components/admin/table/AdminTable";
@@ -151,7 +151,7 @@ export default async function WorkforceMemoryPage({
       {/* Human direct creation (source='human', versioned + audited; agents can never use this path).
           Wiring is byte-equivalent: same action, same field names, limits and
           defaults — only layout classes changed. */}
-      <form action={createMemoryDirect} className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <form action={createMemoryDirect} className="space-y-3 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Record a fact directly</h2>
         <input name="fact_key" maxLength={120} required placeholder="fact key (1–120 chars)"
           className="w-full rounded-xl border border-zinc-200 bg-white p-2 text-sm text-zinc-950" />

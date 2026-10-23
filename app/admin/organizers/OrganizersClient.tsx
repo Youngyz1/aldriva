@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, TrendingUp, History, RefreshCw, Users } from "lucide-react";
+import { IconLoader2 as Loader2, IconTrendingUp as TrendingUp, IconHistory as History, IconRefresh as RefreshCw, IconUsers as Users } from "@tabler/icons-react";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminDrawer from "@/components/admin/AdminDrawer";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";

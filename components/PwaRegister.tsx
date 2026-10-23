@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Share, SquarePlus, Sparkles } from "lucide-react";
+import { IconShare as Share, IconSquarePlus as SquarePlus, IconSparkles as Sparkles } from "@tabler/icons-react";
 
 export function IOSInstallDialog({
   open,

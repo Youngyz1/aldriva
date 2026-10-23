@@ -476,6 +476,17 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
 ### DEC-0051: Cookie consent behavior and policy wording
 - Cookie banner records a choice in localStorage but gates no loader; Google Analytics loads on public routes regardless. Cookie policy page says visitors opt in via the banner, which doesn't match behavior. Both need a legal decision before marketing in regulated regions.
 
+### DEC-0055: Tabler icons and task-first disclosure are the platform UI standard
+
+- **Decision Date**: 2026-10-23
+- **Status**: Implemented in the staging working tree; authenticated visual review is tracked separately.
+- **Key Tenets**:
+  - @tabler/icons-react is the standard interface icon library. Use verified exports and the shared semantic navigation map. Keep icons monochrome by default, consistent in size and stroke, and inheriting currentColor; orange marks active or meaningful emphasis and status colors carry actual status.
+  - Brand marks remain brand assets; the existing react-icons dependency stays only where genuine brand logos need it. Do not add a second general interface icon package.
+  - Pages show concise task-critical information first. Secondary metadata and actions are disclosed on request; create/invite forms start closed and preserve validation, loading, error recovery, and success refresh.
+  - Personnel lists lead with name/status and reveal relevant contact, invitation, timestamp, and management data through keyboard-accessible disclosure. Preserve permissions, tenant isolation, and operationally necessary status.
+  - Use readable 15–16px main/form-label text and 14–15px secondary text with WCAG AA contrast where applicable. Keep ordinary content unboxed under DEC-0054.
+  - Scope excludes the separate Phase 2 blank Website/Invitation Builder investigation; retain it for its own workstream.
 ## 2. Proposed & Under Review Decisions
 
 | Topic | Proposed Direction | Status |
@@ -502,3 +513,15 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Keep the URL allowlist in `lib/sanitize-url.ts` so callers that only validate URLs do not load `isomorphic-dompurify` or its jsdom runtime dependency. `lib/sanitize-html.ts` re-exports `sanitizeUrl` for compatibility.
   - Keep DOMPurify-backed HTML sanitization for rich content; it remains a production runtime requirement. Require Node `>=22.13.0` for Vercel builds and functions; Vercel honors the package engine range and currently resolves it to the compatible 24.x LTS runtime.
   - Production builds use `tsconfig.build.json` to exclude generated `.next/dev/types` and `.next-buildcheck/dev/types` files. Development retains its normal generated type checks.
+
+### DEC-0054: Platform content uses the page background by default
+
+- **Decision Date**: 2026-10-23
+- **Status**: Implemented in the shared design system and audited routes.
+- **Key Tenets**:
+  - Ordinary headings, descriptions, forms, filters, toolbars, tabs, tables, lists, settings, and empty states render directly on the page background, structured by typography, spacing, alignment, and separators.
+  - A single card is appropriate for an independent actionable record, product/menu/event item, selectable template, or meaningful metric/chart. Decorative card-on-card nesting is not allowed; a nested surface needs a distinct functional reason.
+  - Shared buttons, page-header actions, cards, and sections have no default shadow. Sections are unboxed and unpadded by default; rounded corners belong to controls and justified independent items.
+  - Sidebar labels, descriptions, group labels, and badges meet 4.5:1 contrast; icons and focus indicators meet 3:1 against their rendered surface, with clear light and dark states.
+  - Keep kitchen order cards, courier tasks/offers, selectable templates, ticket/product/event records, map/preview canvases, semantic alerts, and public-site/invitation template-owned treatments where they support a real workflow or are governed by their own visual system. Fundraising colors remain frozen under section 2.3 of `DESIGN.md`.
+  - `DESIGN.md`, `AGENTS.md`, and `CLAUDE.md` carry the permanent rule for future UI work. Route inventory, changed surfaces, verification, and remaining visual QA are tracked in `docs/UI-SIMPLIFICATION-AUDIT.md`.

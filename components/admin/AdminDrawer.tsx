@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { IconX as X } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 type Props = {

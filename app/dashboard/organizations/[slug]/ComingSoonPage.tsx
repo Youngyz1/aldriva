@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Construction } from "lucide-react";
+import { IconTools as Construction } from "@tabler/icons-react";
 
 export default function ComingSoonPage({
   title,

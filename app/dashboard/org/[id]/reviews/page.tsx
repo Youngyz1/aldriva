@@ -1,5 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { Star } from "lucide-react";
+import { IconStar as Star } from "@tabler/icons-react";
 
 export default async function OrgReviewsPage({
   params,

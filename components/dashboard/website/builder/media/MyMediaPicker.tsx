@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Image as ImageIcon, Trash2, Check, RefreshCw, Loader2 } from "lucide-react";
+import { IconPhoto as ImageIcon, IconTrash as Trash2, IconCheck as Check, IconRefresh as RefreshCw, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { listTenantMedia, deleteTenantMedia, type MyMediaItem } from "@/lib/media/my-media";

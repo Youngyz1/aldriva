@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Scan, UserCheck, CloudUpload, ShieldAlert } from "lucide-react";
+import { IconScan as Scan, IconUserCheck as UserCheck, IconCloudUpload as CloudUpload, IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardStatsCards from "@/components/dashboard/DashboardStatsCards";
 import DashboardToolbar from "@/components/dashboard/DashboardToolbar";

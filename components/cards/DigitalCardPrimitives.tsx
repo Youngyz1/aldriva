@@ -3,23 +3,23 @@
 import React, { useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Calendar,
-  MapPin,
-  Armchair,
-  Star,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Download,
-  Printer,
-  Copy,
-  Check,
-  Ban,
-  Share2,
-  Sparkles,
-  ShieldCheck,
-  Eye,
-} from "lucide-react";
+  IconCalendar as Calendar,
+  IconMapPin as MapPin,
+  IconArmchair as Armchair,
+  IconStar as Star,
+  IconCircleCheck as CheckCircle2,
+  IconCircleX as XCircle,
+  IconClock as Clock,
+  IconDownload as Download,
+  IconPrinter as Printer,
+  IconCopy as Copy,
+  IconCheck as Check,
+  IconBan as Ban,
+  IconShare2 as Share2,
+  IconSparkles as Sparkles,
+  IconShieldCheck as ShieldCheck,
+  IconEye as Eye,
+} from "@tabler/icons-react";
 import { BRAND } from "@/config/branding";
 import { ExpandableSvgQr, downloadQrPng } from "@/components/cards/ExpandableQr";
 

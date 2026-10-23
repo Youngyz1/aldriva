@@ -41,9 +41,10 @@ Key conventions:
 
 ## UI & Design System
 
+- Use @tabler/icons-react for interface icons: verified exports, consistent monochrome outline/currentColor, and orange only for active or meaningful emphasis. Keep secondary information on demand; add/invite forms start closed and personnel rows disclose details accessibly. Use readable 15–16px main/label text and 14–15px secondary text. See DESIGN.md for details.
 - Follow the repository-root `DESIGN.md`.
 - **Existing UI is not automatically good UI**: Check `DESIGN.md`'s known inconsistencies before copying older page layouts.
-- Reusable primitives live in `components/ui/` (`button.tsx`, `card.tsx`, `dialog.tsx`, etc.). Use `rounded-xl` and `shadow-xs`.
+- Ordinary content belongs directly on the page background by default. Headings, descriptions, forms, filters, toolbars, tabs, tables, lists, and empty states use spacing, typography, and dividers instead of decorative wrappers. Reserve one card for a meaningful independent item, actionable record, selectable template, or metric; nested cards require a clear functional justification. New pages must follow these rules. Sidebar text meets 4.5:1 contrast and icons/focus indicators meet 3:1 against the actual surface, including light and dark variants. Use `rounded-xl` for controls and justified cards, and omit default shadows. See `DESIGN.md`.
 
 ---
 

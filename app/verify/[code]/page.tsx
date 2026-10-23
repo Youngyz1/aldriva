@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, XCircle, Clock, Undo2 } from "lucide-react";
+import { IconCircleCheck as CheckCircle2, IconCircleX as XCircle, IconClock as Clock, IconArrowBackUp as Undo2 } from "@tabler/icons-react";
 // from "react";
 import { BRAND } from "@/config/branding";
 

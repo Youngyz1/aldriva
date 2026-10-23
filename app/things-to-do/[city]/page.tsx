@@ -4,7 +4,7 @@ import { getSiteUrl } from "@/lib/site-url";
 import EventCard from "@/components/EventCard";
 import ExternalEventCard, { ExternalSourceCredit } from "@/components/events/ExternalEventCard";
 import Link from "next/link";
-import { Calendar, MapPin, Globe } from "lucide-react";
+import { IconCalendar as Calendar, IconMapPin as MapPin, IconGlobe as Globe } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 import { searchExternalEvents } from "@/lib/external-events";
 import { slugifyCity } from "@/lib/city-slug";

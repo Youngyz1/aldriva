@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import { IconFileText as FileText } from "@tabler/icons-react";
 import AdminTable from "@/components/admin/table/AdminTable";
 import TableToolbar from "@/components/admin/table/TableToolbar";
 import type {

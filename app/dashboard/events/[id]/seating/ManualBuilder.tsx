@@ -2,24 +2,24 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
-  Plus,
-  Trash2,
-  Users,
-  Star,
-  Accessibility,
-  Eye,
-  Check,
-  AlertCircle,
-  Loader2,
-  Sliders,
-  ChevronDown,
-  ChevronUp,
-  LayoutGrid,
-  Sparkles,
-  ArrowRight,
-  RotateCcw,
-  Layers,
-} from "lucide-react";
+  IconPlus as Plus,
+  IconTrash as Trash2,
+  IconUsers as Users,
+  IconStar as Star,
+  IconAccessible as Accessibility,
+  IconEye as Eye,
+  IconCheck as Check,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconAdjustments as Sliders,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+  IconLayoutGrid as LayoutGrid,
+  IconSparkles as Sparkles,
+  IconArrowRight as ArrowRight,
+  IconRotate as RotateCcw,
+  IconStack2 as Layers,
+} from "@tabler/icons-react";
 import {
   SeatGeometry,
   VenueObject,
@@ -971,12 +971,12 @@ export default function ManualBuilder({
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
+          <div>
             {canonicalResult ? (
               <div>
                 {previewTab === "metrics" && (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3 text-xs">
+                    <div className="text-xs">
                       <p className="font-bold text-zinc-800 mb-2">
                         Plan Architecture Breakdown
                       </p>
@@ -1020,7 +1020,7 @@ export default function ManualBuilder({
                         return (
                           <div
                             key={i}
-                            className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-xs"
+                            className="flex items-center justify-between border-b border-zinc-200 py-2 text-xs last:border-0"
                           >
                             <span className="font-bold text-zinc-900">
                               {sec.name}

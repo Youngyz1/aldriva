@@ -21,7 +21,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { fetchIncidentDetail, buildIncidentDetailViewModel, isIncidentIdShape } from "@/lib/workforce/sentinel";
 
@@ -74,7 +74,7 @@ export default async function SentinelIncidentDetailPage({ params }: { params: P
       />
 
       {/* Incident record */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Incident</h2>
         {vm.empty.summary ? (
           <p className="text-sm text-zinc-500">No summary stored on this incident.</p>
@@ -105,7 +105,7 @@ export default async function SentinelIncidentDetailPage({ params }: { params: P
       </section>
 
       {/* Event timeline */}
-      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-3 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Correlated events ({vm.counts.events})</h2>
         {vm.empty.events ? (
           <p className="text-sm text-zinc-500">
@@ -140,7 +140,7 @@ export default async function SentinelIncidentDetailPage({ params }: { params: P
       </section>
 
       {/* Run → task → approval chain + investigation history */}
-      <section className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4">
+      <section className="space-y-1 border-t border-zinc-200 pt-4">
         <h2 className="text-base font-bold text-zinc-950">Linked records</h2>
         <p className="text-sm text-zinc-600">
           originating run:{" "}

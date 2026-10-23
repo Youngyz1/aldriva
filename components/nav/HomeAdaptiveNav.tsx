@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Home } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconHome as Home } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export default function HomeAdaptiveNav() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";

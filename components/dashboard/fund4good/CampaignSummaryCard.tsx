@@ -3,7 +3,7 @@
 import ProgressBar from "@/components/ui/ProgressBar";
 import { formatCurrency, getProgressPercentage, type Campaign } from "@/lib/fund4good-data";
 import { cn } from "@/lib/utils";
-import { Calendar, Users, TrendingUp } from "lucide-react";
+import { IconCalendar as Calendar, IconUsers as Users, IconTrendingUp as TrendingUp } from "@tabler/icons-react";
 
 interface CampaignSummaryCardProps {
   campaign: Campaign;

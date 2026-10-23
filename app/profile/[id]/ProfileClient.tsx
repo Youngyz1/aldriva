@@ -4,22 +4,22 @@ import { useState } from "react";
 import { useTranslations } from 'next-intl';
 import Link from "next/link";
 import {
-  Calendar,
-  Gift,
-  HeartHandshake,
-  MapPin,
-  Newspaper,
-  CalendarDays,
-  ShoppingBag,
-  Store,
-  ChevronDown,
-  ChevronUp,
-  Home,
-  Ticket,
-  LayoutDashboard,
-  Compass,
-  TrendingUp,
-} from "lucide-react";
+  IconCalendar as Calendar,
+  IconGift as Gift,
+  IconHeartHandshake as HeartHandshake,
+  IconMapPin as MapPin,
+  IconNews as Newspaper,
+  IconCalendar as CalendarDays,
+  IconShoppingBag as ShoppingBag,
+  IconBuildingStore as Store,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+  IconHome as Home,
+  IconTicket as Ticket,
+  IconLayoutDashboard as LayoutDashboard,
+  IconCompass as Compass,
+  IconTrendingUp as TrendingUp,
+} from "@tabler/icons-react";
 import FollowButton from "@/components/profile/FollowButton";
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import FollowsListModal from "@/components/profile/FollowsListModal";
@@ -756,7 +756,7 @@ export default function ProfileClient({
                 <button
                   type="button"
                   onClick={open}
-                  className="flex flex-col items-center gap-0.5 text-orange-700"
+                  className="flex flex-col items-center gap-0.5 text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
                   aria-label="Open Explore navigation"
                 >
                   <Compass className="h-5 w-5" />

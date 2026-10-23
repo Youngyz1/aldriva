@@ -5,10 +5,20 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import {
-  LayoutDashboard, Calendar, Heart, Package, Briefcase,
-  Users, BookOpen, Star, ImageIcon, BarChart2, Settings,
-  ChevronLeft, Globe
-} from "lucide-react";
+  IconLayoutDashboard as LayoutDashboard,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconPackage as Package,
+  IconBriefcase as Briefcase,
+  IconUsers as Users,
+  IconBook as BookOpen,
+  IconStar as Star,
+  IconPhoto as ImageIcon,
+  IconChartBar as BarChart2,
+  IconSettings as Settings,
+  IconChevronLeft as ChevronLeft,
+  IconWorld as Globe,
+} from "@tabler/icons-react";
 
 type Org = {
   id: string;
@@ -65,7 +75,7 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
       <div className="border-b border-white/10 px-4 py-3">
         <Link
           href="/dashboard"
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 transition hover:text-white"
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           All Organizations
@@ -89,14 +99,14 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-white">{org.name}</p>
-            <p className="text-xs text-slate-400">{orgTypeLabel}</p>
+            <p className="text-xs text-slate-300">{orgTypeLabel}</p>
           </div>
         </div>
         {/* View public profile */}
         <Link
           href={`/organizations/${org.slug ?? org.id}`}
           target="_blank"
-          className="mt-3 flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/10 hover:text-white"
+          className="mt-3 flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <Globe className="h-3 w-3" />
           View Public Profile
@@ -111,16 +121,17 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition ${
+              aria-current={active ? "page" : undefined}
+              className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition ${
                 active
                   ? "bg-orange-600/20 text-orange-400 ring-1 ring-orange-400/20"
-                  : "text-slate-400 hover:bg-white/10 hover:text-white"
-              }`}
+                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950`}
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span className="flex-1">{item.label}</span>
               {item.comingSoon && (
-                <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-200">
                   Soon
                 </span>
               )}

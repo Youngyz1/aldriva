@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { BarChart3, Eye, MousePointerClick, Share2, TrendingUp } from "lucide-react";
+import { IconChartBar as BarChart3, IconEye as Eye, IconPointer as MousePointerClick, IconShare2 as Share2, IconTrendingUp as TrendingUp } from "@tabler/icons-react";
 import type { CumulativeDayPoint } from "@/lib/fundraiser-dashboard";
 import { computeWeekChange } from "@/lib/fundraiser-dashboard";
 import { formatMoney } from "@/lib/money";

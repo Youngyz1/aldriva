@@ -3,6 +3,23 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10-23] — Phase 1A information density, interaction, typography, and Tabler icons (staging working tree)
+
+- Replaced application Lucide interface icons with verified Tabler exports, added a safe dynamic homepage-category icon map, and removed `lucide-react`. Added the permanent icon and readability rules to `DESIGN.md`, `AGENTS.md`, `CLAUDE.md`, and DEC-0055.
+- Added progressive disclosure for kitchen/courier creation and personnel records, simplified menu and Orders empty-state surfaces, and improved navigation contrast and touch-target readability.
+- **Verification:** production TypeScript and Next.js build passed (386 static pages); the full suite passed 2,732/2,732 tests across 220 files; focused ESLint on five representative files had 0 errors and 3 `<img>` advisories; `git diff --check` passed. Authenticated review covered representative admin pages at 1440px/1100px plus organization Menu, Orders, Kitchen, and Promotions empty states. Admin route smoke passed 39/40; `/admin/workforce/sentinel/incidents/[id]` returned HTTP 200 with a `500` body marker, and `/admin/articles` had no row for the screenshot harness to capture.
+- Detailed scope and limitations: `docs/phases/phase-1a-platform-ui.md` and `docs/UI-SIMPLIFICATION-AUDIT.md`. The Phase 2 blank Website/Invitation Builder investigation was not started.
+
+## [2026-10-23] — Platform-wide UI simplification (working tree)
+
+- Set the page background as the default content surface and documented a permanent rule against decorative wrappers around ordinary text, forms, filters, tables, lists, and sections.
+- Removed default shadows from shared buttons, cards, and page-header actions; made `Section` unboxed by default; flattened redundant page, form, table, empty-state, and nested information wrappers in audited routes.
+- Follow-up: flattened organization Menu sections/items/forms and Promotions form sections; improved sidebar label, icon, badge, active, and keyboard-focus contrast across desktop, mobile, organization, admin, settings, and profile-account variants. Recorded WCAG contrast targets in the design and agent instructions.
+- **Follow-up verification:** changed-file ESLint passed with 0 errors (29 warnings); final focused ESLint passed with 0 errors (7 warnings); production TypeScript, `git diff --check`, production build (386 pages), and all 2,730 tests across 219 files passed. Protected visual routes remain unverified because no configured QA credentials or saved admin session were available.
+- Preserved individual kitchen orders, courier tasks/offers, menu/product/event records, selectable templates, metrics, map/preview canvases, semantic alerts, fundraising palette rules, and template-owned public-site/invitation styles.
+- Route inventory, changed components, exceptions, and verification: `docs/UI-SIMPLIFICATION-AUDIT.md`.
+- **Verification:** production TypeScript passed; changed-file ESLint passed with 0 errors and 22 warnings; full suite passed 2,730/2,730 tests across 219 files; production build compiled and generated 386 static pages; `git diff --check` passed. Browser review of login, event discovery, and ticket lookup at 375/768/1024/1440px found no overflow or page errors. Authenticated screens could not be visually checked without a local session.
+
 ## [2026-10] — Organizer dashboard sanitizer/runtime and generated type incident (2026-10-23; staging fix)
 
 - Split strict URL validation and the article-size limit into dependency-free modules, moved URL-only imports to them, and kept the HTML sanitizer and its security profile intact. Added a Node `>=22.13.0` Vercel runtime requirement for the installed jsdom 29 chain.

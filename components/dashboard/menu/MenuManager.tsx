@@ -6,7 +6,14 @@ import { MenuSectionForm } from "./MenuSectionForm";
 import { MenuItemForm } from "./MenuItemForm";
 import { deleteMenuSection, deleteMenuItem, reorderMenuSections, reorderMenuItems } from "@/lib/actions/menus";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
+import {
+  IconChevronUp as ChevronUp,
+  IconChevronDown as ChevronDown,
+  IconPlus as Plus,
+  IconTrash as Trash2,
+  IconPencil as Pencil,
+  IconStar as Star,
+} from "@tabler/icons-react";
 import { listMenuOptionGroups } from "@/lib/actions/menu-option-groups";
 import { MenuOptionGroupsLibrary } from "./MenuOptionGroupsLibrary";
 
@@ -122,7 +129,7 @@ export function MenuManager({
         {canEdit && <Button size="sm" onClick={()=>{setEditingSection(null); setShowSectionForm(true);}}><Plus className="h-4 w-4 mr-1"/>New Section</Button>}
       </div>
       {showSectionForm && (
-        <div className="rounded-xl border p-4 bg-zinc-50">
+        <div className="border-t border-zinc-200 pt-4">
           <MenuSectionForm
             organizerId={organizerId}
             section={editingSection}
@@ -141,8 +148,8 @@ export function MenuManager({
         </div>
       )}
       {sortedSections.length===0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center space-y-3">
-          <p className="text-sm text-zinc-500">No sections or items yet.</p>
+        <div className="space-y-3 py-8 text-center">
+          <p className="text-sm text-zinc-600">No sections or items yet.</p>
           {canEdit && !showFirstDishForm && (
             <div className="flex justify-center gap-2">
               <Button size="sm" onClick={() => setShowFirstDishForm(true)}>
@@ -152,7 +159,7 @@ export function MenuManager({
             </div>
           )}
           {showFirstDishForm && canEdit && (
-            <div className="text-left rounded-lg border p-4 bg-zinc-50 dark:bg-zinc-800">
+            <div className="border-t border-zinc-200 pt-4 text-left">
               <MenuItemForm
                 organizerId={organizerId}
                 tenantId={tenantId}
@@ -173,32 +180,32 @@ export function MenuManager({
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div>
           {sortedSections.map((sec, secIdx)=> {
             const items = [...(itemsBySection[sec.id]||[])].sort((a,b)=>a.position-b.position);
             return (
-              <div key={sec.id} className="rounded-xl border p-4 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{sec.name} {sec.is_active? "": "(Inactive)"}</div>
-                    {sec.description && <div className="text-sm text-zinc-500">{sec.description}</div>}
+              <section key={sec.id} aria-labelledby={`menu-section-${sec.id}`} className="space-y-4 border-t border-zinc-200 py-4 first:border-t-0 first:pt-0">
+                <header className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 id={`menu-section-${sec.id}`} className="break-words font-medium">{sec.name} {sec.is_active? "": "(Inactive)"}</h3>
+                    {sec.description && <div className="text-sm text-zinc-600">{sec.description}</div>}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     {canEdit && <>
-                      <Button variant="ghost" size="icon" disabled={secIdx===0} onClick={()=>handleMoveSection(secIdx,-1)}><ChevronUp className="h-4 w-4"/></Button>
-                      <Button variant="ghost" size="icon" disabled={secIdx===sortedSections.length-1} onClick={()=>handleMoveSection(secIdx,1)}><ChevronDown className="h-4 w-4"/></Button>
-                      <Button variant="outline" size="sm" onClick={()=>{setEditingSection(sec); setShowSectionForm(true);}}><Pencil className="h-4 w-4"/></Button>
+                      <Button variant="ghost" size="icon" aria-label={`Move ${sec.name} up`} disabled={secIdx===0} onClick={()=>handleMoveSection(secIdx,-1)}><ChevronUp className="h-4 w-4"/></Button>
+                      <Button variant="ghost" size="icon" aria-label={`Move ${sec.name} down`} disabled={secIdx===sortedSections.length-1} onClick={()=>handleMoveSection(secIdx,1)}><ChevronDown className="h-4 w-4"/></Button>
+                      <Button variant="outline" size="sm" aria-label={`Edit ${sec.name}`} onClick={()=>{setEditingSection(sec); setShowSectionForm(true);}}><Pencil className="h-4 w-4"/></Button>
                     </>}
-                    {canDelete && <Button variant="ghost" size="icon" onClick={()=>setDeleteSection(sec)}><Trash2 className="h-4 w-4 text-red-600"/></Button>}
+                    {canDelete && <Button variant="ghost" size="icon" aria-label={`Delete ${sec.name}`} onClick={()=>setDeleteSection(sec)}><Trash2 className="h-4 w-4 text-red-600"/></Button>}
                   </div>
-                </div>
-                <div className="mt-4">
+                </header>
+                <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Items ({items.length})</span>
                     {canEdit && <Button size="sm" variant="outline" onClick={()=> setActiveItemSection(activeItemSection===sec.id? null: sec.id)}><Plus className="h-4 w-4 mr-1"/>{activeItemSection===sec.id? "Cancel":"Add Item"}</Button>}
                   </div>
                   {activeItemSection===sec.id && canEdit && (
-                    <div className="mb-3 rounded-lg border p-3 bg-zinc-50">
+                    <div className="mb-4 border-b border-zinc-200 pb-4">
                       <MenuItemForm
                         sectionId={sec.id}
                         organizerId={organizerId}
@@ -218,7 +225,7 @@ export function MenuManager({
                     </div>
                   )}
                   {editingItem && editingItem.sectionId===sec.id && canEdit && (
-                    <div className="mb-3 rounded-lg border p-3 bg-zinc-50">
+                    <div className="mb-4 border-b border-zinc-200 pb-4">
                       <MenuItemForm
                         sectionId={sec.id}
                         organizerId={organizerId}
@@ -238,28 +245,28 @@ export function MenuManager({
                       />
                     </div>
                   )}
-                  {items.length===0 ? <div className="text-xs text-zinc-400">No items.</div> : (
-                    <div className="space-y-2">
+                  {items.length===0 ? <div className="text-sm text-zinc-600">No items.</div> : (
+                    <div className="divide-y divide-zinc-200">
                       {items.map((it, idx)=> (
-                        <div key={it.id} className="rounded-lg border px-3 py-2 flex items-center justify-between">
-                          <div>
-                            <div className="text-sm font-medium">{it.name} {it.is_featured && <span className="text-amber-600">★</span>} {it.is_active? "":"(Inactive)"}</div>
-                            <div className="text-xs text-zinc-500">${Number(it.price).toFixed(2)}</div>
+                        <div key={it.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="text-base font-medium">{it.name} {it.is_featured && <Star className="inline h-4 w-4 text-orange-600" role="img" aria-label="Featured" />} {it.is_active? "":"(Inactive)"}</div>
+                            <div className="text-sm text-zinc-600">${Number(it.price).toFixed(2)}</div>
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex flex-wrap gap-1 self-end sm:shrink-0 sm:flex-nowrap sm:self-auto">
                             {canEdit && <>
-                              <Button variant="ghost" size="icon" disabled={idx===0} onClick={()=>handleMoveItem(sec.id, idx,-1)}><ChevronUp className="h-4 w-4"/></Button>
-                              <Button variant="ghost" size="icon" disabled={idx===items.length-1} onClick={()=>handleMoveItem(sec.id, idx,1)}><ChevronDown className="h-4 w-4"/></Button>
+                              <Button variant="ghost" size="icon" aria-label={`Move ${it.name} up`} disabled={idx===0} onClick={()=>handleMoveItem(sec.id, idx,-1)}><ChevronUp className="h-4 w-4"/></Button>
+                              <Button variant="ghost" size="icon" aria-label={`Move ${it.name} down`} disabled={idx===items.length-1} onClick={()=>handleMoveItem(sec.id, idx,1)}><ChevronDown className="h-4 w-4"/></Button>
                               <Button variant="outline" size="sm" onClick={()=> setEditingItem({...it, sectionId: sec.id})}>Edit</Button>
                             </>}
-                            {canDelete && <Button variant="ghost" size="icon" onClick={()=> setDeleteItem({item:it, sectionId:sec.id})}><Trash2 className="h-4 w-4 text-red-600"/></Button>}
+                            {canDelete && <Button variant="ghost" size="icon" aria-label={`Delete ${it.name}`} onClick={()=> setDeleteItem({item:it, sectionId:sec.id})}><Trash2 className="h-4 w-4 text-red-600"/></Button>}
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>

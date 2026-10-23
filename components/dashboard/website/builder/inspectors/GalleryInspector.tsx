@@ -9,7 +9,7 @@ import {
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
 import { MediaUploadField } from "./common/MediaUploadField";
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
 
 interface GalleryInspectorProps {
   block: GalleryBlock;

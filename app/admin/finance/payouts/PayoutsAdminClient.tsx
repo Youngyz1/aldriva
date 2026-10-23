@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
-  Loader2,
-  X,
-  FileCheck,
-  Building,
-  User,
-  ShoppingBag,
-} from "lucide-react";
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconX as X,
+  IconFileCheck as FileCheck,
+  IconBuilding as Building,
+  IconUser as User,
+  IconShoppingBag as ShoppingBag,
+} from "@tabler/icons-react";
 import {
   getAdminPayoutQueue,
   transitionPayoutProcessing,

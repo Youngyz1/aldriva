@@ -288,7 +288,7 @@ export function PromotionsManager({
 
   if (editing) {
     return (
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs sm:p-6" aria-labelledby="promotion-form-title">
+      <section className="space-y-5" aria-labelledby="promotion-form-title">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div><h2 id="promotion-form-title" className="text-xl font-semibold">{editing === "new" ? "Create promotion" : "Edit promotion"}</h2><p className="mt-1 text-sm text-zinc-600">Set the offer, menu targets, and storefront presentation.</p></div>
           <button type="button" className={buttonClass} onClick={() => setEditing(null)}>Back to promotions</button>
@@ -302,7 +302,7 @@ export function PromotionsManager({
               <Field id="promo-cta" label="CTA label"><input id="promo-cta" className={inputClass} value={form.cta_label || ""} maxLength={40} onChange={(event) => set("cta_label", event.currentTarget.value)} /></Field>
             </div>
             <Field id="promo-description" label="Description"><textarea id="promo-description" className={`${inputClass} min-h-24`} value={form.description || ""} maxLength={300} onChange={(event) => set("description", event.currentTarget.value)} /></Field>
-            <div className="rounded-xl border border-zinc-200 p-4">
+            <section className="border-t border-zinc-200 pt-5">
               <h3 className="font-semibold text-zinc-900">Offer</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <Field id="promo-offer-type" label="Offer type"><select id="promo-offer-type" className={inputClass} value={form.offer_type} onChange={(event) => set("offer_type", event.currentTarget.value as FormState["offer_type"])}><option value="percent_off">Percent off</option><option value="special_price">Special price</option><option value="free_delivery">Free delivery</option></select></Field>
@@ -317,8 +317,8 @@ export function PromotionsManager({
                 <Field id="promo-code" label="Promo code" help="Optional. Codes are checked against the cart before an order is submitted."><input id="promo-code" className={inputClass} value={form.code || ""} maxLength={40} onChange={(event) => { set("code", event.currentTarget.value.toUpperCase()); setCopiedCode(false); }} /></Field>
                 <div className="flex items-end gap-2"><button type="button" className={`${buttonClass} flex-1`} onClick={generateCode}>Generate code</button><button type="button" className={buttonClass} disabled={!form.code} onClick={() => void copyCode()}>{copiedCode ? "Copied" : "Copy"}</button></div>
               </div>
-            </div>
-            <div className="rounded-xl border border-zinc-200 p-4">
+            </section>
+            <section className="border-t border-zinc-200 pt-5">
               <h3 className="font-semibold text-zinc-900">Targets</h3>
               <p className="mt-1 text-xs text-zinc-600">Choose menu items or entire sections. You can select up to 50.</p>
               <label htmlFor="target-search" className="sr-only">Search menu targets</label>
@@ -336,8 +336,8 @@ export function PromotionsManager({
                 })}
                 {targetRows.matchingSections.length === 0 && targetRows.matchingItems.length === 0 && <p className="p-4 text-sm text-zinc-500">No matching menu targets.</p>}
               </div>
-            </div>
-            <div className="rounded-xl border border-zinc-200 p-4">
+            </section>
+            <section className="border-t border-zinc-200 pt-5">
               <h3 className="font-semibold text-zinc-900">Schedule and presentation</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <Field id="promo-starts" label="Starts at"><input id="promo-starts" className={inputClass} type="datetime-local" value={toLocalInput(form.starts_at)} onChange={(event) => set("starts_at", event.currentTarget.value || null)} /></Field>
@@ -349,7 +349,7 @@ export function PromotionsManager({
                 {form.destination_type === "external" && <Field id="promo-destination-url" label="External HTTPS URL"><input id="promo-destination-url" className={inputClass} type="url" placeholder="https://example.com" value={form.destination_url || ""} onChange={(event) => set("destination_url", event.currentTarget.value)} /></Field>}
               </div>
               <div className="mt-4"><MediaUploadField label="Promotion image" value={form.image_url || ""} onChange={(url) => set("image_url", url)} tenantId={tenantId} folderSubpath="promotions" /></div>
-            </div>
+            </section>
           </div>
           <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
             <button type="button" className={`${buttonClass} mb-3 w-full xl:hidden`} aria-expanded={showMobilePreview} onClick={() => setShowMobilePreview((value) => !value)}>{showMobilePreview ? "Hide preview" : "Show live preview"}</button>
@@ -414,8 +414,8 @@ export function PromotionsManager({
         <label htmlFor="promotion-status-filter" className="sr-only">Filter by status</label>
         <select id="promotion-status-filter" className={`${inputClass} sm:max-w-56`} value={statusFilter} onChange={(event) => setStatusFilter(event.currentTarget.value)}><option value="all">All statuses</option>{STATUS_ORDER.map((status) => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select>
       </div>
-      {promotions.length === 0 ? <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center"><h3 className="text-lg font-semibold">No promotions yet</h3><p className="mx-auto mt-2 max-w-md text-sm text-zinc-600">Create an offer to highlight menu items or give customers a promo code.</p>{canEdit && <button className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white" onClick={openCreate}>Create promotion</button>}</div>
-        : filtered.length === 0 ? <p className="rounded-xl border bg-white p-6 text-center text-sm text-zinc-600">No promotions match these filters.</p>
+      {promotions.length === 0 ? <div className="py-8 text-center"><h3 className="text-lg font-semibold">No promotions yet</h3><p className="mx-auto mt-2 max-w-md text-sm text-zinc-600">Create an offer to highlight menu items or give customers a promo code.</p>{canEdit && <button className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white" onClick={openCreate}>Create promotion</button>}</div>
+        : filtered.length === 0 ? <p className="py-6 text-center text-sm text-zinc-600">No promotions match these filters.</p>
           : <div className="grid gap-3">{filtered.map((promotion) => {
             const status = getMenuPromotionDisplayStatus(promotion, now);
             const targetCount = promotion.targets?.length || 0;

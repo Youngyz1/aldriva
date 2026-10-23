@@ -8,17 +8,17 @@ import { getClientSiteUrl } from "@/lib/site-url-client";
 import { useDashboardExport } from "@/hooks/use-dashboard-export";
 import { cn } from "@/lib/utils";
 import {
-  Megaphone,
-  Share2,
-  Mail,
-  Link as LinkIcon,
-  UserPlus,
-  Zap,
-  Check,
-  Download,
-  ArrowRight,
-  Loader2,
-} from "lucide-react";
+  IconSpeakerphone as Megaphone,
+  IconShare2 as Share2,
+  IconMail as Mail,
+  IconLink as LinkIcon,
+  IconUserPlus as UserPlus,
+  IconBolt as Zap,
+  IconCheck as Check,
+  IconDownload as Download,
+  IconArrowRight as ArrowRight,
+  IconLoader2 as Loader2,
+} from "@tabler/icons-react";
 
 interface QuickActionsProps {
   campaign: Campaign;

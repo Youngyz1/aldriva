@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { IconSearch as Search } from "@tabler/icons-react";
 import EventCard from "@/components/EventCard";
 import ExternalEventsCarousel from "@/components/events/ExternalEventsCarousel";
 import DiscoverMoreCarousel, {

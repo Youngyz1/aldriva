@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, Layers, Wand2, ExternalLink } from "lucide-react";
+import { IconSparkles as Sparkles, IconStack2 as Layers, IconWand as Wand2, IconExternalLink as ExternalLink } from "@tabler/icons-react";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import ArticleAiAssistantModal from "@/components/articles/ArticleAiAssistantModal";

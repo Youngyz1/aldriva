@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Check, Sparkles, Zap } from "lucide-react";
+import { IconCheck as Check, IconSparkles as Sparkles, IconBolt as Zap } from "@tabler/icons-react";
 
 export interface PlanOption {
   id:          string;

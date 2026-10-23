@@ -24,20 +24,20 @@ import { InvitationStoryMoments } from "@/components/invitation/templates/Invita
 import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import {
-  CheckCircle2,
-  XCircle,
-  CalendarPlus,
-  Share2,
-  ExternalLink,
-  Check,
-  Loader2,
-  Gift,
-  PartyPopper,
-  Sparkles,
-  MapPin,
-  Calendar,
-  Clock,
-} from "lucide-react";
+  IconCircleCheck as CheckCircle2,
+  IconCircleX as XCircle,
+  IconCalendarPlus as CalendarPlus,
+  IconShare2 as Share2,
+  IconExternalLink as ExternalLink,
+  IconCheck as Check,
+  IconLoader2 as Loader2,
+  IconGift as Gift,
+  IconConfetti as PartyPopper,
+  IconSparkles as Sparkles,
+  IconMapPin as MapPin,
+  IconCalendar as Calendar,
+  IconClock as Clock,
+} from "@tabler/icons-react";
 import {
   InvitationPageData,
   InvitationGalleryItem,

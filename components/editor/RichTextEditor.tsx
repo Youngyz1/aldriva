@@ -16,23 +16,23 @@ import {
 import { ImageUploader, type ImageUploaderHandle } from "@/components/shared/ImageUploader";
 import DOMPurify from "isomorphic-dompurify";
 import {
-  Bold as BoldIcon,
-  Italic as ItalicIcon,
-  Underline as UnderlineIcon,
-  List as ListIcon,
-  ListOrdered as ListOrderedIcon,
-  Link as LinkIcon,
-  ImagePlus as UploadImageIcon,
-  Globe as LinkImageIcon,
-  Video as UploadVideoIcon,
-  Tv as LinkVideoIcon,
-  Undo2 as UndoIcon,
-  Redo2 as RedoIcon,
-  Unlink as UnlinkIcon,
-  Sparkles as SparklesIcon,
-  Layers as LayersIcon,
-  Quote as QuoteIcon,
-} from "lucide-react";
+  IconBold as BoldIcon,
+  IconItalic as ItalicIcon,
+  IconUnderline as UnderlineIcon,
+  IconList as ListIcon,
+  IconListNumbers as ListOrderedIcon,
+  IconLink as LinkIcon,
+  IconPhotoPlus as UploadImageIcon,
+  IconGlobe as LinkImageIcon,
+  IconVideo as UploadVideoIcon,
+  IconDeviceTv as LinkVideoIcon,
+  IconArrowBackUp as UndoIcon,
+  IconArrowForwardUp as RedoIcon,
+  IconUnlink as UnlinkIcon,
+  IconSparkles as SparklesIcon,
+  IconStack2 as LayersIcon,
+  IconQuote as QuoteIcon,
+} from "@tabler/icons-react";
 
 // --- Custom Video Node Extension ---
 declare module "@tiptap/core" {

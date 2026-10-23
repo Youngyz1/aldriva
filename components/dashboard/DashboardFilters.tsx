@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export type DashboardSelectOption = { value: string; label: string };

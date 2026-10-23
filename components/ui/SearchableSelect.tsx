@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { IconChevronDown as ChevronDown, IconSearch as Search, IconX as X } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 interface SearchableSelectProps {

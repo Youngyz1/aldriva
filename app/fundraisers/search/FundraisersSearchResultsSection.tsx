@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Heart, Search } from "lucide-react";
+import { IconHeart as Heart, IconSearch as Search } from "@tabler/icons-react";
 import PublicEmptyState from "@/components/public/PublicEmptyState";
 import PublicPagination from "@/components/public/PublicPagination";
 import CampaignShowcase, {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SettingsCard } from "@/components/ui/settings-card";
-import { AlertTriangle, Loader2, X } from "lucide-react";
+import { IconAlertTriangle as AlertTriangle, IconLoader2 as Loader2, IconX as X } from "@tabler/icons-react";
 
 export default function SecurityClient({
   email,

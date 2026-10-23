@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
-import { MapPin, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { IconMapPin as MapPin, IconCalendar as CalendarDays, IconChevronLeft as ChevronLeft, IconChevronRight as ChevronRight } from "@tabler/icons-react";
 import LocationAutocomplete from "@/components/shared/LocationAutocomplete";
 import { slugifyCity } from "@/lib/city-slug";
 

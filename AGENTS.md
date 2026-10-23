@@ -74,8 +74,14 @@ Every agent starting a session MUST execute in order:
 ### E. Design & UI Quality
 - **Design system**: Follow the repository-root `DESIGN.md` for all UI work.
 - **Design tokens**: Zinc neutral base + Orange accent. `--primary` = `--brand-700` (#c2410c). Full token list in `app/globals.css` and `DESIGN.md`.
-- **Component radius**: `rounded-xl` (not `rounded-2xl`) is the standard for cards and buttons.
-- **Shadows**: `shadow-xs` standard. No elevation stacking without purpose.
+- **Interface icons**: use @tabler/icons-react and verified exported component names. Prefer monochrome outline icons with consistent size/stroke and currentColor; use orange for active or meaningful emphasis, and semantic colors only for actual states. Preserve brand logos; do not add another interface icon library.
+- **Information density and readability**: keep copy concise, show the next action and task-critical data first, and disclose secondary details/actions on request. Creation/invitation forms start closed. Personnel records lead with name/status and expose details through keyboard-accessible disclosure. Use readable 15–16px main/label text and 14–15px secondary text with accessible contrast. See DESIGN.md for the full patterns.
+- **Design tokens**: Zinc neutral base + Orange accent. `--primary` = `--brand-700` (#c2410c). Full token list in `app/globals.css` and `DESIGN.md`.
+- **Permanent page-surface rule**: Ordinary content belongs directly on the page background by default. Headings, descriptions, forms, filters, toolbars, tabs, tables, lists, and empty states use spacing, typography, and dividers instead of decorative wrappers. New pages must follow this rule.
+- **Cards**: Reserve one card for a meaningful independent item, actionable record, selectable template, metric/chart, or other distinct visual unit. Nested cards require a clear functional justification documented in code.
+- **Component radius**: `rounded-xl` is for controls and justified standalone cards. Ordinary sections and content groups stay unboxed.
+- **Shadows**: No default shadow on buttons, sections, or cards. Reserve elevation for overlays or a clearly elevated interaction state.
+- **Navigation contrast**: Sidebar labels, descriptions, group labels, and badges meet 4.5:1 contrast against their actual background; icons and focus indicators meet 3:1. Check alpha-composited colors and both light/dark variants.
 - **No gradients** on interactive elements (buttons are solid). No glassmorphism.
 - **Existing UI is not automatically good UI.** Check `DESIGN.md`'s known inconsistencies before copying older page layouts.
 - **Component reuse**: Always check `components/ui/` → `components/dashboard/` → `components/` before creating a new component.

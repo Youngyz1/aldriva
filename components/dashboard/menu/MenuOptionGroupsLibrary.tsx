@@ -203,7 +203,7 @@ export function MenuOptionGroupsLibrary({
         </div>}
       </header>
 
-      {groupForm && <form className="space-y-3 rounded-xl border p-4" onSubmit={saveGroup}>
+      {groupForm && <form className="space-y-3 border-t pt-4" onSubmit={saveGroup}>
         <h3 className="font-medium">{groupForm.id ? t("editGroup") : t("createGroup")}</h3>
         {!groupForm.id && groupForm.templateId && <p className="text-sm text-muted-foreground">{t("templateTitle")}: {templates.find((entry) => entry.id === groupForm.templateId)?.name}</p>}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -224,7 +224,7 @@ export function MenuOptionGroupsLibrary({
       </form>}
 
       {notice && <p role="status" className="rounded-lg bg-muted p-3 text-sm">{notice}</p>}
-      {groups.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">{t("noGroups")}</p> : <div className="grid gap-3 lg:grid-cols-2">
+      {groups.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{t("noGroups")}</p> : <div className="grid gap-3 lg:grid-cols-2">
         {groups.map((group) => {
           const count = options.filter((option) => option.group_id === group.id).length;
           const rule = group.is_required ? t("ruleRequired", { max: group.max_select }) : t("ruleOptional", { max: group.max_select });
@@ -248,10 +248,10 @@ export function MenuOptionGroupsLibrary({
         })}
       </div>}
 
-      {selectedGroup && <section className="space-y-4 rounded-xl border p-4" aria-labelledby="option-editor-heading">
+      {selectedGroup && <section className="space-y-4 border-t pt-4" aria-labelledby="option-editor-heading">
         <header className="flex flex-wrap items-center justify-between gap-2"><div><h3 id="option-editor-heading" className="font-semibold">{selectedGroup.name} · {t("options")}</h3><p className="text-sm text-muted-foreground">{selectedOptions.length}/{MENU_OPTION_LIMIT} {t("options")}</p></div><Button className="min-h-11" type="button" variant="outline" onClick={() => setSelectedGroupId(null)}>{t("close")}</Button></header>
         {selectedOptions.length >= MENU_OPTION_LIMIT ? <p role="status" className="rounded-lg bg-muted p-3 text-sm">{t("atLimit")}</p> : canEdit && <Button className="min-h-11" type="button" onClick={() => startOption()}>{t("addOption")}</Button>}
-        {selectedOptions.map((option, index) => <div key={option.id} draggable={canEdit} onDragStart={() => setDraggedOption(option.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => void dropOption(option.id)} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+        {selectedOptions.map((option, index) => <div key={option.id} draggable={canEdit} onDragStart={() => setDraggedOption(option.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => void dropOption(option.id)} className="flex flex-col gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
           <div><p className="font-medium">{option.name} {option.is_default && <span className="text-xs text-muted-foreground">· {t("defaultOption")}</span>}</p><p className="text-sm text-muted-foreground">{selectedGroup.kind === "variant" ? t("price") : t("extraCharge")}: {Number(option.price).toFixed(2)} {option.is_available ? "" : `· ${t("soldOutToday")}`}</p></div>
           <div className="flex flex-wrap gap-2">
             {canEdit && <><Button className="min-h-11" type="button" variant="outline" disabled={index === 0 || busy} onClick={() => void moveOption(option.id, -1)} aria-label={`${t("moveUp")}: ${option.name}`}>{t("moveUp")}</Button>
@@ -266,7 +266,7 @@ export function MenuOptionGroupsLibrary({
           </div>
           {deleteOptionId === option.id && canDelete && <div className="w-full rounded-lg bg-muted p-3 text-sm"><p>{t("deleteOption")} · {option.name}?</p><div className="mt-2 flex gap-2"><Button className="min-h-11" type="button" variant="destructive" disabled={busy} onClick={() => void removeOption(option.id)}>{t("deleteOption")}</Button><Button className="min-h-11" type="button" variant="outline" onClick={() => setDeleteOptionId(null)}>{t("startFromScratch")}</Button></div></div>}
         </div>)}
-        {(creatingOption || editingOption) && canEdit && <form onSubmit={saveOption} className="space-y-3 rounded-lg bg-muted/40 p-4">
+        {(creatingOption || editingOption) && canEdit && <form onSubmit={saveOption} className="space-y-3 border-t border-border pt-4">
           <h4 className="font-medium">{editingOption ? t("editOption") : t("addOption")}</h4>
           <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm"><span>{t("optionName")}</span><Input value={optionForm.name} onChange={(event) => setOptionForm({ ...optionForm, name: event.target.value })} maxLength={80} required /></label>
             <label className="space-y-1 text-sm"><span>{selectedGroup.kind === "variant" ? t("price") : t("extraCharge")}</span><Input type="number" min="0" max="999999.99" step="0.01" value={optionForm.price} onChange={(event) => setOptionForm({ ...optionForm, price: event.target.value })} required /></label></div>
@@ -280,7 +280,7 @@ export function MenuOptionGroupsLibrary({
           {selectedGroup.kind === "addon" && optionForm.is_default && Number(optionForm.price) > 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">{t("paidDefaultWarning")}</p>}
           <p className="text-xs text-muted-foreground">{t("defaultSelectionHelp")}</p>
           <fieldset className="space-y-2"><legend className="text-sm font-medium">{t("allergens")}</legend><div className="flex flex-wrap gap-2">{MENU_ALLERGENS.map((allergen) => <label key={allergen} className="flex min-h-11 items-center gap-2 rounded-md border px-3 text-sm"><input type="checkbox" checked={optionForm.allergens.includes(allergen)} onChange={(event) => setOptionForm({ ...optionForm, allergens: event.target.checked ? [...optionForm.allergens, allergen] : optionForm.allergens.filter((value) => value !== allergen) })} />{allergen}</label>)}</div><p className="text-xs text-amber-700">{t("allergenNote")}</p></fieldset>
-          <div className="rounded-xl border p-3"><h5 className="text-sm font-medium">{t("preview")}</h5><div className="mt-2 flex items-center justify-between gap-3">{optionForm.image_url && <Image src={optionForm.image_url} alt="" width={56} height={56} unoptimized className="h-14 w-14 rounded-lg object-cover" />}<div className="min-w-0 flex-1"><p className="font-medium">{optionForm.name || t("optionName")}</p>{optionForm.description && <p className="text-sm text-muted-foreground">{optionForm.description}</p>}</div><span className="text-sm">{Number(optionForm.price || 0).toFixed(2)}</span></div></div>
+          <div className="border-t border-border pt-3"><h5 className="text-sm font-medium">{t("preview")}</h5><div className="mt-2 flex items-center justify-between gap-3">{optionForm.image_url && <Image src={optionForm.image_url} alt="" width={56} height={56} unoptimized className="h-14 w-14 rounded-lg object-cover" />}<div className="min-w-0 flex-1"><p className="font-medium">{optionForm.name || t("optionName")}</p>{optionForm.description && <p className="text-sm text-muted-foreground">{optionForm.description}</p>}</div><span className="text-sm">{Number(optionForm.price || 0).toFixed(2)}</span></div></div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap gap-2"><Button className="min-h-11" type="submit" disabled={busy}>{t("save")}</Button><Button className="min-h-11" type="button" variant="outline" onClick={() => { setCreatingOption(false); setEditingOption(null); }}>{t("startFromScratch")}</Button></div>
         </form>}

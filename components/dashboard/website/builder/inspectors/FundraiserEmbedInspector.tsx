@@ -7,7 +7,7 @@ import {
 } from "@/lib/website-blocks";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
-import { Heart, Check } from "lucide-react";
+import { IconHeart as Heart, IconCheck as Check } from "@tabler/icons-react";
 
 export interface TenantFundraiserOption {
   id: string;

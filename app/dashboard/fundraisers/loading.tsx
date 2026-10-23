@@ -11,9 +11,9 @@ export default function FundraisersLoading() {
         </div>
         <div className="h-10 w-36 rounded-xl bg-zinc-200" />
       </div>
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+      <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-zinc-200/60 bg-zinc-50/60 p-5">
+          <div key={i} className="border-t border-zinc-200 pt-4 first:border-0 first:pt-0">
             <div className="h-4 w-48 rounded bg-zinc-200" />
             <div className="mt-3 flex gap-8">
               {Array.from({ length: 4 }).map((_, j) => (

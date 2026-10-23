@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { IconBell as Bell } from "@tabler/icons-react";
 import { useNotifications, type NotificationRow } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 

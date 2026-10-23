@@ -4,7 +4,7 @@ import React from "react";
 import { EventsEmbedBlock, BLOCK_LIMITS } from "@/lib/website-blocks";
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
-import { Calendar, Check } from "lucide-react";
+import { IconCalendar as Calendar, IconCheck as Check } from "@tabler/icons-react";
 
 export interface TenantEventOption {
   id: string;

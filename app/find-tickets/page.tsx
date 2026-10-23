@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Search, Mail, Key, ArrowRight, Download, MailCheck, AlertTriangle, Ticket } from "lucide-react";
+import { IconSearch as Search, IconMail as Mail, IconKey as Key, IconArrowRight as ArrowRight, IconDownload as Download, IconMailCheck as MailCheck, IconAlertTriangle as AlertTriangle, IconTicket as Ticket } from "@tabler/icons-react";
 import { ExpandableSvgQr, downloadQrPng } from "@/components/cards/ExpandableQr";
 
 type Order = {
@@ -273,7 +273,7 @@ export default function FindTicketsPage() {
         </div>
 
         {/* Search form */}
-        <form onSubmit={handleSearch} className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-sm mb-10 space-y-4">
+        <form onSubmit={handleSearch} className="mb-10 space-y-4">
           {activeTab === "email" ? (
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-2">Email Address</label>
@@ -289,7 +289,7 @@ export default function FindTicketsPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white shadow-md shadow-orange-500/10 transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
+                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
                 >
                   {loading ? "Searching..." : "Retrieve Tickets"}
                 </button>
@@ -310,7 +310,7 @@ export default function FindTicketsPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white shadow-md shadow-orange-500/10 transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
+                  className="w-full shrink-0 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white transition hover:bg-orange-700 disabled:bg-orange-300 sm:w-auto"
                 >
                   {loading ? "Searching..." : "Retrieve Tickets"}
                 </button>
@@ -328,7 +328,7 @@ export default function FindTicketsPage() {
 
         {/* Results section */}
         {searched && orders.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-zinc-300 shadow-sm">
+          <div className="py-12 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400"><Ticket className="h-8 w-8" /></div>
             <h2 className="text-xl font-black">No tickets found</h2>
             <p className="text-zinc-500 mt-2 text-sm">

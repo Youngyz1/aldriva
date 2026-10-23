@@ -4,16 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  Utensils,
-  Briefcase,
-  Globe,
-  ExternalLink,
-  Copy,
-  Calendar,
-  Heart,
-  Check,
-  ShieldCheck,
-} from "lucide-react";
+  IconToolsKitchen2 as Utensils,
+  IconBriefcase as Briefcase,
+  IconGlobe as Globe,
+  IconExternalLink as ExternalLink,
+  IconCopy as Copy,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconCheck as Check,
+  IconShieldCheck as ShieldCheck,
+} from "@tabler/icons-react";
 import type { QuickActionItem } from "@/lib/overview-types";
 
 export interface QuickActionsProps {

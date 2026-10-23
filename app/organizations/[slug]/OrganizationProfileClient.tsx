@@ -8,9 +8,19 @@ import { supabase } from "@/lib/supabase";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import StarRating from "@/components/StarRating";
 import {
-  Globe, Mail, Copy, Check, Share2, Heart, Users, Calendar,
-  MapPin, ExternalLink, ChevronRight, ArrowUpRight
-} from "lucide-react";
+  IconGlobe as Globe,
+  IconMail as Mail,
+  IconCopy as Copy,
+  IconCheck as Check,
+  IconShare2 as Share2,
+  IconHeart as Heart,
+  IconUsers as Users,
+  IconCalendar as Calendar,
+  IconMapPin as MapPin,
+  IconExternalLink as ExternalLink,
+  IconChevronRight as ChevronRight,
+  IconArrowUpRight as ArrowUpRight,
+} from "@tabler/icons-react";
 import {
   FaFacebookF, FaXTwitter, FaInstagram, FaLinkedinIn,
   FaYoutube, FaTiktok

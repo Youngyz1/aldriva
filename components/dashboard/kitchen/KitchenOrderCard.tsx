@@ -41,18 +41,18 @@ export function KitchenOrderCard({ order, canUpdate, busy, onTransition }: Props
   const completedTime = clockTime(order.readyAt);
 
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+    <article className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
       <header className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span aria-label={`Short order code ${order.shortCode}`} className="text-4xl font-black leading-none tracking-tight text-zinc-950">
               {order.shortCode || "----"}
             </span>
-            {order.isNew && <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-900">NEW</span>}
+            {order.isNew && <span className="rounded-full bg-orange-100 px-2.5 py-1 text-sm font-bold text-orange-900">NEW</span>}
           </div>
-          <p className="mt-1 text-xs text-zinc-500">{order.orderNumber}</p>
+          <p className="mt-1 text-sm text-zinc-600">{order.orderNumber}</p>
         </div>
-        <span className={`rounded-full px-3 py-1.5 text-xs font-bold tracking-wide ${order.fulfilmentType === "PICKUP" ? "bg-sky-100 text-sky-900" : "bg-violet-100 text-violet-900"}`}>
+        <span className={`rounded-full px-3 py-1.5 text-sm font-bold tracking-wide ${order.fulfilmentType === "PICKUP" ? "bg-sky-100 text-sky-900" : "bg-violet-100 text-violet-900"}`}>
           {order.fulfilmentType}
         </span>
       </header>
@@ -76,12 +76,12 @@ export function KitchenOrderCard({ order, canUpdate, busy, onTransition }: Props
 
       {order.customerNote && (
         <section className="mt-4 rounded-xl bg-amber-50 p-3">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-amber-950">Customer note</h2>
+          <h2 className="text-sm font-bold text-amber-950">Customer note</h2>
           <p className="mt-1 whitespace-pre-wrap text-sm text-amber-950">{order.customerNote}</p>
         </section>
       )}
 
-      <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-600">
+      <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-zinc-700">
         {createdTime && <div><dt className="inline font-medium">Ordered </dt><dd className="inline">{createdTime}</dd></div>}
         {readyTime && <div><dt className="inline font-medium">Ready by </dt><dd className="inline">{readyTime}</dd></div>}
         {order.status === "ready" && completedTime && <div><dt className="inline font-medium">Ready at </dt><dd className="inline">{completedTime}</dd></div>}

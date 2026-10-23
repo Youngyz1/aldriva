@@ -2,30 +2,30 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import * as LucideIcons from "lucide-react";
+import * as TablerIcons from "@tabler/icons-react";
 import {
-  LayoutTemplate,
-  Calendar,
-  HandHeart,
-  Grid3x3,
-  MessageSquareQuote,
-  Handshake,
-  Search as SearchIcon,
-  Plus,
-  Trash2,
-  Edit2,
-  ArrowUp,
-  ArrowDown,
-  Eye,
-  EyeOff,
-  Star,
-  AlertCircle,
-  Loader2,
-  Globe,
-  ImageIcon,
-  UserCircle2,
-  Upload,
-} from "lucide-react";
+  IconTemplate as LayoutTemplate,
+  IconCalendar as Calendar,
+  IconHeartHandshake as HandHeart,
+  IconGrid3x3 as Grid3x3,
+  IconQuote as MessageSquareQuote,
+  IconHeartHandshake as Handshake,
+  IconSearch as SearchIcon,
+  IconPlus as Plus,
+  IconTrash as Trash2,
+  IconEdit as Edit2,
+  IconArrowUp as ArrowUp,
+  IconArrowDown as ArrowDown,
+  IconEye as Eye,
+  IconEyeOff as EyeOff,
+  IconStar as Star,
+  IconAlertCircle as AlertCircle,
+  IconLoader2 as Loader2,
+  IconGlobe as Globe,
+  IconPhoto as ImageIcon,
+  IconUserCircle as UserCircle2,
+  IconUpload as Upload,
+} from "@tabler/icons-react";
 import { HomepageSettings } from "@/lib/homepage-hero";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { MAX_PUBLIC_MEDIA_BYTES, PUBLIC_MEDIA_TYPES } from "@/lib/media/constants";
@@ -82,9 +82,19 @@ const RECOMMENDED_ICONS = [
   "MapPin","Music","Trophy","Smile","Globe","Megaphone","Leaf","Flame",
 ];
 
-function DynIcon({ name, className = "w-5 h-5 text-violet-600" }: { name: string; className?: string }) {
-  const Ico = (LucideIcons as Record<string, any>)[name] ?? LucideIcons.HelpCircle;
-  return <Ico className={className} />;
+const DYNAMIC_ICON_EXPORTS: Record<string, string> = {
+  Mic: "IconMicrophone",
+  GraduationCap: "IconSchool",
+  HandHeart: "IconHeartHandshake",
+  Laptop: "IconDeviceLaptop",
+  Megaphone: "IconSpeakerphone",
+  Smile: "IconMoodSmile",
+};
+
+function DynIcon({ name, className = "w-5 h-5 text-zinc-800" }: { name: string; className?: string }) {
+  const icons = TablerIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
+  const Icon = icons[DYNAMIC_ICON_EXPORTS[name] ?? `Icon${name}`] ?? TablerIcons.IconHelpCircle;
+  return <Icon className={className} />;
 }
 
 /**
@@ -1111,7 +1121,7 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
       <div>
         <FieldLabel>{s.fieldIconName}</FieldLabel>
         <div className="mb-2 flex items-center gap-2">
-          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={nIcon} className="h-5 w-5 text-violet-600" /></div>
+          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={nIcon} className="h-5 w-5 text-zinc-800" /></div>
           <Input value={nIcon} onChange={e=>setNIcon(e.target.value)} className="flex-1" placeholder="Mic" />
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
@@ -1139,7 +1149,7 @@ function CategoriesPanel({ categories, setCats, flash, setErr }: {
       <div>
         <FieldLabel>{s.fieldIconName}</FieldLabel>
         <div className="mb-2 flex items-center gap-2">
-          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={editIcon} className="h-5 w-5 text-violet-600" /></div>
+          <div className="rounded-md border border-zinc-200 p-2"><DynIcon name={editIcon} className="h-5 w-5 text-zinc-800" /></div>
           <Input value={editIcon} onChange={e=>setEIcon(e.target.value)} className="flex-1" />
         </div>
       </div>

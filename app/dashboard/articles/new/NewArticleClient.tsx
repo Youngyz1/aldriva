@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, Layers, Wand2 } from "lucide-react";
+import { IconSparkles as Sparkles, IconStack2 as Layers, IconWand as Wand2 } from "@tabler/icons-react";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import ArticleTemplateSelector from "@/components/articles/ArticleTemplateSelector";

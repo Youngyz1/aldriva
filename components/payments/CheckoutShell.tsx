@@ -21,7 +21,7 @@
  */
 
 import Link from "next/link";
-import { Lock, ArrowLeft } from "lucide-react";
+import { IconLock as Lock, IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 
 type Props = {
   backHref: string;

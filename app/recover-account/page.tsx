@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle, Loader2, RotateCcw } from "lucide-react";
+import { IconAlertTriangle as AlertTriangle, IconCircleCheck as CheckCircle, IconLoader2 as Loader2, IconRotate as RotateCcw } from "@tabler/icons-react";
 
 export default function RecoverAccountPage() {
   const router = useRouter();

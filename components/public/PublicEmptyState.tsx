@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, type LucideIcon } from "lucide-react";
+import { IconSparkles as Sparkles, type TablerIcon as LucideIcon } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 type PublicEmptyStateProps = {

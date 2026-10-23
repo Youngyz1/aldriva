@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, Link as LinkIcon, Check } from "lucide-react";
+import { IconShare2 as Share2, IconLink as LinkIcon, IconCheck as Check } from "@tabler/icons-react";
 import { FaXTwitter, FaLinkedinIn, FaFacebookF, FaWhatsapp } from "react-icons/fa6";
 
 interface ArticleShareBarProps {

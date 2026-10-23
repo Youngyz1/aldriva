@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart2 } from "lucide-react";
+import { IconChartBar as BarChart2 } from "@tabler/icons-react";
 
 export default async function OrgAnalyticsPage({
   params,

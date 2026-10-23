@@ -11,12 +11,12 @@ import { cn } from "@/lib/utils";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
 import { BRAND } from "@/config/branding";
 import {
-  Mail,
-  ArrowUpRight,
-  Globe,
-  Sparkles,
-  HeartHandshake
-} from "lucide-react";
+  IconMail as Mail,
+  IconArrowUpRight as ArrowUpRight,
+  IconGlobe as Globe,
+  IconSparkles as Sparkles,
+  IconHeartHandshake as HeartHandshake,
+} from "@tabler/icons-react";
 import { FaFacebookF, FaXTwitter } from "react-icons/fa6";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -269,7 +269,7 @@ export default function OrganizerProfileCard({
             </div>
 
             {/* Dynamic Content Container */}
-            <div className="min-h-[140px] rounded-2xl border border-zinc-100 bg-zinc-50/30 p-3 sm:p-4">
+            <div className="min-h-[140px] border-t border-zinc-100 pt-3 sm:pt-4">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}

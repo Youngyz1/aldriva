@@ -9,7 +9,7 @@ import {
 import { InspectorField } from "./common/InspectorField";
 import { InspectorSection } from "./common/InspectorSection";
 import { MediaUploadField } from "./common/MediaUploadField";
-import { Plus, Trash2, Star } from "lucide-react";
+import { IconPlus as Plus, IconTrash as Trash2, IconStar as Star } from "@tabler/icons-react";
 
 interface TestimonialsInspectorProps {
   block: TestimonialsBlock;

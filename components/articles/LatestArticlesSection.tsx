@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { X } from "lucide-react";
+import { IconX as X } from "@tabler/icons-react";
 import { getLatestArticles, getAuthorProfileMap } from "@/lib/articles-data";
 import ArticleCard from "@/components/ArticleCard";
 import PublicPagination from "@/components/public/PublicPagination";

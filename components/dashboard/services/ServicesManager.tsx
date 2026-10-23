@@ -5,7 +5,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteService, reorderServices } from "@/lib/actions/services";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronUp, ChevronDown, Trash2 } from "lucide-react";
+import { IconChevronUp as ChevronUp, IconChevronDown as ChevronDown, IconTrash as Trash2 } from "@tabler/icons-react";
 
 export function ServicesManager({ organizerId, services, canEdit, canDelete }: { organizerId: string; services: any[]; canEdit: boolean; canDelete: boolean }) {
   const router = useRouter();

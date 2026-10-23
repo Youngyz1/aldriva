@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { TrendingUp } from "lucide-react";
+import { IconTrendingUp as TrendingUp } from "@tabler/icons-react";
 import { cacheLife } from "next/cache";
 import {
   getFeaturedArticles,

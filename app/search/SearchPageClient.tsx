@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { IconSearch as Search } from "@tabler/icons-react";
 
 import { Suspense } from "react";
 import PublicSearchBar from "@/components/public/PublicSearchBar";

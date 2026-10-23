@@ -4,22 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  Compass,
-  X,
-  UserPen,
-  Ticket,
-  Gift,
-  Heart,
-  Calendar,
-  Newspaper,
-  ShoppingBag,
-  Store,
-  Building2,
-  LayoutDashboard,
-  LogOut,
-  ChevronRight,
-  ChevronDown,
-} from "lucide-react";
+  IconCompass as Compass,
+  IconX as X,
+  IconUserEdit as UserPen,
+  IconTicket as Ticket,
+  IconGift as Gift,
+  IconHeart as Heart,
+  IconCalendar as Calendar,
+  IconNews as Newspaper,
+  IconShoppingBag as ShoppingBag,
+  IconBuildingStore as Store,
+  IconBuilding as Building2,
+  IconLayoutDashboard as LayoutDashboard,
+  IconLogout as LogOut,
+  IconChevronRight as ChevronRight,
+  IconChevronDown as ChevronDown,
+} from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
 import type { ProfileMenuData } from "@/lib/profile-menu-data";
 
@@ -97,7 +97,7 @@ export default function ProfileSettingsModal({
 
   // Shared menu content used in both desktop popover and mobile sheet
   const menuContent = (
-    <div className="space-y-5">
+    <div className="space-y-5 [&_a:focus-visible]:outline-none [&_a:focus-visible]:ring-2 [&_a:focus-visible]:ring-brand-600 [&_a:focus-visible]:ring-offset-2 [&_a:focus-visible]:ring-offset-white [&_button:focus-visible]:outline-none [&_button:focus-visible]:ring-2 [&_button:focus-visible]:ring-brand-600 [&_button:focus-visible]:ring-offset-2 [&_button:focus-visible]:ring-offset-white">
       {/* Section 1: PERSONAL */}
       <div>
         <h3 className="px-1 text-[10px] font-black uppercase tracking-widest text-orange-700">
@@ -111,7 +111,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <Ticket className="h-4 w-4 text-zinc-400" />
+                <Ticket className="h-4 w-4 text-zinc-600" />
                 <span>My Tickets</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -127,7 +127,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <Gift className="h-4 w-4 text-zinc-400" />
+                <Gift className="h-4 w-4 text-zinc-600" />
                 <span>My Donations</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -143,7 +143,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <Heart className="h-4 w-4 text-zinc-400" />
+                <Heart className="h-4 w-4 text-zinc-600" />
                 <span>My Campaigns</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -159,7 +159,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <Calendar className="h-4 w-4 text-zinc-400" />
+                <Calendar className="h-4 w-4 text-zinc-600" />
                 <span>My Events</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -175,7 +175,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <Newspaper className="h-4 w-4 text-zinc-400" />
+                <Newspaper className="h-4 w-4 text-zinc-600" />
                 <span>My Articles</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -191,7 +191,7 @@ export default function ProfileSettingsModal({
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
             >
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="h-4 w-4 text-zinc-400" />
+                <ShoppingBag className="h-4 w-4 text-zinc-600" />
                 <span>My Products</span>
               </div>
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
@@ -205,7 +205,7 @@ export default function ProfileSettingsModal({
       {/* Section 2: ORGANIZER RESOURCES */}
       {hasAnyOrgResources && (
         <div>
-          <h3 className="px-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+          <h3 className="px-1 text-[10px] font-black uppercase tracking-widest text-zinc-600">
             Organizer Resources
           </h3>
 
@@ -219,11 +219,11 @@ export default function ProfileSettingsModal({
                 aria-expanded={organizersExpanded}
               >
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-zinc-400" />
+                  <Building2 className="h-4 w-4 text-zinc-600" />
                   <span>My Organizers ({organizers.length})</span>
                 </div>
                 <ChevronDown
-                  className={"h-4 w-4 text-zinc-400 transition-transform " + (organizersExpanded ? "rotate-180" : "")}
+                  className={"h-4 w-4 text-zinc-600 transition-transform " + (organizersExpanded ? "rotate-180" : "")}
                 />
               </button>
 
@@ -269,10 +269,10 @@ export default function ProfileSettingsModal({
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
                 <div className="flex items-center gap-2.5">
-                  <Calendar className="h-4 w-4 text-zinc-400" />
+                  <Calendar className="h-4 w-4 text-zinc-600" />
                   <span>Events</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600" />
               </Link>
             )}
             {organizerResources.hasFundraisers && (
@@ -282,10 +282,10 @@ export default function ProfileSettingsModal({
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
                 <div className="flex items-center gap-2.5">
-                  <Heart className="h-4 w-4 text-zinc-400" />
+                  <Heart className="h-4 w-4 text-zinc-600" />
                   <span>Fundraisers</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600" />
               </Link>
             )}
             {organizerResources.hasBusinesses && (
@@ -295,10 +295,10 @@ export default function ProfileSettingsModal({
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
                 <div className="flex items-center gap-2.5">
-                  <Store className="h-4 w-4 text-zinc-400" />
+                  <Store className="h-4 w-4 text-zinc-600" />
                   <span>Businesses</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600" />
               </Link>
             )}
             {organizerResources.hasArticles && (
@@ -308,10 +308,10 @@ export default function ProfileSettingsModal({
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
                 <div className="flex items-center gap-2.5">
-                  <Newspaper className="h-4 w-4 text-zinc-400" />
+                  <Newspaper className="h-4 w-4 text-zinc-600" />
                   <span>Articles</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600" />
               </Link>
             )}
             {organizerResources.hasProducts && (
@@ -321,10 +321,10 @@ export default function ProfileSettingsModal({
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
                 <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="h-4 w-4 text-zinc-400" />
+                  <ShoppingBag className="h-4 w-4 text-zinc-600" />
                   <span>Products</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600" />
               </Link>
             )}
           </div>
@@ -333,7 +333,7 @@ export default function ProfileSettingsModal({
 
       {/* Section 3: ACCOUNT */}
       <div className="border-t border-zinc-100 pt-3 space-y-1">
-        <h3 className="px-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+        <h3 className="px-1 text-[10px] font-black uppercase tracking-widest text-zinc-600">
           Account
         </h3>
         <Link
@@ -341,7 +341,7 @@ export default function ProfileSettingsModal({
           onClick={close}
           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
         >
-          <LayoutDashboard className="h-4 w-4 text-zinc-400" />
+          <LayoutDashboard className="h-4 w-4 text-zinc-600" />
           <span>Dashboard</span>
         </Link>
         <Link
@@ -349,7 +349,7 @@ export default function ProfileSettingsModal({
           onClick={close}
           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold text-zinc-800 transition hover:bg-orange-50/60 hover:text-orange-700"
         >
-          <UserPen className="h-4 w-4 text-zinc-400" />
+          <UserPen className="h-4 w-4 text-zinc-600" />
           <span>Edit Profile</span>
         </Link>
         <button
@@ -384,7 +384,7 @@ export default function ProfileSettingsModal({
         >
           <Compass className="h-4 w-4 text-zinc-600" />
           <span className="text-xs font-black">Explore</span>
-          <ChevronDown className={"h-3.5 w-3.5 text-zinc-400 transition-transform " + (isOpen ? "rotate-180" : "")} />
+          <ChevronDown className={"h-3.5 w-3.5 text-zinc-600 transition-transform " + (isOpen ? "rotate-180" : "")} />
         </button>
       )}
 
@@ -413,7 +413,7 @@ export default function ProfileSettingsModal({
                 <button
                   type="button"
                   onClick={close}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
                   aria-label="Close explore menu"
                 >
                   <X className="h-4 w-4" />
@@ -445,7 +445,7 @@ export default function ProfileSettingsModal({
                 <button
                   type="button"
                   onClick={close}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
                   aria-label="Close explore menu"
                 >
                   <X className="h-5 w-5" />

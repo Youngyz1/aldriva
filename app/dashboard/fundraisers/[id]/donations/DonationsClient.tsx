@@ -3,15 +3,15 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Heart,
-  ArrowUpDown,
-  Filter,
-  ExternalLink,
-} from "lucide-react";
+  IconSearch as Search,
+  IconChevronLeft as ChevronLeft,
+  IconChevronRight as ChevronRight,
+  IconX as X,
+  IconHeart as Heart,
+  IconArrowsUpDown as ArrowUpDown,
+  IconFilter as Filter,
+  IconExternalLink as ExternalLink,
+} from "@tabler/icons-react";
 import StickyTableToolbar, { StickyTablePagination } from "@/components/ui/sticky-table-toolbar";
 import type { DonationRow, DonationMetrics } from "./page";
 import { formatMoney } from "@/lib/money";
