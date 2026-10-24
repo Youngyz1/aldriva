@@ -98,6 +98,8 @@ const cspDirectives = [
     "https://*.supabase.co",
     "https://*.supabase.in",
     "https://images.unsplash.com",
+    // Leaflet delivery maps load TomTom Orbis raster tiles as images.
+    "https://api.tomtom.com",
   ],
   [
     "font-src",
@@ -240,7 +242,9 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(self), microphone=(), geolocation=()",
+            // Courier location is requested only on the same-origin courier dashboard.
+            // Keep other browser capabilities restricted.
+            value: "camera=(self), microphone=(), geolocation=(self)",
           },
           {
             key: "Content-Security-Policy",

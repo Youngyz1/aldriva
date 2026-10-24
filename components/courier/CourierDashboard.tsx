@@ -682,6 +682,8 @@ export default function CourierDashboard({
                         courierLocation={courierCoords}
                         height="220px"
                         interactive={true}
+                        showFollowControls
+                        journeyStage={["accepted", "preparing", "ready"].includes(assigned.status) ? "pickup" : "delivery"}
                         className="w-full"
                       />
                     </div>

@@ -3,6 +3,26 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10-24] — Courier map provider switch to TomTom Orbis (staging verification pending)
+
+- Provider follow-up: switched shared Leaflet maps from public OSM tiles to the documented TomTom Orbis v2 PNG raster endpoint, with 256px XYZ tiles, zoom 0–22, TomTom/OSM attribution, and only `api.tomtom.com` added to CSP `img-src`.
+- The local public key variable is `NEXT_PUBLIC_TOMTOM_API_KEY`; missing configuration and tile failures now have separate visible diagnostics that never include the key. Rider GPS, marker updates, follow/recenter, stop phase, and resize logic are preserved.
+- **Verification:** focused map/GPS/courier tests passed 32/32; focused ESLint and `git diff --check` passed. No authenticated map was available to verify a TomTom tile response or rider-marker update. No database or production-setting changes were made.
+
+- Previous provider investigation: the owner reported OSM HTTP 403 responses. Source inspection also showed the old CSP omitted OSM hosts, so the exact contribution of the CSP was not independently isolated in a browser.
+
+- Confirmed that `DeliveryMap` already used Leaflet, OpenStreetMap tiles, and the globally imported Leaflet stylesheet. The site CSP's `img-src` omitted the OSM tile subdomains, explaining the marker-on-white map in source; browser console/network confirmation was unavailable.
+- Added only the three OSM tile hosts to `img-src`. The shared map now validates coordinates, has loading/error/retry states, updates markers in place, supports rider follow/recenter, responds to element and orientation resize, and selects the pickup or delivery stop by order lifecycle. It no longer chooses a hard-coded fallback location.
+- Existing schema has no business/customer coordinates; maps continue to show only rider location until verified stop coordinates are captured by an approved data workflow. An OSRM helper exists but is not wired to delivery; no road route/ETA or new provider credentials are introduced.
+- **Verification:** focused delivery-map, courier GPS/location, and courier server tests passed 32/32; focused ESLint passed. TypeScript is blocked by missing `sharp` and `@aws-sdk/client-s3`. Direct Next build is blocked by missing `@aws-sdk/client-s3`, `jsdom`, and `sharp`. Browser/device and deployed tile verification remain pending. See `docs/phases/phase-3-courier-gps-dispatch.md`.
+
+## [2026-10-24] — Phase 3 courier dispatch and GPS reliability (local working tree; staging verification pending)
+
+- Confirmed the same-origin Geolocation API was explicitly disabled by `Permissions-Policy: geolocation=()`. Enabled same-origin use without changing CSP, and added intentional GPS start/retry, lifecycle/error states, tab-resume behavior, and separate acquisition/upload feedback.
+- Authored migration 192 for durable dispatch when a delivery is accepted/preparing with a preparation estimate: five-courier cohorts, a configurable 1–60 minute response window (10-minute default), atomic claim, early assignment without advancing kitchen order status, expiry advancement during courier feed polling, and a guarded rollback. No database was changed; the owner must apply the canonical SQL manually.
+- Hardened location writes with courier-session ownership, active-assignment checks, a fail-closed rate limit, timestamp validation, and stale-write rejection. Added scoped no-store customer and business tracking endpoints, dashboard progress, and dispatch retry controls.
+- **Verification remains in progress.** Automated device/browser QA and deployed staging acceptance have not been performed. There is no configured push/email notification or road-routing provider; durable offers appear in the existing courier feed, and road-route ETA is identified as unavailable rather than fabricated. See `docs/phases/phase-3-courier-gps-dispatch.md` for limitations and remaining staging checks.
+
 ## [2026-10-23] — Website Builder Vercel runtime follow-up 2 (local fix verified; staging verification pending)
 
 - Fresh errors from the newest READY preview show a second `ERR_REQUIRE_ESM` path: `jsdom@27.3.0` → `cssstyle@5.3.7` → `@asamuzakjp/css-color@4.1.2` CommonJS → ESM-only `@csstools/css-calc@3.2.1`. The server-rendered `TemplateSwitchPreview` imports `BlockRenderer`, which reaches `lib/sanitize-html` and this JSDOM chain. Vercel's log record omitted the request path, so exact request correlation remains unavailable.

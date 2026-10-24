@@ -537,3 +537,34 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Sidebar labels, descriptions, group labels, and badges meet 4.5:1 contrast; icons and focus indicators meet 3:1 against their rendered surface, with clear light and dark states.
   - Keep kitchen order cards, courier tasks/offers, selectable templates, ticket/product/event records, map/preview canvases, semantic alerts, and public-site/invitation template-owned treatments where they support a real workflow or are governed by their own visual system. Fundraising colors remain frozen under section 2.3 of `DESIGN.md`.
   - `DESIGN.md`, `AGENTS.md`, and `CLAUDE.md` carry the permanent rule for future UI work. Route inventory, changed surfaces, verification, and remaining visual QA are tracked in `docs/UI-SIMPLIFICATION-AUDIT.md`.
+
+### DEC-0057: Courier tracking uses same-origin GPS and honest routing fallbacks
+
+- **Decision Date**: 2026-10-24
+- **Status**: Implemented locally; staging/device validation pending.
+- **Key Tenets**:
+  - Permit geolocation only for the app's own origin through `Permissions-Policy`; do not weaken the Content Security Policy or request browser notification access as a GPS workaround.
+  - Request GPS after an explicit rider action, retain separate acquisition and upload states, and stop/resume watchers with the page lifecycle.
+  - Publish only authenticated, assigned-rider coordinates; reject stale/non-monotonic timestamps and scope customer/business reads to the exact tracked order.
+  - Start durable courier offers on accepted delivery plus a saved preparation estimate. Assignment preserves the kitchen status. Do not imply road-route ETA or arrival/prep mismatch detection without real routing and restaurant coordinates.
+  - Use the existing polled courier offer feed as the in-app delivery surface. No push provider or dependable scheduled worker exists; timeout fanout is feed-driven until a durable background dispatcher is configured.
+
+### DEC-0058: Delivery maps use scoped OpenStreetMap tiles and verified stop coordinates
+
+- **Decision Date**: 2026-10-24
+- **Status**: Superseded by DEC-0059 for the tile provider. Verified-coordinate, stop-stage, and routing constraints remain in force.
+- **Key Tenets**:
+  - Keep the shared Leaflet map; initialize from valid authorized coordinates only. Never use an example city or text address as a coordinate. Select the pickup stop before pickup and the delivery stop after pickup.
+  - Existing delivery schema stores rider GPS but no business/customer coordinates. Do not add pins until verified coordinates are collected through an approved business/address workflow and exposed under existing authorization rules.
+  - The OSRM helper is not wired into delivery and its fallback geometry is straight-line. Keep road routing and ETA unavailable until a real route result is integrated; do not show its fallback as a road route.
+
+### DEC-0059: Delivery maps use TomTom Orbis raster tiles
+
+- **Decision Date**: 2026-10-24
+- **Status**: Included in the staging-branch change; account and authenticated browser verification pending.
+- **Key Tenets**:
+  - Keep Leaflet and use TomTom's documented Orbis v2 raster tile endpoint. Its PNG XYZ tiles match Leaflet's raster tile layer; use the documented 256px size and zoom 0–22.
+  - Read the browser key from `NEXT_PUBLIC_TOMTOM_API_KEY` and never log its value. Browser tile requests use TomTom's documented `key` query parameter because Leaflet image tiles cannot set custom request headers; restrict that key to allowed APIs/referrers in TomTom account settings.
+  - Add only `https://api.tomtom.com` to CSP `img-src`, preserve unrelated CSP sources, and display TomTom/OpenStreetMap attribution.
+  - Keep visible missing-key and tile-failure diagnostics. Do not change GPS, assignments, routing, geocoding, ETA, or stop-coordinate behavior as part of the provider integration.
+  - [TomTom pricing](https://docs.tomtom.com/pricing) currently lists 200,000 monthly raster tile requests free; usage beyond the account's included amount is subject to usage-based pricing. Verify the account's actual allowance before broad production use.

@@ -1,5 +1,19 @@
 # Aldriva — Current Implementation State & Living Status
 
+## Delivery map provider follow-up — TomTom Orbis (2026-10-24)
+
+- The TomTom provider change is included in the local `staging` branch work. Rider GPS/dispatch source work beyond the shared map remains local. No database operation was performed; Vercel deployment status and authenticated tile rendering are unverified.
+
+## Active work — Courier GPS and early dispatch (2026-10-24)
+
+- Phase 3 and courier GPS/dispatch source changes remain in the local `staging` working tree; this change covers the TomTom provider and shared map only. No database operation was performed, and Vercel deployment status is unverified.
+- Confirmed root cause for Chrome's permission-denied symptom: the global Permissions Policy explicitly disabled geolocation with `geolocation=()`. The app now permits geolocation for its own origin, and rider controls distinguish browser permission, device position, connectivity, and backend upload state.
+- Migration 192 has a canonical `db/` source, guarded rollback, and timestamped Supabase mirror. The owner reports it is applied on staging and its postchecks passed; no database query was run in this session. It writes offers transactionally when delivery orders are accepted/preparing/ready with an estimate, keeps claim atomic, and advances five-rider cohorts after the configured offer window (600 seconds by default; owner-configurable from 60 to 3,600 seconds).
+- The owner reports public OpenStreetMap tile requests returned HTTP 403; source inspection also found OSM tile hosts were absent from the old `img-src` CSP. `DeliveryMap` now uses documented TomTom Orbis v2 raster tiles with the configured `NEXT_PUBLIC_TOMTOM_API_KEY`, a narrow `api.tomtom.com` image-source allowance, attribution, and distinct missing-key/tile-failure diagnostics. Leaflet marker updates, follow/recenter, resize behavior, lifecycle stop selection, and valid-coordinate-only initialization remain. No TomTom request or authenticated deployment verification has been made; account access and real tile rendering remain unverified.
+- Business and order schemas have no restaurant or customer coordinates; only courier GPS and event coordinates exist. An OSRM helper is present but is not wired to delivery and its fallback draws a straight segment, so routing/road ETA remains unavailable. Do not place stop pins from text addresses.
+- Rider offers and customer tracking use existing polling; no push provider is configured. Timeout cohort advancement runs when the authenticated courier feed is polled, not from a scheduled worker.
+- Exact device, deployed staging, and end-to-end tests remain pending. Local automated check outcomes are recorded in the Phase 3 report and final response.
+
 ## Active Worktree Follow-up — Website Builder Vercel runtime v2 (2026-10-23)
 
 - **Status: a second server-runtime failure is confirmed; the targeted dependency fix passes local verification on the updated dependencies and is not yet deployed.** Vercel logs from the newest READY staging preview (`dpl_1216exwW5azwnT5wA3pMNAahb8Cq`) show `ERR_REQUIRE_ESM` from CommonJS `@asamuzakjp/css-color@4.1.2` requiring ESM-only `@csstools/css-calc@3.2.1`. The stack passes through `lib/sanitize-html` and the server `BlockRenderer`; the builder page imports that renderer through `TemplateSwitchPreview`. The log record did not include a request path, so the stack is a demonstrated runtime failure in the builder's server module graph, not a request-ID-level correlation.
