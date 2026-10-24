@@ -1,6 +1,10 @@
--- 20261022130000_migration_190_delivery_live_gps.sql
+-- migration_190_delivery_live_gps.sql
 -- Phase 3: Delivery live GPS ingestion, location breadcrumbs, and real-time transit state.
--- Canonical source: db/migration_190_delivery_live_gps.sql
+--
+-- 1. Create public.order_delivery_locations table
+-- 2. Performance indexes for order-scoped and courier-scoped lookups
+-- 3. Row-Level Security: service_role only (enforced via server routes)
+-- 4. Automatic pruning trigger: retain only latest location upon terminal order status
 
 BEGIN;
 

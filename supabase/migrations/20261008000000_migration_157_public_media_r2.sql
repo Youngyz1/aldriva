@@ -1,4 +1,5 @@
--- Mirror of db/migration_157_public_media_r2.sql. Canonical source: db/.
+-- Public R2 media metadata. Objects are intentionally public after processing;
+-- raw uploads live in the separate private R2_TMP_BUCKET and are never listed here.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.media (
