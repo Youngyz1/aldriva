@@ -99,7 +99,8 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | 189 | Kitchen & delivery — courier pickup workflow | **Applied on staging per owner report**; rollback exists | `feat/phase-2-couriers` |
 | 190 | Kitchen & delivery — live GPS and transit tracking | **Applied on staging per owner report**; rollback + mirror exist | `feat/phase-2-couriers` |
 | 191 | Kitchen & delivery — courier performance & customer rating | Authored forward + rollback; mirror exists; owner will apply to staging | `feat/phase-2-couriers` |
-| 192+ | unassigned | free as of 2026-10-22 | — |
+| 192 | Kitchen & delivery — early dispatch and location sharing reliability | Owner reports applied on staging and postchecks passed; not independently queried here; guarded rollback + Supabase mirror exist | `staging` |
+| 193+ | unassigned | free as of 2026-10-24 | — |
 | **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
 
 ---

@@ -241,6 +241,9 @@ export const RATE_LIMITS = {
 
   /** Courier order feed: 60 requests per 10 minutes, keyed by session hash. */
   courierFeed: { limit: 60, windowSeconds: 600 },
+
+  /** Courier location writes: 120 updates per 10 minutes, keyed by session hash. */
+  courierLocation: { limit: 120, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

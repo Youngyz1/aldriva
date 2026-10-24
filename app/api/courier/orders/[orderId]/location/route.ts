@@ -1,6 +1,8 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { courierJson, validCourierOrderId, validateCourierRequestSession } from "@/lib/courier/http";
 import { haversineDistanceMeters } from "@/lib/routing/haversine";
+import { checkRateLimitFailClosed } from "@/lib/rate-limit";
+import { hashWorkerToken } from "@/lib/kitchen/worker-session";
 
 const MIN_INTERVAL_SECONDS = 4;
 const MIN_DISTANCE_METERS = 10;
@@ -11,8 +13,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
-  const { session } = await validateCourierRequestSession(request);
-  if (!session) return courierJson({ error: "Courier session is no longer valid." }, 401);
+  const { token, session } = await validateCourierRequestSession(request);
+  if (!session || !token) return courierJson({ error: "Courier session is no longer valid." }, 401);
+
+  const limit = await checkRateLimitFailClosed("courierLocation", `session:${hashWorkerToken(token)}`);
+  if (!limit.allowed) return courierJson({ error: "Too many location updates. Try again shortly." }, 429);
 
   const { orderId } = await params;
   if (!validCourierOrderId(orderId)) return courierJson({ error: "Delivery not found." }, 404);
@@ -32,11 +37,11 @@ export async function POST(
 
   if (
     typeof latitude !== "number" ||
-    Number.isNaN(latitude) ||
+    !Number.isFinite(latitude) ||
     latitude < -90 ||
     latitude > 90 ||
     typeof longitude !== "number" ||
-    Number.isNaN(longitude) ||
+    !Number.isFinite(longitude) ||
     longitude < -180 ||
     longitude > 180
   ) {
@@ -44,18 +49,19 @@ export async function POST(
   }
 
   const parsedAccuracy =
-    typeof accuracy === "number" && !Number.isNaN(accuracy) && accuracy >= 0 ? accuracy : null;
+    typeof accuracy === "number" && Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null;
   const parsedHeading =
-    typeof heading === "number" && !Number.isNaN(heading) && heading >= 0 && heading <= 360 ? heading : null;
+    typeof heading === "number" && Number.isFinite(heading) && heading >= 0 && heading <= 360 ? heading : null;
   const parsedSpeed =
-    typeof speed === "number" && !Number.isNaN(speed) && speed >= 0 ? speed : null;
+    typeof speed === "number" && Number.isFinite(speed) && speed >= 0 ? speed : null;
 
   let recordedDate = new Date();
   if (typeof recordedAt === "string" || typeof recordedAt === "number") {
     const candidate = new Date(recordedAt);
-    if (!Number.isNaN(candidate.getTime())) {
-      recordedDate = candidate;
-    }
+    if (Number.isNaN(candidate.getTime())) return courierJson({ error: "Invalid location timestamp." }, 400);
+    recordedDate = candidate;
+  } else if (recordedAt !== undefined && recordedAt !== null) {
+    return courierJson({ error: "Invalid location timestamp." }, 400);
   }
 
   const nowMs = Date.now();
@@ -81,7 +87,8 @@ export async function POST(
     return courierJson({ error: "Courier access is no longer valid." }, 403);
   }
 
-  // 2. Verify order belongs to this courier and is in active delivery transit
+  // 2. Verify order belongs to this courier and is in an active delivery lifecycle.
+  // An accepted early assignment may share the courier's route to the restaurant.
   const { data: order, error: orderError } = await admin
     .from("orders")
     .select("id, status, courier_worker_id")
@@ -94,7 +101,7 @@ export async function POST(
     return courierJson({ error: "Order not found or not assigned to you." }, 404);
   }
 
-  if (order.status !== "picked_up" && order.status !== "out_for_delivery") {
+  if (!["accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(order.status)) {
     return courierJson(
       { error: "Location updates are only accepted during active delivery." },
       409
@@ -114,6 +121,10 @@ export async function POST(
     if (!queryError && latestLoc) {
       const prevRecordedMs = new Date(latestLoc.recorded_at).getTime();
       const secondsSinceLast = (recordedMs - prevRecordedMs) / 1000;
+
+      if (!Number.isFinite(prevRecordedMs) || recordedMs <= prevRecordedMs) {
+        return courierJson({ error: "Location update is older than the last saved position." }, 409);
+      }
 
       if (secondsSinceLast < MIN_INTERVAL_SECONDS) {
         const distanceMoved = haversineDistanceMeters(
@@ -141,9 +152,10 @@ export async function POST(
     });
 
     if (insertError) {
-      // If table does not exist yet in staging (pending manual migration), don't break courier app
+      // A missing table means this deployment cannot publish tracking; do not
+      // report success to the courier or customer.
       if (insertError.code === "42P01" || insertError.message?.includes("does not exist")) {
-        return courierJson({ ok: true, unmigrated: true });
+        return courierJson({ error: "Delivery location storage is not available yet." }, 503);
       }
       return courierJson({ error: "Failed to persist location." }, 500);
     }

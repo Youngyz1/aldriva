@@ -1,6 +1,6 @@
+import { revalidatePath } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { courierJson, validCourierOrderId, validateCourierRequestSession } from "@/lib/courier/http";
-import { runOrderStatusPostPersistEffects, type OrderRowRecord, type OrderStatus } from "@/lib/orders/transition-core";
 
 export async function POST(
   request: Request,
@@ -15,18 +15,7 @@ export async function POST(
   const { data: claimData, error: claimError } = await admin.rpc("claim_business_courier_offer", {
     p_order_id: orderId,
     p_worker_id: session.workerId,
-    p_history_entry: {
-      status: "ready",
-      at: new Date().toISOString(),
-      by_user_id: null,
-      reason: null,
-      note: "Courier accepted delivery offer",
-      estimated_ready_at: null,
-      rider_name: null,
-      rider_phone: null,
-      worker_id: session.workerId,
-      worker_name: null,
-    },
+    p_history_entry: { type: "courier_assigned" },
   });
   if (claimError) {
     const error = claimError as { code?: string; constraint?: string; message?: string };
@@ -46,24 +35,13 @@ export async function POST(
     .eq("id", orderId)
     .eq("business_id", session.businessId)
     .eq("courier_worker_id", session.workerId)
-    .in("status", ["ready", "out_for_delivery"])
+    .in("status", ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"])
     .maybeSingle();
   if (orderError) return courierJson({ error: "The assigned delivery is temporarily unavailable." }, 503);
 
   if (activeOrder && typeof activeOrder.organizer_id === "string") {
-    await runOrderStatusPostPersistEffects(
-      {
-        orderId,
-        organizerId: activeOrder.organizer_id,
-        expectedCurrentStatus: "ready",
-        nextStatus: activeOrder.status as OrderStatus,
-        riderName: activeOrder.rider_name,
-        riderPhone: activeOrder.rider_phone,
-      },
-      admin,
-      activeOrder as unknown as OrderRowRecord,
-      ["/courier"]
-    );
+    revalidatePath("/courier");
+    revalidatePath(`/dashboard/org/${activeOrder.organizer_id}/orders`);
   }
 
   return courierJson({

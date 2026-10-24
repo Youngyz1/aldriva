@@ -29,6 +29,12 @@ import {
   formatCourierGreeting,
   formatCourierItems,
 } from "@/lib/courier/dashboard-model";
+import {
+  geolocationStatusFromErrorCode,
+  isCourierLocationTrackableStatus,
+  shouldUploadCourierLocation,
+  type CourierGeolocationStatus,
+} from "@/lib/courier/geolocation";
 import DeliveryMap from "@/components/delivery/DeliveryMap";
 
 type Screen = "loading" | "ready" | "session-ended" | "error";
@@ -39,16 +45,17 @@ type CourierOffer = {
   offered_at: string;
   pickup_name: string | null;
   pickup_address: string | null;
-  delivery_address: string | null;
   items: unknown;
   amount_to_collect: number | null;
   currency: string | null;
+  estimated_ready_at: string | null;
 };
 
 type AssignedOrder = {
   id: string;
   orderNumber: string;
   status: string;
+  estimatedReadyAt: string | null;
   customerName: string | null;
   customerPhone: string | null;
   pickupName: string | null;
@@ -155,14 +162,23 @@ export default function CourierDashboard({
   const [issueCategory, setIssueCategory] = useState<string>("");
   const [issueNote, setIssueNote] = useState("");
   const [busyIssue, setBusyIssue] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState<"idle" | "acquiring" | "active" | "denied" | "error">("idle");
+  const [gpsStatus, setGpsStatus] = useState<CourierGeolocationStatus>("idle");
+  const [locationUploadStatus, setLocationUploadStatus] = useState<"idle" | "uploading" | "live" | "failed">("idle");
+  const [locationUploadMessage, setLocationUploadMessage] = useState("");
+  const [lastLocationSentAt, setLastLocationSentAt] = useState<string | null>(null);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [isLocationWatchActive, setIsLocationWatchActive] = useState(false);
   const [courierCoords, setCourierCoords] = useState<{
     latitude: number;
     longitude: number;
     heading?: number | null;
     accuracy?: number | null;
   } | null>(null);
-  const lastDispatchedRef = useRef<number>(0);
+  const gpsWatchRef = useRef<number | null>(null);
+  const gpsOrderRef = useRef<string | null>(null);
+  const gpsStatusTimerRef = useRef<number | null>(null);
+  const lastLocationWriteRef = useRef<{ at: number; point: { latitude: number; longitude: number } | null }>({ at: 0, point: null });
+  const hasLocationPermissionRef = useRef(false);
   const inFlight = useRef(0);
   const requestSequence = useRef(0);
 
@@ -397,65 +413,213 @@ export default function CourierDashboard({
   const derivedState = feed ? deriveCourierState(feed.isAvailable, Boolean(assigned)) : "Offline";
   const isAvailable = feed?.isAvailable === true;
 
+  const stopLocationWatch = useCallback(() => {
+    if (gpsWatchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchRef.current);
+    }
+    gpsWatchRef.current = null;
+    gpsOrderRef.current = null;
+    setIsLocationWatchActive(false);
+    if (gpsStatusTimerRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(gpsStatusTimerRef.current);
+      gpsStatusTimerRef.current = null;
+    }
+  }, []);
+
+  const startLocationWatch = useCallback((orderId: string) => {
+    if (typeof window === "undefined") return;
+    if (!window.isSecureContext || !navigator.geolocation) {
+      setIsLocationWatchActive(false);
+      setGpsStatus("unsupported_environment");
+      setLocationUploadStatus("idle");
+      setLocationUploadMessage(
+        !window.isSecureContext
+          ? "Location sharing requires the secure HTTPS dashboard."
+          : "This browser does not provide location services."
+      );
+      return;
+    }
+
+    stopLocationWatch();
+    lastLocationWriteRef.current = { at: 0, point: null };
+    setGpsStatus("requesting_permission");
+    setLocationUploadStatus("idle");
+    setLocationUploadMessage("");
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (gpsOrderRef.current !== orderId) return;
+        hasLocationPermissionRef.current = true;
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.setItem(`aldriva:courier-location:${orderId}:authorized`, "1");
+          } catch {
+            // Tracking still works if the browser blocks session storage.
+          }
+        }
+        const point = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setCourierCoords({
+          ...point,
+          heading: position.coords.heading,
+          accuracy: position.coords.accuracy,
+        });
+        setGpsStatus(navigator.onLine ? "tracking" : "temporarily_disconnected");
+
+        const now = Date.now();
+        const last = lastLocationWriteRef.current;
+        if (!navigator.onLine) {
+          setLocationUploadStatus("failed");
+          setLocationUploadMessage("Internet connection is unavailable. Location will retry when the connection returns.");
+          return;
+        }
+        if (!shouldUploadCourierLocation(now, last.at, point, last.point)) return;
+
+        lastLocationWriteRef.current = { at: now, point };
+        setLocationUploadStatus("uploading");
+        void fetch(`/api/courier/orders/${encodeURIComponent(orderId)}/location`, {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...point,
+            accuracy: position.coords.accuracy,
+            heading: position.coords.heading,
+            speed: position.coords.speed,
+            recordedAt: new Date(position.timestamp).toISOString(),
+          }),
+        })
+          .then(async (response) => {
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.ok || result.unmigrated) {
+              throw new Error(result?.error || "Location could not be shared with the delivery.");
+            }
+            if (gpsOrderRef.current !== orderId) return;
+            setLocationUploadStatus("live");
+            setLocationUploadMessage("");
+            setLastLocationSentAt(new Date().toISOString());
+          })
+          .catch((error: unknown) => {
+            if (gpsOrderRef.current !== orderId) return;
+            setLocationUploadStatus("failed");
+            setLocationUploadMessage(error instanceof Error ? error.message : "Location upload failed. Check your connection and retry.");
+          });
+      },
+      (error) => {
+        if (gpsOrderRef.current !== orderId) return;
+        navigator.geolocation.clearWatch(watchId);
+        gpsWatchRef.current = null;
+        gpsOrderRef.current = null;
+        setIsLocationWatchActive(false);
+        if (error.code === 1) {
+          hasLocationPermissionRef.current = false;
+          try {
+            window.sessionStorage.removeItem(`aldriva:courier-location:${orderId}:authorized`);
+          } catch {
+            // Permission state remains available through the explicit retry control.
+          }
+        }
+        setGpsStatus(geolocationStatusFromErrorCode(error.code));
+        setLocationUploadStatus("idle");
+      },
+      { enableHighAccuracy: true, timeout: 30_000, maximumAge: 10_000 }
+    );
+    gpsWatchRef.current = watchId;
+    gpsOrderRef.current = orderId;
+    setIsLocationWatchActive(true);
+    gpsStatusTimerRef.current = window.setTimeout(() => {
+      if (gpsOrderRef.current === orderId) setGpsStatus((current) => current === "requesting_permission" ? "acquiring_location" : current);
+    }, 800);
+  }, [stopLocationWatch]);
+
   useEffect(() => {
-    const isTransit =
-      assigned && (assigned.status === "picked_up" || assigned.status === "out_for_delivery");
-    if (!isTransit || typeof window === "undefined" || !("geolocation" in navigator)) {
+    if (!assigned || !isCourierLocationTrackableStatus(assigned.status)) {
+      stopLocationWatch();
+      setTrackingOrderId(null);
       setGpsStatus("idle");
+      setLocationUploadStatus("idle");
+      setLocationUploadMessage("");
+      setLastLocationSentAt(null);
       setCourierCoords(null);
       return;
     }
 
-    setGpsStatus("acquiring");
-
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const coords = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          heading: pos.coords.heading,
-          accuracy: pos.coords.accuracy,
-        };
-        setCourierCoords(coords);
-        setGpsStatus("active");
-
-        const now = Date.now();
-        if (now - lastDispatchedRef.current >= 5000) {
-          lastDispatchedRef.current = now;
-          void fetch(`/api/courier/orders/${encodeURIComponent(assigned.id)}/location`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-              heading: pos.coords.heading,
-              speed: pos.coords.speed,
-              recordedAt: new Date(pos.timestamp).toISOString(),
-            }),
-          }).catch(() => {});
+    const preferenceKey = `aldriva:courier-location:${assigned.id}:sharing`;
+    const authorizationKey = `aldriva:courier-location:${assigned.id}:authorized`;
+    if (typeof window !== "undefined" && !trackingOrderId) {
+      try {
+        if (window.sessionStorage.getItem(preferenceKey) === "1") {
+          hasLocationPermissionRef.current = window.sessionStorage.getItem(authorizationKey) === "1";
+          setTrackingOrderId(assigned.id);
         }
-      },
-      (err) => {
-        if (err.code === 1) {
-          setGpsStatus("denied");
-        } else {
-          setGpsStatus("error");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 3000,
+      } catch {
+        // A fresh user action remains available if session storage is blocked.
       }
-    );
+    }
 
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
+    if (trackingOrderId && trackingOrderId !== assigned.id) {
+      stopLocationWatch();
+      setTrackingOrderId(null);
       setGpsStatus("idle");
+      setLocationUploadStatus("idle");
       setCourierCoords(null);
+    }
+  }, [assigned, trackingOrderId, stopLocationWatch]);
+
+  useEffect(() => {
+    if (!assigned || trackingOrderId !== assigned.id) return;
+
+    const resumeIfAllowed = async () => {
+      if (document.visibilityState === "hidden") {
+        stopLocationWatch();
+        setGpsStatus("temporarily_disconnected");
+        return;
+      }
+
+      let permission: PermissionState | "unknown" = "unknown";
+      if (navigator.permissions?.query) {
+        try {
+          const result = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+          permission = result.state;
+        } catch {
+          // Permissions API support varies; geolocation remains the source of truth.
+        }
+      }
+      if (permission === "denied") {
+        setGpsStatus("permission_denied");
+        return;
+      }
+      if (permission === "prompt" && !hasLocationPermissionRef.current) {
+        setGpsStatus("stopped");
+        return;
+      }
+      if (permission === "granted" || hasLocationPermissionRef.current) startLocationWatch(assigned.id);
     };
-  }, [assigned]);
+
+    const onVisibilityChange = () => void resumeIfAllowed();
+    const onPageShow = () => void resumeIfAllowed();
+    const onOffline = () => {
+      setGpsStatus("temporarily_disconnected");
+      setLocationUploadStatus("failed");
+      setLocationUploadMessage("Internet connection is unavailable. Location will retry when the connection returns.");
+    };
+    const onOnline = () => void resumeIfAllowed();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    if (gpsWatchRef.current === null) void resumeIfAllowed();
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [assigned, trackingOrderId, startLocationWatch, stopLocationWatch]);
+
+  useEffect(() => () => stopLocationWatch(), [stopLocationWatch]);
 
   const businessName =
     feed?.businessName ??
@@ -466,6 +630,7 @@ export default function CourierDashboard({
   const businessDisplayName = formatCourierBusinessName(businessName);
   const courierName = feed?.courierName ?? initialCourierName ?? null;
   const greeting = formatCourierGreeting(courierName);
+  const gpsStatusLabel = gpsStatus.replaceAll("_", " ");
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-5 px-3.5 py-4 sm:px-6 sm:py-8">
@@ -548,16 +713,16 @@ export default function CourierDashboard({
               <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5 flex items-center gap-1.5 capitalize">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    gpsStatus === "active"
+                    gpsStatus === "tracking"
                       ? "bg-emerald-500 animate-pulse"
-                      : gpsStatus === "acquiring"
+                      : gpsStatus === "requesting_permission" || gpsStatus === "acquiring_location" || gpsStatus === "temporarily_disconnected"
                       ? "bg-amber-400"
-                      : gpsStatus === "denied"
+                      : gpsStatus === "permission_denied" || gpsStatus === "position_unavailable" || gpsStatus === "timeout" || gpsStatus === "unsupported_environment"
                       ? "bg-red-500"
                       : "bg-zinc-400"
                   }`}
                 />
-                {gpsStatus}
+                {gpsStatusLabel}
               </p>
             </div>
           </div>
@@ -644,7 +809,9 @@ export default function CourierDashboard({
                   <div className="flex items-center gap-2">
                     <Bike className="h-4 w-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">
-                      {assigned.status === "ready"
+                      {assigned.status === "accepted" || assigned.status === "preparing"
+                        ? "Travelling to Restaurant"
+                        : assigned.status === "ready"
                         ? "Pickup at Restaurant"
                         : assigned.status === "picked_up"
                         ? "Picked Up — Ready to Depart"
@@ -676,7 +843,7 @@ export default function CourierDashboard({
 
                 <CardContent className="space-y-4 p-4 sm:p-5">
                   {/* Embedded Live Map (when in transit) */}
-                  {assigned.status !== "ready" && courierCoords && (
+                  {courierCoords && (
                     <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xs">
                       <DeliveryMap
                         courierLocation={courierCoords}
@@ -691,20 +858,29 @@ export default function CourierDashboard({
 
                   {/* Pickup & Destination Stepper Box */}
                   <div className="space-y-3 border-t border-zinc-200 pt-3.5 dark:border-zinc-800">
+                    {assigned.estimatedReadyAt && ["accepted", "preparing"].includes(assigned.status) && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                        Travel to the restaurant while the kitchen prepares the order. Expected ready time: <strong>{new Date(assigned.estimatedReadyAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong>.
+                      </div>
+                    )}
                     <div className="flex items-start gap-3">
                       <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        assigned.status === "ready"
+                        assigned.status === "accepted" || assigned.status === "preparing"
+                          ? "bg-amber-500 text-white"
+                          : assigned.status === "ready"
                           ? "bg-orange-700 text-white animate-pulse"
                           : "bg-emerald-600 text-white"
                       }`}>
-                        {assigned.status === "ready" ? <Store className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {assigned.status === "accepted" || assigned.status === "preparing" || assigned.status === "ready" ? <Store className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Pickup</p>
-                          {assigned.status !== "ready" && (
+                          {assigned.status === "picked_up" || assigned.status === "out_for_delivery" ? (
                             <span className="text-[10px] font-bold text-emerald-600">Picked up</span>
-                          )}
+                          ) : assigned.status === "accepted" || assigned.status === "preparing" ? (
+                            <span className="text-[10px] font-bold text-amber-700">On the way</span>
+                          ) : null}
                         </div>
                         <p className="text-xs font-bold text-zinc-950 dark:text-white truncate">
                           {assigned.pickupName || "Restaurant"}
@@ -778,7 +954,9 @@ export default function CourierDashboard({
 
                   {/* Navigation Launch Links */}
                   {(() => {
-                    const navAddress = assigned.status === "ready" ? assigned.pickupAddress : assigned.deliveryAddress;
+                    const navAddress = ["accepted", "preparing", "ready"].includes(assigned.status)
+                      ? assigned.pickupAddress
+                      : assigned.deliveryAddress;
                     if (!navAddress) return null;
                     const urls = courierNavigationUrls(navAddress);
                     return (
@@ -932,6 +1110,9 @@ export default function CourierDashboard({
 
               {feed.offers.map((offer) => {
                 const hasCashToCollect = offer.amount_to_collect && offer.amount_to_collect > 0;
+                const readyAt = offer.estimated_ready_at
+                  ? new Date(offer.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : null;
                 return (
                   <Card key={offer.offer_id} className="rounded-xl border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                     <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 pb-3 pt-4">
@@ -941,7 +1122,7 @@ export default function CourierDashboard({
                           <span>Delivery Offer</span>
                         </CardTitle>
                         <span className="rounded-full border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/40 px-2.5 py-0.5 text-[11px] font-bold text-orange-800 dark:text-orange-300">
-                          Ready for pickup
+                          {readyAt ? `Expected ready ${readyAt}` : "Delivery opportunity"}
                         </span>
                       </div>
                     </CardHeader>
@@ -955,8 +1136,8 @@ export default function CourierDashboard({
                           <p className="text-[11px] text-zinc-500 line-clamp-1">{offer.pickup_address || "Address not specified"}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase text-orange-700">Drop-off Destination</p>
-                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5 line-clamp-2">{offer.delivery_address || "Address not provided"}</p>
+                          <p className="text-[10px] font-bold uppercase text-orange-700">Delivery</p>
+                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">Exact address shared after acceptance</p>
                         </div>
                       </div>
 
@@ -1074,31 +1255,31 @@ export default function CourierDashboard({
                 </div>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    gpsStatus === "active"
+                    gpsStatus === "tracking"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : gpsStatus === "acquiring"
+                      : gpsStatus === "requesting_permission" || gpsStatus === "acquiring_location" || gpsStatus === "temporarily_disconnected"
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : gpsStatus === "denied"
+                      : gpsStatus === "permission_denied" || gpsStatus === "position_unavailable" || gpsStatus === "timeout" || gpsStatus === "unsupported_environment"
                       ? "bg-red-50 text-red-700 border border-red-200"
                       : "bg-zinc-100 text-zinc-600 border border-zinc-200"
                   }`}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      gpsStatus === "active"
+                      gpsStatus === "tracking"
                         ? "bg-emerald-500 animate-ping"
-                        : gpsStatus === "acquiring"
+                        : gpsStatus === "requesting_permission" || gpsStatus === "acquiring_location" || gpsStatus === "temporarily_disconnected"
                         ? "bg-amber-500"
-                        : gpsStatus === "denied"
+                        : gpsStatus === "permission_denied" || gpsStatus === "position_unavailable" || gpsStatus === "timeout" || gpsStatus === "unsupported_environment"
                         ? "bg-red-500"
                         : "bg-zinc-400"
                     }`}
                   />
-                  {gpsStatus.toUpperCase()}
+                  {gpsStatusLabel}
                 </span>
               </div>
 
-              {gpsStatus === "active" && courierCoords ? (
+              {gpsStatus === "tracking" && courierCoords ? (
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-zinc-500">
                     <span>Accuracy:</span>
@@ -1112,21 +1293,80 @@ export default function CourierDashboard({
                       {courierCoords.latitude.toFixed(4)}°, {courierCoords.longitude.toFixed(4)}°
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-400 pt-1">
-                    Streaming live coordinates to customer tracking view.
+                  <p className="text-[11px] text-zinc-500">
+                    {locationUploadStatus === "live"
+                      ? "Location is reaching the delivery tracking service."
+                      : locationUploadStatus === "uploading"
+                      ? "Location found; sharing it now…"
+                      : locationUploadStatus === "failed"
+                      ? locationUploadMessage || "Location found, but it is not reaching the delivery tracking service yet."
+                      : "Location found; waiting for the first update to reach the delivery."}
                   </p>
+                  {lastLocationSentAt && locationUploadStatus === "live" && (
+                    <p className="text-[10px] text-zinc-400">
+                      Last shared {new Date(lastLocationSentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
                 </div>
-              ) : gpsStatus === "denied" ? (
+              ) : gpsStatus === "permission_denied" ? (
                 <div className="rounded-lg bg-red-50 p-2.5 text-xs text-red-900 dark:bg-red-950/40 dark:text-red-300 space-y-1">
                   <p className="font-bold">Location Permission Denied</p>
                   <p className="text-[11px]">
-                    Please grant browser location access in your device settings so customers can see your live arrival.
+                    Allow Location for this site in Chrome’s site settings and turn on device location services. Then retry here. GPS permission is separate from browser notifications.
                   </p>
                 </div>
+              ) : gpsStatus === "timeout" ? (
+                <p role="status" className="text-xs text-amber-800">The device took too long to find your position. Move to an area with a clearer signal and retry.</p>
+              ) : gpsStatus === "position_unavailable" ? (
+                <p role="status" className="text-xs text-amber-800">The device could not determine your position. Check device location services and retry.</p>
+              ) : gpsStatus === "unsupported_environment" ? (
+                <p role="alert" className="text-xs text-red-700">{locationUploadMessage || "Open the courier dashboard directly in a secure HTTPS browser tab with location access enabled."}</p>
+              ) : gpsStatus === "temporarily_disconnected" ? (
+                <p role="status" className="text-xs text-amber-800">Tracking paused while the tab or internet connection is unavailable. It will resume when access returns.</p>
               ) : (
                 <p className="text-xs text-zinc-500">
-                  GPS tracking activates automatically during active pickup and transit.
+                  Start sharing when you travel to the restaurant. Location is requested only after you choose to start.
                 </p>
+              )}
+
+              {locationUploadStatus === "failed" && locationUploadMessage && gpsStatus !== "tracking" && (
+                <p role="alert" className="text-xs text-red-700">{locationUploadMessage}</p>
+              )}
+              {assigned && isCourierLocationTrackableStatus(assigned.status) && (
+                <Button
+                  type="button"
+                  variant={isLocationWatchActive ? "outline" : "default"}
+                  className="min-h-10 w-full rounded-xl"
+                  onClick={() => {
+                    if (gpsWatchRef.current !== null && gpsOrderRef.current === assigned.id) {
+                      stopLocationWatch();
+                      setTrackingOrderId(null);
+                      try {
+                        window.sessionStorage.removeItem(`aldriva:courier-location:${assigned.id}:sharing`);
+                        window.sessionStorage.removeItem(`aldriva:courier-location:${assigned.id}:authorized`);
+                      } catch {
+                        // Stopping location sharing does not depend on storage.
+                      }
+                      setGpsStatus("stopped");
+                      setLocationUploadStatus("idle");
+                      setCourierCoords(null);
+                      return;
+                    }
+                    try {
+                      window.sessionStorage.setItem(`aldriva:courier-location:${assigned.id}:sharing`, "1");
+                    } catch {
+                      // Explicit retry remains available for this page session.
+                    }
+                    setTrackingOrderId(assigned.id);
+                    startLocationWatch(assigned.id);
+                  }}
+                >
+                  {isLocationWatchActive && trackingOrderId === assigned.id
+                    ? "Stop sharing location"
+                    : trackingOrderId === assigned.id
+                    ? "Retry location"
+                    : "Start location sharing"}
+                </Button>
               )}
             </div>
 

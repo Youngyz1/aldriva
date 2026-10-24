@@ -79,7 +79,7 @@ export default async function CustomerOrderTrackingPage({
   const { data: timingOrder, error: timingError } = await admin
     .from("orders")
     .select(
-      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, estimated_ready_at, status_history, cancellation_reason, rider_name, rider_phone, items, created_at, organizer_id, delivery_rating"
+      "id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, estimated_ready_at, status_history, cancellation_reason, rider_name, rider_phone, courier_worker_id, items, created_at, organizer_id, delivery_rating"
     )
     .eq("tracking_token", trackingToken)
     .eq("organizer_id", website.tenant_id)
@@ -109,6 +109,7 @@ export default async function CustomerOrderTrackingPage({
       cancellation_reason: null,
       rider_name: null,
       rider_phone: null,
+      courier_worker_id: null,
     };
   }
 
@@ -130,9 +131,12 @@ export default async function CustomerOrderTrackingPage({
       }>)
     : [];
 
-  // Rider contact is exposed only while the order is out for delivery —
-  // completed/delivered/cancelled views never carry it.
-  const isOutForDeliveryRow = String(orderRow.status) === "out_for_delivery";
+  // Registered rider contact is exposed only during an active assigned delivery.
+  const isActiveCourierAssignment =
+    Boolean(orderRow.courier_worker_id) &&
+    ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(String(orderRow.status));
+  const courierContactAvailable =
+    isActiveCourierAssignment && ["picked_up", "out_for_delivery"].includes(String(orderRow.status));
 
   const trackingData: OrderTrackingData = {
     orderNumber: String(orderRow.order_number),
@@ -152,8 +156,9 @@ export default async function CustomerOrderTrackingPage({
     scheduledFor: orderRow.scheduled_for ? String(orderRow.scheduled_for) : null,
     estimatedReadyAt: orderRow.estimated_ready_at ? String(orderRow.estimated_ready_at) : null,
     cancellationReason: orderRow.cancellation_reason ? String(orderRow.cancellation_reason) : null,
-    riderName: isOutForDeliveryRow && orderRow.rider_name ? String(orderRow.rider_name) : null,
-    riderPhone: isOutForDeliveryRow && orderRow.rider_phone ? String(orderRow.rider_phone) : null,
+    riderName: isActiveCourierAssignment && orderRow.rider_name ? String(orderRow.rider_name) : null,
+    riderPhone: courierContactAvailable && orderRow.rider_phone ? String(orderRow.rider_phone) : null,
+    courierAssigned: isActiveCourierAssignment,
     trackingToken,
     deliveryRating:
       orderRow.delivery_rating !== undefined && orderRow.delivery_rating !== null

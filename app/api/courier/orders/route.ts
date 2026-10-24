@@ -12,6 +12,12 @@ export async function GET(request: Request) {
   if (!limit.allowed) return courierJson({ error: "Too many requests. Try again shortly." }, 429);
 
   const admin = createSupabaseAdmin();
+  // Initial dispatch is committed by the order trigger. This idempotent tick
+  // advances expired cohorts while courier dashboards are polling for offers.
+  const { error: dispatchAdvanceError } = await admin.rpc("advance_business_courier_dispatch");
+  if (dispatchAdvanceError) {
+    console.error("[courier-dispatch] Timeout advancement failed", { code: dispatchAdvanceError.code ?? "unknown" });
+  }
   const [workerResult, businessResult, offersResult, assignedResult, resolvedOffersResult, historyResult] = await Promise.all([
     admin
       .from("business_workers")
@@ -29,17 +35,17 @@ export async function GET(request: Request) {
       .maybeSingle(),
     admin
       .from("business_courier_offer_feed")
-      .select("offer_id, order_id, business_id, courier_worker_id, offered_at, pickup_name, pickup_address, delivery_address, items, amount_to_collect, currency")
+      .select("offer_id, order_id, business_id, courier_worker_id, offered_at, pickup_name, pickup_address, items, amount_to_collect, currency, estimated_ready_at")
       .eq("courier_worker_id", session.workerId)
       .eq("business_id", session.businessId)
       .order("offered_at", { ascending: false })
       .limit(50),
     admin
       .from("orders")
-      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at, delivery_issue")
+      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at, delivery_issue, estimated_ready_at")
       .eq("courier_worker_id", session.workerId)
       .eq("business_id", session.businessId)
-      .in("status", ["ready", "picked_up", "out_for_delivery"])
+      .in("status", ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"])
       .maybeSingle(),
     admin
       .from("business_courier_offers")
@@ -105,6 +111,7 @@ export async function GET(request: Request) {
           id: assigned.id,
           orderNumber: assigned.order_number,
           status: assigned.status,
+          estimatedReadyAt: assigned.estimated_ready_at,
           customerName: assigned.customer_name,
           customerPhone: assigned.customer_phone,
           pickupName: businessResult.data?.name ?? null,

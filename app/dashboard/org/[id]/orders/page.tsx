@@ -44,7 +44,7 @@ export default async function OrdersPage({
   const { data: deliveryOrders, error: deliveryError } = await admin
     .from("orders")
     .select(
-      "id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference, rider_name, rider_phone"
+      "id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, customer_note, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, payment_expires_at, scheduled_for, estimated_ready_at, status_history, cancellation_reason, items, created_at, provider, provider_reference, courier_worker_id, rider_name, rider_phone"
     )
     .eq("organizer_id", organizerId)
     .order("created_at", { ascending: false })
@@ -136,11 +136,11 @@ export default async function OrdersPage({
 
   const orderIds = orders.map((order) => order.id).filter(Boolean);
   const businessIds = Array.from(new Set(orders.map((order) => order.business_id).filter((id): id is string => Boolean(id))));
-  const courierOfferRows: Array<{ order_id: string; courier_worker_id: string; status: string; decline_message: string | null; declined_at: string | null }> = [];
+  const courierOfferRows: Array<{ order_id: string; courier_worker_id: string; status: string; decline_message: string | null; declined_at: string | null; offered_at: string; expires_at: string }> = [];
   if (orderIds.length && businessIds.length) {
     const { data: offers } = await admin
       .from("business_courier_offers")
-      .select("order_id, courier_worker_id, status, decline_message, declined_at")
+      .select("order_id, courier_worker_id, status, decline_message, declined_at, offered_at, expires_at")
       .in("order_id", orderIds)
       .in("business_id", businessIds)
       .in("status", ["offered", "declined"]);
@@ -159,8 +159,15 @@ export default async function OrdersPage({
   }
   const declinesByOrder = new Map<string, DashboardOrderRow["courierDeclines"]>();
   const openOffersByOrder = new Map<string, number>();
+  const oldestOpenOfferByOrder = new Map<string, { offeredAt: string; expiresAt: string }>();
   for (const offer of courierOfferRows) {
-    if (offer.status === "offered") openOffersByOrder.set(offer.order_id, (openOffersByOrder.get(offer.order_id) ?? 0) + 1);
+    if (offer.status === "offered" && new Date(offer.expires_at).getTime() > Date.now()) {
+      openOffersByOrder.set(offer.order_id, (openOffersByOrder.get(offer.order_id) ?? 0) + 1);
+      const currentOldest = oldestOpenOfferByOrder.get(offer.order_id);
+      if (!currentOldest || offer.offered_at < currentOldest.offeredAt) {
+        oldestOpenOfferByOrder.set(offer.order_id, { offeredAt: offer.offered_at, expiresAt: offer.expires_at });
+      }
+    }
     if (offer.status !== "declined") continue;
     const existing = declinesByOrder.get(offer.order_id) ?? [];
     existing.push({
@@ -174,6 +181,10 @@ export default async function OrdersPage({
     ...order,
     courierDeclines: declinesByOrder.get(order.id) ?? [],
     courierOpenOfferCount: openOffersByOrder.get(order.id) ?? 0,
+    courierOldestOpenOfferExpiresAt: oldestOpenOfferByOrder.get(order.id)?.expiresAt ?? null,
+    courierEligibleCount: registeredCouriers.filter((courier) =>
+      courier.businessId === order.business_id && courier.isAvailable && !courier.hasActiveOrder
+    ).length,
   }));
   const t = await getTranslations("Orders");
 

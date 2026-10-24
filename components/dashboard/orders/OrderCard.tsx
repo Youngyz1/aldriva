@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { formatMoney as formatCurrency } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
@@ -16,6 +16,7 @@ import {
   type CancellationReasonCode,
 } from "@/lib/actions/orders";
 import { buildCourierWhatsAppUrl } from "@/lib/courier/whatsapp-message";
+import DeliveryMap from "@/components/delivery/DeliveryMap";
 import { IconBike as Bike, IconMessage as MessageSquare } from "@tabler/icons-react";
 
 export interface DashboardOrderItem {
@@ -65,6 +66,7 @@ export interface DashboardOrderRow {
   scheduled_for: string | null;
   estimated_ready_at: string | null;
   cancellation_reason: string | null;
+  courier_worker_id?: string | null;
   rider_name?: string | null;
   rider_phone?: string | null;
   status_history: Array<{
@@ -82,6 +84,8 @@ export interface DashboardOrderRow {
   }> | unknown;
   courierDeclines?: Array<{ courierName: string; message: string | null; declinedAt: string | null }>;
   courierOpenOfferCount?: number;
+  courierOldestOpenOfferExpiresAt?: string | null;
+  courierEligibleCount?: number;
   items: unknown;
   created_at: string;
   provider?: string | null;
@@ -131,6 +135,7 @@ export function OrderCard({
   const locale = useLocale() as Locale;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRetryingDispatch, setIsRetryingDispatch] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Modals state
@@ -142,6 +147,16 @@ export function OrderCard({
   // Rider dialog errors render INSIDE the dialog (localized); the dialog stays
   // open on failure so the owner can correct and retry.
   const [riderError, setRiderError] = useState<string | null>(null);
+  const [courierLocation, setCourierLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracy: number | null;
+    heading: number | null;
+    speed: number | null;
+    recorded_at: string;
+    isStale: boolean;
+  } | null>(null);
+  const [courierLocationMessage, setCourierLocationMessage] = useState("");
 
   // Accept modal state
   const [prepMinutes, setPrepMinutes] = useState<number>(20);
@@ -158,10 +173,55 @@ export function OrderCard({
   const [registeredCourierWarning, setRegisteredCourierWarning] = useState("");
   const eligibleCouriers = registeredCouriers.filter((courier) => courier.businessId === order.business_id);
 
+  const hasActiveRegisteredCourier =
+    Boolean(order.courier_worker_id) &&
+    order.fulfilment_type === "delivery" &&
+    ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(order.status);
+
+  useEffect(() => {
+    if (!isExpanded || !hasActiveRegisteredCourier) {
+      setCourierLocation(null);
+      setCourierLocationMessage("");
+      return;
+    }
+
+    let active = true;
+    const refreshLocation = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const response = await fetch(`/api/dashboard/orders/${encodeURIComponent(order.id)}/location`, { cache: "no-store" });
+        const result = await response.json().catch(() => null);
+        if (!active) return;
+        if (!response.ok) {
+          setCourierLocation(null);
+          setCourierLocationMessage(result?.error || "Courier location is temporarily unavailable.");
+          return;
+        }
+        setCourierLocation(result?.location ?? null);
+        setCourierLocationMessage(typeof result?.message === "string" ? result.message : "");
+      } catch {
+        if (active) setCourierLocationMessage("Courier location is temporarily unavailable.");
+      }
+    };
+
+    void refreshLocation();
+    const interval = window.setInterval(() => void refreshLocation(), 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [isExpanded, hasActiveRegisteredCourier, order.id]);
+
   // Address copy state
   const [addressCopied, setAddressCopied] = useState(false);
 
   const overdue = computeOrderOverdue(order);
+  const hasOpenCourierOffer = (order.courierOpenOfferCount ?? 0) > 0;
+  const courierOfferWindowElapsed = Boolean(
+    order.courierOldestOpenOfferExpiresAt &&
+    Date.now() >= new Date(order.courierOldestOpenOfferExpiresAt).getTime()
+  );
+  const canRetryCourierDispatch = !hasOpenCourierOffer || courierOfferWindowElapsed;
   const paymentBadgeKey = resolveDetailedPaymentBadge(order);
 
   const cleanPhone = order.customer_phone.replace(/[^\d+]/g, "");
@@ -274,6 +334,24 @@ export function OrderCard({
       setActionError("Failed to accept order.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRetryCourierDispatch = async () => {
+    setIsRetryingDispatch(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/dashboard/orders/${encodeURIComponent(order.id)}/dispatch`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.error || "Courier dispatch could not be retried.");
+      onRefresh?.();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Courier dispatch could not be retried.");
+    } finally {
+      setIsRetryingDispatch(false);
     }
   };
 
@@ -771,6 +849,46 @@ export function OrderCard({
               )}
             </section>
           )}
+          {hasActiveRegisteredCourier && (
+            <section className="rounded-xl border border-zinc-200 bg-white p-3.5" aria-label="Courier progress">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-800">Courier progress</h3>
+                {courierLocation && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                    courierLocation.isStale
+                      ? "border-amber-300 bg-amber-50 text-amber-800"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  }`}>
+                    {courierLocation.isStale ? "Location stale" : "Location current"}
+                  </span>
+                )}
+              </div>
+              {courierLocation ? (
+                <>
+                  <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200">
+                    <DeliveryMap
+                      courierLocation={courierLocation}
+                      height="180px"
+                      interactive={true}
+                      language={locale === "fr" ? "fr" : "en"}
+                      journeyStage={["picked_up", "out_for_delivery"].includes(order.status) ? "delivery" : "pickup"}
+                      className="w-full"
+                    />
+                  </div>
+                  <p className="mt-2 text-[11px] text-zinc-500">
+                    Updated {new Date(courierLocation.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. Road-route ETA is not available.
+                  </p>
+                </>
+              ) : (
+                <p role="status" className="mt-2 text-xs text-zinc-600">
+                  {courierLocationMessage || "Courier is assigned. A location update is not available yet."}
+                </p>
+              )}
+              {courierLocationMessage && courierLocation && (
+                <p role="status" className="mt-1 text-[11px] text-amber-800">{courierLocationMessage}</p>
+              )}
+            </section>
+          )}
           {order.courierDeclines && order.courierDeclines.length > 0 && (
             <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5" aria-label="Courier responses">
               <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">Courier responses</h3>
@@ -785,6 +903,40 @@ export function OrderCard({
               </ul>
             </section>
           )}
+          {canManage &&
+            order.fulfilment_type === "delivery" &&
+            ["accepted", "preparing", "ready"].includes(order.status) &&
+            !order.courier_worker_id && (
+              <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-3.5" aria-label="Courier dispatch status">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-800">
+                      {order.courierOpenOfferCount
+                        ? "Searching for a courier"
+                        : "Courier assignment needs attention"}
+                    </h3>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      {order.courierOpenOfferCount
+                        ? courierOfferWindowElapsed
+                          ? "No courier accepted before the offer window expired. Retry to reach currently eligible couriers."
+                          : `${order.courierOpenOfferCount} offer${order.courierOpenOfferCount === 1 ? "" : "s"} awaiting a response.`
+                        : order.courierEligibleCount === 0
+                          ? "No eligible courier is currently available. Set a courier online, then retry dispatch."
+                          : "There are no open courier offers. Retry dispatch to reach currently eligible couriers."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRetryCourierDispatch()}
+                    disabled={isRetryingDispatch || !canRetryCourierDispatch}
+                    title={!canRetryCourierDispatch ? "Retry becomes available after the current offers expire." : undefined}
+                    className="min-h-9 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 disabled:opacity-50"
+                  >
+                    {isRetryingDispatch ? "Retrying…" : !canRetryCourierDispatch ? "Waiting for responses" : "Retry dispatch"}
+                  </button>
+                </div>
+              </section>
+            )}
           {statusHistory.some((entry) => entry.status === "delivered" && entry.cash_collected_confirmed) && (
             <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5" aria-label="Cash collection confirmation">
               {(() => {

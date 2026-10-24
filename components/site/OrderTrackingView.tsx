@@ -48,6 +48,7 @@ export interface OrderTrackingData {
   cancellationReason: string | null;
   riderName?: string | null;
   riderPhone?: string | null;
+  courierAssigned: boolean;
   trackingToken?: string;
   deliveryRating?: number | null;
   deliveryRatingComment?: string | null;
@@ -196,6 +197,10 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
 
   // Stepper steps based on fulfilment type
   const isDelivery = order.fulfilmentType === "delivery";
+  const canTrackCourier =
+    isDelivery &&
+    order.courierAssigned &&
+    ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(order.status);
   const activeSteps = isDelivery ? DELIVERY_STEPS : PICKUP_STEPS;
   const stepIndex = activeSteps.findIndex((s) => s.key === order.status);
   const currentStep = stepIndex >= 0 ? stepIndex : (isDelivered ? activeSteps.length - 1 : 0);
@@ -222,6 +227,7 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
     label?: string;
   } | null>(null);
   const [liveTrackingLoading, setLiveTrackingLoading] = useState(false);
+  const [liveTrackingMessage, setLiveTrackingMessage] = useState("");
 
   // Delivery rating state
   const [ratingValue, setRatingValue] = useState(order.deliveryRating || 0);
@@ -232,8 +238,9 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
   const [ratingError, setRatingError] = useState("");
 
   useEffect(() => {
-    if (!isOutForDelivery || !isDelivery || !order.trackingToken) {
+    if (!canTrackCourier || !order.trackingToken) {
       setCourierLocation(null);
+      setLiveTrackingMessage("");
       return;
     }
 
@@ -244,7 +251,7 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
         return;
       }
       try {
-        const res = await fetch(`/api/orders/${order.trackingToken}/location`);
+        const res = await fetch(`/api/orders/${order.trackingToken}/location`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         if (!active) return;
@@ -256,6 +263,7 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
         } else {
           setCourierLocation(null);
         }
+        setLiveTrackingMessage(typeof data.message === "string" ? data.message : "");
       } catch {
         // Network or fetch error
       }
@@ -271,10 +279,10 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
       active = false;
       clearInterval(interval);
     };
-  }, [isOutForDelivery, isDelivery, order.trackingToken]);
+  }, [canTrackCourier, order.trackingToken]);
 
-  // Compute estimated arrival display
-  const arrivalTimeDisplay = order.estimatedReadyAt
+  // This is a kitchen preparation estimate, never a courier arrival estimate.
+  const readyTimeDisplay = order.estimatedReadyAt
     ? new Date(order.estimatedReadyAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "en-US", {
         hour: "2-digit",
         minute: "2-digit",
@@ -392,7 +400,7 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                 <div>
                   <p className="text-xs font-medium text-orange-800 dark:text-orange-300">{t("estimatedReadyTime")}</p>
                   <p className="text-base font-extrabold text-orange-900 dark:text-orange-200 mt-0.5">
-                    {arrivalTimeDisplay}
+                    {readyTimeDisplay}
                   </p>
                 </div>
               </div>
@@ -482,39 +490,45 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
           )}
         </div>
 
-        {/* ── 2. Live Map Section (Only during transit) ──────────────────── */}
-        {isOutForDelivery && isDelivery && (
+        {/* ── 2. Assigned Courier Location ───────────────────────────────── */}
+        {canTrackCourier && (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xs">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
                   <span
-                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                      courierLocation?.isStale ? "bg-amber-400" : "bg-emerald-400"
+                    className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      courierLocation
+                        ? courierLocation.isStale ? "animate-ping bg-amber-400" : "animate-ping bg-emerald-400"
+                        : "bg-zinc-300"
                     }`}
                   />
                   <span
                     className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                      courierLocation?.isStale ? "bg-amber-500" : "bg-emerald-500"
+                      courierLocation
+                        ? courierLocation.isStale ? "bg-amber-500" : "bg-emerald-500"
+                        : "bg-zinc-400"
                     }`}
                   />
                 </span>
                 <p className="text-xs font-bold text-zinc-950 dark:text-white">
-                  {t("liveTracking")}
+                  {courierLocation && !courierLocation.isStale ? t("liveTracking") : t("courierLocation")}
                 </p>
               </div>
 
+              {courierLocation && (
               <div>
                 {courierLocation?.isStale ? (
                   <span className="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    {t("liveTrackingReconnecting")}
+                    {t("locationStale")}
                   </span>
                 ) : courierLocation ? (
                   <span className="inline-flex items-center rounded-md bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    {t("liveTrackingActive")}
+                    {t("locationCurrent")}
                   </span>
                 ) : null}
               </div>
+              )}
             </div>
 
             {courierLocation ? (
@@ -522,21 +536,26 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                 courierLocation={courierLocation}
                 height="280px"
                 interactive={true}
+                language={locale === "fr" ? "fr" : "en"}
+                journeyStage={["picked_up", "out_for_delivery"].includes(order.status) ? "delivery" : "pickup"}
                 className="rounded-lg"
               />
             ) : (
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 py-10 px-4 text-center">
                 <Bike className="h-7 w-7 text-zinc-400 animate-pulse mb-2" />
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
-                  {liveTrackingLoading ? t("liveTrackingWaiting") : t("liveTrackingWaiting")}
+                  {liveTrackingLoading ? t("liveTrackingWaiting") : liveTrackingMessage || t("liveTrackingWaiting")}
                 </p>
               </div>
             )}
+            <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              {t("roadRouteEtaUnavailable")}
+            </p>
           </div>
         )}
 
         {/* ── 3. Courier Information & Quick Contact ─────────────────────── */}
-        {isOutForDelivery && order.riderName && (
+        {canTrackCourier && order.riderName && (
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xs">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -565,14 +584,9 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
               )}
             </div>
 
-            {/* Estimated Arrival / Order reference bar */}
+            {/* Order reference */}
             <div className="mt-3.5 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
               <span>Order #{order.orderNumber}</span>
-              {arrivalTimeDisplay && (
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {t("estimatedArrival") || "Estimated arrival"}: {arrivalTimeDisplay}
-                </span>
-              )}
             </div>
           </div>
         )}
