@@ -1,5 +1,5 @@
 -- migration_194_staging_drift_sync.sql
--- Reconcile the rehearsal schema with STAGING's actual catalog for the five
+-- Reconcile the rehearsal schema with STAGING's actual catalog for the four
 -- objects that differed in the Phase B drift report (B5/B6).
 --
 -- Source of truth: STAGING, read-only. Every definition below was captured
@@ -153,7 +153,7 @@ EXCEPTION
 END;
 $function$;
 
--- ── C. public.orders rider checks (add only when the constraint is absent) ─
+-- ── B. public.orders rider checks (add only when the constraint is absent) ─
 DO $migration194$
 BEGIN
   IF NOT EXISTS (
@@ -182,7 +182,7 @@ BEGIN
 END
 $migration194$;
 
--- ── D. public.update_organizers_updated_at() + trg_organizers_updated_at ───
+-- ── C. public.update_organizers_updated_at() + trg_organizers_updated_at ───
 CREATE OR REPLACE FUNCTION public.update_organizers_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -196,6 +196,22 @@ $function$;
 DROP TRIGGER IF EXISTS trg_organizers_updated_at ON public.organizers;
 
 CREATE TRIGGER trg_organizers_updated_at BEFORE UPDATE ON public.organizers FOR EACH ROW EXECUTE FUNCTION update_organizers_updated_at();
+
+-- ── D. privilege alignment for public.website_content and public.website_content_drafts
+-- Derived from STAGING's relacl: authenticated gets only {r,m} on website_content and {a,r,w,d,m} on website_content_drafts
+-- Revoke exactly the privileges the rehearsal grants beyond staging, from authenticated only
+REVOKE INSERT ON website_content FROM authenticated;
+REVOKE UPDATE ON website_content FROM authenticated;
+REVOKE DELETE ON website_content FROM authenticated;
+REVOKE TRUNCATE ON website_content FROM authenticated;
+REVOKE REFERENCES ON website_content FROM authenticated;
+REVOKE TRIGGER ON website_content FROM authenticated;
+REVOKE TRUNCATE ON website_content_drafts FROM authenticated;
+REVOKE REFERENCES ON website_content_drafts FROM authenticated;
+REVOKE TRIGGER ON website_content_drafts FROM authenticated;
+
+-- List every RLS policy on those two tables on STAGING_DB, with cmd and roles
+SELECT policyname, cmd, roles FROM pg_policies WHERE tablename IN ('website_content', 'website_content_drafts') ORDER BY policyname, cmd;
 
 COMMIT;
 
