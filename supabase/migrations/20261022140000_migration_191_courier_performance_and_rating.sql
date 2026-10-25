@@ -1,6 +1,6 @@
 -- Migration 191: Courier delivery performance RPC + customer delivery rating.
--- Supabase mirror of db/migration_191_courier_performance_and_rating.sql
 -- Owner applies this SQL manually via Supabase SQL Editor.
+-- Date ranges and event timestamps are UTC.
 
 BEGIN;
 
@@ -115,6 +115,7 @@ AS $function$
            END AS event_at
       FROM event_source AS event_row
   ),
+  -- Count completed deliveries per courier (delivered within range)
   delivery_counts AS (
     SELECT event_row.courier_worker_id,
            count(DISTINCT event_row.order_id)::bigint AS deliveries_completed
@@ -124,6 +125,7 @@ AS $function$
        AND event_row.event_at < p_range_end
      GROUP BY event_row.courier_worker_id
   ),
+  -- ready → delivered intervals (full cycle)
   ready_to_delivered_intervals AS (
     SELECT ending_event.courier_worker_id,
            extract(epoch FROM (ending_event.event_at - start_event.event_at))::double precision
@@ -145,6 +147,7 @@ AS $function$
        AND ending_event.event_at < p_range_end
        AND start_event.event_at <= ending_event.event_at
   ),
+  -- picked_up → delivered intervals (transit only)
   picked_up_to_delivered_intervals AS (
     SELECT ending_event.courier_worker_id,
            extract(epoch FROM (ending_event.event_at - start_event.event_at))::double precision
@@ -182,6 +185,7 @@ AS $function$
       FROM picked_up_to_delivered_intervals AS interval_row
      GROUP BY interval_row.courier_worker_id
   ),
+  -- Rating averages per courier (all time, not range-filtered)
   rating_stats AS (
     SELECT order_row.courier_worker_id,
            round(avg(order_row.delivery_rating)::numeric, 2)::double precision AS average_rating,

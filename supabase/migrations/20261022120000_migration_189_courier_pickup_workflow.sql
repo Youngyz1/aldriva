@@ -1,5 +1,12 @@
--- 20261022120000_migration_189_courier_pickup_workflow.sql
+-- migration_189_courier_pickup_workflow.sql
 -- Phase 2: Courier pickup workflow, delivery issue tracking, and multi-stage lifecycle.
+--
+-- Extends order delivery lifecycle with:
+-- 1. 'picked_up' status in orders_status_check
+-- 2. delivery_issue jsonb column on orders
+-- 3. idx_orders_one_active_order_per_courier constraint extended to ready/picked_up/out_for_delivery
+-- 4. business_courier_offer_feed updated to exclude assigned couriers
+-- 5. claim_business_courier_offer RPC updated to assign courier while keeping order ready for pickup
 
 BEGIN;
 
@@ -460,6 +467,7 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Mark other couriers offers as taken for this order
   UPDATE public.business_courier_offers
      SET status = 'taken',
          resolved_at = clock_timestamp(),
@@ -468,6 +476,7 @@ BEGIN
      AND id <> v_offer_id
      AND status = 'offered';
 
+  -- Withdraw other offers for this winning courier
   UPDATE public.business_courier_offers
      SET status = 'withdrawn',
          resolved_at = clock_timestamp(),
@@ -476,6 +485,7 @@ BEGIN
      AND order_id <> v_order_id
      AND status = 'offered';
 
+  -- Mark winner's offer as accepted
   UPDATE public.business_courier_offers
      SET status = 'accepted',
          accepted_at = clock_timestamp(),
