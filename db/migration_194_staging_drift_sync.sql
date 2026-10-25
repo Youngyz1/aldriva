@@ -211,7 +211,6 @@ REVOKE REFERENCES ON website_content_drafts FROM authenticated;
 REVOKE TRIGGER ON website_content_drafts FROM authenticated;
 
 -- List every RLS policy on those two tables on STAGING_DB, with cmd and roles
-SELECT policyname, cmd, roles FROM pg_policies WHERE tablename IN ('website_content', 'website_content_drafts') ORDER BY policyname, cmd;
 
 COMMIT;
 
