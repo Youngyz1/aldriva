@@ -200,17 +200,15 @@ CREATE TRIGGER trg_organizers_updated_at BEFORE UPDATE ON public.organizers FOR 
 -- ── D. privilege alignment for public.website_content and public.website_content_drafts
 -- Derived from STAGING's relacl: authenticated gets only {r,m} on website_content and {a,r,w,d,m} on website_content_drafts
 -- Revoke exactly the privileges the rehearsal grants beyond staging, from authenticated only
-REVOKE INSERT ON website_content FROM authenticated;
-REVOKE UPDATE ON website_content FROM authenticated;
-REVOKE DELETE ON website_content FROM authenticated;
-REVOKE TRUNCATE ON website_content FROM authenticated;
-REVOKE REFERENCES ON website_content FROM authenticated;
-REVOKE TRIGGER ON website_content FROM authenticated;
-REVOKE TRUNCATE ON website_content_drafts FROM authenticated;
-REVOKE REFERENCES ON website_content_drafts FROM authenticated;
-REVOKE TRIGGER ON website_content_drafts FROM authenticated;
-
--- List every RLS policy on those two tables on STAGING_DB, with cmd and roles
+REVOKE INSERT ON public.website_content FROM authenticated;
+REVOKE UPDATE ON public.website_content FROM authenticated;
+REVOKE DELETE ON public.website_content FROM authenticated;
+REVOKE TRUNCATE ON public.website_content FROM authenticated;
+REVOKE REFERENCES ON public.website_content FROM authenticated;
+REVOKE TRIGGER ON public.website_content FROM authenticated;
+REVOKE TRUNCATE ON public.website_content_drafts FROM authenticated;
+REVOKE REFERENCES ON public.website_content_drafts FROM authenticated;
+REVOKE TRIGGER ON public.website_content_drafts FROM authenticated;
 
 COMMIT;
 
