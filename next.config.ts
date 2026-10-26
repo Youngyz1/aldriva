@@ -93,6 +93,7 @@ const cspDirectives = [
     "data:",
     "blob:",
     mediaOrigin,
+    r2EndpointOrigin,
     "https://supabase.co",
     "https://supabase.in",
     "https://*.supabase.co",
