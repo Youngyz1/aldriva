@@ -13,6 +13,7 @@ import {
   STAFF_NAME_MAX,
 } from "@/lib/staff/staff-labels";
 import { generateInviteToken, hashInviteToken } from "@/lib/staff/invite-tokens";
+import { normalizeE164Phone } from "@/lib/staff/phone";
 
 function escapeHtml(value: string): string {
   return value
@@ -52,6 +53,8 @@ export async function POST(
     const email = body.email?.trim().toLowerCase();
     const role = body.role as EventTeamRole;
     const entranceId = body.entranceId || null;
+    const isAccountless = body.isAccountless === true;
+    const phone = isAccountless ? normalizeE164Phone(body.phone) : null;
 
     if (!email || !role) {
       return NextResponse.json(
@@ -79,6 +82,13 @@ export async function POST(
       );
     }
 
+    if (isAccountless && (!phone || !staffNameInput.value)) {
+      return NextResponse.json(
+        { error: "Account-less staff need a valid E.164 phone number and name." },
+        { status: 400 }
+      );
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
@@ -86,12 +96,13 @@ export async function POST(
     const admin = createSupabaseAdmin();
     const roleLabel = role === "event_manager" ? "Event Manager" : "Ticket Scanner";
 
-    // Check 1: Is this email already an active team member for this event?
-    // Resolved through auth.users (migration 166 helper) — profiles has no
-    // email column, so the old profiles.ilike('email') lookup never matched.
-    const { data: existingUserId } = await admin.rpc("get_user_id_by_email", {
-      p_email: email,
-    });
+    // Account-less invitations deliberately do not look up the email in
+    // auth.users. That keeps this path from revealing whether an account exists.
+    let existingUserId: string | null = null;
+    if (!isAccountless) {
+      const { data } = await admin.rpc("get_user_id_by_email", { p_email: email });
+      existingUserId = data ?? null;
+    }
 
     if (existingUserId) {
       const { data: activeMember } = await admin
@@ -134,6 +145,7 @@ export async function POST(
       .eq("event_id", eventId)
       .ilike("email", email)
       .eq("status", "pending")
+      .eq("is_accountless", isAccountless)
       .maybeSingle();
 
     // Fetch event title
@@ -166,6 +178,11 @@ export async function POST(
           role_label: roleLabelInput.value,
           position_label: positionLabelInput.value,
           staff_name: staffNameInput.value,
+          is_accountless: isAccountless,
+          phone,
+          failed_attempts: 0,
+          token_consumed_at: null,
+          revoked_at: null,
           token_hash: tokenHash,
           expires_at: expiresAt,
           invited_by: user.id,
@@ -187,6 +204,8 @@ export async function POST(
           role_label: roleLabelInput.value,
           position_label: positionLabelInput.value,
           staff_name: staffNameInput.value,
+          is_accountless: isAccountless,
+          phone,
           entrance_id: entranceId,
           invited_by: user.id,
           token_hash: tokenHash,
@@ -201,7 +220,9 @@ export async function POST(
       inviteId = invite.id;
     }
 
-    const acceptUrl = `${getSiteUrl().replace(/\/$/, "")}/events/team/accept?token=${token}`;
+    const acceptUrl = isAccountless
+      ? `${getSiteUrl().replace(/\/$/, "")}/events/team/redeem#token=${encodeURIComponent(token)}`
+      : `${getSiteUrl().replace(/\/$/, "")}/events/team/accept?token=${encodeURIComponent(token)}`;
 
     const defaultMsg = isUpdate
       ? `Existing pending invitation for ${email} updated to ${roleLabel}.`
@@ -230,7 +251,7 @@ export async function POST(
           <p>Hello,</p>
           <p>You have been invited to join the event team for <strong>${escapeHtml(event.title)}</strong> as a <strong>${roleLabel}</strong>.</p>
           <p style="margin: 28px 0;">
-            <a href="${acceptUrl}" style="background:#f97316;color:#ffffff;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;display:inline-block;">Accept Invitation</a>
+            <a href="${escapeHtml(acceptUrl)}" style="background:#f97316;color:#ffffff;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;display:inline-block;">Accept Invitation</a>
           </p>
           <p style="color:#6b7280;font-size:13px;">If you were not expecting this invitation, you can safely ignore this email.</p>
         </div>

@@ -65,7 +65,7 @@ function getDb(): Promise<IDBPDatabase> {
   }
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, _oldVersion) {
+      upgrade(db) {
         if (!db.objectStoreNames.contains(CACHE_STORE)) {
           db.createObjectStore(CACHE_STORE, { keyPath: "eventId" });
         }
@@ -203,7 +203,7 @@ export async function findOfflineTicket(
  * Queues an offline scan into scan_queue_v1 and updates the local cache
  * in scanner_cache_v1 so subsequent scans on this same device show "ALREADY CHECKED IN (offline)".
  */
-export async function queueOfflineScan(scan: PendingScanRecord): Promise<void> {
+export async function queueOfflineScan(scan: PendingScanRecord): Promise<boolean> {
   try {
     const db = await getDb();
     
@@ -225,8 +225,10 @@ export async function queueOfflineScan(scan: PendingScanRecord): Promise<void> {
         await db.put(CACHE_STORE, cached);
       }
     }
+    return true;
   } catch (err) {
     console.error("[offline-scanner-db] Error queueing offline scan:", err);
+    return false;
   }
 }
 
@@ -254,6 +256,13 @@ export async function getPendingScanCount(eventId: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/** Strict variant for interfaces that must distinguish an empty queue from an unreadable one. */
+export async function getPendingScanCountStrict(eventId: string): Promise<number> {
+  const db = await getDb();
+  const all = await db.getAllFromIndex(QUEUE_STORE, "by_event", eventId);
+  return (all || []).filter((scan) => scan.syncStatus === "pending" || scan.syncStatus === "failed").length;
 }
 
 /**

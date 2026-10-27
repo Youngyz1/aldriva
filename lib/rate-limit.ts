@@ -244,6 +244,15 @@ export const RATE_LIMITS = {
 
   /** Courier location writes: 120 updates per 10 minutes, keyed by session hash. */
   courierLocation: { limit: 120, windowSeconds: 600 },
+
+  /**
+   * Phase 4+ event team invitation redemption.
+   * Per-invitation bucket: limits targeted redemption spam on a single invitation.
+   * Per-IP bucket: limits spray across all invitations from a given IP.
+   * Both are fail-closed; the enforcer uses AND logic (both must allow).
+   */
+  invitationRedemption: { limit: 5, windowSeconds: 600 },
+  ipInvitationRedemption: { limit: 100, windowSeconds: 3600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -286,6 +295,31 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfter: number;
+  /** True when the limiter backend failed and this fail-closed result denied access. */
+  unavailable?: boolean;
+}
+
+export type FailClosedRateLimitFailure = {
+  reason: "missing_configuration" | "rpc_error" | "invalid_rpc_response" | "exception";
+  errorCode?: string;
+  errorName?: string;
+  httpStatus?: number;
+};
+
+function safeRateLimitErrorCode(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(value) ? value : undefined;
+}
+
+function failClosedRateLimit(
+  onUnavailable: ((failure: FailClosedRateLimitFailure) => void) | undefined,
+  failure: FailClosedRateLimitFailure
+): RateLimitResult {
+  try {
+    onUnavailable?.(failure);
+  } catch {
+    // Diagnostics must never change the security decision.
+  }
+  return { allowed: false, remaining: 0, retryAfter: 60, unavailable: true };
 }
 
 /**
@@ -341,7 +375,8 @@ export async function checkRateLimit(
  */
 export async function checkRateLimitFailClosed(
   name: RateLimitName,
-  identifier: string
+  identifier: string,
+  onUnavailable?: (failure: FailClosedRateLimitFailure) => void
 ): Promise<RateLimitResult> {
   const { limit, windowSeconds } = RATE_LIMITS[name];
 
@@ -353,10 +388,19 @@ export async function checkRateLimitFailClosed(
       p_window_seconds: windowSeconds,
     });
 
-    if (error) return { allowed: false, remaining: 0, retryAfter: 60 };
+    if (error) {
+      const errorStatus = (error as unknown as { status?: unknown }).status;
+      const placeholderConfig = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co"
+        || process.env.SUPABASE_SERVICE_ROLE_KEY === "placeholder-service-role-key";
+      return failClosedRateLimit(onUnavailable, {
+        reason: placeholderConfig ? "missing_configuration" : "rpc_error",
+        errorCode: safeRateLimitErrorCode(error.code),
+        httpStatus: typeof errorStatus === "number" ? errorStatus : undefined,
+      });
+    }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row || typeof row.allowed !== "boolean") {
-      return { allowed: false, remaining: 0, retryAfter: 60 };
+      return failClosedRateLimit(onUnavailable, { reason: "invalid_rpc_response" });
     }
 
     return {
@@ -364,8 +408,13 @@ export async function checkRateLimitFailClosed(
       remaining: Number(row.remaining ?? 0),
       retryAfter: Number(row.retry_after ?? 0),
     };
-  } catch {
-    return { allowed: false, remaining: 0, retryAfter: 60 };
+  } catch (error) {
+    const isMissingConfig = error instanceof Error && error.message === "Supabase service role is not configured.";
+    return failClosedRateLimit(onUnavailable, {
+      reason: isMissingConfig ? "missing_configuration" : "exception",
+      errorCode: safeRateLimitErrorCode((error as { code?: unknown })?.code),
+      errorName: error instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(error.name) ? error.name : undefined,
+    });
   }
 }
 

@@ -106,6 +106,7 @@ export async function bindPendingEventInvitations(userId: string, email: string)
     .select('id, event_id, role, role_label, position_label, staff_name, entrance_id, invited_by')
     .eq('email', normalizedEmail)
     .eq('status', 'pending')
+    .eq('is_accountless', false)
     .gt('expires_at', new Date().toISOString());
 
   if (!pendingInvites || pendingInvites.length === 0) {
