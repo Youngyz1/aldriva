@@ -45,13 +45,19 @@ export async function POST(
     // Fetch existing pending invitation
     const { data: invite, error: fetchErr } = await admin
       .from("event_team_invitations")
-      .select("id, event_id, email, role, entrance_id, status")
+      .select("id, event_id, email, role, entrance_id, status, is_accountless, token_consumed_at")
       .eq("id", inviteId)
       .eq("event_id", eventId)
       .maybeSingle();
 
     if (fetchErr || !invite) {
       return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
+    }
+    if (
+      !["pending", "expired", "declined", "locked"].includes(invite.status) ||
+      invite.token_consumed_at
+    ) {
+      return NextResponse.json({ error: "This invitation cannot be resent." }, { status: 409 });
     }
 
     // Fetch event details
@@ -71,21 +77,32 @@ export async function POST(
     const now = new Date();
     const newExpiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error: updateErr } = await admin
+    const { data: renewedInvite, error: updateErr } = await admin
       .from("event_team_invitations")
       .update({
         token_hash: hashInviteToken(newToken),
         status: "pending",
         expires_at: newExpiresAt,
+        failed_attempts: 0,
+        token_consumed_at: null,
+        revoked_at: null,
         updated_at: now.toISOString(),
       })
-      .eq("id", inviteId);
+      .eq("id", inviteId)
+      .in("status", ["pending", "expired", "declined", "locked"])
+      .select("id")
+      .maybeSingle();
 
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
+    if (!renewedInvite) {
+      return NextResponse.json({ error: "Invitation is no longer pending." }, { status: 409 });
+    }
 
-    const acceptUrl = `${getSiteUrl().replace(/\/$/, "")}/events/team/accept?token=${newToken}`;
+    const acceptUrl = invite.is_accountless
+      ? `${getSiteUrl().replace(/\/$/, "")}/events/team/redeem#token=${encodeURIComponent(newToken)}`
+      : `${getSiteUrl().replace(/\/$/, "")}/events/team/accept?token=${encodeURIComponent(newToken)}`;
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({
@@ -110,7 +127,7 @@ export async function POST(
           <p>Hello,</p>
           <p>This is a reminder of your invitation to join the event team for <strong>${escapeHtml(event.title)}</strong> as a <strong>${roleLabel}</strong>.</p>
           <p style="margin: 28px 0;">
-            <a href="${acceptUrl}" style="background:#f97316;color:#ffffff;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;display:inline-block;">Accept Invitation</a>
+            <a href="${escapeHtml(acceptUrl)}" style="background:#f97316;color:#ffffff;padding:12px 24px;border-radius:9999px;text-decoration:none;font-weight:bold;display:inline-block;">Accept Invitation</a>
           </p>
           <p style="color:#6b7280;font-size:13px;">If you were not expecting this invitation, you can safely ignore this email.</p>
         </div>

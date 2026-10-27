@@ -3,6 +3,11 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { verifyScannerToken } from "@/lib/offline-scanner-token";
+import {
+  eventStaffSessionCookieName,
+  validateEventStaffSession,
+  validateEventStaffSessionHash,
+} from "@/lib/staff/guest-session";
 
 export interface OfflineTicketRecord {
   instance_id: string;
@@ -29,6 +34,7 @@ export async function GET(
     const admin = createSupabaseAdmin();
 
     let userId: string | null = null;
+    let guestSession: Awaited<ReturnType<typeof validateEventStaffSession>> = null;
     const authHeader = req.headers.get("authorization");
 
     // 1. Try Bearer token (first as Supabase Auth token, then as signed scanner-token)
@@ -40,24 +46,35 @@ export async function GET(
       } else {
         const verifiedScannerToken = verifyScannerToken(token, eventId);
         if (verifiedScannerToken.valid && verifiedScannerToken.payload && verifiedScannerToken.payload.eventId === eventId) {
-          userId = verifiedScannerToken.payload.userId;
+          if (verifiedScannerToken.payload.userId) {
+            userId = verifiedScannerToken.payload.userId;
+          } else if (verifiedScannerToken.payload.staffMemberId && verifiedScannerToken.payload.sessionHash) {
+            guestSession = await validateEventStaffSessionHash(eventId, verifiedScannerToken.payload.sessionHash);
+          }
         }
       }
     }
 
+    if (!userId && !guestSession) {
+      const sessionToken = req.cookies.get(eventStaffSessionCookieName(eventId))?.value;
+      if (sessionToken) guestSession = await validateEventStaffSession(eventId, sessionToken);
+    }
+
     // 2. Fall back to cookie session
-    if (!userId) {
+    if (!userId && !guestSession) {
       const supabase = await createSupabaseServer();
       const { data: serverAuth } = await supabase.auth.getUser();
       userId = serverAuth?.user?.id ?? null;
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    if (!userId && !guestSession) {
+      return NextResponse.json({ error: "Staff session is missing, expired, or revoked." }, { status: 401 });
     }
 
     // 3. Check access
-    const canScan = await hasEventOrOrganizerAccess(userId, eventId, ["event_manager", "ticket_scanner"]);
+    const canScan = guestSession
+      ? ["event_manager", "ticket_scanner"].includes(guestSession.role)
+      : await hasEventOrOrganizerAccess(userId!, eventId, ["event_manager", "ticket_scanner"]);
     if (!canScan) {
       return NextResponse.json(
         { error: "You do not have permission to download ticket dataset for this event." },
@@ -66,7 +83,9 @@ export async function GET(
     }
 
     // Check if user has event_manager or higher access (for PII / email suppression)
-    const hasManagerAccess = await hasEventOrOrganizerAccess(userId, eventId, ["event_manager"]);
+    const hasManagerAccess = guestSession
+      ? guestSession.role === "event_manager"
+      : await hasEventOrOrganizerAccess(userId!, eventId, ["event_manager"]);
     const suppressEmail = !hasManagerAccess;
 
     // 4. Fetch event info
@@ -185,7 +204,7 @@ export async function GET(
       downloaded_at: new Date(downloadTime).toISOString(),
       expires_at: new Date(expiresAt).toISOString(),
       tickets,
-    });
+    }, { headers: { "Cache-Control": "no-store, private" } });
   } catch (err: unknown) {
     console.error("[scanner-dataset]", err);
     return NextResponse.json({ error: "Could not generate scanner dataset." }, { status: 500 });

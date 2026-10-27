@@ -1,9 +1,17 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { MEMORY_QR_SCANNER_MESSAGE, isMemoryQrScan } from "@/lib/memories/tokens";
+import {
+  eventStaffSessionCookieName,
+  EVENT_STAFF_SESSION_COOKIE_PREFIX,
+  hashEventStaffSessionToken,
+  validateEventStaffSession,
+} from "@/lib/staff/guest-session";
+import { recordRejectedTicketScan, type TicketScanRejectionReason } from "@/lib/staff/scan-attempts";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set — server misconfiguration.");
@@ -41,7 +49,7 @@ async function findTicketByCode(code: string) {
   const cleanCode = code.trim().replace(/\/+$/, "").toUpperCase();
 
   // 1. Try querying ticket_instances first
-  const { data: inst } = await supabaseAdmin
+  const { data: inst, error: instanceError } = await supabaseAdmin
     .from("ticket_instances")
     .select(`
       id,
@@ -82,6 +90,7 @@ async function findTicketByCode(code: string) {
     `)
     .eq("qr_code", cleanCode)
     .maybeSingle();
+  if (instanceError) throw new Error("Ticket lookup unavailable.");
 
   if (inst) {
     const isInvitation = inst.source === "invitation" || !!inst.invitation_id;
@@ -146,7 +155,7 @@ async function findTicketByCode(code: string) {
   }
 
   // 2. Legacy fallback to ticket_orders.qr_code
-  const { data: legacyOrder } = await supabaseAdmin
+  const { data: legacyOrder, error: legacyOrderError } = await supabaseAdmin
     .from("ticket_orders")
     .select(`
       id,
@@ -171,15 +180,17 @@ async function findTicketByCode(code: string) {
     `)
     .eq("qr_code", cleanCode)
     .maybeSingle();
+  if (legacyOrderError) throw new Error("Ticket lookup unavailable.");
 
   if (!legacyOrder) return null;
 
   // Check if ticket_instances row exists for this legacy order
-  const { data: legacyInst } = await supabaseAdmin
+  const { data: legacyInst, error: legacyInstanceError } = await supabaseAdmin
     .from("ticket_instances")
     .select("id, status, checked_in_at")
     .eq("order_id", legacyOrder.id)
     .maybeSingle();
+  if (legacyInstanceError) throw new Error("Ticket lookup unavailable.");
 
   let tierName = "Standard Entry";
   if (legacyOrder.ticket_id) {
@@ -237,7 +248,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: MEMORY_QR_SCANNER_MESSAGE, valid: false }, { status: 400 });
   }
 
-  const ticketData = await findTicketByCode(code);
+  let ticketData: Awaited<ReturnType<typeof findTicketByCode>>;
+  try {
+    ticketData = await findTicketByCode(code);
+  } catch (err) {
+    const errorName = err instanceof Error ? err.name : "UnknownError";
+    console.error("[verify-ticket]", { requestId: randomUUID(), stage: "lookup_ticket", errorName });
+    return NextResponse.json({ error: "Ticket verification is temporarily unavailable." }, { status: 503 });
+  }
 
   if (!ticketData) {
     return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
@@ -265,115 +283,222 @@ export async function GET(req: NextRequest) {
 
 // POST /api/verify-ticket — check in a ticket (mark as used)
 export async function POST(req: NextRequest) {
+  const requestId = randomUUID();
+  let stage = "parse_request";
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: "Ticket verification is not configured." }, { status: 500 });
     }
 
-    const { code, action, eventId } = await req.json();
-
-    if (!code) {
-      return NextResponse.json({ error: "No code provided." }, { status: 400 });
+    stage = "parse_body";
+    const body = await req.json();
+    const { code, action, eventId, entrance } = body;
+    if (action !== "checkin") {
+      return NextResponse.json({ error: "Unknown action.", requestId }, { status: 400 });
+    }
+    if (typeof eventId !== "string" || !eventId) {
+      return NextResponse.json({ success: false, message: "Event context is required.", requestId }, { status: 400 });
     }
 
-    // Round 4: never route a photo-upload code into the check-in RPC.
+    stage = "authenticate_staff";
+    let guestSession: Awaited<ReturnType<typeof validateEventStaffSession>> = null;
+    let guestSessionToken: string | null = null;
+    const hasGuestCookie = req.cookies.getAll().some((cookie) => cookie.name.startsWith(EVENT_STAFF_SESSION_COOKIE_PREFIX));
+    guestSessionToken = req.cookies.get(eventStaffSessionCookieName(eventId))?.value || null;
+    if (guestSessionToken) {
+      guestSession = await validateEventStaffSession(eventId, guestSessionToken);
+      if (!guestSession) {
+        return NextResponse.json(
+          { success: false, status: "expired_session", message: "Staff access has expired or was revoked.", requestId },
+          { status: 401, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+        );
+      }
+    } else if (hasGuestCookie) {
+      return NextResponse.json(
+        { success: false, status: "expired_session", message: "Staff access has expired or was revoked.", requestId },
+        { status: 401, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+      );
+    }
+
+    const userId = guestSession ? null : await getCurrentUserId(req);
+    if (!guestSession && !userId) {
+      return NextResponse.json(
+        { success: false, message: "Log in as authorized door staff or event organizer to check in guests.", requestId },
+        { status: 401, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+      );
+    }
+    if (guestSession && !["event_manager", "ticket_scanner"].includes(guestSession.role)) {
+      return NextResponse.json({ success: false, message: "You do not have permission to check in this ticket.", requestId }, { status: 403 });
+    }
+    if (userId && !(await canManageEvent(userId, eventId))) {
+      return NextResponse.json({ success: false, message: "You do not have permission to check in this ticket.", requestId }, { status: 403 });
+    }
+
+    let staffMemberId = guestSession?.staffMemberId ?? null;
+    let assignedEntranceId = guestSession?.entranceId ?? null;
+    if (userId) {
+      const { data: member, error: memberError } = await supabaseAdmin
+        .from("event_team_members")
+        .select("id, entrance_id, role")
+        .eq("event_id", eventId)
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (memberError) {
+        console.error("[verify-ticket]", { requestId, stage, errorCode: memberError.code || "UNKNOWN" });
+        return NextResponse.json(
+          { success: false, status: "error", message: "Could not verify staff access. Please retry.", requestId },
+          { status: 503, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+        );
+      }
+      staffMemberId = member?.id ?? null;
+      assignedEntranceId = member?.entrance_id ?? null;
+    }
+
+    const requestedEntranceId = typeof entrance === "string" ? entrance : null;
+    if (assignedEntranceId && requestedEntranceId !== assignedEntranceId) {
+      stage = "validate_entrance";
+      const logged = await recordRejectedTicketScan(supabaseAdmin, {
+        eventId,
+        staffMemberId,
+        scannedByUserId: userId,
+        ticketInstanceId: null,
+        entranceId: assignedEntranceId,
+        scanSource: "online",
+        reason: "unauthorized_entrance",
+      }, requestId);
+      return NextResponse.json(
+        logged
+          ? { success: false, status: "unauthorized_entrance", message: "You are not assigned to that entrance.", requestId }
+          : { success: false, status: "error", message: "The scan could not be recorded. Please retry.", requestId },
+        { status: logged ? 403 : 503, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+      );
+    }
+    // The client may report a selected entrance, but only the server-side
+    // staff assignment is authoritative for check-in attribution.
+    const entranceId = assignedEntranceId;
+
+    const recordRejection = async (
+      reason: TicketScanRejectionReason,
+      message: string,
+      status: number,
+      ticketInstanceId: string | null = null,
+    ) => {
+      const logged = await recordRejectedTicketScan(supabaseAdmin, {
+        eventId,
+        staffMemberId,
+        scannedByUserId: userId,
+        ticketInstanceId,
+        entranceId,
+        scanSource: "online",
+        reason,
+      }, requestId);
+      if (!logged) {
+        return NextResponse.json(
+          { success: false, status: "error", message: "The scan could not be recorded. Please retry.", requestId },
+          { status: 503, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+        );
+      }
+      if (reason === "unsupported_code") {
+        return NextResponse.json(
+          { success: false, message, status: "memory_code", reasonCode: reason, requestId },
+          { status, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+        );
+      }
+      const clientStatus = reason === "already_checked_in"
+        ? "used"
+        : reason === "ticket_not_found"
+          ? "not_found"
+          : reason === "ticket_cancelled"
+            ? "cancelled"
+            : reason === "ticket_refunded"
+              ? "refunded"
+              : reason === "ticket_not_valid" || reason === "ticket_ineligible"
+                ? "invalid"
+                : reason;
+      return NextResponse.json(
+        { success: false, message, status: clientStatus, reasonCode: reason, requestId },
+        { status, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+      );
+    };
+
+    if (!code || typeof code !== "string") {
+      return await recordRejection("invalid_scan", "No ticket code was provided.", 400);
+    }
     if (isMemoryQrScan(code)) {
-      return NextResponse.json(
-        { success: false, message: MEMORY_QR_SCANNER_MESSAGE, status: "memory_code" },
-        { status: 400 }
-      );
+      return await recordRejection("unsupported_code", MEMORY_QR_SCANNER_MESSAGE, 400);
     }
 
+    stage = "lookup_ticket";
     const ticketData = await findTicketByCode(code);
-
     if (!ticketData) {
-      return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
+      return await recordRejection("ticket_not_found", "Ticket not found.", 404);
+    }
+    if (ticketData.eventId !== eventId) {
+      // Do not return another event's ticket data or associate it with this event's audit row.
+      return await recordRejection("wrong_event", "This ticket belongs to a different event.", 400);
     }
 
-    if (eventId && ticketData.eventId !== eventId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "WRONG_EVENT",
-          message: "This ticket belongs to a different event.",
-          status: "wrong_event",
-          order: ticketData.order,
-        },
-        { status: 400 }
-      );
+    stage = "atomic_checkin";
+    const { error: rpcError } = await supabaseAdmin.rpc("check_in_ticket", {
+      p_ticket_instance_id: ticketData.instanceId,
+      p_event_id: eventId,
+      p_scanned_by_user_id: userId,
+      p_delegating_user_id: null,
+      p_staff_member_id: guestSession?.staffMemberId ?? null,
+      p_session_token_hash: guestSessionToken ? hashEventStaffSessionToken(guestSessionToken) : null,
+      p_scan_source: "online",
+      p_offline_scan_id: null,
+      p_scanned_at: new Date().toISOString(),
+      p_device_id: null,
+      p_entrance_id: entranceId,
+    });
+
+    if (rpcError) {
+      const msg = rpcError.message || "";
+      if (msg.includes("STAFF_SESSION_INVALID")) {
+        return NextResponse.json(
+          { success: false, status: "expired_session", message: "Staff access has expired or was revoked.", requestId },
+          { status: 401, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+        );
+      }
+      if (msg.includes("SCANNER_PERMISSION_DENIED")) {
+        return NextResponse.json({ success: false, message: "You do not have permission to check in this ticket.", requestId }, { status: 403 });
+      }
+      const expectedRejection: { code: string; reason: TicketScanRejectionReason; message: string; status: number }[] = [
+        { code: "ALREADY_CHECKED_IN", reason: "already_checked_in", message: "Ticket already used.", status: 200 },
+        { code: "TICKET_CANCELLED", reason: "ticket_cancelled", message: "Ticket is cancelled.", status: 200 },
+        { code: "TICKET_REFUNDED", reason: "ticket_refunded", message: "Ticket is refunded.", status: 200 },
+        { code: "TICKET_NOT_VALID", reason: "ticket_not_valid", message: "Ticket is not valid for check-in.", status: 400 },
+        { code: "TICKET_NOT_FOUND", reason: "ticket_not_found", message: "Ticket not found.", status: 404 },
+        { code: "WRONG_EVENT", reason: "wrong_event", message: "This ticket belongs to a different event.", status: 400 },
+      ];
+      const rejected = expectedRejection.find((entry) => msg.includes(entry.code));
+      if (rejected) {
+        return await recordRejection(
+          rejected.reason,
+          rejected.message,
+          rejected.status,
+          rejected.reason === "wrong_event" ? null : ticketData.instanceId,
+        );
+      }
+      console.error("[verify-ticket]", { requestId, stage, errorCode: rpcError.code || "UNKNOWN" });
+      return await recordRejection("verification_error", "Could not check in this ticket.", 503, ticketData.instanceId);
     }
 
-    if (action === "checkin") {
-      const userId = await getCurrentUserId(req);
-
-      if (!userId) {
-        return NextResponse.json(
-          { success: false, message: "Log in as authorized door staff or event organizer to check in guests." },
-          { status: 401 }
-        );
-      }
-
-      const canCheckIn = await canManageEvent(userId, ticketData.eventId);
-
-      if (!canCheckIn) {
-        return NextResponse.json(
-          { success: false, message: "You do not have permission to check in this ticket." },
-          { status: 403 }
-        );
-      }
-
-      // Call atomic check_in_ticket RPC with ticket_instance_id and scanner user attribution
-      const { error: rpcError } = await supabaseAdmin.rpc("check_in_ticket", {
-        p_ticket_instance_id: ticketData.instanceId,
-        p_scanned_by_user_id: userId,
-      });
-
-      if (rpcError) {
-        const msg = rpcError.message || "";
-        if (msg.includes("ALREADY_CHECKED_IN")) {
-          return NextResponse.json({
-            success: false,
-            message: "Ticket already used.",
-            status: "used",
-            order: ticketData.order,
-          });
-        }
-        if (msg.includes("TICKET_CANCELLED")) {
-          return NextResponse.json({
-            success: false,
-            message: "Ticket is cancelled.",
-            status: "cancelled",
-            order: ticketData.order,
-          });
-        }
-        if (msg.includes("TICKET_REFUNDED")) {
-          return NextResponse.json({
-            success: false,
-            message: "Ticket is refunded.",
-            status: "refunded",
-            order: ticketData.order,
-          });
-        }
-        if (msg.includes("TICKET_NOT_FOUND")) {
-          return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
-        }
-        return NextResponse.json(
-          { success: false, message: "Could not check in this ticket." },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Ticket checked in successfully!",
-        status: "used",
-        order: { ...ticketData.order, status: "used", checked_in_at: new Date().toISOString() },
-      });
-    }
-
-    return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+    return NextResponse.json({
+      success: true,
+      message: "Ticket checked in successfully!",
+      status: "used",
+      requestId,
+      order: { ...ticketData.order, status: "used", checked_in_at: new Date().toISOString() },
+    }, { headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } });
   } catch (err: unknown) {
-    console.error("[verify-ticket]", err);
-    return NextResponse.json({ error: "Could not verify the ticket. Please try again." }, { status: 500 });
+    const errorName = err instanceof Error ? err.name : "UnknownError";
+    console.error("[verify-ticket]", { requestId, stage, errorName });
+    return NextResponse.json(
+      { error: "Could not verify the ticket. Please try again.", requestId },
+      { status: 500, headers: { "Cache-Control": "no-store, private", "x-request-id": requestId } }
+    );
   }
 }

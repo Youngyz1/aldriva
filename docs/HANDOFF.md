@@ -100,8 +100,13 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | 190 | Kitchen & delivery — live GPS and transit tracking | **Applied on staging per owner report**; rollback + mirror exist | `feat/phase-2-couriers` |
 | 191 | Kitchen & delivery — courier performance & customer rating | Authored forward + rollback; mirror exists; owner will apply to staging | `feat/phase-2-couriers` |
 | 192 | Kitchen & delivery — early dispatch and location sharing reliability | Owner reports applied on staging and postchecks passed; not independently queried here; guarded rollback + Supabase mirror exist | `staging` |
-| 193+ | unassigned | free as of 2026-10-24 | — |
-| **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
+| 193 | Event team active-user uniqueness | Supabase timestamped mirror exists; canonical db file and staging status require owner confirmation | `staging` |
+| 194 | `migration_194_staging_drift_sync.sql` | Authored forward + rollback and timestamped mirror; not applied by this task | `staging` |
+| 195 | `migration_195_event_team_invitations_phone.sql` | Invitation columns verified through the configured app API project; direct database target not independently confirmed | `staging` |
+| 196 | `migration_196_event_staff_sessions.sql` | Session and attribution columns verified through the configured app API project; direct database target not independently confirmed | `staging` |
+| 197 | `migration_197_event_ticket_scan_attempts.sql` | Owner reports manual application; attempt table and summary/history RPCs verified read-only through the configured app API project | `staging` |
+| **next free** | 198 | Assign after checking every worktree/branch | — |
+| planned | **Table & Menu QR Codes** | Number assigned at build time from this register; before writing, read migration 185 (kitchen/delivery) to learn whether dine-in types, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
 
 ---
 
@@ -160,6 +165,20 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 - **Owner-run SQL only:** `db/tests/migration_186_claim_race_tab_a.sql`, `...tab_b.sql`, `...verify.sql`, and `migration_186_business_delete_test.sql` are not run here. The business-delete harness is staging-only and says never run on production.
 - **Stage C:** courier dashboard/offer polling is implemented. Browser visual/integration QA remains; live tracking, WhatsApp sending, and push are not included.
 *This file is maintained by documentation agents. Last updated: 2026-10-21. Evidence audit: `docs/project-status.md`.*
+
+## 12. Event staff account-less invitations (2026-10-27)
+
+- **VERIFIED — local working tree:** account-less staff can be invited with a name, email, phone, role, and event permissions; the phone is normalized to E.164. Account invitations retain their existing acceptance path. Account-less redemption uses a fragment token, last-four phone verification, hashed token/session credentials, both fail-closed redemption limits, and a scoped HTTP-only `SameSite=Strict` cookie.
+- **VERIFIED — database behavior:** migrations 195 then 196 apply to an isolated loopback PostgreSQL database. The lifecycle script covered phone lockout, one-time/concurrent redemption, expiry/revocation, session renewal and event isolation, guest attribution in the existing ticket check-in audit, duplicate ticket scans, and preservation of the existing account RPC. The final audit rerun passed 24 checks; this does not establish schema state on other environments.
+- **VERIFIED — code checks:** feature invitation, rate-limit/session, migration, and offline-scanner tests pass individually. Full `npm test`, TypeScript, and build outcomes for this work are recorded in `docs/phases/feat-team-invite-no-account-design.md` and `docs/CURRENT-STATE.md`.
+- **Owner action:** configure `SCANNER_TOKEN_SECRET` to a random value of at least 32 bytes; absent a configured secret, token minting fails closed unless the existing strong service-role or NextAuth secret fallback is available. Rotation invalidates outstanding offline scanner tokens. Migration target details are updated in `docs/DATABASE.md` after the 2026-10-27 read-only audit.
+- **Limits:** deployed email delivery and authenticated browser/device QA were not performed. See the phase report for exact remaining checks and dependency-related local verification limits.
+
+## 13. Final pre-commit audit update (2026-10-27)
+
+- Full tests: 2,790/2,790 across 227 files; the latest focused event-staff/scanner rerun: 57/57 across 6 files; TypeScript and build passed. Changed-file ESLint had 0 errors and 5 existing `<img>` warnings. English/French JSON, the migration 195–197 mirror comparisons, and `git diff --check` passed. Offline-sync database failures now return safe diagnostics rather than false ticket-rejection records.
+- Read-only app-API metadata confirms the 195–197 schema objects on the configured app API project. The local direct PostgreSQL URL is duplicated and its first host did not resolve. No hosted writes were made.
+- The prior local redemption HTTP 503 was not reproduced, so its exact failing stage remains unknown. No local Supabase/PostgREST stack is available for a fresh end-to-end request. Do not treat this branch as ready to commit until that runtime result is verified.
 
 
 ## 11. Evergreen Envelope Fix Round 2 (2026-10-23)

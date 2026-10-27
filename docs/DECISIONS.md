@@ -568,3 +568,14 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Add only `https://api.tomtom.com` to CSP `img-src`, preserve unrelated CSP sources, and display TomTom/OpenStreetMap attribution.
   - Keep visible missing-key and tile-failure diagnostics. Do not change GPS, assignments, routing, geocoding, ETA, or stop-coordinate behavior as part of the provider integration.
   - [TomTom pricing](https://docs.tomtom.com/pricing) currently lists 200,000 monthly raster tile requests free; usage beyond the account's included amount is subject to usage-based pricing. Verify the account's actual allowance before broad production use.
+
+### DEC-0060: Account-less event staff use event-scoped sessions and existing ticket check-in
+
+- **Decision Date**: 2026-10-27
+- **Status**: Implemented in the local working tree; migrations and deployed verification pending.
+- **Key Tenets**:
+  - Preserve the account-based invitation path. Account-less invites require normalized E.164 phone and name; redemption accepts only the last four digits and atomically consumes a hashed invite token after DB-side lockout, expiry, and status checks.
+  - Store only a SHA-256 hash of a cryptographically random guest session token. Resolve the session against the invitation, event, staff member, current member state, permission, soft expiry, hard expiry, and revocation on each protected request; carry the raw credential only in an HTTP-only, `SameSite=Strict` cookie.
+  - Enforce both invitation-hash and trusted-IP redemption limits and fail closed when the rate-limit backend is unavailable. Only use the Vercel edge client-IP header when running behind Vercel; do not trust caller-supplied forwarding headers on other deployments.
+  - Guest ticket check-in must use the established ticket-instance and `ticket_checkins` path. Record a guest with `scanned_by_staff_member_id` and leave `scanned_by_user_id` null; never invent an auth user. The atomic guest RPC is separately permission-checked and does not remove the two-argument account RPC.
+  - Migration 195 precedes 196. SQL stays unapplied until the owner runs it manually after checking the target schema. Provide guarded rollbacks and matching timestamped Supabase forward mirrors.

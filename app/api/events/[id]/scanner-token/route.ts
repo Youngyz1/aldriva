@@ -3,6 +3,11 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { hasEventOrOrganizerAccess, getEventTeamRole } from "@/lib/event-auth";
 import { signScannerToken } from "@/lib/offline-scanner-token";
+import {
+  eventStaffSessionCookieName,
+  hashEventStaffSessionToken,
+  validateEventStaffSession,
+} from "@/lib/staff/guest-session";
 
 export async function POST(
   req: NextRequest,
@@ -27,7 +32,32 @@ export async function POST(
     }
 
     if (!user) {
-      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+      const sessionToken = req.cookies.get(eventStaffSessionCookieName(eventId))?.value;
+      if (!sessionToken) {
+        return NextResponse.json({ error: "Staff session is missing or expired." }, { status: 401 });
+      }
+
+      const staffSession = await validateEventStaffSession(eventId, sessionToken);
+      if (!staffSession) {
+        return NextResponse.json({ error: "Staff session is expired or access was revoked." }, { status: 401 });
+      }
+
+      const { token, expiresAt } = signScannerToken({
+        staffMemberId: staffSession.staffMemberId,
+        sessionHash: hashEventStaffSessionToken(sessionToken),
+        eventId,
+        role: staffSession.role,
+        entranceId: staffSession.entranceId,
+        durationHours: 8,
+      });
+      return NextResponse.json({
+        success: true,
+        token,
+        expires_at: new Date(expiresAt).toISOString(),
+        event_id: eventId,
+        role: staffSession.role,
+        entrance_id: staffSession.entranceId,
+      }, { headers: { "Cache-Control": "no-store, private" } });
     }
 
     const canScan = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"]);
@@ -66,7 +96,7 @@ export async function POST(
       event_id: eventId,
       role,
       entrance_id: entranceId,
-    });
+    }, { headers: { "Cache-Control": "no-store, private" } });
   } catch (err: unknown) {
     console.error("[scanner-token]", err);
     return NextResponse.json({ error: "Could not generate scanner token." }, { status: 500 });

@@ -3,6 +3,14 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-10-27] — Account-less event staff invitations and scanner sessions (local implementation)
+
+- Added an account-less invitation path with required staff name, E.164 phone, last-four verification, token-fragment handling, and fail-closed per-invitation and per-IP limits. Existing account invite/accept behavior remains in place.
+- Added hashed, event-scoped guest sessions with DB-checked expiry/revocation and an HTTP-only `SameSite=Strict` cookie. Scanner dataset, online verify, scanner-token, and offline-sync paths now resolve guest access and preserve ticket/event/permission checks.
+- Guest check-ins use the existing ticket-instance update and audit tables, with a new nullable `scanned_by_staff_member_id` attribution field; the original account RPC remains available. Migration 195 (phone and lockout fields) must be applied before migration 196 (sessions and RPCs).
+- Added guarded rollback files and timestamped Supabase mirrors. Both forward migration mirrors are byte-identical and were exercised on a disposable loopback PostgreSQL database; the final audit rerun passed 24 lifecycle checks. No staging/production database was changed.
+- Feature tests pass individually. Full-suite results, local missing-package blockers, and browser/deployed QA limits are recorded in the phase report; this change has not been committed or deployed.
+
 ## [2026-10-24] — Courier map provider switch to TomTom Orbis (staging verification pending)
 
 - Provider follow-up: switched shared Leaflet maps from public OSM tiles to the documented TomTom Orbis v2 PNG raster endpoint, with 256px XYZ tiles, zoom 0–22, TomTom/OSM attribution, and only `api.tomtom.com` added to CSP `img-src`.

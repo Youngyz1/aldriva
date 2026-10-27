@@ -3,7 +3,7 @@
 > **Status**: Verified Technical Reference  
 > **Canonical Migration Source**: `db/` (Migrations 1 to **192**)
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Updated**: 2026-10-24 (migration application status remains owner-reported and is not independently queried). Latest authored forward migration in the repository: **192** (early courier dispatch; the owner reports it was applied on staging and its read-only postchecks passed). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186, 187, 189, 190, 192** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but not applied; **188** is authored and not applied; **191** is authored for manual owner application. All other migration statuses are unknown unless stated in the register. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
+> **Last Updated**: 2026-10-27. The owner reports migration 197 was manually applied. Read-only PostgREST checks using the app's configured `NEXT_PUBLIC_SUPABASE_URL` verified the migration 195 invitation columns, migration 196 session/member-attribution columns, and migration 197 attempt table; service-role calls to migration 197's summary and history RPCs returned HTTP 200 for a nonexistent event UUID. This confirms those objects on the configured app API project, not every environment or a migration ledger. The first `STAGING_DATABASE_URL` assignment points to a different database host and did not resolve during a read-only metadata connection; a later duplicate assignment points elsewhere. The app does not read `STAGING_*`. Do not reapply migrations blindly. There is no verified `schema_migrations` ledger. Older status entries remain owner-reported unless stated in the register. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
 
 ---
 
@@ -133,7 +133,7 @@ The following tables are planned for future phases (DO NOT create before respect
 - **Business ERP (Phase 8)**: shift rosters, inventory movements.
 - **External AI (Phase 14)**: third-party app/OAuth registry, tool manifests.
 
-> **Historical note (pre-2026-10-20):** the original text here said "Services & Menus (Phase 5 — next migration 136)" and described 130–136 as pending/partially applied. That is now **out of date**: 136 is verified applied on staging, 137+ exist, and the latest forward migration is **185**. The old planned names `migration_128`–`139` are **all consumed** by unrelated migrations (VERIFIED — e.g. 128 = website drafts, 130 = website category, 132 = business branches, 139 = AI tool registry).
+> **Historical note (pre-2026-10-20):** the original text here said "Services & Menus (Phase 5 — next migration 136)" and described 130–136 as pending/partially applied. That is now **out of date**: 136 is verified applied on staging, 137+ exist, and migration files through **196** are now authored (not necessarily applied). The old planned names `migration_128`–`139` are **all consumed** by unrelated migrations (e.g. 128 = website drafts, 130 = website category, 132 = business branches, 139 = AI tool registry).
 
 ---
 
@@ -199,9 +199,14 @@ The following tables are planned for future phases (DO NOT create before respect
 | 190 | `migration_190_delivery_live_gps.sql` | yes | `20261022130000_migration_190_delivery_live_gps.sql` | Applied on staging per owner report |
 | 191 | `migration_191_courier_performance_and_rating.sql` | yes | `20261022140000_migration_191_courier_performance_and_rating.sql` | Authored forward + rollback; mirror exists; owner applies manually |
 | 192 | `migration_192_early_courier_dispatch.sql` | yes | `20261024000000_migration_192_early_courier_dispatch.sql` | Owner reports applied on staging and read-only postchecks passed; not independently queried in this session; guarded rollback exists |
-| 193+ | — | — | — | **free** as of 2026-10-24 |
+| 193 | `migration_193_event_team_members_active_user_index.sql` | owner to confirm canonical file | `20261024010000_migration_193_event_team_members_active_user_index.sql` | UNKNOWN; mirror exists, but canonical file was not found in this worktree |
+| 194 | `migration_194_staging_drift_sync.sql` | yes | `20261024020000_migration_194_staging_drift_sync.sql` | Not applied by this task; confirm live status with owner |
+| 195 | `migration_195_event_team_invitations_phone.sql` | yes | `20261024020001_migration_195_event_team_invitations_phone.sql` | Invitation columns verified through the configured app API project; direct database target not independently confirmed |
+| 196 | `migration_196_event_staff_sessions.sql` | yes | `20261024020002_migration_196_event_staff_sessions.sql` | Session and attribution columns verified through the configured app API project; direct database target not independently confirmed |
+| 197 | `migration_197_event_ticket_scan_attempts.sql` | yes | `20261027010000_migration_197_event_ticket_scan_attempts.sql` | Owner reports manual application; attempt table and summary/history RPCs verified read-only on the configured app API project |
+| 198+ | — | — | — | Next free number is 198; verify all worktrees/branches before assignment |
 
-**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP; 189 = courier pickup workflow; 190 = live GPS and transit tracking; 191 = courier performance & customer rating; 192 = early courier dispatch and location sharing reliability. Next free = **193**.
+**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP; 189 = courier pickup workflow; 190 = live GPS and transit tracking; 191 = courier performance & customer rating; 192 = early courier dispatch and location sharing reliability; 193 = event team active-user uniqueness; 194 = staging drift sync; 195–197 = account-less event staff and scanner activity. Next free = **198**.
 
 ### Read-only verification queries (no `schema_migrations` table)
 
