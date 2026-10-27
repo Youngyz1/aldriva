@@ -40,7 +40,7 @@ export default async function EventScannerPage({
       .single(),
     admin
       .from("event_team_members")
-      .select("entrance_id")
+      .select("id, entrance_id, role, role_label, position_label, staff_name")
       .eq("event_id", eventId)
       .eq("user_id", ctx.user.id)
       .eq("status", "active")
@@ -53,6 +53,11 @@ export default async function EventScannerPage({
     <ScannerClient
       eventId={eventId}
       userId={ctx.user.id}
+      staffMemberId={teamMember?.id || null}
+      staffName={teamMember?.staff_name || null}
+      staffRole={(teamMember?.role as "event_manager" | "ticket_scanner" | null) || "event_manager"}
+      staffRoleLabel={teamMember?.role_label || null}
+      staffPositionLabel={teamMember?.position_label || null}
       assignedEntrance={assignedEntrance}
       eventTitle={event?.title || "Event Door Scanner"}
       eventDetails={

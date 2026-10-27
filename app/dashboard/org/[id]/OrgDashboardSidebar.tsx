@@ -91,7 +91,7 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
       onMouseEnter={() => { if (isHoverCapable) setOpen(true); }}
       onMouseLeave={() => { if (isHoverCapable) setOpen(false); }}
       onClick={() => { if (!isHoverCapable) setOpen((v) => !v); }}
-      className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] shrink-0 self-start flex-col overflow-hidden border-r border-zinc-200 bg-white text-zinc-900 supports-[height:100dvh]:h-[calc(100dvh-4rem)] lg:flex"
+      className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] shrink-0 self-start flex-col overflow-hidden border-r border-zinc-200 bg-white text-zinc-900 supports-[height:100dvh]:h-[calc(100dvh-4rem)] md:flex"
     >
       <div className="flex h-full flex-col overflow-y-auto overflow-x-hidden overscroll-contain">
         {/* Collapsed: icon only */}

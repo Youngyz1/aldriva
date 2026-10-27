@@ -760,7 +760,7 @@ export default function ProfileClient({
                   aria-label="Open Explore navigation"
                 >
                   <Compass className="h-5 w-5" />
-                  <span className="text-[10px] font-bold">Explore</span>
+                  <span className="text-[10px] font-bold">Menu</span>
                 </button>
               )}
             />
@@ -770,7 +770,7 @@ export default function ProfileClient({
               className="flex flex-col items-center gap-0.5 text-zinc-600 hover:text-orange-700"
             >
               <Compass className="h-5 w-5" />
-              <span className="text-[10px] font-bold">Explore</span>
+              <span className="text-[10px] font-bold">Menu</span>
             </Link>
           )}
         </div>

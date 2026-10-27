@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import jsQR from "jsqr";
 import {
   IconCamera as Camera,
@@ -21,7 +22,7 @@ import ScannerPreparePanel from "@/components/scanner/ScannerPreparePanel";
 import {
   findOfflineTicket,
   queueOfflineScan,
-  getPendingScanCount,
+  getPendingScanCountStrict,
   syncOfflineScans,
   getOrCreateDeviceId,
   getOfflineDataset,
@@ -37,6 +38,9 @@ type ScanResultState = {
     | "cancelled"
     | "refunded"
     | "not_found"
+    | "invalid"
+    | "session_invalid"
+    | "unauthorized_entrance"
     | "not_in_local_data"
     | "error";
   title: string;
@@ -61,18 +65,31 @@ type ScanResultState = {
 type Props = {
   eventId: string;
   userId?: string | null;
+  staffMemberId?: string | null;
+  staffName?: string | null;
+  staffRole?: "event_manager" | "ticket_scanner" | null;
+  staffRoleLabel?: string | null;
+  staffPositionLabel?: string | null;
   assignedEntrance?: string | null;
   eventTitle: string;
   eventDetails?: string;
+  guestSession?: boolean;
 };
 
 export default function ScannerClient({
   eventId,
   userId,
+  staffMemberId,
+  staffName,
+  staffRole,
+  staffRoleLabel,
+  staffPositionLabel,
   assignedEntrance,
   eventTitle,
   eventDetails,
+  guestSession = false,
 }: Props) {
+  const translate = useTranslations("Events");
   const [manualCode, setManualCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScanResultState | null>(null);
@@ -80,9 +97,13 @@ export default function ScannerClient({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [autoResetTimer, setAutoResetTimer] = useState<number | null>(null);
   const [selectedEntrance, setSelectedEntrance] = useState<string>(assignedEntrance || "");
-  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
+  const [activity, setActivity] = useState<{ successful: number; rejected: number; total: number } | null>(null);
+  const [activityState, setActivityState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [isOnline, setIsOnline] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -100,16 +121,46 @@ export default function ScannerClient({
   // Refresh pending count
   const refreshPendingCount = useCallback(async () => {
     try {
-      const count = await getPendingScanCount(eventId);
+      const count = await getPendingScanCountStrict(eventId);
       setPendingCount(count);
     } catch {
-      // Ignore in SSR
+      setPendingCount(null);
     }
   }, [eventId]);
+
+  const refreshActivity = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ scope: "mine" });
+      if (staffMemberId) params.set("staff_id", staffMemberId);
+      const response = await fetch(`/api/events/${eventId}/scan-activity?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("activity request failed");
+      const data = await response.json();
+      setActivity(data.summary);
+      setActivityState("ready");
+    } catch {
+      setActivity(null);
+      setActivityState("unavailable");
+    }
+  }, [eventId, staffMemberId]);
 
   useEffect(() => {
     refreshPendingCount();
   }, [refreshPendingCount]);
+
+  useEffect(() => {
+    void refreshActivity();
+  }, [refreshActivity]);
+
+  useEffect(() => {
+    const updateConnection = () => setIsOnline(navigator.onLine);
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, []);
 
   // Flush offline queue when online
   const triggerSync = useCallback(async () => {
@@ -118,9 +169,11 @@ export default function ScannerClient({
 
     try {
       setSyncing(true);
+      setSyncError(false);
       const dataset = await getOfflineDataset(eventId, userId);
       const token = dataset?.token || null;
       const syncRes = await syncOfflineScans(eventId, token);
+      setSyncError(syncRes.failed > 0);
 
       if (syncRes.synced > 0 || syncRes.conflicts > 0) {
         setSyncToast(
@@ -132,6 +185,7 @@ export default function ScannerClient({
       }
       await refreshPendingCount();
     } catch (err) {
+      setSyncError(true);
       console.error("[ScannerClient] Sync error:", err);
     } finally {
       setSyncing(false);
@@ -216,7 +270,7 @@ export default function ScannerClient({
           });
           clearTimeout(timeoutId);
 
-          if (res.ok || res.status === 400 || res.status === 403 || res.status === 404) {
+          if (res.ok || res.status === 400 || res.status === 403 || res.status === 404 || (guestSession && res.status === 401)) {
             onlineData = await res.json();
           } else {
             // 500 or 502/503/504 server error - treat as online fail
@@ -244,8 +298,8 @@ export default function ScannerClient({
           if (status === "used" || onlineData.message?.includes("already used")) {
             setResult({
               status: "used",
-              title: "ALREADY CHECKED IN",
-              message: onlineData.message || "This ticket was previously checked in.",
+              title: translate("scanRejectedTitle").toUpperCase(),
+              message: translate("duplicateTicketMessage"),
               order: onlineData.order,
             });
           } else if (status === "wrong_event" || onlineData.error === "WRONG_EVENT") {
@@ -267,6 +321,25 @@ export default function ScannerClient({
               status: "refunded",
               title: "TICKET REFUNDED",
               message: "This ticket was refunded.",
+              order: onlineData.order,
+            });
+          } else if (status === "expired_session") {
+            setResult({
+              status: "session_invalid",
+              title: "STAFF ACCESS EXPIRED",
+              message: onlineData.message || "Staff access has expired or was revoked. Ask the organizer for a new invitation.",
+            });
+          } else if (status === "unauthorized_entrance") {
+            setResult({
+              status: "unauthorized_entrance",
+              title: translate("reasonUnauthorizedEntrance").toUpperCase(),
+              message: translate("unauthorizedEntranceMessage"),
+            });
+          } else if (status === "invalid") {
+            setResult({
+              status: "invalid",
+              title: "INVALID TICKET",
+              message: onlineData.message || "This ticket cannot be used for entry.",
               order: onlineData.order,
             });
           } else if (onlineData.status === "not_found" || status === "not_found") {
@@ -327,25 +400,33 @@ export default function ScannerClient({
                 syncStatus: "pending",
               };
 
-              await queueOfflineScan(pendingScan);
-              await refreshPendingCount();
-
-              setResult({
-                status: "offline_valid",
-                isOffline: true,
-                title: "VALID (OFFLINE VERIFIED)",
-                message: "OFFLINE — QUEUED FOR SYNC",
-                order: {
-                  ...orderData,
-                  checked_in_at: scannedAt,
-                },
-              });
+              const queued = await queueOfflineScan(pendingScan);
+              if (!queued) {
+                setResult({
+                  status: "error",
+                  isOffline: true,
+                  title: translate("offlineQueueFailed").toUpperCase(),
+                  message: translate("offlineQueueFailed"),
+                });
+              } else {
+                await refreshPendingCount();
+                setResult({
+                  status: "offline_valid",
+                  isOffline: true,
+                  title: "VALID (OFFLINE VERIFIED)",
+                  message: "OFFLINE — QUEUED FOR SYNC",
+                  order: {
+                    ...orderData,
+                    checked_in_at: scannedAt,
+                  },
+                });
+              }
             } else if (t.status === "used") {
               setResult({
                 status: "used",
                 isOffline: true,
-                title: "ALREADY CHECKED IN",
-                message: "This ticket was previously checked in.",
+                title: translate("scanRejectedTitle").toUpperCase(),
+                message: translate("duplicateTicketMessage"),
                 order: orderData,
               });
             } else if (t.status === "cancelled") {
@@ -402,6 +483,7 @@ export default function ScannerClient({
       }
 
       setLoading(false);
+      if (!onlineFailed) await refreshActivity();
       // Start 3-second auto-reset countdown
       let count = 3;
       setAutoResetTimer(count);
@@ -415,7 +497,7 @@ export default function ScannerClient({
         }
       }, 1000);
     },
-    [eventId, userId, selectedEntrance, resetScanner, refreshPendingCount]
+    [eventId, userId, selectedEntrance, guestSession, resetScanner, refreshPendingCount, refreshActivity, translate]
   );
 
   // Camera Scan Frame Loop
@@ -484,7 +566,7 @@ export default function ScannerClient({
         description={eventDetails || "Mobile Ticket Scanner Portal"}
         action={
           <div className="flex items-center gap-2">
-            {pendingCount > 0 && (
+            {pendingCount !== null && pendingCount > 0 && (
               <button
                 type="button"
                 onClick={triggerSync}
@@ -513,13 +595,65 @@ export default function ScannerClient({
         </div>
       )}
 
+      <section
+        aria-label={translate("scannerActivityTitle")}
+        className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-xs"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-zinc-900">
+              {staffName || translate("eventStaff")}
+              {` · ${staffRole === "event_manager" ? translate("staffPermissionManager") : translate("staffPermissionScanner")}`}
+              {staffRoleLabel ? ` · ${staffRoleLabel}` : ""}
+              {staffPositionLabel ? ` · ${staffPositionLabel}` : ""}
+            </p>
+            {assignedEntrance && (
+              <p className="text-xs font-semibold text-zinc-500">{translate("assignedEntrance")}: {assignedEntrance}</p>
+            )}
+          </div>
+          <p className={`text-xs font-bold ${isOnline ? "text-emerald-700" : "text-amber-700"}`} aria-live="polite">
+            {isOnline ? translate("connected") : translate("offline")}
+            {syncing
+              ? ` · ${translate("syncing")}`
+              : syncError
+                ? ` · ${translate("syncFailed")}`
+                : pendingCount !== null && pendingCount > 0
+                  ? ` · ${translate("pendingSyncCount", { count: pendingCount })}`
+                  : ""}
+          </p>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+          {[
+            [translate("successfulCheckIns"), activity?.successful],
+            [translate("rejectedAttempts"), activity?.rejected],
+            [translate("scanAttempts"), activity?.total],
+            [translate("pendingOfflineScans"), pendingCount],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="border-l-2 border-orange-500 pl-2">
+              <dt className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</dt>
+              <dd className="text-base font-black tabular-nums text-zinc-950">
+                {String(label) === translate("pendingOfflineScans")
+                  ? value ?? "—"
+                  : activityState === "ready" ? value : "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {activityState === "unavailable" && (
+          <p role="status" className="mt-2 flex items-center gap-2 text-xs font-semibold text-amber-800">
+            {translate("activityUnavailable")}
+            <button type="button" onClick={() => void refreshActivity()} className="underline underline-offset-2">{translate("retryActivity")}</button>
+          </p>
+        )}
+      </section>
+
       {/* Prepare Scanner & Offline Dataset Panel */}
       <ScannerPreparePanel
         eventId={eventId}
         userId={userId}
         selectedEntrance={selectedEntrance}
         onEntranceChange={setSelectedEntrance}
-        pendingCount={pendingCount}
+        pendingCount={pendingCount ?? 0}
         onManualSync={triggerSync}
         isSyncing={syncing}
       />
@@ -545,6 +679,12 @@ export default function ScannerClient({
                   ? "bg-red-50 border-red-300 text-red-900"
                   : result.status === "refunded"
                   ? "bg-orange-50 border-orange-300 text-orange-900"
+                  : result.status === "session_invalid"
+                  ? "bg-red-50 border-red-300 text-red-900"
+                   : result.status === "unauthorized_entrance"
+                   ? "bg-red-50 border-red-300 text-red-900"
+                  : result.status === "invalid"
+                  ? "bg-red-50 border-red-300 text-red-900"
                   : "bg-zinc-100 border-zinc-300 text-zinc-800"
               }`}
             >
@@ -574,7 +714,9 @@ export default function ScannerClient({
                 {result.status === "wrong_event" && <XCircle className="h-16 w-16 text-red-600" />}
                 {result.status === "cancelled" && <XCircle className="h-16 w-16 text-red-600" />}
                 {result.status === "refunded" && <RotateCcw className="h-16 w-16 text-orange-600" />}
-                {(result.status === "not_found" || result.status === "error") && (
+                {result.status === "session_invalid" && <XCircle className="h-16 w-16 text-red-600" />}
+                {result.status === "unauthorized_entrance" && <XCircle className="h-16 w-16 text-red-600" />}
+                {(result.status === "not_found" || result.status === "invalid" || result.status === "error") && (
                   <HelpCircle className="h-16 w-16 text-zinc-500" />
                 )}
               </div>

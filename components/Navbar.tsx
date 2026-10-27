@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from 'next-intl';
 import { IconChevronDown as ChevronDown, IconUser as UserRound } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +21,7 @@ type Account = {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const tNav = useTranslations('Navigation');
   const [account, setAccount] = useState<Account | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -73,6 +74,13 @@ export default function Navbar() {
   const initials = accountName ? accountName.slice(0, 2).toUpperCase() : "";
   const publicProfileHref = account ? `/profile/${account.id}` : "/login";
 
+  async function handleLogout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) return;
+    setAccountOpen(false);
+    router.push("/login");
+  }
+
   // Invitation routes (/invitation/[token], /invitation/preview) are standalone chrome-free experiences
   // Round 4: Memories guest upload pages (/m/[token]) are standalone too.
   // Website editor previews (/website-preview/[orgId]) are standalone too —
@@ -122,8 +130,13 @@ export default function Navbar() {
         {/* Right: EN|FR + notification bell + auth button — ALWAYS visible, never shrinks */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
 
-          {/* Language switcher — inline compact on mobile */}
-          <LanguageSwitcher variant="inline" />
+          {/* Language — show current on right, switch on click */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <span className="hidden max-w-28 truncate text-sm font-bold text-zinc-800 sm:inline">
+              {accountName}
+            </span>
+            <LanguageSwitcher variant="inline" />
+          </div>
 
           {/* Notification bell — only when signed in */}
           {account && <NotificationBell userId={account.id} />}
@@ -163,10 +176,22 @@ export default function Navbar() {
                     {tNav('profile')}
                   </Link>
                   <div className="my-1 border-t border-zinc-100" />
-                  <div className="px-4 py-2">
-                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-600">{tNav('language')}</p>
-                    <LanguageSwitcher variant="dropdown" />
-                  </div>
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    {tNav('dashboard')}
+                  </Link>
+                  <div className="my-1 border-t border-zinc-100" />
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+                    onClick={() => void handleLogout()}
+                  >
+                    {tNav('logout')}
+                  </button>
+                  <div className="px-4 py-2" />
                 </div>
               )}
             </div>
