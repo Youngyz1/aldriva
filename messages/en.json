@@ -219,6 +219,7 @@
     },
     "reservations": "Reservations",
     "fleet": "Fleet",
+    "rentals": "Rentals",
     "bookings": "Bookings",
     "reviews": "Reviews",
     "analytics": "Analytics",
@@ -235,7 +236,10 @@
     "emptyFundraisers": "No fundraisers yet. Start a new campaign.",
     "emptyProducts": "No products yet.",
     "noWebsite": "No website yet. Create a website for this organizer.",
-    "createWebsite": "Create Website"
+    "createWebsite": "Create Website",
+    "rentalSettings": "Rental Settings",
+    "addVehicle": "Add Vehicle",
+    "newBooking": "New Booking"
   },
   "Events": {
     "title": "Events",

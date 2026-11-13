@@ -5,39 +5,72 @@
  *
  * Workspace More sheet replacing the mobile drawer for dashboard layouts.
  * docs/design/dashboard-overview/06-mobile-navigation-spec.md §2.
+ *
+ * The workspace-nav section below is built from `navItems` — the exact
+ * same NavItem[] the desktop sidebar renders (both call
+ * `getFullOrgNavItems()` from app/dashboard/org/[id]/org-nav-items.ts; this
+ * sheet never re-derives its own capability checks for it), so the two
+ * surfaces cannot drift out of sync again. Only the "+ New …" quick
+ * create actions above it still gate on raw capabilities, same as the
+ * Overview's own quick actions (lib/overview-resolver.ts).
  */
 
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
-  IconWorld as World,
+  IconWorld as Globe,
+  IconCalendar as Calendar,
+  IconHeart as Heart,
+  IconPackage as Package,
+  IconBriefcase as Briefcase,
+  IconUsers as Users,
+  IconBook as BookOpen,
   IconStar as Star,
-  IconChartBar as ChartBar,
+  IconPhoto as ImageIcon,
+  IconChartBar as BarChart2,
   IconSettings as Settings,
+  IconToolsKitchen2 as Utensils,
+  IconBuildingStore as Store,
+  IconShoppingBag as ShoppingBag,
+  IconTag as Tag,
   IconChefHat as ChefHat,
-  IconQrcode as QrCode,
-  IconSpeakerphone as Speakerphone,
+  IconQrcode as Qrcode,
+  IconCalendarCheck as CalendarCheck,
+  IconCalendarClock as CalendarClock,
+  IconCar as Car,
+  IconLayoutDashboard as LayoutDashboard,
   IconChevronRight as ChevronRight,
   IconArrowLeft as ArrowLeft,
   IconX as X,
   IconCalendarPlus,
-  IconHeart,
 } from "@tabler/icons-react";
+import type { NavItem } from "./nav-active";
 
 export interface DashboardMoreSheetProps {
   open: boolean;
   onClose: () => void;
   orgId: string;
+  /** Same NavItem[] the desktop sidebar renders — see file header. */
+  navItems: NavItem[];
   capabilities?: readonly string[];
 }
+
+// Same icon set as app/dashboard/org/[id]/OrgDashboardSidebar.tsx's
+// ORG_ICON_MAP (icon glyphs only — no gating logic lives here).
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car,
+};
 
 export function DashboardMoreSheet({
   open,
   onClose,
   orgId,
+  navItems,
   capabilities = [],
 }: DashboardMoreSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("Organizer");
 
   // Esc key close
   useEffect(() => {
@@ -54,76 +87,39 @@ export function DashboardMoreSheet({
   if (!open) return null;
 
   const caps = new Set(capabilities || []);
-  const hasMenu = caps.has("MENU") || caps.has("ORDERS") || caps.has("ONLINE_ORDERING");
-  const hasTables = caps.has("TABLES") || caps.has("RESERVATIONS");
   const hasEvents = caps.has("EVENTS");
   const hasFundraisers = caps.has("FUNDRAISING") || caps.has("DONATIONS");
+  const hasFleet = caps.has("VEHICLES") || caps.has("VEHICLE_RENTAL");
 
-  const moreItems: Array<{
+  // Quick create actions — gated the same way the Overview's own quick
+  // actions are (lib/overview-resolver.ts): never shown without the
+  // matching capability. "+ New Event" previously showed for every org
+  // with no events AND no fundraisers (i.e. also for rental-only orgs);
+  // that fallback is removed.
+  const createActions: Array<{
     label: string;
     href: string;
     icon: React.ComponentType<{ className?: string }>;
     show: boolean;
   }> = [
-    // ── Create actions (top of sheet) ─────────────────────────────────────
-    {
-      label: "+ New Event",
-      href: `/dashboard/org/${orgId}/events/new`,
-      icon: IconCalendarPlus,
-      show: hasEvents || (!hasEvents && !hasFundraisers),
-    },
-    {
-      label: "+ New Fundraiser",
-      href: `/dashboard/org/${orgId}/fundraisers/new`,
-      icon: IconHeart,
-      show: hasFundraisers,
-    },
-    // ── Workspace nav ──────────────────────────────────────────────────────
-    {
-      label: "Website",
-      href: `/dashboard/org/${orgId}/website`,
-      icon: World,
-      show: true,
-    },
-    {
-      label: "Kitchen Display",
-      href: `/dashboard/org/${orgId}/kitchen`,
-      icon: ChefHat,
-      show: hasMenu,
-    },
-    {
-      label: "Tables & QR",
-      href: `/dashboard/org/${orgId}/tables`,
-      icon: QrCode,
-      show: hasTables,
-    },
-    {
-      label: "Customer Reviews",
-      href: `/dashboard/org/${orgId}/reviews`,
-      icon: Star,
-      show: true,
-    },
-    {
-      label: "Analytics",
-      href: `/dashboard/org/${orgId}/analytics`,
-      icon: ChartBar,
-      show: true,
-    },
-    {
-      label: "Promotions",
-      href: `/dashboard/org/${orgId}/promotions`,
-      icon: Speakerphone,
-      show: true,
-    },
-    {
-      label: "Settings",
-      href: `/dashboard/org/${orgId}/settings`,
-      icon: Settings,
-      show: true,
-    },
-  ];
+    { label: "+ New Event", href: `/dashboard/org/${orgId}/events/new`, icon: IconCalendarPlus, show: hasEvents },
+    { label: "+ New Fundraiser", href: `/dashboard/org/${orgId}/fundraisers/new`, icon: Heart, show: hasFundraisers },
+    { label: `+ ${t("addVehicle")}`, href: `/dashboard/org/${orgId}/fleet/new`, icon: Car, show: hasFleet },
+    { label: `+ ${t("newBooking")}`, href: `/dashboard/org/${orgId}/rentals`, icon: CalendarClock, show: hasFleet },
+  ].filter((item) => item.show);
 
-  const visibleItems = moreItems.filter((i) => i.show);
+  // Same translation pass OrgDashboardSidebar.tsx applies to its own
+  // navItems — label keys are lowercased English fallbacks (e.g.
+  // "rentals", "fleet"); untranslated labels (e.g. "Tables & QR") fall
+  // back to themselves when the key doesn't exist.
+  const translatedNavItems = navItems.map((item) => {
+    const key = item.label.toLowerCase() as any;
+    try {
+      return { ...item, label: t(key) };
+    } catch {
+      return item;
+    }
+  });
 
   return (
     <div className="fixed inset-0 z-[var(--z-sheet-backdrop)] flex items-end justify-center lg:hidden">
@@ -155,26 +151,70 @@ export function DashboardMoreSheet({
           </button>
         </div>
 
-        <div className="divide-y divide-zinc-100 mt-1">
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="min-h-[48px] flex items-center justify-between py-3 px-2 rounded-lg hover:bg-zinc-50 group transition"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-200/80 transition">
-                    <Icon className="h-4 w-4" />
+        {createActions.length > 0 && (
+          <div className="divide-y divide-zinc-100 mt-1 border-b border-zinc-100 pb-1">
+            {createActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={onClose}
+                  className="min-h-[48px] flex items-center justify-between py-3 px-2 rounded-lg hover:bg-zinc-50 group transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-200/80 transition">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className="text-[15px] font-semibold text-zinc-900">
+                      {item.label}
+                    </span>
                   </div>
-                  <span className="text-[15px] font-semibold text-zinc-900">
-                    {item.label}
-                  </span>
-                </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700" />
-              </Link>
+                  <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700" />
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="divide-y divide-zinc-100 mt-1">
+          {translatedNavItems.map((item) => {
+            const Icon = ICON_MAP[item.icon] ?? Globe;
+            return (
+              <React.Fragment key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={onClose}
+                  className="min-h-[48px] flex items-center justify-between py-3 px-2 rounded-lg hover:bg-zinc-50 group transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-200/80 transition">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className="text-[15px] font-semibold text-zinc-900">
+                      {item.label}
+                    </span>
+                    {item.badge !== undefined && Number(item.badge) > 0 && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700" />
+                </Link>
+                {item.settingsHref && (
+                  <Link
+                    href={item.settingsHref}
+                    onClick={onClose}
+                    className="min-h-[40px] flex items-center justify-between py-2 pl-12 pr-2 rounded-lg hover:bg-zinc-50 group transition"
+                  >
+                    <span className="text-sm font-medium text-zinc-500 group-hover:text-zinc-700">
+                      {item.label} settings
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 group-hover:text-zinc-500" />
+                  </Link>
+                )}
+              </React.Fragment>
             );
           })}
         </div>

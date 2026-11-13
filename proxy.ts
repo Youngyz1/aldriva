@@ -499,6 +499,16 @@ export async function proxy(req: NextRequest) {
 
   // Also set on response for debugging/client
   res.headers.set(LOCALE_HEADER, effectiveLocale);
+
+  // ── Route-specific security headers ────────────────────────────────────────
+  // The rental lookup page contains PII (customer name, booking dates, amounts)
+  // behind a UUID token.  It must not be indexed, cached, or leak its URL via
+  // the Referer header when the customer navigates to a third-party page.
+  if (pathname.startsWith('/rentals/lookup/')) {
+    res.headers.set('Cache-Control', 'no-store, private');
+    res.headers.set('Referrer-Policy', 'no-referrer');
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
   // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale
   const existingCookie = req.cookies.get(LOCALE_COOKIE)?.value;
   if (hasLocalePrefix) {

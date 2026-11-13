@@ -57,7 +57,7 @@ export async function resolveOperationalWebsite(organizerId: string, admin: Orde
   const [{ data: website }, { data: businesses }] = await Promise.all([
     admin
       .from("tenant_websites")
-      .select("id, slug, status, published_at, metadata")
+      .select("id, slug, status, metadata")
       .eq("tenant_id", organizerId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -123,7 +123,7 @@ export async function getOperationalSettingsWithClient(
         ...base,
         websiteId: (website as { id: string }).id,
         websiteSlug: ((website as { slug?: unknown }).slug as string) ?? null,
-        isPublished: Boolean((website as { published_at?: unknown }).published_at),
+        isPublished: (website as { status?: unknown }).status === "published",
         hasWebsite: true,
         hours: draftHours ?? liveHours,
         hoursSource: draftHours ? "draft" : liveHours ? "live" : null,

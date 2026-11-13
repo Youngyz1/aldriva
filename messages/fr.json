@@ -218,6 +218,7 @@
       "totalRatings": "Total des évaluations"
     },
     "reservations": "Réservations",
+    "rentals": "Locations",
     "fleet": "Véhicules",
     "bookings": "Rendez-vous",
     "reviews": "Avis",
@@ -235,7 +236,10 @@
     "emptyFundraisers": "Aucune collecte. Lancez une nouvelle campagne.",
     "emptyProducts": "Aucun produit.",
     "noWebsite": "Aucun site web. Créez un site pour cet organisateur.",
-    "createWebsite": "Créer un site"
+    "createWebsite": "Créer un site",
+    "rentalSettings": "Paramètres de location",
+    "addVehicle": "Ajouter un véhicule",
+    "newBooking": "Nouvelle réservation"
   },
   "Events": {
     "title": "Événements",

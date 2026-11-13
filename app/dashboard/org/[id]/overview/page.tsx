@@ -11,6 +11,7 @@
  */
 
 import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { checkTenantAccess, type EntityRole } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -27,6 +28,7 @@ import {
   classifyOrganizerDashboardTypes,
   isOrganizerDashboardBusiness,
 } from "@/lib/organizer-dashboard-classifier";
+import { resolveActiveBusiness, getActiveBusinessCookieName } from "@/lib/active-business";
 import { CreateInvitationButton } from "@/components/events/CreateInvitationButton";
 import { OverviewShell } from "@/components/dashboard/overview/OverviewShell";
 import { EntityHeader } from "@/components/dashboard/overview/EntityHeader";
@@ -78,19 +80,32 @@ export default async function OrgOverviewPage({
       .maybeSingle(),
     supabase
       .from("businesses")
-      .select("id, name, slug, status, industry, category, business_type, offerings, logo, country")
+      .select("id, name, slug, status, industry, category, business_type, offerings, logo, country, created_at")
       .eq("organizer_id", organizerId),
     supabase
       .from("tenant_websites")
-      .select("id, slug, status, published_at, metadata, template_id")
+      .select("id, slug, status, metadata, created_at")
       .eq("tenant_id", organizerId),
   ]);
 
   if (!org) return notFound();
 
   const eligibleBusinesses = (businesses ?? []).filter(isOrganizerDashboardBusiness);
-  const primaryBusiness = eligibleBusinesses[0] ?? null;
-  const primaryWebsite = (websites && websites.length > 0) ? websites[0] : null;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const queryBusinessId = typeof resolvedSearchParams.business === "string" ? resolvedSearchParams.business : null;
+  const cookieStore = await cookies();
+  const cookieBusinessId = cookieStore.get(getActiveBusinessCookieName(organizerId))?.value ?? null;
+  const primaryBusiness = resolveActiveBusiness(eligibleBusinesses, {
+    searchParamBusinessId: queryBusinessId,
+    cookieBusinessId,
+  });
+  const primaryWebsite = (websites && websites.length > 0)
+    ? [...websites].sort((a, b) =>
+        String((a as { created_at?: unknown }).created_at ?? "").localeCompare(
+          String((b as { created_at?: unknown }).created_at ?? "")
+        )
+      )[0]
+    : null;
 
   // Fetch website content for hours. Canonical source:
   // website_content.content.hours (live). The unpublished draft is read too,
@@ -333,7 +348,7 @@ export default async function OrgOverviewPage({
     reservationsTodayCount > 0 ||
     hasAnyReservationRow;
 
-  // 7. Catalog Head Counts (menu items, services)
+  // 7. Menu & Service Counts
   const [
     { count: menuCount },
     { count: serviceCount },
@@ -350,6 +365,31 @@ export default async function OrgOverviewPage({
 
   const menuItemCount = menuCount ?? 0;
   const serviceCountTotal = serviceCount ?? 0;
+
+  // 7b. Rental setup-checklist signals (only queried for fleet-capable
+  // orgs, mirroring the menu/service counts above being queried unconditionally
+  // but used only when relevant).
+  const hasFleetCapability = (capabilities as readonly string[]).some((c) =>
+    ["VEHICLES", "VEHICLE_RENTAL"].includes(c)
+  );
+  let hasFleetVehicle = false;
+  let hasVehicleCategoryRates = false;
+  if (hasFleetCapability) {
+    const [{ count: vehicleCount }, { count: ratedCategoryCount }] = await Promise.all([
+      supabase
+        .from("vehicles")
+        .select("id", { count: "exact", head: true })
+        .eq("organizer_id", organizerId)
+        .eq("is_active", true),
+      supabase
+        .from("vehicle_categories")
+        .select("id", { count: "exact", head: true })
+        .eq("organizer_id", organizerId)
+        .gt("daily_rate", 0),
+    ]);
+    hasFleetVehicle = (vehicleCount ?? 0) > 0;
+    hasVehicleCategoryRates = (ratedCategoryCount ?? 0) > 0;
+  }
 
   // 8. Event & Fundraiser Counts
   const [
@@ -489,7 +529,7 @@ export default async function OrgOverviewPage({
     isOpen,
     hoursBadgeText,
     hasUnpublishedChanges,
-    isSitePublished: Boolean(primaryWebsite?.published_at),
+    isSitePublished: primaryWebsite?.status === "published",
     websiteSlug: primaryWebsite?.slug ?? null,
     websiteId: primaryWebsite?.id ?? null,
     businessId: primaryBusiness?.id ?? null,
@@ -499,6 +539,8 @@ export default async function OrgOverviewPage({
     hasHours: Boolean(hoursValue) || hasDraftHours,
     hasOfferings: offerings.length > 0,
     isOrderingReady,
+    hasFleetVehicle,
+    hasVehicleCategoryRates,
     eventCount: totalEvents,
     fundraiserCount: totalFundraisers,
     followerCount: totalFollowers,
@@ -592,18 +634,31 @@ export default async function OrgOverviewPage({
       )}
 
       {/* 2. Setup Checklist (Slim Banner) */}
-      <SetupBanner steps={checklistSteps} />
+      <SetupBanner steps={checklistSteps} organizerId={organizerId} />
 
-      {/* 3. Top Summary Row — only cards relevant to enabled capabilities */}
-      {(() => {
-        const hasCommerce = augmentedCaps.some((c: string) =>
-          ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c)
-        ) || organizerTypes.hasBusiness;
-        const hasBookingsCap = augmentedCaps.some((c: string) =>
-          ["BOOKINGS", "APPOINTMENTS", "RESERVATIONS", "TABLES"].includes(c)
-        );
-        const cards = [];
-        if (hasCommerce) {
+{/* 3. Top Summary Row — only cards relevant to enabled capabilities */}
+        {(() => {
+          const hasCommerce = augmentedCaps.some((c: string) =>
+            ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c)
+          ) || (augmentedCaps.some((c: string) =>
+            ["VEHICLES", "VEHICLE_RENTAL"].includes(c)
+          ) ? organizerTypes.hasBusiness && augmentedCaps.some((c: string) =>
+            ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c)
+          ) : organizerTypes.hasBusiness);
+          const hasBookingsCap = augmentedCaps.some((c: string) =>
+            ["BOOKINGS", "APPOINTMENTS", "RESERVATIONS", "TABLES"].includes(c)
+          );
+          const hasFleetCap = augmentedCaps.some((c: string) =>
+            ["VEHICLES", "VEHICLE_RENTAL"].includes(c)
+          );
+          // Fleet orgs only show Gross Sales/Orders if they have ordering capabilities
+          const effectiveHasCommerce = hasFleetCap
+            ? augmentedCaps.some((c: string) =>
+                ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c)
+              )
+            : hasCommerce;
+          const cards = [];
+        if (effectiveHasCommerce) {
           cards.push(
             <StatCard
               key="sales"
@@ -622,7 +677,7 @@ export default async function OrgOverviewPage({
             />
           );
         }
-        if (hasBookingsCap || hasReservationsModule) {
+        if ((hasBookingsCap || hasReservationsModule) && !hasFleetCap) {
           cards.push(
             <StatCard
               key="bookings"

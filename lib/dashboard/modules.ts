@@ -19,7 +19,7 @@ export type OrgNavVisibility =
   | { kind: "always" }
   | { kind: "count"; flag: "products" }
   | { kind: "organizer-type"; flag: "events" | "fundraisers" | "business" | "any" }
-  | { kind: "capability"; capabilities: Capability[]; existence: "menuRows" | "serviceRows" | "reservationRows" | "activeServiceRows" };
+  | { kind: "capability"; capabilities: Capability[]; existence?: "menuRows" | "serviceRows" | "reservationRows" | "activeServiceRows" | "fleetRows" };
 
 export interface ModuleNavConfig {
   hrefSuffix: string;
@@ -242,6 +242,25 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     routeExists: true,
   },
   {
+    id: "rentals",
+    capabilities: ["VEHICLES", "VEHICLE_RENTAL"],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "rentals",
+      icon: "CalendarClock",
+      group: "manage",
+      label: "Rentals",
+      visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "fleetRows" },
+    },
+    i18n: { title: "Organizer.rentals", empty: "Rentals.empty", error: "Rentals.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/rentals`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
     id: "fleet",
     capabilities: ["VEHICLES", "VEHICLE_RENTAL"],
     permission: "manage",
@@ -252,13 +271,13 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       icon: "Car",
       group: "manage",
       label: "Fleet",
-      visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "menuRows" },
+      visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "fleetRows" },
     },
     i18n: { title: "Organizer.fleet", empty: "Fleet.empty", error: "Fleet.error" },
     href: (ctx) => `/dashboard/org/${ctx.organizerId}/fleet`,
     load: stubLoad,
     emptyWhen: () => false,
-    routeExists: false,
+    routeExists: true,
   },
   {
     id: "bookings",

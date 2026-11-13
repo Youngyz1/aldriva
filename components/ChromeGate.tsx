@@ -14,7 +14,8 @@ export function isGuestScannerPath(pathname: string | null | undefined): boolean
   const withoutLocale = (pathname ?? "").replace(/^\/(?:en|fr)(?=\/|$)/, "");
   return (
     /^\/events\/[^/]+\/staff-scanner(?:\/|$)/.test(withoutLocale) ||
-    /^\/events\/team\/redeem(?:\/|$)/.test(withoutLocale)
+    /^\/events\/team\/redeem(?:\/|$)/.test(withoutLocale) ||
+    /^\/rentals\/lookup(?:\/|$)/.test(withoutLocale)
   );
 }
 

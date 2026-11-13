@@ -1,6 +1,16 @@
-﻿# Aldriva — Current Implementation State & Living Status
+﻿# Aldriva - Current Implementation State & Living Status
 
-## Run UPLOAD-1 — Direct upload only for every image upload control — 2026-11-07
+## Rental receipt printer - branch `feat/rental-receipt-printer` - 2026-11-12
+
+- **Status: IMPLEMENTED IN WORKING TREE / COMMITTED ON FEATURE BRANCH; not merged or browser-verified.** Advisory only: this branch also commits the pre-existing rental lookup/payment work that was uncommitted at task start, so the receipt commits are self-contained.
+- **Receipt data:** `lib/rental/receipt-data.ts` is the single source for the on-screen receipt and PDF. It uses the secret lookup token and service-role reads, returns only `bookingNumber`, `businessName`, `customerName`, pickup/return, currency, rental amount, paid online, balance due, paid timestamp, deposit, payment reference, and payment status. It never returns the lookup token, DOB, licence number, or internal ids. It returns `null` unless online `amountPaid > 0` (advance/partially paid included); it is not gated on `payment_status === "paid"`.
+- **Money semantics:** `amountPaid` = applied Stripe credits (`rental_charge`/`advance`/`balance`) minus applied Stripe refunds (`refund` + `debit`), labelled "Paid online". `balanceDue` = rental amount minus all applied credits (any method) plus all applied refunds, capped at zero. Cash/offline settlement therefore clears the balance but is not claimed as online revenue.
+- **UI:** `components/receipt/variants/RentalReceipt.tsx` + `components/rental/RentalReceiptPanel.tsx` use the imported `PrintedReceipt`/`ReceiptReveal`. Booking reference is short/mono; status is "Paid" only at zero balance, otherwise "Payment received"; deposit is explicitly separate; no QR/barcode encodes the booking number. The sound defaults on only for this tap-initiated panel and is primed in the click path; mute preference remains in `localStorage`.
+- **Print/PDF/email:** 80mm print CSS is injected only while the receipt is open (`body[data-rental-receipt-print="true"]`), forces the full sheet, and hides page chrome. PDF is 80mm, brand orange, same rows. `sendRentalEmail("payment_received")` logs in `rental_booking_events`; the Stripe webhook calls it inside the applied/new branch. Instant offline bookings send `confirmed` from `rental-public.ts`; instant Stripe bookings get the webhook email.
+- **Database:** no migrations were authored or run. Runtime requires migrations 228/229 (`rental_payments` and `record_rental_payment`); their staging application status is not independently verified in this session.
+- **Verification:** `npx tsc --noEmit` clean; changed-file ESLint clean; `npm run build` passed (403 pages). Rental suites 101/101. Full `npm test` run before the dependency-allowlist update: 3140/3175, with failures in unrelated dirty-tree/rental-baseline files (website, reservations, general booking, raw-error security checks) and the now-fixed `jsbarcode` allowlist. Manual Stripe test-mode, print-preview, 375/1280px, and reduced-motion checks remain owner actions.
+
+## Run UPLOAD-1 - Direct upload only for every image upload control - 2026-11-07
 
 - **Owner decision implemented**: every image upload control offers ONLY direct file upload; "My Media" and "Direct URL" removed everywhere; existing stored URLs keep rendering; Clear/Remove stays; progress and error handling stay.
 - **Shared component** `MediaUploadField.tsx`: mode state, 3-tab toggle, `MyMediaPicker` pane and manual URL input deleted; `ImageUploader` (`cms-media`, tenant-scoped folder) + `Clear Image` kept. All 14 call sites (website builder inspectors, `V2SlotField`, services, service categories, business logo, menu item/option, promotions) inherit it.

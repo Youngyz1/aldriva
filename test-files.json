@@ -276,5 +276,12 @@
   "lib/dashboard/__tests__/date-range.test.cjs",
   "lib/dashboard/__tests__/bottom-bar.test.cjs",
   "lib/dashboard/__tests__/phase-b-overview.test.cjs",
-  "lib/dashboard/__tests__/account-blocks-registry.test.cjs"
+  "lib/dashboard/__tests__/account-blocks-registry.test.cjs",
+  "lib/__tests__/rental-fleet-slice1.test.cjs",
+  "lib/__tests__/rental-booking-concurrency.test.cjs",
+  "lib/__tests__/rental-booking-allocation.test.cjs",
+  "lib/__tests__/rental-booking-pricing.test.cjs",
+  "lib/__tests__/rental-storefront-booking.test.cjs",
+  "lib/__tests__/rental-booking-age-validation.test.cjs",
+  "lib/__tests__/rental-pickup-guards.test.cjs"
 ]

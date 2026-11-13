@@ -9,6 +9,8 @@ export type NavItem = {
   exact?: boolean;
   /** Optional secondary line, shown under the label (e.g. settings nav). */
   description?: string;
+  badge?: number | string;
+  settingsHref?: string;
 };
 
 export type NavGroup = {
