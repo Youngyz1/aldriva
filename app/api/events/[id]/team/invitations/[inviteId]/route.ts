@@ -33,6 +33,7 @@ export async function DELETE(
       .from("event_team_invitations")
       .update({
         status: "revoked",
+        revoked_at: now,
         updated_at: now,
       })
       .eq("id", inviteId)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { hasEventOrOrganizerAccess, EVENT_SCAN_ENTITY_ROLES } from "@/lib/event-auth";
 import { logEventAction } from "@/lib/event-audit";
 
 // RFC 4180 CSV escaping helper
@@ -30,7 +30,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"]);
+    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"], EVENT_SCAN_ENTITY_ROLES);
     if (!canManage) {
       return NextResponse.json(
         { error: "Forbidden: You do not have permission to export data for this event." },

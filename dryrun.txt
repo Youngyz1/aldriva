@@ -1,0 +1,47 @@
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to local database...
+Would push these migrations:
+ • 20261007000001_migration_154_invitation_pages.sql
+ • 20261007000002_migration_155_event_kind.sql
+ • 20261007000003_migration_156_invitation_share_link.sql
+ • 20261008000000_migration_157_public_media_r2.sql
+ • 20261008000001_migration_158_media_buckets_setup.sql
+ • 20261008000002_migration_159_product_asset_storage_provider.sql
+ • 20261008000003_migration_160_public_media_quota_and_targets.sql
+ • 20261008000004_migration_161_configurable_public_media_quota.sql
+ • 20261009000000_migration_162_event_memories.sql
+ • 20261009000001_migration_163_unified_template_rpc.sql
+ • 20261010000000_migration_164_event_staff_labels_badges.sql
+ • 20261010000001_migration_165_event_staff_badge_hardening.sql
+ • 20261010000002_migration_166_invite_token_hash.sql
+ • 20261010000003_migration_167_invitation_music_links.sql
+ • 20261011000000_migration_168_website_content_store.sql
+ • 20261012000000_migration_169_business_offerings.sql
+ • 20261012000001_migration_170_menu_ordering_data.sql
+ • 20261012000002_migration_171_orders.sql
+ • 20261012000003_migration_172_notification_checks_widen.sql
+ • 20261013000000_migration_173_order_online_payment.sql
+ • 20261014000000_migration_174_order_timing.sql
+ • 20261014043000_migration_175_owner_managed_delivery.sql
+ • 20261014050000_migration_176_reservations.sql
+ • 20261016000000_migration_177_store_promo_codes.sql
+ • 20261016010000_migration_178_universal_page_blocks.sql
+ • 20261016020000_migration_179_romantic_envelope_presets.sql
+ • 20261016030000_migration_180_botanical_reverie.sql
+ • 20261017000000_migration_181_luxe_editorial_invitation_card.sql
+ • 20261019000000_migration_182_menu_option_groups.sql
+ • 20261020000000_migration_183_menu_option_assignment_cleanup.sql
+ • 20261020010000_migration_184_menu_promotions.sql
+ • 20261020020000_migration_185_kitchen_worker_access.sql
+ • 20261021000000_migration_186_courier_offers.sql
+ • 20261021010000_migration_187_cook_performance.sql
+ • 20261021020000_migration_188_evergreen_envelope_rsvp.sql
+ • 20261022120000_migration_189_courier_pickup_workflow.sql
+ • 20261022130000_migration_190_delivery_live_gps.sql
+ • 20261022140000_migration_191_courier_performance_and_rating.sql
+ • 20261024000000_migration_192_early_courier_dispatch.sql
+ • 20261024010000_migration_193_event_team_members_active_user_index.sql
+ • 20261024020000_migration_194_staging_drift_sync.sql
+Finished supabase db push.
+A new version of Supabase CLI is available: v2.122.0 (currently installed v2.109.1)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

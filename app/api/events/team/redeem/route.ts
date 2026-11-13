@@ -9,6 +9,10 @@ import {
   hashEventStaffSessionToken,
 } from "@/lib/staff/guest-session";
 import { checkRateLimitFailClosed, type FailClosedRateLimitFailure } from "@/lib/rate-limit";
+import {
+  GUEST_SCANNER_UNAVAILABLE_MESSAGE,
+  isGuestScannerEnabled,
+} from "@/lib/staff/guest-scanner-flag";
 import { checkEventStaffRedemptionLimits, type RedemptionLimitVerdict } from "@/lib/staff/redemption-limits";
 import { trustedEventStaffClientIp } from "@/lib/staff/trusted-client-ip";
 
@@ -159,9 +163,18 @@ export async function POST(request: NextRequest) {
       return failureResponse(requestId);
     }
 
+    // Feature-flagged rollout: until the guest scanner ships, redemption must
+    // not send the guest to a scanner page that cannot check anyone in. The
+    // invitation is still accepted and the session cookie still issued; the
+    // client shows the explanation instead of navigating.
+    const guestScanningEnabled = isGuestScannerEnabled();
     const response = json(requestId, {
       ok: true,
-      workspaceUrl: `/events/${row.out_event_id}/staff-scanner`,
+      guestScanningEnabled,
+      workspaceUrl: guestScanningEnabled
+        ? `/events/${row.out_event_id}/staff-scanner`
+        : null,
+      message: guestScanningEnabled ? undefined : GUEST_SCANNER_UNAVAILABLE_MESSAGE,
     }, 200);
     response.cookies.set({
       name: eventStaffSessionCookieName(row.out_event_id),

@@ -211,7 +211,7 @@ export function OperationalSettingsSection({ organizerId }: { organizerId: strin
       <div className="space-y-2 border-t border-zinc-100 pt-4">
         <h3 className="text-sm font-black text-zinc-900">Time zone</h3>
         <p className="text-xs font-medium text-zinc-500">
-          Used for Today windows, order scheduling, and reservations. Default from your business country ({timezoneDefault}).
+          Used for Today windows, order scheduling, and reservations. Platform default: {timezoneDefault}.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <select

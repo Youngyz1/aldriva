@@ -2,7 +2,7 @@
 
 import { ReactNode, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import MobileGlobalNav from "./MobileGlobalNav";
+import { AccountBottomBar } from "@/components/nav/AccountBottomBar";
 
 // Module-level cache so auth check doesn't re-run on every client navigation
 let _authedCache: boolean | null = null;
@@ -60,12 +60,12 @@ export default function DashboardLayoutClient({
       <div className="flex">
         {sidebar}
         <main className="min-w-0 flex-1">
-          <MobileGlobalNav />
-          <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 sm:pt-8 lg:px-8 lg:pb-16">
+          <div className="mx-auto max-w-7xl px-4 pt-6 pb-[calc(var(--bottom-bar-h)+1.5rem)] sm:px-6 sm:pt-8 lg:px-8 lg:pb-16">
             {children}
           </div>
         </main>
       </div>
+      <AccountBottomBar />
     </div>
   );
 }

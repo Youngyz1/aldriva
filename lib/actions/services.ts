@@ -6,6 +6,16 @@ import { requireTenantContext } from "@/lib/tenant-context";
 import { createSlug } from "@/lib/slug";
 import { safeImageSrc } from "@/lib/image-url";
 import { revalidatePath } from "next/cache";
+import { clampSummary, sanitizeIncludes } from "@/lib/validation/service-catalog";
+
+/** Mirrors the pattern in lib/actions/general-booking.ts: treat a missing table/column (migration 220 not yet applied) as "feature not migrated yet", never a crash. */
+function isMissingTableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  if (code === "42P01" || code === "42703") return true;
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" && (message.includes("does not exist") || message.includes("schema cache"));
+}
 
 const TITLE_MAX = 120;
 const DESC_MAX = 2000;
@@ -39,7 +49,7 @@ function validateDuration(v: unknown): string | null {
   return null;
 }
 function validatePrice(v: unknown): string | null {
-  if (v === undefined || v === null || v === "") return "Price is required";
+  if (v === undefined || v === null || v === "") return null;
   const n = Number(v);
   if (!Number.isFinite(n) || n < PRICE_MIN || n > PRICE_MAX) return `Price must be ${PRICE_MIN}–${PRICE_MAX}`;
   return null;
@@ -56,6 +66,50 @@ function validatePosition(v: unknown): string | null {
   const n = Number(v);
   if (!Number.isInteger(n) || n < POSITION_MIN || n > POSITION_MAX) return `Position must be ${POSITION_MIN}–${POSITION_MAX}`;
   return null;
+}
+function validateBookingMode(v: unknown): string | null {
+  if (v === undefined || v === null) return null;
+  if (v !== "timed" && v !== "date_only") return 'Booking mode must be "timed" or "date_only"';
+  return null;
+}
+
+/**
+ * category_id is the one new optional field that is NOT a "clamp, never
+ * reject" field: an id that doesn't resolve to this tenant's own category is
+ * a tenant-isolation concern, not a cosmetic input, so it is rejected rather
+ * than silently dropped. Caller must only invoke this when categoryId !==
+ * undefined (i.e. the field was actually supplied).
+ */
+async function resolveCategoryId(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  organizerId: string,
+  categoryId: string | null
+): Promise<{ value: string | null; error?: string }> {
+  if (categoryId === null || categoryId === "") return { value: null };
+  const { data, error } = await admin.from("service_categories").select("id").eq("id", categoryId).eq("organizer_id", organizerId).maybeSingle();
+  if (error && isMissingTableError(error)) return { value: null };
+  if (!data) return { value: null, error: "Category not found" };
+  return { value: categoryId };
+}
+
+/**
+ * Phase 3 virtual-route collision guard: an uncategorized service's slug
+ * (category_id null) is reachable at /services/<slug>, the same path shape
+ * as a category page, so the two must never share a slug for one organizer.
+ */
+async function findCategoryWithSlug(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  organizerId: string,
+  slug: string
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("service_categories")
+    .select("id")
+    .eq("organizer_id", organizerId)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) return false; // migration 220 not applied, or other error: no collision possible
+  return Boolean(data);
 }
 
 async function assertTenant(organizerId: string, roles: ("owner" | "admin" | "manager" | "editor")[]) {
@@ -97,7 +151,7 @@ export async function getServiceById(serviceId: string, organizerId: string) {
   return { success: true, data: { service: data, tiers: tiers || [] } };
 }
 
-export async function createService(organizerId: string, input: { title: string; description?: string; duration_minutes?: number | null; price: number; image_url?: string | null; position?: number; is_active?: boolean }) {
+export async function createService(organizerId: string, input: { title: string; slug?: string; description?: string; duration_minutes?: number | null; price?: number | null; image_url?: string | null; position?: number; is_active?: boolean; category_id?: string | null; summary?: string | null; includes?: unknown; hero_image_url?: string | null; booking_mode?: "timed" | "date_only" | null }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
   } catch {
@@ -115,12 +169,31 @@ export async function createService(organizerId: string, input: { title: string;
   if (imgErr) return { success: false, error: imgErr };
   const posErr = validatePosition(input.position);
   if (posErr) return { success: false, error: posErr };
+  const heroErr = validateImageUrl(input.hero_image_url);
+  if (heroErr) return { success: false, error: heroErr };
+  const modeErr = validateBookingMode(input.booking_mode);
+  if (modeErr) return { success: false, error: modeErr };
 
   const admin = createSupabaseAdmin();
-  let base = createSlug(input.title);
+
+  let categoryId: string | null = null;
+  if (input.category_id !== undefined) {
+    const resolved = await resolveCategoryId(admin, organizerId, input.category_id);
+    if (resolved.error) return { success: false, error: resolved.error };
+    categoryId = resolved.value;
+  }
+  const summary = clampSummary(input.summary);
+  const includes = sanitizeIncludes(input.includes);
+  const sanitizedHeroImage = input.hero_image_url ? safeImageSrc(input.hero_image_url) || null : null;
+
+  let base = createSlug((input.slug && input.slug.trim()) || input.title);
   if (!SLUG_REGEX.test(base)) base = "service";
   base = base.slice(0, SLUG_MAX - 6).replace(/-+$/, "");
   if (!base) base = "service";
+
+  if (categoryId === null && (await findCategoryWithSlug(admin, organizerId, base))) {
+    return { success: false, error: "Slug is already used by a service category. Choose a different slug." };
+  }
 
   const sanitizedImage = input.image_url ? safeImageSrc(input.image_url) || null : null;
 
@@ -131,6 +204,10 @@ export async function createService(organizerId: string, input: { title: string;
     const maxPos = maxRow?.position ?? -1;
     position = Math.min(maxPos + 1, POSITION_MAX);
   }
+  // booking_mode belongs to migration 222; it is spread into the primary
+  // insert only so the fallback retry below (pre-222 columns) never crashes
+  // when the column is absent.
+  const modePayload = { booking_mode: input.booking_mode ?? "timed" };
 
   let data: any = null;
   let lastError: any = null;
@@ -143,17 +220,31 @@ export async function createService(organizerId: string, input: { title: string;
       candidate = `${base}-${suffix}`;
     }
     // candidate already <= SLUG_MAX and matches SLUG_REGEX by construction
-    const { data: inserted, error } = await admin.from("services").insert({
+    const basePayload = {
       organizer_id: organizerId,
       title: input.title.trim(),
       slug: candidate,
       description: input.description?.trim() || null,
       duration_minutes: input.duration_minutes ?? null,
-      price: Number(input.price),
+      price: input.price === null || input.price === undefined ? null : Number(input.price),
       image_url: sanitizedImage,
       position: Number(position),
       is_active: input.is_active ?? true,
+    };
+    let { data: inserted, error } = await admin.from("services").insert({
+      ...basePayload,
+      ...modePayload,
+      category_id: categoryId,
+      summary,
+      includes,
+      hero_image_url: sanitizedHeroImage,
     }).select("*").single();
+
+    if (error && isMissingTableError(error)) {
+      // migration 222 not applied yet: booking_mode column absent; fall back to
+      // the pre-222 column set so core service CRUD keeps working unchanged.
+      ({ data: inserted, error } = await admin.from("services").insert(basePayload).select("*").single());
+    }
 
     if (!error && inserted) {
       data = inserted;
@@ -176,7 +267,7 @@ export async function createService(organizerId: string, input: { title: string;
   return { success: true, data };
 }
 
-export async function updateService(serviceId: string, organizerId: string, input: { title?: string; description?: string | null; duration_minutes?: number | null; price?: number; image_url?: string | null; position?: number; is_active?: boolean }) {
+export async function updateService(serviceId: string, organizerId: string, input: { title?: string; slug?: string; description?: string | null; duration_minutes?: number | null; price?: number | null; image_url?: string | null; position?: number; is_active?: boolean; category_id?: string | null; summary?: string | null; includes?: unknown; hero_image_url?: string | null; booking_mode?: "timed" | "date_only" | null }) {
   try {
     await assertTenant(organizerId, ["owner", "admin", "manager", "editor"]);
   } catch {
@@ -193,6 +284,12 @@ export async function updateService(serviceId: string, organizerId: string, inpu
     updates.title = input.title.trim();
     // keep slug stable unless explicitly changed; do not auto-regenerate to avoid breaking URLs
   }
+  if (input.slug !== undefined && input.slug.trim()) {
+    let candidate = createSlug(input.slug);
+    if (!SLUG_REGEX.test(candidate)) candidate = existing.slug;
+    candidate = candidate.slice(0, SLUG_MAX).replace(/-+$/, "") || existing.slug;
+    updates.slug = candidate;
+  }
   if (input.description !== undefined) {
     const e = validateDesc(input.description);
     if (e) return { success: false, error: e };
@@ -206,7 +303,7 @@ export async function updateService(serviceId: string, organizerId: string, inpu
   if (input.price !== undefined) {
     const e = validatePrice(input.price);
     if (e) return { success: false, error: e };
-    updates.price = Number(input.price);
+    updates.price = input.price === null || input.price === undefined ? null : Number(input.price);
   }
   if (input.image_url !== undefined) {
     const e = validateImageUrl(input.image_url);
@@ -220,8 +317,41 @@ export async function updateService(serviceId: string, organizerId: string, inpu
   }
   if (input.is_active !== undefined) updates.is_active = Boolean(input.is_active);
 
-  const { data, error } = await admin.from("services").update(updates).eq("id", serviceId).eq("organizer_id", organizerId).select("*").single();
-  if (error) return { success: false, error: "Failed to update service" };
+  const newFieldUpdates: Record<string, unknown> = {};
+  if (input.category_id !== undefined) {
+    const resolved = await resolveCategoryId(admin, organizerId, input.category_id);
+    if (resolved.error) return { success: false, error: resolved.error };
+    newFieldUpdates.category_id = resolved.value;
+  }
+  if (input.summary !== undefined) newFieldUpdates.summary = clampSummary(input.summary);
+  if (input.includes !== undefined) newFieldUpdates.includes = sanitizeIncludes(input.includes);
+  if (input.hero_image_url !== undefined) {
+    const e = validateImageUrl(input.hero_image_url);
+    if (e) return { success: false, error: e };
+    newFieldUpdates.hero_image_url = input.hero_image_url ? safeImageSrc(input.hero_image_url) || null : null;
+  }
+  if (input.booking_mode !== undefined) {
+    const e = validateBookingMode(input.booking_mode);
+    if (e) return { success: false, error: e };
+    newFieldUpdates.booking_mode = input.booking_mode ?? "timed";
+  }
+
+  const effectiveCategoryId = "category_id" in newFieldUpdates ? (newFieldUpdates.category_id as string | null) : (existing.category_id ?? null);
+  const effectiveSlug = (updates.slug as string | undefined) ?? existing.slug;
+  if (effectiveCategoryId === null && (await findCategoryWithSlug(admin, organizerId, effectiveSlug))) {
+    return { success: false, error: "Slug is already used by a service category. Choose a different slug." };
+  }
+
+  let { data, error } = await admin.from("services").update({ ...updates, ...newFieldUpdates }).eq("id", serviceId).eq("organizer_id", organizerId).select("*").single();
+  if (error && isMissingTableError(error) && Object.keys(newFieldUpdates).length > 0) {
+    // migration 220 not applied yet: retry without the new optional columns
+    // so core service CRUD keeps working unchanged.
+    ({ data, error } = await admin.from("services").update(updates).eq("id", serviceId).eq("organizer_id", organizerId).select("*").single());
+  }
+  if (error) {
+    if ((error as any).code === "23505") return { success: false, error: "Slug already in use" };
+    return { success: false, error: "Failed to update service" };
+  }
   revalidatePath(`/dashboard/org/${organizerId}/services`);
   return { success: true, data };
 }
@@ -330,7 +460,7 @@ export async function updateServiceTier(tierId: string, serviceId: string, organ
   if (input.price !== undefined) {
     const e = validatePrice(input.price);
     if (e) return { success: false, error: e };
-    updates.price = Number(input.price);
+    updates.price = input.price === null || input.price === undefined ? null : Number(input.price);
   }
   if (input.position !== undefined) {
     const e = validatePosition(input.position);

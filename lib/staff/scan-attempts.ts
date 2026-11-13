@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingEntranceLabelError, normalizeEntrance } from "@/lib/staff/entrance";
 
 export const TICKET_SCAN_REJECTION_REASONS = [
   "already_checked_in",
@@ -45,19 +46,33 @@ export async function recordRejectedTicketScan(
   attempt: RejectedTicketScan,
   requestId: string,
 ): Promise<boolean> {
-  const { error } = await admin.from("event_ticket_scan_attempts").insert({
+  // The scanner sends whatever gate name staff selected; only a real uuid may
+  // reach entrance_id, and a label is kept in entrance_label (migration 208).
+  const entrance = normalizeEntrance(attempt.entranceId);
+  const payload = {
     event_id: attempt.eventId,
     staff_member_id: attempt.staffMemberId,
     scanned_by_user_id: attempt.scannedByUserId,
     delegating_user_id: attempt.delegatingUserId ?? null,
     ticket_instance_id: attempt.ticketInstanceId ?? null,
-    entrance_id: attempt.entranceId ?? null,
+    entrance_id: entrance.id,
+    entrance_label: entrance.label,
     device_id: attempt.deviceId?.slice(0, 120) ?? null,
     scan_source: attempt.scanSource,
     offline_scan_id: attempt.offlineScanId ?? null,
     reason_code: attempt.reason,
     attempted_at: attempt.attemptedAt ?? new Date().toISOString(),
-  });
+  };
+
+  let { error } = await admin.from("event_ticket_scan_attempts").insert(payload);
+
+  // Deploy-order safety: before migration 208 is applied the label column does
+  // not exist, and the attempt must still be recorded.
+  if (error && isMissingEntranceLabelError(error)) {
+    delete (payload as { entrance_label?: string | null }).entrance_label;
+    const retry = await admin.from("event_ticket_scan_attempts").insert(payload);
+    error = retry.error;
+  }
 
   if (!error) return true;
 

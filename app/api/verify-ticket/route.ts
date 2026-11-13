@@ -1,9 +1,21 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase-server";
-import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { hasEventOrOrganizerAccess, EVENT_SCAN_ENTITY_ROLES, EVENT_TEAM_ROLES_SCANNER } from "@/lib/event-auth";
 import { MEMORY_QR_SCANNER_MESSAGE, isMemoryQrScan } from "@/lib/memories/tokens";
+import {
+  recordRejectedTicketScan,
+  type TicketScanRejectionReason,
+} from "@/lib/staff/scan-attempts";
+import { isUuid } from "@/lib/staff/entrance";
+import {
+  eventStaffSessionCookieName,
+  hashEventStaffSessionToken,
+  validateEventStaffSession,
+} from "@/lib/staff/guest-session";
+import { isGuestScannerEnabled } from "@/lib/staff/guest-scanner-flag";
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set — server misconfiguration.");
@@ -31,9 +43,47 @@ async function getCurrentUserId(req: NextRequest) {
   return user?.id ?? null;
 }
 
+// Gates check-in authority only. The PII/manager-access decision at line
+// ~290 (hasFullManagerAccess) is a separate, unchanged check.
 async function canManageEvent(userId: string | null, eventId: string | null) {
   if (!userId || !eventId) return false;
-  return await hasEventOrOrganizerAccess(userId, eventId);
+  return await hasEventOrOrganizerAccess(userId, eventId, EVENT_TEAM_ROLES_SCANNER, EVENT_SCAN_ENTITY_ROLES);
+}
+
+type RejectionLog = {
+  eventId: string | null | undefined;
+  reason: TicketScanRejectionReason;
+  userId?: string | null;
+  staffMemberId?: string | null;
+  ticketInstanceId?: string | null;
+  entrance?: string | null;
+  requestId: string;
+};
+
+/**
+ * Every rejection is recorded for the scanner activity screen. This is
+ * deliberately fire-and-forget: a slow or failing audit insert must never
+ * change the response the door staff see, add latency, or surface an error.
+ * Rows also require an attributable identity (event_ticket_scan_attempts
+ * enforces one), so anonymous 401s are intentionally skipped.
+ */
+function logRejection(attempt: RejectionLog): void {
+  if (!isUuid(attempt.eventId)) return;
+  if (!attempt.userId && !attempt.staffMemberId) return;
+
+  void recordRejectedTicketScan(
+    supabaseAdmin,
+    {
+      eventId: attempt.eventId,
+      staffMemberId: attempt.staffMemberId ?? null,
+      scannedByUserId: attempt.userId ?? null,
+      ticketInstanceId: attempt.ticketInstanceId ?? null,
+      entranceId: attempt.entrance ?? null,
+      scanSource: "online",
+      reason: attempt.reason,
+    },
+    attempt.requestId,
+  ).catch(() => false);
 }
 
 // Helper to look up ticket_instance (or legacy ticket_order) by QR code
@@ -245,7 +295,9 @@ export async function GET(req: NextRequest) {
 
   const userId = await getCurrentUserId(req);
   const canCheckIn = await canManageEvent(userId, ticketData.eventId);
-  const hasFullManagerAccess = userId ? await hasEventOrOrganizerAccess(userId, ticketData.eventId, ["event_manager"]) : false;
+  const hasFullManagerAccess = userId
+    ? await hasEventOrOrganizerAccess(userId, ticketData.eventId, ["event_manager"], EVENT_SCAN_ENTITY_ROLES)
+    : false;
 
   // Scanner PII suppression: suppress email, phone, and financial amounts for scanner-only or unauthenticated lookups
   const sanitizedOrder = { ...ticketData.order };
@@ -265,19 +317,65 @@ export async function GET(req: NextRequest) {
 
 // POST /api/verify-ticket — check in a ticket (mark as used)
 export async function POST(req: NextRequest) {
+  const requestId = randomUUID();
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: "Ticket verification is not configured." }, { status: 500 });
     }
 
-    const { code, action, eventId } = await req.json();
+    const { code, action, eventId, entrance } = await req.json();
 
     if (!code) {
       return NextResponse.json({ error: "No code provided." }, { status: 400 });
     }
 
+    // Resolve the caller once, before any rejection branch: rejected scans need
+    // an attributable identity to be recorded, and the check-in branch reuses it.
+    const actorUserId = await getCurrentUserId(req);
+
+    // Guest (account-less) staff session, scoped to the event named in THIS
+    // request only - never guessed from the ticket's own event, and never
+    // consulted at all when an account already resolved above. An expired or
+    // revoked session is reported immediately, distinctly, and is never
+    // allowed to fall through toward the "not signed in" / account path below.
+    let guestActor: { staffMemberId: string; role: "event_manager" | "ticket_scanner"; entranceId: string | null } | null = null;
+    let guestSessionToken: string | null = null;
+
+    if (!actorUserId && isGuestScannerEnabled() && typeof eventId === "string" && isUuid(eventId)) {
+      guestSessionToken = req.cookies.get(eventStaffSessionCookieName(eventId))?.value ?? null;
+      if (guestSessionToken) {
+        const session = await validateEventStaffSession(eventId, guestSessionToken);
+        if (!session) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Your access has ended. Ask the organizer for a new invitation.",
+              code: "staff_session_invalid",
+            },
+            { status: 401 }
+          );
+        }
+        guestActor = {
+          staffMemberId: session.staffMemberId,
+          role: session.role,
+          entranceId: session.entranceId,
+        };
+      }
+    }
+
+    const staffMemberId = guestActor?.staffMemberId ?? null;
+
     // Round 4: never route a photo-upload code into the check-in RPC.
     if (isMemoryQrScan(code)) {
+      logRejection({
+        eventId,
+        reason: "unsupported_code",
+        userId: actorUserId,
+        staffMemberId,
+        ticketInstanceId: null,
+        entrance: typeof entrance === "string" ? entrance : null,
+        requestId,
+      });
       return NextResponse.json(
         { success: false, message: MEMORY_QR_SCANNER_MESSAGE, status: "memory_code" },
         { status: 400 }
@@ -287,76 +385,181 @@ export async function POST(req: NextRequest) {
     const ticketData = await findTicketByCode(code);
 
     if (!ticketData) {
+      logRejection({
+        eventId,
+        reason: "ticket_not_found",
+        userId: actorUserId,
+        staffMemberId,
+        ticketInstanceId: null,
+        entrance: typeof entrance === "string" ? entrance : null,
+        requestId,
+      });
       return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
     }
 
+    // Every caller below manager level — guest, ticket_scanner account, or
+    // an entity editor — never gets attendee PII on POST, same gate as
+    // GET's hasFullManagerAccess: every response path below that echoes
+    // order data uses this sanitized copy instead of the raw one.
+    const hasFullManagerAccess = actorUserId
+      ? await hasEventOrOrganizerAccess(actorUserId, ticketData.eventId, ["event_manager"], EVENT_SCAN_ENTITY_ROLES)
+      : false;
+    const responseOrder = hasFullManagerAccess
+      ? ticketData.order
+      : { ...ticketData.order, buyer_email: null, phone: null, total_amount: 0 };
+
+    // A guest's session is scoped to one event (the cookie is keyed by it),
+    // so this is also where a guest of event A scanning a ticket of event B
+    // is caught: ticketData.eventId can never equal the guest's own eventId.
     if (eventId && ticketData.eventId !== eventId) {
+      logRejection({
+        eventId,
+        reason: "wrong_event",
+        userId: actorUserId,
+        staffMemberId,
+        ticketInstanceId: ticketData.instanceId,
+        entrance: typeof entrance === "string" ? entrance : null,
+        requestId,
+      });
       return NextResponse.json(
         {
           success: false,
           error: "WRONG_EVENT",
           message: "This ticket belongs to a different event.",
           status: "wrong_event",
-          order: ticketData.order,
+          order: responseOrder,
         },
         { status: 400 }
       );
     }
 
     if (action === "checkin") {
-      const userId = await getCurrentUserId(req);
+      const userId = actorUserId;
 
-      if (!userId) {
+      if (!userId && !guestActor) {
         return NextResponse.json(
           { success: false, message: "Log in as authorized door staff or event organizer to check in guests." },
           { status: 401 }
         );
       }
 
-      const canCheckIn = await canManageEvent(userId, ticketData.eventId);
+      // A guest's role comes straight from its validated session - the
+      // underlying event_team_members.role CHECK constraint already limits
+      // it to these two values, but this mirrors resolve-principal's
+      // defensive re-check rather than trusting that invariant blindly.
+      const canCheckIn = guestActor
+        ? guestActor.role === "event_manager" || guestActor.role === "ticket_scanner"
+        : await canManageEvent(userId, ticketData.eventId);
 
       if (!canCheckIn) {
+        // `ticket_ineligible` is the closest persisted reason for "this person
+        // may not admit tickets here"; the attempt is still attributable.
+        logRejection({
+          eventId: eventId || ticketData.eventId,
+          reason: "ticket_ineligible",
+          userId,
+          staffMemberId,
+          ticketInstanceId: ticketData.instanceId,
+          entrance: typeof entrance === "string" ? entrance : null,
+          requestId,
+        });
         return NextResponse.json(
           { success: false, message: "You do not have permission to check in this ticket." },
           { status: 403 }
         );
       }
 
-      // Call atomic check_in_ticket RPC with ticket_instance_id and scanner user attribution
-      const { error: rpcError } = await supabaseAdmin.rpc("check_in_ticket", {
-        p_ticket_instance_id: ticketData.instanceId,
-        p_scanned_by_user_id: userId,
-      });
+      // Entrance enforcement is guest-only, and only when the session itself
+      // carries an assigned entrance: the account path's entrance handling
+      // is untouched (entrance is recorded as metadata only, never enforced).
+      if (guestActor?.entranceId) {
+        const requestedEntrance = typeof entrance === "string" ? entrance : null;
+        if (requestedEntrance !== guestActor.entranceId) {
+          logRejection({
+            eventId: eventId || ticketData.eventId,
+            reason: "unauthorized_entrance",
+            userId,
+            staffMemberId,
+            ticketInstanceId: ticketData.instanceId,
+            entrance: requestedEntrance,
+            requestId,
+          });
+          return NextResponse.json(
+            { success: false, status: "unauthorized_entrance", message: "You are not assigned to that entrance." },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Call the atomic check_in_ticket RPC. A guest always calls the
+      // eleven-argument overload (migration 196) with every named parameter
+      // supplied explicitly - null for whatever this scan doesn't use - so
+      // the call can never partially match a different overload. The
+      // account path keeps the existing two-argument call, byte-for-byte.
+      const { error: rpcError } = guestActor
+        ? await supabaseAdmin.rpc("check_in_ticket", {
+            p_ticket_instance_id: ticketData.instanceId,
+            p_event_id: ticketData.eventId,
+            p_scanned_by_user_id: null,
+            p_delegating_user_id: null,
+            p_staff_member_id: guestActor.staffMemberId,
+            p_session_token_hash: guestSessionToken ? hashEventStaffSessionToken(guestSessionToken) : null,
+            p_scan_source: "online",
+            p_offline_scan_id: null,
+            p_scanned_at: null,
+            p_device_id: null,
+            p_entrance_id: guestActor.entranceId,
+          })
+        : await supabaseAdmin.rpc("check_in_ticket", {
+            p_ticket_instance_id: ticketData.instanceId,
+            p_scanned_by_user_id: userId,
+          });
 
       if (rpcError) {
         const msg = rpcError.message || "";
+        const logAttempt = (reason: TicketScanRejectionReason) =>
+          logRejection({
+            eventId: eventId || ticketData.eventId,
+            reason,
+            userId,
+            staffMemberId,
+            ticketInstanceId: ticketData.instanceId,
+            entrance: typeof entrance === "string" ? entrance : null,
+            requestId,
+          });
+
         if (msg.includes("ALREADY_CHECKED_IN")) {
+          logAttempt("already_checked_in");
           return NextResponse.json({
             success: false,
             message: "Ticket already used.",
             status: "used",
-            order: ticketData.order,
+            order: responseOrder,
           });
         }
         if (msg.includes("TICKET_CANCELLED")) {
+          logAttempt("ticket_cancelled");
           return NextResponse.json({
             success: false,
             message: "Ticket is cancelled.",
             status: "cancelled",
-            order: ticketData.order,
+            order: responseOrder,
           });
         }
         if (msg.includes("TICKET_REFUNDED")) {
+          logAttempt("ticket_refunded");
           return NextResponse.json({
             success: false,
             message: "Ticket is refunded.",
             status: "refunded",
-            order: ticketData.order,
+            order: responseOrder,
           });
         }
         if (msg.includes("TICKET_NOT_FOUND")) {
+          logAttempt("ticket_not_found");
           return NextResponse.json({ error: "Ticket not found.", valid: false }, { status: 404 });
         }
+        logAttempt("verification_error");
         return NextResponse.json(
           { success: false, message: "Could not check in this ticket." },
           { status: 500 }
@@ -367,7 +570,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: "Ticket checked in successfully!",
         status: "used",
-        order: { ...ticketData.order, status: "used", checked_in_at: new Date().toISOString() },
+        order: { ...responseOrder, status: "used", checked_in_at: new Date().toISOString() },
       });
     }
 

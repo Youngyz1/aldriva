@@ -14,6 +14,7 @@ import RowActionsMenu from "@/components/dashboard/RowActionsMenu";
 import { DashboardBulkActionButton } from "@/components/dashboard/DashboardBulkActions";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatAdminDate, formatAdminMoney } from "@/lib/admin-query";
+import { formatDisplayDate } from "@/lib/format-date";
 import {
   canSelectDashboardEventForBulk,
   getDashboardEventActionIds,
@@ -372,7 +373,95 @@ function EventsClientInner() {
           />
         }
       >
-        <div className="overflow-x-auto">
+        {/* Mobile: Stacked cards view */}
+        <div className="sm:hidden divide-y divide-zinc-100">
+          {rows.map((row) => {
+            const actionIds = getDashboardEventActionIds(row.user_role);
+            const canSelect = canSelectDashboardEventForBulk(row);
+            const isSelected = selected.has(row.id);
+
+            return (
+              <div key={row.id} className="p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    {canSelect && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(row)}
+                        className="mt-1 rounded border-zinc-300 shrink-0"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openDrawer(row.id)}
+                      className="text-left font-black text-zinc-900 hover:text-orange-700 text-sm leading-snug line-clamp-2"
+                    >
+                      {isUntouchedInvitationDraft(row) ? "Draft invitation" : row.title}
+                    </button>
+                  </div>
+                  <div className="shrink-0">
+                    <RowActionsMenu
+                      ariaLabel={`Actions for ${row.title}`}
+                      items={[
+                        ...(actionIds.includes("checkins")
+                          ? [{ key: "checkins", label: "Check-Ins", href: `/dashboard/events/${row.id}/checkins` }]
+                          : []),
+                        ...(actionIds.includes("scan")
+                          ? [{ key: "scan", label: "Scan", href: `/dashboard/events/${row.id}/scan` }]
+                          : []),
+                        ...(actionIds.includes("team")
+                          ? [{ key: "team", label: "Team", href: `/dashboard/events/${row.id}/team` }]
+                          : []),
+                        ...(actionIds.includes("edit")
+                          ? [{ key: "edit", label: "Edit", href: `/events/edit/${row.id}` }]
+                          : []),
+                        ...(row.kind === "public" && row.has_invitation_page
+                          ? [{
+                              key: "convert",
+                              label: "Convert to invitation",
+                              onSelect: () => { setConvertTarget(row); setConvertError(""); },
+                            }]
+                          : []),
+                        ...(actionIds.includes("delete")
+                          ? [{
+                              key: "delete",
+                              label: "Delete",
+                              destructive: true,
+                              onSelect: () => setDeleteTarget(row),
+                            }]
+                          : []),
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
+                    {statusLabel(row.status)}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${kindBadge[row.kind ?? "public"] ?? kindBadge.public}`}>
+                    {row.kind === "invitation" ? "Invitation" : "Public"}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${visibilityBadge[row.visibility] ?? visibilityBadge.public}`}>
+                    {row.visibility}
+                  </span>
+                  <span className="text-zinc-500 font-medium ml-1">
+                    {formatDisplayDate(row.event_date)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 text-xs text-zinc-500 border-t border-zinc-100">
+                  <span>Tickets: <strong className="text-zinc-900 font-bold">{row.ticket_count}</strong></span>
+                  <span>Revenue: <strong className="text-emerald-700 font-bold">{formatAdminMoney(row.revenue)}</strong></span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: Full scrollable table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-black uppercase tracking-wide text-zinc-400">
               <tr>
@@ -423,7 +512,7 @@ function EventsClientInner() {
                         {isUntouchedInvitationDraft(row) ? "Draft invitation" : row.title}
                       </button>
                     </td>
-                    <td className="py-3 pr-4 text-zinc-500">{formatAdminDate(row.event_date)}</td>
+                    <td className="py-3 pr-4 text-zinc-500">{formatDisplayDate(row.event_date)}</td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${statusBadge[row.status] ?? statusBadge.pending}`}>
                         {statusLabel(row.status)}

@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { IconUserPlus as UserPlus, IconScan as Scan, IconTrash as Trash2, IconMail as Mail, IconRefresh as RefreshCw, IconCopy as Copy, IconCheck as Check, IconChevronDown as ChevronDown, IconLoader2 as Loader2 } from "@tabler/icons-react";
+import { IconUserPlus as UserPlus, IconScan as Scan, IconTrash as Trash2, IconMail as Mail, IconRefresh as RefreshCw, IconCopy as Copy, IconCheck as Check, IconChevronDown as ChevronDown, IconLoader2 as Loader2, IconBrandWhatsapp as WhatsappIcon } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import { isValidInvitePhone } from "@/lib/staff/invite-phone-validation";
 
 type Member = {
   id: string;
@@ -92,20 +94,28 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
   const [historyHasMore, setHistoryHasMore] = useState(false);
 
   // Invite Form State
+  const [inviteFormOpen, setInviteFormOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
-  const [inviteAccountless, setInviteAccountless] = useState(false);
+  const [invitePhoneTouched, setInvitePhoneTouched] = useState(false);
+  // Account-less defaults to on for ticket_scanner (the common door-staff
+  // case) and off for event_manager, which requires an Aldriva account and
+  // can never be made account-less - the checkbox is disabled for that role.
+  const [inviteAccountless, setInviteAccountless] = useState(true);
   const [inviteRole, setInviteRole] = useState<"event_manager" | "ticket_scanner">("ticket_scanner");
   const [inviteRoleLabel, setInviteRoleLabel] = useState("");
   const [invitePositionLabel, setInvitePositionLabel] = useState("");
   const [inviteStaffName, setInviteStaffName] = useState("");
   const [submittingInvite, setSubmittingInvite] = useState(false);
   const [manualAcceptUrl, setManualAcceptUrl] = useState<string | null>(null);
+  const [manualWhatsappUrl, setManualWhatsappUrl] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   // Revoke / Cancel Dialog State
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [inviteToCancel, setInviteToCancel] = useState<Invitation | null>(null);
+  const [inviteToResendAccessLink, setInviteToResendAccessLink] = useState<Invitation | null>(null);
   const [workingAction, setWorkingAction] = useState<string | null>(null);
 
   const fetchTeamData = useCallback(async () => {
@@ -184,11 +194,16 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
   async function handleSendInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
+    if (inviteAccountless && !isValidInvitePhone(invitePhone)) {
+      setInvitePhoneTouched(true);
+      return;
+    }
 
     setSubmittingInvite(true);
     setError("");
     setSuccessMsg("");
     setManualAcceptUrl(null);
+    setManualWhatsappUrl(null);
 
     try {
       const res = await fetch(`/api/events/${eventId}/team/invite`, {
@@ -210,14 +225,24 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
 
       setInviteEmail("");
       setInvitePhone("");
+      setInvitePhoneTouched(false);
       setInviteRoleLabel("");
       setInvitePositionLabel("");
       setInviteStaffName("");
-      if (data.acceptUrl && !data.emailed) {
+      // Reset to the role's own default rather than leaving whatever the
+      // organizer had toggled for this submission.
+      setInviteAccountless(inviteRole === "ticket_scanner");
+      if (data.acceptUrl) {
         setManualAcceptUrl(data.acceptUrl);
-        setSuccessMsg("Invitation created. Share the link manually below.");
+        setManualWhatsappUrl(data.whatsappUrl || null);
+        setSuccessMsg(
+          data.emailed
+            ? `Email sent to ${inviteEmail}.`
+            : `Email could not be sent: ${data.message || "unknown reason"}`
+        );
       } else {
-        setSuccessMsg(`Invitation sent to ${inviteEmail}.`);
+        // No new/updated invitation needed a link (e.g. member already active).
+        setSuccessMsg(data.message || `Invitation created for ${inviteEmail}.`);
       }
       await fetchTeamData();
       await fetchActivity();
@@ -277,6 +302,7 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
     setError("");
     setSuccessMsg("");
     setManualAcceptUrl(null);
+    setManualWhatsappUrl(null);
     try {
       const res = await fetch(`/api/events/${eventId}/team/invitations/${inviteId}/resend`, {
         method: "POST",
@@ -284,12 +310,13 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not resend invitation.");
 
-      if (data.acceptUrl && !data.emailed) {
-        setManualAcceptUrl(data.acceptUrl);
-        setSuccessMsg("New token generated. Share the updated link manually below.");
-      } else {
-        setSuccessMsg("Invitation resent successfully!");
-      }
+      setManualAcceptUrl(data.acceptUrl || null);
+      setManualWhatsappUrl(data.whatsappUrl || null);
+      setSuccessMsg(
+        data.emailed
+          ? "Invitation resent successfully!"
+          : `Email could not be sent: ${data.message || "unknown reason"}`
+      );
       await fetchTeamData();
       await fetchActivity();
     } catch (err) {
@@ -299,10 +326,11 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
     }
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 2000);
+  async function copyToClipboard(text: string) {
+    const succeeded = await copyTextToClipboard(text);
+    setCopiedUrl(succeeded);
+    setCopyFailed(!succeeded);
+    if (succeeded) setTimeout(() => setCopiedUrl(false), 2000);
   }
 
   const activeMembers = members.filter((m) => m.status === "active");
@@ -392,17 +420,20 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
         ) : null}
       </section>
 
-      {/* Manual Accept URL Copy Box */}
+      {/* Manual Accept URL Copy Box — always shown once an invite link exists,
+          regardless of whether the email also went out, so the link is never
+          only reachable through an inbox that may not have received it. */}
       {manualAcceptUrl && (
         <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 space-y-2">
           <p className="text-xs font-black uppercase text-orange-800">
-            Shareable Invitation Link (Email Not Configured)
+            Shareable Invitation Link
           </p>
           <div className="flex gap-2 items-center">
             <input
               type="text"
               readOnly
               value={manualAcceptUrl}
+              onFocus={(e) => e.currentTarget.select()}
               className="flex-1 rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-mono text-zinc-800"
             />
             <button
@@ -413,126 +444,186 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
               {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
               {copiedUrl ? "Copied!" : "Copy Link"}
             </button>
+            {manualWhatsappUrl && (
+              <a
+                href={manualWhatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 shrink-0 rounded-xl bg-[#25D366] px-3 py-2 text-xs font-bold text-white hover:bg-[#1ebe57]"
+              >
+                <WhatsappIcon size={14} />
+                Send via WhatsApp
+              </a>
+            )}
           </div>
+          {copyFailed && (
+            <p className="text-xs font-semibold text-red-700">
+              Copy failed - select the link and copy it manually
+            </p>
+          )}
         </div>
       )}
 
-      {/* Invite Staff Form — open, inputs + button keep their boundaries. */}
+      {/* Invite Staff Form — starts closed behind a button (DESIGN.md 3.4:
+          "Add and invite forms start closed"); inputs + button keep their
+          boundaries once open. */}
       <div className="space-y-4 border-t border-zinc-200 pt-6">
-        <h2 className="flex items-center gap-2 border-b border-zinc-100 pb-3 text-lg font-black text-zinc-950">
-          <UserPlus size={18} className="text-orange-600" /> Invite Event Staff
-        </h2>
-        <form onSubmit={handleSendInvite} className="mt-4 grid gap-4 sm:grid-cols-6 items-end">
-          <label className="sm:col-span-6 flex items-center gap-2 text-sm font-semibold text-zinc-700">
-            <input
-              type="checkbox"
-              checked={inviteAccountless}
-              onChange={(e) => setInviteAccountless(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-orange-600 focus:ring-orange-500"
-            />
-            Invite without an Aldriva account (verify by phone last four digits)
-          </label>
-
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="staff@example.com"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            />
-          </div>
-
-          {inviteAccountless && (
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-                Phone Number (E.164)
-              </label>
-              <input
-                type="tel"
-                inputMode="tel"
-                required
-                value={invitePhone}
-                onChange={(e) => setInvitePhone(e.target.value)}
-                placeholder="+2348012345678"
-                autoComplete="tel"
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-              />
-            </div>
-          )}
-
-          <div className="sm:col-span-1">
-            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              {t("staffRoleLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={inviteRoleLabel}
-              onChange={(e) => setInviteRoleLabel(e.target.value)}
-              placeholder={t("staffRoleLabelPlaceholder")}
-              maxLength={80}
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="sm:col-span-1">
-            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              {t("staffPositionLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={invitePositionLabel}
-              onChange={(e) => setInvitePositionLabel(e.target.value)}
-              placeholder={t("staffPositionLabelPlaceholder")}
-              maxLength={80}
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="sm:col-span-1">
-            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              {t("staffName")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={inviteStaffName}
-              required={inviteAccountless}
-              onChange={(e) => setInviteStaffName(e.target.value)}
-              placeholder={t("staffNamePlaceholder")}
-              maxLength={120}
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
-              Role Permission
-            </label>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as any)}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            >
-              <option value="ticket_scanner">{t("staffPermissionScanner")}</option>
-              <option value="event_manager">{t("staffPermissionManager")}</option>
-            </select>
-          </div>
-
-          <div className="sm:col-span-6">
+        {!inviteFormOpen ? (
           <button
-            type="submit"
-            disabled={submittingInvite || !inviteEmail.trim()}
-            className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            type="button"
+            onClick={() => setInviteFormOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-black text-white hover:bg-orange-700"
           >
-            {submittingInvite ? <Loader2 className="animate-spin h-4 w-4" /> : <Mail size={16} />}
-            Send Invitation
+            <UserPlus size={16} /> {t("inviteStaffButton")}
           </button>
-          </div>
-        </form>
+        ) : (
+          <>
+            <h2 className="flex items-center gap-2 border-b border-zinc-100 pb-3 text-lg font-black text-zinc-950">
+              <UserPlus size={18} className="text-orange-600" /> Invite Event Staff
+            </h2>
+            <form onSubmit={handleSendInvite} className="mt-4 grid gap-4 sm:grid-cols-6 items-end">
+              <label className="sm:col-span-6 flex items-center gap-2 text-sm font-semibold text-zinc-700">
+                <input
+                  type="checkbox"
+                  checked={inviteAccountless}
+                  disabled={inviteRole === "event_manager"}
+                  onChange={(e) => setInviteAccountless(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-orange-600 focus:ring-orange-500 disabled:opacity-50"
+                />
+                Invite without an Aldriva account (verify by phone last four digits)
+                {inviteRole === "event_manager" && (
+                  <span className="font-semibold normal-case text-zinc-400">
+                    {t("eventManagerAccountRequiredNote")}
+                  </span>
+                )}
+              </label>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="staff@example.com"
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+
+              {inviteAccountless && (
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                    Phone Number (E.164)
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    required
+                    value={invitePhone}
+                    onChange={(e) => setInvitePhone(e.target.value)}
+                    onBlur={() => setInvitePhoneTouched(true)}
+                    placeholder="+2348012345678"
+                    autoComplete="tel"
+                    aria-invalid={invitePhoneTouched && !isValidInvitePhone(invitePhone)}
+                    className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs font-semibold text-zinc-400">{t("invitePhoneHint")}</p>
+                  {invitePhoneTouched && !isValidInvitePhone(invitePhone) && (
+                    <p role="alert" className="mt-1 text-xs font-bold text-red-600">
+                      {t("invitePhoneError")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  {t("staffRoleLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={inviteRoleLabel}
+                  onChange={(e) => setInviteRoleLabel(e.target.value)}
+                  placeholder={t("staffRoleLabelPlaceholder")}
+                  maxLength={80}
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  {t("staffPositionLabel")} <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={invitePositionLabel}
+                  onChange={(e) => setInvitePositionLabel(e.target.value)}
+                  placeholder={t("staffPositionLabelPlaceholder")}
+                  maxLength={80}
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  {t("staffName")}{" "}
+                  {inviteAccountless ? null : (
+                    <span className="font-semibold normal-case text-zinc-400">(optional)</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={inviteStaffName}
+                  required={inviteAccountless}
+                  onChange={(e) => setInviteStaffName(e.target.value)}
+                  placeholder={t("staffNamePlaceholder")}
+                  maxLength={120}
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  Role Permission
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => {
+                    const role = e.target.value as "event_manager" | "ticket_scanner";
+                    setInviteRole(role);
+                    // Reset to each role's default rather than leaving whatever
+                    // the organizer last picked for the other role.
+                    setInviteAccountless(role === "ticket_scanner");
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                >
+                  <option value="ticket_scanner">{t("staffPermissionScanner")}</option>
+                  <option value="event_manager">{t("staffPermissionManager")}</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-6 flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={submittingInvite || !inviteEmail.trim()}
+                  className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submittingInvite ? <Loader2 className="animate-spin h-4 w-4" /> : <Mail size={16} />}
+                  Send Invitation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInviteFormOpen(false)}
+                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-50"
+                >
+                  {t("closeInviteForm")}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
 
       {/* Active Team Members List */}
@@ -775,6 +866,16 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-black uppercase text-zinc-400">{inv.status}</span>
+                  {inv.is_accountless && inv.status === "revoked" && (
+                    <button
+                      type="button"
+                      onClick={() => handleResendInvite(inv.id)}
+                      disabled={workingAction === `resend:${inv.id}`}
+                      className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      {t("reInvite")}
+                    </button>
+                  )}
                   {["expired", "declined", "locked"].includes(inv.status) && (
                     <button
                       type="button"
@@ -783,6 +884,16 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
                       className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
                     >
                       Resend
+                    </button>
+                  )}
+                  {inv.is_accountless && inv.status === "accepted" && (
+                    <button
+                      type="button"
+                      onClick={() => setInviteToResendAccessLink(inv)}
+                      disabled={workingAction === `resend:${inv.id}`}
+                      className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      {t("resendAccessLink")}
                     </button>
                   )}
                 </div>
@@ -813,6 +924,23 @@ export default function TeamClient({ eventId, eventTitle }: Props) {
         confirmLabel="Cancel Invite"
         onConfirm={handleCancelInvite}
         loading={workingAction?.startsWith("cancel:")}
+        variant="danger"
+      />
+
+      {/* Confirmation Dialog for Resending an Accepted Account-less Invite's Access Link */}
+      <AdminConfirmDialog
+        open={inviteToResendAccessLink !== null}
+        onOpenChange={(open) => !open && setInviteToResendAccessLink(null)}
+        title={t("resendAccessLinkConfirmTitle")}
+        description={t("resendAccessLinkConfirmDescription")}
+        confirmLabel={t("resendAccessLink")}
+        onConfirm={async () => {
+          if (!inviteToResendAccessLink) return;
+          const inviteId = inviteToResendAccessLink.id;
+          setInviteToResendAccessLink(null);
+          await handleResendInvite(inviteId);
+        }}
+        loading={workingAction?.startsWith("resend:")}
         variant="danger"
       />
     </div>

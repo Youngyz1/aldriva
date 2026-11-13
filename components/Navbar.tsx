@@ -102,6 +102,9 @@ export default function Navbar() {
     );
   }
 
+  const isDashboardOrProfile =
+    normalizedPath?.startsWith("/dashboard") || normalizedPath?.startsWith("/profile");
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
       {/*
@@ -121,10 +124,9 @@ export default function Navbar() {
         </Link>
 
         {/* Center: adaptive nav — shrinks freely via min-w-0 flex-1.
-            NO overflow-hidden: the dropdown panel is absolutely/fixed positioned
-            and must not be clipped by its flex ancestor. */}
+            Hidden on dashboard and profile pages where the sidebar and bottom bar replace it. */}
         <div className="flex min-w-0 flex-1 items-center justify-center">
-          <HomeAdaptiveNav />
+          {!isDashboardOrProfile && <HomeAdaptiveNav />}
         </div>
 
         {/* Right: EN|FR + notification bell + auth button — ALWAYS visible, never shrinks */}

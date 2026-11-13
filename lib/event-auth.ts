@@ -8,12 +8,26 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { hasEntityAccess, ENTITY_ROLES_CONTENT_WRITE } from '@/lib/entity-auth';
+import type { EntityRole } from '@/lib/entity-auth';
 
 export type EventTeamRole = 'event_manager' | 'ticket_scanner';
 
 export const EVENT_TEAM_ROLES_ALL: EventTeamRole[] = ['event_manager', 'ticket_scanner'];
 export const EVENT_TEAM_ROLES_MANAGE: EventTeamRole[] = ['event_manager'];
 export const EVENT_TEAM_ROLES_SCANNER: EventTeamRole[] = ['event_manager', 'ticket_scanner'];
+
+/**
+ * Organizer-wide roles that may operate a ticket scanner.
+ *
+ * Separate from ENTITY_ROLES_CONTENT_WRITE on purpose: 'editor' is a content
+ * role (articles, website copy) and must not admit guests at a door. Event
+ * creators and organizer owners keep access regardless, because those are
+ * checked before entity roles in `hasEventOrOrganizerAccess`.
+ *
+ * NOT WIRED INTO ANY CALLER YET — `hasEventOrOrganizerAccess` still defaults
+ * to ENTITY_ROLES_CONTENT_WRITE. Scan call sites must opt in explicitly.
+ */
+export const EVENT_SCAN_ENTITY_ROLES: EntityRole[] = ['owner', 'admin', 'manager'];
 
 /**
  * Returns the caller's active event_team_members role for one specific event, or null if none.

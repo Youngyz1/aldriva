@@ -10,7 +10,14 @@ export default async function DashboardPage() {
   const { user } = ctx;
   const displayName = (user.user_metadata?.display_name as string | undefined)?.trim() || "User";
 
-  const { sections, hasAny } = await getMyThingsData(ctx);
+  const { sections, hasAny, accountData } = await getMyThingsData(ctx);
 
-  return <MyThingsView displayName={displayName} sections={sections} hasAny={hasAny} />;
+  return (
+    <MyThingsView
+      displayName={displayName}
+      sections={sections}
+      hasAny={hasAny}
+      accountData={accountData}
+    />
+  );
 }

@@ -241,7 +241,7 @@ export default function NewBusinessFormClient({ tenantId }: NewBusinessFormClien
             <div>
               <MediaUploadField
                 label="Logo"
-                description="Upload or select from My Media"
+                description="Upload an image"
                 value={form.logo}
                 tenantId={tenantId}
                 folderSubpath="business-logos"

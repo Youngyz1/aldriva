@@ -445,12 +445,16 @@ export interface SendInvitationEmailParams {
   invitationId: string;
 }
 
+export type InvitationEmailError = "not_configured" | "provider_error" | "invalid_recipient";
+
 export interface SendInvitationEmailResult {
   ok: boolean;
   emailed: boolean;
+  emailError?: InvitationEmailError;
   invitationId: string;
   recipientEmail: string;
   invitationUrl?: string;
+  whatsappUrl?: string;
   message: string;
 }
 
@@ -482,6 +486,7 @@ export async function sendInvitationEmail(
       guest_title,
       organization,
       email,
+      phone,
       token,
       invitation_status,
       events (
@@ -546,6 +551,13 @@ export async function sendInvitationEmail(
     ? `${invitation.guest_title} ${invitation.guest_name}`
     : invitation.guest_name;
 
+  const { buildInviteWhatsAppUrl } = await import("@/lib/staff/whatsapp-invite-message");
+  const whatsappUrl = buildInviteWhatsAppUrl({
+    phone: invitation.phone,
+    eventTitle,
+    acceptUrl: invitationUrl,
+  }) ?? undefined;
+
   if (!process.env.RESEND_API_KEY) {
     // In dev or test environments without Resend configured, update status to sent and return mock
     await admin
@@ -559,9 +571,11 @@ export async function sendInvitationEmail(
     return {
       ok: true,
       emailed: false,
+      emailError: "not_configured",
       invitationId: invitation.id,
       recipientEmail: invitation.email,
       invitationUrl,
+      whatsappUrl,
       message: `Invitation generated for ${invitation.email}. (Email delivery skipped: RESEND_API_KEY is not configured).`,
     };
   }
@@ -657,7 +671,23 @@ export async function sendInvitationEmail(
   });
 
   if (sendError) {
-    throw new Error(`Failed to send email via Resend: ${sendError.message}`);
+    console.warn("[sendInvitationEmail] Resend error:", {
+      requestId: invitation.id,
+      name: sendError.name,
+      message: sendError.message,
+    });
+    const emailError: InvitationEmailError =
+      sendError.name === "validation_error" ? "invalid_recipient" : "provider_error";
+    return {
+      ok: true,
+      emailed: false,
+      emailError,
+      invitationId: invitation.id,
+      recipientEmail: invitation.email,
+      invitationUrl,
+      whatsappUrl,
+      message: `Email could not be sent: ${sendError.message}`,
+    };
   }
 
   // 3. Mark invitation as sent
@@ -675,6 +705,7 @@ export async function sendInvitationEmail(
     invitationId: invitation.id,
     recipientEmail: invitation.email,
     invitationUrl,
+    whatsappUrl,
     message: `Invitation email sent successfully to ${invitation.email}.`,
   };
 }

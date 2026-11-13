@@ -43,13 +43,10 @@ export function getDateRangeStart(filter: DateFilter): string | null {
   }
 }
 
+import { formatDisplayDate } from "./format-date";
+
 export function formatAdminDate(value?: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatDisplayDate(value);
 }
 
 export function formatAdminMoney(value: number | string | null | undefined) {

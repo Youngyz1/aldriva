@@ -125,6 +125,7 @@ function kitchenClient({ inviteCook, createCourier }) {
     "@tabler/icons-react": tablerStubs(React),
     "@/lib/actions/kitchen-management": actions,
     "@/lib/actions/courier-management": courierActions,
+    "@/lib/clipboard": { copyTextToClipboard: async () => true },
   };
   const KitchenManagementClient = compileTsx("components/dashboard/kitchen/KitchenManagementClient.tsx", commonMocks).KitchenManagementClient;
   const CourierManagementClient = compileTsx("components/dashboard/kitchen/CourierManagementClient.tsx", {

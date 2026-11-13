@@ -1,0 +1,75 @@
+ M app/api/events/[id]/guests/route.ts
+ M app/api/invitation/[token]/rsvp/route.ts
+ M app/dashboard/events/[id]/guests/GuestsClient.tsx
+ M app/dashboard/events/[id]/guests/page.tsx
+ M app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder.tsx
+ M app/dashboard/events/[id]/invitation-page/builder/sections/DesignSection.tsx
+ M app/dashboard/events/[id]/invitation-page/builder/sections/DetailsSection.tsx
+ M app/globals.css
+ M app/invitation/[token]/page.tsx
+ M app/invitation/preview/PreviewSandboxClient.tsx
+ M components/invitation/InvitationFocalPicker.tsx
+ M components/invitation/UnifiedTemplatePicker.tsx
+ M components/invitation/blocks/ActionPortalBlock.tsx
+ M components/invitation/blocks/InvitationBlockRegistry.tsx
+ M components/invitation/blocks/InvitationBlocksLayoutClient.tsx
+ M components/invitation/blocks/InvitationPresentationBlocks.tsx
+ M components/invitation/templates/InvitationPageComponentRegistry.tsx
+ M components/invitation/templates/invitation-sample-data.ts
+ M docs/DATABASE.md
+ M docs/HANDOFF.md
+ M lib/__tests__/invitation-page-phase3.test.cjs
+ M lib/__tests__/unified-invitation-templates.test.cjs
+ M lib/invitation-fonts.ts
+ M lib/invitation-page-layout.ts
+ M lib/invitation-page-schema.ts
+ M lib/invitation-publish-nav.ts
+ M lib/invitation-template-preview-data.ts
+ M lib/invitation-template-registry.ts
+ M lib/invitation-template-schema.ts
+ M lib/invitation-type-fields.ts
+ M lib/invitations.ts
+ M lib/page-actions.ts
+ M lib/page-composition.ts
+ M lib/security/__tests__/p1-generic-error-responses.test.cjs
+ M lib/types/invitation-page-snapshot.ts
+ M lib/unified-invitation-templates.ts
+ M lib/workforce/__tests__/stage17-pass-one.test.cjs
+ M messages/en.json
+ M messages/fr.json
+ M package.json
+ M test-files.json
+ M types/invitation-template.ts
+?? .tmp-soundcloud-proof.cjs
+?? StorefrontBrowse.3b6c660.bak
+?? StorefrontBrowse.broken.bak
+?? StorefrontBrowse.head.bak
+?? app/dashboard/events/[id]/invitation-page/builder/sections/EvergreenDetailsSection.tsx
+?? app/dashboard/events/[id]/invitation-page/builder/sections/EvergreenPhotosSection.tsx
+?? app/invitation/preview/stage4-builder-capture-content/
+?? app/invitation/preview/stage4-builder-capture/
+?? app/invitation/preview/stage4-capture/
+?? app/invitation/preview/stage4-few-capture/
+?? assets/fonts/GreatVibes-OFL.txt
+?? assets/fonts/GreatVibes-Regular.ttf
+?? components/invitation/templates/evergreen-envelope/
+?? db/migration_188_evergreen_envelope_rsvp.sql
+?? db/migration_188_evergreen_envelope_rsvp_rollback.sql
+?? design/business-sites/templates/evergreen-envelope/
+?? docs/audits/
+?? docs/project-document-index.md
+?? docs/project-status-progress.md
+?? docs/project-status.md
+?? lib/__tests__/evergreen-envelope-stage4a.test.cjs
+?? lib/__tests__/evergreen-envelope-stage4b.test.cjs
+?? lib/__tests__/guest-allowance.test.cjs
+?? lib/__tests__/invitation-rsvp-stage3.test.cjs
+?? lib/guest-allowance.ts
+?? lib/guest-invitation-columns.ts
+?? lib/invitation-image-url.ts
+?? lib/invitation-rsvp.ts
+?? public/fonts/
+?? public/images/invitations/evergreen-envelope/
+?? tsc-output.txt
+?? work/
+?? workhandoff-status.txt

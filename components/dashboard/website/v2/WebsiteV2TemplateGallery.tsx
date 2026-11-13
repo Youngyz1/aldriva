@@ -15,6 +15,8 @@ interface WebsiteV2TemplateGalleryProps {
   businessName: string;
   businessLogo: string | null;
   initialCategory: WebsiteCategory;
+  /** Suggested from the business country; the owner can change it. */
+  initialCurrency?: string;
   canCreate: boolean;
 }
 
@@ -122,6 +124,7 @@ export async function WebsiteV2TemplateGallery({
   businessName,
   businessLogo,
   initialCategory,
+  initialCurrency = "USD",
   canCreate,
 }: WebsiteV2TemplateGalleryProps) {
   const locale = await getLocale();
@@ -146,6 +149,7 @@ export async function WebsiteV2TemplateGallery({
     <WebsiteV2TemplateGalleryClient
       organizerId={organizerId}
       initialCategory={initialCategory}
+      initialCurrency={initialCurrency}
       cards={cards}
       canCreate={canCreate}
     />

@@ -17,7 +17,9 @@ import { getTranslations } from "next-intl/server";
 import { ReservationsClient } from "@/components/dashboard/reservations/ReservationsClient";
 import type { DashboardReservationRow } from "@/components/dashboard/reservations/ReservationCard";
 import { extractReservationSettings } from "@/lib/reservation-settings";
-import { defaultTimezoneForCountry, resolveSiteTimezone } from "@/lib/date-timezone";
+import { resolveWebsiteTimezone } from "@/lib/date-timezone";
+import { isGeneralBookingsLive } from "@/lib/storefront-features";
+import { getCapabilitiesForBusiness } from "@/lib/business-taxonomy";
 
 const ALLOWED_ROLES = ["owner", "admin", "manager", "editor", "finance"] as const;
 const MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
@@ -58,9 +60,10 @@ export default async function ReservationsPage({
   const { data: rows, error: rowsError } = await admin
     .from("reservations")
     .select(
-      "id, reservation_number, customer_name, customer_phone, customer_email, party_size, starts_at, status, customer_note, owner_note, decline_reason, status_history, created_at"
+      "id, reservation_number, customer_name, customer_phone, customer_email, party_size, starts_at, duration_minutes, ends_at, status, payment_status, deposit_amount, deposit_currency, customer_note, owner_note, internal_note, decline_reason, status_history, created_at"
     )
     .eq("organizer_id", organizerId)
+    .eq("booking_type", "table")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -72,6 +75,51 @@ export default async function ReservationsPage({
     }
   } else if (rows) {
     reservations = rows as unknown as DashboardReservationRow[];
+
+    // Fetch pending change requests for these reservations
+    try {
+      const reservationIds = reservations.map((r) => r.id);
+      if (reservationIds.length > 0) {
+        const { data: changeRequests } = await admin
+          .from("reservation_change_requests")
+          .select("id, reservation_id, requested_starts_at, requested_party_size, requested_duration_minutes, guest_note, status, decision_note, created_at")
+          .in("reservation_id", reservationIds)
+          .eq("status", "pending");
+
+        if (changeRequests && changeRequests.length > 0) {
+          const map = new Map<string, DashboardReservationRow["change_request"]>();
+          for (const cr of changeRequests as Array<{
+            id: string;
+            reservation_id: string;
+            requested_starts_at: string | null;
+            requested_party_size: number | null;
+            requested_duration_minutes: number | null;
+            guest_note: string | null;
+            status: string;
+            decision_note: string | null;
+            created_at: string;
+          }>) {
+            map.set(cr.reservation_id, {
+              id: cr.id,
+              requested_starts_at: cr.requested_starts_at,
+              requested_party_size: cr.requested_party_size,
+              requested_duration_minutes: cr.requested_duration_minutes,
+              guest_note: cr.guest_note,
+              status: cr.status,
+              decision_note: cr.decision_note,
+              created_at: cr.created_at,
+            });
+          }
+
+          reservations = reservations.map((r) => ({
+            ...r,
+            change_request: map.get(r.id) ?? null,
+          }));
+        }
+      }
+    } catch {
+      // Graceful fallback if migration 206 table is not yet present
+    }
   }
 
   // 2. Website metadata (settings + timezone) and business offerings.
@@ -83,7 +131,7 @@ export default async function ReservationsPage({
       .maybeSingle(),
     admin
       .from("businesses")
-      .select("id, offerings, country")
+      .select("id, offerings, country, industry, category, business_type, seat_capacity, default_stay_minutes, max_stay_minutes, booking_model")
       .eq("organizer_id", organizerId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -91,22 +139,52 @@ export default async function ReservationsPage({
   ]);
 
   const websiteRow = websiteRes.data as { id?: string; metadata?: unknown } | null;
-  const businessRow = businessRes.data as { id?: string; offerings?: unknown; country?: unknown } | null;
+  const businessRow = businessRes.data as {
+    id?: string;
+    offerings?: unknown;
+    country?: unknown;
+    industry?: string | null;
+    category?: string | null;
+    business_type?: string | null;
+    seat_capacity?: number | null;
+    default_stay_minutes?: number;
+    max_stay_minutes?: number;
+    booking_model?: string;
+  } | null;
   const websiteId = websiteRow?.id ?? null;
-  const settings = extractReservationSettings(websiteRow?.metadata);
-  const offerings = Array.isArray(businessRow?.offerings) ? (businessRow.offerings as string[]) : [];
-  const hasReservationOffering = offerings.includes("table_reservations");
+  const baseSettings = extractReservationSettings(websiteRow?.metadata);
+  const defaultStay = businessRow?.default_stay_minutes !== undefined ? businessRow.default_stay_minutes : (baseSettings.default_stay_minutes ?? 90);
+  const maxStay = businessRow?.max_stay_minutes !== undefined ? businessRow.max_stay_minutes : (baseSettings.max_stay_minutes ?? 120);
+  const allowedStays = Array.isArray(baseSettings.allowed_stay_minutes) && baseSettings.allowed_stay_minutes.length > 0
+    ? [...baseSettings.allowed_stay_minutes]
+    : (defaultStay === maxStay ? [defaultStay] : [defaultStay, maxStay].sort((a, b) => a - b));
+  if (!allowedStays.includes(defaultStay)) {
+    allowedStays.push(defaultStay);
+    allowedStays.sort((a, b) => a - b);
+  }
 
-  const metadata =
-    websiteRow?.metadata && typeof websiteRow.metadata === "object"
-      ? (websiteRow.metadata as Record<string, unknown>)
-      : {};
-  const siteTimezone = resolveSiteTimezone(
-    metadata.timezone,
-    defaultTimezoneForCountry(
-      typeof businessRow?.country === "string" ? businessRow.country : null
-    )
+  const settings = {
+    ...baseSettings,
+    seat_capacity: businessRow?.seat_capacity !== undefined ? businessRow.seat_capacity : baseSettings.seat_capacity,
+    default_stay_minutes: defaultStay,
+    max_stay_minutes: allowedStays[allowedStays.length - 1],
+    allowed_stay_minutes: allowedStays,
+  };
+  const offerings = Array.isArray(businessRow?.offerings) ? (businessRow.offerings as string[]) : [];
+  const bookingCaps = getCapabilitiesForBusiness(
+    businessRow?.industry ?? "",
+    businessRow?.category ?? "",
+    businessRow?.business_type ?? ""
   );
+  const reservationSettings = extractReservationSettings(websiteRow?.metadata);
+  const generalBookingsLive = isGeneralBookingsLive(
+    bookingCaps,
+    reservationSettings.enabled,
+    true
+  );
+  const hasReservationOffering = offerings.includes("table_reservations") || generalBookingsLive;
+
+  const siteTimezone = resolveWebsiteTimezone(websiteRow?.metadata);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">

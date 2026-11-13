@@ -1,0 +1,96 @@
+=== ORDERS: db/migration_171_orders.sql lines 27-59 ===
+CREATE TABLE IF NOT EXISTS public.orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organizer_id uuid NOT NULL REFERENCES public.organizers(id) ON DELETE CASCADE,
+  business_id uuid NULL REFERENCES public.businesses(id) ON DELETE SET NULL,
+  website_id uuid NULL REFERENCES public.tenant_websites(id) ON DELETE SET NULL,
+  order_number text NOT NULL,
+  tracking_token text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(24), 'hex'),
+  customer_name text NOT NULL,
+  customer_phone text NOT NULL,
+  customer_email text NULL,
+  fulfilment_type text NOT NULL CHECK (fulfilment_type IN ('pickup', 'delivery')),
+  delivery_address text NULL,
+  customer_note text NULL,
+  currency text NOT NULL DEFAULT 'USD',
+  subtotal numeric(12,2) NOT NULL CHECK (subtotal >= 0),
+  delivery_fee numeric(12,2) NOT NULL DEFAULT 0.00 CHECK (delivery_fee >= 0),
+  total_amount numeric(12,2) NOT NULL CHECK (total_amount >= 0),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'preparing', 'ready', 'completed', 'cancelled')),
+  payment_method text NOT NULL DEFAULT 'on_fulfilment' CHECK (payment_method IN ('on_fulfilment', 'online', 'mobile_money')),
+  payment_status text NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'paid', 'refunded')),
+  provider text NULL,
+  provider_reference text NULL,
+  scheduled_for timestamptz NULL,
+  items jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(items) = 'array'),
+  idempotency_key text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT orders_organizer_order_number_key UNIQUE (organizer_id, order_number),
+  CONSTRAINT orders_organizer_idempotency_key UNIQUE (organizer_id, idempotency_key),
+  CONSTRAINT orders_delivery_address_required CHECK (
+    (fulfilment_type = 'delivery' AND delivery_address IS NOT NULL AND length(trim(delivery_address)) > 0)
+    OR (fulfilment_type = 'pickup')
+  )
+
+=== ORDERS indexes (ds/migration_171) ===
+54:  CONSTRAINT orders_organizer_order_number_key UNIQUE (organizer_id, order_number),
+55:  CONSTRAINT orders_organizer_idempotency_key UNIQUE (organizer_id, idempotency_key),
+56:  CONSTRAINT orders_delivery_address_required CHECK (
+62:CREATE INDEX IF NOT EXISTS idx_orders_organizer_id ON public.orders(organizer_id);
+63:CREATE INDEX IF NOT EXISTS idx_orders_website_id ON public.orders(website_id);
+64:CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+65:CREATE INDEX IF NOT EXISTS idx_orders_tracking_token ON public.orders(tracking_token);
+
+=== ORDERS RLS ===
+69:ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+71:REVOKE ALL ON TABLE public.orders FROM anon;
+72:GRANT ALL ON TABLE public.orders TO service_role;
+73:GRANT SELECT, UPDATE ON TABLE public.orders TO authenticated;
+77:CREATE POLICY "Tenant team members can view orders"
+97:CREATE POLICY "Tenant managers can update orders"
+
+=== RESERVATIONS: db/migration_176_reservations.sql lines 35-60 ===
+CREATE TABLE IF NOT EXISTS public.reservations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organizer_id uuid NOT NULL REFERENCES public.organizers(id) ON DELETE CASCADE,
+  business_id uuid NULL REFERENCES public.businesses(id) ON DELETE SET NULL,
+  website_id uuid NULL REFERENCES public.tenant_websites(id) ON DELETE SET NULL,
+  booking_type text NOT NULL DEFAULT 'table' CHECK (booking_type IN ('table', 'rental', 'appointment')),
+  reservation_number text NOT NULL,
+  -- 48-hex lookup token, generated in the server action with
+  -- crypto.randomBytes (same entropy shape as orders.tracking_token).
+  lookup_token text NOT NULL,
+  customer_name text NOT NULL CHECK (length(trim(customer_name)) BETWEEN 1 AND 100),
+  customer_phone text NOT NULL,
+  customer_email text NULL,
+  party_size int NOT NULL CHECK (party_size BETWEEN 1 AND 50),
+  starts_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'declined', 'seated', 'completed', 'no_show', 'cancelled')),
+  customer_note text NULL CHECK (customer_note IS NULL OR length(customer_note) <= 300),
+  owner_note text NULL CHECK (owner_note IS NULL OR length(owner_note) <= 300),
+  decline_reason text NULL,
+  idempotency_key text NULL,
+  status_history jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(status_history) = 'array'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT reservations_organizer_number_key UNIQUE (organizer_id, reservation_number)
+);
+
+
+=== RESERVATIONS indexes (db/migration_176) ===
+58:  CONSTRAINT reservations_organizer_number_key UNIQUE (organizer_id, reservation_number)
+62:CREATE UNIQUE INDEX IF NOT EXISTS reservations_organizer_idempotency_key
+66:CREATE UNIQUE INDEX IF NOT EXISTS idx_reservations_lookup_token ON public.reservations(lookup_token);
+67:CREATE INDEX IF NOT EXISTS idx_reservations_organizer_starts ON public.reservations(organizer_id, starts_at DESC);
+68:CREATE INDEX IF NOT EXISTS idx_reservations_organizer_status_starts ON public.reservations(organizer_id, status, starts_at DESC);
+
+=== RESERVATIONS RLS ===
+72:ALTER TABLE public.reservations ENABLE ROW LEVEL SECURITY;
+74:REVOKE ALL ON TABLE public.reservations FROM PUBLIC;
+75:REVOKE ALL ON TABLE public.reservations FROM anon;
+76:REVOKE ALL ON TABLE public.reservations FROM authenticated;
+77:GRANT ALL ON TABLE public.reservations TO service_role;
+78:GRANT SELECT, UPDATE ON TABLE public.reservations TO authenticated;
+82:CREATE POLICY "Tenant team members can view reservations"
+102:CREATE POLICY "Tenant managers can update reservations"

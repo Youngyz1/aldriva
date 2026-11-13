@@ -130,8 +130,57 @@ export function currencyLabel(
   return code;
 }
 
+/**
+ * ISO 4217 codes an owner may pick as the storefront display currency.
+ * Every code here formats through `formatMoney` (Intl, or the CFA branch).
+ * Keep this list explicit so the server can reject arbitrary strings.
+ */
+export const STOREFRONT_CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "CAD",
+  "CHF",
+  "AUD",
+  "JPY",
+  "XOF",
+  "XAF",
+  "NGN",
+  "GHS",
+  "KES",
+  "ZAR",
+  "TZS",
+  "UGX",
+  "RWF",
+  "MAD",
+  "EGP",
+  "AED",
+  "INR",
+  "BRL",
+  "MXN",
+] as const;
+
+export type StorefrontCurrency = (typeof STOREFRONT_CURRENCIES)[number];
+
+/** Normalized ISO code when `formatMoney` can display it, else undefined. */
+export function normalizeStorefrontCurrency(currency: unknown): string | undefined {
+  const code = normalizeMoneyCurrency(currency);
+  return code && (STOREFRONT_CURRENCIES as readonly string[]).includes(code) ? code : undefined;
+}
+
 /** True when the code is a CFA franc (either zone). */
 export function isCfaCode(currency: string | null | undefined): boolean {
   const code = normalizeMoneyCurrency(currency);
   return code === "XOF" || code === "XAF";
+}
+
+/**
+ * True when a service price should be treated as unset and therefore hidden
+ * from every customer-facing renderer. NULL/undefined means "no listed price";
+ * 0 is the stored value when the NOT NULL column had no price selected (the
+ * legacy home-card "$0.00" source), which is also empty for display purposes.
+ * Never renders "Price on request" or "$0.00" — the price is simply omitted.
+ */
+export function isPriceEmpty(price: number | null | undefined): boolean {
+  return price === null || price === undefined || price === 0;
 }

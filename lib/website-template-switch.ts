@@ -82,6 +82,8 @@ export interface TemplateSwitchSummary {
   needsContent: string[];
   /** Doc keys kept verbatim (restored automatically when switching back). */
   keptKeys: string[];
+  /** New-template page slugs that have no counterpart in the current template. */
+  pagesToAdd: string[];
 }
 
 /**
@@ -125,5 +127,8 @@ export function summarizeTemplateSwitch(
     hiddenSections: plan.hiddenSections,
     needsContent,
     keptKeys: plan.keptUnslottedKeys,
+    pagesToAdd: plan.pageMapping
+      .filter((m) => m.from === null)
+      .map((m) => m.to),
   };
 }

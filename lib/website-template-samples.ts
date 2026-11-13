@@ -238,10 +238,92 @@ export const STORE_SAMPLES: ContentDoc = {
   nav_labels: { home: "Home", shop: "Shop", contact: "Contact" },
 };
 
+// ── Home cleaning: Fresh Home ───────────────────────────────────────────────
+
+export const CLEANING_FRESH_SAMPLES: ContentDoc = {
+  business_name: "Fresh Home",
+  logo_url: "/placeholders/cleaning/logo.svg",
+  hero_image: "/placeholders/cleaning/hero.svg",
+  hero_headline: "A cleaner, calmer home, ready when you are.",
+  hero_subtext: "Professional home cleaning booked around your schedule. Add your postcode and we will find your local team.",
+  tagline: "Fresh Home",
+  primary_cta_label: "Book now",
+  secondary_cta_label: "Call us",
+  trust: [
+    { title: "Insured service", description: "Fully insured cleaning team." },
+    { title: "Eco-friendly products", description: "Safe products for your home and family." },
+    { title: "Vetted local team", description: "Professional, reference-checked cleaners." },
+    { title: "Satisfaction guarantee", description: "We make it right if you are not happy." },
+  ],
+  benefits: [
+    { title: "Flexible scheduling", description: "Choose the day and time that works for you." },
+    { title: "Detailed checklists", description: "Every room covered, every visit." },
+    { title: "Consistent team", description: "The same familiar cleaners where possible." },
+    { title: "Easy rebooking", description: "Set up recurring visits in seconds." },
+  ],
+  steps: [
+    { title: "Tell us your postcode", description: "We confirm we cover your area." },
+    { title: "Choose your service", description: "Pick a cleaning type and frequency." },
+    { title: "Confirm your visit", description: "Select a date and time slot." },
+    { title: "Enjoy a cleaner home", description: "We handle the rest." },
+  ],
+  areas: [
+    { title: "Central district", description: "City centre and nearby neighbourhoods." },
+    { title: "East side", description: "East side suburbs and surrounding towns." },
+    { title: "West side", description: "West side residential areas." },
+    { title: "North district", description: "North side and outer suburbs." },
+  ],
+  gallery_images: [
+    "/placeholders/cleaning/gallery-1.svg",
+    "/placeholders/cleaning/gallery-2.svg",
+    "/placeholders/cleaning/gallery-3.svg",
+    "/placeholders/cleaning/gallery-4.svg",
+  ],
+  testimonials: [
+    { quote: "Add your review here", author: "A happy homeowner" },
+  ],
+  faq: [
+    { question: "How is pricing shown?", answer: "Services with no set price read 'Price on request' until you request a quote." },
+    { question: "Do you bring supplies?", answer: "Yes, the team brings eco-friendly products and equipment." },
+    { question: "Can I cancel a visit?", answer: "Yes, cancel or reschedule up to 24 hours before your appointment." },
+  ],
+  services_heading: "Our cleaning services",
+  services_limit: 6,
+  services_layout: "grid",
+  values: [
+    { title: "Reliable", description: "We arrive on time, every visit." },
+    { title: "Thorough", description: "Detail-focused cleaning you can see." },
+    { title: "Kind to homes", description: "Products chosen for safety and care." },
+    { title: "Local", description: "Cleaners from your own community." },
+  ],
+  team: [
+    { title: "Meet the team", description: "Add a short note about your cleaning team here." },
+  ],
+  about_text: "Fresh Home helps households reclaim their time with dependable, professional home cleaning. Add your story here.",
+  hours: {
+    mon: { open: "08:00", close: "18:00" },
+    tue: { open: "08:00", close: "18:00" },
+    wed: { open: "08:00", close: "18:00" },
+    thu: { open: "08:00", close: "18:00" },
+    fri: { open: "08:00", close: "18:00" },
+    sat: { open: "09:00", close: "14:00" },
+    sun: { closed: true },
+  },
+  address: "Add your business address",
+  phone: "Add your phone number",
+  directions_url: "https://maps.example.com/",
+  email: "hello@example.com",
+  socials: {},
+  nav_labels: { home: "Home", services: "Services", about: "About", contact: "Contact", book: "Book" },
+  footer_note: "Placeholder footer note.",
+  template_extras: { ctaBandHeading: "Ready for a cleaner home?", ctaBandButtonLabel: "Book now", ctaBandButtonLink: "/book" },
+};
+
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {
   "restaurant-table-flame": RESTAURANT_SAMPLES,
   "restaurant-savannah": SAVANNAH_SAMPLES,
   "rental-driveline": RENTAL_SAMPLES,
   "food-order": FOOD_ORDER_SAMPLES,
   store: STORE_SAMPLES,
+  "cleaning-fresh": CLEANING_FRESH_SAMPLES,
 };

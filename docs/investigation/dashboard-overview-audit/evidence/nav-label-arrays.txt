@@ -1,0 +1,50 @@
+=== nav arrays asserted in lib/__tests__/org-dashboard-modules.test.cjs ===
+66:  assert.deepEqual(labels(items), ["Overview", "Website", "Menu", "Promotions", "Orders", "Reviews", "Analytics", "Settings", "Kitchen"]);
+86:  assert.deepEqual(labels(items), ["Overview", "Website", "Menu", "Promotions", "Reviews", "Analytics", "Settings", "Kitchen"]);
+87:  assert.ok(!labels(items).includes("Orders"), "Orders requires the online_ordering offering, not capability alone");
+97:  assert.ok(labels(items).includes("Menu"), "menu rows keep Menu visible");
+98:  assert.ok(!labels(items).includes("Orders"), "menu rows alone must not show Orders");
+107:  assert.deepEqual(labels(items), ["Overview", "Website", "Reviews", "Analytics", "Settings"]);
+108:  assert.ok(!labels(items).includes("Fleet"), "fleet is reserved, never rendered");
+109:  assert.ok(!labels(items).includes("Bookings"), "bookings are reserved, never rendered");
+118:  assert.deepEqual(labels(items), ["Overview", "Website", "Services", "Reviews", "Analytics", "Settings"]);
+130:  assert.deepEqual(labels(items), ["Overview", "Website", "Shop", "Reviews", "Analytics", "Settings"]);
+141:  assert.ok(!labels(items).includes("Shop"), "creating a business must not reveal Shop");
+142:  assert.ok(!labels(items).includes("Products"), "no separate Products item exists");
+151:  assert.deepEqual(labels(items), ["Overview", "Website", "Shop", "Reviews", "Analytics", "Settings"]);
+162:  assert.ok(labels(items).includes("Shop"));
+171:  assert.deepEqual(labels(items), ["Overview", "Events", "Reviews", "Analytics", "Settings"]);
+180:  assert.deepEqual(labels(items), ["Overview", "Fundraisers", "Reviews", "Analytics", "Settings"]);
+189:  assert.deepEqual(labels(items), ["Overview", "Reviews", "Settings"]);
+200:  assert.ok(!labels(items).includes("Website"));
+201:  assert.ok(!labels(items).includes("Menu"), "business modules also require an eligible business");
+233:    assert.equal(labelsForOrg.includes("Website"), organizerTypes.hasBusiness);
+234:    assert.equal(labelsForOrg.includes("Events"), organizerTypes.hasEvents);
+235:    assert.equal(labelsForOrg.includes("Fundraisers"), organizerTypes.hasFundraisers);
+236:    assert.equal(actions.includes("new_event"), organizerTypes.hasEvents);
+237:    assert.equal(actions.includes("new_fundraiser"), organizerTypes.hasFundraisers);
+239:    assert.equal(labelsForOrg.includes("Settings"), true);
+240:    assert.equal(labelsForOrg.includes("Reviews"), true);
+241:    assert.equal(labelsForOrg.includes("Analytics"), !organizerTypes.isNone);
+250:  assert.ok(caps.includes("SERVICES"), "union carries SERVICES");
+251:  assert.ok(!caps.includes("MENU"), "union has no MENU");
+257:  assert.deepEqual(labels(items), ["Overview", "Website", "Services", "Reviews", "Analytics", "Settings"]);
+268:  assert.ok(labels(items).includes("Menu"), "NEVER hide Menu while rows exist");
+277:  assert.ok(labels(items).includes("Services"), "NEVER hide Services while rows exist");
+286:  assert.ok(labels(items).includes("Menu"));
+295:  assert.deepEqual(labels(items), ["Overview", "Website", "Reviews", "Analytics", "Settings"]);
+297:  assert.deepEqual(labels(bare), ["Overview", "Reviews", "Settings"]);
+
+=== quick-action arrays asserted in lib/__tests__/phase5-overview.test.cjs ===
+612:    assert.deepEqual(actionIds, ["new_event"]);
+620:    assert.deepEqual(actionIds, ["new_event", "new_fundraiser"]);
+630:    assert.deepEqual(actionIds, ["add_dish", "edit_website"]);
+651:    assert.deepEqual(restaurantActions.map((action) => action.id), ["add_dish", "edit_website"]);
+656:    assert.deepEqual(serviceActions.map((action) => action.id), ["add_service", "edit_website"]);
+660:    assert.deepEqual(rentalActions.map((action) => action.id), ["edit_website"]);
+666:    assert.deepEqual(boutiqueActions.map((action) => action.id), ["edit_website"]);
+
+=== test-files.json registrations ===
+52:  "lib/dashboard/__tests__/org-overview-scoping.test.cjs",
+169:  "lib/__tests__/org-dashboard-modules.test.cjs",
+185:  "lib/__tests__/phase5-overview.test.cjs",

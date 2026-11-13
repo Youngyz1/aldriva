@@ -12,9 +12,10 @@ export interface OrderNotificationPayload {
   organizer_id: string;
   order_number: string;
   customer_name: string;
-  customer_phone: string;
+  customer_phone?: string | null;
   customer_email?: string | null;
-  fulfilment_type: "pickup" | "delivery";
+  fulfilment_type: "pickup" | "delivery" | "dine_in";
+  table_label?: string | null;
   delivery_address?: string | null;
   currency: string;
   subtotal?: number | null;
@@ -89,7 +90,12 @@ export async function dispatchOrderNotifications(
     const orderLink = `/dashboard/org/${order.organizer_id}/orders`;
     const title = `New order #${order.order_number}`;
     const formattedTotal = `${order.currency} ${Number(order.total_amount).toFixed(2)}`;
-    const fulfilmentText = order.fulfilment_type === "delivery" ? "Delivery" : "Pickup";
+    const fulfilmentText =
+      order.fulfilment_type === "delivery"
+        ? "Delivery"
+        : order.fulfilment_type === "dine_in"
+        ? (order.table_label ? `Dine-In • Table ${order.table_label}` : "Dine-In")
+        : "Pickup";
     const promotionSummary = (order.items || [])
       .filter((item) => item.promotion?.name)
       .slice(0, 3)
@@ -160,7 +166,7 @@ export async function dispatchOrderNotifications(
             <div style="background-color: #f4f4f5; border-radius: 8px; padding: 16px; margin: 20px 0;">
               <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; color: #71717a; margin: 0 0 10px 0;">Customer Details</h3>
               <p style="margin: 4px 0;"><strong>Name:</strong> ${escapeHtml(order.customer_name)}</p>
-              <p style="margin: 4px 0;"><strong>Phone:</strong> <a href="tel:${escapeHtml(order.customer_phone)}" style="color: #c2410c; text-decoration: underline;">${escapeHtml(order.customer_phone)}</a></p>
+              ${order.customer_phone ? `<p style="margin: 4px 0;"><strong>Phone:</strong> <a href="tel:${escapeHtml(order.customer_phone)}" style="color: #c2410c; text-decoration: underline;">${escapeHtml(order.customer_phone)}</a></p>` : ""}
               ${order.customer_email ? `<p style="margin: 4px 0;"><strong>Email:</strong> ${escapeHtml(order.customer_email)}</p>` : ""}
               <p style="margin: 4px 0;"><strong>Fulfilment:</strong> ${fulfilmentText}</p>
               ${order.delivery_address ? `<p style="margin: 4px 0;"><strong>Address:</strong> ${escapeHtml(order.delivery_address)}</p>` : ""}
@@ -230,7 +236,7 @@ export async function dispatchOrderNotifications(
                 Track your order
               </a>
             </div>
-            <p style="color: #71717a; font-size: 12px;">Total: ${escapeHtml(formattedTotal)} (${order.fulfilment_type === "delivery" ? "Delivery" : "Pickup"})${showFeeBreakdown ? ` — Subtotal ${escapeHtml(formattedSubtotal ?? "")}, Delivery fee ${escapeHtml(formattedFee ?? "Free")}` : ""}</p>
+            <p style="color: #71717a; font-size: 12px;">Total: ${escapeHtml(formattedTotal)} (${order.fulfilment_type === "delivery" ? "Delivery" : order.fulfilment_type === "dine_in" ? "Dine-In" : "Pickup"})${showFeeBreakdown ? ` — Subtotal ${escapeHtml(formattedSubtotal ?? "")}, Delivery fee ${escapeHtml(formattedFee ?? "Free")}` : ""}</p>
           </div>
         `;
         await resend.emails.send({
@@ -271,6 +277,7 @@ export interface CustomerStatusNotificationInput {
   trackingToken: string;
   websiteSlug: string;
   estimatedReadyAt?: string | null;
+  scheduledFor?: string | null;
   cancellationReason?: string | null;
   cancellationNote?: string | null;
   riderName?: string | null;
@@ -293,17 +300,31 @@ export async function dispatchCustomerOrderStatusEmail(
       subject = `[${BRAND.name}] Order #${input.orderNumber} accepted`;
       heading = `Your order #${input.orderNumber} has been accepted!`;
       let timeText = "";
-      if (input.estimatedReadyAt) {
+      if (input.scheduledFor) {
+        const scheduledAt = new Date(input.scheduledFor);
+        const formattedScheduled = Number.isFinite(scheduledAt.getTime())
+          ? scheduledAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: input.timeZone || "UTC" })
+          : "";
+        timeText = formattedScheduled
+          ? `<p style="font-weight: 600; color: #c2410c;">Scheduled for: ${escapeHtml(formattedScheduled)}</p>`
+          : `<p style="font-weight: 600; color: #c2410c;">Scheduled time to be confirmed.</p>`;
+      } else if (input.estimatedReadyAt) {
         try {
-          const formattedReady = new Date(input.estimatedReadyAt).toLocaleTimeString("en-US", {
+          const readyAt = new Date(input.estimatedReadyAt);
+          const formattedReady = Number.isFinite(readyAt.getTime()) ? readyAt.toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
             timeZone: input.timeZone || "UTC",
-          });
-          timeText = `<p style="font-weight: 600; color: #c2410c;">Estimated ready time: ${escapeHtml(formattedReady)}</p>`;
+          }) : "";
+          if (formattedReady) {
+            timeText = `<p style="font-weight: 600; color: #c2410c;">Estimated ready time: ${escapeHtml(formattedReady)}</p>`;
+          }
         } catch {
           // fallback
         }
+      }
+      if (!timeText && input.fulfilmentType === "delivery" && !input.scheduledFor) {
+        timeText = `<p style="font-weight: 600; color: #c2410c;">ASAP — the kitchen will update you when the order is ready.</p>`;
       }
       body = `<p>Great news! The business has accepted your order and is preparing it.</p>${timeText}`;
     } else if (input.status === "ready") {

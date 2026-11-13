@@ -53,6 +53,7 @@ function imageFocus(value: unknown): { x: number; y: number } | null {
 
 const BLOCK_COMPONENTS = {
   interactive_envelope: () => null,
+  romantic_envelope_gate: () => null,
   hero: ({ block, data, layout, romanticEnvelope, detailsPresentation }) => {
     const content = resolvedContent(block, data);
     const coupleNames = [data.partner1Name, data.partner2Name].filter((name) => name?.trim()).join(" & ");

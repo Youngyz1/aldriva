@@ -20,6 +20,8 @@ import type {
   TodayMetrics,
 } from "./overview-types";
 import { toOverviewCapabilitySet } from "./business-taxonomy";
+import { resolveSiteTimezone } from "./date-timezone";
+import { getCommerceCapabilities } from "./dashboard/modules";
 
 const MANAGE_ROLES = ["owner", "admin", "manager"];
 
@@ -128,7 +130,14 @@ export function resolveOverviewModules(
   // ORGANIZER CONTEXT
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Adapter over MODULE_REGISTRY (02 §1 / 07 PR 1): reads capabilities from registry
+  const registryCommerceCaps = getCommerceCapabilities();
+  const hasRegistryCommerceCap = registryCommerceCaps.some((cap) =>
+    capSet.has(`can_have_${cap.toLowerCase()}` as any) || (capabilities && capabilities.includes(cap))
+  );
+
   const isCommerceOrg = hasBusiness && (
+    hasRegistryCommerceCap ||
     capSet.has("can_have_menu") ||
     capSet.has("can_have_products") ||
     capSet.has("can_have_services") ||
@@ -309,7 +318,7 @@ export function resolveOverviewModules(
       ...(counts.reservationsToday !== undefined ? { reservationsToday: counts.reservationsToday } : {}),
       isOpen: counts.isOpen ?? true,
       hoursBadgeText: counts.hoursBadgeText || "Hours TBA",
-      timeZone: counts.siteTimezone || "Africa/Abidjan",
+      timeZone: resolveSiteTimezone(counts.siteTimezone),
     };
 
     widgets.push({

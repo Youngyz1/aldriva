@@ -1,0 +1,8 @@
+=== grep -rn 'DashboardMobileNav|OrgMobileNav' in app/ components/ ===
+app/dashboard/DashboardMobileNav.tsx:10:export default function DashboardMobileNav() {
+app/dashboard/org/[id]/OrgMobileNav.tsx:11: * DashboardMobileNav (outer shell owns fixed positioning, inner wrapper owns
+app/dashboard/org/[id]/OrgMobileNav.tsx:15: * (69px + safe-area, see DashboardMobileNav) sits at the screen edge. This
+app/dashboard/org/[id]/OrgMobileNav.tsx:21:export default function OrgMobileNav({ orgId, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }: { orgId: string; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasReservationRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null }) {
+app/[locale]/admin/layout.tsx:198:              pattern as DashboardMobileNav): the outer shell owns the sticky
+
+(Every hit is a definition, an internal comment, or the admin layout comment — no import/render.)

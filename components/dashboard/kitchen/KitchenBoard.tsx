@@ -58,7 +58,7 @@ export default function KitchenBoard() {
         order.status as "accepted" | "preparing",
         nextStatus
       );
-      if (!result.success) throw new Error("This order could not be updated. Refresh and try again.");
+      if (!result.success) throw new Error(result.message || "This order could not be updated. Refresh and try again.");
       await refresh();
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : "This order could not be updated.");

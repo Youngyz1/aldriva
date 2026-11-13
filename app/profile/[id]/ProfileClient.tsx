@@ -14,16 +14,13 @@ import {
   IconBuildingStore as Store,
   IconChevronDown as ChevronDown,
   IconChevronUp as ChevronUp,
-  IconHome as Home,
   IconTicket as Ticket,
-  IconLayoutDashboard as LayoutDashboard,
-  IconCompass as Compass,
   IconTrendingUp as TrendingUp,
 } from "@tabler/icons-react";
 import FollowButton from "@/components/profile/FollowButton";
-import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import FollowsListModal from "@/components/profile/FollowsListModal";
 import LocalBrandedPlaceholder from "@/components/ui/LocalBrandedPlaceholder";
+import { formatDisplayDate } from "@/lib/format-date";
 import type { ProfileMenuData } from "@/lib/profile-menu-data";
 
 type Fundraiser = {
@@ -120,12 +117,7 @@ function money(value: number | string | null) {
 }
 
 function dateLabel(value: string | null) {
-  if (!value) return "Recently";
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDisplayDate(value, "Recently");
 }
 
 function fundraiserRaised(fundraiser: Fundraiser) {
@@ -185,11 +177,9 @@ export default function ProfileClient({
               {isOwnProfile ? "My Profile" : "User Profile"}
             </span>
 
-            {/* Top-Right Single Control: Explore for owner, Follow for external visitor */}
+            {/* Top-Right Action Button: Follow for external visitor */}
             <div className="relative">
-              {isOwnProfile ? (
-                <ProfileSettingsModal menuData={menuData} />
-              ) : (
+              {!isOwnProfile && (
                 <FollowButton
                   targetType="user"
                   targetId={profile.id}
@@ -718,63 +708,6 @@ export default function ProfileClient({
           </div>
         )}
       </div>
-
-      {/* AREA 4: COMPACT BOTTOM NAVIGATION (Mobile only, 4 items max, minimal) */}
-      <nav
-        aria-label="Profile mobile navigation"
-        className="fixed bottom-0 inset-x-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur-xs px-4 py-2 sm:hidden shadow-lg"
-      >
-        <div className="mx-auto flex max-w-md items-center justify-around">
-          <Link
-            href="/"
-            className="flex flex-col items-center gap-0.5 text-zinc-600 hover:text-orange-700"
-          >
-            <Home className="h-5 w-5" />
-            <span className="text-[10px] font-bold">Home</span>
-          </Link>
-
-          <Link
-            href={isLoggedIn ? "/events/my-tickets" : "/events"}
-            className="flex flex-col items-center gap-0.5 text-zinc-600 hover:text-orange-700"
-          >
-            <Ticket className="h-5 w-5" />
-            <span className="text-[10px] font-bold">Tickets</span>
-          </Link>
-
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-0.5 text-zinc-600 hover:text-orange-700"
-          >
-            <LayoutDashboard className="h-5 w-5" />
-            <span className="text-[10px] font-bold">Dashboard</span>
-          </Link>
-
-          {isOwnProfile ? (
-            <ProfileSettingsModal
-              menuData={menuData}
-              trigger={(open) => (
-                <button
-                  type="button"
-                  onClick={open}
-                  className="flex flex-col items-center gap-0.5 text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
-                  aria-label="Open Explore navigation"
-                >
-                  <Compass className="h-5 w-5" />
-                  <span className="text-[10px] font-bold">Menu</span>
-                </button>
-              )}
-            />
-          ) : (
-            <Link
-              href="/events"
-              className="flex flex-col items-center gap-0.5 text-zinc-600 hover:text-orange-700"
-            >
-              <Compass className="h-5 w-5" />
-              <span className="text-[10px] font-bold">Menu</span>
-            </Link>
-          )}
-        </div>
-      </nav>
 
       {/* Owner-only Followers / Following Modal */}
       {isOwnProfile && activeFollowModal && (

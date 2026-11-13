@@ -1,8 +1,16 @@
 # Phase 6: Unified Commerce
 
+## Verification update (2026-10-28)
+
+- The public order tracking page now selects the live `dine_in_confirmation` field; the two nonexistent waiter columns were removed from its fallback query.
+- Storefront SEO metadata no longer calls the full request-aware resolver from `generateMetadata`; a cached public metadata query supplies the published page values.
+- Storefront success now records the active order in client state and localStorage while retaining the intentional cart clear. The rider card can resolve the registered phone for a unique matching courier name when the order snapshot has no phone.
+- One synthetic normal-site staging order was verified as a persistent pending delivery with a tracking token and item list after reload. It was not advanced by kitchen staff. The project has only table QR codes, so a menu-only QR delivery order was unavailable to test.
+- No schema migration was needed. Changed-file ESLint and `tsc --noEmit` passed. The full suite had 2,856 passes and 5 failures; see `docs/CURRENT-STATE.md` for the failing test names. Production build was deferred while the local dev server was using `.next`.
+
 ---
 
-## STATUS (verified 2026-10-20)
+## STATUS (historical snapshot, verified 2026-10-20; see update above)
 
 Store commerce path (cart → checkout → delivery) is **built**; tax, a unified fulfillment dashboard, and crypto carts are **not built**; the **Kitchen & Delivery workstream** belongs here and is built-but-uncommitted.
 
@@ -40,8 +48,8 @@ Store commerce path (cart → checkout → delivery) is **built**; tax, a unifie
 4. Decide the migration-175 rollback question.
 5. Then move to Phase 7 (below).
 
-### PLANNED — Table & Menu QR Codes + dine-in ordering (owner-decided, not built)
-Owned by the same commerce surface as this phase, because it rides the order model and the kitchen flow. **Not built** — spec only:
+### Historical plan — Table & Menu QR Codes + dine-in ordering
+The design notes below predate the implementation. Current status is in `docs/phases/phase-table-menu-qr-codes.md` and the 2026-10-28 update above.
 - **Two QR kinds** — one menu QR per business, one QR per table; printed codes point at a stable short redirect **`/q/<code>`** (survives site-address/custom-domain changes → Phase 12).
 - **Ordering modes per business** — *menu only*, *order now / pay later* (**DEFAULT**), *pay online first*.
 - **Three order types** — **dine-in, pickup, delivery**. Only dine-in carries a table label, a table session and a confirmation state. Pickup/delivery **never** show a table and **never** need table confirmation; they use the existing owner flow (accept → preparing → ready → out for delivery → completed).

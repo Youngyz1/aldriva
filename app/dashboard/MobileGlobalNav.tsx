@@ -10,7 +10,7 @@ export default function MobileGlobalNav() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <div className="sticky top-16 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
+      <div className="sticky top-14 sm:top-16 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 lg:hidden">
         <Link href="/" className="text-base font-black text-zinc-900">
           Aldriva
         </Link>

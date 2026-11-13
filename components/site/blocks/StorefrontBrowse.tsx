@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { IconX as X } from "@tabler/icons-react";
+import { IconX as X, IconReceipt, IconBell, IconCheck, IconRefresh } from "@tabler/icons-react";
 import {
   BROWSE_ALL_GROUP,
   defaultBrowseOptionSelections,
@@ -66,6 +66,10 @@ import {
 } from "@/lib/storefront-cart";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
+import { getTableRunningBill, requestTableBill } from "@/lib/actions/table-management";
+import type { TableRunningBill } from "@/lib/table-bill";
+import { ONLINE_PAYMENT_CURRENCIES, resolveStorefrontCheckoutPaymentState } from "@/lib/storefront-features";
+import { fillClosedNoticeTime } from "@/lib/storefront-closed-notice";
 
 export interface StorefrontOrderConfig {
   enabled: boolean;
@@ -74,15 +78,26 @@ export interface StorefrontOrderConfig {
   offerings?: string[];
   /** Online card payment available (USD site + owner ticked + built). */
   onlinePayment?: boolean;
+  onlinePaymentUnavailableReason?: "unsupported_currency" | "stripe_not_configured";
   isClosed?: boolean;
   closedNotice?: string;
   scheduledFor?: string | null;
+  /** Owner setting (metadata.storefront.acceptOrdersWhenClosed). Default ON. */
+  acceptOrdersWhenClosed?: boolean;
+  /** Next opening time label for the closed notices ("18:00"). */
+  nextOpenTime?: string | null;
   blocked?: boolean;
   blockReason?: string;
   /** Flat delivery fee in the site currency (0 = free). Computed server-side; displayed in cart. */
   deliveryFee?: number;
   /** Subtotal threshold above which delivery is free (null = no free threshold). */
   freeDeliveryAbove?: number | null;
+  /** Table and Dine-In context */
+  tableId?: string | null;
+  tableLabel?: string | null;
+  tableOrderingMode?: string | null;
+  qrCode?: string | null;
+  businessId?: string | null;
 }
 
 export interface StorefrontBrowseLabels {
@@ -128,12 +143,19 @@ export interface StorefrontBrowseLabels {
   payOnline?: string;
   payingOnline?: string;
   onlinePaymentNotice?: string;
+  onlinePaymentUnsupportedCurrency?: string;
+  onlinePaymentUnavailable?: string;
+  tableOnlinePaymentUnavailable?: string;
   placeOrder?: string;
   placingOrder?: string;
   orderSuccessTitle?: string;
   orderSuccessSubtext?: string;
   orderNumber?: string;
   scheduledNotice?: string;
+  /** "We're closed right now, your order will be prepared from {time}" */
+  orderWhileClosed?: string;
+  /** "We're closed, opens at {time}" */
+  closedOpensAt?: string;
   noUpcomingHours?: string;
   backToMenu?: string;
   asap?: string;
@@ -373,6 +395,7 @@ export function StorefrontBrowse({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isBillOpen, setIsBillOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [renderedGroupIds, setRenderedGroupIds] = useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.id)));
   const [orderSuccess, setOrderSuccess] = useState<{
@@ -383,6 +406,7 @@ export function StorefrontBrowse({
     deliveryFee?: number | null;
     total?: number | null;
     fulfilmentType?: string | null;
+    tableLabel?: string | null;
     currency?: string | null;
   } | null>(null);
   const [activeOrder, setActiveOrder] = useState<{
@@ -601,6 +625,44 @@ export function StorefrontBrowse({
           {feedbackMessage || ""}
         </div>
 
+        {orderConfig?.tableId ? (
+          <div className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-zinc-900 shadow-xs">
+            <div className="flex items-center gap-[var(--ps-space-3)]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-xs font-bold text-white shadow-xs">
+                T
+              </span>
+              <div>
+                <p className="text-sm font-bold text-zinc-900">
+                  Dine-In • <span className="text-orange-700">{orderConfig.tableLabel || "Table"}</span>
+                </p>
+                <p className="text-xs text-zinc-600">
+                  {orderConfig.tableOrderingMode === "menu_only"
+                    ? "Browsing menu • Call your server to place an order"
+                    : orderConfig.tableOrderingMode === "pay_online_first"
+                    ? "Order from your phone • Online payment required before preparation"
+                    : orderConfig.tableOrderingMode === "order_pay_now"
+                    ? "Order from your phone • Pay when served"
+                    : "Order from your phone • Pay after your meal"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {orderConfig.businessId ? (
+                <button
+                  type="button"
+                  onClick={() => setIsBillOpen(true)}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-xs border border-zinc-200 hover:bg-zinc-50 transition cursor-pointer"
+                >
+                  View Bill
+                </button>
+              ) : null}
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                Active Table
+              </span>
+            </div>
+          </div>
+        ) : null}
+
         {groups.map((group) => (
           <section
             key={group.id}
@@ -702,6 +764,7 @@ export function StorefrontBrowse({
             labels={labels}
             accentColor={accentColor}
             savannah={true}
+            locale={locale}
             onClose={() => setIsCartOpen(false)}
             onUpdateQuantity={(index, qty) => {
               if (qty <= 0) {
@@ -721,6 +784,20 @@ export function StorefrontBrowse({
               updateCart([]);
               setIsCartOpen(false);
               setOrderSuccess(result);
+              if (result.trackingToken && orderConfig?.slug) {
+                const savedOrder = {
+                  token: result.trackingToken,
+                  orderNumber: result.orderNumber,
+                  scheduledFor: result.scheduledFor ?? null,
+                  savedAt: Date.now(),
+                };
+                setActiveOrder(savedOrder);
+                try {
+                  localStorage.setItem(`aldriva_active_order_${orderConfig.slug}`, JSON.stringify(savedOrder));
+                } catch {
+                  // Storage unavailable (private browsing)
+                }
+              }
             }}
           />
         ) : null}
@@ -736,11 +813,24 @@ export function StorefrontBrowse({
             deliveryFee={orderSuccess.deliveryFee}
             total={orderSuccess.total}
             fulfilmentType={orderSuccess.fulfilmentType}
+            tableLabel={orderSuccess.tableLabel || orderConfig.tableLabel}
+            tableOrderingMode={orderConfig.tableOrderingMode}
             currency={orderSuccess.currency ?? orderConfig.currency}
             labels={labels}
             tableFlame={false}
             savannah={true}
             onClose={() => setOrderSuccess(null)}
+          />
+        ) : null}
+
+        {/* Customer Table Bill Modal */}
+        {isBillOpen && orderConfig?.businessId && orderConfig?.tableId ? (
+          <CustomerTableBillModal
+            businessId={orderConfig.businessId}
+            tableId={orderConfig.tableId}
+            tableLabel={orderConfig.tableLabel}
+            onClose={() => setIsBillOpen(false)}
+            savannah={true}
           />
         ) : null}
 
@@ -886,6 +976,44 @@ export function StorefrontBrowse({
             >
               ✕
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {orderConfig?.tableId ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-zinc-900 shadow-xs">
+          <div className="flex items-center gap-[var(--ps-space-3)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-xs font-bold text-white shadow-xs">
+              T
+            </span>
+            <div>
+              <p className="text-sm font-bold text-zinc-900">
+                Dine-In • <span className="text-orange-700">{orderConfig.tableLabel || "Table"}</span>
+              </p>
+              <p className="text-xs text-zinc-600">
+                {orderConfig.tableOrderingMode === "menu_only"
+                  ? "Browsing menu • Call your server to place an order"
+                  : orderConfig.tableOrderingMode === "pay_online_first"
+                  ? "Order from your phone • Online payment required before preparation"
+                  : orderConfig.tableOrderingMode === "order_pay_now"
+                  ? "Order from your phone • Pay when served"
+                  : "Order from your phone • Pay after your meal"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {orderConfig.businessId ? (
+              <button
+                type="button"
+                onClick={() => setIsBillOpen(true)}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-xs border border-zinc-200 hover:bg-zinc-50 transition cursor-pointer"
+              >
+                View Bill
+              </button>
+            ) : null}
+            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+              Active Table
+            </span>
           </div>
         </div>
       ) : null}
@@ -1197,6 +1325,7 @@ export function StorefrontBrowse({
           labels={labels}
           accentColor={accentColor}
           savannah={isEditorial}
+          locale={locale}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={(index, qty) => {
             if (qty <= 0) {
@@ -1216,6 +1345,20 @@ export function StorefrontBrowse({
             updateCart([]);
             setIsCartOpen(false);
             setOrderSuccess(result);
+            if (result.trackingToken && orderConfig?.slug) {
+              const savedOrder = {
+                token: result.trackingToken,
+                orderNumber: result.orderNumber,
+                scheduledFor: result.scheduledFor ?? null,
+                savedAt: Date.now(),
+              };
+              setActiveOrder(savedOrder);
+              try {
+                localStorage.setItem(`aldriva_active_order_${orderConfig.slug}`, JSON.stringify(savedOrder));
+              } catch {
+                // Storage unavailable (private browsing)
+              }
+            }
           }}
         />
       ) : null}
@@ -1231,11 +1374,24 @@ export function StorefrontBrowse({
           deliveryFee={orderSuccess.deliveryFee}
           total={orderSuccess.total}
           fulfilmentType={orderSuccess.fulfilmentType}
+          tableLabel={orderSuccess.tableLabel || orderConfig.tableLabel}
+          tableOrderingMode={orderConfig.tableOrderingMode}
           currency={orderSuccess.currency ?? orderConfig.currency}
           labels={labels}
           tableFlame={isTableFlame}
           savannah={isEditorial}
           onClose={() => setOrderSuccess(null)}
+        />
+      ) : null}
+
+      {/* Customer Table Bill Modal */}
+      {isBillOpen && orderConfig?.businessId && orderConfig?.tableId ? (
+        <CustomerTableBillModal
+          businessId={orderConfig.businessId}
+          tableId={orderConfig.tableId}
+          tableLabel={orderConfig.tableLabel}
+          onClose={() => setIsBillOpen(false)}
+          savannah={true}
         />
       ) : null}
 
@@ -1850,6 +2006,7 @@ function OrderDrawer({
   labels,
   accentColor,
   savannah,
+  locale = "en",
   onClose,
   onUpdateQuantity,
   onRemoveItem,
@@ -1862,11 +2019,12 @@ function OrderDrawer({
   labels: StorefrontBrowseLabels;
   accentColor?: string;
   savannah: boolean;
+  locale?: Locale;
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
   onEditItem: (line: CartItem, trigger: HTMLButtonElement) => void;
-  onOrderSuccess: (result: { orderNumber: string; trackingToken?: string | null; scheduledFor?: string | null; subtotal?: number | null; deliveryFee?: number | null; total?: number | null; fulfilmentType?: string | null; currency?: string | null }) => void;
+  onOrderSuccess: (result: { orderNumber: string; trackingToken?: string | null; scheduledFor?: string | null; subtotal?: number | null; deliveryFee?: number | null; total?: number | null; fulfilmentType?: string | null; tableLabel?: string | null; currency?: string | null }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const itemsMap = new Map(allItems.map((it) => [it.id, it]));
@@ -1874,11 +2032,16 @@ function OrderDrawer({
   const offerings = orderConfig.offerings || ["pickup"];
   const allowsDelivery = offerings.includes("delivery");
   const allowsPickup = offerings.includes("pickup");
-  const canPayOnline = orderConfig.onlinePayment === true;
-
-  // Payment method: fulfilment always available; online only when gated.
-  // Single available method renders without a choice.
-  const [payMethod, setPayMethod] = useState<"fulfilment" | "online">("fulfilment");
+  const checkoutPaymentState = resolveStorefrontCheckoutPaymentState({
+    currency: orderConfig.currency,
+    onlinePayment: orderConfig.onlinePayment === true,
+    tableId: orderConfig.tableId,
+    tableOrderingMode: orderConfig.tableOrderingMode,
+  });
+  const { canPayOnline, isPayOnlineFirst } = checkoutPaymentState;
+  const [payMethod, setPayMethod] = useState<"fulfilment" | "online">(
+    checkoutPaymentState.initialPaymentMethod
+  );
   const [onlineSecret, setOnlineSecret] = useState<string | null>(null);
   const [onlineOrderNumber, setOnlineOrderNumber] = useState<string | null>(null);
   const [onlineTrackingToken, setOnlineTrackingToken] = useState<string | null>(null);
@@ -1890,8 +2053,30 @@ function OrderDrawer({
   );
   const [customScheduleTime, setCustomScheduleTime] = useState<string>("");
 
-  const [fulfilment, setFulfilment] = useState<"pickup" | "delivery">(
-    allowsPickup ? "pickup" : "delivery"
+  // Closed-business copy. The time comes from the resolved next opening (or
+  // the next-opening scheduled_for) so the customer sees the same value the
+  // server will store. Messages live in the Storefront translations.
+  const nextOpenLabel = orderConfig.nextOpenTime
+    ? orderConfig.nextOpenTime
+    : orderConfig.scheduledFor
+      ? new Date(orderConfig.scheduledFor).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+          weekday: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+  const closedAcceptsOrders = orderConfig.acceptOrdersWhenClosed !== false;
+  const orderWhileClosedNotice = fillClosedNoticeTime(
+    labels.orderWhileClosed || "We're closed right now, your order will be prepared from {time}",
+    nextOpenLabel
+  );
+  const closedOpensAtNotice = fillClosedNoticeTime(
+    labels.closedOpensAt || "We're closed, opens at {time}",
+    nextOpenLabel
+  );
+
+  const [fulfilment, setFulfilment] = useState<"pickup" | "delivery" | "dine_in">(
+    orderConfig.tableId ? "dine_in" : (allowsPickup ? "pickup" : "delivery")
   );
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -2009,12 +2194,22 @@ function OrderDrawer({
     event.preventDefault();
     setErrorMessage(null);
 
+    if (!checkoutPaymentState.canSubmitOrder) {
+      setErrorMessage(labels.tableOnlinePaymentUnavailable || "Online payment is unavailable for this table. Please ask staff to take your order and settle at the table.");
+      return;
+    }
+
+    if (orderConfig.isClosed && !closedAcceptsOrders) {
+      setErrorMessage(closedOpensAtNotice);
+      return;
+    }
+
     if (!customerName.trim()) {
       setErrorMessage(labels.fullName ? `Please enter your ${labels.fullName.toLowerCase()}` : "Please enter your name.");
       return;
     }
 
-    if (!customerPhone.trim()) {
+    if (!orderConfig.tableId && !customerPhone.trim()) {
       setErrorMessage(labels.phone ? `Please enter your ${labels.phone.toLowerCase()}` : "Please enter your phone number.");
       return;
     }
@@ -2081,9 +2276,9 @@ function OrderDrawer({
           body: JSON.stringify({
             slug: orderConfig.slug,
             customerName: customerName.trim(),
-            customerPhone: customerPhone.trim(),
+            customerPhone: customerPhone.trim() || null,
             customerEmail: customerEmail.trim() || null,
-            fulfilmentType: fulfilment,
+            fulfilmentType: orderConfig.tableId ? "dine_in" : fulfilment,
             deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
             customerNote: customerNote.trim() || null,
             items: payloadItems,
@@ -2091,11 +2286,28 @@ function OrderDrawer({
             idempotencyKey,
             hp: honeypot || null,
             scheduledFor: scheduledForPayload,
+            tableId: orderConfig.tableId || null,
+            tableLabel: orderConfig.tableLabel || null,
           }),
         });
         const intentData = await intentRes.json().catch(() => ({}));
         if (!intentRes.ok || !intentData.clientSecret) {
-          setErrorMessage(intentData.error || "Could not start the card payment. Please try again.");
+          const tableUnavailable = isPayOnlineFirst && (
+            intentData.code === "online_payment_unsupported_currency" ||
+            intentData.code === "online_payment_unavailable" ||
+            intentData.code === "stripe_not_configured"
+          );
+          const mappedUnavailable = intentData.code === "online_payment_unsupported_currency"
+            ? (labels.onlinePaymentUnsupportedCurrency || `Online card payments are currently available only for ${ONLINE_PAYMENT_CURRENCIES.join(", ")} orders.`)
+            : (labels.onlinePaymentUnavailable || "Online card payment is currently unavailable. Choose payment upon pickup or delivery.");
+          const knownUnavailable = intentData.code === "online_payment_unsupported_currency" ||
+            intentData.code === "online_payment_unavailable" ||
+            intentData.code === "stripe_not_configured";
+          setErrorMessage(tableUnavailable
+            ? (labels.tableOnlinePaymentUnavailable || "Online payment is unavailable for this table. Please ask staff to take your order and settle at the table.")
+            : knownUnavailable
+              ? mappedUnavailable
+              : intentData.error || "Could not start the card payment. Please try again.");
           setIsStartingPayment(false);
           return;
         }
@@ -2118,9 +2330,9 @@ function OrderDrawer({
       const res = await submitOrderRequest({
         slug: orderConfig.slug,
         customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
+        customerPhone: customerPhone.trim() || null,
         customerEmail: customerEmail.trim() || null,
-        fulfilmentType: fulfilment,
+        fulfilmentType: orderConfig.tableId ? "dine_in" : fulfilment,
         deliveryAddress: fulfilment === "delivery" ? deliveryAddress.trim() : null,
         customerNote: customerNote.trim() || null,
         items: payloadItems,
@@ -2128,6 +2340,8 @@ function OrderDrawer({
         idempotencyKey,
         hp: honeypot || null,
         scheduledFor: scheduledForPayload,
+        tableId: orderConfig.tableId || null,
+        tableLabel: orderConfig.tableLabel || null,
       });
 
       if (!res.success) {
@@ -2150,6 +2364,7 @@ function OrderDrawer({
         deliveryFee: displayDeliveryFee,
         total: grandTotal,
         fulfilmentType: fulfilment,
+        tableLabel: orderConfig.tableLabel || null,
         currency: orderConfig.currency,
       });
     } catch {
@@ -2208,6 +2423,7 @@ function OrderDrawer({
                     deliveryFee: displayDeliveryFee,
                     total: grandTotal,
                     fulfilmentType: fulfilment,
+                    tableLabel: orderConfig.tableLabel || null,
                     currency: orderConfig.currency,
                   });
                 }}
@@ -2265,9 +2481,11 @@ function OrderDrawer({
                 <span>Notice: Restaurant Closed</span>
               </div>
               <p className={`mt-[var(--ps-space-1)] ${savannah ? "text-[var(--tf-ink)]" : "text-amber-800"}`}>
-                {orderConfig.scheduledFor
-                  ? `Your order will be accepted and prepared for reopening on ${new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}.`
-                  : labels.scheduledNotice || "The restaurant is currently closed. Your order will be prepared for reopening."}
+                {!closedAcceptsOrders
+                  ? closedOpensAtNotice
+                  : nextOpenLabel
+                    ? orderWhileClosedNotice
+                    : labels.scheduledNotice || "The restaurant is currently closed. Your order will be prepared for reopening."}
               </p>
             </div>
           ) : null}
@@ -2386,8 +2604,27 @@ function OrderDrawer({
                 </div>
               ) : null}
             </div>
-            {/* Fulfilment selector */}
-            {allowsDelivery && allowsPickup ? (
+            {/* Fulfilment / Table indicator */}
+            {orderConfig.tableId ? (
+              <div className="flex items-center justify-between rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--ps-accent-hover,#c2410c)] text-white text-xs font-bold">
+                    T
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-[var(--ps-text)]">
+                      Dine-In • {orderConfig.tableLabel || "Table"}
+                    </p>
+                    <p className="text-[11px] text-[var(--ps-muted)]">
+                      Ordering directly to your table
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                  Active Table
+                </span>
+              </div>
+            ) : allowsDelivery && allowsPickup ? (
               <div className="space-y-[var(--ps-space-2)]">
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.fulfilment || "Fulfilment"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
@@ -2457,10 +2694,16 @@ function OrderDrawer({
               <label className="text-xs font-bold text-[var(--ps-muted)]">Timing</label>
               {orderConfig.isClosed ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-[var(--ps-space-3)] text-xs text-amber-900">
-                  <p className="font-semibold">{labels.scheduledNotice || "The restaurant is closed. Your order will be prepared for reopening."}</p>
-                  {orderConfig.scheduledFor ? (
+                  <p className="font-semibold">
+                    {!closedAcceptsOrders
+                      ? closedOpensAtNotice
+                      : nextOpenLabel
+                        ? orderWhileClosedNotice
+                        : labels.scheduledNotice || "The restaurant is closed. Your order will be prepared for reopening."}
+                  </p>
+                  {closedAcceptsOrders && orderConfig.scheduledFor ? (
                     <p className="mt-[var(--ps-space-1)] text-amber-800">
-                      Reopening slot: {new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+                      Reopening slot: {new Date(orderConfig.scheduledFor).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   ) : null}
                 </div>
@@ -2553,8 +2796,48 @@ function OrderDrawer({
               </div>
             </div>
 
-            {/* Payment method (choice only when online payment is available) */}
-            {canPayOnline ? (
+            {/* Payment method */}
+            {orderConfig.tableId ? (
+              <div className="space-y-[var(--ps-space-1)]">
+                <label className="text-xs font-bold text-[var(--ps-muted)]">Payment & Dining</label>
+                <div className="rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] p-[var(--ps-space-3)] text-xs">
+                  {orderConfig.tableOrderingMode === "pay_online_first" ? (
+                    canPayOnline ? <>
+                      <span className="font-bold text-[var(--ps-text)]">Card Payment Required</span>
+                      <p className="text-[11px] text-[var(--ps-muted)] mt-0.5">
+                        You will pay online by card. Your order will be sent to the kitchen once payment succeeds.
+                      </p>
+                    </> : <>
+                      <span className="font-bold text-[var(--ps-text)]">Online payment unavailable</span>
+                      <p className="text-[11px] text-[var(--ps-muted)] mt-0.5">
+                        {labels.tableOnlinePaymentUnavailable || "Please ask staff to take your order and settle at the table."}
+                      </p>
+                    </>
+                  ) : orderConfig.tableOrderingMode === "order_pay_now" ? (
+                    <>
+                      <span className="font-bold text-[var(--ps-text)]">Pay When Served</span>
+                      <p className="text-[11px] text-[var(--ps-muted)] mt-0.5">
+                        Order will be sent to staff. Please have payment ready when items are delivered to your table.
+                      </p>
+                    </>
+                  ) : orderConfig.tableOrderingMode === "menu_only" ? (
+                    <>
+                      <span className="font-bold text-amber-900">Menu Browsing Only</span>
+                      <p className="text-[11px] text-amber-800 mt-0.5">
+                        Table ordering is set to menu-only. Please call your server to place your order in person.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold text-[var(--ps-text)]">Pay After Meal</span>
+                      <p className="text-[11px] text-[var(--ps-muted)] mt-0.5">
+                        Order will be sent to staff. You can order more items and request the bill when finished.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : canPayOnline ? (
               <div className="space-y-[var(--ps-space-2)]">
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.paymentMethod || "Payment method"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
@@ -2587,6 +2870,12 @@ function OrderDrawer({
                   </p>
                 ) : null}
               </div>
+            ) : orderConfig.onlinePaymentUnavailableReason ? (
+              <p role="status" className="text-xs text-[var(--ps-muted)]">
+                {orderConfig.onlinePaymentUnavailableReason === "unsupported_currency"
+                  ? (labels.onlinePaymentUnsupportedCurrency || `Online card payments are currently available only for ${ONLINE_PAYMENT_CURRENCIES.join(", ")} orders.`)
+                  : (labels.onlinePaymentUnavailable || "Online card payment is currently unavailable. Choose payment upon pickup or delivery.")}
+              </p>
             ) : null}
 
             {/* Honeypot field (hidden) */}
@@ -2642,24 +2931,64 @@ function OrderDrawer({
                 <span className="text-[var(--ps-accent-hover)]">{formattedTotal}</span>
               </div>
               <p className="text-xs text-[var(--ps-muted)]">
-                {payMethod === "online"
+                {orderConfig.tableId
+                  ? orderConfig.tableOrderingMode === "pay_online_first"
+                    ? canPayOnline
+                      ? "Dine-in order • Card payment required before food is prepared"
+                      : (labels.tableOnlinePaymentUnavailable || "Online payment is unavailable for this table. Please ask staff to take your order and settle at the table.")
+                    : orderConfig.tableOrderingMode === "order_pay_now"
+                    ? "Dine-in order • Staff confirmation required • Payment collected upon service"
+                    : orderConfig.tableOrderingMode === "menu_only"
+                    ? "Dine-in menu only • Orders must be placed directly with staff"
+                    : orderConfig.tableOrderingMode === "disabled"
+                    ? "Table ordering is currently disabled"
+                    : "Dine-in order • Staff confirmation required • Pay after meal"
+                  : payMethod === "online"
                   ? labels.onlinePaymentNotice || "You will pay by card now."
                   : labels.paymentOnFulfilment || "Payment upon pickup/delivery"}
               </p>
 
-              <button
-                type="submit"
-                disabled={isSubmitting || isStartingPayment || cart.length === 0}
-          className="ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 transition"
-              >
-                {isSubmitting || isStartingPayment
-                  ? payMethod === "online"
-                    ? labels.payingOnline || "Preparing secure payment…"
-                    : labels.placingOrder || "Placing order…"
-                  : payMethod === "online"
-                    ? `${labels.payOnline || "Pay online"} • ${formattedTotal}`
-                    : `${labels.placeOrder || "Place order"} • ${formattedTotal}`}
-              </button>
+              {orderConfig.tableId && orderConfig.tableOrderingMode === "menu_only" ? (
+                <button
+                  type="button"
+                  disabled
+                  className="ps-button ps-button-secondary w-full text-center text-sm font-bold opacity-60 cursor-not-allowed"
+                >
+                  Dine-In Menu Only — Call Waiter to Order
+                </button>
+              ) : orderConfig.tableId && orderConfig.tableOrderingMode === "disabled" ? (
+                <button
+                  type="button"
+                  disabled
+                  className="ps-button ps-button-secondary w-full text-center text-sm font-bold opacity-60 cursor-not-allowed"
+                >
+                  Dine-In Ordering Disabled
+                </button>
+              ) : isPayOnlineFirst && !checkoutPaymentState.canSubmitOrder ? (
+                <button
+                  type="button"
+                  disabled
+                  className="ps-button ps-button-secondary w-full text-center text-sm font-bold opacity-60 cursor-not-allowed"
+                >
+                  Online payment unavailable — ask staff to settle at the table
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isStartingPayment || cart.length === 0 || !checkoutPaymentState.canSubmitOrder}
+                  className="ps-button ps-button-primary w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 transition"
+                >
+                  {isSubmitting || isStartingPayment
+                    ? (orderConfig.tableId && isPayOnlineFirst
+                        ? (labels.payingOnline || "Preparing secure payment…")
+                        : (orderConfig.tableId ? "Sending order to waiter…" : (payMethod === "online" ? (labels.payingOnline || "Preparing secure payment…") : (labels.placingOrder || "Placing order…"))))
+                    : (orderConfig.tableId && isPayOnlineFirst
+                        ? `Pay Online with Card • ${formattedTotal}`
+                        : (orderConfig.tableId && orderConfig.tableOrderingMode === "order_pay_now"
+                            ? `Send Order (Pay at Table) • ${formattedTotal}`
+                            : (orderConfig.tableId ? `Send Order to Table • ${formattedTotal}` : (payMethod === "online" ? `${labels.payOnline || "Pay online"} • ${formattedTotal}` : `${labels.placeOrder || "Place order"} • ${formattedTotal}`))))}
+                </button>
+              )}
             </div>
 
           </form>
@@ -2678,6 +3007,8 @@ function OrderConfirmationModal({
   deliveryFee,
   total,
   fulfilmentType,
+  tableLabel,
+  tableOrderingMode,
   currency,
   labels,
   tableFlame,
@@ -2692,6 +3023,8 @@ function OrderConfirmationModal({
   deliveryFee?: number | null;
   total?: number | null;
   fulfilmentType?: string | null;
+  tableLabel?: string | null;
+  tableOrderingMode?: string | null;
   currency?: string | null;
   labels: StorefrontBrowseLabels;
   tableFlame: boolean;
@@ -2737,14 +3070,26 @@ function OrderConfirmationModal({
         </div>
         <div>
           <h3 className="text-lg font-bold text-[var(--ps-text)]">
-            {labels.orderSuccessTitle || "Order requested!"}
+            {fulfilmentType === "dine_in"
+              ? (tableOrderingMode === "pay_online_first" ? "Order Placed & Paid!" : "Order Sent to Staff!")
+              : (labels.orderSuccessTitle || "Order requested!")}
           </h3>
           <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)]">
-            {labels.orderSuccessSubtext || "We have received your order request."}
+            {fulfilmentType === "dine_in"
+              ? (tableOrderingMode === "pay_online_first"
+                  ? `Your payment has been received and your order has been sent to the kitchen${tableLabel ? ` for Table ${tableLabel}` : ""}.`
+                  : `Your order has been sent to the staff${tableLabel ? ` for Table ${tableLabel}` : ""}. A waiter will confirm it shortly.`)
+              : (labels.orderSuccessSubtext || "We have received your order request.")}
           </p>
         </div>
 
         <div className="rounded-xl bg-[var(--ps-neutral)] p-[var(--ps-space-4)] border border-[var(--ps-border)]">
+          {fulfilmentType === "dine_in" && tableLabel ? (
+            <div className="mb-[var(--ps-space-2)] flex items-center justify-between rounded-lg bg-[var(--ps-surface)] px-2.5 py-1.5 border border-[var(--ps-border)] text-xs">
+              <span className="font-medium text-[var(--ps-muted)]">Dining Table</span>
+              <span className="font-bold text-[var(--ps-accent-hover)]">Table {tableLabel}</span>
+            </div>
+          ) : null}
           <p className="text-xs font-semibold text-[var(--ps-muted)] uppercase tracking-wider">
             {labels.orderNumber || "Order number"}
           </p>
@@ -2811,6 +3156,308 @@ function OrderConfirmationModal({
         >
           {labels.backToMenu || "Back to menu"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function CustomerTableBillModal({
+  businessId,
+  tableId,
+  tableLabel,
+  onClose,
+  savannah,
+}: {
+  businessId: string;
+  tableId: string;
+  tableLabel?: string | null;
+  onClose: () => void;
+  savannah?: boolean;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bill, setBill] = useState<TableRunningBill | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [requestSuccessMessage, setRequestSuccessMessage] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+
+  const fetchBill = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+    setError(null);
+    try {
+      const res = await getTableRunningBill(businessId, tableId);
+      if (res.success && res.bill) {
+        setBill(res.bill);
+      } else if (res.success && !res.bill) {
+        setBill(null);
+      } else {
+        setError(res.error || "Unable to load table bill.");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load bill.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [businessId, tableId]);
+
+  useEffect(() => {
+    fetchBill();
+  }, [fetchBill]);
+
+  const handleRequestBill = async () => {
+    setRequesting(true);
+    setRequestError(null);
+    setRequestSuccessMessage(null);
+    try {
+      const res = await requestTableBill({
+        businessId,
+        tableId,
+        sessionId: bill?.sessionId,
+      });
+      if (res.success) {
+        setRequestSuccessMessage(
+          res.message || "Your bill request has been sent to staff. A waiter will bring your bill shortly."
+        );
+        await fetchBill(true);
+      } else {
+        setRequestError(res.error || "Could not request bill. Please call your server directly.");
+      }
+    } catch (err: unknown) {
+      setRequestError(err instanceof Error ? err.message : "Failed to request bill.");
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const currency = bill?.currency || "USD";
+  const isBillRequested = bill?.sessionStatus === "bill_requested" || Boolean(requestSuccessMessage);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="customer-bill-title"
+      className={`fixed inset-0 z-[95] flex items-end sm:items-center justify-center ${savannah ? "bg-[var(--tf-scrim)]/80" : "bg-black/60"} backdrop-blur-xs p-0 sm:p-4`}
+    >
+      <div className={`w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl ${savannah ? "bg-[var(--tf-base)] shadow-none" : "bg-white shadow-2xl"} border border-zinc-200 overflow-hidden text-zinc-900`}>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 bg-zinc-50/70">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+              <IconReceipt className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 id="customer-bill-title" className="text-base font-bold text-zinc-900">
+                Running Bill
+              </h2>
+              <p className="text-xs text-zinc-500">
+                {tableLabel ? `Table ${tableLabel}` : "Dine-In Session"}
+                {bill ? ` • Session #${bill.sessionId.slice(0, 8)}` : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchBill(true)}
+              disabled={loading || refreshing}
+              className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/50 transition disabled:opacity-50 cursor-pointer"
+              title="Refresh bill"
+              aria-label="Refresh bill"
+            >
+              <IconRefresh className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/50 transition cursor-pointer"
+              aria-label="Close bill modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {loading ? (
+            <div className="py-12 text-center text-zinc-400 space-y-2">
+              <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+              <p className="text-xs">Loading table orders...</p>
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+              {error}
+            </div>
+          ) : !bill || bill.orders.length === 0 ? (
+            <div className="py-10 text-center space-y-2">
+              <p className="text-sm font-semibold text-zinc-800">No Orders Yet</p>
+              <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                No orders have been placed for this table session yet. Add items from the menu to get started!
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Notifications / Status Banners */}
+              {isBillRequested ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  <IconBell className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Bill Requested</p>
+                    <p className="text-amber-800/90 mt-0.5">
+                      {requestSuccessMessage || "Your server has been notified and will bring your bill to the table shortly."}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {requestError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                  {requestError}
+                </div>
+              ) : null}
+
+              {/* Itemized Order Groups */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Orders ({bill.orders.length})
+                </p>
+
+                {bill.orders.map((order) => (
+                  <div
+                    key={order.orderId}
+                    className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-3.5 space-y-2.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between border-b border-zinc-200/60 pb-2">
+                      <div>
+                        <span className="font-bold text-zinc-800">Order #{order.orderNumber}</span>
+                        <span className="text-[11px] text-zinc-400 ml-2">
+                          {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {order.paymentStatus === "paid" ? (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            Paid Online
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Unpaid
+                          </span>
+                        )}
+                        {order.waiterConfirmation === "pending" ? (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                            Awaiting Waiter
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-0.5">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex items-start justify-between">
+                          <div className="pr-2">
+                            <span className="font-semibold text-zinc-800">{item.quantity}×</span>{" "}
+                            <span className="text-zinc-700">{item.name}</span>
+                            {item.chosen_options && item.chosen_options.length > 0 ? (
+                              <p className="text-[11px] text-zinc-500 pl-4">
+                                {item.chosen_options.map((opt) => opt.name).join(", ")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="tabular-nums font-medium text-zinc-800 shrink-0">
+                            {formatMoney(item.line_total, currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Excluded orders notice if any */}
+                {bill.excludedOrders.length > 0 ? (
+                  <p className="text-[11px] text-zinc-400 italic">
+                    * {bill.excludedOrders.length} cancelled or declined order(s) excluded from bill total.
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Financial Summary */}
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-zinc-600">
+                  <span>Table Total</span>
+                  <span className="tabular-nums font-semibold text-zinc-800">
+                    {formatMoney(bill.totalAmount, currency)}
+                  </span>
+                </div>
+                {bill.paidAmount > 0 ? (
+                  <div className="flex items-center justify-between text-emerald-700">
+                    <span>Paid Online</span>
+                    <span className="tabular-nums font-semibold">
+                      - {formatMoney(bill.paidAmount, currency)}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-200 text-sm font-bold text-zinc-900">
+                  <span>Outstanding Balance</span>
+                  <span className={`tabular-nums ${bill.unpaidAmount > 0 ? "text-orange-700 font-extrabold" : "text-emerald-700"}`}>
+                    {formatMoney(bill.unpaidAmount, currency)}
+                  </span>
+                </div>
+                {bill.unpaidAmount === 0 ? (
+                  <p className="text-[11px] text-emerald-600 font-medium pt-1 text-center">
+                    ✓ All orders for this table have been settled online.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 pt-1">
+                    Pay at your table or with staff when you are ready to depart.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="border-t border-zinc-100 bg-zinc-50/70 p-4 space-y-2">
+          {bill && bill.orders.length > 0 && bill.unpaidAmount > 0 ? (
+            <button
+              type="button"
+              onClick={handleRequestBill}
+              disabled={requesting || isBillRequested}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition shadow-xs cursor-pointer ${
+                isBillRequested
+                  ? "bg-amber-100 text-amber-800 border border-amber-200 cursor-default"
+                  : "bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+              }`}
+            >
+              {isBillRequested ? (
+                <>
+                  <IconCheck className="h-4 w-4" />
+                  Bill Requested • Waiter Notified
+                </>
+              ) : requesting ? (
+                "Requesting Bill..."
+              ) : (
+                <>
+                  <IconBell className="h-4 w-4" />
+                  Request Bill from Waiter
+                </>
+              )}
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition cursor-pointer"
+          >
+            Back to Menu
+          </button>
+        </div>
       </div>
     </div>
   );

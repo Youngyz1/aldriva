@@ -832,12 +832,14 @@ function buildCtaBand(ctx: BuildContext): Block {
       ? ctx.restaurantCtaBandHeading
       : isSavannah
         ? "Join us around the table."
-      : ctx.rentalCtaBandHeading;
+        : ctx.template.id === "cleaning-fresh"
+          ? "Ready for a cleaner home?"
+          : ctx.rentalCtaBandHeading;
   const extras = asRecord(effectiveValue(ctx, "template_extras"));
-  const customLabel = isSavannah ? asString(extras?.ctaBandButtonLabel) : undefined;
-  const customLink = isSavannah ? asString(extras?.ctaBandButtonLink) : undefined;
-  const defaultLabel = isSavannah ? ctx.viewMenuLabel : undefined;
-  const defaultLink = isSavannah ? "/menu" : undefined;
+  const customLabel = isSavannah || ctx.template.id === "cleaning-fresh" ? asString(extras?.ctaBandButtonLabel) : undefined;
+  const customLink = isSavannah || ctx.template.id === "cleaning-fresh" ? asString(extras?.ctaBandButtonLink) : undefined;
+  const defaultLabel = isSavannah ? ctx.viewMenuLabel : ctx.template.id === "cleaning-fresh" ? "Book now" : undefined;
+  const defaultLink = isSavannah ? "/menu" : ctx.template.id === "cleaning-fresh" ? "/book" : undefined;
   const ctaLabel = customLabel ?? defaultLabel;
   const ctaHref = customLink ?? defaultLink;
   const headingFinal = (isSavannah ? (extras?.ctaBandHeading as string) : undefined) ?? heading;
@@ -905,12 +907,17 @@ function buildSectionBlock(
         } as Block;
       }
       if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
+      if (section.id === "trust-strip") return buildFeatures(ctx, section, "trust", "trust.items", 4);
+      if (section.id === "why-choose-us") return buildFeatures(ctx, section, "benefits", "benefits.items", 4);
       if (section.id === "how-it-works") {
         const heading = ctx.template.id === "food-order"
           ? ctx.foodOrderCopy?.stepsHeading ?? "Order steps"
           : "How it works";
         return buildFeatures(ctx, section, "steps", "steps.items", 3, heading);
       }
+      if (section.id === "areas-cover") return buildFeatures(ctx, section, "areas", "areas.items", 4);
+      if (section.id === "about-values") return buildFeatures(ctx, section, "values", "values.items", 4);
+      if (section.id === "about-team") return buildFeatures(ctx, section, "team", "team.items", 4);
       return buildFeatures(ctx, section, "highlights", "highlights.items", 3);
     }
     case "about":
@@ -922,6 +929,7 @@ function buildSectionBlock(
     case "contact": {
       const heading = ctx.template.id === "food-order"
         ? ctx.foodOrderCopy?.contactHeading ?? "Contact"
+        : ctx.template.id === "cleaning-fresh" ? "Contact us"
         : ctx.template.id === "restaurant-table-flame" || ctx.template.id === "restaurant-savannah" ? "Hours & Location"
           : section.id === "locations" ? "Pickup locations" : "Visit us";
       return buildContact(ctx, heading);
@@ -1086,6 +1094,27 @@ function buildSectionBlock(
         id: stableUuid(ctx.template.id + ":reservations:reservation_form"),
         type: "reservation_form",
       };
+    }
+    case "services_embed": {
+      const heading = asString(take(ctx, "services_heading", "services.heading")) || "Our services";
+      const limitRaw = take(ctx, "services_limit", "services.limit");
+      const limit = typeof limitRaw === "number" && Number.isFinite(limitRaw)
+        ? Math.min(12, Math.max(1, Math.floor(limitRaw)))
+        : section.id === "services.page" ? 12 : 6;
+      const layoutRaw = take(ctx, "services_layout", "services.layout");
+      const layout = layoutRaw === "list" ? "list" : "grid";
+      return {
+        type: "services_embed",
+        heading,
+        limit,
+        layout,
+      } as Block;
+    }
+    case "general_booking_form": {
+      return {
+        id: stableUuid(ctx.template.id + ":book:general_booking_form"),
+        type: "general_booking_form",
+      } as Block;
     }
     default:
       return null;
@@ -1355,6 +1384,7 @@ export function resolveTemplateManifest(
     availablePages: options.availablePageSlugs,
     catalogAdapter,
     ...(template.id === "store" ? { catalogPageSlug: "shop", catalogActionLabelKey: "shopNow" } : {}),
+    ...(template.id === "cleaning-fresh" ? { bookingPageSlug: "book" } : {}),
   });
   // Store-only owner hero-button label: template_extras.storeHeroCta becomes
   // the action label itself, so fixed-fallback precedence (line ~1190) honors

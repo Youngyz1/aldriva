@@ -17,6 +17,7 @@ import FundraisingProgressRing from "@/components/ui/FundraisingProgressRing";
 import FundraiserAnalytics from "@/components/fundraisers/FundraiserAnalytics.client";
 import FundraiserQuickActions from "@/components/fundraisers/FundraiserQuickActions.client";
 import FundraiserHeaderActions from "@/components/fundraisers/FundraiserHeaderActions.client";
+import { OverviewShell } from "@/components/dashboard/overview/OverviewShell";
 import { IconCircleCheck as CheckCircle2, IconAlertTriangle as AlertTriangle, IconTrendingUp as TrendingUp, IconClock as Clock, IconHeart as Heart, IconUsers as Users, IconWallet as Wallet, IconReceipt as Receipt, IconTarget as Target, IconPigMoney as PiggyBank, IconEye as Eye, IconPointer as MousePointerClick, IconShare2 as Share2, IconBulb as Lightbulb, IconInfoCircle as Info } from "@tabler/icons-react";
 
 function StatusBadge({ status, healthScore }: { status: ReturnType<typeof inferStatus>; healthScore: number }) {
@@ -172,8 +173,9 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
         : undefined;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <OverviewShell workspaceName={title}>
+      <div className="space-y-6">
+        {/* Header */}
       <div className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -466,5 +468,6 @@ export default async function FundraiserOverviewPage({ params }: { params: Promi
         </div>
       </div>
     </div>
+  </OverviewShell>
   );
 }

@@ -19,6 +19,8 @@ import {
   type EntityRole,
 } from "@/lib/entity-auth";
 import { getFlagshipTemplate } from "@/lib/website-template-v2";
+import { resolveTemplateContent } from "@/lib/website-template-resolver";
+import { generateStableId } from "@/lib/website-blocks";
 import {
   canEditWebsiteTemplate,
   getTemplateSwitchTargets,
@@ -182,6 +184,45 @@ export async function switchWebsiteTemplate(
     .eq("id", auth.websiteId);
   if (metadataErr) {
     return { success: false, error: "Could not switch template. Please try again.", code: "db_error" };
+  }
+
+  // Reconcile stored pages with the target template: add any pages the
+  // template declares that are not already stored as website_pages rows.
+  // Never modify, overwrite, or delete existing pages; published status and
+  // live navigation are untouched until the owner publishes. For v2 sites the
+  // public nav is derived from the template manifest, so adding the stored
+  // rows is sufficient to make new pages routable and visible in the nav.
+  try {
+    const [{ data: draftRow }, { data: liveRow }] = await Promise.all([
+      supabaseAdmin.from("website_content_drafts").select("content").eq("website_id", auth.websiteId).maybeSingle(),
+      supabaseAdmin.from("website_content").select("content").eq("website_id", auth.websiteId).maybeSingle(),
+    ]);
+    const contentDoc = (draftRow?.content ?? liveRow?.content ?? {}) as Record<string, unknown>;
+    const resolved = resolveTemplateContent(next.id, next.version, contentDoc, {});
+    const { data: existingPages } = await supabaseAdmin
+      .from("website_pages")
+      .select("slug")
+      .eq("website_id", auth.websiteId);
+    const existingSlugs = new Set((existingPages ?? []).map((p) => p.slug));
+    const pagesToInsert = resolved.pages
+      .filter((page) => !existingSlugs.has(page.slug))
+      .map((page) => ({
+        id: generateStableId(),
+        website_id: auth.websiteId,
+        title: page.title,
+        slug: page.slug,
+        is_home: page.isHome,
+        status: "draft",
+        blocks: [],
+        sort_order: page.sortOrder,
+      }));
+    if (pagesToInsert.length > 0) {
+      await supabaseAdmin.from("website_pages").insert(pagesToInsert);
+    }
+  } catch {
+    // Page reconciliation is best-effort: the metadata switch already
+    // succeeded. Do not fail the switch because page rows could not be
+    // inserted.
   }
 
   revalidatePath(`/dashboard/org/${auth.tenantId}/website/builder`);

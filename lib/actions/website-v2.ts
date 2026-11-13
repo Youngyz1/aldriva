@@ -60,6 +60,9 @@ import {
   resolveStorefrontCurrency,
   WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY,
 } from "@/lib/website-v2-theme";
+import { resolveWebsiteTimezone } from "@/lib/date-timezone";
+import { resolveAcceptOrdersWhenClosed } from "@/lib/storefront-settings";
+import { normalizeStorefrontCurrency } from "@/lib/money";
 import {
   getContentForBuilder,
   saveContentDraft,
@@ -71,6 +74,8 @@ export interface CreateV2WebsiteOptions {
   slug?: string;
   websiteCategory?: string;
   creationRequestId?: string;
+  /** Owner-chosen storefront currency (default USD). */
+  currency?: string;
 }
 
 export interface CreateV2WebsiteResult {
@@ -270,11 +275,12 @@ export async function createWebsiteFromV2Template(
     templateVersion: template.version,
     brand: { accentId: template.defaultAccentId ?? "terracotta" },
     creationRequestId,
-    // New restaurant sites price in XOF unless the owner changes it later in
-    // Site settings (metadata.storefront.currency). Other templates keep the
-    // USD default; the country fallback upgrades them when relevant.
+    // New sites default to USD. The owner may pick another supported code in
+    // the creation form; country is never used to decide the stored currency
+    // (it only pre-selects the form value). Editable later in the builder's
+    // Ordering & payments panel.
     storefront: {
-      currency: template.id === "restaurant-table-flame" || template.id === "restaurant-savannah" ? "XOF" : "USD",
+      currency: normalizeStorefrontCurrency(options?.currency) ?? "USD",
     },
   };
 
@@ -410,6 +416,7 @@ export interface V2BuilderState {
     timeZone: string;
     country: string | null;
     currency: string;
+    acceptOrdersWhenClosed: boolean;
   };
   template: { id: string; version: string; name: string };
   templateManifest: WebsiteTemplateV2;
@@ -645,9 +652,10 @@ export async function getBuilderState(
     offerings: Array.isArray(linkedBusiness?.offerings)
       ? linkedBusiness.offerings.filter((key: unknown): key is string => typeof key === "string")
       : [],
-    timeZone: typeof metadata.timezone === "string" ? metadata.timezone : "Africa/Abidjan",
+    timeZone: resolveWebsiteTimezone(metadata),
     country: typeof linkedBusiness?.country === "string" ? linkedBusiness.country : null,
     currency: storefrontCurrency,
+    acceptOrdersWhenClosed: resolveAcceptOrdersWhenClosed(metadata),
   };
   const resolved = resolveTemplateContent(template.id, template.version, effective, {
     siteSlug: data.websiteSlug,

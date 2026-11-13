@@ -173,6 +173,7 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
     slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list"],
   },
   { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
+  { id: "services", title: "Services", slotIds: ["services.heading", "services.limit", "services.layout"] },
   { id: "cta-band", title: "Call to action banner", slotIds: ["cta.heading", "cta.button_label", "cta.button_link"] },
   { id: "footer", title: "Social and footer", slotIds: ["footer.socials", "footer.note"] },
 ];

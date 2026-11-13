@@ -8,76 +8,6 @@
 
 export const DEFAULT_SITE_TIMEZONE = "Africa/Abidjan";
 
-/**
- * Business-country → default IANA site timezone. Normalized comparison
- * (case/diacritics-insensitive; "CI" alpha-2 also accepted). Unknown or
- * missing countries fall back to DEFAULT_SITE_TIMEZONE. The owner's explicit
- * choice (tenant_websites.metadata.timezone) always wins over this default.
- */
-const TIMEZONE_BY_COUNTRY: Record<string, string> = {
-  "cote d'ivoire": "Africa/Abidjan",
-  "ivory coast": "Africa/Abidjan",
-  ci: "Africa/Abidjan",
-  senegal: "Africa/Dakar",
-  sn: "Africa/Dakar",
-  mali: "Africa/Bamako",
-  ml: "Africa/Bamako",
-  "burkina faso": "Africa/Ouagadougou",
-  bf: "Africa/Ouagadougou",
-  benin: "Africa/Porto-Novo",
-  bj: "Africa/Porto-Novo",
-  togo: "Africa/Lome",
-  tg: "Africa/Lome",
-  niger: "Africa/Niamey",
-  ne: "Africa/Niamey",
-  "guinea-bissau": "Africa/Bissau",
-  gw: "Africa/Bissau",
-  guinea: "Africa/Conakry",
-  gn: "Africa/Conakry",
-  cameroon: "Africa/Douala",
-  cm: "Africa/Douala",
-  chad: "Africa/Ndjamena",
-  td: "Africa/Ndjamena",
-  "central african republic": "Africa/Bangui",
-  cf: "Africa/Bangui",
-  "republic of the congo": "Africa/Brazzaville",
-  congo: "Africa/Brazzaville",
-  cg: "Africa/Brazzaville",
-  "equatorial guinea": "Africa/Malabo",
-  gq: "Africa/Malabo",
-  gabon: "Africa/Libreville",
-  ga: "Africa/Libreville",
-  nigeria: "Africa/Lagos",
-  ng: "Africa/Lagos",
-  ghana: "Africa/Accra",
-  gh: "Africa/Accra",
-  liberia: "Africa/Monrovia",
-  lr: "Africa/Monrovia",
-  "sierra leone": "Africa/Freetown",
-  sl: "Africa/Freetown",
-  france: "Europe/Paris",
-  fr: "Europe/Paris",
-  "united states": "America/New_York",
-  "united states of america": "America/New_York",
-  usa: "America/New_York",
-  us: "America/New_York",
-  "united kingdom": "Europe/London",
-  uk: "Europe/London",
-  gb: "Europe/London",
-  canada: "America/Toronto",
-  ca: "America/Toronto",
-};
-
-export function defaultTimezoneForCountry(country: unknown): string {
-  if (typeof country !== "string" || !country.trim()) return DEFAULT_SITE_TIMEZONE;
-  const key = country
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-  return TIMEZONE_BY_COUNTRY[key] ?? DEFAULT_SITE_TIMEZONE;
-}
-
 /** Curated IANA list for the organizer Settings timezone dropdown. */
 export const SITE_TIMEZONE_OPTIONS = [
   "Africa/Abidjan",
@@ -221,8 +151,8 @@ export function isTodayInTimezone(
 
 /**
  * ONE timezone precedence rule for every Today/order/reservation reader:
- * the owner's explicit metadata.timezone choice wins, else the default
- * derived from the business country, else DEFAULT_SITE_TIMEZONE.
+ * the owner's explicit metadata.timezone choice wins, else the platform
+ * default. Business country is not a reliable timezone source.
  */
 export function resolveSiteTimezone(
   metadataTimezone: unknown,
@@ -235,4 +165,34 @@ export function resolveSiteTimezone(
     return countryDefault.trim();
   }
   return DEFAULT_SITE_TIMEZONE;
+}
+
+/**
+ * ONE reader for a `tenant_websites.metadata` row: explicit
+ * `metadata.timezone` wins, otherwise the platform fallback (Africa/Abidjan).
+ * Every order/reservation/Today/email consumer must call this instead of
+ * re-deriving the fallback inline.
+ */
+export function resolveWebsiteTimezone(metadata: unknown): string {
+  const meta =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  return resolveSiteTimezone(meta.timezone, DEFAULT_SITE_TIMEZONE);
+}
+
+/** Human "HH:MM" (or locale-formatted) label for a notification timezone. */
+export function formatTimeInTimezone(
+  value: Date | string,
+  timeZone: string,
+  locale = "en-US"
+): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const tz = resolveSiteTimezone(timeZone);
+  try {
+    return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: tz }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: DEFAULT_SITE_TIMEZONE }).format(date);
+  }
 }

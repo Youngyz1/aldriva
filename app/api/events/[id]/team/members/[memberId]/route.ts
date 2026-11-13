@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { revokeScannerTokensForSubject } from "@/lib/staff/scanner-revocations";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
+  const requestId = randomUUID();
   try {
     const { id: eventId, memberId } = await params;
     const supabase = await createSupabaseServer();
@@ -39,7 +42,7 @@ export async function DELETE(
       .eq("id", memberId)
       .eq("event_id", eventId)
       .eq("status", "active")
-      .select("id")
+      .select("id, user_id")
       .maybeSingle();
 
     if (updateErr) {
@@ -52,6 +55,20 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // Any 8-hour offline scanner token this member still holds must stop
+    // working. Best-effort: the member is already removed, so a failure here is
+    // logged by the helper and does not turn the removal into an error.
+    await revokeScannerTokensForSubject(
+      admin,
+      {
+        eventId,
+        staffMemberId: memberId,
+        userId: (updatedMember as { user_id?: string | null }).user_id ?? null,
+        reason: "removed_from_team",
+      },
+      requestId
+    );
 
     return NextResponse.json({ ok: true, message: "Team member access revoked successfully." });
   } catch (err: unknown) {

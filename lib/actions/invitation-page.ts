@@ -265,9 +265,7 @@ export async function publishInvitationPage(
   const publishDraft = {
     ...draftRow,
     music_links: publishMusic.links,
-    blocks_layout: draftRow.template_id === "evergreen-envelope"
-      ? legacyInvitationTemplateToLayout(draftRow.template_id, draftRow.blocks_layout)
-      : draftRow.blocks_layout,
+    blocks_layout: draftRow.blocks_layout,
   };
   const validation = validateForPublish(publishDraft, event, locale);
   if (!validation.valid) {
@@ -512,7 +510,7 @@ export async function getInvitationPageDraft(
     : {
     id: "",
     event_id: event.id,
-    template_id: "gala-editorial",
+    template_id: "",
     locale: "en",
     page_status: "draft",
     published_at: null,
@@ -658,7 +656,7 @@ export async function getInvitationPagePreviewByToken(
   const effectiveDraft = (draft as EventInvitationPageRow) || {
     id: "",
     event_id: event.id,
-    template_id: "gala-editorial",
+    template_id: "",
     locale: "en",
     page_status: "draft",
     published_at: null,

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { ServicesManager } from "@/components/dashboard/services/ServicesManager";
+import { ServiceCategoriesManager } from "@/components/dashboard/services/ServiceCategoriesManager";
+import { listServiceCategories } from "@/lib/actions/service-categories";
 
 export default async function ServicesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: organizerId } = await params;
@@ -22,6 +24,7 @@ export default async function ServicesPage({ params }: { params: Promise<{ id: s
   const canDelete = role ? ["owner","admin","manager"].includes(role) : false;
   const admin = createSupabaseAdmin();
   const { data: services } = await admin.from("services").select("*").eq("organizer_id", organizerId).order("position").order("created_at");
+  const categoriesResult = await listServiceCategories(organizerId);
 
   return (
     <div className="p-6 space-y-6">
@@ -33,7 +36,10 @@ export default async function ServicesPage({ params }: { params: Promise<{ id: s
           </Link>
         )}
       </div>
-      <ServicesManager organizerId={organizerId} services={services || []} canEdit={canEdit} canDelete={canDelete} />
+      {categoriesResult.migrated && (
+        <ServiceCategoriesManager organizerId={organizerId} categories={categoriesResult.data} canEdit={canEdit} canDelete={canDelete} />
+      )}
+      <ServicesManager organizerId={organizerId} services={services || []} categories={categoriesResult.data.map((c) => ({ id: c.id, title: c.title }))} canEdit={canEdit} canDelete={canDelete} />
     </div>
   );
 }

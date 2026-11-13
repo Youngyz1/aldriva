@@ -26,8 +26,10 @@ import {
   syncOfflineScans,
   getOrCreateDeviceId,
   getOfflineDataset,
+  clearOfflineDataset,
   PendingScanRecord,
 } from "@/lib/offline-scanner-db";
+import { buildGuestAccessEndedMessage } from "@/lib/staff/guest-access-ended-message";
 
 type ScanResultState = {
   status:
@@ -110,6 +112,11 @@ export default function ScannerClient({
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const isVerifyingRef = useRef<boolean>(false);
+  // Once a guest's session is found invalid (online scan or sync), scanning
+  // and auto-sync both stop until the page is reloaded - a revoked guest
+  // must never keep hammering the server every 15s with scans that can
+  // never succeed.
+  const guestAccessEndedRef = useRef<boolean>(false);
 
   // Sync assignedEntrance if it loads or changes
   useEffect(() => {
@@ -126,6 +133,22 @@ export default function ScannerClient({
     } catch {
       setPendingCount(null);
     }
+  }, [eventId]);
+
+  // Shared by every guest-401 site (live scan, sync, manual dataset
+  // download): the cached ticket dataset can no longer be trusted once a
+  // session is revoked, so it is wiped — but the scan queue (anything
+  // already captured offline) is NEVER touched here, so a re-invite can
+  // still recover and sync it later.
+  const handleGuestAccessEnded = useCallback(async () => {
+    guestAccessEndedRef.current = true;
+    const unsyncedCount = await getPendingScanCountStrict(eventId).catch(() => 0);
+    await clearOfflineDataset(eventId);
+    setResult({
+      status: "session_invalid",
+      title: "ACCESS ENDED",
+      message: buildGuestAccessEndedMessage(unsyncedCount),
+    });
   }, [eventId]);
 
   const refreshActivity = useCallback(async () => {
@@ -164,6 +187,7 @@ export default function ScannerClient({
 
   // Flush offline queue when online
   const triggerSync = useCallback(async () => {
+    if (guestSession && guestAccessEndedRef.current) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     if (syncing) return;
 
@@ -175,7 +199,13 @@ export default function ScannerClient({
       const syncRes = await syncOfflineScans(eventId, token);
       setSyncError(syncRes.failed > 0);
 
-      if (syncRes.synced > 0 || syncRes.conflicts > 0) {
+      if (guestSession && syncRes.authError) {
+        // Queued scans stay in the queue (marked "failed", never deleted) -
+        // they just stop being retried automatically until a reload gives
+        // this page a fresh session to work with. Only the cached ticket
+        // dataset is wiped (handleGuestAccessEnded never touches the queue).
+        await handleGuestAccessEnded();
+      } else if (syncRes.synced > 0 || syncRes.conflicts > 0) {
         setSyncToast(
           `Auto-synced ${syncRes.synced} offline check-in${syncRes.synced === 1 ? "" : "s"}${
             syncRes.conflicts > 0 ? ` (${syncRes.conflicts} conflict logged)` : ""
@@ -190,7 +220,7 @@ export default function ScannerClient({
     } finally {
       setSyncing(false);
     }
-  }, [eventId, userId, syncing, refreshPendingCount]);
+  }, [eventId, userId, guestSession, syncing, refreshPendingCount, handleGuestAccessEnded]);
 
   // Auto-sync on network reconnect & periodic heartbeat
   useEffect(() => {
@@ -226,6 +256,7 @@ export default function ScannerClient({
   const verifyTicketCode = useCallback(
     async (rawCode: string) => {
       if (isVerifyingRef.current || !rawCode.trim()) return;
+      if (guestSession && guestAccessEndedRef.current) return;
       isVerifyingRef.current = true;
 
       // Cancel any pending camera animation frame immediately
@@ -270,7 +301,19 @@ export default function ScannerClient({
           });
           clearTimeout(timeoutId);
 
-          if (res.ok || res.status === 400 || res.status === 403 || res.status === 404 || (guestSession && res.status === 401)) {
+          if (res.status === 401) {
+            const body = await res.json().catch(() => ({}));
+            if (body?.code === "staff_session_invalid") {
+              await handleGuestAccessEnded();
+              isVerifyingRef.current = false;
+              setLoading(false);
+              return;
+            }
+            // A 401 without that distinct code is treated exactly like it
+            // always has been (never a special case): an online failure
+            // that falls back to the offline queue below.
+            onlineFailed = true;
+          } else if (res.ok || res.status === 400 || res.status === 403 || res.status === 404) {
             onlineData = await res.json();
           } else {
             // 500 or 502/503/504 server error - treat as online fail
@@ -322,12 +365,6 @@ export default function ScannerClient({
               title: "TICKET REFUNDED",
               message: "This ticket was refunded.",
               order: onlineData.order,
-            });
-          } else if (status === "expired_session") {
-            setResult({
-              status: "session_invalid",
-              title: "STAFF ACCESS EXPIRED",
-              message: onlineData.message || "Staff access has expired or was revoked. Ask the organizer for a new invitation.",
             });
           } else if (status === "unauthorized_entrance") {
             setResult({
@@ -393,8 +430,13 @@ export default function ScannerClient({
                 tierName: t.tier_name,
                 seatLabel: t.seat_label,
                 scannedAt,
-                delegatingUserId: offlineLookup.dataset.userId || null,
-                currentUserId: userId || null,
+                // A guest session has no auth.users id to delegate from: its
+                // identity is the staff member id, kept in its own field so
+                // it is never miswritten into a column that references
+                // auth.users (see scanner-sync's guestStaffMemberId).
+                delegatingUserId: guestSession ? null : (offlineLookup.dataset.userId || null),
+                currentUserId: guestSession ? null : (userId || null),
+                staffMemberId: guestSession ? (staffMemberId || null) : null,
                 entranceId: selectedEntrance || offlineLookup.dataset.entranceId || null,
                 deviceId: getOrCreateDeviceId(),
                 syncStatus: "pending",
@@ -497,7 +539,7 @@ export default function ScannerClient({
         }
       }, 1000);
     },
-    [eventId, userId, selectedEntrance, guestSession, resetScanner, refreshPendingCount, refreshActivity, translate]
+    [eventId, userId, staffMemberId, selectedEntrance, guestSession, resetScanner, refreshPendingCount, refreshActivity, translate, handleGuestAccessEnded]
   );
 
   // Camera Scan Frame Loop
@@ -577,12 +619,19 @@ export default function ScannerClient({
                 <span>{syncing ? "Syncing..." : `${pendingCount} Queued`}</span>
               </button>
             )}
-            <Link
-              href={`/dashboard/events`}
-              className="flex items-center gap-1.5 shrink-0 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
-            >
-              <ArrowLeft size={14} /> Back to Events
-            </Link>
+            {guestSession ? (
+              <span className="shrink-0 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700">
+                {staffName || translate("eventStaff")}
+                {staffRole ? ` · ${staffRole === "event_manager" ? translate("staffPermissionManager") : translate("staffPermissionScanner")}` : ""}
+              </span>
+            ) : (
+              <Link
+                href={`/dashboard/events`}
+                className="flex items-center gap-1.5 shrink-0 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50"
+              >
+                <ArrowLeft size={14} /> Back to Events
+              </Link>
+            )}
           </div>
         }
       />
@@ -656,6 +705,10 @@ export default function ScannerClient({
         pendingCount={pendingCount ?? 0}
         onManualSync={triggerSync}
         isSyncing={syncing}
+        guestSession={guestSession}
+        onGuestAccessEnded={() => {
+          void handleGuestAccessEnded();
+        }}
       />
 
       {/* Scanner workspace */}

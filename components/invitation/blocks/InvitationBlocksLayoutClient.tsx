@@ -8,13 +8,12 @@ import { PREVIEW_MESSAGE_SOURCE } from "@/lib/invitation-preview-channel";
 import { renderInvitationBlock } from "@/components/invitation/blocks/InvitationBlockRegistry";
 import { InvitationScrollReveal } from "@/components/invitation/animation/InvitationScrollReveal";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
-import { renderCustomInvitationPage } from "@/components/invitation/templates/InvitationPageComponentRegistry";
 import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
 
 export function InvitationBlocksLayoutClient({
   layout,
   data,
-  templateId = "gala-editorial",
+  templateId = "",
   onAction,
   shared = false,
   mode = "preview",
@@ -92,16 +91,5 @@ export function InvitationBlocksLayoutClient({
       {renderedBlocks}
     </InvitationPageCanvas>
   );
-  if (definition?.pageRenderer.kind === "custom") {
-    return renderCustomInvitationPage(definition.pageRenderer.componentId, {
-      layout: compiledLayout,
-      data,
-      children: renderedBlocks,
-      mode,
-      isEditMode,
-      wrapperClassName,
-    }, standardPage);
-  }
-
   return standardPage;
 }

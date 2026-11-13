@@ -1,5 +1,6 @@
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import { normalizeCurrencyCode } from "./website-blocks";
+import { resolveWebsiteTimezone } from "./date-timezone";
 import type { TemplateResolutionOptions } from "./website-template-resolver";
 
 export interface LinkedBusinessTemplateInput {
@@ -26,16 +27,11 @@ export function buildWebsiteTemplateResolverInputs(
   const category = linkedBusiness?.category ?? "";
   const businessType = linkedBusiness?.business_type ?? linkedBusiness?.businessType ?? null;
   const capabilities = getCapabilitiesForBusiness(industry, category, businessType ?? "");
-  const metadata = input.metadata && typeof input.metadata === "object"
-    ? input.metadata as Record<string, unknown>
-    : {};
 
   return {
     siteSlug: input.siteSlug,
     currency: normalizeCurrencyCode(input.currency),
-    timeZone: typeof metadata.timezone === "string" && metadata.timezone.trim()
-      ? metadata.timezone.trim()
-      : undefined,
+    timeZone: input.metadata === undefined ? undefined : resolveWebsiteTimezone(input.metadata),
     business: {
       industry,
       category,

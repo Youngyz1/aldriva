@@ -1,0 +1,420 @@
+-- Migration 203: keep unpaid online orders out of the courier offer pool.
+-- Owner applies SQL manually; do not run from an agent.
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.dispatch_business_courier_order(
+  p_order_id uuid,
+  p_reoffer boolean DEFAULT false
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $function$
+DECLARE
+  v_business_id uuid;
+  v_scheduled_for timestamptz;
+  v_open_count integer := 0;
+BEGIN
+  IF p_order_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT o.business_id, o.scheduled_for
+    INTO v_business_id, v_scheduled_for
+    FROM public.orders AS o
+   WHERE o.id = p_order_id
+     AND o.fulfilment_type = 'delivery'
+     AND o.status IN ('accepted', 'preparing', 'ready')
+     AND o.courier_worker_id IS NULL
+     AND (o.payment_method <> 'online' OR o.payment_status = 'paid')
+   FOR UPDATE OF o;
+
+  IF v_business_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  -- Repeated triggers fill newly eligible courier rows without refreshing
+  -- existing offers. Explicit retries reopen only expired/withdrawn rows.
+  IF COALESCE(p_reoffer, false) THEN
+    SELECT count(*)::integer
+      INTO v_open_count
+      FROM public.business_courier_offers AS offer
+     WHERE offer.order_id = p_order_id
+       AND offer.business_id = v_business_id
+       AND offer.status = 'offered'
+       AND (offer.expires_at IS NULL OR offer.expires_at > clock_timestamp());
+    IF v_open_count > 0 THEN
+      RAISE EXCEPTION 'COURIER_DISPATCH_BATCH_STILL_OPEN';
+    END IF;
+
+    UPDATE public.business_courier_offers
+       SET status = 'expired',
+           resolved_at = clock_timestamp(),
+           updated_at = clock_timestamp()
+     WHERE order_id = p_order_id
+       AND business_id = v_business_id
+       AND status = 'offered'
+       AND expires_at <= clock_timestamp();
+  END IF;
+
+  INSERT INTO public.business_courier_offers AS existing_offer (
+    order_id, business_id, courier_worker_id, status, expires_at
+  )
+  SELECT order_row.id,
+         order_row.business_id,
+         worker_row.id,
+         'offered',
+         public.courier_dispatch_offer_expiry(order_row.scheduled_for)
+    FROM public.business_workers AS worker_row
+    JOIN public.orders AS order_row
+      ON order_row.id = p_order_id
+     AND order_row.business_id = worker_row.business_id
+   WHERE worker_row.business_id = v_business_id
+     AND order_row.fulfilment_type = 'delivery'
+     AND order_row.status IN ('accepted', 'preparing', 'ready')
+     AND order_row.courier_worker_id IS NULL
+     AND (order_row.payment_method <> 'online' OR order_row.payment_status = 'paid')
+     AND worker_row.role = 'courier'
+     AND worker_row.is_active = true
+     AND worker_row.deactivated_at IS NULL
+     AND worker_row.is_available = true
+     AND EXISTS (
+       SELECT 1
+         FROM public.business_worker_invitations AS accepted_invitation
+        WHERE accepted_invitation.worker_id = worker_row.id
+          AND accepted_invitation.accepted_at IS NOT NULL
+          AND accepted_invitation.revoked_at IS NULL
+     )
+     AND NOT EXISTS (
+       SELECT 1
+         FROM public.orders AS active_order
+        WHERE active_order.courier_worker_id = worker_row.id
+          AND active_order.status IN ('accepted', 'preparing', 'ready', 'picked_up', 'out_for_delivery')
+     )
+   ORDER BY worker_row.id
+   FOR UPDATE OF worker_row
+  ON CONFLICT (order_id, courier_worker_id) DO UPDATE
+    SET status = 'offered',
+        offered_at = clock_timestamp(),
+        expires_at = public.courier_dispatch_offer_expiry(v_scheduled_for),
+        accepted_at = NULL,
+        declined_at = NULL,
+        decline_message = NULL,
+        resolved_at = NULL,
+        updated_at = clock_timestamp()
+  WHERE existing_offer.status IN ('withdrawn', 'expired');
+
+  SELECT count(*)::integer
+    INTO v_open_count
+    FROM public.business_courier_offers AS offer
+   WHERE offer.order_id = p_order_id
+     AND offer.business_id = v_business_id
+     AND offer.status = 'offered'
+     AND (offer.expires_at IS NULL OR offer.expires_at > clock_timestamp());
+
+  RETURN v_open_count;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.dispatch_business_courier_order(uuid, boolean)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.dispatch_business_courier_order(uuid, boolean)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.refresh_business_courier_offers_on_ready(p_order_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $function$
+DECLARE
+  v_business_id uuid;
+  v_scheduled_for timestamptz;
+  v_open_count integer := 0;
+BEGIN
+  SELECT o.business_id, o.scheduled_for
+    INTO v_business_id, v_scheduled_for
+    FROM public.orders AS o
+   WHERE o.id = p_order_id
+     AND o.status = 'ready'
+     AND o.fulfilment_type = 'delivery'
+     AND o.courier_worker_id IS NULL
+     AND (o.payment_method <> 'online' OR o.payment_status = 'paid')
+   FOR UPDATE OF o;
+
+  IF v_business_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  INSERT INTO public.business_courier_offers AS existing_offer (
+    order_id, business_id, courier_worker_id, status, expires_at
+  )
+  SELECT order_row.id,
+         order_row.business_id,
+         worker_row.id,
+         'offered',
+         public.courier_dispatch_offer_expiry(order_row.scheduled_for)
+    FROM public.business_workers AS worker_row
+    JOIN public.orders AS order_row
+      ON order_row.id = p_order_id
+     AND order_row.business_id = worker_row.business_id
+   WHERE worker_row.business_id = v_business_id
+     AND order_row.status = 'ready'
+     AND order_row.fulfilment_type = 'delivery'
+     AND order_row.courier_worker_id IS NULL
+     AND (order_row.payment_method <> 'online' OR order_row.payment_status = 'paid')
+     AND worker_row.role = 'courier'
+     AND worker_row.is_active = true
+     AND worker_row.deactivated_at IS NULL
+     AND worker_row.is_available = true
+     AND EXISTS (
+       SELECT 1
+         FROM public.business_worker_invitations AS accepted_invitation
+        WHERE accepted_invitation.worker_id = worker_row.id
+          AND accepted_invitation.accepted_at IS NOT NULL
+          AND accepted_invitation.revoked_at IS NULL
+     )
+     AND NOT EXISTS (
+       SELECT 1
+         FROM public.orders AS active_order
+        WHERE active_order.courier_worker_id = worker_row.id
+          AND active_order.status IN ('accepted', 'preparing', 'ready', 'picked_up', 'out_for_delivery')
+     )
+     AND NOT EXISTS (
+       SELECT 1
+         FROM public.business_courier_offers AS prior_offer
+        WHERE prior_offer.order_id = order_row.id
+          AND prior_offer.courier_worker_id = worker_row.id
+          AND prior_offer.status NOT IN ('offered', 'expired', 'withdrawn')
+     )
+   ORDER BY worker_row.id
+   FOR UPDATE OF worker_row
+  ON CONFLICT (order_id, courier_worker_id) DO UPDATE
+    SET status = 'offered',
+        offered_at = clock_timestamp(),
+        expires_at = public.courier_dispatch_offer_expiry(v_scheduled_for),
+        accepted_at = NULL,
+        declined_at = NULL,
+        decline_message = NULL,
+        resolved_at = NULL,
+        updated_at = clock_timestamp()
+  WHERE existing_offer.status IN ('offered', 'expired', 'withdrawn');
+
+  SELECT count(*)::integer
+    INTO v_open_count
+    FROM public.business_courier_offers AS offer
+   WHERE offer.order_id = p_order_id
+     AND offer.business_id = v_business_id
+     AND offer.status = 'offered'
+     AND (offer.expires_at IS NULL OR offer.expires_at > clock_timestamp());
+
+  RETURN v_open_count;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.refresh_business_courier_offers_on_ready(uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.refresh_business_courier_offers_on_ready(uuid)
+  TO service_role;
+
+CREATE OR REPLACE VIEW public.business_courier_offer_feed
+WITH (security_barrier = true, security_invoker = true)
+AS
+SELECT
+  offer.id AS offer_id,
+  offer.order_id,
+  offer.business_id,
+  offer.courier_worker_id,
+  offer.offered_at,
+  business.name AS pickup_name,
+  business.address AS pickup_address,
+  NULL::text AS delivery_address,
+  o.items,
+  CASE
+    WHEN o.payment_method = 'on_fulfilment' AND o.payment_status = 'unpaid'
+      THEN o.total_amount
+    ELSE 0::numeric
+  END AS amount_to_collect,
+  o.currency,
+  o.estimated_ready_at,
+  o.scheduled_for,
+  o.status AS order_status
+FROM public.business_courier_offers AS offer
+JOIN public.orders AS o
+  ON o.id = offer.order_id AND o.business_id = offer.business_id
+JOIN public.business_workers AS w
+  ON w.id = offer.courier_worker_id AND w.business_id = offer.business_id
+JOIN public.businesses AS business ON business.id = offer.business_id
+WHERE offer.status = 'offered'
+  AND (offer.expires_at IS NULL OR offer.expires_at > clock_timestamp())
+  AND o.status IN ('accepted', 'preparing', 'ready')
+  AND o.courier_worker_id IS NULL
+  AND o.fulfilment_type = 'delivery'
+  AND (o.payment_method <> 'online' OR o.payment_status = 'paid')
+  AND w.role = 'courier'
+  AND w.is_active = true
+  AND w.deactivated_at IS NULL
+  AND w.is_available = true
+  AND EXISTS (
+    SELECT 1
+      FROM public.business_worker_invitations AS accepted_invitation
+     WHERE accepted_invitation.worker_id = w.id
+       AND accepted_invitation.accepted_at IS NOT NULL
+       AND accepted_invitation.revoked_at IS NULL
+  )
+  AND NOT EXISTS (
+    SELECT 1
+      FROM public.orders AS active_order
+     WHERE active_order.courier_worker_id = offer.courier_worker_id
+       AND active_order.status IN ('accepted', 'preparing', 'ready', 'picked_up', 'out_for_delivery')
+  );
+
+REVOKE ALL ON public.business_courier_offer_feed FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.business_courier_offer_feed TO service_role;
+
+-- A courier may have an already-open offer from before this gate was installed.
+-- Keep the claim RPC authoritative too; hiding the row from the feed alone is
+-- not sufficient because the accept endpoint invokes this function directly.
+CREATE OR REPLACE FUNCTION public.claim_business_courier_offer(
+  p_order_id uuid,
+  p_worker_id uuid,
+  p_history_entry jsonb
+)
+RETURNS TABLE (
+  out_order_id uuid,
+  out_business_id uuid,
+  out_worker_id uuid,
+  out_customer_name text,
+  out_customer_phone text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $function$
+DECLARE
+  v_business_id uuid;
+  v_worker_business_id uuid;
+  v_worker_name text;
+  v_worker_phone text;
+  v_order_id uuid;
+  v_customer_name text;
+  v_customer_phone text;
+  v_offer_id uuid;
+  v_current_status text;
+BEGIN
+  IF p_order_id IS NULL OR p_worker_id IS NULL
+     OR p_history_entry IS DISTINCT FROM '{"type":"courier_assigned"}'::jsonb THEN
+    RETURN;
+  END IF;
+
+  SELECT o.business_id, o.status
+    INTO v_business_id, v_current_status
+    FROM public.orders AS o
+   WHERE o.id = p_order_id
+     AND o.status IN ('accepted', 'preparing', 'ready')
+     AND o.fulfilment_type = 'delivery'
+     AND o.courier_worker_id IS NULL
+     AND (o.payment_method <> 'online' OR o.payment_status = 'paid')
+   FOR UPDATE OF o;
+  IF v_business_id IS NULL THEN RETURN; END IF;
+
+  SELECT w.business_id, w.full_name, w.phone
+    INTO v_worker_business_id, v_worker_name, v_worker_phone
+    FROM public.business_workers AS w
+   WHERE w.id = p_worker_id
+     AND w.business_id = v_business_id
+     AND w.role = 'courier'
+     AND w.is_active = true
+     AND w.deactivated_at IS NULL
+     AND w.is_available = true
+     AND EXISTS (
+       SELECT 1 FROM public.business_worker_invitations AS i
+        WHERE i.worker_id = w.id AND i.accepted_at IS NOT NULL AND i.revoked_at IS NULL
+     )
+   FOR UPDATE OF w;
+  IF v_worker_business_id IS NULL THEN RETURN; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.orders AS active_order
+     WHERE active_order.courier_worker_id = p_worker_id
+       AND active_order.status IN ('accepted', 'preparing', 'ready', 'picked_up', 'out_for_delivery')
+  ) THEN RETURN; END IF;
+
+  SELECT offer.id INTO v_offer_id
+    FROM public.business_courier_offers AS offer
+   WHERE offer.order_id = p_order_id
+     AND offer.business_id = v_business_id
+     AND offer.courier_worker_id = p_worker_id
+     AND offer.status = 'offered'
+     AND (offer.expires_at IS NULL OR offer.expires_at > clock_timestamp())
+   FOR UPDATE OF offer;
+  IF v_offer_id IS NULL THEN RETURN; END IF;
+
+  UPDATE public.orders AS o
+     SET courier_worker_id = p_worker_id,
+         rider_name = left(btrim(v_worker_name), 80),
+         rider_phone = left(btrim(v_worker_phone), 32),
+         updated_at = clock_timestamp()
+   WHERE o.id = p_order_id
+     AND o.business_id = v_business_id
+     AND o.status = v_current_status
+     AND o.courier_worker_id IS NULL
+     AND (o.payment_method <> 'online' OR o.payment_status = 'paid')
+     AND EXISTS (
+       SELECT 1 FROM public.business_courier_offers AS still_open
+        WHERE still_open.order_id = o.id
+          AND still_open.courier_worker_id = p_worker_id
+          AND still_open.status = 'offered'
+     )
+  RETURNING o.id, o.business_id, o.customer_name, o.customer_phone
+       INTO v_order_id, v_business_id, v_customer_name, v_customer_phone;
+  IF v_order_id IS NULL THEN RETURN; END IF;
+
+  UPDATE public.business_courier_offers
+     SET status = 'taken', resolved_at = clock_timestamp(), updated_at = clock_timestamp()
+   WHERE order_id = p_order_id AND status = 'offered';
+
+  UPDATE public.business_courier_offers
+     SET status = 'accepted', accepted_at = clock_timestamp(), resolved_at = clock_timestamp(), updated_at = clock_timestamp()
+   WHERE id = v_offer_id AND status = 'taken';
+  IF NOT FOUND THEN RAISE EXCEPTION 'COURIER_CLAIM_OFFER_RESOLUTION_FAILED'; END IF;
+
+  UPDATE public.business_courier_offers
+     SET status = 'withdrawn', resolved_at = clock_timestamp(), updated_at = clock_timestamp()
+   WHERE courier_worker_id = p_worker_id AND order_id <> p_order_id AND status = 'offered';
+
+  RETURN QUERY
+  SELECT o.id, o.business_id, p_worker_id, o.customer_name, o.customer_phone
+    FROM public.orders AS o
+   WHERE o.id = v_order_id
+     AND o.status IN ('accepted', 'preparing', 'ready')
+     AND o.courier_worker_id = p_worker_id;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.claim_business_courier_offer(uuid, uuid, jsonb)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.claim_business_courier_offer(uuid, uuid, jsonb)
+  TO service_role;
+
+-- A payment webhook may make an already-accepted order eligible. Re-run the
+-- same idempotent dispatcher when payment status changes so that order starts
+-- appearing in the courier feed without requiring another status transition.
+DROP TRIGGER IF EXISTS trg_offer_ready_delivery_update ON public.orders;
+CREATE TRIGGER trg_offer_ready_delivery_update
+AFTER UPDATE OF status, estimated_ready_at, fulfilment_type, courier_worker_id, payment_status
+ON public.orders
+FOR EACH ROW
+WHEN (
+  OLD.status IS DISTINCT FROM NEW.status
+  OR OLD.estimated_ready_at IS DISTINCT FROM NEW.estimated_ready_at
+  OR OLD.fulfilment_type IS DISTINCT FROM NEW.fulfilment_type
+  OR OLD.courier_worker_id IS DISTINCT FROM NEW.courier_worker_id
+  OR OLD.payment_status IS DISTINCT FROM NEW.payment_status
+)
+EXECUTE FUNCTION public.offer_ready_delivery_couriers();
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;

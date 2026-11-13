@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDashboardContext } from "@/lib/dashboard-context";
-import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { hasEventOrOrganizerAccess, EVENT_SCAN_ENTITY_ROLES } from "@/lib/event-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import ScannerClient from "./ScannerClient";
 
@@ -17,7 +17,7 @@ export default async function EventScannerPage({
   const canScan = await hasEventOrOrganizerAccess(ctx.user.id, eventId, [
     "event_manager",
     "ticket_scanner",
-  ]);
+  ], EVENT_SCAN_ENTITY_ROLES);
 
   if (!canScan) {
     return (

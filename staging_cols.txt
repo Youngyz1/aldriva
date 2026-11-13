@@ -1,0 +1,1598 @@
+_migration_179_invitation_layout_backup.blocks_layout jsonb YES 
+_migration_179_invitation_layout_backup.event_id uuid NO 
+_migration_179_invitation_layout_backup.published_snapshot jsonb YES 
+agent_memory.agent_id uuid YES 
+agent_memory.approval_id uuid YES 
+agent_memory.approved_at timestamp with time zone YES 
+agent_memory.approved_by uuid YES 
+agent_memory.created_at timestamp with time zone NO now()
+agent_memory.effective_at timestamp with time zone NO now()
+agent_memory.expires_at timestamp with time zone YES 
+agent_memory.fact_key text NO 
+agent_memory.fact_value text NO 
+agent_memory.id uuid NO gen_random_uuid()
+agent_memory.proposed_by_agent_id uuid YES 
+agent_memory.proposed_run_id uuid YES 
+agent_memory.proposed_task_id uuid YES 
+agent_memory.source text NO 'human'::text
+agent_memory.status text NO 'active'::text
+agent_memory.tenant_id uuid YES 
+agent_memory.updated_at timestamp with time zone NO now()
+agent_memory.version integer NO 1
+agent_memory_versions.approval_id uuid YES 
+agent_memory_versions.approved_at timestamp with time zone YES 
+agent_memory_versions.approved_by uuid YES 
+agent_memory_versions.created_at timestamp with time zone NO now()
+agent_memory_versions.expires_at timestamp with time zone YES 
+agent_memory_versions.fact_id uuid NO 
+agent_memory_versions.fact_value text NO 
+agent_memory_versions.id uuid NO gen_random_uuid()
+agent_memory_versions.proposed_by_agent_id uuid YES 
+agent_memory_versions.proposed_run_id uuid YES 
+agent_memory_versions.proposed_task_id uuid YES 
+agent_memory_versions.status text NO 
+agent_memory_versions.version integer NO 
+agent_reports.agent_id uuid NO 
+agent_reports.created_at timestamp with time zone NO now()
+agent_reports.id uuid NO gen_random_uuid()
+agent_reports.report_type text NO 'task'::text
+agent_reports.run_id uuid YES 
+agent_reports.sections jsonb NO '{}'::jsonb
+agent_reports.summary text NO 
+agent_reports.tenant_id uuid YES 
+agent_runs.agent_id uuid NO 
+agent_runs.approval_id uuid YES 
+agent_runs.attempt_no integer YES 
+agent_runs.completed_at timestamp with time zone YES 
+agent_runs.created_at timestamp with time zone NO now()
+agent_runs.duration_ms integer YES 
+agent_runs.error text YES 
+agent_runs.guard_result text NO 'pass'::text
+agent_runs.id uuid NO gen_random_uuid()
+agent_runs.model_used text YES 
+agent_runs.provider_used text YES 
+agent_runs.status text NO 'running'::text
+agent_runs.task_id uuid YES 
+agent_runs.tenant_id uuid YES 
+agent_runs.triggered_by text NO 
+agent_steps.args_redacted jsonb YES 
+agent_steps.content text YES 
+agent_steps.created_at timestamp with time zone NO now()
+agent_steps.guard_verdict text YES 
+agent_steps.id uuid NO gen_random_uuid()
+agent_steps.kind text NO 
+agent_steps.result_summary text YES 
+agent_steps.run_id uuid NO 
+agent_steps.seq integer NO 
+agent_steps.tool_name text YES 
+agent_tasks.agent_id uuid NO 
+agent_tasks.approval_id uuid YES 
+agent_tasks.attempt_count integer NO 0
+agent_tasks.claim_token_hash text YES 
+agent_tasks.created_at timestamp with time zone NO now()
+agent_tasks.id uuid NO gen_random_uuid()
+agent_tasks.idempotency_key text YES 
+agent_tasks.last_heartbeat_at timestamp with time zone YES 
+agent_tasks.lease_expires_at timestamp with time zone YES 
+agent_tasks.lease_owner text YES 
+agent_tasks.max_attempts integer NO 3
+agent_tasks.payload jsonb NO '{}'::jsonb
+agent_tasks.priority text NO 'normal'::text
+agent_tasks.requested_by uuid YES 
+agent_tasks.result_ref text YES 
+agent_tasks.run_after timestamp with time zone YES 
+agent_tasks.status text NO 'completed'::text
+agent_tasks.tenant_id uuid YES 
+agent_tasks.title text NO 
+agent_tasks.updated_at timestamp with time zone NO now()
+agent_tools.agent_id uuid NO 
+agent_tools.allowed boolean NO true
+agent_tools.created_at timestamp with time zone NO now()
+agent_tools.risk_override text YES 
+agent_tools.tool_name text NO 
+agent_versions.agent_id uuid NO 
+agent_versions.autonomy_level text NO 
+agent_versions.created_at timestamp with time zone NO now()
+agent_versions.created_by uuid YES 
+agent_versions.id uuid NO gen_random_uuid()
+agent_versions.model_selection text NO 
+agent_versions.system_prompt text NO 
+agent_versions.version integer NO 
+agents.autonomy_level text NO 'L0'::text
+agents.created_at timestamp with time zone NO now()
+agents.department text NO 
+agents.description text NO 
+agents.display_name text NO 
+agents.id uuid NO gen_random_uuid()
+agents.model_selection text NO 'aldriva'::text
+agents.name text NO 
+agents.status text NO 'active'::text
+agents.system_prompt text NO 
+agents.tenant_id uuid YES 
+agents.updated_at timestamp with time zone NO now()
+agents.version integer NO 1
+ai_content_calendar.admin_notes text YES 
+ai_content_calendar.aldriva_angle text YES 
+ai_content_calendar.created_at timestamp with time zone NO now()
+ai_content_calendar.id uuid NO gen_random_uuid()
+ai_content_calendar.source_trend text YES 
+ai_content_calendar.source_url text YES 
+ai_content_calendar.status text NO 'proposed'::text
+ai_content_calendar.suggested_format text NO 'post'::text
+ai_content_calendar.suggested_platform text NO 'general'::text
+ai_content_calendar.target_date timestamp with time zone YES 
+ai_content_calendar.topic text NO 
+ai_content_calendar.updated_at timestamp with time zone NO now()
+ai_content_calendar.why_it_matters text YES 
+ai_content_items.ai_provider text YES 
+ai_content_items.content_type text NO 
+ai_content_items.created_at timestamp with time zone NO now()
+ai_content_items.generated_text text YES 
+ai_content_items.guard_flags jsonb YES 
+ai_content_items.guard_result text NO 'pass'::text
+ai_content_items.id uuid NO gen_random_uuid()
+ai_content_items.published boolean NO false
+ai_content_items.published_at timestamp with time zone YES 
+ai_content_items.published_to text YES 
+ai_content_items.snapshot jsonb NO '{}'::jsonb
+ai_content_items.source_id uuid NO 
+ai_content_items.updated_at timestamp with time zone NO now()
+ai_conversations.admin_id uuid NO 
+ai_conversations.ai_provider text NO 'gemini'::text
+ai_conversations.created_at timestamp with time zone NO now()
+ai_conversations.id uuid NO gen_random_uuid()
+ai_conversations.status text NO 'active'::text
+ai_conversations.title text YES 
+ai_conversations.updated_at timestamp with time zone NO now()
+ai_conversations.workflow_type text NO 'general'::text
+ai_guard_rejections.category text NO 
+ai_guard_rejections.content_type text YES 
+ai_guard_rejections.context text NO 
+ai_guard_rejections.created_at timestamp with time zone NO now()
+ai_guard_rejections.excerpt text YES 
+ai_guard_rejections.id uuid NO gen_random_uuid()
+ai_guard_rejections.reason text NO 
+ai_guard_rejections.source_id uuid YES 
+ai_guard_rejections.tenant_id uuid YES 
+ai_guard_rejections.verdict text NO 'rejected'::text
+ai_knowledge_docs.active boolean NO true
+ai_knowledge_docs.category text NO 
+ai_knowledge_docs.content text NO 
+ai_knowledge_docs.created_at timestamp with time zone NO now()
+ai_knowledge_docs.created_by uuid YES 
+ai_knowledge_docs.id uuid NO gen_random_uuid()
+ai_knowledge_docs.tags ARRAY NO ARRAY[]::text[]
+ai_knowledge_docs.title text NO 
+ai_knowledge_docs.updated_at timestamp with time zone NO now()
+ai_messages.content text YES 
+ai_messages.conversation_id uuid NO 
+ai_messages.created_at timestamp with time zone NO now()
+ai_messages.guard_flags jsonb YES 
+ai_messages.guard_result text NO 'pass'::text
+ai_messages.id uuid NO gen_random_uuid()
+ai_messages.role text NO 
+ai_messages.token_count integer YES 
+ai_messages.tool_name text YES 
+ai_messages.tool_payload jsonb YES 
+ai_provider_configs.config jsonb NO '{}'::jsonb
+ai_provider_configs.created_at timestamp with time zone NO now()
+ai_provider_configs.fallback_provider text YES 
+ai_provider_configs.id uuid NO gen_random_uuid()
+ai_provider_configs.model text YES 
+ai_provider_configs.provider text NO 
+ai_provider_configs.status text NO 'active'::text
+ai_provider_configs.tenant_id uuid NO 
+ai_provider_configs.updated_at timestamp with time zone NO now()
+ai_tool_invocations.actor_type text NO 
+ai_tool_invocations.arguments_safe jsonb NO '{}'::jsonb
+ai_tool_invocations.authorization_decision text NO 'allowed'::text
+ai_tool_invocations.conversation_id uuid YES 
+ai_tool_invocations.created_at timestamp with time zone NO now()
+ai_tool_invocations.error text YES 
+ai_tool_invocations.id uuid NO gen_random_uuid()
+ai_tool_invocations.provider text YES 
+ai_tool_invocations.result_classification text NO 'success'::text
+ai_tool_invocations.rows_affected integer YES 
+ai_tool_invocations.tenant_id uuid YES 
+ai_tool_invocations.tool_name text NO 
+approvals.action text NO 
+approvals.approver_id uuid YES 
+approvals.audit_ref text YES 
+approvals.created_at timestamp with time zone NO now()
+approvals.decided_at timestamp with time zone YES 
+approvals.evidence jsonb NO '{}'::jsonb
+approvals.expires_at timestamp with time zone NO (now() + '48:00:00'::interval)
+approvals.id uuid NO gen_random_uuid()
+approvals.proposed_outcome jsonb YES 
+approvals.reason text NO 
+approvals.requested_by uuid YES 
+approvals.requested_by_agent_id uuid YES 
+approvals.risk text NO 
+approvals.status text NO 'pending'::text
+approvals.tenant_id uuid YES 
+article_audios.article_id uuid NO 
+article_audios.audio_url text NO 
+article_audios.content_hash text NO 
+article_audios.created_at timestamp with time zone NO now()
+article_audios.duration_seconds numeric NO 
+article_audios.error_message text YES 
+article_audios.id uuid NO gen_random_uuid()
+article_audios.language text NO 'en-US'::text
+article_audios.status text NO 'ready'::text
+article_audios.storage_path text NO 
+article_audios.timing_data jsonb NO '{}'::jsonb
+article_audios.updated_at timestamp with time zone NO now()
+article_audios.voice text NO 'Magpie-Multilingual.EN-US.Aria'::text
+articles.body text NO 
+articles.business_id uuid YES 
+articles.canonical_url text YES 
+articles.categories ARRAY NO ARRAY[]::text[]
+articles.cover_image_url text YES 
+articles.created_at timestamp with time zone NO now()
+articles.excerpt text YES 
+articles.id uuid NO gen_random_uuid()
+articles.organizer_id uuid YES 
+articles.owner_id uuid NO 
+articles.published_at timestamp with time zone YES 
+articles.reading_time integer YES 
+articles.rejection_reason text YES 
+articles.scheduled_for timestamp with time zone YES 
+articles.seo_description text YES 
+articles.seo_title text YES 
+articles.slug text NO 
+articles.status text NO 'draft'::text
+articles.tags ARRAY NO ARRAY[]::text[]
+articles.title text NO 
+articles.updated_at timestamp with time zone NO now()
+articles.visibility text NO 'public'::text
+beneficiaries.bio text YES 
+beneficiaries.claim_email text YES 
+beneficiaries.claim_sent_at timestamp with time zone YES 
+beneficiaries.claim_token text YES 
+beneficiaries.claimed_at timestamp with time zone YES 
+beneficiaries.contact_email text YES 
+beneficiaries.created_at timestamp with time zone NO now()
+beneficiaries.deleted_at timestamp with time zone YES 
+beneficiaries.facebook text YES 
+beneficiaries.id uuid NO gen_random_uuid()
+beneficiaries.instagram text YES 
+beneficiaries.linkedin text YES 
+beneficiaries.name text NO 
+beneficiaries.photo text YES 
+beneficiaries.registration_number text YES 
+beneficiaries.relationship text YES 
+beneficiaries.slug text NO 
+beneficiaries.species text YES 
+beneficiaries.tiktok text YES 
+beneficiaries.twitter text YES 
+beneficiaries.type text NO 
+beneficiaries.updated_at timestamp with time zone NO now()
+beneficiaries.user_id uuid YES 
+beneficiaries.verified_at timestamp with time zone YES 
+beneficiaries.visibility text NO 'public'::text
+beneficiaries.website text YES 
+beneficiaries.youtube text YES 
+business_branches.address text YES 
+business_branches.business_id uuid NO 
+business_branches.city text YES 
+business_branches.country text YES 
+business_branches.created_at timestamp with time zone NO now()
+business_branches.id uuid NO gen_random_uuid()
+business_branches.is_main boolean NO false
+business_branches.label text NO 
+business_branches.phone text YES 
+business_branches.state text YES 
+business_branches.status text NO 'active'::text
+business_branches.updated_at timestamp with time zone NO now()
+business_courier_offer_feed.amount_to_collect numeric YES 
+business_courier_offer_feed.business_id uuid YES 
+business_courier_offer_feed.courier_worker_id uuid YES 
+business_courier_offer_feed.currency text YES 
+business_courier_offer_feed.delivery_address text YES 
+business_courier_offer_feed.estimated_ready_at timestamp with time zone YES 
+business_courier_offer_feed.items jsonb YES 
+business_courier_offer_feed.offer_id uuid YES 
+business_courier_offer_feed.offered_at timestamp with time zone YES 
+business_courier_offer_feed.order_id uuid YES 
+business_courier_offer_feed.pickup_address text YES 
+business_courier_offer_feed.pickup_name text YES 
+business_courier_offers.accepted_at timestamp with time zone YES 
+business_courier_offers.business_id uuid NO 
+business_courier_offers.courier_worker_id uuid NO 
+business_courier_offers.created_at timestamp with time zone NO clock_timestamp()
+business_courier_offers.decline_message text YES 
+business_courier_offers.declined_at timestamp with time zone YES 
+business_courier_offers.expires_at timestamp with time zone NO (clock_timestamp() + courier_dispatch_offer_timeout())
+business_courier_offers.id uuid NO gen_random_uuid()
+business_courier_offers.offered_at timestamp with time zone NO clock_timestamp()
+business_courier_offers.order_id uuid NO 
+business_courier_offers.resolved_at timestamp with time zone YES 
+business_courier_offers.status text NO 'offered'::text
+business_courier_offers.updated_at timestamp with time zone NO clock_timestamp()
+business_kitchen_display_links.created_at timestamp with time zone NO now()
+business_kitchen_display_links.id uuid NO gen_random_uuid()
+business_kitchen_display_links.kitchen_id uuid NO 
+business_kitchen_display_links.revoked_at timestamp with time zone YES 
+business_kitchen_display_links.token_hash text NO 
+business_kitchen_display_links.updated_at timestamp with time zone NO now()
+business_kitchens.business_id uuid NO 
+business_kitchens.created_at timestamp with time zone NO now()
+business_kitchens.id uuid NO gen_random_uuid()
+business_kitchens.updated_at timestamp with time zone NO now()
+business_moderation_events.actor uuid YES 
+business_moderation_events.business_id uuid NO 
+business_moderation_events.created_at timestamp with time zone NO now()
+business_moderation_events.decision text NO 
+business_moderation_events.id uuid NO gen_random_uuid()
+business_moderation_events.reasons jsonb NO '[]'::jsonb
+business_moderation_events.risk_score integer NO 
+business_worker_invitations.accepted_at timestamp with time zone YES 
+business_worker_invitations.created_at timestamp with time zone NO now()
+business_worker_invitations.expires_at timestamp with time zone NO 
+business_worker_invitations.id uuid NO gen_random_uuid()
+business_worker_invitations.revoked_at timestamp with time zone YES 
+business_worker_invitations.token_consumed_at timestamp with time zone YES 
+business_worker_invitations.token_hash text NO 
+business_worker_invitations.updated_at timestamp with time zone NO now()
+business_worker_invitations.worker_id uuid NO 
+business_worker_sessions.created_at timestamp with time zone NO now()
+business_worker_sessions.expires_at timestamp with time zone NO 
+business_worker_sessions.hard_expires_at timestamp with time zone NO 
+business_worker_sessions.id uuid NO gen_random_uuid()
+business_worker_sessions.invitation_id uuid NO 
+business_worker_sessions.last_renewed_at timestamp with time zone NO now()
+business_worker_sessions.revoked_at timestamp with time zone YES 
+business_worker_sessions.token_hash text NO 
+business_worker_sessions.updated_at timestamp with time zone NO now()
+business_worker_sessions.worker_id uuid NO 
+business_workers.business_id uuid NO 
+business_workers.created_at timestamp with time zone NO now()
+business_workers.deactivated_at timestamp with time zone YES 
+business_workers.full_name text NO 
+business_workers.id uuid NO gen_random_uuid()
+business_workers.is_active boolean NO true
+business_workers.is_available boolean NO false
+business_workers.kitchen_id uuid YES 
+business_workers.phone text NO 
+business_workers.role text NO 
+business_workers.updated_at timestamp with time zone NO now()
+business_workers.whatsapp_number text NO 
+businesses.address text YES 
+businesses.business_type text YES 
+businesses.category text NO 
+businesses.city text YES 
+businesses.country text YES 
+businesses.created_at timestamp with time zone NO now()
+businesses.current_period_end timestamp with time zone YES 
+businesses.description text NO 
+businesses.email text YES 
+businesses.id uuid NO gen_random_uuid()
+businesses.industry text NO 
+businesses.is_featured boolean NO false
+businesses.is_flagged boolean NO false
+businesses.listing_tier text NO 'free'::text
+businesses.logo text YES 
+businesses.name text NO 
+businesses.offerings ARRAY NO '{}'::text[]
+businesses.organizer_id uuid YES 
+businesses.owner_id uuid NO 
+businesses.phone text YES 
+businesses.pre_approval_status_snapshot text YES 
+businesses.rejection_reason text YES 
+businesses.screened_at timestamp with time zone YES 
+businesses.screening_risk_score integer YES 
+businesses.seo_description text YES 
+businesses.seo_title text YES 
+businesses.slug text NO 
+businesses.state text YES 
+businesses.status text NO 'pending_review'::text
+businesses.stripe_price_id text YES 
+businesses.stripe_subscription_id text YES 
+businesses.updated_at timestamp with time zone NO now()
+businesses.website text YES 
+channel_assets.asset_type text YES 
+channel_assets.channel text NO 
+channel_assets.connected_account_id uuid NO 
+channel_assets.created_at timestamp with time zone NO now()
+channel_assets.display_name text YES 
+channel_assets.id uuid NO gen_random_uuid()
+channel_assets.metadata jsonb NO '{}'::jsonb
+channel_assets.provider_asset_id text YES 
+channel_assets.status text NO 'pending'::text
+channel_assets.tenant_id uuid NO 
+channel_assets.updated_at timestamp with time zone NO now()
+comment_likes.comment_id uuid NO 
+comment_likes.cookie_id uuid NO 
+comment_likes.created_at timestamp with time zone NO now()
+comment_likes.id uuid NO gen_random_uuid()
+comment_likes.ip_address text YES 
+comments.author_email character varying YES 
+comments.author_name character varying YES 'Anonymous'::character varying
+comments.body text NO 
+comments.created_at timestamp with time zone YES CURRENT_TIMESTAMP
+comments.id uuid NO gen_random_uuid()
+comments.import_batch_id uuid YES 
+comments.likes integer NO 0
+comments.payment_intent_id text YES 
+comments.source text NO 'donation'::text
+comments.status character varying YES 'approved'::character varying
+comments.target_id uuid NO 
+comments.target_type character varying NO 
+comments.updated_at timestamp with time zone YES CURRENT_TIMESTAMP
+comments.user_id uuid YES 
+connected_accounts.account_type text YES 
+connected_accounts.created_at timestamp with time zone NO now()
+connected_accounts.display_name text YES 
+connected_accounts.id uuid NO gen_random_uuid()
+connected_accounts.metadata jsonb NO '{}'::jsonb
+connected_accounts.provider text NO 
+connected_accounts.provider_account_id text YES 
+connected_accounts.status text NO 'pending'::text
+connected_accounts.tenant_id uuid NO 
+connected_accounts.updated_at timestamp with time zone NO now()
+conversations.channel text YES 
+conversations.channel_asset_id uuid YES 
+conversations.created_at timestamp with time zone NO now()
+conversations.customer_identity_id uuid YES 
+conversations.id uuid NO gen_random_uuid()
+conversations.last_message_at timestamp with time zone YES 
+conversations.metadata jsonb NO '{}'::jsonb
+conversations.provider text YES 
+conversations.started_at timestamp with time zone NO now()
+conversations.status text NO 'open'::text
+conversations.tenant_id uuid NO 
+conversations.updated_at timestamp with time zone NO now()
+courier_dispatch_settings.id smallint NO 
+courier_dispatch_settings.offer_timeout_seconds integer NO 600
+courier_dispatch_settings.updated_at timestamp with time zone NO clock_timestamp()
+customer_identities.aldriva_user_id uuid YES 
+customer_identities.channel text NO 
+customer_identities.created_at timestamp with time zone NO now()
+customer_identities.email text YES 
+customer_identities.external_customer_id text NO 
+customer_identities.id uuid NO gen_random_uuid()
+customer_identities.metadata jsonb NO '{}'::jsonb
+customer_identities.phone text YES 
+customer_identities.tenant_id uuid NO 
+customer_identities.updated_at timestamp with time zone NO now()
+donations.amount numeric YES 
+donations.certificate_path character varying YES 
+donations.created_at timestamp without time zone YES now()
+donations.currency text YES 'usd'::text
+donations.donor_email text YES 
+donations.donor_name text YES 
+donations.fundraiser_id uuid YES 
+donations.id uuid NO gen_random_uuid()
+donations.import_batch_id uuid YES 
+donations.message text YES 
+donations.payment_intent_id text YES 
+donations.payment_method character varying YES 'stripe'::character varying
+donations.receipt_path character varying YES 
+donations.source text NO 'stripe'::text
+donations.status character varying YES 'succeeded'::character varying
+donations.stripe_session_id text YES 
+donations.user_id uuid YES 
+entity_members.created_at timestamp with time zone NO now()
+entity_members.id uuid NO gen_random_uuid()
+entity_members.invited_by uuid YES 
+entity_members.organizer_id uuid NO 
+entity_members.role text NO 'owner'::text
+entity_members.user_id uuid NO 
+event_audit_logs.action text NO 
+event_audit_logs.actor_role text NO 'unknown'::text
+event_audit_logs.actor_user_id uuid YES 
+event_audit_logs.created_at timestamp with time zone NO now()
+event_audit_logs.event_id uuid NO 
+event_audit_logs.id uuid NO gen_random_uuid()
+event_audit_logs.metadata jsonb NO '{}'::jsonb
+event_audit_logs.target_id text YES 
+event_audit_logs.target_type text NO 
+event_invitation_pages.accommodations jsonb YES 
+event_invitation_pages.additional_notes text YES 
+event_invitation_pages.address text YES 
+event_invitation_pages.age_milestone text YES 
+event_invitation_pages.blocks_layout jsonb YES 
+event_invitation_pages.celebrant_name text YES 
+event_invitation_pages.colors_of_the_day jsonb YES 
+event_invitation_pages.created_at timestamp with time zone NO now()
+event_invitation_pages.display_title text YES 
+event_invitation_pages.dress_code text YES 
+event_invitation_pages.dress_code_notes text YES 
+event_invitation_pages.event_id uuid NO 
+event_invitation_pages.eyebrow text YES 
+event_invitation_pages.family_note text YES 
+event_invitation_pages.gallery jsonb YES 
+event_invitation_pages.gift_note text YES 
+event_invitation_pages.hashtag text YES 
+event_invitation_pages.hero_image_alt text YES 
+event_invitation_pages.hero_image_focus_x smallint YES 50
+event_invitation_pages.hero_image_focus_y smallint YES 50
+event_invitation_pages.hero_image_url text YES 
+event_invitation_pages.host_names text YES 
+event_invitation_pages.id uuid NO gen_random_uuid()
+event_invitation_pages.locale text NO 'en'::text
+event_invitation_pages.music_audio_url text YES 
+event_invitation_pages.music_links jsonb YES 
+event_invitation_pages.music_title text YES 
+event_invitation_pages.page_status text NO 'draft'::text
+event_invitation_pages.parking_notes text YES 
+event_invitation_pages.partner1_name text YES 
+event_invitation_pages.partner2_name text YES 
+event_invitation_pages.published_at timestamp with time zone YES 
+event_invitation_pages.published_snapshot jsonb YES 
+event_invitation_pages.registry_note text YES 
+event_invitation_pages.schedule jsonb YES 
+event_invitation_pages.scroll_prompt text YES 
+event_invitation_pages.share_enabled boolean NO false
+event_invitation_pages.share_regenerated_at timestamp with time zone YES 
+event_invitation_pages.share_token text YES 
+event_invitation_pages.story_headline text YES 
+event_invitation_pages.story_image_url text YES 
+event_invitation_pages.story_text text YES 
+event_invitation_pages.template_id text NO 'gala-editorial'::text
+event_invitation_pages.theme text YES 
+event_invitation_pages.timezone text YES 
+event_invitation_pages.updated_at timestamp with time zone NO now()
+event_invitation_pages.venue_name text YES 
+event_invitation_pages.venues jsonb YES 
+event_invitation_pages.wedding_story jsonb YES 
+event_invitation_pages.wedding_subtype text YES 
+event_invitations.created_at timestamp with time zone NO now()
+event_invitations.created_by uuid YES 
+event_invitations.email text YES 
+event_invitations.event_id uuid NO 
+event_invitations.guest_allowance smallint YES 
+event_invitations.guest_name text NO 
+event_invitations.guest_title text YES 
+event_invitations.id uuid NO gen_random_uuid()
+event_invitations.image_url text YES 
+event_invitations.import_batch_id uuid YES 
+event_invitations.invitation_status text NO 'draft'::text
+event_invitations.lifecycle_state text NO 'ACTIVE'::text
+event_invitations.notes text YES 
+event_invitations.operational_notes text YES 
+event_invitations.organization text YES 
+event_invitations.personal_message text YES 
+event_invitations.phone text YES 
+event_invitations.rsvp_at timestamp with time zone YES 
+event_invitations.rsvp_deadline timestamp with time zone YES 
+event_invitations.rsvp_guest_count smallint YES 
+event_invitations.rsvp_guest_names text YES 
+event_invitations.rsvp_message text YES 
+event_invitations.rsvp_status text NO 'pending'::text
+event_invitations.token text NO 
+event_invitations.updated_at timestamp with time zone NO now()
+event_memories.content_type text NO 
+event_memories.created_at timestamp with time zone NO now()
+event_memories.delete_token_hash text YES 
+event_memories.event_id uuid NO 
+event_memories.guest_label text YES 
+event_memories.height integer YES 
+event_memories.id uuid NO gen_random_uuid()
+event_memories.moderated_at timestamp with time zone YES 
+event_memories.moderated_by uuid YES 
+event_memories.object_key text NO 
+event_memories.report_count integer NO 0
+event_memories.settings_id uuid YES 
+event_memories.size_bytes bigint NO 
+event_memories.status text NO 'pending'::text
+event_memories.storage_provider text NO 
+event_memories.width integer YES 
+event_memory_reports.created_at timestamp with time zone NO now()
+event_memory_reports.id uuid NO gen_random_uuid()
+event_memory_reports.memory_id uuid NO 
+event_memory_reports.reason text NO 
+event_memory_reports.reporter_ip text YES 
+event_memory_retention_notices.event_id uuid NO 
+event_memory_retention_notices.notice_kind text NO 
+event_memory_retention_notices.sent_at timestamp with time zone NO now()
+event_memory_settings.created_at timestamp with time zone NO now()
+event_memory_settings.created_by uuid YES 
+event_memory_settings.event_id uuid NO 
+event_memory_settings.id uuid NO gen_random_uuid()
+event_memory_settings.is_active boolean NO true
+event_memory_settings.require_approval boolean NO true
+event_memory_settings.revoked_at timestamp with time zone YES 
+event_memory_settings.upload_token text NO 
+event_staff_checkins.badge_token_hash text YES 
+event_staff_checkins.created_at timestamp with time zone NO now()
+event_staff_checkins.device_id text YES 
+event_staff_checkins.entrance_id uuid YES 
+event_staff_checkins.event_id uuid NO 
+event_staff_checkins.id uuid NO gen_random_uuid()
+event_staff_checkins.scan_source text NO 'online'::text
+event_staff_checkins.scanned_at timestamp with time zone NO now()
+event_staff_checkins.scanned_by_user_id uuid YES 
+event_staff_checkins.staff_member_id uuid YES 
+event_team_invitations.accepted_at timestamp with time zone YES 
+event_team_invitations.created_at timestamp with time zone NO now()
+event_team_invitations.email text NO 
+event_team_invitations.entrance_id uuid YES 
+event_team_invitations.event_id uuid NO 
+event_team_invitations.expires_at timestamp with time zone NO (now() + '14 days'::interval)
+event_team_invitations.id uuid NO gen_random_uuid()
+event_team_invitations.invited_by uuid YES 
+event_team_invitations.position_label text YES 
+event_team_invitations.role text NO 
+event_team_invitations.role_label text YES 
+event_team_invitations.staff_name text YES 
+event_team_invitations.status text NO 'pending'::text
+event_team_invitations.token_hash text YES 
+event_team_invitations.updated_at timestamp with time zone NO now()
+event_team_members.accepted_at timestamp with time zone YES 
+event_team_members.badge_display_code text YES 
+event_team_members.badge_issued_at timestamp with time zone YES 
+event_team_members.badge_revoked_at timestamp with time zone YES 
+event_team_members.badge_status text NO 'active'::text
+event_team_members.badge_token_hash text YES 
+event_team_members.created_at timestamp with time zone NO now()
+event_team_members.entrance_id uuid YES 
+event_team_members.event_id uuid NO 
+event_team_members.id uuid NO gen_random_uuid()
+event_team_members.invited_at timestamp with time zone YES now()
+event_team_members.invited_by uuid YES 
+event_team_members.position_label text YES 
+event_team_members.removed_at timestamp with time zone YES 
+event_team_members.role text NO 
+event_team_members.role_label text YES 
+event_team_members.staff_name text YES 
+event_team_members.status text NO 'active'::text
+event_team_members.updated_at timestamp with time zone NO now()
+event_team_members.user_id uuid YES 
+eventbrite_sources.created_at timestamp with time zone YES CURRENT_TIMESTAMP
+eventbrite_sources.enabled boolean NO true
+eventbrite_sources.id uuid NO gen_random_uuid()
+eventbrite_sources.last_sync_message text YES 
+eventbrite_sources.last_synced_at timestamp with time zone YES 
+eventbrite_sources.organizer_eventbrite_id text NO 
+eventbrite_sources.organizer_id uuid YES 
+eventbrite_sources.organizer_name text NO 
+eventbrite_sources.organizer_url text NO 
+eventbrite_sources.updated_at timestamp with time zone YES CURRENT_TIMESTAMP
+eventbrite_sources.user_id uuid NO 
+events.address_country text YES 
+events.address_locality text YES 
+events.address_region text YES 
+events.average_rating numeric YES 0
+events.banner text YES 
+events.category text YES 
+events.checkin_window_end timestamp with time zone YES 
+events.checkin_window_start timestamp with time zone YES 
+events.city text YES 
+events.created_at timestamp without time zone YES now()
+events.deleted_at timestamp with time zone YES 
+events.description text YES 
+events.end_date timestamp with time zone YES 
+events.event_date timestamp without time zone YES 
+events.event_type text YES 
+events.eventbrite_event_id text YES 
+events.featured_until timestamp with time zone YES 
+events.homepage_position integer YES 0
+events.id uuid NO gen_random_uuid()
+events.invitation_template_id uuid YES 
+events.is_featured boolean YES false
+events.is_homepage_featured boolean YES false
+events.kind text NO 'public'::text
+events.latitude double precision YES 
+events.longitude double precision YES 
+events.online_url text YES 
+events.organizer_id uuid YES 
+events.performer_name text YES 
+events.postal_code text YES 
+events.purge_at timestamp with time zone YES 
+events.review_count integer YES 0
+events.slug text NO 
+events.source_organizer_description text YES 
+events.source_organizer_name text YES 
+events.source_organizer_url text YES 
+events.source_url text YES 
+events.status text YES 'approved'::text
+events.street_address text YES 
+events.subcategory text YES 
+events.ticket_template text NO 'modern'::text
+events.title text NO 
+events.user_id uuid YES 
+events.venue text YES 
+events.video_url text YES 
+events.visibility text YES 'public'::text
+follows.created_at timestamp with time zone NO now()
+follows.follower_id uuid NO 
+follows.following_id uuid NO 
+follows.id uuid NO gen_random_uuid()
+fundraiser_media.caption text YES 
+fundraiser_media.created_at timestamp with time zone YES now()
+fundraiser_media.fundraiser_id uuid NO 
+fundraiser_media.id uuid NO gen_random_uuid()
+fundraiser_media.position integer YES 0
+fundraiser_media.type text YES 'image'::text
+fundraiser_media.updated_at timestamp with time zone YES now()
+fundraiser_media.url text NO 
+fundraiser_updates.content text NO 
+fundraiser_updates.created_at timestamp with time zone YES now()
+fundraiser_updates.fundraiser_id uuid YES 
+fundraiser_updates.id uuid NO gen_random_uuid()
+fundraiser_updates.organizer_id uuid YES 
+fundraiser_updates.title text YES 
+fundraisers.average_rating numeric YES 0
+fundraisers.banner text YES 
+fundraisers.beneficiary jsonb YES 
+fundraisers.beneficiary_id uuid YES 
+fundraisers.beneficiary_name text YES 
+fundraisers.beneficiary_type text YES 
+fundraisers.category text NO 'Other'::text
+fundraisers.created_at timestamp without time zone YES now()
+fundraisers.deleted_at timestamp with time zone YES 
+fundraisers.featured_until timestamp with time zone YES 
+fundraisers.goal numeric YES 
+fundraisers.gofundme_source_id uuid YES 
+fundraisers.homepage_position integer YES 0
+fundraisers.id uuid NO gen_random_uuid()
+fundraisers.image_url text YES 
+fundraisers.is_featured boolean YES false
+fundraisers.is_homepage_featured boolean YES false
+fundraisers.organizer text YES 
+fundraisers.organizer_id uuid YES 
+fundraisers.purge_at timestamp with time zone YES 
+fundraisers.raised numeric YES 0
+fundraisers.raised_amount numeric YES 0
+fundraisers.rejection_reason text YES 
+fundraisers.review_count integer YES 0
+fundraisers.slug text NO 
+fundraisers.source_url text YES 
+fundraisers.status text NO 'pending_review'::text
+fundraisers.story text YES 
+fundraisers.title text NO 
+fundraisers.user_id uuid YES 
+fundraisers.video_url text YES 
+gofundme_sources.created_at timestamp with time zone YES CURRENT_TIMESTAMP
+gofundme_sources.enabled boolean NO true
+gofundme_sources.fundraiser_id uuid YES 
+gofundme_sources.id uuid NO gen_random_uuid()
+gofundme_sources.last_sync_message text YES 
+gofundme_sources.last_synced_at timestamp with time zone YES 
+gofundme_sources.organizer text YES 
+gofundme_sources.source_url text NO 
+gofundme_sources.title text YES 
+gofundme_sources.updated_at timestamp with time zone YES CURRENT_TIMESTAMP
+gofundme_sources.user_id uuid NO 
+guest_import_batches.completed_at timestamp with time zone YES 
+guest_import_batches.created_at timestamp with time zone NO now()
+guest_import_batches.created_by uuid YES 
+guest_import_batches.error_summary jsonb YES 
+guest_import_batches.event_id uuid NO 
+guest_import_batches.failed_rows integer NO 0
+guest_import_batches.id uuid NO gen_random_uuid()
+guest_import_batches.imported_rows integer NO 0
+guest_import_batches.purged_at timestamp with time zone YES 
+guest_import_batches.raw_csv_key text YES 
+guest_import_batches.raw_csv_size_bytes integer YES 
+guest_import_batches.status text NO 'preview'::text
+guest_import_batches.total_rows integer NO 0
+guest_import_batches.updated_at timestamp with time zone NO now()
+guest_import_batches.valid_rows integer NO 0
+guest_import_rows.batch_id uuid NO 
+guest_import_rows.created_at timestamp with time zone NO now()
+guest_import_rows.created_invitation_id uuid YES 
+guest_import_rows.errors jsonb NO '[]'::jsonb
+guest_import_rows.event_id uuid NO 
+guest_import_rows.id uuid NO gen_random_uuid()
+guest_import_rows.raw_email text YES 
+guest_import_rows.raw_image_file text YES 
+guest_import_rows.raw_image_url text YES 
+guest_import_rows.raw_message text YES 
+guest_import_rows.raw_name text YES 
+guest_import_rows.raw_phone text YES 
+guest_import_rows.raw_row text YES 
+guest_import_rows.raw_rsvp_deadline text YES 
+guest_import_rows.raw_seat text YES 
+guest_import_rows.raw_section text YES 
+guest_import_rows.raw_table text YES 
+guest_import_rows.raw_ticket_type text YES 
+guest_import_rows.resolved_seat_id uuid YES 
+guest_import_rows.resolved_ticket_type_id uuid YES 
+guest_import_rows.row_number integer NO 
+guest_import_rows.status text NO 'pending'::text
+guest_import_rows.updated_at timestamp with time zone NO now()
+guest_import_rows.warnings jsonb NO '[]'::jsonb
+homepage_categories.created_at timestamp with time zone YES now()
+homepage_categories.icon text NO 
+homepage_categories.id uuid NO gen_random_uuid()
+homepage_categories.is_visible boolean YES true
+homepage_categories.name text NO 
+homepage_categories.position integer YES 0
+homepage_promotions.approved_by uuid YES 
+homepage_promotions.created_at timestamp with time zone NO now()
+homepage_promotions.created_by uuid YES 
+homepage_promotions.creative_url text NO 
+homepage_promotions.cta_label text YES 
+homepage_promotions.ends_at timestamp with time zone YES 
+homepage_promotions.entity_slug text NO 
+homepage_promotions.entity_type text NO 
+homepage_promotions.id uuid NO gen_random_uuid()
+homepage_promotions.is_visible boolean NO false
+homepage_promotions.media_type text NO 'image'::text
+homepage_promotions.position integer NO 0
+homepage_promotions.priority integer NO 0
+homepage_promotions.starts_at timestamp with time zone YES 
+homepage_promotions.status text NO 'draft'::text
+homepage_promotions.updated_at timestamp with time zone NO now()
+homepage_sponsors.created_at timestamp with time zone NO now()
+homepage_sponsors.id uuid NO gen_random_uuid()
+homepage_sponsors.is_visible boolean NO true
+homepage_sponsors.logo_url text NO ''::text
+homepage_sponsors.name text NO 
+homepage_sponsors.position integer NO 0
+homepage_sponsors.website_url text NO ''::text
+homepage_testimonials.created_at timestamp with time zone NO now()
+homepage_testimonials.id uuid NO gen_random_uuid()
+homepage_testimonials.is_visible boolean NO true
+homepage_testimonials.name text NO 
+homepage_testimonials.photo_url text NO ''::text
+homepage_testimonials.position integer NO 0
+homepage_testimonials.quote text NO 
+homepage_testimonials.role text NO ''::text
+incident_events.created_at timestamp with time zone NO now()
+incident_events.event_id uuid NO 
+incident_events.id uuid NO gen_random_uuid()
+incident_events.incident_id uuid NO 
+incidents.agent_run_id uuid YES 
+incidents.created_at timestamp with time zone NO now()
+incidents.dedupe_key text NO 
+incidents.event_count integer NO 1
+incidents.first_seen_at timestamp with time zone NO 
+incidents.id uuid NO gen_random_uuid()
+incidents.last_seen_at timestamp with time zone NO 
+incidents.metadata jsonb NO '{}'::jsonb
+incidents.severity text NO 
+incidents.status text NO 'open'::text
+incidents.summary text YES 
+incidents.tenant_id uuid YES 
+incidents.title text NO 
+incidents.updated_at timestamp with time zone NO now()
+invitation_page_preview_tokens.created_at timestamp with time zone NO now()
+invitation_page_preview_tokens.created_by uuid YES 
+invitation_page_preview_tokens.event_id uuid NO 
+invitation_page_preview_tokens.expires_at timestamp with time zone NO (now() + '7 days'::interval)
+invitation_page_preview_tokens.id uuid NO gen_random_uuid()
+invitation_page_preview_tokens.token text NO 
+invitation_templates.background_image_url text NO 
+invitation_templates.category text NO 
+invitation_templates.created_at timestamp with time zone NO now()
+invitation_templates.id uuid NO gen_random_uuid()
+invitation_templates.is_active boolean NO true
+invitation_templates.layout_config jsonb NO '{}'::jsonb
+invitation_templates.name text NO 
+invitation_templates.slug text NO 
+invitation_templates.sort_order integer NO 0
+invitation_templates.thumbnail_url text YES 
+invitation_templates.updated_at timestamp with time zone NO now()
+knowledge_chunks.chunk_index integer NO 
+knowledge_chunks.content text NO 
+knowledge_chunks.created_at timestamp with time zone NO now()
+knowledge_chunks.document_id uuid NO 
+knowledge_chunks.id uuid NO gen_random_uuid()
+knowledge_chunks.tenant_id uuid YES 
+knowledge_chunks.tsv tsvector YES 
+knowledge_document_versions.content text NO 
+knowledge_document_versions.created_at timestamp with time zone NO now()
+knowledge_document_versions.created_by uuid YES 
+knowledge_document_versions.document_id uuid NO 
+knowledge_document_versions.id uuid NO gen_random_uuid()
+knowledge_document_versions.title text NO 
+knowledge_document_versions.version integer NO 
+knowledge_documents.approved_at timestamp with time zone YES 
+knowledge_documents.approved_by uuid YES 
+knowledge_documents.category text NO 
+knowledge_documents.content text NO 
+knowledge_documents.created_at timestamp with time zone NO now()
+knowledge_documents.created_by uuid YES 
+knowledge_documents.id uuid NO gen_random_uuid()
+knowledge_documents.source_hash text YES 
+knowledge_documents.source_ref text YES 
+knowledge_documents.source_type text NO 'human'::text
+knowledge_documents.status text NO 'approved'::text
+knowledge_documents.tags ARRAY NO '{}'::text[]
+knowledge_documents.tenant_id uuid YES 
+knowledge_documents.title text NO 
+knowledge_documents.updated_at timestamp with time zone NO now()
+knowledge_documents.version integer NO 1
+media.content_type text NO 'image/webp'::text
+media.created_at timestamp with time zone NO now()
+media.height integer NO 
+media.id uuid NO gen_random_uuid()
+media.object_key text NO 
+media.owner_user_id uuid YES 
+media.public_url text NO 
+media.purpose text NO 
+media.size_bytes bigint NO 
+media.target_id uuid YES 
+media.tenant_id uuid YES 
+media.uploader_user_id uuid NO 
+media.width integer NO 
+menu_item_option_groups.created_at timestamp with time zone NO now()
+menu_item_option_groups.group_id uuid NO 
+menu_item_option_groups.hidden_option_ids ARRAY NO '{}'::uuid[]
+menu_item_option_groups.id uuid NO gen_random_uuid()
+menu_item_option_groups.item_id uuid NO 
+menu_item_option_groups.organizer_id uuid NO 
+menu_item_option_groups.position integer NO 0
+menu_item_option_groups.price_overrides jsonb NO '{}'::jsonb
+menu_item_option_groups.updated_at timestamp with time zone NO now()
+menu_items.allergens ARRAY NO ARRAY[]::text[]
+menu_items.created_at timestamp with time zone NO now()
+menu_items.description text YES 
+menu_items.dietary_tags ARRAY NO ARRAY[]::text[]
+menu_items.id uuid NO gen_random_uuid()
+menu_items.image_url text YES 
+menu_items.is_active boolean NO true
+menu_items.is_featured boolean NO false
+menu_items.is_sold_out boolean NO false
+menu_items.modifiers jsonb NO '[]'::jsonb
+menu_items.name text NO 
+menu_items.option_groups jsonb NO '[]'::jsonb
+menu_items.options_source text NO 'json'::text
+menu_items.organizer_id uuid NO 
+menu_items.position integer NO 0
+menu_items.price numeric NO 
+menu_items.promo_price numeric YES 
+menu_items.section_id uuid NO 
+menu_items.updated_at timestamp with time zone NO now()
+menu_option_groups.created_at timestamp with time zone NO now()
+menu_option_groups.id uuid NO gen_random_uuid()
+menu_option_groups.is_active boolean NO true
+menu_option_groups.is_required boolean NO false
+menu_option_groups.kind text NO 
+menu_option_groups.legacy_group_id text YES 
+menu_option_groups.legacy_source_item_id uuid YES 
+menu_option_groups.max_select integer NO 1
+menu_option_groups.min_select integer NO 0
+menu_option_groups.name text NO 
+menu_option_groups.organizer_id uuid NO 
+menu_option_groups.position integer NO 0
+menu_option_groups.updated_at timestamp with time zone NO now()
+menu_options.allergens ARRAY NO '{}'::text[]
+menu_options.created_at timestamp with time zone NO now()
+menu_options.description text YES 
+menu_options.group_id uuid NO 
+menu_options.id uuid NO gen_random_uuid()
+menu_options.image_url text YES 
+menu_options.is_available boolean NO true
+menu_options.is_default boolean NO false
+menu_options.legacy_option_id text YES 
+menu_options.max_qty integer NO 1
+menu_options.name text NO 
+menu_options.organizer_id uuid NO 
+menu_options.position integer NO 0
+menu_options.price numeric NO 
+menu_options.updated_at timestamp with time zone NO now()
+menu_sections.created_at timestamp with time zone NO now()
+menu_sections.description text YES 
+menu_sections.id uuid NO gen_random_uuid()
+menu_sections.is_active boolean NO true
+menu_sections.name text NO 
+menu_sections.organizer_id uuid NO 
+menu_sections.position integer NO 0
+menu_sections.updated_at timestamp with time zone NO now()
+messages.content text YES 
+messages.conversation_id uuid NO 
+messages.created_at timestamp with time zone NO now()
+messages.direction text NO 
+messages.external_message_id text YES 
+messages.id uuid NO gen_random_uuid()
+messages.metadata jsonb NO '{}'::jsonb
+messages.provider text YES 
+messages.sender_type text NO 
+messages.tenant_id uuid NO 
+notification_preferences.channel text NO 
+notification_preferences.created_at timestamp with time zone NO now()
+notification_preferences.enabled boolean NO true
+notification_preferences.event_type text NO 
+notification_preferences.id uuid NO gen_random_uuid()
+notification_preferences.metadata jsonb NO '{}'::jsonb
+notification_preferences.tenant_id uuid NO 
+notification_preferences.updated_at timestamp with time zone NO now()
+notifications.actor_id uuid YES 
+notifications.body text YES 
+notifications.created_at timestamp with time zone NO now()
+notifications.id uuid NO gen_random_uuid()
+notifications.link text YES 
+notifications.read_at timestamp with time zone YES 
+notifications.related_id uuid YES 
+notifications.related_type text YES 
+notifications.title text NO 
+notifications.type text NO 
+notifications.user_id uuid NO 
+offline_scan_conflicts.conflict_reason text NO 
+offline_scan_conflicts.created_at timestamp with time zone NO now()
+offline_scan_conflicts.delegating_user_id uuid YES 
+offline_scan_conflicts.device_id text YES 
+offline_scan_conflicts.entrance_id uuid YES 
+offline_scan_conflicts.event_id uuid NO 
+offline_scan_conflicts.id uuid NO gen_random_uuid()
+offline_scan_conflicts.offline_scan_id uuid NO 
+offline_scan_conflicts.offline_scanned_at timestamp with time zone NO 
+offline_scan_conflicts.raw_payload jsonb YES 
+offline_scan_conflicts.scanned_by_user_id uuid YES 
+offline_scan_conflicts.synced_at timestamp with time zone NO now()
+offline_scan_conflicts.ticket_instance_id uuid YES 
+offline_scan_conflicts.ticket_order_id uuid YES 
+offline_scan_conflicts.winning_checkin_id uuid YES 
+order_delivery_locations.accuracy double precision YES 
+order_delivery_locations.courier_worker_id uuid NO 
+order_delivery_locations.created_at timestamp with time zone NO clock_timestamp()
+order_delivery_locations.heading double precision YES 
+order_delivery_locations.id uuid NO gen_random_uuid()
+order_delivery_locations.latitude double precision NO 
+order_delivery_locations.longitude double precision NO 
+order_delivery_locations.order_id uuid NO 
+order_delivery_locations.recorded_at timestamp with time zone NO 
+order_delivery_locations.speed double precision YES 
+orders.business_id uuid YES 
+orders.cancellation_reason text YES 
+orders.courier_worker_id uuid YES 
+orders.created_at timestamp with time zone NO now()
+orders.currency text NO 'USD'::text
+orders.customer_email text YES 
+orders.customer_name text NO 
+orders.customer_note text YES 
+orders.customer_phone text NO 
+orders.delivery_address text YES 
+orders.delivery_fee numeric NO 0.00
+orders.delivery_issue jsonb YES 
+orders.delivery_rating smallint YES 
+orders.delivery_rating_comment text YES 
+orders.estimated_ready_at timestamp with time zone YES 
+orders.fulfilment_type text NO 
+orders.id uuid NO gen_random_uuid()
+orders.idempotency_key text YES 
+orders.items jsonb NO '[]'::jsonb
+orders.order_number text NO 
+orders.organizer_id uuid NO 
+orders.payment_expires_at timestamp with time zone YES 
+orders.payment_method text NO 'on_fulfilment'::text
+orders.payment_status text NO 'unpaid'::text
+orders.provider text YES 
+orders.provider_reference text YES 
+orders.rider_name text YES 
+orders.rider_phone text YES 
+orders.scheduled_for timestamp with time zone YES 
+orders.status text NO 'pending'::text
+orders.status_history jsonb NO '[]'::jsonb
+orders.subtotal numeric NO 
+orders.total_amount numeric NO 
+orders.tracking_token text NO encode(gen_random_bytes(24), 'hex'::text)
+orders.updated_at timestamp with time zone NO now()
+orders.website_id uuid YES 
+organizer_follower_counts.follower_count bigint YES 
+organizer_follower_counts.organizer_id uuid YES 
+organizer_follows.created_at timestamp with time zone YES now()
+organizer_follows.id uuid NO gen_random_uuid()
+organizer_follows.organizer_id uuid NO 
+organizer_follows.user_id uuid NO 
+organizer_status_audit.admin_user_id uuid NO 
+organizer_status_audit.created_at timestamp with time zone NO now()
+organizer_status_audit.field_name text NO 
+organizer_status_audit.id uuid NO gen_random_uuid()
+organizer_status_audit.new_value text NO 
+organizer_status_audit.old_value text YES 
+organizer_status_audit.organizer_id uuid NO 
+organizer_verification_submissions.created_at timestamp with time zone NO now()
+organizer_verification_submissions.documents jsonb NO '[]'::jsonb
+organizer_verification_submissions.id uuid NO gen_random_uuid()
+organizer_verification_submissions.org_type text YES 
+organizer_verification_submissions.organizer_id uuid NO 
+organizer_verification_submissions.reviewed_at timestamp with time zone YES 
+organizer_verification_submissions.reviewed_by uuid YES 
+organizer_verification_submissions.reviewer_notes text YES 
+organizer_verification_submissions.status text NO 'draft'::text
+organizer_verification_submissions.submitted_at timestamp with time zone YES 
+organizer_verification_submissions.submitter_notes text YES 
+organizer_verification_submissions.updated_at timestamp with time zone NO now()
+organizer_visibility_audit.admin_user_id uuid NO 
+organizer_visibility_audit.created_at timestamp with time zone YES CURRENT_TIMESTAMP
+organizer_visibility_audit.field_name character varying NO 
+organizer_visibility_audit.id uuid NO gen_random_uuid()
+organizer_visibility_audit.new_value integer NO 
+organizer_visibility_audit.old_value integer NO 
+organizer_visibility_audit.organizer_id uuid NO 
+organizers.average_rating numeric YES 0
+organizers.banner text YES 
+organizers.bio text YES 
+organizers.contact_email text YES 
+organizers.created_at timestamp without time zone YES now()
+organizers.deleted_at timestamp with time zone YES 
+organizers.events_offset integer NO 0
+organizers.facebook text YES 
+organizers.follower_offset integer NO 0
+organizers.fundraising_approved boolean NO false
+organizers.fundraising_approved_at timestamp with time zone YES 
+organizers.id uuid NO gen_random_uuid()
+organizers.instagram text YES 
+organizers.is_business_auto_created boolean NO false
+organizers.linkedin text YES 
+organizers.name text NO 
+organizers.nonprofit_registration_number character varying YES 
+organizers.org_type text YES 'other'::text
+organizers.organization_name character varying YES 
+organizers.payment_enabled boolean NO false
+organizers.payment_enabled_at timestamp with time zone YES 
+organizers.photo text YES 
+organizers.purge_at timestamp with time zone YES 
+organizers.review_count integer YES 0
+organizers.slug text NO 
+organizers.status text YES 'pending'::text
+organizers.tax_id character varying YES 
+organizers.tiktok text YES 
+organizers.twitter text YES 
+organizers.updated_at timestamp with time zone YES now()
+organizers.user_id uuid YES 
+organizers.verified_at timestamp with time zone YES 
+organizers.visibility text YES 'public'::text
+organizers.website text YES 
+organizers.youtube text YES 
+payment_reconciliation_failures.amount numeric YES 
+payment_reconciliation_failures.buyer_email text YES 
+payment_reconciliation_failures.created_at timestamp with time zone NO now()
+payment_reconciliation_failures.currency text YES 
+payment_reconciliation_failures.error_message text YES 
+payment_reconciliation_failures.id uuid NO gen_random_uuid()
+payment_reconciliation_failures.kind text NO 
+payment_reconciliation_failures.raw_metadata jsonb YES 
+payment_reconciliation_failures.resolved_at timestamp with time zone YES 
+payment_reconciliation_failures.stripe_payment_intent_id text YES 
+payouts.amount numeric NO 
+payouts.client_idempotency_key text YES 
+payouts.created_at timestamp with time zone NO now()
+payouts.currency text NO 
+payouts.destination_reference text YES 
+payouts.destination_type text NO 
+payouts.external_payout_id text YES 
+payouts.failure_reason text YES 
+payouts.id uuid NO gen_random_uuid()
+payouts.processed_by uuid YES 
+payouts.recipient_id uuid NO 
+payouts.requested_by uuid YES 
+payouts.status text NO 'requested'::text
+payouts.updated_at timestamp with time zone NO now()
+platform_settings.key text NO 
+platform_settings.updated_at timestamp with time zone YES now()
+platform_settings.updated_by uuid YES 
+platform_settings.value text NO 
+product_assets.created_at timestamp with time zone NO now()
+product_assets.file_name text NO 
+product_assets.file_path text NO 
+product_assets.file_size_bytes bigint NO 
+product_assets.id uuid NO gen_random_uuid()
+product_assets.is_preview boolean NO false
+product_assets.mime_type text NO 
+product_assets.position integer NO 0
+product_assets.product_id uuid NO 
+product_assets.storage_provider text NO 'supabase'::text
+product_assets.version text NO '1.0'::text
+product_downloads.asset_id uuid YES 
+product_downloads.buyer_id uuid YES 
+product_downloads.created_at timestamp with time zone NO now()
+product_downloads.id uuid NO gen_random_uuid()
+product_downloads.order_id uuid YES 
+product_downloads.product_id uuid NO 
+product_orders.buyer_email text YES 
+product_orders.buyer_id uuid YES 
+product_orders.buyer_name text YES 
+product_orders.created_at timestamp with time zone NO now()
+product_orders.crypto_payment_id text YES 
+product_orders.currency text NO 'usd'::text
+product_orders.id uuid NO gen_random_uuid()
+product_orders.payment_method text NO 'stripe'::text
+product_orders.product_id uuid NO 
+product_orders.product_name text NO 
+product_orders.quantity integer NO 1
+product_orders.status text NO 'pending'::text
+product_orders.stripe_payment_intent_id text YES 
+product_orders.stripe_session_id text YES 
+product_orders.total_amount numeric NO 
+product_orders.unit_price numeric NO 
+product_orders.updated_at timestamp with time zone NO now()
+products.business_id uuid YES 
+products.category text YES 
+products.cover_image_url text YES 
+products.created_at timestamp with time zone NO now()
+products.description text NO 
+products.id uuid NO gen_random_uuid()
+products.images ARRAY NO ARRAY[]::text[]
+products.license text NO 'personal'::text
+products.name text NO 
+products.owner_id uuid NO 
+products.preview_images ARRAY NO ARRAY[]::text[]
+products.price_type text NO 'one_time'::text
+products.product_type text NO 'other'::text
+products.rejection_reason text YES 
+products.seo_description text YES 
+products.seo_title text YES 
+products.slug text NO 
+products.status text NO 'pending_review'::text
+products.stock_quantity integer YES 
+products.stripe_price_id text YES 
+products.subtitle text YES 
+products.tags ARRAY NO ARRAY[]::text[]
+products.update_policy text YES 
+products.updated_at timestamp with time zone NO now()
+products.version text NO '1.0'::text
+profile_verification_audit.admin_user_id uuid NO 
+profile_verification_audit.created_at timestamp with time zone NO now()
+profile_verification_audit.field_name text NO 
+profile_verification_audit.id uuid NO gen_random_uuid()
+profile_verification_audit.new_value text NO 
+profile_verification_audit.old_value text YES 
+profile_verification_audit.profile_id uuid NO 
+profiles.account_info jsonb NO '{}'::jsonb
+profiles.avatar_url text YES 
+profiles.created_at timestamp with time zone YES now()
+profiles.deleted_at timestamp with time zone YES 
+profiles.display_name text YES 
+profiles.id uuid NO 
+profiles.identity_status text NO 'pending'::text
+profiles.identity_verified_at timestamp with time zone YES 
+profiles.locale text YES 
+profiles.preferences jsonb NO '{}'::jsonb
+profiles.privacy_settings jsonb NO '{}'::jsonb
+profiles.profile_photo text YES 
+profiles.purge_at timestamp with time zone YES 
+profiles.role text NO 'user'::text
+profiles.status text NO 'active'::text
+profiles.updated_at timestamp with time zone YES now()
+promo_codes.code text NO 
+promo_codes.created_at timestamp with time zone NO now()
+promo_codes.expires_at timestamp with time zone YES 
+promo_codes.fixed_currency text YES 
+promo_codes.fixed_off_minor integer YES 
+promo_codes.id uuid NO gen_random_uuid()
+promo_codes.is_active boolean NO true
+promo_codes.max_uses integer YES 
+promo_codes.min_subtotal_minor integer NO 0
+promo_codes.percent_off integer YES 
+promo_codes.starts_at timestamp with time zone YES 
+promo_codes.tenant_id uuid NO 
+promo_codes.updated_at timestamp with time zone NO now()
+promo_codes.used_count integer NO 0
+promotion_targets.created_at timestamp with time zone NO now()
+promotion_targets.id uuid NO gen_random_uuid()
+promotion_targets.item_id uuid YES 
+promotion_targets.organizer_id uuid NO 
+promotion_targets.promotion_id uuid NO 
+promotion_targets.section_id uuid YES 
+promotion_targets.updated_at timestamp with time zone NO now()
+promotions.apply_to_variants boolean NO false
+promotions.code text YES 
+promotions.created_at timestamp with time zone NO now()
+promotions.cta_label text YES 
+promotions.description text YES 
+promotions.destination_item_id uuid YES 
+promotions.destination_section_id uuid YES 
+promotions.destination_type text NO 'none'::text
+promotions.destination_url text YES 
+promotions.ends_at timestamp with time zone YES 
+promotions.headline text YES 
+promotions.id uuid NO gen_random_uuid()
+promotions.image_url text YES 
+promotions.layout text NO 
+promotions.min_order_amount numeric YES 
+promotions.name text NO 
+promotions.offer_type text NO 
+promotions.organizer_id uuid NO 
+promotions.percent_off integer YES 
+promotions.priority integer NO 0
+promotions.special_price numeric YES 
+promotions.starts_at timestamp with time zone YES 
+promotions.status text NO 'draft'::text
+promotions.updated_at timestamp with time zone NO now()
+public_donation_activity.amount numeric YES 
+public_donation_activity.created_at timestamp without time zone YES 
+public_donation_activity.fundraiser_banner text YES 
+public_donation_activity.fundraiser_id uuid YES 
+public_donation_activity.fundraiser_slug text YES 
+public_donation_activity.fundraiser_title text YES 
+public_donation_activity.id uuid YES 
+public_donation_activity.user_id uuid YES 
+public_media_upload_daily_quota.quota_date date NO 
+public_media_upload_daily_quota.upload_count integer NO 
+public_media_upload_daily_quota.uploaded_bytes bigint NO 
+public_media_upload_daily_quota.user_id uuid NO 
+public_profiles.avatar_url text YES 
+public_profiles.display_name text YES 
+public_profiles.id uuid YES 
+qa_runs.approval_id uuid YES 
+qa_runs.artifact_base_url text YES 
+qa_runs.claim_expires_at timestamp with time zone YES 
+qa_runs.claim_token_hash text YES 
+qa_runs.claimed_at timestamp with time zone YES 
+qa_runs.commit_sha text YES 
+qa_runs.created_at timestamp with time zone NO now()
+qa_runs.environment text NO 
+qa_runs.error text YES 
+qa_runs.external_run_id text YES 
+qa_runs.failed integer NO 0
+qa_runs.finished_at timestamp with time zone YES 
+qa_runs.id uuid NO gen_random_uuid()
+qa_runs.idempotency_key uuid NO 
+qa_runs.metadata jsonb NO '{}'::jsonb
+qa_runs.passed integer NO 0
+qa_runs.requested_by_agent_id uuid YES 
+qa_runs.skipped integer NO 0
+qa_runs.started_at timestamp with time zone YES 
+qa_runs.status text NO 'requested'::text
+qa_runs.suite text NO 
+qa_runs.target_tenant_id uuid YES 
+qa_runs.triggered_by text NO 'schedule'::text
+qa_test_results.created_at timestamp with time zone NO now()
+qa_test_results.duration_ms integer YES 
+qa_test_results.error text YES 
+qa_test_results.file text NO 
+qa_test_results.id uuid NO gen_random_uuid()
+qa_test_results.logs_url text YES 
+qa_test_results.name text NO 
+qa_test_results.run_id uuid NO 
+qa_test_results.screenshot_url text YES 
+qa_test_results.status text NO 
+qa_test_results.trace_url text YES 
+rate_limits.bucket_key text NO 
+rate_limits.request_count integer NO 0
+rate_limits.window_start timestamp with time zone NO 
+recipient_ledger_entries.amount numeric NO 
+recipient_ledger_entries.created_at timestamp with time zone NO now()
+recipient_ledger_entries.created_by uuid YES 
+recipient_ledger_entries.currency text NO 
+recipient_ledger_entries.description text YES 
+recipient_ledger_entries.entry_type text NO 
+recipient_ledger_entries.external_reference text YES 
+recipient_ledger_entries.id uuid NO gen_random_uuid()
+recipient_ledger_entries.recipient_id uuid NO 
+recipient_ledger_entries.source_id uuid YES 
+recipient_ledger_entries.source_type text NO 
+recipients.business_id uuid YES 
+recipients.created_at timestamp with time zone NO now()
+recipients.id uuid NO gen_random_uuid()
+recipients.organizer_id uuid YES 
+recipients.recipient_type text NO 
+recipients.user_id uuid YES 
+reservations.booking_type text NO 'table'::text
+reservations.business_id uuid YES 
+reservations.created_at timestamp with time zone NO now()
+reservations.customer_email text YES 
+reservations.customer_name text NO 
+reservations.customer_note text YES 
+reservations.customer_phone text NO 
+reservations.decline_reason text YES 
+reservations.id uuid NO gen_random_uuid()
+reservations.idempotency_key text YES 
+reservations.lookup_token text NO 
+reservations.organizer_id uuid NO 
+reservations.owner_note text YES 
+reservations.party_size integer NO 
+reservations.reservation_number text NO 
+reservations.starts_at timestamp with time zone NO 
+reservations.status text NO 'pending'::text
+reservations.status_history jsonb NO '[]'::jsonb
+reservations.updated_at timestamp with time zone NO now()
+reservations.website_id uuid YES 
+reviews.created_at timestamp with time zone YES CURRENT_TIMESTAMP
+reviews.event_id uuid YES 
+reviews.fundraiser_id uuid YES 
+reviews.id uuid NO gen_random_uuid()
+reviews.is_approved boolean YES true
+reviews.is_verified boolean YES false
+reviews.organizer_id uuid YES 
+reviews.rating integer NO 
+reviews.review text YES 
+reviews.review_type text YES 'platform'::text
+reviews.title text YES 
+reviews.updated_at timestamp with time zone YES CURRENT_TIMESTAMP
+reviews.user_id uuid NO 
+seats.assigned_invitation_id uuid YES 
+seats.event_id uuid NO 
+seats.height numeric YES 26
+seats.id uuid NO gen_random_uuid()
+seats.is_accessible boolean NO false
+seats.is_vip boolean NO false
+seats.layout_id uuid NO 
+seats.object_type text NO 'seat'::text
+seats.price_override numeric YES 
+seats.reserved_until timestamp with time zone YES 
+seats.rotation numeric YES 0
+seats.row_label text NO 
+seats.seat_number integer NO 
+seats.section text NO 
+seats.status text NO 'available'::text
+seats.table_capacity integer YES 
+seats.table_name text YES 
+seats.table_number text YES 
+seats.ticket_id uuid YES 
+seats.ticket_type_id uuid YES 
+seats.width numeric YES 26
+seats.x numeric YES 
+seats.y numeric YES 
+service_tiers.created_at timestamp with time zone NO now()
+service_tiers.description text YES 
+service_tiers.duration_minutes integer YES 
+service_tiers.id uuid NO gen_random_uuid()
+service_tiers.is_active boolean NO true
+service_tiers.name text NO 
+service_tiers.position integer NO 0
+service_tiers.price numeric NO 
+service_tiers.service_id uuid NO 
+service_tiers.updated_at timestamp with time zone NO now()
+services.created_at timestamp with time zone NO now()
+services.description text YES 
+services.duration_minutes integer YES 
+services.id uuid NO gen_random_uuid()
+services.image_url text YES 
+services.is_active boolean NO true
+services.organizer_id uuid NO 
+services.position integer NO 0
+services.price numeric NO 
+services.slug text NO 
+services.title text NO 
+services.updated_at timestamp with time zone NO now()
+studio_chat_conversations.created_at timestamp with time zone NO now()
+studio_chat_conversations.id uuid NO gen_random_uuid()
+studio_chat_conversations.provider text NO 'gemini'::text
+studio_chat_conversations.status text NO 'active'::text
+studio_chat_conversations.title text NO 'Untitled chat'::text
+studio_chat_conversations.updated_at timestamp with time zone NO now()
+studio_chat_conversations.user_id uuid NO 
+studio_chat_messages.content text YES 
+studio_chat_messages.conversation_id uuid NO 
+studio_chat_messages.created_at timestamp with time zone NO now()
+studio_chat_messages.guard_reason text YES 
+studio_chat_messages.guard_verdict text NO 'pass'::text
+studio_chat_messages.id uuid NO gen_random_uuid()
+studio_chat_messages.provider text YES 
+studio_chat_messages.role text NO 
+studio_chat_messages.seq integer NO 
+studio_chat_messages.tool_name text YES 
+system_events.actor_id uuid YES 
+system_events.agent_id uuid YES 
+system_events.created_at timestamp with time zone NO now()
+system_events.dedupe_key text NO 
+system_events.error_code text YES 
+system_events.id uuid NO gen_random_uuid()
+system_events.kind text NO 
+system_events.message text NO 
+system_events.metadata jsonb NO '{}'::jsonb
+system_events.route text YES 
+system_events.severity_hint text NO 
+system_events.source text NO 'aldriva'::text
+system_events.status_code smallint YES 
+system_events.tenant_id uuid YES 
+system_events.tool_name text YES 
+tenant_websites.created_at timestamp with time zone NO now()
+tenant_websites.footer_config jsonb NO '{"customLinks": [], "showSocials": true, "copyrightText": "", "showPoweredBy": true}'::jsonb
+tenant_websites.header_config jsonb NO '{"sticky": true, "ctaHref": "/contact", "showCta": true, "showNav": true, "ctaLabel": "Get in Touch", "showLogo": true}'::jsonb
+tenant_websites.id uuid NO gen_random_uuid()
+tenant_websites.metadata jsonb NO '{}'::jsonb
+tenant_websites.seo_description text YES 
+tenant_websites.seo_og_image text YES 
+tenant_websites.seo_title text YES 
+tenant_websites.site_tagline text YES 
+tenant_websites.site_title text NO 
+tenant_websites.slug text NO 
+tenant_websites.status text NO 'draft'::text
+tenant_websites.tenant_id uuid NO 
+tenant_websites.theme_config jsonb NO '{"theme": "default", "darkMode": false, "fontFamily": "sans", "borderRadius": "xl", "primaryColor": "#ea580c"}'::jsonb
+tenant_websites.updated_at timestamp with time zone NO now()
+ticket_checkins.checked_in_at timestamp with time zone NO now()
+ticket_checkins.created_at timestamp with time zone NO now()
+ticket_checkins.delegating_user_id uuid YES 
+ticket_checkins.device_id text YES 
+ticket_checkins.entrance_id uuid YES 
+ticket_checkins.event_id uuid NO 
+ticket_checkins.id uuid NO gen_random_uuid()
+ticket_checkins.offline_scan_id uuid YES 
+ticket_checkins.offline_scanned_at timestamp with time zone YES 
+ticket_checkins.scan_source text YES 'online'::text
+ticket_checkins.scanned_by_user_id uuid YES 
+ticket_checkins.ticket_instance_id uuid YES 
+ticket_checkins.ticket_order_id uuid YES 
+ticket_instances.checked_in_at timestamp with time zone YES 
+ticket_instances.created_at timestamp with time zone NO now()
+ticket_instances.event_id uuid NO 
+ticket_instances.id uuid NO gen_random_uuid()
+ticket_instances.invitation_id uuid YES 
+ticket_instances.order_id uuid YES 
+ticket_instances.qr_code text NO 
+ticket_instances.seat_id uuid YES 
+ticket_instances.seat_label text YES 
+ticket_instances.source text NO 'purchase'::text
+ticket_instances.status text NO 'valid'::text
+ticket_instances.ticket_id uuid YES 
+ticket_instances.updated_at timestamp with time zone NO now()
+ticket_orders.buyer_email text YES 
+ticket_orders.buyer_name text YES 
+ticket_orders.checked_in_at timestamp with time zone YES 
+ticket_orders.created_at timestamp with time zone YES now()
+ticket_orders.currency text YES 'usd'::text
+ticket_orders.event_id uuid NO 
+ticket_orders.id uuid NO gen_random_uuid()
+ticket_orders.payment_method character varying YES 'stripe'::character varying
+ticket_orders.qr_code text YES 
+ticket_orders.quantity integer NO 1
+ticket_orders.seat_id uuid YES 
+ticket_orders.seat_label text YES 
+ticket_orders.status text NO 'valid'::text
+ticket_orders.stripe_payment_intent_id text YES 
+ticket_orders.stripe_session_id text YES 
+ticket_orders.ticket_id uuid YES 
+ticket_orders.total_amount numeric NO 
+tickets.event_id uuid YES 
+tickets.id uuid NO gen_random_uuid()
+tickets.name text YES 
+tickets.price numeric YES 
+tickets.quantity integer YES 
+tool_definitions.approval_required boolean NO false
+tool_definitions.created_at timestamp with time zone NO now()
+tool_definitions.deprecated_at timestamp with time zone YES 
+tool_definitions.description text NO 
+tool_definitions.executor_ref text NO 
+tool_definitions.input_schema jsonb NO '{}'::jsonb
+tool_definitions.name text NO 
+tool_definitions.output_schema jsonb NO '{}'::jsonb
+tool_definitions.risk text NO 
+tool_definitions.scope text NO 
+tool_definitions.updated_at timestamp with time zone NO now()
+tool_definitions.version integer NO 1
+user_identity_verifications.created_at timestamp with time zone NO now()
+user_identity_verifications.documents jsonb NO '[]'::jsonb
+user_identity_verifications.id uuid NO gen_random_uuid()
+user_identity_verifications.id_type text YES 
+user_identity_verifications.reviewed_at timestamp with time zone YES 
+user_identity_verifications.reviewed_by uuid YES 
+user_identity_verifications.reviewer_notes text YES 
+user_identity_verifications.status text NO 'draft'::text
+user_identity_verifications.submitted_at timestamp with time zone YES 
+user_identity_verifications.submitter_notes text YES 
+user_identity_verifications.updated_at timestamp with time zone NO now()
+user_identity_verifications.user_id uuid NO 
+venue_layouts.canvas_height integer NO 800
+venue_layouts.canvas_width integer NO 1200
+venue_layouts.created_at timestamp with time zone YES now()
+venue_layouts.event_id uuid NO 
+venue_layouts.id uuid NO gen_random_uuid()
+venue_layouts.is_published boolean NO true
+venue_layouts.name text NO 'Main Hall'::text
+venue_layouts.published_at timestamp with time zone YES now()
+venue_layouts.sections jsonb NO '[]'::jsonb
+venue_layouts.venue_objects jsonb NO '[]'::jsonb
+venue_layouts.version integer NO 1
+website_content.content jsonb NO '{}'::jsonb
+website_content.updated_at timestamp with time zone NO now()
+website_content.updated_by uuid YES 
+website_content.website_id uuid NO 
+website_content_drafts.content jsonb NO '{}'::jsonb
+website_content_drafts.updated_at timestamp with time zone NO now()
+website_content_drafts.updated_by uuid YES 
+website_content_drafts.version integer NO 1
+website_content_drafts.website_id uuid NO 
+website_navigation.created_at timestamp with time zone NO now()
+website_navigation.id uuid NO gen_random_uuid()
+website_navigation.items jsonb NO '[]'::jsonb
+website_navigation.updated_at timestamp with time zone NO now()
+website_navigation.website_id uuid NO 
+website_page_drafts.blocks jsonb NO '[]'::jsonb
+website_page_drafts.blocks_layout jsonb YES 
+website_page_drafts.page_id uuid NO 
+website_page_drafts.updated_at timestamp with time zone NO now()
+website_page_drafts.updated_by uuid YES 
+website_page_drafts.version integer NO 1
+website_pages.blocks jsonb NO '[]'::jsonb
+website_pages.blocks_layout jsonb YES 
+website_pages.created_at timestamp with time zone NO now()
+website_pages.id uuid NO gen_random_uuid()
+website_pages.is_home boolean NO false
+website_pages.seo_description text YES 
+website_pages.seo_og_image text YES 
+website_pages.seo_title text YES 
+website_pages.slug text NO 
+website_pages.sort_order integer NO 0
+website_pages.status text NO 'draft'::text
+website_pages.title text NO 
+website_pages.updated_at timestamp with time zone NO now()
+website_pages.website_id uuid NO 

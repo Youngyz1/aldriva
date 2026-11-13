@@ -21,13 +21,9 @@ interface Props {
 
 export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
   const t = useTranslations("Events");
-  const isEvergreen = draft.template_id === "evergreen-envelope";
   const schedule = draft.schedule || [];
-  const venues = draft.venues ?? (isEvergreen ? [
-    { label: t("evergreenCeremony"), name: event.venue ?? "", address: event.street_address ?? "" },
-    { label: t("evergreenReception"), name: "" },
-  ] : []);
-  const maxVenues = isEvergreen ? 8 : 3;
+  const venues = draft.venues ?? [];
+  const maxVenues = 3;
 
   const handleAddScheduleItem = () => {
     if (schedule.length >= 15) return;
@@ -55,10 +51,8 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
   const handleAddVenueItem = () => {
     if (venues.length >= maxVenues) return;
     const newItem: InvitationVenueItem = {
-      label: isEvergreen
-        ? venues.length === 0 ? t("evergreenCeremony") : venues.length === 1 ? t("evergreenReception") : t("evergreenVenueNumber", { number: venues.length + 1 })
-        : "Ceremony",
-      name: isEvergreen ? "" : "Grand Ballroom",
+      label: "Ceremony",
+      name: "Grand Ballroom",
       address: "",
     };
     updateDraft({ venues: [...venues, newItem] });
@@ -143,8 +137,8 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
       <div className="space-y-3 border-t border-zinc-200 pt-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-bold text-zinc-900">{isEvergreen ? t("evergreenVenuesBuilderHeading") : "Multiple Locations (Max 3)"}</h3>
-            <p className="text-[11px] text-zinc-500">{isEvergreen ? t("evergreenVenuesBuilderHelp") : "For events split across multiple venues (e.g. Ceremony & Reception)."}</p>
+            <h3 className="text-xs font-bold text-zinc-900">{false ? t("evergreenVenuesBuilderHeading") : "Multiple Locations (Max 3)"}</h3>
+            <p className="text-[11px] text-zinc-500">{false ? t("evergreenVenuesBuilderHelp") : "For events split across multiple venues (e.g. Ceremony & Reception)."}</p>
           </div>
           {venues.length < maxVenues && (
             <button
@@ -153,7 +147,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
               onClick={handleAddVenueItem}
               className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
             >
-              <Plus size={13} /> {isEvergreen ? t("evergreenAddVenue") : "Add Venue"}
+              <Plus size={13} /> {false ? t("evergreenAddVenue") : "Add Venue"}
             </button>
           )}
         </div>
@@ -187,7 +181,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
               onChange={(e) => handleUpdateVenueItem(i, { address: e.target.value })}
               className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
             />
-            {draft.template_id === "evergreen-envelope" ? (
+            {false ? (
               <>
                 <label className="sr-only" htmlFor={`evergreen-venue-time-${i}`}>{t("evergreenVenueTime")}</label>
                 <input
@@ -295,7 +289,7 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
                 <Trash2 size={14} />
               </button>
             </div>
-            {draft.template_id === "evergreen-envelope" ? (
+            {false ? (
               <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-600">
                 <span>{t("evergreenScheduleIconLabel")}</span>
                 <select

@@ -84,7 +84,7 @@ export interface ResolvedServiceItem {
   title: string;
   slug: string;
   description: string | null;
-  price: number;
+  price: number | null;
   duration_minutes: number | null;
   image_url: string | null;
   is_active: boolean;
@@ -355,7 +355,7 @@ export async function resolveServicesEmbed(
     title: item.title,
     slug: item.slug,
     description: item.description ?? null,
-    price: Number(item.price),
+    price: item.price === null || item.price === undefined ? null : Number(item.price),
     duration_minutes: item.duration_minutes ?? null,
     image_url: item.image_url ?? null,
     is_active: Boolean(item.is_active),

@@ -15,8 +15,6 @@ import type { BuilderDraft } from "../InvitationPageBuilder";
 import { InvitationGalleryManager } from "@/components/invitation/InvitationGalleryManager";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import {
-  getDefaultInvitationTemplateDefinition,
-  getInvitationTemplateDefinition,
   isInvitationGalleryPresentation,
   type InvitationGalleryPresentation,
 } from "@/lib/invitation-template-registry";
@@ -31,30 +29,18 @@ interface Props {
 
 type LayoutChoice = "default" | InvitationGalleryPresentation;
 
-const LAYOUT_LABELS: Record<InvitationGalleryPresentation, string> = {
-  editorial: "Editorial grid",
-  romantic: "Framed",
-  botanical: "Masonry columns",
-  "black-tie": "Masonry columns",
-  birthday: "Polaroid grid",
-  cover: "Masonry columns",
-  accordion: "Image accordion",
-};
-
 const LAYOUT_OPTIONS: { id: LayoutChoice; label: string; hint: string }[] = [
-  { id: "default", label: "Template default", hint: "Keep the layout this template was designed with." },
+  { id: "default", label: "Editorial grid", hint: "Even grid with a featured first photo." },
   { id: "editorial", label: "Editorial grid", hint: "Even grid with a featured first photo." },
   { id: "cover", label: "Masonry columns", hint: "Natural-ratio columns of varying height." },
   { id: "accordion", label: "Image accordion", hint: "Expandable photo panels — crops photos to fit each panel." },
 ];
 
 export function GallerySection({ eventId, draft, updateDraft, disabled }: Props) {
-  const definition = getInvitationTemplateDefinition(draft.template_id) ?? getDefaultInvitationTemplateDefinition();
   const layout = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
   const galleryBlock = layout.layout_blocks.find((block) => block.type === "gallery");
   const rawPresentation = galleryBlock?.content.presentation;
   const selected: LayoutChoice = isInvitationGalleryPresentation(rawPresentation) ? rawPresentation : "default";
-  const defaultLabel = LAYOUT_LABELS[definition.galleryPresentation ?? "editorial"];
 
   function setLayout(next: LayoutChoice) {
     const current = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
@@ -85,7 +71,6 @@ export function GallerySection({ eventId, draft, updateDraft, disabled }: Props)
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {LAYOUT_OPTIONS.map((option) => {
             const isSelected = selected === option.id;
-            const label = option.id === "default" ? `${option.label} (${defaultLabel})` : option.label;
             return (
               <button
                 key={option.id}
@@ -99,7 +84,7 @@ export function GallerySection({ eventId, draft, updateDraft, disabled }: Props)
                   isSelected ? "border-orange-600 bg-orange-50 ring-1 ring-orange-600" : "border-zinc-200 hover:border-zinc-400",
                 )}
               >
-                <span className="block text-sm font-semibold text-zinc-900">{label}</span>
+                <span className="block text-sm font-semibold text-zinc-900">{option.label}</span>
                 <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">{option.hint}</span>
               </button>
             );

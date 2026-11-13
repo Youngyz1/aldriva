@@ -18,6 +18,15 @@ import { getOrgNavItems } from "./org-nav-items";
 import OrgDashboardSidebar from "./OrgDashboardSidebar";
 import OrgMobileHeader from "./OrgMobileHeader";
 import OrgApprovalBanner from "./OrgApprovalBanner";
+import { DashboardBottomBar } from "@/components/nav/DashboardBottomBar";
+
+// Opted out of instant-navigation validation: this segment has no shell worth
+// streaming. The layout must resolve the session, the tenant row and its access
+// before it can redirect/404, and the sidebar, capability nav and approval
+// banner all render from the same eight-query batch. A Suspense fallback here
+// could only be an empty chrome that flashes before the real nav arrives, and
+// a redirect cannot be deferred. Pages below keep their own boundaries.
+export const instant = false;
 
 export default async function OrgDashboardLayout({
   children,
@@ -67,6 +76,7 @@ export default async function OrgDashboardLayout({
     { data: businessRows },
     { count: menuSectionCount },
     { count: serviceCount },
+    { count: activeServiceCount },
     { count: reservationCount },
   ] = await Promise.all([
     supabase.from("events").select("id, deleted_at").eq("organizer_id", id).is("deleted_at", null).limit(1),
@@ -78,9 +88,13 @@ export default async function OrgDashboardLayout({
     supabase.from("businesses").select("id, industry, category, business_type, offerings, status").eq("organizer_id", id),
     supabase.from("menu_sections").select("id", { count: "exact", head: true }).eq("organizer_id", id),
     supabase.from("services").select("id", { count: "exact", head: true }).eq("organizer_id", id),
+    supabase.from("services").select("id", { count: "exact", head: true }).eq("organizer_id", id).eq("is_active", true),
     // Missing migration 176 => error => null count => hidden unless gated
-    // otherwise; never crashes the layout.
-    supabase.from("reservations").select("id", { count: "exact", head: true }).eq("organizer_id", id),
+    // otherwise; never crashes the layout. Restaurant table reservations only
+    // (booking_type='table') — appointment-type general bookings have their
+    // own "Bookings" nav signal and never resurrect Reservations for a
+    // service-only business.
+    supabase.from("reservations").select("id", { count: "exact", head: true }).eq("organizer_id", id).eq("booking_type", "table"),
   ]);
   const allBusinessRows = Array.isArray(businessRows) ? businessRows : [];
   const organizerTypes = classifyOrganizerDashboardTypes({
@@ -92,6 +106,7 @@ export default async function OrgDashboardLayout({
   const hasProducts = (productCount ?? 0) > 0;
   const hasMenuRows = (menuSectionCount ?? 0) > 0;
   const hasServiceRows = (serviceCount ?? 0) > 0;
+  const hasActiveServiceRows = (activeServiceCount ?? 0) > 0;
   const hasReservationRows = (reservationCount ?? 0) > 0;
 
   // Capability-driven business nav: union across eligible linked businesses.
@@ -120,6 +135,7 @@ export default async function OrgDashboardLayout({
     hasProducts,
     hasMenuRows,
     hasServiceRows,
+    hasActiveServiceRows,
     hasReservationRows,
     capabilities,
     offerings,
@@ -164,18 +180,32 @@ export default async function OrgDashboardLayout({
     }
   }
 
+  const bottomBarCaps: string[] = [...capabilities];
+  if (organizerTypes.hasEvents && !bottomBarCaps.includes("EVENTS")) {
+    bottomBarCaps.push("EVENTS");
+  }
+  if (organizerTypes.hasFundraisers && !bottomBarCaps.includes("DONATIONS")) {
+    bottomBarCaps.push("DONATIONS");
+  }
+
   return (
     <div className="flex min-h-screen bg-zinc-100">
-      <OrgDashboardSidebar org={org} organizerTypes={organizerTypes} hasProducts={hasProducts} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} hasReservationRows={hasReservationRows} capabilities={capabilities} offerings={offerings} />
+      <OrgDashboardSidebar org={org} organizerTypes={organizerTypes} hasProducts={hasProducts} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} hasActiveServiceRows={hasActiveServiceRows} hasReservationRows={hasReservationRows} capabilities={capabilities} offerings={offerings} />
 
       {/* Main content area */}
       <main className="min-w-0 flex-1">
-        <OrgMobileHeader org={org} organizerTypes={organizerTypes} hasProducts={hasProducts} hasMenuRows={hasMenuRows} hasServiceRows={hasServiceRows} hasReservationRows={hasReservationRows} capabilities={capabilities} offerings={offerings} />
+        <OrgMobileHeader org={org} />
         <OrgApprovalBanner approvalState={approvalState} />
-        <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 lg:px-8 lg:pb-6">
+        <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:px-8 pb-[calc(var(--bottom-bar-h)+1.5rem)] lg:pb-6">
           {children}
         </div>
+        <DashboardBottomBar
+          orgId={id}
+          hasLiveDomain={organizerTypes.hasBusiness || organizerTypes.hasEvents || organizerTypes.hasFundraisers}
+          capabilities={bottomBarCaps}
+        />
       </main>
     </div>
   );
 }
+

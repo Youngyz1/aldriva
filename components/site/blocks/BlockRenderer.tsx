@@ -53,10 +53,12 @@ import {
   isBlockVisible,
 } from "@/lib/website-blocks";
 import { getBackgroundStyle, getContainerClass, getHiddenOnMobileClass, getSpacingClass } from "@/lib/section-helpers";
-import { formatMoney as formatCurrency } from "@/lib/money";
+import { formatMoney as formatCurrency, isPriceEmpty } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
 import { isOvernightWebsiteInterval } from "@/lib/website-hours";
+import { ONLINE_PAYMENT_CURRENCIES } from "@/lib/storefront-features";
+import { buildClosedNoticeLabels } from "@/lib/storefront-closed-notice";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { readableOn } from "@/lib/readable-on";
@@ -64,8 +66,10 @@ import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ProductCarousel } from "./ProductCarousel";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
+import { GeneralBookingForm, type StorefrontGeneralBookingConfig, type GeneralBookingFormLabels } from "../reservations/GeneralBookingForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
+import type { ValidatedPublicService } from "@/lib/services-public-data";
 import {
   resolveEventsEmbed,
   resolveProductsEmbed,
@@ -2047,13 +2051,19 @@ async function ServicesEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
+  currency,
+  currencyLocale,
 }: {
   block: ServicesEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
+  currency?: string;
+  currencyLocale?: Locale;
 }) {
   const services = tenantId ? await resolveServicesEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const layout = block.layout ?? "grid";
+  const displayCurrency = normalizeCurrencyCode(currency) ?? "USD";
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   return (
     <section className="w-full">
       <SectionHeading heading={block.heading || "Our Services"} subheading={block.subheading} />
@@ -2077,10 +2087,12 @@ async function ServicesEmbedBlockRenderer({
                   <div>
                     <div className="flex items-center gap-[var(--ps-space-2)]"><h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>{svc.isDraft && <DraftBadge />}</div>
                     {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-1">{svc.description}</p>}
-                    {svc.duration_minutes && <p className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</p>}
+                    {svc.duration_minutes != null && svc.duration_minutes > 0 && <p className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</p>}
                   </div>
                 </div>
-                {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="text-sm font-semibold text-[var(--ps-text)]">${svc.price.toFixed(2)}</div>
+                {!isPriceEmpty(svc.price) && (
+                  <div className="text-sm font-semibold text-[var(--ps-text)]">{formatCurrency(svc.price, displayCurrency, locale)}</div>
+                )}
               </div>
             );
           })}
@@ -2104,8 +2116,10 @@ async function ServicesEmbedBlockRenderer({
                   <h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>
                   {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-2">{svc.description}</p>}
                   <div className="mt-[var(--ps-space-3)] flex items-center justify-between">
-                    <span className="text-sm font-bold">${svc.price.toFixed(2)}</span>
-                    {svc.duration_minutes && <span className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</span>}
+                    {!isPriceEmpty(svc.price) && (
+                      <span className="text-sm font-bold">{formatCurrency(svc.price, displayCurrency, locale)}</span>
+                    )}
+                    {svc.duration_minutes != null && svc.duration_minutes > 0 && <span className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</span>}
                   </div>
                 </div>
               </div>
@@ -2310,12 +2324,22 @@ async function MenuEmbedBlockRenderer({
     payOnline: t("payOnline"),
     payingOnline: t("payingOnline"),
     onlinePaymentNotice: t("onlinePaymentNotice"),
+    // Built from the single online-payment currency gate, never a literal.
+    onlinePaymentUnsupportedCurrency: t("onlinePaymentUnsupportedCurrency", {
+      currencies: ONLINE_PAYMENT_CURRENCIES.join(", "),
+    }),
+    onlinePaymentUnavailable: t("onlinePaymentUnavailable"),
+    tableOnlinePaymentUnavailable: t("tableOnlinePaymentUnavailable"),
     placeOrder: t("placeOrder"),
     placingOrder: t("placingOrder"),
     orderSuccessTitle: t("orderSuccessTitle"),
     orderSuccessSubtext: t("orderSuccessSubtext"),
     orderNumber: t("orderNumber"),
     scheduledNotice: t("scheduledNotice"),
+    // {time} stays a placeholder until StorefrontBrowse knows the next
+    // opening; the helper passes it so ICU formatting never sees a missing
+    // value (FORMATTING_ERROR in the builder).
+    ...buildClosedNoticeLabels(t),
     noUpcomingHours: t("noUpcomingHours"),
     backToMenu: t("backToMenu"),
     asap: t("asap"),
@@ -2575,9 +2599,13 @@ async function MenuEmbedBlockRenderer({
 async function ReservationFormBlockRenderer({
   reservationConfig,
   siteSlug,
+  businessName,
+  coverImageUrl,
 }: {
   reservationConfig?: StorefrontReservationConfig;
   siteSlug?: string;
+  businessName?: string;
+  coverImageUrl?: string | null;
 }) {
   const t = await getTranslations("Storefront");
   if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
@@ -2614,10 +2642,101 @@ async function ReservationFormBlockRenderer({
     tooManyOpenRequests: t("reservationTooManyOpen"),
     invalidPartySize: t("reservationInvalidParty"),
     requestFailed: t("reservationFailed"),
+    fullyBooked: t("reservationFullyBooked"),
+    guestInformation: t("reservationSectionGuest"),
+    reservationDetails: t("reservationSectionDetails"),
+    guestNotes: t("reservationSectionNotes"),
+    duration: t("reservationDuration"),
+    reservationTime: t("reservationTime"),
+    errorName: t("reservationErrorName"),
+    errorPhone: t("reservationErrorPhone"),
+    errorTime: t("reservationErrorTime"),
   };
   return (
     <section className="w-full">
-      <ReservationRequestForm config={reservationConfig} labels={labels} siteSlug={siteSlug ?? reservationConfig.slug} />
+      <ReservationRequestForm
+        config={reservationConfig}
+        labels={labels}
+        siteSlug={siteSlug ?? reservationConfig.slug}
+        businessName={businessName}
+        coverImageUrl={coverImageUrl}
+      />
+    </section>
+  );
+}
+
+// ── General Booking Form Block ───────────────────────────────────────────────
+
+async function GeneralBookingFormBlockRenderer({
+  reservationConfig,
+  preselectedService,
+  siteSlug,
+  businessName,
+  coverImageUrl,
+}: {
+  reservationConfig?: StorefrontGeneralBookingConfig;
+  preselectedService?: ValidatedPublicService | null;
+  siteSlug?: string;
+  businessName?: string;
+  coverImageUrl?: string | null;
+}) {
+  const t = await getTranslations("Storefront");
+  if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
+    return (
+      <section className="w-full">
+        <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("requestNotAvailable")}</p>
+      </section>
+    );
+  }
+  const labels: GeneralBookingFormLabels = {
+    title: t("generalBookingTitle"),
+    subtext: t("generalBookingSubtext"),
+    fullName: t("fullName"),
+    phone: t("phone"),
+    email: t("email"),
+    serviceType: t("serviceType"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    specialRequest: t("specialRequest"),
+    alternativeDate: t("alternativeDate"),
+    termsCheckbox: t("termsCheckbox"),
+    marketingCheckbox: t("marketingCheckbox"),
+    submitLabel: t("generalBookingSubmitLabel"),
+    submittingLabel: t("generalBookingSubmittingLabel"),
+    selectedService: t("generalBookingSelectedService"),
+    requestReceived: t("requestReceived"),
+    requestReceivedSubtext: t("requestReceivedSubtext"),
+    requestReference: t("requestReference"),
+    trackRequest: t("trackRequest"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
+    backToSite: t("backToSite"),
+    closedThatDay: t("closedThatDay"),
+    checkDetails: t("reservationCheckDetails"),
+    rateLimited: t("reservationRateLimited"),
+    tooManyOpenRequests: t("reservationTooManyOpen"),
+    requestFailed: t("reservationFailed"),
+    errorName: t("reservationErrorName"),
+    errorPhone: t("reservationErrorPhone"),
+    errorService: t("generalBookingErrorService"),
+    errorTime: t("reservationErrorTime"),
+    errorCheckboxes: t("generalBookingErrorCheckboxes"),
+    guestInformation: t("reservationSectionGuest"),
+    bookingDetails: t("generalBookingSectionDetails"),
+    guestNotes: t("reservationSectionNotes"),
+    hoursNotSetLabel: (t as (key: string, values?: Record<string, string | number>) => string)("hoursNotSetYet"),
+    noTimesAvailableLabel: (t as (key: string, values?: Record<string, string | number>) => string)("noTimesAvailable", { days: reservationConfig.settings.max_days_ahead }),
+  };
+  return (
+    <section className="w-full">
+      <GeneralBookingForm
+        config={reservationConfig}
+        labels={labels}
+        siteSlug={siteSlug ?? reservationConfig.slug}
+        businessName={businessName}
+        coverImageUrl={coverImageUrl}
+        preselectedService={preselectedService}
+      />
     </section>
   );
 }
@@ -2833,6 +2952,7 @@ export async function BlockRenderer({
   currencyLocale,
   orderConfig,
   reservationConfig,
+  preselectedService,
   siteSlug,
   hasPublishedMenuPage,
   hasMenuEmbedOnPage,
@@ -2842,6 +2962,7 @@ export async function BlockRenderer({
   sectionAlign,
   businessName,
   businessLogo,
+  coverImageUrl,
 }: {
   block: unknown;
   tenantId?: string;
@@ -2853,6 +2974,8 @@ export async function BlockRenderer({
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
   reservationConfig?: StorefrontReservationConfig;
+  /** Validated ?service=<id> for the general booking form only. */
+  preselectedService?: ValidatedPublicService | null;
   siteSlug?: string;
   hasPublishedMenuPage?: boolean;
   hasMenuEmbedOnPage?: boolean;
@@ -2862,6 +2985,7 @@ export async function BlockRenderer({
   sectionAlign?: "left" | "center";
   businessName?: string;
   businessLogo?: string;
+  coverImageUrl?: string | null;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -2949,6 +3073,8 @@ export async function BlockRenderer({
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
+          currency={currency}
+          currencyLocale={currencyLocale}
         />
       );
       break;
@@ -2997,6 +3123,19 @@ export async function BlockRenderer({
         <ReservationFormBlockRenderer
           reservationConfig={reservationConfig}
           siteSlug={siteSlug}
+          businessName={businessName}
+          coverImageUrl={coverImageUrl}
+        />
+      );
+      break;
+    case "general_booking_form":
+      content = (
+        <GeneralBookingFormBlockRenderer
+          reservationConfig={reservationConfig}
+          preselectedService={preselectedService}
+          siteSlug={siteSlug}
+          businessName={businessName}
+          coverImageUrl={coverImageUrl}
         />
       );
       break;

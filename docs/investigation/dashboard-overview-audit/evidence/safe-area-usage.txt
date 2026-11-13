@@ -1,0 +1,48 @@
+=== env(safe-area-inset usage (27 matches) ===
+app/admin/ai/rejections/RejectionsClient.tsx:154:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/articles/ArticlesClient.tsx:339:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/businesses/BusinessesClient.tsx:332:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/businesses/review/ReviewQueueClient.tsx:160:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/finance/payouts/PayoutsAdminClient.tsx:381:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/fundraisers/page.tsx:457:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/organizers/OrganizersClient.tsx:583:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/payments/page.tsx:174:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/products/ProductsClient.tsx:345:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/reviews/page.tsx:239:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/users/identity-verifications/IdentityVerificationsAdminClient.tsx:285:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/users/UsersClient.tsx:460:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/activity/page.tsx:83:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/agents/page.tsx:120:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/approvals/page.tsx:127:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/knowledge/page.tsx:182:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/memory/page.tsx:181:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/qa/page.tsx:155:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/reports/page.tsx:111:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/sentinel/incidents/page.tsx:165:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/admin/workforce/tasks/page.tsx:125:      <div className="sticky bottom-0 z-10 bg-zinc-100 pb-[env(safe-area-inset-bottom)]">
+app/dashboard/DashboardMobileNav.tsx:12:    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 lg:hidden shadow-xs">
+app/dashboard/org/[id]/OrgMobileNav.tsx:28:    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 sm:px-6 lg:hidden">
+app/fundraisers/[slug]/FundraiserActions.tsx:120:        paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
+components/dashboard/website/builder/WebsiteBuilderClient.tsx:512:        <nav className="flex lg:hidden shrink-0 items-center justify-around border-t border-zinc-200 bg-white px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+components/site/blocks/StorefrontBrowse.tsx:1954:        <div className={`border-t border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-4)] ${savannah ? "pb-[env(safe-area-inset-bottom)]" : ""}`}>
+components/ui/sticky-table-toolbar.tsx:36:        "sticky bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:px-4",
+
+=== viewportFit occurrences (expect none) ===
+(none)
+
+=== viewport exports ===
+app/layout.tsx:15:export const viewport: Viewport = {
+app/layout.tsx-16-  width: "device-width",
+app/layout.tsx-17-  initialScale: 1,
+app/layout.tsx-18-  maximumScale: 1,
+app/layout.tsx-19-  themeColor: "#c2410c",
+app/layout.tsx-20-};
+app/layout.tsx-21-
+--
+app/[locale]/layout.tsx:25:export const viewport: Viewport = {
+app/[locale]/layout.tsx-26-  width: "device-width",
+app/[locale]/layout.tsx-27-  initialScale: 1,
+app/[locale]/layout.tsx-28-  maximumScale: 1,
+app/[locale]/layout.tsx-29-  themeColor: "#c2410c",
+app/[locale]/layout.tsx-30-};
+app/[locale]/layout.tsx-31-

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { hasEventOrOrganizerAccess, getEventTeamRole } from "@/lib/event-auth";
-import { signScannerToken } from "@/lib/offline-scanner-token";
+import { hasEventOrOrganizerAccess, getEventTeamRole, EVENT_SCAN_ENTITY_ROLES } from "@/lib/event-auth";
+import { signScannerToken, signScannerTokenV2 } from "@/lib/offline-scanner-token";
 
 export async function POST(
   req: NextRequest,
@@ -30,7 +30,7 @@ export async function POST(
       return NextResponse.json({ error: "Not signed in." }, { status: 401 });
     }
 
-    const canScan = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"]);
+    const canScan = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"], EVENT_SCAN_ENTITY_ROLES);
     if (!canScan) {
       return NextResponse.json(
         { error: "You do not have permission to scan tickets for this event." },
@@ -49,14 +49,30 @@ export async function POST(
 
     const entranceId = memberRow?.entrance_id || null;
 
-    // Issue signed 8-hour token
-    const { token, expiresAt } = signScannerToken({
-      userId: user.id,
-      eventId,
-      role,
-      entranceId,
-      durationHours: 8,
-    });
+    const { data: ev } = await admin.from("events").select("organizer_id").eq("id", eventId).maybeSingle();
+    const orgId = ev?.organizer_id ?? null;
+
+    // Issue signed 8-hour token. v2 minting is gated by env flag; capabilities
+    // are computed server-side from the caller's role and cannot be requested.
+    const v2 = process.env.SCANNER_TOKEN_V2_MINT === "1";
+    let token: string;
+    let expiresAt: number;
+    if (v2) {
+      const { token: t, expiresAt: e } = signScannerTokenV2({
+        codeType: ["ticket"],
+        scope: { event_id: eventId, ...(orgId ? { tenant_id: orgId } : {}) },
+        actor: { user_id: user.id, role },
+        actions: ["check_in"],
+        entranceId,
+        durationHours: 8,
+      });
+      token = t;
+      expiresAt = e;
+    } else {
+      const r = signScannerToken({ userId: user.id, eventId, role, entranceId, durationHours: 8 });
+      token = r.token;
+      expiresAt = r.expiresAt;
+    }
 
     return NextResponse.json({
       success: true,

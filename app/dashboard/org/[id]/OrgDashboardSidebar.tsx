@@ -26,6 +26,9 @@ import {
   IconToolsKitchen2 as Utensils,
   IconBuildingStore as Store,
   IconShoppingBag as ShoppingBag,
+  IconQrcode as Qrcode,
+  IconCalendarCheck as CalendarCheck,
+  IconCalendarClock as CalendarClock,
 } from "@tabler/icons-react";
 import { getOrgNavItems } from "./org-nav-items";
 import type { Capability } from "@/lib/business-taxonomy";
@@ -41,7 +44,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {
@@ -51,11 +54,14 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
-export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings }: { org: Org; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasReservationRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null }) {
+export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, capabilities, offerings }: { org: Org; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasActiveServiceRows?: boolean; hasReservationRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null }) {
   const pathname = usePathname();
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const rawNavItems = getOrgNavItems(base, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasReservationRows, capabilities, offerings });
+  const rawNavItems = getOrgNavItems(base, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, capabilities, offerings });
+  if (hasMenuRows || capabilities.includes("MENU")) {
+    rawNavItems.push({ label: "Tables & QR", href: `${base}/tables`, icon: "Qrcode" });
+  }
   const navItems = rawNavItems.map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }

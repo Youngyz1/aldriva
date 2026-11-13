@@ -18,6 +18,8 @@ export default function RedeemClient() {
   const initialCaptureCompleteRef = useRef(false);
   const [phoneLast4, setPhoneLast4] = useState("");
   const [error, setError] = useState("");
+  // Shown when the invitation is accepted but the guest scanner is gated off.
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function RedeemClient() {
     if (submitting || !tokenReady || !token || phoneLast4.length !== 4) return;
     setSubmitting(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch("/api/events/team/redeem", {
         method: "POST",
@@ -73,8 +76,20 @@ export default function RedeemClient() {
         body: JSON.stringify({ token, phoneLast4 }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || typeof data.workspaceUrl !== "string") {
+      if (!response.ok) {
         setError(data.error || "This invitation could not be redeemed. Check the details or request a new invitation.");
+        return;
+      }
+      if (data.guestScanningEnabled === false) {
+        setNotice(
+          typeof data.message === "string" && data.message
+            ? data.message
+            : "Your invitation was accepted, but guest scanning is not available on this event yet. Ask the organizer to add you with an Aldriva account."
+        );
+        return;
+      }
+      if (typeof data.workspaceUrl !== "string") {
+        setError("This invitation could not be redeemed. Check the details or request a new invitation.");
         return;
       }
       router.replace(data.workspaceUrl);
@@ -111,6 +126,11 @@ export default function RedeemClient() {
             />
           </Label>
           {error && <p role="alert" className="border-l-2 border-destructive pl-3 text-sm font-semibold text-destructive">{error}</p>}
+          {notice && (
+            <div role="status" className="border-l-2 border-primary pl-3 text-sm leading-6 text-foreground">
+              {notice}
+            </div>
+          )}
           <Button
             type="submit"
             disabled={!tokenReady || !token || submitting || phoneLast4.length !== 4}

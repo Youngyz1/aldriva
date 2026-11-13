@@ -218,6 +218,12 @@ export const RATE_LIMITS = {
    */
   reservationCustomerCancel: { limit: 10, windowSeconds: 600 },
 
+  /**
+   * Phase 7 Stage D: Guest reservation change request submission.
+   * Keyed per-IP AND per-token by callers. Fail-open.
+   */
+  reservationChangeRequest: { limit: 10, windowSeconds: 600 },
+
   /** Kitchen invitation bootstrap: secret-link probing is denied on limiter failure. */
   kitchenInviteBootstrap: { limit: 12, windowSeconds: 600 },
 
@@ -253,6 +259,31 @@ export const RATE_LIMITS = {
    */
   invitationRedemption: { limit: 5, windowSeconds: 600 },
   ipInvitationRedemption: { limit: 100, windowSeconds: 3600 },
+
+  /**
+   * Phase 2: scan code issuance for printed receipt barcodes
+   * (POST /api/scan-codes/order and /reservation). Per-token-hash bucket
+   * limits targeted probing of a single tracking/lookup token; per-IP
+   * bucket limits spray across tokens from one source. Both fail-closed,
+   * same posture as event team invitation redemption above.
+   */
+  scanCodeOrderIssue: { limit: 10, windowSeconds: 600 },
+  ipScanCodeOrderIssue: { limit: 60, windowSeconds: 3600 },
+  scanCodeReservationIssue: { limit: 10, windowSeconds: 600 },
+  ipScanCodeReservationIssue: { limit: 60, windowSeconds: 3600 },
+  scanActionIssue: { limit: 30, windowSeconds: 600 },
+  ipScanAction: { limit: 300, windowSeconds: 600 },
+  userScanAction: { limit: 120, windowSeconds: 60 },
+
+  /**
+   * General booking form submissions per IP.
+   */
+  generalBookingRequestIp: { limit: 20, windowSeconds: 3600 },
+
+  /**
+   * General booking form submissions per phone number.
+   */
+  generalBookingRequestPhone: { limit: 10, windowSeconds: 3600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

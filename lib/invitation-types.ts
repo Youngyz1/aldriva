@@ -33,7 +33,7 @@ export interface LayoutSlotConfig {
 
 export interface InvitationLayoutConfig {
   /** Code-owned renderer variant for authored standalone stationery designs. */
-  design?: "botanical-reverie" | "luxe-editorial";
+  design?: string;
   canvas: {
     width: number;
     height: number;

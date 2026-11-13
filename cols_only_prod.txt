@@ -1,0 +1,3 @@
+ai_conversations.ai_provider text NO 'ollama'::text
+businesses.crypto_payment_id text YES 
+event_team_invitations.token text NO 

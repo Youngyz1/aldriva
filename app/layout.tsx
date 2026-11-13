@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import ChromeGate from "@/components/ChromeGate";
 import BrandMark from "@/components/BrandMark";
 import CookieConsent from "@/components/CookieConsent";
 import PwaRegister from "@/components/PwaRegister";
@@ -14,7 +15,6 @@ import { PlatformThemeProvider } from "@/components/PlatformThemeProvider";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: "#c2410c",
 };
 
@@ -70,7 +70,9 @@ export default function RootLayout({
             <LocaleProvider>
               <PwaRegister />
               <Suspense fallback={<NavbarFallback />}>
-                <Navbar />
+                <ChromeGate>
+                  <Navbar />
+                </ChromeGate>
               </Suspense>
               {/* No global footer here by design — each segment opts into the
                   correct footer tier (marketing / compact / none) via its own
