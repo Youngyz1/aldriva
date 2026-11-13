@@ -263,8 +263,8 @@
   "lib/scan-codes/__tests__/resolve.test.cjs",
   "lib/scan-codes/__tests__/routes.test.cjs",
   "lib/__tests__/general-booking.test.cjs",
-"lib/__tests__/general-booking-form-registration.test.cjs",
-"lib/__tests__/migration-218-reservation-capacity-booking-type.test.cjs",
+  "lib/__tests__/general-booking-form-registration.test.cjs",
+  "lib/__tests__/migration-218-reservation-capacity-booking-type.test.cjs",
   "lib/__tests__/site-paths.test.cjs",
   "lib/__tests__/bookings-actions.test.cjs",
   "lib/__tests__/bookings-page.test.cjs",
@@ -283,5 +283,6 @@
   "lib/__tests__/rental-booking-pricing.test.cjs",
   "lib/__tests__/rental-storefront-booking.test.cjs",
   "lib/__tests__/rental-booking-age-validation.test.cjs",
-  "lib/__tests__/rental-pickup-guards.test.cjs"
+  "lib/__tests__/rental-pickup-guards.test.cjs",
+  "lib/__tests__/rental-handover.test.cjs"
 ]

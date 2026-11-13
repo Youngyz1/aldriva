@@ -31,6 +31,8 @@ import { getRentalReceiptDataForStaff } from "@/lib/rental/receipt-data";
 import { StaffRentalReceiptPanel } from "@/components/rental/StaffRentalReceiptPanel";
 import { FinancialsCard, type FinancialsPaymentRow, type FinancialsPaymentStatus } from "@/components/dashboard/rentals/FinancialsCard";
 import { CustomerCard } from "@/components/dashboard/rentals/CustomerCard";
+import { HandoverPanel } from "@/components/dashboard/rentals/HandoverPanel";
+import { getRentalInspections } from "@/lib/actions/rental-handover";
 
 const ALLOWED_ROLES: EntityRole[] = [
   "owner", "admin", "manager", "editor", "finance", "viewer",
@@ -139,6 +141,14 @@ export default async function BookingDetailPage({
     financialsPayments = [];
   }
 
+  let inspections: import("@/lib/actions/rental-handover").RentalInspectionRow[] = [];
+  try {
+    const inspRes = await getRentalInspections(bookingId, organizerId);
+    if (inspRes.success) inspections = inspRes.inspections;
+  } catch {
+    inspections = [];
+  }
+
   const vehicle = Array.isArray(booking.vehicles) ? booking.vehicles[0] : booking.vehicles as Record<string, unknown> | null;
   const category = Array.isArray(booking.vehicle_categories) ? booking.vehicle_categories[0] : booking.vehicle_categories as Record<string, unknown> | null;
   const pickupBranch = Array.isArray(booking.pickup_branch) ? booking.pickup_branch[0] : booking.pickup_branch as Record<string, unknown> | null;
@@ -199,7 +209,8 @@ export default async function BookingDetailPage({
 
       {/* Status actions — one aligned toolbar: status actions on the left
           (Cancel visually separated inside BookingDetailActions itself),
-          Print receipt at the far right via justify-between. */}
+          Print receipt at the far right via justify-between. Pickup/return
+          handovers are handled below in HandoverPanel (inspection + atomic status). */}
       {canManage && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3">
           <BookingDetailActions
@@ -207,8 +218,33 @@ export default async function BookingDetailPage({
             organizerId={organizerId}
             status={status}
           />
-          {staffReceiptData ? <StaffRentalReceiptPanel data={staffReceiptData} /> : null}
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/api/rentals/agreement/${bookingId}?organizerId=${organizerId}`}
+              className="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+            >
+              Agreement PDF
+            </Link>
+            {staffReceiptData ? <StaffRentalReceiptPanel data={staffReceiptData} /> : null}
+          </div>
         </div>
+      )}
+
+      {canManage && (
+        <HandoverPanel
+          bookingId={bookingId}
+          organizerId={organizerId}
+          status={status}
+          currency={currency}
+          endsAt={String(booking.ends_at)}
+          depositRequired={Number(booking.deposit_required_amount) || 0}
+          depositCollected={Number(booking.deposit_collected_amount) || 0}
+          depositStatus={depositStatus}
+          existingLateFeeAmount={Number(booking.late_fee_amount) || 0}
+          existingLateFeeStatus={String(booking.late_fee_status || "none")}
+          inspections={inspections}
+          canManage={canManage}
+        />
       )}
 
       {/* Receipt panel, mobile/tablet: inline under the action row, full
@@ -338,6 +374,8 @@ export default async function BookingDetailPage({
                 : "unpaid"
             }
             payments={financialsPayments}
+            lateFeeAmount={Number(booking.late_fee_amount) || 0}
+            lateFeeStatus={String(booking.late_fee_status || "none")}
           />
 
           {/* Deposit panel */}
@@ -349,7 +387,9 @@ export default async function BookingDetailPage({
               currency={currency}
               depositRequired={Number(booking.deposit_required_amount)}
               depositCollected={Number(booking.deposit_collected_amount)}
+              depositRetained={Number(booking.deposit_retained_amount) || 0}
               depositStatus={depositStatus}
+              retentionReason={(booking.deposit_retention_reason as string | null) ?? null}
               canManage={canManage}
             />
           </div>

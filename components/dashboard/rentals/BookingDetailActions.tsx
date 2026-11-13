@@ -23,13 +23,15 @@ import {
 } from "@tabler/icons-react";
 import type { RentalBookingStatus } from "./RentalBookingStatusBadge";
 
+// Pickup and return are handled by the dedicated HandoverPanel so inspection,
+// deposit settlement and late fees are captured and saved atomically. This
+// component handles the remaining transitions (confirm/decline/cancel/no-show).
 const VALID_ACTIONS: Record<RentalBookingStatus, { label: string; newStatus: RentalBookingStatus; variant: "primary" | "danger" | "outline" }[]> = {
   pending: [
     { label: "Confirm", newStatus: "confirmed", variant: "primary" },
     { label: "Decline", newStatus: "cancelled", variant: "danger" },
   ],
   confirmed: [
-    { label: "Start Rental", newStatus: "active", variant: "primary" },
     { label: "No Show", newStatus: "no_show", variant: "outline" },
     { label: "Cancel", newStatus: "cancelled", variant: "danger" },
   ],
@@ -37,7 +39,6 @@ const VALID_ACTIONS: Record<RentalBookingStatus, { label: string; newStatus: Ren
     { label: "Cancel", newStatus: "cancelled", variant: "danger" },
   ],
   active: [
-    { label: "Complete Return", newStatus: "completed", variant: "primary" },
     { label: "Cancel", newStatus: "cancelled", variant: "danger" },
   ],
   completed: [],
@@ -50,6 +51,8 @@ const FRIENDLY_ERRORS: Record<string, string> = {
   VEHICLE_NOT_ASSIGNED: "Assign a vehicle before starting the rental.",
   PICKUP_BLOCKED_STATUS: "This booking cannot be started in its current status.",
   PICKUP_BLOCKED_UNPAID: "Record the payment received at pickup before starting the rental.",
+  CONFIRMATION_REQUIRED: "Record the customer confirmation before continuing.",
+  ALREADY_SUBMITTED: "This handover has already been recorded.",
 };
 
 type PickupPayment = { method: string; amount: number; currency: string };
