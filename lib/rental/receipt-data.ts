@@ -24,6 +24,12 @@ export type RentalReceiptData = {
   balanceDue: number;
   paidAt: string | null;
   depositRequired: number;
+  depositCollected?: number;
+  depositRetained?: number;
+  depositStatus?: string;
+  depositRetentionReason?: string | null;
+  lateFeeAmount?: number;
+  lateFeeStatus?: string;
   /** Stripe PaymentIntent reference, when one exists. */
   paymentReference: string | null;
   paymentStatus: string;
@@ -69,7 +75,7 @@ export async function getRentalReceiptData(
   const { data: booking, error: bookingError } = await admin
     .from("rental_bookings")
     .select(
-      "id, business_id, booking_number, customer_name, starts_at, ends_at, snapshot_currency, rental_amount, deposit_required_amount, payment_status"
+      "id, business_id, booking_number, customer_name, starts_at, ends_at, snapshot_currency, rental_amount, deposit_required_amount, deposit_collected_amount, deposit_retained_amount, deposit_status, deposit_retention_reason, late_fee_amount, late_fee_status, payment_status"
     )
     .eq("lookup_token", lookupToken)
     .maybeSingle();
@@ -144,6 +150,12 @@ export async function getRentalReceiptData(
     balanceDue,
     paidAt: latestOnline?.created_at ?? null,
     depositRequired: Number(booking.deposit_required_amount) || 0,
+    depositCollected: Number((booking as any).deposit_collected_amount) || 0,
+    depositRetained: Number((booking as any).deposit_retained_amount) || 0,
+    depositStatus: String((booking as any).deposit_status ?? "none"),
+    depositRetentionReason: ((booking as any).deposit_retention_reason as string | null) ?? null,
+    lateFeeAmount: Number((booking as any).late_fee_amount) || 0,
+    lateFeeStatus: String((booking as any).late_fee_status ?? "none"),
     paymentReference: latestWithReference?.stripe_payment_intent_id ?? null,
     paymentStatus: String(booking.payment_status),
     scanCode,
@@ -174,7 +186,7 @@ export async function getRentalReceiptDataForStaff(
   const { data: booking, error: bookingError } = await admin
     .from("rental_bookings")
     .select(
-      "id, business_id, booking_number, customer_name, starts_at, ends_at, snapshot_currency, rental_amount, deposit_required_amount, payment_status"
+      "id, business_id, booking_number, customer_name, starts_at, ends_at, snapshot_currency, rental_amount, deposit_required_amount, deposit_collected_amount, deposit_retained_amount, deposit_status, deposit_retention_reason, late_fee_amount, late_fee_status, payment_status"
     )
     .eq("id", bookingId)
     .eq("organizer_id", organizerId)
@@ -245,6 +257,12 @@ export async function getRentalReceiptDataForStaff(
     balanceDue,
     paidAt: latestCredit?.created_at ?? null,
     depositRequired: Number(booking.deposit_required_amount) || 0,
+    depositCollected: Number((booking as any).deposit_collected_amount) || 0,
+    depositRetained: Number((booking as any).deposit_retained_amount) || 0,
+    depositStatus: String((booking as any).deposit_status ?? "none"),
+    depositRetentionReason: ((booking as any).deposit_retention_reason as string | null) ?? null,
+    lateFeeAmount: Number((booking as any).late_fee_amount) || 0,
+    lateFeeStatus: String((booking as any).late_fee_status ?? "none"),
     paymentReference: latestWithReference?.stripe_payment_intent_id ?? null,
     paymentStatus: String(booking.payment_status),
     paymentMethod: latestCredit ? formatPaymentMethod(latestCredit.method) : null,

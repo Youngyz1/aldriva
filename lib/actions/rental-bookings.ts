@@ -1018,7 +1018,12 @@ export async function getRentalBookingByToken(lookupToken: string): Promise<{
     snapshot_currency: string;
     payment_status: string;
     deposit_required_amount: number;
+    deposit_collected_amount: number;
+    deposit_retained_amount: number;
     deposit_status: string;
+    deposit_retention_reason: string | null;
+    late_fee_amount: number;
+    late_fee_status: string;
     customer_name: string;
     pickup_branch_id: string | null;
     return_branch_id: string | null;
@@ -1155,7 +1160,12 @@ export async function getRentalBookingByToken(lookupToken: string): Promise<{
       snapshot_currency: row.snapshot_currency,
       payment_status: row.payment_status,
       deposit_required_amount: Number(row.deposit_required_amount),
+      deposit_collected_amount: Number(row.deposit_collected_amount ?? 0),
+      deposit_retained_amount: Number(row.deposit_retained_amount ?? 0),
       deposit_status: row.deposit_status,
+      deposit_retention_reason: row.deposit_retention_reason ?? null,
+      late_fee_amount: Number(row.late_fee_amount ?? 0),
+      late_fee_status: row.late_fee_status ?? "none",
       customer_name: row.customer_name,
       pickup_branch_id: row.pickup_branch_id ?? null,
       return_branch_id: row.return_branch_id ?? null,

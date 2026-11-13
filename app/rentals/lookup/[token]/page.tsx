@@ -350,11 +350,20 @@ export default async function RentalLookupPage({ params, searchParams }: PagePro
                     {booking.payment_status}
                   </span>
                 </div>
+                {(booking.late_fee_amount > 0 || booking.late_fee_status !== "none") && (
+                  <div className="flex justify-between py-1 border-b border-zinc-100">
+                    <span className="text-zinc-600">Late fee</span>
+                    <div className="text-right">
+                      <span className="font-medium text-zinc-900">{formatMoney(booking.late_fee_amount, currency)}</span>
+                      <p className="text-[11px] text-zinc-500 capitalize">{String(booking.late_fee_status).replace(/_/g, " ")}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between py-1 border-b border-zinc-100">
                   <div>
                     <span className="text-zinc-600">Security Deposit</span>
                     <p className="text-[11px] text-zinc-400">
-                      Collected offline at pickup · Not part of rental charge
+                      Collected separately from rental payment
                     </p>
                   </div>
                   <div className="text-right">
@@ -364,6 +373,12 @@ export default async function RentalLookupPage({ params, searchParams }: PagePro
                     <p className="text-[11px] text-zinc-500 capitalize">
                       Status: {booking.deposit_status.replace(/_/g, " ")}
                     </p>
+                    {booking.deposit_retained_amount > 0 && (
+                      <p className="text-[11px] text-zinc-500">Retained: {formatMoney(booking.deposit_retained_amount, currency)}</p>
+                    )}
+                    {booking.deposit_retention_reason && (
+                      <p className="text-[11px] text-zinc-500">Reason: {booking.deposit_retention_reason}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -393,6 +408,14 @@ export default async function RentalLookupPage({ params, searchParams }: PagePro
                 <strong>Privacy Guaranteed:</strong> For your security, sensitive identity numbers,
                 date of birth, internal vehicle IDs, and license plates are never displayed on public links.
               </p>
+            </div>
+            <div className="pt-2">
+              <a
+                href={`/api/rentals/agreement/token/${encodeURIComponent(token)}`}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+              >
+                Download rental agreement (PDF)
+              </a>
             </div>
           </div>
         </div>

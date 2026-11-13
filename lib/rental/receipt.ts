@@ -97,10 +97,13 @@ export function generateRentalReceiptPdf(d: RentalReceiptData): Buffer {
     ["Pickup", utc(d.startsAt)],
     ["Return", utc(d.endsAt)],
     ["Rental charge", money(d.rentalAmount)],
-    ["Paid online", money(d.amountPaid), true],
-    ["Balance due", money(d.balanceDue), d.balanceDue > 0],
-    ["Paid on", utc(d.paidAt)],
   ];
+  if ((d.lateFeeAmount ?? 0) > 0 || (d.lateFeeStatus && d.lateFeeStatus !== "none")) {
+    rows.push(["Late fee", `${money(d.lateFeeAmount ?? 0)} (${(d.lateFeeStatus || "none").replace(/_/g, " ")})`]);
+  }
+  rows.push(["Paid online", money(d.amountPaid), true]);
+  rows.push(["Balance due", money(d.balanceDue), d.balanceDue > 0]);
+  rows.push(["Paid on", utc(d.paidAt)]);
 
   const paymentRef = shortReference(d.paymentReference);
   if (paymentRef) rows.push(["Payment ref", paymentRef]);
@@ -143,10 +146,12 @@ export function generateRentalReceiptPdf(d: RentalReceiptData): Buffer {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(...MUTED);
-  const depositNote =
-    d.depositRequired > 0
-      ? `A security deposit of ${money(d.depositRequired)} is collected separately at pickup and is not part of this payment.`
-      : "No security deposit is required for this booking.";
+  let depositNote = "No security deposit is required for this booking.";
+  if (d.depositRequired > 0) {
+    const status = (d.depositStatus || "none").replace(/_/g, " ");
+    depositNote = `Security deposit ${money(d.depositRequired)} (collected ${money(d.depositCollected ?? 0)}, retained ${money(d.depositRetained ?? 0)}, ${status}). Collected separately from rental payment.`;
+    if (d.depositRetentionReason) depositNote += ` Reason: ${d.depositRetentionReason}`;
+  }
   doc.text(doc.splitTextToSize(depositNote, CONTENT_WIDTH_MM), MARGIN_MM, y);
   y += doc.splitTextToSize(depositNote, CONTENT_WIDTH_MM).length * 3 + 5;
 

@@ -48,7 +48,9 @@ export interface DepositPanelProps {
   currency: string;
   depositRequired: number;
   depositCollected: number;
+  depositRetained?: number;
   depositStatus: DepositStatus;
+  retentionReason?: string | null;
   canManage: boolean;
 }
 
@@ -58,7 +60,9 @@ export function DepositPanel({
   currency,
   depositRequired,
   depositCollected,
+  depositRetained = 0,
   depositStatus,
+  retentionReason,
   canManage,
 }: DepositPanelProps) {
   const [amount, setAmount] = useState(depositRequired.toString());
@@ -114,6 +118,7 @@ export function DepositPanel({
             <span className="ml-2 text-zinc-500">
               Required: {fmt(depositRequired)}
               {depositCollected > 0 && ` · Collected: ${fmt(depositCollected)}`}
+              {depositRetained > 0 && ` · Retained: ${fmt(depositRetained)}`}
             </span>
           )}
         </div>
@@ -122,6 +127,9 @@ export function DepositPanel({
       <p className="text-xs text-zinc-400 italic">
         Security deposits are tracked separately and never included in rental revenue.
       </p>
+      {retentionReason ? (
+        <p className="text-xs text-zinc-600"><span className="font-semibold">Retention reason:</span> {retentionReason}</p>
+      ) : null}
 
       {/* Record form — only if not yet collected and canManage */}
       {canManage && !isRecorded && (

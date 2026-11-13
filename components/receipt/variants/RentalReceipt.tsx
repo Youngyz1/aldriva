@@ -32,10 +32,10 @@ function formatUtc(iso: string | null): string {
 
 function depositNote(data: RentalReceiptData): string {
   if (data.depositRequired > 0) {
-    return `A security deposit of ${formatMoney(
-      data.depositRequired,
-      data.currency
-    )} is collected separately at pickup and is not part of this payment.`;
+    const status = (data.depositStatus || "none").replace(/_/g, " ");
+    let note = `Security deposit ${formatMoney(data.depositRequired, data.currency)} (collected ${formatMoney(data.depositCollected ?? 0, data.currency)}, retained ${formatMoney(data.depositRetained ?? 0, data.currency)}, ${status}). Collected separately from rental payment.`;
+    if (data.depositRetentionReason) note += ` Reason: ${data.depositRetentionReason}`;
+    return note;
   }
   return "No security deposit is required for this booking.";
 }
@@ -66,17 +66,13 @@ export function RentalReceipt({
       label: "Rental charge",
       value: formatMoney(data.rentalAmount, data.currency),
     },
-    {
-      label: paidLabel,
-      value: formatMoney(data.amountPaid, data.currency),
-    },
-    {
-      label: "Balance due",
-      value: formatMoney(data.balanceDue, data.currency),
-      emphasis: data.balanceDue > 0,
-    },
-    { label: "Paid on", value: formatUtc(data.paidAt) },
   ];
+  if ((data.lateFeeAmount ?? 0) > 0 || (data.lateFeeStatus && data.lateFeeStatus !== "none")) {
+    rows.push({ label: "Late fee", value: `${formatMoney(data.lateFeeAmount ?? 0, data.currency)} (${(data.lateFeeStatus || "none").replace(/_/g, " ")})` });
+  }
+  rows.push({ label: paidLabel, value: formatMoney(data.amountPaid, data.currency) });
+  rows.push({ label: "Balance due", value: formatMoney(data.balanceDue, data.currency), emphasis: data.balanceDue > 0 });
+  rows.push({ label: "Paid on", value: formatUtc(data.paidAt) });
 
   if (data.paymentMethod) {
     rows.push({ label: "Method", value: data.paymentMethod });
