@@ -309,6 +309,42 @@ export function RentalSettingsClient({
           </div>
         </div>
 
+        {/* Section: Late fees */}
+        <div className="space-y-4 pt-6">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Late Fees</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Fees are calculated at return after the grace period, using this per-day rule. Staff can apply or waive at return. Money is recorded offline.
+          </p>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Grace period (minutes)</label>
+              <input
+                type="number"
+                min={0}
+                max={1440}
+                disabled={!canManage}
+                value={settings.lateFeeGraceMinutes}
+                onChange={(e) => setSettings({ ...settings, lateFeeGraceMinutes: parseInt(e.target.value, 10) || 0 })}
+                className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-700 focus:outline-none focus:ring-1 focus:ring-brand-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+              <p className="mt-1 text-xs text-zinc-500">Default 60 minutes (existing grace period).</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">Late fee per day</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                disabled={!canManage}
+                value={settings.lateFeePerDay}
+                onChange={(e) => setSettings({ ...settings, lateFeePerDay: parseFloat(e.target.value) || 0 })}
+                className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-700 focus:outline-none focus:ring-1 focus:ring-brand-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+              <p className="mt-1 text-xs text-zinc-500">Charged per overdue day or part thereof after grace. Set 0 to disable.</p>
+            </div>
+          </div>
+        </div>
+
         {/* Section 3: Policies & Legal Terms */}
         <div className="space-y-4 pt-6">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">

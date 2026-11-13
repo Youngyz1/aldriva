@@ -25,6 +25,8 @@ export interface RentalSettings {
   paymentPolicy: "offline" | "full_online" | "advance_online";
   advancePct: number | null;
   paymentLinkHours: number;
+  lateFeeGraceMinutes: number;
+  lateFeePerDay: number;
 }
 
 const WRITE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
@@ -43,6 +45,8 @@ const DEFAULT_SETTINGS: RentalSettings = {
   paymentPolicy: "offline",
   advancePct: null,
   paymentLinkHours: 48,
+  lateFeeGraceMinutes: 60,
+  lateFeePerDay: 0,
 };
 
 async function verifyAuth(organizerId: string, allowedRoles: EntityRole[]) {
@@ -67,7 +71,7 @@ export async function getRentalSettings(
     const { data, error } = await admin
       .from("businesses")
       .select(
-        "rental_allocation_mode, rental_confirmation_mode, rental_min_notice_hours, rental_billing_boundary, rental_require_license_dob, rental_min_driver_age, rental_deposit_policy, rental_cancellation_policy, rental_terms, rental_payment_policy, rental_advance_pct, rental_payment_link_hours, rental_payment_policy, rental_advance_pct, rental_payment_link_hours"
+        "rental_allocation_mode, rental_confirmation_mode, rental_min_notice_hours, rental_billing_boundary, rental_require_license_dob, rental_min_driver_age, rental_deposit_policy, rental_cancellation_policy, rental_terms, rental_payment_policy, rental_advance_pct, rental_payment_link_hours, rental_late_fee_grace_minutes, rental_late_fee_per_day"
       )
       .eq("id", businessId)
       .eq("organizer_id", organizerId)
@@ -94,6 +98,8 @@ export async function getRentalSettings(
       paymentPolicy: (data.rental_payment_policy as "offline" | "full_online" | "advance_online") ?? DEFAULT_SETTINGS.paymentPolicy,
       advancePct: data.rental_advance_pct ?? null,
       paymentLinkHours: data.rental_payment_link_hours ?? DEFAULT_SETTINGS.paymentLinkHours,
+      lateFeeGraceMinutes: Number.isFinite((data as any).rental_late_fee_grace_minutes) ? Number((data as any).rental_late_fee_grace_minutes) : DEFAULT_SETTINGS.lateFeeGraceMinutes,
+      lateFeePerDay: Number.isFinite(Number((data as any).rental_late_fee_per_day)) ? Number((data as any).rental_late_fee_per_day) : DEFAULT_SETTINGS.lateFeePerDay,
     };
 
     return { settings };
@@ -191,13 +197,29 @@ export async function updateRentalSettings(
       updatePayload.rental_terms = input.rentalTerms?.trim() || null;
     }
 
+    if (input.lateFeeGraceMinutes !== undefined) {
+      const mins = Number(input.lateFeeGraceMinutes);
+      if (!Number.isInteger(mins) || mins < 0 || mins > 1440) {
+        return { success: false, error: "Late fee grace period must be a whole number between 0 and 1440 minutes" };
+      }
+      updatePayload.rental_late_fee_grace_minutes = mins;
+    }
+
+    if (input.lateFeePerDay !== undefined) {
+      const amt = Number(input.lateFeePerDay);
+      if (!Number.isFinite(amt) || amt < 0) {
+        return { success: false, error: "Late fee per day must be zero or greater" };
+      }
+      updatePayload.rental_late_fee_per_day = Math.round(amt * 100) / 100;
+    }
+
     const { data, error } = await admin
       .from("businesses")
       .update(updatePayload)
       .eq("id", businessId)
       .eq("organizer_id", organizerId)
       .select(
-        "rental_allocation_mode, rental_confirmation_mode, rental_min_notice_hours, rental_billing_boundary, rental_require_license_dob, rental_min_driver_age, rental_deposit_policy, rental_cancellation_policy, rental_terms, rental_payment_policy, rental_advance_pct, rental_payment_link_hours, rental_payment_policy, rental_advance_pct, rental_payment_link_hours"
+        "rental_allocation_mode, rental_confirmation_mode, rental_min_notice_hours, rental_billing_boundary, rental_require_license_dob, rental_min_driver_age, rental_deposit_policy, rental_cancellation_policy, rental_terms, rental_payment_policy, rental_advance_pct, rental_payment_link_hours, rental_late_fee_grace_minutes, rental_late_fee_per_day"
       )
       .single();
 
@@ -220,6 +242,8 @@ export async function updateRentalSettings(
       paymentPolicy: (data.rental_payment_policy as "offline" | "full_online" | "advance_online") ?? DEFAULT_SETTINGS.paymentPolicy,
       advancePct: data.rental_advance_pct ?? null,
       paymentLinkHours: data.rental_payment_link_hours ?? DEFAULT_SETTINGS.paymentLinkHours,
+      lateFeeGraceMinutes: Number.isFinite((data as any).rental_late_fee_grace_minutes) ? Number((data as any).rental_late_fee_grace_minutes) : DEFAULT_SETTINGS.lateFeeGraceMinutes,
+      lateFeePerDay: Number.isFinite(Number((data as any).rental_late_fee_per_day)) ? Number((data as any).rental_late_fee_per_day) : DEFAULT_SETTINGS.lateFeePerDay,
     };
 
     return { success: true, settings: updatedSettings };

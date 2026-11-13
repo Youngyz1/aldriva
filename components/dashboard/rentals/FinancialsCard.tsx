@@ -24,6 +24,8 @@ export interface FinancialsCardProps {
   rentalAmount: number;
   paymentStatus: FinancialsPaymentStatus;
   payments: FinancialsPaymentRow[];
+  lateFeeAmount?: number;
+  lateFeeStatus?: string;
 }
 
 const STATUS_BADGE: Record<FinancialsPaymentStatus, { label: string; className: string }> = {
@@ -72,6 +74,8 @@ export function FinancialsCard({
   rentalAmount,
   paymentStatus,
   payments,
+  lateFeeAmount = 0,
+  lateFeeStatus = "none",
 }: FinancialsCardProps) {
   const netPaid = payments.reduce((total, row) => {
     const sign = row.kind === "refund" ? -1 : 1;
@@ -81,6 +85,7 @@ export function FinancialsCard({
   const balanceDue = Math.max(0, rentalAmount - paid);
   const progressPercent = rentalAmount > 0 ? Math.min(100, Math.round((paid / rentalAmount) * 100)) : 0;
   const badge = STATUS_BADGE[paymentStatus] ?? STATUS_BADGE.unpaid;
+  const showLateFee = lateFeeStatus !== "none" || lateFeeAmount > 0;
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
@@ -93,7 +98,7 @@ export function FinancialsCard({
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Rental amount</p>
           <p className="mt-1 text-lg font-extrabold tabular-nums text-zinc-900">
@@ -112,6 +117,15 @@ export function FinancialsCard({
             {formatMoney(balanceDue, currency)}
           </p>
         </div>
+        {showLateFee && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Late fee</p>
+            <p className="mt-1 text-lg font-extrabold tabular-nums text-zinc-900">
+              {formatMoney(lateFeeAmount, currency)}
+            </p>
+            <p className="text-[11px] font-semibold text-zinc-500 capitalize">{lateFeeStatus.replace(/_/g, " ")}</p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
