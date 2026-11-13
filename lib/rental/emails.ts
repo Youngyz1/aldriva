@@ -68,10 +68,18 @@ function shell(
   </div>`;
 }
 
-async function deliver(to: string, subject: string, html: string): Promise<string | null> {
+type Attachment = { filename: string; content: string };
+
+async function deliver(to: string, subject: string, html: string, attachments?: Attachment[]): Promise<string | null> {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({ from: `${BRAND.name} <${BRAND.contactEmail}>`, to, subject, html });
+    const { error } = await resend.emails.send({
+      from: `${BRAND.name} <${BRAND.contactEmail}>`,
+      to,
+      subject,
+      html,
+      ...(attachments && attachments.length ? { attachments } : {}),
+    } as any);
     return error ? `${error.name}: ${error.message}` : null;
   } catch (err) {
     return err instanceof Error ? err.message : "send failed";
@@ -193,7 +201,20 @@ export async function sendRentalEmail(
     }
 
     const results: Array<{ to: string; error: string | null }> = [];
-    if (b.customer_email) results.push({ to: "customer", error: await deliver(b.customer_email, subject, html) });
+    let attachments: Attachment[] | undefined;
+    if (kind === "confirmed" && b.customer_email) {
+      try {
+        const { getRentalAgreementDataByBookingId, generateRentalAgreementPdf } = await import("@/lib/rental/agreement");
+        const ad = await getRentalAgreementDataByBookingId(bookingId);
+        if (ad) {
+          const pdf = generateRentalAgreementPdf(ad);
+          attachments = [{ filename: `rental_agreement_${ad.bookingNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`, content: pdf.toString("base64") }];
+        }
+      } catch (e) {
+        console.error("[rental-emails] agreement attachment failed:", e instanceof Error ? e.message : e);
+      }
+    }
+    if (b.customer_email) results.push({ to: "customer", error: await deliver(b.customer_email, subject, html, attachments) });
 
     if (kind === "request_received") {
       const to = await ownerEmail(admin, b.organizer_id);
