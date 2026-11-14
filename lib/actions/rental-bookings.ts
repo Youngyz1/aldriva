@@ -496,6 +496,17 @@ export async function updateBookingStatus(
   if (!existing) return { success: false, error: "Booking not found." };
 
   const currentStatus = (existing as { status: string; vehicle_id: string | null; starts_at: string; notes: string | null }).status;
+
+  if (newStatus === "active" || newStatus === "completed") {
+    return {
+      success: false,
+      error:
+        newStatus === "active"
+          ? "Starting a rental must go through the pickup handover."
+          : "Completing a rental must go through the return handover.",
+    };
+  }
+
   const allowed = VALID_TRANSITIONS[currentStatus] ?? [];
   if (!allowed.includes(newStatus)) {
     return {
@@ -524,36 +535,17 @@ export async function updateBookingStatus(
   }
 
   // ---------------------------------------------------------------------------
-  // Pickup with payment: payment, vehicle, 4h rule and event log are enforced in the DB (migration 229)
-  if (currentStatus === "confirmed" && newStatus === "active") {
-    const { error: rpcErr } = await admin.rpc("record_rental_balance_and_pickup", {
-      p_booking_id: bookingId,
-      p_organizer_id: organizerId,
-      p_actor_id: user.id,
-      p_method: payment?.method ?? null,
-      p_amount: payment?.amount ?? 0,
-      p_currency: payment?.currency ?? null,
-      p_override_reason: overrideReason ?? null,
-      p_notes: null,
-    });
-    if (rpcErr) {
-      const prefix = rpcErr.message.match(/^([A-Z_]+):/)?.[1];
-      return { success: false, code: prefix ?? rpcErr.code, error: rpcErr.message.replace(/^[A-Z_]+:\s*/, "") };
-    }
-    const { data: fresh } = await admin.from("rental_bookings").select("*")
-      .eq("id", bookingId).eq("organizer_id", organizerId).single();
-    revalidatePath(`/dashboard/org/${organizerId}/rentals`);
-    return { success: true, booking: normalizeBookingRow(fresh) };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Cancel, decline, no-show, return: rules, events and checkout cleanup run in the DB (migration 230)
+  // Cancel, decline, no-show: rules, events and checkout cleanup run in the DB (migration 230).
+  // Pickup (active) and return (completed) must go through handover actions.
   // ---------------------------------------------------------------------------
   const cause =
-    newStatus === "completed" ? "return"
-    : newStatus === "no_show" ? "no_show"
-    : newStatus === "cancelled" ? (currentStatus === "pending" ? "decline" : "cancel")
-    : null;
+    newStatus === "no_show"
+      ? "no_show"
+      : newStatus === "cancelled"
+      ? currentStatus === "pending"
+        ? "decline"
+        : "cancel"
+      : null;
   if (!cause) {
     return { success: false, error: `Transition from '${currentStatus}' to '${newStatus}' is not supported.` };
   }

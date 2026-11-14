@@ -81,8 +81,27 @@ export interface PickupHandoverInput {
   customerConfirmedAt: string; // ISO
   // optional balance-at-pickup payment (same as existing flow)
   payment?: { method: string; amount: number; currency: string } | null;
+  /** Required by DB when pickup is more than 4 hours before start (>= 5 chars). Passed as p_override_reason. */
   overrideReason?: string | null;
   notes?: string | null;
+}
+
+function validateHandoverPhotos(
+  photos: HandoverPhoto[] | undefined,
+  organizerId: string,
+  bookingId: string,
+  kind: "pickup" | "return"
+): string | null {
+  const list = photos ?? [];
+  if (list.length > 5) return "You can attach up to 5 photos.";
+  const prefix = `rentals/inspections/${organizerId}/${bookingId}/${kind}/`;
+  for (const p of list) {
+    const key = typeof p?.key === "string" ? p.key : "";
+    if (!key || !key.startsWith(prefix) || key.includes("..")) {
+      return "One or more photos are invalid. Please re-upload the photos.";
+    }
+  }
+  return null;
 }
 
 export async function recordPickupHandover(
@@ -96,6 +115,9 @@ export async function recordPickupHandover(
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unauthorized" };
   }
+  const photoError = validateHandoverPhotos(input.photos, organizerId, bookingId, "pickup");
+  if (photoError) return { success: false, error: photoError, code: "INVALID_PHOTOS" };
+  const method = input.payment?.method === "card_terminal" ? "card_offline" : input.payment?.method ?? null;
   const admin = createSupabaseAdmin();
   const { error } = await admin.rpc("record_rental_pickup_handover", {
     p_booking_id: bookingId,
@@ -107,7 +129,7 @@ export async function recordPickupHandover(
     p_damage_notes: input.damageNotes ?? null,
     p_customer_confirmed_name: input.customerConfirmedName,
     p_customer_confirmed_at: input.customerConfirmedAt,
-    p_method: input.payment?.method ?? null,
+    p_method: method,
     p_amount: input.payment?.amount ?? 0,
     p_currency: input.payment?.currency ?? null,
     p_override_reason: input.overrideReason ?? null,
@@ -123,7 +145,7 @@ export async function recordPickupHandover(
       DEPOSIT_ALREADY_SETTLED: "The deposit has already been settled for this booking.",
       DEPOSIT_REASON_REQUIRED: "A reason is required to retain part or all of the deposit.",
       INVALID_DEPOSIT_AMOUNT: "The retained deposit amount must be greater than 0 and not more than the collected amount.",
-      INVALID_ODOMETER: "The return odometer reading is invalid. It must be non-negative and not less than the starting mileage.",
+      INVALID_ODOMETER: "The odometer reading is invalid. It must be non-negative and, for return, not less than the starting mileage.",
       INVALID_RETURN_TIME: "The actual return time is invalid. It cannot be in the future, before pickup, or more than 24 hours before now.",
     };
     const message = (code && friendly[code]) || cleanDbMessage(error.message);
@@ -164,6 +186,8 @@ export async function recordReturnHandover(
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unauthorized" };
   }
+  const photoError = validateHandoverPhotos(input.photos, organizerId, bookingId, "return");
+  if (photoError) return { success: false, error: photoError, code: "INVALID_PHOTOS" };
   const admin = createSupabaseAdmin();
   const { error } = await admin.rpc("record_rental_return_handover", {
     p_booking_id: bookingId,
@@ -193,7 +217,7 @@ export async function recordReturnHandover(
       DEPOSIT_ALREADY_SETTLED: "The deposit has already been settled for this booking.",
       DEPOSIT_REASON_REQUIRED: "A reason is required to retain part or all of the deposit.",
       INVALID_DEPOSIT_AMOUNT: "The retained deposit amount must be greater than 0 and not more than the collected amount.",
-      INVALID_ODOMETER: "The return odometer reading is invalid. It must be non-negative and not less than the starting mileage.",
+      INVALID_ODOMETER: "The odometer reading is invalid. It must be non-negative and, for return, not less than the starting mileage.",
       INVALID_RETURN_TIME: "The actual return time is invalid. It cannot be in the future, before pickup, or more than 24 hours before now.",
     };
     const message = (code && friendly[code]) || cleanDbMessage(error.message);

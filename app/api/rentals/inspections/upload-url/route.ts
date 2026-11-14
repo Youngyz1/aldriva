@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
 import { getPrivateMediaPutUrl } from "@/lib/storage/private-media";
@@ -31,6 +32,16 @@ export async function POST(req: NextRequest) {
     }
     const access = await checkTenantAccess(user.id, organizerId, ["owner", "admin", "manager", "editor"]);
     if (!access.hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const admin = createSupabaseAdmin();
+    const { data: booking } = await admin
+      .from("rental_bookings")
+      .select("id")
+      .eq("id", bookingId)
+      .eq("organizer_id", organizerId)
+      .maybeSingle();
+    if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+
     if (!contentType || !ALLOWED_IMAGE.has(contentType)) {
       return NextResponse.json({ error: "Unsupported image type." }, { status: 400 });
     }
