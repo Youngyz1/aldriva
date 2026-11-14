@@ -1145,7 +1145,9 @@
     "generalBookingSubmittingLabel": "Sending request…",
     "generalBookingSelectedService": "Selected service",
     "generalBookingBlockLabel": "General Booking Form",
-    "generalBookingBlockDescription": "Appointment request form for service businesses (salons, clinics, rentals)."
+    "generalBookingBlockDescription": "Appointment request form for service businesses (salons, clinics, rentals).",
+    "hoursNotSetYet": "This business has not set its opening hours yet.",
+    "noTimesAvailable": "No times available in the next {days} days."
   },
   "Orders": {
     "title": "Orders",
@@ -1470,9 +1472,7 @@
     "declineChangeTitle": "Decline change request",
     "decisionNote": "Note to guest (optional)",
     "declineNote": "Restaurant note",
-    "declineNotePlaceholder": "e.g. Sorry, we are fully booked at that time.",
-    "hoursNotSetYet": "This business has not set its opening hours yet.",
-    "noTimesAvailable": "No times available in the next {days} days."
+    "declineNotePlaceholder": "e.g. Sorry, we are fully booked at that time."
   },
   "Bookings": {
     "title": "Bookings",

@@ -1145,7 +1145,9 @@
     "generalBookingSubmittingLabel": "Envoi en cours…",
     "generalBookingSelectedService": "Service sélectionné",
     "generalBookingBlockLabel": "Formulaire de réservation générale",
-    "generalBookingBlockDescription": "Formulaire de demande de rendez-vous pour les entreprises de services (salons, cliniques, locations)."
+    "generalBookingBlockDescription": "Formulaire de demande de rendez-vous pour les entreprises de services (salons, cliniques, locations).",
+    "hoursNotSetYet": "Cet établissement n'a pas encore défini ses horaires d'ouverture.",
+    "noTimesAvailable": "Aucun créneau disponible dans les {days} prochains jours."
   },
   "Orders": {
     "title": "Commandes",
@@ -1470,9 +1472,7 @@
     "declineChangeTitle": "Refuser la modification",
     "decisionNote": "Message pour le convive (facultatif)",
     "declineNote": "Note du restaurant",
-    "declineNotePlaceholder": "ex. Désolé, nous sommes complets à cet horaire.",
-    "hoursNotSetYet": "Cet établissement n'a pas encore défini ses horaires d'ouverture.",
-    "noTimesAvailable": "Aucun créneau disponible dans les {days} prochains jours."
+    "declineNotePlaceholder": "ex. Désolé, nous sommes complets à cet horaire."
   },
   "Bookings": {
     "title": "Rendez-vous",
