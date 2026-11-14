@@ -106,7 +106,7 @@ export default function Navbar() {
     normalizedPath?.startsWith("/dashboard") || normalizedPath?.startsWith("/profile");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
+    <header className="sticky top-0 z-[60] border-b border-border bg-background/95 backdrop-blur-md">
       {/*
         Layout: 3-column flex row.
         - Left (shrink-0):  BrandMark — always a fixed, small size.
