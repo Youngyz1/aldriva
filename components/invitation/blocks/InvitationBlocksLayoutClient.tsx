@@ -106,12 +106,13 @@ export function InvitationBlocksLayoutClient({
         <MinimalismDarkBluePageTemplate
           layout={compiledLayout}
           data={data}
-          children={renderedBlocks}
           mode={mode}
           isEditMode={isEditMode}
           wrapperClassName={wrapperClassName}
           hasAction={Boolean(onAction)}
-        />
+        >
+          {renderedBlocks}
+        </MinimalismDarkBluePageTemplate>
       </Suspense>
     );
   }
