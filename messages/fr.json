@@ -1764,5 +1764,27 @@
     "catalog_products": "Produits",
     "recent_activity": "Activité récente",
     "attention": "Actions requises"
+  },
+  "rentalHandover": {
+    "earlyPickupReasonLabel": "Raison du retrait anticipé",
+    "earlyPickupReasonPlaceholder": "Expliquez pourquoi le retrait a lieu en avance",
+    "earlyPickupReasonHint": "Requis lorsque le retrait a lieu plus de 4 heures avant le début prévu (au moins 5 caractères).",
+    "earlyPickupReasonRequired": "Une raison pour le retrait anticipé est requise (au moins 5 caractères).",
+    "paymentCollectedNow": "Paiement encaissé maintenant",
+    "amount": "Montant",
+    "method": "Méthode",
+    "methodCash": "Espèces",
+    "methodCardTerminal": "Terminal de carte",
+    "methodMobileMoney": "Mobile money",
+    "paymentAmountRequired": "Saisissez un montant de paiement valide.",
+    "photoUploadUnavailable": "Le téléversement des photos n'est pas disponible dans cet environnement. Vous pouvez enregistrer sans photos."
+  },
+  "needsAttention": {
+    "title": "Actions requises",
+    "summary": "{count, plural, one {# élément nécessite votre action} other {# éléments nécessitent votre action}}",
+    "pendingRequests": "Demandes en attente",
+    "drafts": "Brouillons",
+    "upcomingEvents": "Événements à venir",
+    "showMore": "Afficher {count} de plus"
   }
 }

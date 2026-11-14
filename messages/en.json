@@ -1764,5 +1764,27 @@
     "catalog_products": "Products",
     "recent_activity": "Recent Activity",
     "attention": "Needs Attention"
+  },
+  "rentalHandover": {
+    "earlyPickupReasonLabel": "Reason for early pickup",
+    "earlyPickupReasonPlaceholder": "Explain why pickup is happening early",
+    "earlyPickupReasonHint": "Required when pickup is more than 4 hours before the scheduled start (at least 5 characters).",
+    "earlyPickupReasonRequired": "A reason for early pickup is required (at least 5 characters).",
+    "paymentCollectedNow": "Payment collected now",
+    "amount": "Amount",
+    "method": "Method",
+    "methodCash": "Cash",
+    "methodCardTerminal": "Card terminal",
+    "methodMobileMoney": "Mobile money",
+    "paymentAmountRequired": "Enter a valid payment amount.",
+    "photoUploadUnavailable": "Photo upload is not available in this environment. You can save without photos."
+  },
+  "needsAttention": {
+    "title": "Needs attention",
+    "summary": "{count, plural, one {# item requiring your action} other {# items requiring your action}}",
+    "pendingRequests": "Pending requests",
+    "drafts": "Drafts",
+    "upcomingEvents": "Upcoming events",
+    "showMore": "Show {count} more"
   }
 }

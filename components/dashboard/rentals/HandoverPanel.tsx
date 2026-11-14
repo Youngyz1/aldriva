@@ -11,6 +11,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { formatMoney } from "@/lib/money";
+import { useTranslations } from "next-intl";
 import type { RentalInspectionRow, HandoverPhoto, DepositSettlementAction, LateFeeAction } from "@/lib/actions/rental-handover";
 
 type Props = {
@@ -18,7 +19,11 @@ type Props = {
   organizerId: string;
   status: string;
   currency: string;
+  startsAt: string;
   endsAt: string;
+  paymentStatus: string;
+  rentalAmount: number;
+  balanceDue: number;
   depositRequired: number;
   depositCollected: number;
   depositStatus: string;
@@ -36,11 +41,19 @@ async function uploadPhoto(bookingId: string, organizerId: string, kind: "pickup
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ bookingId, organizerId, kind, contentType: file.type, fileSizeBytes: file.size, fileName: file.name }),
   });
-  const j = await prep.json();
-  if (!prep.ok) throw new Error(j.error || "Could not prepare upload");
+  const j = await prep.json().catch(() => ({}));
+  if (!prep.ok) {
+    const err = new Error(typeof j.error === "string" ? j.error : "Could not prepare upload") as Error & { status?: number };
+    err.status = prep.status;
+    throw err;
+  }
   const put = await fetch(j.signedUrl, { method: "PUT", headers: { "Content-Type": j.contentType }, body: file });
   if (!put.ok) throw new Error("Photo upload failed");
   return { key: j.key, file_name: j.fileName || file.name, content_type: j.contentType };
+}
+
+function normalizeOdometerInput(value: string): string {
+  return value.replace(/^0+(?=\d)/, "");
 }
 
 function nowLocalInput() {
@@ -72,8 +85,9 @@ function InspectionSummary({ title, insp }: { title: string; insp: RentalInspect
 }
 
 export function HandoverPanel(props: Props) {
-  const { bookingId, organizerId, status, currency, endsAt, depositRequired, depositCollected, depositStatus, existingLateFeeAmount, existingLateFeeStatus, inspections, canManage } = props;
+  const { bookingId, organizerId, status, currency, startsAt, endsAt, paymentStatus, balanceDue, depositRequired, depositCollected, depositStatus, existingLateFeeAmount, existingLateFeeStatus, inspections, canManage } = props;
   const router = useRouter();
+  const t = useTranslations("rentalHandover");
   const pickupInsp = inspections.find((i) => i.kind === "pickup") || null;
   const returnInsp = inspections.find((i) => i.kind === "return") || null;
 
@@ -90,6 +104,16 @@ export function HandoverPanel(props: Props) {
   const [pConfirmAt, setPConfirmAt] = useState(nowLocalInput());
   const [pPhotos, setPPhotos] = useState<HandoverPhoto[]>([]);
   const [pUploading, setPUploading] = useState(false);
+  const [pEarlyReason, setPEarlyReason] = useState("");
+  const [pCollectNow, setPCollectNow] = useState(paymentStatus !== "paid" && balanceDue > 0);
+  const [pPayAmount, setPPayAmount] = useState(String(Math.max(0, balanceDue)));
+  const [pPayMethod, setPPayMethod] = useState<"cash" | "card_terminal" | "mobile_money">("cash");
+
+  const isEarlyPickup = useMemo(() => {
+    const start = new Date(startsAt).getTime();
+    if (!Number.isFinite(start)) return false;
+    return Date.now() < start - 4 * 60 * 60 * 1000;
+  }, [startsAt]);
 
   // return fields
   const [rOdo, setROdo] = useState("");
@@ -150,7 +174,12 @@ export function HandoverPanel(props: Props) {
       if (kind === "pickup") setPPhotos((p) => [...p, ...uploaded].slice(0, 5));
       else setRPhotos((p) => [...p, ...uploaded].slice(0, 5));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Photo upload failed");
+      const status = (e as { status?: number } | null)?.status;
+      if (status === 503) {
+        setError(t("photoUploadUnavailable"));
+      } else {
+        setError(e instanceof Error ? e.message : "Photo upload failed");
+      }
     } finally {
       if (kind === "pickup") setPUploading(false); else setRUploading(false);
     }
@@ -159,16 +188,30 @@ export function HandoverPanel(props: Props) {
   function submitPickup() {
     setError(null);
     if (!pConfirmName.trim()) { setError("Customer confirmation name is required."); return; }
+    const earlyReason = pEarlyReason.trim();
+    if (isEarlyPickup && earlyReason.length < 5) {
+      setError(t("earlyPickupReasonRequired"));
+      return;
+    }
+    const payNow = paymentStatus !== "paid" && pCollectNow;
+    const payAmount = payNow ? Number(pPayAmount || 0) : 0;
+    if (payNow && (!Number.isFinite(payAmount) || payAmount <= 0)) {
+      setError(t("paymentAmountRequired"));
+      return;
+    }
     startTransition(async () => {
       try {
         const { recordPickupHandover } = await import("@/lib/actions/rental-handover");
+        const odo = pOdo === "" ? null : Number(normalizeOdometerInput(pOdo));
         const res = await recordPickupHandover(bookingId, organizerId, {
-          odometer: pOdo ? Number(pOdo) : null,
+          odometer: odo !== null && Number.isFinite(odo) ? odo : null,
           fuelLevel: pFuel || null,
           photos: pPhotos,
           damageNotes: pDamage || null,
           customerConfirmedName: pConfirmName.trim(),
           customerConfirmedAt: toIso(pConfirmAt),
+          overrideReason: isEarlyPickup ? earlyReason : null,
+          payment: payNow ? { method: pPayMethod, amount: payAmount, currency } : null,
         });
         if (!res.success) { setError(res.error || "Pickup handover failed"); return; }
         setPickupOpen(false);
@@ -191,8 +234,9 @@ export function HandoverPanel(props: Props) {
     startTransition(async () => {
       try {
         const { recordReturnHandover } = await import("@/lib/actions/rental-handover");
+        const rOdoNorm = rOdo === "" ? null : Number(normalizeOdometerInput(rOdo));
         const res = await recordReturnHandover(bookingId, organizerId, {
-          odometer: rOdo ? Number(rOdo) : null,
+          odometer: rOdoNorm !== null && Number.isFinite(rOdoNorm) ? rOdoNorm : null,
           fuelLevel: rFuel || null,
           photos: rPhotos,
           damageNotes: rDamage || null,
@@ -230,8 +274,53 @@ export function HandoverPanel(props: Props) {
       {showPickup && pickupOpen && (
         <div className="space-y-3 border-t border-zinc-100 pt-3">
           <p className="text-sm font-semibold text-zinc-900">Pickup inspection</p>
+          {isEarlyPickup ? (
+            <label className="block text-sm text-zinc-700">
+              {t("earlyPickupReasonLabel")}
+              <textarea
+                value={pEarlyReason}
+                onChange={(e) => setPEarlyReason(e.target.value)}
+                rows={3}
+                minLength={5}
+                className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2"
+                placeholder={t("earlyPickupReasonPlaceholder")}
+              />
+              <span className="mt-1 block text-xs text-zinc-500">{t("earlyPickupReasonHint")}</span>
+            </label>
+          ) : null}
+          {paymentStatus !== "paid" ? (
+            <div className="rounded-xl border border-zinc-200 p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-zinc-900">
+                <input type="checkbox" checked={pCollectNow} onChange={(e) => setPCollectNow(e.target.checked)} />
+                {t("paymentCollectedNow")}
+              </label>
+              {pCollectNow ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-sm text-zinc-700">
+                    {t("amount")}
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pPayAmount}
+                      onChange={(e) => setPPayAmount(e.target.value)}
+                      className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3"
+                    />
+                  </label>
+                  <label className="text-sm text-zinc-700">
+                    {t("method")}
+                    <select value={pPayMethod} onChange={(e) => setPPayMethod(e.target.value as "cash" | "card_terminal" | "mobile_money")} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3 bg-white">
+                      <option value="cash">{t("methodCash")}</option>
+                      <option value="card_terminal">{t("methodCardTerminal")}</option>
+                      <option value="mobile_money">{t("methodMobileMoney")}</option>
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="text-sm text-zinc-700">Odometer<input inputMode="numeric" type="number" min="0" value={pOdo} onChange={(e)=>setPOdo(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3" /></label>
+            <label className="text-sm text-zinc-700">Odometer<input inputMode="numeric" type="number" min="0" value={pOdo} onChange={(e)=>setPOdo(normalizeOdometerInput(e.target.value))} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3" /></label>
             <label className="text-sm text-zinc-700">Fuel level<select value={pFuel} onChange={(e)=>setPFuel(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3 bg-white">{FUEL_OPTIONS.map(o=> <option key={o} value={o}>{o || "Select"}</option>)}</select></label>
           </div>
           <label className="block text-sm text-zinc-700">Damage notes<textarea value={pDamage} onChange={(e)=>setPDamage(e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2" /></label>
@@ -262,7 +351,7 @@ export function HandoverPanel(props: Props) {
           <p className="text-sm font-semibold text-zinc-900">Return inspection</p>
           {pickupInsp ? <div><p className="text-xs font-semibold text-zinc-500 mb-1">Pickup record (for comparison)</p><InspectionSummary title="Pickup" insp={pickupInsp} /></div> : <p className="text-xs text-amber-700">No pickup inspection recorded.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="text-sm text-zinc-700">Odometer<input inputMode="numeric" type="number" min="0" value={rOdo} onChange={(e)=>setROdo(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3" /></label>
+            <label className="text-sm text-zinc-700">Odometer<input inputMode="numeric" type="number" min="0" value={rOdo} onChange={(e)=>setROdo(normalizeOdometerInput(e.target.value))} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3" /></label>
             <label className="text-sm text-zinc-700">Fuel level<select value={rFuel} onChange={(e)=>setRFuel(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-zinc-300 px-3 bg-white">{FUEL_OPTIONS.map(o=> <option key={o} value={o}>{o || "Select"}</option>)}</select></label>
           </div>
           <label className="block text-sm text-zinc-700">Damage notes<textarea value={rDamage} onChange={(e)=>setRDamage(e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2" placeholder="Note any new damage or differences from pickup" /></label>

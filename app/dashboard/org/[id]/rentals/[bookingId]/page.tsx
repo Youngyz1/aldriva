@@ -166,6 +166,12 @@ export default async function BookingDetailPage({
     Number.isFinite(rentalStartMs) && Number.isFinite(rentalEndMs) && rentalEndMs > rentalStartMs
       ? Math.max(1, Math.ceil((rentalEndMs - rentalStartMs) / 86_400_000))
       : null;
+  const rentalAmountNum = Number(booking.rental_amount) || 0;
+  const netPaid = financialsPayments.reduce((total, row) => {
+    const sign = row.kind === "refund" ? -1 : 1;
+    return total + sign * row.amount;
+  }, 0);
+  const balanceDue = Math.max(0, rentalAmountNum - Math.max(0, netPaid));
 
   let staffReceiptData = null;
   if (canManage) {
@@ -236,7 +242,11 @@ export default async function BookingDetailPage({
           organizerId={organizerId}
           status={status}
           currency={currency}
+          startsAt={String(booking.starts_at)}
           endsAt={String(booking.ends_at)}
+          paymentStatus={String(booking.payment_status || "unpaid")}
+          rentalAmount={rentalAmountNum}
+          balanceDue={balanceDue}
           depositRequired={Number(booking.deposit_required_amount) || 0}
           depositCollected={Number(booking.deposit_collected_amount) || 0}
           depositStatus={depositStatus}
