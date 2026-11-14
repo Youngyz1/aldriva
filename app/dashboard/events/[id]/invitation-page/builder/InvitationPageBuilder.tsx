@@ -814,7 +814,7 @@ export function InvitationPageBuilder({
         <div
           data-testid="invitation-builder-preview-column"
           className={cn(
-            "w-full min-w-0 max-w-full xl:sticky xl:top-4 xl:w-full xl:max-w-[640px] xl:self-start xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]",
+            "h-[calc(100dvh-14rem)] min-h-[480px] w-full min-w-0 max-w-full xl:sticky xl:top-4 xl:w-full xl:max-w-[640px] xl:self-start xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]",
             mobileView === "edit" && "hidden lg:block"
           )}
         >

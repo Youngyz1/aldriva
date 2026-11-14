@@ -57,7 +57,7 @@ export function InvitationDevicePreviewFrame({
   const frameHeight = isMobile ? 868 : 860; // 844 + 24px bezel vs 820 + 40px chrome
 
   // Fit scale: fits available width and height, never exceeds 1.0
-  const scale = calculatePreviewFitScale({
+  const fitScale = calculatePreviewFitScale({
     containerWidth,
     containerHeight,
     frameWidth,
@@ -65,6 +65,16 @@ export function InvitationDevicePreviewFrame({
     paddingX: 16,
     paddingY: 16,
   });
+  const widthOnlyScale = calculatePreviewFitScale({
+    containerWidth,
+    frameWidth,
+    frameHeight,
+    paddingX: 16,
+    paddingY: 16,
+  });
+  // A measured container with width but no usable height must never collapse
+  // the frame to scale 0; fall back to the width-only fit until height arrives.
+  const scale = fitScale > 0 ? fitScale : widthOnlyScale;
 
   const scaledWidth = Math.round(frameWidth * scale);
   const scaledHeight = Math.round(frameHeight * scale);

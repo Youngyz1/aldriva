@@ -87,17 +87,8 @@ export function InvitationPreviewPanel({
     const el = containerRef.current;
     if (!el) return;
 
-    let stableFrames = 0;
-    let lastW = -1;
-    let lastH = -1;
-
     const commit = (w: number, h: number) => {
       if (w <= 0) return;
-      if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) stableFrames += 1;
-      else stableFrames = 0;
-      lastW = w;
-      lastH = h;
-      if (stableFrames < 1) return;
       setContainerDimensions((prev) =>
         Math.abs(prev.width - w) < 1 && Math.abs(prev.height - h) < 1 ? prev : { width: w, height: h }
       );
