@@ -22,8 +22,16 @@ export interface InvitationDevicePreviewFrameProps {
   mode: "mobile" | "desktop";
   containerWidth: number;
   containerHeight?: number;
-  iframeRef: React.RefObject<HTMLIFrameElement | null>;
-  iframeSrc: string;
+  iframeRef?: React.RefObject<HTMLIFrameElement | null>;
+  iframeSrc?: string;
+  /**
+   * Local-mode escape hatch: render this in the screen viewport instead of
+   * an `<iframe>`, for callers (the anonymous builder) that direct-render
+   * the invitation in the same React tree rather than through an iframe.
+   * When set, `iframeRef`/`iframeSrc` are ignored. Server mode never passes
+   * this, so its rendering path (the `<iframe>` branch below) is unchanged.
+   */
+  children?: React.ReactNode;
   title?: string;
   className?: string;
 }
@@ -34,6 +42,7 @@ export function InvitationDevicePreviewFrame({
   containerHeight,
   iframeRef,
   iframeSrc,
+  children,
   title = "Live invitation preview",
   className,
 }: InvitationDevicePreviewFrameProps) {
@@ -141,16 +150,26 @@ export function InvitationDevicePreviewFrame({
             </>
           )}
 
-          <iframe
-            ref={iframeRef}
-            data-testid="invitation-preview"
-            title={title}
-            src={iframeSrc}
-            className="block h-full w-full border-0 bg-white"
-            style={{ width: contentWidth, height: contentHeight }}
-            allow="autoplay"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          {children ? (
+            <div
+              data-testid="invitation-preview"
+              className="h-full w-full overflow-y-auto overflow-x-hidden bg-white"
+              style={{ width: contentWidth, height: contentHeight }}
+            >
+              {children}
+            </div>
+          ) : (
+            <iframe
+              ref={iframeRef}
+              data-testid="invitation-preview"
+              title={title}
+              src={iframeSrc}
+              className="block h-full w-full border-0 bg-white"
+              style={{ width: contentWidth, height: contentHeight }}
+              allow="autoplay"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          )}
         </div>
       </div>
     </div>

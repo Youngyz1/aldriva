@@ -26,8 +26,14 @@ import { InvitationDevicePreviewFrame } from "./InvitationDevicePreviewFrame";
 export type PreviewViewport = 390 | 1440;
 
 export interface InvitationPreviewPanelProps {
-  iframeSrc: string;
+  iframeSrc?: string;
   iframeRef?: React.RefObject<HTMLIFrameElement | null>;
+  /**
+   * Local-mode escape hatch: render this in the device frame instead of an
+   * `<iframe>` pointed at `iframeSrc`. Passed straight through to
+   * InvitationDevicePreviewFrame. Server-mode callers never set this.
+   */
+  children?: React.ReactNode;
   title?: string;
   caption?: string;
   showLocaleToggle?: boolean;
@@ -43,6 +49,7 @@ export interface InvitationPreviewPanelProps {
 export function InvitationPreviewPanel({
   iframeSrc,
   iframeRef,
+  children,
   title,
   caption,
   showLocaleToggle = false,
@@ -202,10 +209,12 @@ export function InvitationPreviewPanel({
           mode={currentViewport === 390 ? "mobile" : "desktop"}
           containerWidth={measuredWidth}
           containerHeight={measuredHeight}
-          iframeRef={activeIframeRef}
-          iframeSrc={iframeSrc}
+          iframeRef={children ? undefined : activeIframeRef}
+          iframeSrc={children ? undefined : iframeSrc}
           title={displayTitle}
-        />
+        >
+          {children}
+        </InvitationDevicePreviewFrame>
       </div>
     </div>
   );

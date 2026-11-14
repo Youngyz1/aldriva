@@ -18,7 +18,8 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkInvitationPageAccess } from "@/lib/actions/invitation-page";
+import { checkInvitationPageAccess, saveInvitationPageDraft } from "@/lib/actions/invitation-page";
+import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
 import {
   EVENT_KIND_INVITATION,
   EVENT_KIND_PUBLIC,
@@ -26,6 +27,7 @@ import {
   buildInvitationDraftSlug,
 } from "@/lib/invitation-events";
 import { isUniqueViolation } from "@/lib/event-slug";
+import { shouldSkipPromotion, resolvePromotionTemplateId, isPromotableTitle } from "@/lib/invitation-promotion-core";
 
 export interface InvitationDraftResult {
   ok: boolean;
@@ -204,4 +206,126 @@ export async function convertToInvitationEvent(eventId: string): Promise<Convert
     .eq("kind", EVENT_KIND_PUBLIC);
   if (error) return { ok: false, error: "Could not convert this event." };
   return { ok: true };
+}
+
+/**
+ * Phase 6: owner + kind check for an eventId, independent of the richer
+ * manager/organizer-role check in checkInvitationPageAccess — used by the
+ * client promotion orchestrator to verify a cached "already promoted"
+ * localStorage marker still points at a real row this user actually owns
+ * before trusting it (handoff-design.md v3 §3 step "a").
+ */
+export async function confirmOwnedInvitationEvent(eventId: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user || !eventId) return false;
+  const admin = createSupabaseAdmin();
+  const { data } = await admin
+    .from("events")
+    .select("user_id, kind")
+    .eq("id", eventId)
+    .maybeSingle();
+  return Boolean(data && data.user_id === user.id && data.kind === EVENT_KIND_INVITATION);
+}
+
+export interface PromoteLocalDraftInput {
+  draftId: string;
+  templateId: string;
+  title: string;
+  eventDate: string | null;
+  venue: string | null;
+  address: string | null;
+  city: string | null;
+  builderDraft: Record<string, unknown>;
+}
+
+export interface PromoteLocalDraftResult {
+  ok: boolean;
+  eventId?: string;
+  skipped?: boolean;
+  /** True when the basics step was intentionally skipped (blank/placeholder title) rather than failed. */
+  basicsSkipped?: boolean;
+  step?: "auth" | "event" | "basics" | "draft";
+  error?: string;
+}
+
+/**
+ * Phase 6: promotes a local (anonymous) invitation draft into a real event,
+ * owned by the now-authenticated caller. Owner is always this server's own
+ * supabase.auth.getUser() result (via getCurrentUser(), the same
+ * React-cache()-memoized server call every other action in this file
+ * already uses) — any client-supplied user id is ignored, there isn't even
+ * a parameter for one.
+ *
+ * Reuses createInvitationDraft / updateInvitationEventFields /
+ * saveInvitationPageDraft unchanged — this function only orchestrates them
+ * and adds the skip-guard + server-side template_id re-resolution.
+ */
+export async function promoteLocalInvitationDraftServer(
+  input: PromoteLocalDraftInput
+): Promise<PromoteLocalDraftResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, step: "auth", error: "Sign in to publish your invitation." };
+  if (!isValidDraftKey(input.draftId)) return { ok: false, step: "auth", error: "Invalid draft id." };
+
+  const admin = createSupabaseAdmin();
+  const slug = buildInvitationDraftSlug(input.draftId);
+
+  // Skip-guard: this user's event for this draftId (by deterministic slug)
+  // may already exist with real draft content from a prior, partially- or
+  // fully-successful promotion attempt (refresh, double-click, a race).
+  const { data: existingEvent } = await admin
+    .from("events")
+    .select("id")
+    .eq("slug", slug)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (existingEvent) {
+    const { data: existingPage } = await admin
+      .from("event_invitation_pages")
+      .select("template_id")
+      .eq("event_id", existingEvent.id)
+      .maybeSingle();
+    if (shouldSkipPromotion(existingPage)) {
+      return { ok: true, eventId: existingEvent.id, skipped: true };
+    }
+  }
+
+  const created = await createInvitationDraft(input.draftId);
+  if (!created.ok || !created.eventId) {
+    return { ok: false, step: "event", error: created.error ?? "Could not create the invitation." };
+  }
+  const eventId = created.eventId;
+
+  let basicsSkipped = false;
+  if (isPromotableTitle(input.title)) {
+    const basics = await updateInvitationEventFields(eventId, {
+      title: input.title,
+      event_date: input.eventDate,
+      venue: input.venue,
+      city: input.city,
+    });
+    if (!basics.ok) {
+      return { ok: false, step: "basics", error: basics.error ?? "Could not save event details." };
+    }
+  } else {
+    // Not a failure — a fresh local draft's title starts blank/placeholder.
+    // Leave the event row's placeholder title in place rather than reject
+    // the whole promotion over a field the user never filled in.
+    basicsSkipped = true;
+  }
+
+  // Never trust input.templateId directly — re-resolve it server-side
+  // against the real registry (handoff-design.md v3 §3a step "d").
+  const resolvedTemplateId = resolvePromotionTemplateId(input.templateId);
+  const draftInput = {
+    ...input.builderDraft,
+    template_id: resolvedTemplateId,
+  } as InvitationPageDraftInput;
+
+  const saved = await saveInvitationPageDraft(eventId, draftInput);
+  if (!saved.ok) {
+    return { ok: false, step: "draft", error: saved.error ?? "Could not save invitation content." };
+  }
+
+  return { ok: true, eventId, skipped: false, basicsSkipped };
 }

@@ -25,9 +25,14 @@ export const INVITATION_DETAILS_PRESENTATIONS = [
 export type InvitationDetailsPresentation = (typeof INVITATION_DETAILS_PRESENTATIONS)[number];
 
 export const INVITATION_GALLERY_PRESENTATIONS = [
-  "editorial", "romantic", "botanical", "black-tie", "birthday", "cover", "accordion",
+  "editorial", "romantic", "botanical", "black-tie", "birthday", "cover", "boho-coveflow", "accordion",
 ] as const;
 export type InvitationGalleryPresentation = (typeof INVITATION_GALLERY_PRESENTATIONS)[number];
+
+export type CustomInvitationPageComponentId = "minimalism-dark-blue";
+export type InvitationPageRenderer =
+  | { kind: "blocks" }
+  | { kind: "custom"; componentId: CustomInvitationPageComponentId };
 
 export function isInvitationGalleryPresentation(value: unknown): value is InvitationGalleryPresentation {
   return typeof value === "string" && (INVITATION_GALLERY_PRESENTATIONS as readonly string[]).includes(value);
@@ -72,12 +77,12 @@ export interface InvitationTemplateDefinition {
   defaultThemePreset: PageThemePreset;
   detailsPresentation: InvitationDetailsPresentation;
   galleryPresentation?: InvitationGalleryPresentation;
-  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope";
+  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope" | "minimalism-dark-blue";
   defaultBlockTypes: readonly InvitationBlockType[];
   supportedBlockTypes: readonly InvitationBlockType[];
   requiredBlockTypes: readonly InvitationBlockType[];
   supportedCustomizations: Readonly<Record<InvitationCustomization, boolean>>;
-  pageRenderer: { kind: "blocks" };
+  pageRenderer: InvitationPageRenderer;
   supportedEffects: readonly InvitationEffectType[];
   defaultEffects: readonly InvitationEffectConfig[];
 }
@@ -93,13 +98,38 @@ export function defaultInvitationEffectConfig(type: InvitationEffectType): Invit
 export const INVITATION_BINDING_PATH_SET = new Set<string>(INVITATION_BINDING_PATHS);
 
 /** Empty registry — no templates ship with the platform. New templates plug in here. */
-export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefinition> = {};
+export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefinition> = {
+  "minimalism-dark-blue": {
+    id: "minimalism-dark-blue", version: "1.0.0", name: "Minimalism Dark Blue", category: "wedding",
+    categoryLabel: "Wedding", description: "Navy card panels, dusty-blue hydrangea illustrations, and a tap-to-open cover gate.",
+    publicationStatus: "published", preview: { kind: "rendered-sample", sampleId: "minimalism-dark-blue" },
+    defaultThemePreset: "minimalismDarkBlue", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
+    composition: "minimalism-dark-blue",
+    pageRenderer: { kind: "custom", componentId: "minimalism-dark-blue" },
+    defaultBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map", "gallery", "music", "action_portal"],
+    supportedBlockTypes: ["interactive_envelope", "romantic_hero", "hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
+    requiredBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map"],
+    supportedCustomizations: { palette: true, fontPack: true, textScale: true },
+    supportedEffects: ["envelope-reveal", "scroll-reveal"],
+    defaultEffects: [
+      { type: "envelope-reveal", enabled: true, transitionDurationMs: 900 },
+      { type: "scroll-reveal", enabled: false, durationMs: 650 },
+    ],
+  },
+};
 
 export type InvitationTemplateId = string;
 
 export function getInvitationTemplateDefinition(id: string | null | undefined): InvitationTemplateDefinition | undefined {
   if (!id) return undefined;
   return INVITATION_TEMPLATE_REGISTRY[id];
+}
+
+export const DEFAULT_INVITATION_TEMPLATE_ID: InvitationTemplateId = "minimalism-dark-blue";
+
+export function resolveInvitationTemplateId(id: string | null | undefined): InvitationTemplateId {
+  const definition = getInvitationTemplateDefinition(id);
+  return definition ? (definition.id as InvitationTemplateId) : DEFAULT_INVITATION_TEMPLATE_ID;
 }
 
 export function isValidInvitationBindingPath(value: string): value is InvitationBindingPath {

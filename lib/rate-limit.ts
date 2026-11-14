@@ -149,6 +149,12 @@ export const RATE_LIMITS = {
   invitationShareView: { limit: 60, windowSeconds: 60 },
 
   /**
+   * Stage 7b: guest Memories gallery reads (approved, non-reported photos).
+   * Anonymous per-IP bucket, same posture as invitationShareView. Fail-open.
+   */
+  invitationMemoriesView: { limit: 60, windowSeconds: 60 },
+
+  /**
    * Round 4: guest RSVP writes. Keyed per-IP AND per-token by callers
    * (two buckets per request): the token bucket bounds targeted RSVP
    * spam on a single invitation, the IP bucket bounds spray. Fail-open.

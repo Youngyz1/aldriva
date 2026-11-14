@@ -32,7 +32,8 @@ export const DEFAULT_TEMPLATE_FOR_TYPE: Record<InvitationType, string> = {
 
 /** Recover the builder type from the saved page template when reopening.
  * No templates exist, so any saved template_id resolves to "other". */
-export function invitationTypeForTemplate(): InvitationType {
+export function invitationTypeForTemplate(templateId?: string | null): InvitationType {
+  if (templateId === "minimalism-dark-blue") return "wedding";
   return "other";
 }
 
@@ -152,6 +153,22 @@ export function hiddenContentOnTemplateSwitch(
     if (!toFields.has(key) && hasContent(draft[key])) {
       hidden.push(TYPE_FIELD_LABELS[key]);
     }
+  }
+  // Manifest-driven templates: warn when switching away if manifest fields hold content.
+  if (fromTemplateId === "minimalism-dark-blue" && toTemplateId !== "minimalism-dark-blue") {
+    const blocksLayout = draft.blocks_layout;
+    const td = typeof blocksLayout === "object" && blocksLayout !== null && !Array.isArray(blocksLayout)
+      ? (blocksLayout as Record<string, unknown>).template_data
+      : null;
+    const tdr = typeof td === "object" && td !== null && !Array.isArray(td) ? (td as Record<string, unknown>) : {};
+    const manifestKeys = [
+      "mf_parent_one_label","mf_parent_one_name_one","mf_parent_one_name_two",
+      "mf_parent_two_label","mf_parent_two_name_one","mf_parent_two_name_two",
+      "mf_hero_photos","mf_hero_eyebrow","mf_invitation_line","mf_dress_code_swatches",
+    ];
+    const hasManifestContent = manifestKeys.some((k) => hasContent(tdr[k]))
+      || hasContent(draft.partner1_name) || hasContent(draft.partner2_name);
+    if (hasManifestContent) hidden.push("Template fields (names, photos, parents, details)");
   }
   return hidden;
 }

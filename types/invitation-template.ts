@@ -26,8 +26,8 @@ export interface InvitationScheduleItem {
   day?: string | null;
   /** Optional day alias for schema compatibility */
   dayLabel?: string | null;
-  /** Optional Evergreen Envelope line-art icon key. */
-  icon?: "dining" | "champagne" | "cake" | "dancing" | "gift" | "hand" | null;
+  /** Optional line-art icon key. "ceremony" and "cocktail" added for Minimalism Dark Blue's programme timeline. */
+  icon?: "dining" | "champagne" | "cake" | "dancing" | "gift" | "hand" | "ceremony" | "cocktail" | null;
 }
 
 export type EvergreenPhotoSlot =
@@ -46,7 +46,7 @@ export interface InvitationPhotoFocalPoint {
   y: number;
 }
 
-/** Data persisted in event_invitation_pages.blocks_layout.template_data. */
+// Data persisted in event_invitation_pages.blocks_layout.template_data; historically Evergreen-only, now shared across custom templates.
 export interface EvergreenEnvelopeTemplateData {
   show_gate?: boolean;
   show_cover?: boolean;
@@ -93,6 +93,14 @@ export interface EvergreenEnvelopeTemplateData {
   closing_photo_url?: string | null;
   rsvp_photo_url?: string | null;
   photo_focal_points?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
+
+  // ── Minimalism Dark Blue-only optional content ──────────────────────────
+  /** Gift box opens the same RSVP flow as Confirm Presence — no bank/account fields, just an on/off toggle. */
+  show_gift_box?: boolean;
+  // Guestbook on/off only; submitted wishes need their own table (no migration in this pass).
+  show_guestbook?: boolean;
+  /** Stage 7b: guest Memories gallery privacy switch. Absent or false = OFF. */
+  mf_show_memories?: boolean;
 }
 
 // ── Photo Gallery Item ───────────────────────────────────────────────────────
@@ -218,6 +226,8 @@ export interface InvitationPageData {
   heroImageAlt?: string | null;
   /** Scroll prompt text. Default: "Explore Invitation" */
   scrollPrompt?: string | null;
+  /** [HIDE-IF-EMPTY] Manifest-driven invitation line override (template-specific). */
+  invitationLine?: string | null;
 
   // ── [DEFAULT-WITH-OVERRIDE] Welcome / Story ───────────────────────────────
   /** Optional story section headline. */
@@ -324,6 +334,16 @@ export interface InvitationPageData {
   rsvpPhoto?: string | null;
   photoFocalPoints?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
 
+  // ── Minimalism Dark Blue-only optional content ──────────────────────────
+  /** [HIDE-IF-EMPTY] e.g. "Mr. and Mrs." for the first parents column. */
+  parentOneLabel?: string | null;
+  parentOneNameOne?: string | null;
+  parentOneNameTwo?: string | null;
+  /** [HIDE-IF-EMPTY] e.g. "Mr. and Mrs." for the second parents column. */
+  parentTwoLabel?: string | null;
+  parentTwoNameOne?: string | null;
+  parentTwoNameTwo?: string | null;
+
   // ── [HIDE-IF-EMPTY] Birthday-Specific Fields ─────────────────────────────
   /** Celebrant name (e.g. "Maya Rodriguez") */
   celebrantName?: string | null;
@@ -337,6 +357,16 @@ export interface InvitationPageData {
   // ── [HIDE-IF-EMPTY] Social / Hashtag ──────────────────────────────────────
   /** Event hashtag (e.g. "#ElenaAndDavid2026", "#MayaTurns30") */
   hashtag?: string | null;
+
+  // ── Stage 7b: Guest Memories gallery (server-computed) ───────────────────
+  /** Approved, non-reported photo count. 0 hides the button; no photo data. */
+  memoriesCount?: number;
+  /** Public token the gallery route uses (share token or guest token). */
+  memoriesToken?: string | null;
+  /** Builder/demo preview: render local sample photos, no network call. */
+  memoriesSample?: boolean;
+  /** Demo route only: show the sample track + music control, started from the cover gate's Open tap. */
+  musicSample?: boolean;
 
   // ── [REQUIRED] Guest & Credential Context ─────────────────────────────────
   /** Current viewer guest record */

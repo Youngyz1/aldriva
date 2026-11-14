@@ -190,10 +190,15 @@ export interface EventLiveFields {
   city?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  timezone?: string | null;
   eventbrite_event_id?: string | null;
   category?: string | null;
   /** Selected card template row id (UUID) or code fallback id. Round 5 unified picker. */
   invitation_template_id?: string | null;
+  /** Stage 7b: server-computed guest Memories button data for builder previews. */
+  memoriesCount?: number;
+  memoriesToken?: string | null;
+  memoriesSample?: boolean;
 }
 
 /**
@@ -233,6 +238,41 @@ export interface SeatLiveRecord {
 /**
  * Assembles the full InvitationPageData contract from the snapshot and live layers.
  */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function readManifestHeroPhotos(td: Record<string, unknown> | undefined): Array<{ url: string; focal?: { x: number; y: number } }> {
+  if (!td) return [];
+  const raw = td.mf_hero_photos;
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ url: string; focal?: { x: number; y: number } }> = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const url = typeof item.url === "string" ? item.url.trim() : "";
+    if (!url) continue;
+    const focal = isRecord(item.focal) && typeof item.focal.x === "number" && typeof item.focal.y === "number"
+      ? { x: item.focal.x as number, y: item.focal.y as number }
+      : undefined;
+    out.push(focal ? { url, focal } : { url });
+  }
+  return out;
+}
+
+function readManifestSwatches(td: Record<string, unknown> | undefined): Array<{ name?: string | null; hex: string }> | undefined {
+  if (!td) return undefined;
+  const raw = td.mf_dress_code_swatches;
+  if (!Array.isArray(raw)) return undefined;
+  const items = raw
+    .map((item) => {
+      if (!isRecord(item) || typeof item.hex !== "string") return null;
+      const hex = normalizeInvitationColorHex(item.hex) ?? item.hex;
+      return { name: typeof item.name === "string" ? item.name : null, hex };
+    })
+    .filter((v): v is { name: string | null; hex: string } => Boolean(v));
+  return items.length ? items : undefined;
+}
+
 export function assembleInvitationPageData(
   snapshot: InvitationPageSnapshot,
   event: EventLiveFields,
@@ -240,9 +280,10 @@ export function assembleInvitationPageData(
   ticketInstance?: TicketInstanceLiveRecord | null,
   seat?: SeatLiveRecord | null
 ): InvitationPageData {
-  const evergreen = snapshot.template_id === "evergreen-envelope"
-    ? snapshot.blocks_layout?.template_data
-    : undefined;
+  const evergreen = snapshot.template_id === "evergreen-envelope" ? snapshot.blocks_layout?.template_data : undefined;
+  const isManifest = snapshot.template_id === "minimalism-dark-blue";
+  const mf = isManifest ? (snapshot.blocks_layout?.template_data as Record<string, unknown> | undefined) : undefined;
+  const mfHeroPhotos = readManifestHeroPhotos(mf);
   const effectiveTitle = snapshot.display_title?.trim() || event.title;
   const titlePartnerNames = snapshot.template_id === "evergreen-envelope"
     ? effectiveTitle.trim().split(/\s*&\s*/).map((name) => name.trim()).filter(Boolean)
@@ -302,9 +343,11 @@ export function assembleInvitationPageData(
     address: effectiveAddress,
     latitude: event.latitude ?? undefined,
     longitude: event.longitude ?? undefined,
-    timezone: snapshot.timezone || undefined,
+    timezone: snapshot.timezone?.trim() || event.timezone?.trim() || undefined,
 
-    eyebrow: snapshot.eyebrow ?? undefined,
+    eyebrow: (isManifest && typeof mf?.mf_hero_eyebrow === "string" && (mf.mf_hero_eyebrow as string).trim())
+      ? (mf.mf_hero_eyebrow as string).trim()
+      : (snapshot.eyebrow ?? undefined),
     hostNames: snapshot.host_names ?? undefined,
     storyHeadline: snapshot.story_headline ?? undefined,
     storyText: snapshot.story_text ?? undefined,
@@ -312,18 +355,19 @@ export function assembleInvitationPageData(
 
     heroImage: snapshot.hero_image_url ?? undefined,
     heroImageAlt: snapshot.hero_image_alt ?? undefined,
-    heroImageFocus:
-      snapshot.hero_image_url
-        ? {
-            x: typeof snapshot.hero_image_focus_x === "number" && Number.isFinite(snapshot.hero_image_focus_x)
-              ? snapshot.hero_image_focus_x
-              : 50,
-            y: typeof snapshot.hero_image_focus_y === "number" && Number.isFinite(snapshot.hero_image_focus_y)
-              ? snapshot.hero_image_focus_y
-              : 50,
-          }
-        : undefined,
+    heroImageFocus: (() => {
+      const mfFocal = mfHeroPhotos[0]?.focal;
+      if (mfFocal) return { x: Math.max(0, Math.min(100, Math.round(mfFocal.x))), y: Math.max(0, Math.min(100, Math.round(mfFocal.y))) };
+      if (!snapshot.hero_image_url) return undefined;
+      return {
+        x: typeof snapshot.hero_image_focus_x === "number" && Number.isFinite(snapshot.hero_image_focus_x) ? snapshot.hero_image_focus_x : 50,
+        y: typeof snapshot.hero_image_focus_y === "number" && Number.isFinite(snapshot.hero_image_focus_y) ? snapshot.hero_image_focus_y : 50,
+      };
+    })(),
     scrollPrompt: snapshot.scroll_prompt ?? undefined,
+    invitationLine: (isManifest && typeof mf?.mf_invitation_line === "string" && (mf.mf_invitation_line as string).trim())
+      ? (mf.mf_invitation_line as string).trim()
+      : undefined,
 
     parkingNotes: snapshot.parking_notes ?? undefined,
     dressCode: snapshot.dress_code ?? undefined,
@@ -356,8 +400,14 @@ export function assembleInvitationPageData(
     })) ?? undefined,
     weddingStory: snapshot.wedding_story ?? undefined,
 
-    parentsLine: evergreen?.parents_line ?? undefined,
-    dressCodeSwatches: evergreen?.dress_code_swatches ?? undefined,
+    parentsLine: evergreen?.parents_line ?? (typeof mf?.mf_parents_line === "string" ? (mf.mf_parents_line as string) : undefined) ?? undefined,
+    parentOneLabel: (typeof mf?.mf_parent_one_label === "string" && (mf.mf_parent_one_label as string).trim()) ? (mf.mf_parent_one_label as string) : undefined,
+    parentOneNameOne: (typeof mf?.mf_parent_one_name_one === "string" && (mf.mf_parent_one_name_one as string).trim()) ? (mf.mf_parent_one_name_one as string) : undefined,
+    parentOneNameTwo: (typeof mf?.mf_parent_one_name_two === "string" && (mf.mf_parent_one_name_two as string).trim()) ? (mf.mf_parent_one_name_two as string) : undefined,
+    parentTwoLabel: (typeof mf?.mf_parent_two_label === "string" && (mf.mf_parent_two_label as string).trim()) ? (mf.mf_parent_two_label as string) : undefined,
+    parentTwoNameOne: (typeof mf?.mf_parent_two_name_one === "string" && (mf.mf_parent_two_name_one as string).trim()) ? (mf.mf_parent_two_name_one as string) : undefined,
+    parentTwoNameTwo: (typeof mf?.mf_parent_two_name_two === "string" && (mf.mf_parent_two_name_two as string).trim()) ? (mf.mf_parent_two_name_two as string) : undefined,
+    dressCodeSwatches: readManifestSwatches(mf) ?? evergreen?.dress_code_swatches ?? undefined,
     adultsOnlyNote: evergreen?.adults_only_note ?? undefined,
     monogramInitials: evergreen?.monogram_initials ?? undefined,
     albumUrl: evergreen?.album_url ?? undefined,
@@ -368,8 +418,8 @@ export function assembleInvitationPageData(
     closingCaption: evergreen?.closing_caption ?? undefined,
     rsvpIntro: evergreen?.rsvp_intro ?? undefined,
     rsvpDeadline: evergreen?.rsvp_deadline ?? undefined,
-    envelopePhoto: evergreen?.envelope_photo_url ?? undefined,
-    envelopePhotoTwo: evergreen?.envelope_photo_two_url ?? undefined,
+    envelopePhoto: mfHeroPhotos[0]?.url ?? evergreen?.envelope_photo_url ?? undefined,
+    envelopePhotoTwo: mfHeroPhotos[1]?.url ?? evergreen?.envelope_photo_two_url ?? undefined,
     coverPhoto: evergreen?.cover_photo_url ?? undefined,
     polaroidPhotoOne: evergreen?.polaroid_photo_one_url ?? undefined,
     polaroidPhotoTwo: evergreen?.polaroid_photo_two_url ?? undefined,
