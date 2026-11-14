@@ -66,7 +66,7 @@ export function MyThingsView({
           <WorkspacesBlock workspaces={accountData.workspaces} />
 
           {/* Primary Content Blocks: 2-column responsive layout for lists */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* 3. Events (own, organizer and team) */}
             <EventsBlock events={accountData.events} />
 
