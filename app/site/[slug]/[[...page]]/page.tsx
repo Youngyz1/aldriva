@@ -68,6 +68,9 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { DraftPreviewBanner } from "@/components/site/DraftPreviewBanner";
+import type { StorefrontRentalConfig } from "@/components/site/blocks/rental/types";
+import { listPublicRentalCategories, listPublicRentalBranches } from "@/lib/actions/rental-public";
+import { getRentalSettings } from "@/lib/actions/rental-settings";
 import { TABLE_CONTEXT_COOKIE, type TableContextPayload } from "@/lib/table-qr";
 import { safeImageSrc } from "@/lib/image-url";
 
@@ -775,6 +778,33 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
     };
   }
 
+  let rentalConfig: StorefrontRentalConfig | undefined;
+  const isRentalBusiness = bookingCaps.includes("VEHICLES") || bookingCaps.includes("VEHICLE_RENTAL");
+  if (isRentalBusiness && linkedBusiness?.id && website.tenant_id) {
+    const orgId = website.tenant_id;
+    const bizId = linkedBusiness.id;
+    const [rentalCategories, rentalBranches, { settings: rentalSettings }] = await Promise.all([
+      listPublicRentalCategories(orgId, bizId),
+      listPublicRentalBranches(bizId),
+      getRentalSettings(orgId, bizId),
+    ]);
+
+    rentalConfig = {
+      enabled: true,
+      organizerId: orgId,
+      businessId: bizId,
+      businessName:
+        typeof v2Content?.content.business_name === "string"
+          ? v2Content.content.business_name
+          : website.site_title,
+      siteSlug: website.slug,
+      currency: currency || "USD",
+      settings: rentalSettings,
+      categories: rentalCategories,
+      branches: rentalBranches,
+    };
+  }
+
   const rawBlocks = (targetPage.blocks as unknown[]) || [];
   const hasMenuEmbedOnPage = rawBlocks.some((value) =>
     Boolean(value && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).type === "menu_embed")
@@ -945,6 +975,7 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
                 currencyLocale={currencyLocale}
                 orderConfig={orderConfig}
                 reservationConfig={reservationConfig}
+                rentalConfig={rentalConfig}
                 preselectedService={preselectedService}
                 siteSlug={website.slug}
                 hasPublishedMenuPage={hasPublishedMenuPage}
