@@ -117,10 +117,16 @@ export async function recordPickupHandover(
     if (isMissingTableError(error)) return { success: false, error: "Migration 233 required.", code: "MIGRATION_REQUIRED" };
     const prefix = error.message.match(/^([A-Z_]+):/)?.[1];
     const code = prefix ?? error.code;
-    const message =
-      code === "LATE_FEE_DECISION_REQUIRED"
-        ? "A late fee is due. Choose to apply or waive it before completing return."
-        : cleanDbMessage(error.message);
+    const friendly: Record<string, string> = {
+      LATE_FEE_DECISION_REQUIRED: "A late fee is due. Choose to apply or waive it before completing return.",
+      DEPOSIT_NOT_COLLECTED: "No deposit was recorded as collected, so it cannot be settled. Record the deposit in the Deposit panel first, or complete the return without settling.",
+      DEPOSIT_ALREADY_SETTLED: "The deposit has already been settled for this booking.",
+      DEPOSIT_REASON_REQUIRED: "A reason is required to retain part or all of the deposit.",
+      INVALID_DEPOSIT_AMOUNT: "The retained deposit amount must be greater than 0 and not more than the collected amount.",
+      INVALID_ODOMETER: "The return odometer reading is invalid. It must be non-negative and not less than the starting mileage.",
+      INVALID_RETURN_TIME: "The actual return time is invalid. It cannot be in the future, before pickup, or more than 24 hours before now.",
+    };
+    const message = (code && friendly[code]) || cleanDbMessage(error.message);
     return { success: false, code, error: message };
   }
   revalidatePath(`/dashboard/org/${organizerId}/rentals`);
@@ -181,10 +187,16 @@ export async function recordReturnHandover(
     if (isMissingTableError(error)) return { success: false, error: "Migration 233 required.", code: "MIGRATION_REQUIRED" };
     const prefix = error.message.match(/^([A-Z_]+):/)?.[1];
     const code = prefix ?? error.code;
-    const message =
-      code === "LATE_FEE_DECISION_REQUIRED"
-        ? "A late fee is due. Choose to apply or waive it before completing return."
-        : cleanDbMessage(error.message);
+    const friendly: Record<string, string> = {
+      LATE_FEE_DECISION_REQUIRED: "A late fee is due. Choose to apply or waive it before completing return.",
+      DEPOSIT_NOT_COLLECTED: "No deposit was recorded as collected, so it cannot be settled. Record the deposit in the Deposit panel first, or complete the return without settling.",
+      DEPOSIT_ALREADY_SETTLED: "The deposit has already been settled for this booking.",
+      DEPOSIT_REASON_REQUIRED: "A reason is required to retain part or all of the deposit.",
+      INVALID_DEPOSIT_AMOUNT: "The retained deposit amount must be greater than 0 and not more than the collected amount.",
+      INVALID_ODOMETER: "The return odometer reading is invalid. It must be non-negative and not less than the starting mileage.",
+      INVALID_RETURN_TIME: "The actual return time is invalid. It cannot be in the future, before pickup, or more than 24 hours before now.",
+    };
+    const message = (code && friendly[code]) || cleanDbMessage(error.message);
     return { success: false, code, error: message };
   }
   revalidatePath(`/dashboard/org/${organizerId}/rentals`);

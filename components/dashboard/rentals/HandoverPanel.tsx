@@ -103,7 +103,8 @@ export function HandoverPanel(props: Props) {
 
   // deposit settlement (Part B)
   const depositSettled = depositStatus === "returned_full" || depositStatus === "partially_retained" || depositStatus === "retained_full";
-  const [depAction, setDepAction] = useState<DepositSettlementAction>(depositSettled ? "none" : "none");
+  const canSettleDeposit = !depositSettled && depositStatus === "collected_offline";
+  const [depAction, setDepAction] = useState<DepositSettlementAction>(canSettleDeposit ? "return_full" : "none");
   const [depRetain, setDepRetain] = useState("0");
   const [depReason, setDepReason] = useState("");
 
@@ -179,7 +180,8 @@ export function HandoverPanel(props: Props) {
   function submitReturn() {
     setError(null);
     if (!rConfirmName.trim()) { setError("Customer confirmation name is required."); return; }
-    if ((depAction === "retain_partial" || depAction === "retain_full") && !depReason.trim()) {
+    const effectiveDepositAction = canSettleDeposit ? depAction : "none";
+    if ((effectiveDepositAction === "retain_partial" || effectiveDepositAction === "retain_full") && !depReason.trim()) {
       setError("A reason is required to retain a deposit."); return;
     }
     if (lfAction === "waive" && (lfQuote?.amount ?? 0) > 0 && !lfReason.trim()) {
@@ -196,8 +198,8 @@ export function HandoverPanel(props: Props) {
           damageNotes: rDamage || null,
           customerConfirmedName: rConfirmName.trim(),
           customerConfirmedAt: toIso(rConfirmAt),
-          depositAction: depAction,
-          depositRetainedAmount: depAction === "retain_partial" ? Number(depRetain || 0) : undefined,
+          depositAction: effectiveDepositAction,
+          depositRetainedAmount: effectiveDepositAction === "retain_partial" ? Number(depRetain || 0) : undefined,
           depositReason: depReason || null,
           lateFeeAction: lfAction,
           lateFeeAmount: lfAction === "none" ? null : Number(lfAmount || 0),
@@ -281,11 +283,10 @@ export function HandoverPanel(props: Props) {
             <p className="text-sm font-semibold text-zinc-900">Deposit settlement (offline record)</p>
             {depositSettled ? (
               <p className="text-sm text-zinc-600">Deposit already settled: <span className="font-medium">{depositStatus.replace(/_/g, " ")}</span>.</p>
-            ) : (
+            ) : canSettleDeposit ? (
               <>
                 <p className="text-xs text-zinc-500">Collected: {formatMoney(depositCollected, currency)} (required {formatMoney(depositRequired, currency)}). Money is not moved through Stripe.</p>
                 <select value={depAction} onChange={(e)=>setDepAction(e.target.value as DepositSettlementAction)} className="w-full h-11 rounded-xl border border-zinc-300 px-3 bg-white text-sm">
-                  <option value="none">Decide later / no change</option>
                   <option value="return_full">Return full deposit</option>
                   <option value="retain_partial">Retain part of deposit</option>
                   <option value="retain_full">Retain full deposit</option>
@@ -297,6 +298,8 @@ export function HandoverPanel(props: Props) {
                   <label className="block text-sm text-zinc-700">Reason for retention<textarea value={depReason} onChange={(e)=>setDepReason(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2" /></label>
                 )}
               </>
+            ) : (
+              <p className="text-sm text-zinc-600">No deposit was recorded as collected. Record it in the Deposit panel first, or complete the return without settling.</p>
             )}
           </div>
 
