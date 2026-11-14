@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
-import { getPrivateMediaReadUrl } from "@/lib/storage/private-media";
+import { getPrivateMediaSignedGetUrl } from "@/lib/storage/private-media";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       vercelEnv: process.env.VERCEL_ENV,
     });
     if (!useR2) return NextResponse.json({ error: "Storage not configured." }, { status: 503 });
-    const url = await getPrivateMediaReadUrl(key, 120);
+    const url = await getPrivateMediaSignedGetUrl(key, 120);
     return NextResponse.json({ url });
   } catch (err) {
     console.error("[rentals/lookup/inspections]", err);

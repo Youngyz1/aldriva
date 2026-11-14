@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import { canUsePrivateR2Media } from "@/lib/media/driver-policy";
-import { getPrivateMediaReadUrl } from "@/lib/storage/private-media";
+import { getPrivateMediaSignedGetUrl } from "@/lib/storage/private-media";
 
 export const maxDuration = 30;
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       vercelEnv: process.env.VERCEL_ENV,
     });
     if (!useR2) return NextResponse.json({ error: "Storage not configured." }, { status: 503 });
-    const url = await getPrivateMediaReadUrl(key, 120);
+    const url = await getPrivateMediaSignedGetUrl(key, 120);
     return NextResponse.json({ url });
   } catch (err) {
     console.error("[rentals/inspections/view]", err);
