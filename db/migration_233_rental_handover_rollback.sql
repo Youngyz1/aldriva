@@ -30,14 +30,6 @@ BEGIN
     END IF;
   END IF;
 
-  IF to_regclass('public.rental_booking_events') IS NOT NULL THEN
-    SELECT count(*) INTO v_n
-      FROM public.rental_booking_events
-     WHERE event_type IN ('inspection_recorded', 'deposit_settled', 'late_fee_applied', 'late_fee_waived');
-    IF v_n > 0 THEN
-      RAISE EXCEPTION 'ROLLBACK_BLOCKED: % handover event(s) exist in rental_booking_events.', v_n;
-    END IF;
-  END IF;
 
   -- Block if any function (other than the ones we drop) depends on the 233 RPC signatures.
   SELECT string_agg(DISTINCT n.nspname || '.' || p.proname, ', ' ORDER BY n.nspname || '.' || p.proname)
@@ -78,18 +70,27 @@ END $$;
 -- Drop inspection table.
 DROP TABLE IF EXISTS public.rental_inspections CASCADE;
 
--- Restore previous rental_booking_events.event_type CHECK (migration 228 values).
+-- Remove 233 event rows, then restore previous rental_booking_events.event_type CHECK
+-- (migration 228 values: exactly the six below).
+DELETE FROM public.rental_booking_events
+WHERE event_type IN (
+  'inspection_recorded',
+  'deposit_settled',
+  'late_fee_applied',
+  'late_fee_waived'
+);
+
 ALTER TABLE public.rental_booking_events
   DROP CONSTRAINT IF EXISTS rental_booking_events_event_type_check;
 ALTER TABLE public.rental_booking_events
   ADD CONSTRAINT rental_booking_events_event_type_check CHECK (event_type IN (
-    'status_change',
-    'payment_link_sent',
-    'deadline_extended',
-    'payment_override',
-    'email_sent',
-    'email_failed'
-  ));
+  'status_change',
+  'payment_link_sent',
+  'deadline_extended',
+  'payment_override',
+  'email_sent',
+  'email_failed'
+));
 
 -- Remove late-fee business settings.
 ALTER TABLE public.businesses

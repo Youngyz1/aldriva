@@ -215,15 +215,20 @@ BEGIN
      WHERE id = p_booking_id AND organizer_id = p_organizer_id;
   END IF;
 
-  INSERT INTO public.rental_inspections (
-    booking_id, organizer_id, kind, odometer, fuel_level, photos,
-    damage_notes, customer_confirmed_name, customer_confirmed_at, created_by
-  ) VALUES (
-    p_booking_id, p_organizer_id, 'pickup', p_odometer, p_fuel_level, v_photos,
-    NULLIF(trim(COALESCE(p_damage_notes, '')), ''),
-    v_conf_name, v_conf_at, p_actor_id
-  )
-  RETURNING id INTO v_insp_id;
+  -- Wrap ONLY the inspection INSERT so errors from reused 229 function propagate unchanged.
+  BEGIN
+    INSERT INTO public.rental_inspections (
+      booking_id, organizer_id, kind, odometer, fuel_level, photos,
+      damage_notes, customer_confirmed_name, customer_confirmed_at, created_by
+    ) VALUES (
+      p_booking_id, p_organizer_id, 'pickup', p_odometer, p_fuel_level, v_photos,
+      NULLIF(trim(COALESCE(p_damage_notes, '')), ''),
+      v_conf_name, v_conf_at, p_actor_id
+    )
+    RETURNING id INTO v_insp_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'ALREADY_SUBMITTED: pickup inspection already recorded for this booking' USING ERRCODE = 'RB051';
+  END;
 
   INSERT INTO public.rental_booking_events (booking_id, organizer_id, event_type, actor_id, payload)
   VALUES (
@@ -244,9 +249,6 @@ BEGIN
     v_pick.out_payment_status,
     v_pick.out_booking_status,
     v_insp_id;
-
-EXCEPTION WHEN unique_violation THEN
-  RAISE EXCEPTION 'ALREADY_SUBMITTED: pickup inspection already recorded for this booking' USING ERRCODE = 'RB051';
 END;
 $$;
 
@@ -324,6 +326,9 @@ BEGIN
   IF p_odometer IS NOT NULL AND p_odometer < 0 THEN
     RAISE EXCEPTION 'INVALID_ODOMETER: odometer must be non-negative';
   END IF;
+  IF p_odometer IS NOT NULL AND v_booking.start_mileage IS NOT NULL AND p_odometer < v_booking.start_mileage THEN
+    RAISE EXCEPTION 'INVALID_ODOMETER: return odometer cannot be less than start mileage';
+  END IF;
   IF v_dep_action NOT IN ('none', 'return_full', 'retain_partial', 'retain_full') THEN
     RAISE EXCEPTION 'INVALID_DEPOSIT_ACTION: %', v_dep_action USING ERRCODE = 'RB052';
   END IF;
@@ -339,14 +344,21 @@ BEGIN
     RAISE EXCEPTION 'BOOKING_NOT_FOUND: booking % does not belong to organizer %', p_booking_id, p_organizer_id;
   END IF;
 
-  -- Actual return time: DB clock by default; if provided, validate (not future, not before pickup).
+  -- Actual return time: DB clock by default; if provided, clamp small future skew,
+  -- reject >5 min future, reject >24h before now, reject before picked_up_at.
   IF p_actual_return_at IS NULL THEN
     v_actual := v_now;
   ELSE
-    v_actual := p_actual_return_at;
-    IF v_actual > v_now THEN
-      RAISE EXCEPTION 'INVALID_RETURN_TIME: actual return time cannot be in the future';
+    IF p_actual_return_at > v_now + interval '5 minutes' THEN
+      RAISE EXCEPTION 'INVALID_RETURN_TIME: actual return time cannot be more than 5 minutes in the future';
+    ELSIF p_actual_return_at > v_now THEN
+      v_actual := v_now;
+    ELSIF p_actual_return_at < v_now - interval '24 hours' THEN
+      RAISE EXCEPTION 'INVALID_RETURN_TIME: actual return time cannot be more than 24 hours before now';
+    ELSE
+      v_actual := p_actual_return_at;
     END IF;
+
     IF v_booking.picked_up_at IS NOT NULL AND v_actual < v_booking.picked_up_at THEN
       RAISE EXCEPTION 'INVALID_RETURN_TIME: actual return time cannot be before picked_up_at';
     END IF;
@@ -371,16 +383,21 @@ BEGIN
    WHERE rb.id = p_booking_id AND rb.organizer_id = p_organizer_id
      FOR UPDATE;
 
-  -- Insert return inspection (double-submit guard).
-  INSERT INTO public.rental_inspections (
-    booking_id, organizer_id, kind, odometer, fuel_level, photos,
-    damage_notes, customer_confirmed_name, customer_confirmed_at, created_by
-  ) VALUES (
-    p_booking_id, p_organizer_id, 'return', p_odometer, p_fuel_level, v_photos,
-    NULLIF(trim(COALESCE(p_damage_notes, '')), ''),
-    v_conf_name, v_conf_at, p_actor_id
-  )
-  RETURNING id INTO v_insp_id;
+  -- Insert return inspection (double-submit guard). Wrap ONLY this INSERT so errors
+  -- from reused 230 function and other logic propagate unchanged.
+  BEGIN
+    INSERT INTO public.rental_inspections (
+      booking_id, organizer_id, kind, odometer, fuel_level, photos,
+      damage_notes, customer_confirmed_name, customer_confirmed_at, created_by
+    ) VALUES (
+      p_booking_id, p_organizer_id, 'return', p_odometer, p_fuel_level, v_photos,
+      NULLIF(trim(COALESCE(p_damage_notes, '')), ''),
+      v_conf_name, v_conf_at, p_actor_id
+    )
+    RETURNING id INTO v_insp_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'ALREADY_SUBMITTED: return inspection already recorded for this booking' USING ERRCODE = 'RB051';
+  END;
 
   -- Deposit settlement
   v_dep_status := v_booking.deposit_status;
@@ -536,9 +553,6 @@ BEGIN
     COALESCE(v_booking.deposit_status, 'none'),
     COALESCE(v_booking.late_fee_amount, 0)::numeric,
     COALESCE(v_booking.late_fee_status, 'none');
-
-EXCEPTION WHEN unique_violation THEN
-  RAISE EXCEPTION 'ALREADY_SUBMITTED: return inspection already recorded for this booking' USING ERRCODE = 'RB051';
 END;
 $$;
 
