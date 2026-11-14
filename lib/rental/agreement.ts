@@ -41,11 +41,10 @@ export async function getRentalAgreementDataByBookingId(bookingId: string): Prom
     .maybeSingle();
   if (!booking) return null;
   const b = booking as any;
-  const [{ data: business }, { data: vehicle }, { data: pickup }, { data: category }] = await Promise.all([
+  const [{ data: business }, { data: vehicle }, { data: pickup }] = await Promise.all([
     admin.from("businesses").select("name, rental_terms").eq("id", b.business_id).maybeSingle(),
     b.vehicle_id ? admin.from("vehicles").select("make, model, license_plate").eq("id", b.vehicle_id).maybeSingle() : Promise.resolve({ data: null }),
     admin.from("rental_inspections").select("odometer, fuel_level, damage_notes, customer_confirmed_name, customer_confirmed_at").eq("booking_id", b.id).eq("kind", "pickup").maybeSingle(),
-    admin.from("vehicle_categories").select("name").eq("id", b.category_id ?? "").maybeSingle().catch(()=>({data:null})),
   ]);
   // category_id not selected above; fetch separately if needed
   let catName: string | null = null;
