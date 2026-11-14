@@ -3,6 +3,7 @@ import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { getDashboardEventDetail } from '@/lib/dashboard-data';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { deleteEventsWithoutPaymentRecords } from '@/lib/dashboard-delete';
+import { decideDashboardEventAccess } from '@/lib/dashboard-event-access';
 import { ENTITY_ROLES_CONTENT_WRITE, ENTITY_ROLES_MANAGE } from '@/lib/entity-auth';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -64,17 +65,24 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { data: existing } = await supabaseAdmin
     .from('events')
-    .select('id, organizer_id')
+    .select('id, organizer_id, user_id')
     .eq('id', id)
-    .in('organizer_id', auth.ctx.organizerIds)
     .maybeSingle();
 
-  if (!existing) {
+  const access = existing
+    ? decideDashboardEventAccess(existing, {
+        userId: auth.ctx.userId,
+        organizerIds: auth.ctx.organizerIds,
+        organizerRoles: auth.ctx.organizerRoles,
+        requiredRoles: ENTITY_ROLES_MANAGE,
+        allowPersonalOwner: true,
+      })
+    : 'not_found';
+
+  if (access === 'not_found') {
     return NextResponse.json({ error: 'Event not found.' }, { status: 404 });
   }
-
-  const role = auth.ctx.organizerRoles[existing.organizer_id];
-  if (!role || !ENTITY_ROLES_MANAGE.includes(role)) {
+  if (access === 'forbidden') {
     return NextResponse.json({ error: 'You do not have permission to delete this event.' }, { status: 403 });
   }
 

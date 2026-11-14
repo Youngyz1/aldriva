@@ -12,6 +12,7 @@
   "lib/ai/__tests__/studio-boundary.test.cjs",
   "lib/security/__tests__/stage15-pass-one.test.cjs",
   "lib/dashboard/__tests__/event-dashboard-regressions.test.cjs",
+  "lib/dashboard/__tests__/event-delete-access.test.cjs",
   "lib/security/__tests__/entitlement.test.cjs",
   "lib/security/__tests__/certificate-authorization.test.cjs",
   "lib/security/__tests__/send-ticket-authorization.test.cjs",
