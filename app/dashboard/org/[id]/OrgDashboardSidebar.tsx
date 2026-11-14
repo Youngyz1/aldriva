@@ -29,8 +29,9 @@ import {
   IconQrcode as Qrcode,
   IconCalendarCheck as CalendarCheck,
   IconCalendarClock as CalendarClock,
+  IconCar as Car,
 } from "@tabler/icons-react";
-import { getOrgNavItems } from "./org-nav-items";
+import { getFullOrgNavItems } from "./org-nav-items";
 import type { Capability } from "@/lib/business-taxonomy";
 import type { OrganizerDashboardTypeFlags } from "@/lib/organizer-dashboard-classifier";
 
@@ -44,7 +45,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {
@@ -54,14 +55,11 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   sports_club: "Sports Club", other: "Organization",
 };
 
-export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, capabilities, offerings }: { org: Org; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasActiveServiceRows?: boolean; hasReservationRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null }) {
+export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, hasFleetRows, capabilities, offerings, pendingRentalsCount }: { org: Org; organizerTypes: OrganizerDashboardTypeFlags; hasProducts?: boolean; hasMenuRows?: boolean; hasServiceRows?: boolean; hasActiveServiceRows?: boolean; hasReservationRows?: boolean; hasFleetRows?: boolean; capabilities: Capability[]; offerings?: readonly string[] | null; pendingRentalsCount?: number }) {
   const pathname = usePathname();
   const t = useTranslations('Organizer');
   const base = `/dashboard/org/${org.id}`;
-  const rawNavItems = getOrgNavItems(base, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, capabilities, offerings });
-  if (hasMenuRows || capabilities.includes("MENU")) {
-    rawNavItems.push({ label: "Tables & QR", href: `${base}/tables`, icon: "Qrcode" });
-  }
+  const rawNavItems = getFullOrgNavItems(base, { organizerTypes, hasProducts, hasMenuRows, hasServiceRows, hasActiveServiceRows, hasReservationRows, hasFleetRows, capabilities, offerings, pendingRentalsCount });
   const navItems = rawNavItems.map(item => {
     const key = item.label.toLowerCase() as any;
     try { return { ...item, label: t(key) }; } catch { return item; }
@@ -107,12 +105,15 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
               {org.photo ? <Image src={org.photo} alt={org.name} width={32} height={32} className="h-full w-full object-cover" /> : <span className="text-xs font-black">{org.name.charAt(0).toUpperCase()}</span>}
             </div>
             <div className="flex flex-col items-center gap-1">
-              {navItems.slice(0, 5).map((item) => {
+              {navItems.slice(0, 7).map((item) => {
                 const Icon = ORG_ICON_MAP[item.icon] ?? Globe;
                 const active = isActive(item.href);
                 return (
-                  <Link key={item.href} href={item.href} title={item.label} aria-current={active ? "page" : undefined} className={`flex h-9 w-9 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
+                  <Link key={item.href} href={item.href} title={item.label} aria-current={active ? "page" : undefined} className={`relative flex h-9 w-9 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
                     <Icon className="h-4 w-4" />
+                    {item.badge !== undefined && Number(item.badge) > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-amber-500 ring-2 ring-white" />
+                    )}
                   </Link>
                 );
               })}
@@ -146,11 +147,31 @@ export default function OrgDashboardSidebar({ org, organizerTypes, hasProducts, 
                 const active = isActive(item.href);
                 const Icon = ORG_ICON_MAP[item.icon] ?? Globe;
                 return (
-                  <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}>
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {item.comingSoon && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-700">Soon</span>}
-                  </Link>
+                  <div key={item.href} className="flex items-center gap-1">
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-11 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge !== undefined && Number(item.badge) > 0 && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                          {item.badge}
+                        </span>
+                      )}
+                      {item.comingSoon && <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-700">Soon</span>}
+                    </Link>
+                    {item.settingsHref && (
+                      <Link
+                        href={item.settingsHref}
+                        title={`${item.label} Settings`}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Link>
+                    )}
+                  </div>
                 );
               })}
             </nav>

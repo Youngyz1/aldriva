@@ -67,6 +67,11 @@ import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse
 import { ProductCarousel } from "./ProductCarousel";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { GeneralBookingForm, type StorefrontGeneralBookingConfig, type GeneralBookingFormLabels } from "../reservations/GeneralBookingForm";
+import type { StorefrontRentalConfig } from "./rental/types";
+import { BookingBarBlock } from "./rental/BookingBarBlock";
+import { FleetCardsBlock } from "./rental/FleetCardsBlock";
+import { FleetGridBlock } from "./rental/FleetGridBlock";
+import { BookingFormBlock } from "./rental/BookingFormBlock";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
 import type { ValidatedPublicService } from "@/lib/services-public-data";
@@ -2603,6 +2608,7 @@ async function ReservationFormBlockRenderer({
   coverImageUrl,
 }: {
   reservationConfig?: StorefrontReservationConfig;
+  rentalConfig?: StorefrontRentalConfig;
   siteSlug?: string;
   businessName?: string;
   coverImageUrl?: string | null;
@@ -2952,6 +2958,7 @@ export async function BlockRenderer({
   currencyLocale,
   orderConfig,
   reservationConfig,
+  rentalConfig,
   preselectedService,
   siteSlug,
   hasPublishedMenuPage,
@@ -2974,6 +2981,7 @@ export async function BlockRenderer({
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
   reservationConfig?: StorefrontReservationConfig;
+  rentalConfig?: StorefrontRentalConfig;
   /** Validated ?service=<id> for the general booking form only. */
   preselectedService?: ValidatedPublicService | null;
   siteSlug?: string;
@@ -3136,6 +3144,46 @@ export async function BlockRenderer({
           siteSlug={siteSlug}
           businessName={businessName}
           coverImageUrl={coverImageUrl}
+        />
+      );
+      break;
+    case "booking_bar":
+      content = (
+        <BookingBarBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "fleet_cards":
+      content = (
+        <FleetCardsBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "fleet_grid":
+      content = (
+        <FleetGridBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "booking_form":
+      content = (
+        <BookingFormBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
         />
       );
       break;

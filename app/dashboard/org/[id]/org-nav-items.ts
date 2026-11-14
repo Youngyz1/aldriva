@@ -19,16 +19,38 @@ import {
  */
 export interface OrgNavOpts extends OrgNavSignalCounts {
   capabilities: Capability[];
+  pendingRentalsCount?: number;
 }
 
 export function getOrgNavItems(base: string, opts: OrgNavOpts): NavItem[] {
-  const items = getOrgNavModules(opts.capabilities, opts).map((module) => ({
-    label: module.label,
-    href: `${base}/${module.hrefSuffix}`,
-    icon: module.icon,
-  }));
+  const items: NavItem[] = getOrgNavModules(opts.capabilities, opts).map((module) => {
+    const isRentals = module.key === "rentals";
+    return {
+      label: module.label,
+      href: `${base}/${module.hrefSuffix}`,
+      icon: module.icon,
+      badge: isRentals && opts.pendingRentalsCount && opts.pendingRentalsCount > 0 ? opts.pendingRentalsCount : undefined,
+      settingsHref: isRentals ? `${base}/rentals/settings` : undefined,
+    };
+  });
   if (opts.hasMenuRows || opts.capabilities.includes("MENU")) {
     items.push({ label: "Kitchen", href: `${base}/kitchen`, icon: "ChefHat" });
+  }
+  return items;
+}
+
+/**
+ * getOrgNavItems() plus the one extra item OrgDashboardSidebar.tsx adds by
+ * hand ("Tables & QR", same hasMenuRows/MENU gate as Kitchen above) — the
+ * full item list the desktop sidebar actually renders. Exported so every
+ * nav surface (desktop sidebar, mobile DashboardMoreSheet) calls this one
+ * function instead of each re-deriving its own capability checks, which is
+ * how the two surfaces drifted out of sync before.
+ */
+export function getFullOrgNavItems(base: string, opts: OrgNavOpts): NavItem[] {
+  const items = getOrgNavItems(base, opts);
+  if (opts.hasMenuRows || opts.capabilities.includes("MENU")) {
+    items.push({ label: "Tables & QR", href: `${base}/tables`, icon: "Qrcode" });
   }
   return items;
 }

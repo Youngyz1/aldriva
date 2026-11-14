@@ -218,6 +218,7 @@
       "totalRatings": "Total des évaluations"
     },
     "reservations": "Réservations",
+    "rentals": "Locations",
     "fleet": "Véhicules",
     "bookings": "Rendez-vous",
     "reviews": "Avis",
@@ -235,7 +236,10 @@
     "emptyFundraisers": "Aucune collecte. Lancez une nouvelle campagne.",
     "emptyProducts": "Aucun produit.",
     "noWebsite": "Aucun site web. Créez un site pour cet organisateur.",
-    "createWebsite": "Créer un site"
+    "createWebsite": "Créer un site",
+    "rentalSettings": "Paramètres de location",
+    "addVehicle": "Ajouter un véhicule",
+    "newBooking": "Nouvelle réservation"
   },
   "Events": {
     "title": "Événements",
@@ -1141,7 +1145,9 @@
     "generalBookingSubmittingLabel": "Envoi en cours…",
     "generalBookingSelectedService": "Service sélectionné",
     "generalBookingBlockLabel": "Formulaire de réservation générale",
-    "generalBookingBlockDescription": "Formulaire de demande de rendez-vous pour les entreprises de services (salons, cliniques, locations)."
+    "generalBookingBlockDescription": "Formulaire de demande de rendez-vous pour les entreprises de services (salons, cliniques, locations).",
+    "hoursNotSetYet": "Cet établissement n'a pas encore défini ses horaires d'ouverture.",
+    "noTimesAvailable": "Aucun créneau disponible dans les {days} prochains jours."
   },
   "Orders": {
     "title": "Commandes",
@@ -1466,9 +1472,7 @@
     "declineChangeTitle": "Refuser la modification",
     "decisionNote": "Message pour le convive (facultatif)",
     "declineNote": "Note du restaurant",
-    "declineNotePlaceholder": "ex. Désolé, nous sommes complets à cet horaire.",
-    "hoursNotSetYet": "Cet établissement n'a pas encore défini ses horaires d'ouverture.",
-    "noTimesAvailable": "Aucun créneau disponible dans les {days} prochains jours."
+    "declineNotePlaceholder": "ex. Désolé, nous sommes complets à cet horaire."
   },
   "Bookings": {
     "title": "Rendez-vous",
@@ -1760,5 +1764,27 @@
     "catalog_products": "Produits",
     "recent_activity": "Activité récente",
     "attention": "Actions requises"
+  },
+  "rentalHandover": {
+    "earlyPickupReasonLabel": "Raison du retrait anticipé",
+    "earlyPickupReasonPlaceholder": "Expliquez pourquoi le retrait a lieu en avance",
+    "earlyPickupReasonHint": "Requis lorsque le retrait a lieu plus de 4 heures avant le début prévu (au moins 5 caractères).",
+    "earlyPickupReasonRequired": "Une raison pour le retrait anticipé est requise (au moins 5 caractères).",
+    "paymentCollectedNow": "Paiement encaissé maintenant",
+    "amount": "Montant",
+    "method": "Méthode",
+    "methodCash": "Espèces",
+    "methodCardTerminal": "Terminal de carte",
+    "methodMobileMoney": "Mobile money",
+    "paymentAmountRequired": "Saisissez un montant de paiement valide.",
+    "photoUploadUnavailable": "Le téléversement des photos n'est pas disponible dans cet environnement. Vous pouvez enregistrer sans photos."
+  },
+  "needsAttention": {
+    "title": "Actions requises",
+    "summary": "{count, plural, one {# élément nécessite votre action} other {# éléments nécessitent votre action}}",
+    "pendingRequests": "Demandes en attente",
+    "drafts": "Brouillons",
+    "upcomingEvents": "Événements à venir",
+    "showMore": "Afficher {count} de plus"
   }
 }

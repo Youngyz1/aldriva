@@ -150,6 +150,46 @@ export function resolvePeriodRange(
 }
 
 /**
+ * Validates a custom range's raw YYYY-MM-DD inputs before it is ever
+ * submitted, so an invalid range is reported with a clear message instead
+ * of silently falling back to "today" (the old behavior of the "custom"
+ * branch above, which still applies as a last-resort safety net if a bad
+ * range somehow reaches the server e.g. via a hand-edited URL).
+ */
+export function validateCustomRange(
+  from: string | undefined | null,
+  to: string | undefined | null
+): { valid: true } | { valid: false; error: string } {
+  if (!from || !to) {
+    return { valid: false, error: "Choose both a start and an end date." };
+  }
+  const parsedFrom = new Date(`${from}T00:00:00Z`);
+  const parsedTo = new Date(`${to}T00:00:00Z`);
+  if (isNaN(parsedFrom.getTime()) || isNaN(parsedTo.getTime())) {
+    return { valid: false, error: "Enter valid dates." };
+  }
+  if (parsedFrom > parsedTo) {
+    return { valid: false, error: "The start date must be on or before the end date." };
+  }
+  return { valid: true };
+}
+
+/**
+ * Formats a resolved range's boundaries as a short label, e.g. "13 Nov – 19 Nov",
+ * for display next to the period kind (PeriodSelector's trigger button).
+ */
+export function formatPeriodRangeLabel(
+  from: Date,
+  to: Date,
+  timezone: string = DEFAULT_SITE_TIMEZONE
+): string {
+  const tz = resolveSiteTimezone(timezone);
+  const fmt = (d: Date) =>
+    new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: tz }).format(d);
+  return `${fmt(from)} – ${fmt(to)}`;
+}
+
+/**
  * Extracts period parameters from URL search params.
  */
 export function parsePeriodSearchParams(

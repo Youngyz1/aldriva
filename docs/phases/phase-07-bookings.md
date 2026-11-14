@@ -2,15 +2,13 @@
 
 ---
 
-## STATUS (verified 2026-10-20)
+## STATUS (updated 2026-11-14, branch `feat/rental-handover`)
 
-A reservation **request engine** is built but hidden from navigation; the scheduling/calendar/SMS surface is not built. The phase doc previously read "PLANNED" — that was stale.
+**PARTIAL.** A reservation request engine is built but hidden from navigation; the full scheduling/calendar/SMS surface is not built. Rental booking handover work has been implemented in code on this branch and its database migration (233) is applied on staging.
 
-### Built
-- `db/migration_176_reservations.sql` (+ rollback) creating `public.reservations`. (VERIFIED — file exists; `CREATE TABLE public.reservations` present.)
-- Server actions `lib/actions/reservations.ts` — `submitReservationRequest` (+`WithClient`), `updateReservationStatus`, `cancelReservationByToken`, `saveReservationSettings`. (VERIFIED — lines 112, 123, 444, 459, 667, 674, 801, 816.)
-- Dashboard `app/dashboard/org/[id]/reservations/page.tsx`; public token page `app/site/[slug]/reservations/[lookup_token]/page.tsx`. (VERIFIED — files exist.)
-- Tests `lib/__tests__/phase7-reservations.test.cjs` (registered in `package.json`). (VERIFIED.)
+### Built / implemented
+- **Reservations (request engine, previously verified):** `db/migration_176_reservations.sql` (+ rollback) creating `public.reservations`; server actions `lib/actions/reservations.ts` (`submitReservationRequest`/+`WithClient`, `updateReservationStatus`, `cancelReservationByToken`, `saveReservationSettings`); dashboard `app/dashboard/org/[id]/reservations/page.tsx`; public token page `app/site/[slug]/reservations/[lookup_token]/page.tsx`; tests `lib/__tests__/phase7-reservations.test.cjs` registered. (Verified in earlier pass; not re-verified in this session.)
+- **Rental handover (code implemented on this branch; migration 233 applied on staging):** pickup/return inspection flow, deposit settlement recording, late-fee calculation/apply/waive, and rental agreement PDF generation/attachment. Migration `db/migration_233_rental_handover.sql` (+ rollback, `supabase/migrations/20261113000000_migration_233_rental_handover.sql` mirror) applied to staging and verified (table, three functions, late-fee checks). Key implementation files: `lib/actions/rental-handover.ts`, `lib/rental/handover-guards.ts`, `lib/rental/late-fee.ts`, `lib/rental/agreement.ts`, `components/dashboard/rentals/HandoverPanel.tsx`, inspection/agreement API routes under `app/api/rentals/`. Real-behavior tests added in `lib/__tests__/rental-handover.test.cjs` (registered). Migration 231 belongs to another agent; next free migration number is **234**. Pickup and return flows verified in a browser on staging data; deposit settlement, late-fee returns and photos are not yet tested.
 
 ### Partly built
 - **Navigation is hidden** — `app/dashboard/org/[id]/org-nav-items.ts` has **no** reservations entry, so the built dashboard page is undiscoverable. (VERIFIED — grep returns 0 matches.)
@@ -71,19 +69,26 @@ Deliver an enterprise-grade appointment scheduling and reservation engine for se
 - [ ] All tests passing.
 
 ## 7. Current Status
-**PLANNED**
+**PARTIAL**
 
 ## 8. Completed Work
-- None.
+- Reservation request engine and related dashboard/public pages/actions/tests (see STATUS; previously verified).
+- Rental handover flow implemented in code on `feat/rental-handover` with migration 233 applied to staging and targeted real-behavior tests added (see STATUS). Deposit settlement, late-fee returns and photos still need runtime verification.
 
 ## 9. Remaining Work
-- Tasks 7.1 through 7.5.
+- Finish runtime QA for rental handover (deposit settlement, late fees, agreement PDF/email, permissions/RLS).
+- Reservations: un-hide navigation (owner UI decision), scheduling schema/engine/slot-picker widget, confirmations and `.ics`.
+- Tasks 7.1 through 7.5 as applicable (renumber migrations via register; do not use consumed numbers).
 
 ## 10. Known Issues
-- None.
+- Reservations dashboard page remains undiscoverable until navigation is un-hidden.
+- Late fees cannot be marked collected (needs a new action, RPC and migration 234). Inspection photos work only in production and are untested.
+- Planned migration numbers in this doc (e.g. 128) are consumed; use the register for assignment.
 
 ## 11. Verification Requirements
-- `npm test` passes 100%.
+- `npm test` passes (compare against base for pre-existing unrelated failures).
+- `npx tsc --noEmit` and `npx next build` succeed.
+- Manual staging validation of handover flows, permissions/RLS, and mobile layout.
 
 ## 12. Next Step
-Execute after Phase 6 completion.
+Run runtime QA for rental handover, then continue reservations scheduling work per register-assigned migration numbers.

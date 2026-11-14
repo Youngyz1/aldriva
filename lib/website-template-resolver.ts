@@ -1116,6 +1116,15 @@ function buildSectionBlock(
         type: "general_booking_form",
       } as Block;
     }
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form": {
+      return {
+        id: stableUuid(ctx.template.id + ":" + section.id),
+        type: section.block,
+      } as Block;
+    }
     default:
       return null;
   }

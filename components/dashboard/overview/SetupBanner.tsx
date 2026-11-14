@@ -25,10 +25,30 @@ export interface SetupStep {
 
 export interface SetupBannerProps {
   steps: SetupStep[];
+  /** Resolves the PATH placeholder tokens the resolver emits (see resolveHref below). */
+  organizerId: string;
   className?: string;
 }
 
-export function SetupBanner({ steps, className = "" }: SetupBannerProps) {
+/**
+ * The resolver (lib/overview-resolver.ts) is a pure, zero-I/O function with
+ * no organizerId in scope, so checklist hrefs come out as literal tokens
+ * like "/dashboard/org/SETTINGS_PATH" — substituted here with the real
+ * organizerId, same token set/mapping as QuickActions.tsx and
+ * AttentionCard.tsx use for their own resolver-emitted hrefs.
+ */
+function resolveHref(path: string, organizerId: string): string {
+  return path
+    .replace("SETTINGS_PATH", `${organizerId}/settings`)
+    .replace("MENU_PATH", `${organizerId}/menu`)
+    .replace("SERVICES_PATH", `${organizerId}/services`)
+    .replace("BUILDER_PATH", `${organizerId}/website/builder`)
+    .replace("FLEET_NEW_PATH", `${organizerId}/fleet/new`)
+    .replace("FLEET_CATEGORIES_PATH", `${organizerId}/fleet/categories`)
+    .replace("RENTAL_SETTINGS_PATH", `${organizerId}/rentals/settings`);
+}
+
+export function SetupBanner({ steps, organizerId, className = "" }: SetupBannerProps) {
   const [open, setOpen] = useState(false);
 
   if (!steps || steps.length === 0) return null;
@@ -90,7 +110,7 @@ export function SetupBanner({ steps, className = "" }: SetupBannerProps) {
               {steps.map((step) => (
                 <Link
                   key={step.id}
-                  href={step.href}
+                  href={resolveHref(step.href, organizerId)}
                   onClick={() => setOpen(false)}
                   className="min-h-[48px] flex items-center justify-between py-3 px-2 hover:bg-zinc-50 rounded-lg group transition"
                 >
