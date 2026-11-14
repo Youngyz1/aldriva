@@ -309,7 +309,7 @@ export function HandoverPanel(props: Props) {
             ) : null}
             {existingLateFeeStatus && existingLateFeeStatus !== "none" ? <p className="text-xs text-zinc-500">Current: {existingLateFeeStatus} {formatMoney(existingLateFeeAmount, currency)}</p> : null}
             <select value={lfAction} onChange={(e)=>setLfAction(e.target.value as LateFeeAction)} className="w-full h-11 rounded-xl border border-zinc-300 px-3 bg-white text-sm">
-              <option value="none">No late fee change</option>
+              {!(lfQuote && lfQuote.amount > 0) && <option value="none">No late fee change</option>}
               <option value="apply">Apply late fee</option>
               <option value="waive">Waive late fee</option>
             </select>

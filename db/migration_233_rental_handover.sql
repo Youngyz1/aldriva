@@ -326,9 +326,6 @@ BEGIN
   IF p_odometer IS NOT NULL AND p_odometer < 0 THEN
     RAISE EXCEPTION 'INVALID_ODOMETER: odometer must be non-negative';
   END IF;
-  IF p_odometer IS NOT NULL AND v_booking.start_mileage IS NOT NULL AND p_odometer < v_booking.start_mileage THEN
-    RAISE EXCEPTION 'INVALID_ODOMETER: return odometer cannot be less than start mileage';
-  END IF;
   IF v_dep_action NOT IN ('none', 'return_full', 'retain_partial', 'retain_full') THEN
     RAISE EXCEPTION 'INVALID_DEPOSIT_ACTION: %', v_dep_action USING ERRCODE = 'RB052';
   END IF;
@@ -342,6 +339,10 @@ BEGIN
    WHERE rb.id = p_booking_id AND rb.organizer_id = p_organizer_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'BOOKING_NOT_FOUND: booking % does not belong to organizer %', p_booking_id, p_organizer_id;
+  END IF;
+
+  IF p_odometer IS NOT NULL AND v_booking.start_mileage IS NOT NULL AND p_odometer < v_booking.start_mileage THEN
+    RAISE EXCEPTION 'INVALID_ODOMETER: return odometer cannot be less than start mileage';
   END IF;
 
   -- Actual return time: DB clock by default; if provided, clamp small future skew,
@@ -456,6 +457,10 @@ BEGIN
     INTO v_calc_minutes, v_calc_days, v_calc_amount
     FROM public.calculate_rental_late_fee(v_booking.ends_at, v_actual, v_grace, v_fee_per_day) c;
   v_calc_amount := COALESCE(v_calc_amount, 0)::numeric(12,2);
+
+  IF v_calc_amount > 0 AND v_lf_action = 'none' THEN
+    RAISE EXCEPTION 'LATE_FEE_DECISION_REQUIRED: a late fee is due and must be applied or waived' USING ERRCODE = 'RB059';
+  END IF;
 
   IF v_lf_action = 'apply' THEN
     v_lf_amount := v_calc_amount;

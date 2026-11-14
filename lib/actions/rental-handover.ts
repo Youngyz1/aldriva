@@ -116,7 +116,12 @@ export async function recordPickupHandover(
   if (error) {
     if (isMissingTableError(error)) return { success: false, error: "Migration 233 required.", code: "MIGRATION_REQUIRED" };
     const prefix = error.message.match(/^([A-Z_]+):/)?.[1];
-    return { success: false, code: prefix ?? error.code, error: cleanDbMessage(error.message) };
+    const code = prefix ?? error.code;
+    const message =
+      code === "LATE_FEE_DECISION_REQUIRED"
+        ? "A late fee is due. Choose to apply or waive it before completing return."
+        : cleanDbMessage(error.message);
+    return { success: false, code, error: message };
   }
   revalidatePath(`/dashboard/org/${organizerId}/rentals`);
   revalidatePath(`/dashboard/org/${organizerId}/rentals/${bookingId}`);
@@ -175,7 +180,12 @@ export async function recordReturnHandover(
   if (error) {
     if (isMissingTableError(error)) return { success: false, error: "Migration 233 required.", code: "MIGRATION_REQUIRED" };
     const prefix = error.message.match(/^([A-Z_]+):/)?.[1];
-    return { success: false, code: prefix ?? error.code, error: cleanDbMessage(error.message) };
+    const code = prefix ?? error.code;
+    const message =
+      code === "LATE_FEE_DECISION_REQUIRED"
+        ? "A late fee is due. Choose to apply or waive it before completing return."
+        : cleanDbMessage(error.message);
+    return { success: false, code, error: message };
   }
   revalidatePath(`/dashboard/org/${organizerId}/rentals`);
   revalidatePath(`/dashboard/org/${organizerId}/rentals/${bookingId}`);
