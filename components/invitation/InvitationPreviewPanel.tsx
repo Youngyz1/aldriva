@@ -87,15 +87,27 @@ export function InvitationPreviewPanel({
     const el = containerRef.current;
     if (!el) return;
 
+    let stableFrames = 0;
+    let lastW = -1;
+    let lastH = -1;
+
+    const commit = (w: number, h: number) => {
+      if (w <= 0) return;
+      if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) stableFrames += 1;
+      else stableFrames = 0;
+      lastW = w;
+      lastH = h;
+      if (stableFrames < 1) return;
+      setContainerDimensions((prev) =>
+        Math.abs(prev.width - w) < 1 && Math.abs(prev.height - h) < 1 ? prev : { width: w, height: h }
+      );
+    };
+
     const measure = () => {
       const rect = el.getBoundingClientRect();
       const w = rect.width || el.clientWidth;
       const h = el.clientHeight || rect.height;
-      if (w > 0) {
-        setContainerDimensions((prev) =>
-          prev.width === w && prev.height === h ? prev : { width: w, height: h }
-        );
-      }
+      commit(w, h);
     };
 
     measure();
@@ -105,10 +117,9 @@ export function InvitationPreviewPanel({
     if (typeof ResizeObserver !== "undefined") {
       const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
+          if (entry.target !== el) continue;
           const cr = entry.contentRect;
-          if (cr.width > 0) {
-            setContainerDimensions({ width: cr.width, height: cr.height });
-          }
+          commit(cr.width, cr.height);
         }
       });
       ro.observe(el);
@@ -201,20 +212,22 @@ export function InvitationPreviewPanel({
       <div
         ref={containerRef}
         className={cn(
-          "flex w-full min-h-[500px] max-w-full flex-1 flex-col items-center justify-start overflow-x-hidden bg-zinc-100 p-3 sm:p-4",
+          "relative w-full min-h-[500px] max-w-full flex-1 overflow-hidden bg-zinc-100 p-3 sm:p-4",
           containerClassName
         )}
       >
-        <InvitationDevicePreviewFrame
-          mode={currentViewport === 390 ? "mobile" : "desktop"}
-          containerWidth={measuredWidth}
-          containerHeight={measuredHeight}
-          iframeRef={children ? undefined : activeIframeRef}
-          iframeSrc={children ? undefined : iframeSrc}
-          title={displayTitle}
-        >
-          {children}
-        </InvitationDevicePreviewFrame>
+        <div className="absolute inset-3 flex items-start justify-center overflow-hidden sm:inset-4">
+          <InvitationDevicePreviewFrame
+            mode={currentViewport === 390 ? "mobile" : "desktop"}
+            containerWidth={measuredWidth}
+            containerHeight={measuredHeight}
+            iframeRef={children ? undefined : activeIframeRef}
+            iframeSrc={children ? undefined : iframeSrc}
+            title={displayTitle}
+          >
+            {children}
+          </InvitationDevicePreviewFrame>
+        </div>
       </div>
     </div>
   );
