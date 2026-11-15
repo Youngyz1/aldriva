@@ -110,3 +110,58 @@ export const MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR: InvitationPageData = {
     { time: "01:30", title: "Buffet de fin de soiree", icon: "dining" },
   ],
 };
+
+const BURGUNDY_GOLD_SAMPLE_GUEST = {
+  name: "Honored Guest",
+  rsvpStatus: "pending" as const,
+  isVip: false,
+};
+
+export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {
+  locale: "en",
+  title: "Our Wedding",
+  eyebrow: "Our Wedding",
+  hostNames: "Modou Gueye & Ndeye Sarr",
+  eventDate: "2027-10-16T18:00:00Z",
+  timezone: "Africa/Dakar",
+  heroImageFocus: { x: 50, y: 30 },
+  heroImage: null,
+  storyImage: null,
+  envelopePhoto: null,
+  envelopePhotoTwo: null,
+  coverPhoto: null,
+  gallery: [],
+  partner1Name: "Modou Gueye",
+  partner2Name: "Ndeye Sarr",
+  familyNote: "Together with their families",
+  venue: "Cathedrale du Souvenir Africain",
+  address: "Dakar",
+  city: "Dakar",
+  venues: [
+    { label: "Ceremony", name: "Cathedrale du Souvenir Africain", time: "18:00" },
+    { label: "Reception", name: "Espace Point E", time: "19:30" },
+  ],
+  schedule: [],
+  musicAudioUrl: null,
+  musicTitle: null,
+  musicLinks: [],
+  guest: BURGUNDY_GOLD_SAMPLE_GUEST,
+  token: "preview-sample-token",
+};
+
+export const BURGUNDY_GOLD_SAMPLE_DATA_FR: InvitationPageData = {
+  ...BURGUNDY_GOLD_SAMPLE_DATA,
+  locale: "fr",
+  title: "Notre mariage",
+  eyebrow: "Le mariage de",
+  hostNames: "Modou Gueye et Ndeye Sarr",
+  familyNote: "Avec leurs familles",
+  eventDate: "2027-10-16T18:00:00Z",
+  timezone: "Africa/Dakar",
+  venue: "Cathédrale du Souvenir Africain",
+  city: "Dakar",
+  venues: [
+    { label: "Cérémonie", name: "Cathédrale du Souvenir Africain", time: "18:00" },
+    { label: "Réception", name: "Espace Point E", time: "19:30" },
+  ],
+};

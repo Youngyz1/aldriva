@@ -1,12 +1,9 @@
 /**
  * lib/invitation-template-preview-data.ts
  *
- * Minimalism Dark Blue-only render-only sample merge for the builder's live
- * preview and demo route. Ported deliberately narrower than the upstream
- * feature branch's version of this file: that version also covered
- * templates (evergreen, botanical, boho, luxe, romantic, gala/black-tie/
- * cover) that do not exist on this tree. Any other templateId is returned
- * untouched.
+ * Template-aware render-only sample merge for the builder's live preview and
+ * demo route. Minimalism Dark Blue behavior is preserved; burgundy-gold is
+ * additionally supported without changing minimalism output.
  *
  * Never pass this function's output to draft-save or publish actions.
  */
@@ -14,12 +11,25 @@ import type { InvitationPageData } from "@/types/invitation-template";
 import {
   MINIMALISM_DARK_BLUE_SAMPLE_DATA,
   MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR,
+  BURGUNDY_GOLD_SAMPLE_DATA,
+  BURGUNDY_GOLD_SAMPLE_DATA_FR,
 } from "@/components/invitation/templates/invitation-sample-data";
 import { hasInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
 
-const MINIMALISM_TEMPLATE_ID = "minimalism-dark-blue";
 /** Demo-only sample track — never set for gallery-card, builder-preview, or local-builder-preview callers. */
 export const DEMO_MUSIC_SAMPLE_URL = "/audio/invitations/minimalism-dark-blue/demo.mp3";
+
+const TEMPLATE_PREVIEW_CONFIG: Record<string, { en: InvitationPageData; fr: InvitationPageData; demoMusicSampleUrl?: string }> = {
+  "minimalism-dark-blue": {
+    en: MINIMALISM_DARK_BLUE_SAMPLE_DATA,
+    fr: MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR,
+    demoMusicSampleUrl: DEMO_MUSIC_SAMPLE_URL,
+  },
+  "burgundy-gold": {
+    en: BURGUNDY_GOLD_SAMPLE_DATA,
+    fr: BURGUNDY_GOLD_SAMPLE_DATA_FR,
+  },
+};
 
 const NON_CONTENT_FIELDS = new Set(["guest", "ticketInstance", "seat", "token", "locale"]);
 
@@ -67,19 +77,19 @@ export function applyEventMemories(data: InvitationPageData, event: EventMemorie
 }
 
 /**
- * Adds Minimalism Dark Blue sample content to a render-only copy of real
- * event data. Fills only fields the real data left empty; never overrides a
- * non-empty real value. Any templateId other than "minimalism-dark-blue" is
- * returned unchanged.
+ * Adds template sample content to a render-only copy of real event data.
+ * Fills only fields the real data left empty; never overrides a non-empty
+ * real value. Unknown templateIds are returned unchanged.
  */
 export function mergeInvitationTemplatePreviewData(
   templateId: string,
   realData: InvitationPageData,
   options?: { demoRoute?: boolean }
 ): InvitationPageData {
-  if (templateId !== MINIMALISM_TEMPLATE_ID) return realData;
+  const config = TEMPLATE_PREVIEW_CONFIG[templateId];
+  if (!config) return realData;
 
-  const sample = realData.locale === "fr" ? MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR : MINIMALISM_DARK_BLUE_SAMPLE_DATA;
+  const sample = realData.locale === "fr" ? config.fr : config.en;
   const data: Record<string, unknown> = { ...realData };
   const sampleFields: string[] = [];
   const isManifestTemplate = hasInvitationTemplateManifest(templateId);
@@ -109,10 +119,6 @@ export function mergeInvitationTemplatePreviewData(
     // For manifest templates, use per-field photo gating so one uploaded
     // photo does not blank other empty slots in the builder preview. Legacy
     // (non-manifest) templates keep the global "any organizer photo" gate.
-    // Minimalism Dark Blue is manifest-driven, so this always takes the
-    // per-field branch — the guard is kept for parity with the upstream
-    // merge function this was ported from, in case a second manifest
-    // template is ever added back to this file.
     if (PHOTO_FIELDS.has(key)) {
       if (isManifestTemplate) {
         // fall through to the normal empty-check (real wins; empty gets sample in preview)
@@ -144,9 +150,9 @@ export function mergeInvitationTemplatePreviewData(
   // gallery-card, builder-preview, or local-builder-preview surfaces (those
   // never pass demoRoute). Real-wins: an organizer-configured music block
   // (uploaded audio OR a provider link) is never overridden.
-  if (options?.demoRoute && !hasMusicLink && isEmpty(realData.musicAudioUrl)) {
+  if (options?.demoRoute && !hasMusicLink && isEmpty(realData.musicAudioUrl) && config.demoMusicSampleUrl) {
     data.musicSample = true;
-    data.musicAudioUrl = DEMO_MUSIC_SAMPLE_URL;
+    data.musicAudioUrl = config.demoMusicSampleUrl;
   }
 
   return data as unknown as InvitationPageData;

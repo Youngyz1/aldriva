@@ -18,6 +18,12 @@ const MinimalismDarkBluePageTemplate = lazy(() =>
   }))
 );
 
+const BurgundyGoldPageTemplate = lazy(() =>
+  import("@/components/invitation/templates/burgundy-gold/BurgundyGoldPageTemplate").then((module) => ({
+    default: module.BurgundyGoldPageTemplate,
+  }))
+);
+
 export function InvitationBlocksLayoutClient({
   layout,
   data,
@@ -113,6 +119,22 @@ export function InvitationBlocksLayoutClient({
         >
           {renderedBlocks}
         </MinimalismDarkBluePageTemplate>
+      </Suspense>
+    );
+  }
+  if (resolvedTemplateId === "burgundy-gold") {
+    return (
+      <Suspense fallback={standardPage}>
+        <BurgundyGoldPageTemplate
+          layout={compiledLayout}
+          data={data}
+          mode={mode}
+          isEditMode={isEditMode}
+          wrapperClassName={wrapperClassName}
+          hasAction={Boolean(onAction)}
+        >
+          {renderedBlocks}
+        </BurgundyGoldPageTemplate>
       </Suspense>
     );
   }

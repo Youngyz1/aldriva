@@ -104,6 +104,16 @@ export const PAGE_THEME_PRESETS = {
       button: "rounded-full bg-[#00214a] text-white hover:bg-[#001534]",
     },
   },
+  burgundyGold: {
+    classes: {
+      page: "min-h-screen bg-[#4a1020] text-[#f3d38a]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#f3d38a]",
+      body: "font-serif text-[#f7e7c2]/90",
+      card: "rounded-lg border border-[#d4af37]/30 bg-[#5a1830] shadow-xs",
+      button: "rounded-full bg-[#d4af37] text-[#4a1020] hover:bg-[#c29b2b]",
+    },
+  },
 } as const;
 
 export type PageThemePreset = keyof typeof PAGE_THEME_PRESETS;

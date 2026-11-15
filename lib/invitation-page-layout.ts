@@ -211,7 +211,8 @@ export function legacyInvitationTemplateToLayout(
   const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope"
     || templateDefinition?.composition === "botanical-reverie"
     || templateDefinition?.composition === "evergreen-envelope"
-    || templateDefinition?.composition === "minimalism-dark-blue";
+    || templateDefinition?.composition === "minimalism-dark-blue"
+    || templateDefinition?.composition === "burgundy-gold";
   const isEvergreen = templateDefinition?.composition === "evergreen-envelope";
   const blockCatalog: PageLayoutBlock[] = [
     { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },

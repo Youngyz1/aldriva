@@ -29,7 +29,7 @@ export const INVITATION_GALLERY_PRESENTATIONS = [
 ] as const;
 export type InvitationGalleryPresentation = (typeof INVITATION_GALLERY_PRESENTATIONS)[number];
 
-export type CustomInvitationPageComponentId = "minimalism-dark-blue";
+export type CustomInvitationPageComponentId = "minimalism-dark-blue" | "burgundy-gold";
 export type InvitationPageRenderer =
   | { kind: "blocks" }
   | { kind: "custom"; componentId: CustomInvitationPageComponentId };
@@ -77,7 +77,7 @@ export interface InvitationTemplateDefinition {
   defaultThemePreset: PageThemePreset;
   detailsPresentation: InvitationDetailsPresentation;
   galleryPresentation?: InvitationGalleryPresentation;
-  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope" | "minimalism-dark-blue";
+  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope" | "minimalism-dark-blue" | "burgundy-gold";
   defaultBlockTypes: readonly InvitationBlockType[];
   supportedBlockTypes: readonly InvitationBlockType[];
   requiredBlockTypes: readonly InvitationBlockType[];
@@ -106,6 +106,23 @@ export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefi
     defaultThemePreset: "minimalismDarkBlue", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
     composition: "minimalism-dark-blue",
     pageRenderer: { kind: "custom", componentId: "minimalism-dark-blue" },
+    defaultBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map", "gallery", "music", "action_portal"],
+    supportedBlockTypes: ["interactive_envelope", "romantic_hero", "hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
+    requiredBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map"],
+    supportedCustomizations: { palette: true, fontPack: true, textScale: true },
+    supportedEffects: ["envelope-reveal", "scroll-reveal"],
+    defaultEffects: [
+      { type: "envelope-reveal", enabled: true, transitionDurationMs: 900 },
+      { type: "scroll-reveal", enabled: false, durationMs: 650 },
+    ],
+  },
+  "burgundy-gold": {
+    id: "burgundy-gold", version: "1.0.0", name: "Burgundy Gold", category: "wedding",
+    categoryLabel: "Wedding", description: "Deep burgundy panels with gold ornaments and an animated gift box.",
+    publicationStatus: "unlisted", preview: { kind: "rendered-sample", sampleId: "burgundy-gold" },
+    defaultThemePreset: "burgundyGold", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
+    composition: "burgundy-gold",
+    pageRenderer: { kind: "custom", componentId: "burgundy-gold" },
     defaultBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map", "gallery", "music", "action_portal"],
     supportedBlockTypes: ["interactive_envelope", "romantic_hero", "hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
     requiredBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map"],
