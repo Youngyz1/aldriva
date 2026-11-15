@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { IconLink as Link2, IconPlus as Plus, IconTrash as Trash2, IconX as X } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import { AudioUploadField } from "@/components/invitation/AudioUploadField";
+import { useInvitationBuilderPersistence } from "@/components/invitation/InvitationBuilderPersistenceContext";
 import {
   MAX_MUSIC_LINKS,
   MUSIC_PROVIDER_NAMES,
@@ -39,6 +40,7 @@ export function MusicSection({
   disabled,
 }: Props) {
   const t = useTranslations("Events");
+  const persistence = useInvitationBuilderPersistence();
   const [provider, setProvider] = useState<MusicLinkProvider>("spotify");
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
@@ -86,16 +88,22 @@ export function MusicSection({
           </button>
         </div>
       )}
-      <AudioUploadField
-        eventId={eventId}
-        value={draft.music_audio_url}
-        title={draft.music_title}
-        locale={draft.locale || "en"}
-        disabled={disabled}
-        onChange={(url: string | null, title?: string | null) =>
-          updateDraft({ music_audio_url: url, music_title: title || null })
-        }
-      />
+      {persistence.mode === "local" ? (
+        <div role="status" className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs font-medium text-zinc-600">
+          {t("musicUploadRequiresSignIn")}
+        </div>
+      ) : (
+        <AudioUploadField
+          eventId={eventId}
+          value={draft.music_audio_url}
+          title={draft.music_title}
+          locale={draft.locale || "en"}
+          disabled={disabled}
+          onChange={(url: string | null, title?: string | null) =>
+            updateDraft({ music_audio_url: url, music_title: title || null })
+          }
+        />
+      )}
 
       <div className="space-y-3 border-t border-zinc-200 pt-5">
         <div>

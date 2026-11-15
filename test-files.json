@@ -1,4 +1,6 @@
 [
+  "lib/__tests__/invitation-local-draft-image-validation.test.cjs",
+  "lib/__tests__/evergreen-map-embed.test.cjs",
   "lib/staff/__tests__/whatsapp-invite-message.test.cjs",
   "lib/__tests__/invitation-delivery-team-invite.test.cjs",
   "lib/__tests__/invitation-delivery-guest-invite.test.cjs",
@@ -149,6 +151,11 @@
   "lib/workforce/__tests__/grant-hardening.test.cjs",
   "lib/__tests__/event-time.test.cjs",
   "lib/__tests__/invitation-gallery-accordion.test.cjs",
+  "lib/__tests__/invitation-template-preview-data.test.cjs",
+  "lib/__tests__/invitation-local-draft-basics-persist.test.cjs",
+  "lib/__tests__/invitation-local-draft-image-paths.test.cjs",
+  "lib/__tests__/invitation-promotion-core.test.cjs",
+  "lib/__tests__/safe-redirect.test.cjs",
   "lib/__tests__/invitation-images.test.cjs",
   "lib/__tests__/image-uploader.test.cjs",
   "lib/__tests__/migration-155-event-kind.test.cjs",
@@ -284,5 +291,13 @@
   "lib/__tests__/rental-storefront-booking.test.cjs",
   "lib/__tests__/rental-booking-age-validation.test.cjs",
   "lib/__tests__/rental-pickup-guards.test.cjs",
-  "lib/__tests__/rental-handover.test.cjs"
+  "lib/__tests__/rental-handover.test.cjs",
+  "lib/__tests__/memories-public-gallery.test.cjs",
+  "lib/__tests__/memories-route-integration.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-background.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-content-width.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-hero.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-stage4e.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-template.test.cjs",
+  "lib/__tests__/minimalism-dark-blue-venues-time.test.cjs"
 ]

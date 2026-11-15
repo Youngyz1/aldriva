@@ -1,5 +1,7 @@
 "use client";
 
+import { lazy, Suspense } from "react";
+
 import type { InvitationPageData } from "@/types/invitation-template";
 import { invitationDetailsPresentationForTemplate, type InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import { compilePageBlocksLayoutTheme } from "@/lib/invitation-page-layout";
@@ -8,7 +10,13 @@ import { PREVIEW_MESSAGE_SOURCE } from "@/lib/invitation-preview-channel";
 import { renderInvitationBlock } from "@/components/invitation/blocks/InvitationBlockRegistry";
 import { InvitationScrollReveal } from "@/components/invitation/animation/InvitationScrollReveal";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
-import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
+import { getInvitationTemplateDefinition, resolveInvitationTemplateId } from "@/lib/invitation-template-registry";
+
+const MinimalismDarkBluePageTemplate = lazy(() =>
+  import("@/components/invitation/templates/minimalism-dark-blue/MinimalismDarkBluePageTemplate").then((module) => ({
+    default: module.MinimalismDarkBluePageTemplate,
+  }))
+);
 
 export function InvitationBlocksLayoutClient({
   layout,
@@ -29,8 +37,9 @@ export function InvitationBlocksLayoutClient({
   mode?: "preview" | "live" | "shared";
   isEditMode?: boolean;
 }) {
-  const definition = getInvitationTemplateDefinition(templateId);
-  const detailsPresentation = invitationDetailsPresentationForTemplate(templateId);
+  const resolvedTemplateId = resolveInvitationTemplateId(templateId);
+  const definition = getInvitationTemplateDefinition(resolvedTemplateId);
+  const detailsPresentation = invitationDetailsPresentationForTemplate(resolvedTemplateId);
   const galleryPresentation = definition?.galleryPresentation ?? "editorial";
   const supportedEffects = new Set<string>(definition?.supportedEffects ?? []);
   const compiledLayout = compilePageBlocksLayoutTheme({
@@ -50,9 +59,9 @@ export function InvitationBlocksLayoutClient({
   const renderedBlocks = compiledLayout.layout_blocks.map((block) => {
     if (block.type === "interactive_envelope" || block.type === "romantic_envelope_gate") return null;
     const content = renderInvitationBlock({
-      block, data, layout: compiledLayout, templateId, onAction, shared,
+      block, data, layout: compiledLayout, templateId: resolvedTemplateId, onAction, shared,
       romanticEnvelope: usesEnvelopeGate,
-      botanicalReverie: templateId === "botanical-reverie",
+      botanicalReverie: resolvedTemplateId === "botanical-reverie",
       detailsPresentation,
       galleryPresentation,
     });
@@ -74,7 +83,7 @@ export function InvitationBlocksLayoutClient({
           );
         }}
       >
-        {templateId === "evergreen-envelope" && block.type === "music"
+        {resolvedTemplateId === "evergreen-envelope" && block.type === "music"
           ? content
           : <InvitationScrollReveal enabled={scrollRevealEnabled} durationMs={scrollRevealDurationMs}>{content}</InvitationScrollReveal>}
       </div>
@@ -91,5 +100,22 @@ export function InvitationBlocksLayoutClient({
       {renderedBlocks}
     </InvitationPageCanvas>
   );
+  if (resolvedTemplateId === "minimalism-dark-blue") {
+    return (
+      <Suspense fallback={standardPage}>
+        <MinimalismDarkBluePageTemplate
+          layout={compiledLayout}
+          data={data}
+          mode={mode}
+          isEditMode={isEditMode}
+          wrapperClassName={wrapperClassName}
+          hasAction={Boolean(onAction)}
+        >
+          {renderedBlocks}
+        </MinimalismDarkBluePageTemplate>
+      </Suspense>
+    );
+  }
+
   return standardPage;
 }

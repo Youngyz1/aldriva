@@ -134,7 +134,7 @@ function LoginForm() {
           <p className="text-zinc-500 mb-8">
             Don&apos;t have an account?{" "}
             <Link
-              href="/signup"
+              href={`/signup?redirect=${encodeURIComponent(searchParams.get("redirect") || "/")}`}
               className="text-orange-500 font-semibold hover:text-orange-600"
             >
               Sign up free

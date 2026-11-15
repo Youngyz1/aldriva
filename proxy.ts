@@ -35,6 +35,8 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getPublicTemplateSummary, getDemoTemplateSummary } from "@/lib/invitation-template-public-catalog";
+import { INVITATION_TEMPLATE_ID_PATH_PATTERN, isInvitationTemplateDemoPath } from "@/lib/invitation-template-marketplace-routes";
 
 // ---------------------------------------------------------------------------
 // i18n locale handling (next-intl compatible)
@@ -675,6 +677,31 @@ export async function proxy(req: NextRequest) {
   }
 
   // -------------------------------------------------------------------------
+  // Invitation template details/demo/create gate. Same streaming/status-code
+  // constraint as the article gate above. Unlike the other gates, this is a
+  // pure, synchronous in-memory registry lookup (no REST/DB call) since the
+  // public template catalog is code-owned, not database-backed. Covers
+  // /invitations/templates/<id> (Phase 3), /invitations/templates/<id>/demo
+  // (Phase 4), and /invitations/templates/<id>/create (Phase 5) — same id,
+  // same check.
+  // -------------------------------------------------------------------------
+  const invitationTemplateSlugMatch = pathname.match(INVITATION_TEMPLATE_ID_PATH_PATTERN);
+  if (invitationTemplateSlugMatch) {
+    const templateId = invitationTemplateSlugMatch[1];
+    // The demo route alone also resolves "unlisted" templates (built but not
+    // yet in the public gallery) — see getDemoTemplateSummary. The details
+    // and create routes stay "published" only via getPublicTemplateSummary.
+    const summary = isInvitationTemplateDemoPath(pathname)
+      ? getDemoTemplateSummary(templateId)
+      : getPublicTemplateSummary(templateId);
+    if (!summary) {
+      const notFoundUrl = req.nextUrl.clone();
+      notFoundUrl.pathname = "/_not-found";
+      return NextResponse.rewrite(notFoundUrl, { status: 404 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Ticketmaster external-event existence gate.
   // Same streaming/status-code constraint as the article gate above. The page
   // also awaits isAdmin()/getDashboardContext() alongside the Ticketmaster
@@ -801,6 +828,12 @@ export const config = {
     "/products/:slug([^/]+)",
     // Ticketmaster external-event detail pages — same reason.
     "/external-events/ticketmaster/:id",
+    // Invitation template details, demo, AND create (anonymous builder)
+    // pages — same reason. Excluded: /invitations/templates (list) — the
+    // gate itself skips it too, see above.
+    "/invitations/templates/:templateId([^/]+)",
+    "/invitations/templates/:templateId([^/]+)/demo",
+    "/invitations/templates/:templateId([^/]+)/create",
     // Tenant public website pages — access gate must run before streaming
     // begins so draft/archived sites return a real HTTP 404 to anonymous
     // visitors. Matches /site/<slug> and /site/<slug>/<any-subpage>.
