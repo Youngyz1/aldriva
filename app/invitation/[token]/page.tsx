@@ -4,11 +4,14 @@ import { connection } from "next/server";
 import Link from "next/link";
 import { IconMailX as MailX } from "@tabler/icons-react";
 import { getInvitationByToken } from "@/lib/invitations";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
+import { readShowMemories } from "@/lib/memories/public-gallery";
+import { resolveMemoriesProps } from "@/lib/memories/resolve-memories-props";
 import type { PageActionPayload, PageActionHandler } from "@/lib/page-actions";
 import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
 
@@ -153,6 +156,27 @@ async function InvitationLoader({ token }: { token: string }) {
       longitude: null as number | null,
     };
 
+    const layout = legacyInvitationSnapshotToLayout(publishedPage.published_snapshot);
+    const showMemories = readShowMemories(layout.template_data);
+
+    // Round 7b: personalize memories — resolve share token if share_enabled, else hide button
+    const admin = createSupabaseAdmin();
+    const { data: shareRow, error } = await admin
+      .from("event_invitation_pages")
+      .select("share_enabled, share_token, page_status")
+      .eq("event_id", event.id)
+      .maybeSingle();
+    if (error) throw error;
+    const shareEnabled = shareRow?.share_enabled === true;
+
+    const { memoriesToken, memoriesCount } = await resolveMemoriesProps(
+      shareEnabled,
+      shareRow?.share_token,
+      event.id,
+      showMemories,
+      shareRow?.page_status
+    );
+
     const pageData = assembleInvitationPageData(
       publishedPage.published_snapshot,
       liveEvent,
@@ -160,6 +184,9 @@ async function InvitationLoader({ token }: { token: string }) {
       ticketRecord,
       seatRecord
     );
+    pageData.memoriesToken = memoriesToken;
+    pageData.memoriesCount = memoriesCount;
+    pageData.memoriesSample = false;
 
     async function handlePageAction(payload: PageActionPayload) {
       "use server";
@@ -179,7 +206,7 @@ async function InvitationLoader({ token }: { token: string }) {
       <UniversalPageRenderer
         kind="invitation"
         templateId={templateId}
-        layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+        layout={layout}
         data={pageData}
         onAction={onAction}
         mode="live"

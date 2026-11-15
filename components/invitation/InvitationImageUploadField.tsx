@@ -22,6 +22,7 @@ export interface InvitationImageUploadFieldProps {
    * Subfolder within the cms-media bucket.
    * Convention: `invitation-hero/${eventId}`, `invitation-story/${eventId}`,
    * `invitation-gallery/${eventId}`.
+   * Ignored when `onLocalCropped` is provided (Phase 5 local mode).
    */
   folder: string;
   label?: string;
@@ -32,6 +33,14 @@ export interface InvitationImageUploadFieldProps {
   onUploaded: (url: string) => void;
   onRemove?: () => void;
   onError?: (message: string) => void;
+  /**
+   * Phase 5 local mode: when provided, the cropped File + preview URL are
+   * handed back here instead of uploading to Storage (there is no
+   * anonymous write path — see docs/REA-MARKETPLACE-PHASE-5-DESIGN-ADDENDUM.md §2).
+   * Uses ImageUploader's existing defer mode (`onCropped`); `folder`/`bucket`
+   * are never reached when this is set.
+   */
+  onLocalCropped?: (file: File, previewUrl: string) => void;
 }
 
 export function InvitationImageUploadField({
@@ -44,12 +53,14 @@ export function InvitationImageUploadField({
   onUploaded,
   onRemove,
   onError,
+  onLocalCropped,
 }: InvitationImageUploadFieldProps) {
   const t = useTranslations("Events");
   return (
     <ImageUploader
-      bucket="cms-media"
-      folder={folder}
+      bucket={onLocalCropped ? undefined : "cms-media"}
+      folder={onLocalCropped ? undefined : folder}
+      onCropped={onLocalCropped}
       value={value}
       maxLongEdge={1600}
       label={label}
@@ -69,6 +80,8 @@ interface InvitationImageUploadBatchFieldProps {
   maxFiles: number;
   disabled?: boolean;
   onUploaded: (url: string) => void;
+  /** Phase 5 local mode: see InvitationImageUploadField's onLocalCropped. */
+  onLocalCropped?: (file: File, previewUrl: string) => void;
 }
 
 export function InvitationImageUploadBatchField({
@@ -76,12 +89,14 @@ export function InvitationImageUploadBatchField({
   maxFiles,
   disabled,
   onUploaded,
+  onLocalCropped,
 }: InvitationImageUploadBatchFieldProps) {
   const t = useTranslations("Events");
   return (
     <ImageUploaderMultiple
-      bucket="cms-media"
-      folder={folder}
+      bucket={onLocalCropped ? undefined : "cms-media"}
+      folder={onLocalCropped ? undefined : folder}
+      onCropped={onLocalCropped}
       maxLongEdge={1600}
       maxFiles={maxFiles}
       label={t("invitationGalleryAddPhotos")}

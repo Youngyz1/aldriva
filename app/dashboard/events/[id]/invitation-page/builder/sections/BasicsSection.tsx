@@ -11,10 +11,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { isValidIanaTimeZone } from "@/lib/invitation-i18n";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { INVITATION_DRAFT_TITLE } from "@/lib/invitation-events";
 import { updateInvitationEventFields } from "@/lib/actions/invitation-events";
+import { useInvitationBuilderPersistence } from "@/components/invitation/InvitationBuilderPersistenceContext";
 
 interface Props {
   draft: BuilderDraft;
@@ -56,6 +59,8 @@ const COMMON_TIMEZONES = [  "UTC",
 export function BasicsSection({ draft, event, eventId, updateDraft, disabled }: Props) {
   const isInvitationKind = event.kind === "invitation";
   const router = useRouter();
+  const t = useTranslations("Events");
+  const persistence = useInvitationBuilderPersistence();
   const [eventTitle, setEventTitle] = useState(
     event.title === INVITATION_DRAFT_TITLE ? "" : event.title
   );
@@ -72,6 +77,19 @@ export function BasicsSection({ draft, event, eventId, updateDraft, disabled }: 
     setEventError("");
     setEventSaved(false);
     try {
+      if (persistence.mode === "local") {
+        // No events row exists locally — write straight to the local draft
+        // the same way every other field does, instead of calling the
+        // server action keyed by a real eventId.
+        persistence.handleLocalBasicsUpdate?.({
+          title: eventTitle,
+          event_date: eventDate || null,
+          venue: venue || null,
+          city: city || null,
+        });
+        setEventSaved(true);
+        return;
+      }
       const result = await updateInvitationEventFields(eventId, {
         title: eventTitle,
         event_date: eventDate || null,
@@ -309,9 +327,14 @@ export function BasicsSection({ draft, event, eventId, updateDraft, disabled }: 
             className="flex-1 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-zinc-50"
           />
         </div>
-        <p className="text-[11px] text-zinc-500">
-          Timezone is required before publishing so guest calendar sync files (.ics / Google Calendar) calculate accurate UTC timestamps.
-        </p>
+{draft.timezone?.trim() && !isValidIanaTimeZone(draft.timezone) ? (
+            <p className="text-[11px] text-red-600" role="alert">
+              {t("invalidIanaTimezone")}
+            </p>
+          ) : null}
+          <p className="text-[11px] text-zinc-500">
+            Timezone is required before publishing so guest calendar sync files (.ics / Google Calendar) calculate accurate UTC timestamps.
+          </p>
       </div>
     </div>
   );

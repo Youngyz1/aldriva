@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatLocalizedEventDate, getInvitationDictionary, localizeInvitationSystemCopy } from "@/lib/invitation-i18n";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
+import { buildVenueMapEmbedUrl, buildVenueMapSearchUrl } from "@/lib/evergreen-map";
 import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { InvitationImageAccordion } from "@/components/invitation/blocks/InvitationImageAccordion";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
@@ -1022,31 +1023,43 @@ export function LocationMapBlock({
   const location = [venue, address, city].map((part) => part?.trim()).filter(Boolean).join(", ");
   if ((lat === null || lng === null) && !location) return null;
 
+  const embedSrc = lat !== null && lng !== null
+    ? `https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed`
+    : buildVenueMapEmbedUrl(location);
+  const openUrl = lat !== null && lng !== null
+    ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+    : buildVenueMapSearchUrl(location, null);
+
   return (
     <section aria-label={localizeInvitationSystemCopy("Venue Location", locale)} className={theme.classes.section ?? ""}>
       <div className={sectionBase}>
         <h2 className={`mb-4 text-2xl ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy("Venue Location", locale)}</h2>
-        <div className="w-full h-[300px] md:h-[400px] rounded-2xl shadow-inner border border-stone-200 mt-4 overflow-hidden">
-          {lat !== null && lng !== null ? (
+        <div className="w-[calc(100%+3rem)] -mx-6 sm:w-full sm:mx-0 aspect-[4/3] min-h-[320px] md:aspect-auto md:h-[400px] rounded-2xl shadow-inner border border-stone-200 mt-4 overflow-hidden">
+          {embedSrc ? (
             <iframe
               title={localizeInvitationSystemCopy("Venue map", locale)}
-              src={`https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
+              src={embedSrc}
               className="h-full w-full border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               allowFullScreen
             />
           ) : (
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
-              className="flex h-full w-full items-center justify-center px-6 text-center text-sm font-semibold underline underline-offset-4"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {localizeInvitationSystemCopy("Open in Google Maps", locale)}: {location}
-            </a>
+            <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm opacity-70">
+              {location}
+            </div>
           )}
         </div>
+        {openUrl ? (
+          <a
+            href={openUrl}
+            className="mt-3 inline-flex items-center text-sm font-semibold underline underline-offset-4"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {localizeInvitationSystemCopy("Open in Google Maps", locale)}
+          </a>
+        ) : null}
       </div>
     </section>
   );

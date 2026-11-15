@@ -169,6 +169,8 @@ export interface InvitationDictionary {
   musicEmbedUnavailable: string;
   qrTapToEnlarge: string;
   qrBrightnessHint: string;
+  saveQr: string;
+  rsvpMessagePlaceholder: string;
 
   // Feedback messages
   attendanceConfirmed: string;
@@ -289,6 +291,8 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     musicEmbedUnavailable: "This player could not load. You can still enjoy the celebration without it.",
     qrTapToEnlarge: "Tap to enlarge",
     qrBrightnessHint: "Hold your QR code toward the scanner. Increase your screen brightness if needed.",
+    saveQr: "Save QR",
+    rsvpMessagePlaceholder: "Add a message (optional)",
 
     attendanceConfirmed: "Your attendance has been confirmed. We look forward to welcoming you.",
     responseNoted: "Your response has been noted. Thank you for letting us know.",
@@ -428,6 +432,8 @@ export const INVITATION_I18N: Record<InvitationLocale, InvitationDictionary> = {
     musicEmbedUnavailable: "Ce lecteur n'a pas pu se charger. Vous pouvez profiter de la célébration sans lui.",
     qrTapToEnlarge: "Toucher pour agrandir",
     qrBrightnessHint: "Présentez votre QR code au scanner. Augmentez la luminosité de votre écran si besoin.",
+    saveQr: "Enregistrer le QR",
+    rsvpMessagePlaceholder: "Ajouter un message (facultatif)",
 
     attendanceConfirmed: "Votre présence est confirmée. Nous avons hâte de vous accueillir.",
     responseNoted: "Votre réponse a été enregistrée. Merci de nous avoir prévenus.",
@@ -486,8 +492,21 @@ export function getInvitationDictionary(locale: InvitationLocale = "en"): Invita
   return INVITATION_I18N[locale] || INVITATION_I18N.en;
 }
 
+export function isValidIanaTimeZone(timezone: string | null | undefined): timezone is string {
+  const tz = timezone?.trim();
+  if (!tz) return false;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Locale-aware date and time formatting
+ * Locale-aware date and time formatting. Never throws on an invalid timezone;
+ * when the zone is invalid/missing it degrades to a safe default (no timezone
+ * conversion suffix) and still shows the real date/time for a valid ISO value.
  */
 export function formatLocalizedEventDate(
   dateIso: string,
@@ -496,15 +515,17 @@ export function formatLocalizedEventDate(
 ): { dateDisplay: string; timeDisplay: string } {
   if (!dateIso) {
     return locale === "fr"
-      ? { dateDisplay: "Date à confirmer", timeDisplay: "Heure à confirmer" }
+      ? { dateDisplay: "Date \u00e0 confirmer", timeDisplay: "Heure \u00e0 confirmer" }
       : { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
   }
 
-  try {
-    const d = new Date(dateIso);
-    const localeCode = locale === "fr" ? "fr-FR" : "en-US";
-    const tzOptions: Intl.DateTimeFormatOptions = timezone ? { timeZone: timezone } : {};
+  const localeCode = locale === "fr" ? "fr-FR" : "en-US";
+  const safeTz = isValidIanaTimeZone(timezone) ? timezone!.trim() : null;
 
+  const format = (tz: string | null) => {
+    const d = new Date(dateIso);
+    if (Number.isNaN(d.getTime())) throw new Error("invalid-date");
+    const tzOptions: Intl.DateTimeFormatOptions = tz ? { timeZone: tz } : {};
     const dateStr = d.toLocaleDateString(localeCode, {
       weekday: "long",
       month: "long",
@@ -512,24 +533,35 @@ export function formatLocalizedEventDate(
       year: "numeric",
       ...tzOptions,
     });
-
     const timeStr = d.toLocaleTimeString(localeCode, {
       hour: "numeric",
       minute: "2-digit",
       ...tzOptions,
     });
-
-    const tzAbbr = timezone
-      ? d.toLocaleTimeString("en-US", { timeZoneName: "short", ...tzOptions }).split(" ").pop()
-      : "";
-
+    let tzAbbr = "";
+    if (tz) {
+      try {
+        tzAbbr = d.toLocaleTimeString("en-US", { timeZoneName: "short", ...tzOptions }).split(" ").pop() ?? "";
+      } catch {
+        tzAbbr = "";
+      }
+    }
     return {
       dateDisplay: dateStr.charAt(0).toUpperCase() + dateStr.slice(1),
       timeDisplay: tzAbbr ? `${timeStr} ${tzAbbr}` : timeStr,
     };
+  };
+
+  try {
+    return format(safeTz);
   } catch {
-    return locale === "fr"
-      ? { dateDisplay: "Date à confirmer", timeDisplay: "Heure à confirmer" }
-      : { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
+    try {
+      return format(null);
+    } catch {
+      return locale === "fr"
+        ? { dateDisplay: "Date \u00e0 confirmer", timeDisplay: "Heure \u00e0 confirmer" }
+        : { dateDisplay: "Date TBA", timeDisplay: "Time TBA" };
+    }
   }
 }
+

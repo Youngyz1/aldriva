@@ -94,6 +94,16 @@ export const PAGE_THEME_PRESETS = {
       button: "rounded-xl bg-white text-slate-950 hover:bg-slate-100",
     },
   },
+  minimalismDarkBlue: {
+    classes: {
+      page: "min-h-screen bg-[#efece5] text-[#00214a]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#00214a]",
+      body: "font-serif text-[#00214a]/80",
+      card: "rounded-lg border border-[#00214a]/15 bg-white shadow-xs",
+      button: "rounded-full bg-[#00214a] text-white hover:bg-[#001534]",
+    },
+  },
 } as const;
 
 export type PageThemePreset = keyof typeof PAGE_THEME_PRESETS;

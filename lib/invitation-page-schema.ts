@@ -61,7 +61,7 @@ export const ScheduleItemSchema = z.object({
   badge: z.string().max(40, "Badge must be at most 40 characters").optional().nullable(),
   day: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
   dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
-  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift", "hand"]).optional().nullable(),
+  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift", "hand", "ceremony", "cocktail"]).optional().nullable(),
 }).refine((item) => Boolean(item.title || item.label), {
   message: "Event title is required",
   path: ["title"],

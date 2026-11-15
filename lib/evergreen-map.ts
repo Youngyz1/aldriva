@@ -1,5 +1,21 @@
 import type { InvitationVenueItem } from "@/types/invitation-template";
 
+/** Google Maps search URL from name+address; null when both are empty. */
+export function buildVenueMapSearchUrl(name?: string | null, address?: string | null): string | null {
+  const n = name?.trim() ?? "";
+  const a = address?.trim() ?? "";
+  const query = [n, a].filter(Boolean).join(", ");
+  if (!query) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/** Google Maps embeddable (iframe) search URL for a free-text query; null when empty. */
+export function buildVenueMapEmbedUrl(query?: string | null): string | null {
+  const q = query?.trim() ?? "";
+  if (!q) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+}
+
 /** Uses an organizer HTTPS map URL, otherwise a URL-encoded Maps search by venue and address. */
 export function evergreenMapUrl(venue: Pick<InvitationVenueItem, "name" | "address" | "mapUrl">): string | null {
   const explicit = venue.mapUrl?.trim();
