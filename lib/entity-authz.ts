@@ -3,6 +3,7 @@
  * Each helper is entity-specific; do not merge into generic (type,id) to preserve divergent ownership models.
  */
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSupabaseServer } from "@/lib/supabase-server";
 import { checkTenantAccess, type EntityRole } from "@/lib/entity-auth";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -89,6 +90,35 @@ export async function assertCanManageBusiness(businessId: string): Promise<Authz
     const r = await checkTenantAccess(u.userId, b.organizer_id, ["owner","admin","manager","editor"]);
     if (r.hasAccess) return { ok: true, userId: u.userId, role: r.role };
   }
+  return { ok: false, error: "Forbidden", status: 403 };
+}
+
+// Reachability gate for the business staff area only: organizer-level access
+// (same as assertCanManageBusiness) OR an active staff_members row for this
+// business, any role. The staff_members lookup uses the RLS-respecting
+// server client, not the admin client -- staff_members' own SELECT policy
+// always allows a row where auth_user_id = auth.uid(), so this resolves
+// correctly without needing a service-role bypass. Callers must branch on
+// `scope` themselves; this function only answers "can reach the staff area,"
+// not "can perform any specific staff action" -- that's RLS's job.
+export async function assertCanAccessBusinessStaffArea(
+  businessId: string
+): Promise<AuthzResult & { scope?: "organizer" | "staff" }> {
+  const organizerCheck = await assertCanManageBusiness(businessId);
+  if (organizerCheck.ok) return { ...organizerCheck, scope: "organizer" };
+
+  const u = await requireUser();
+  if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabase = await createSupabaseServer();
+  const { data: staffRow } = await supabase
+    .from("staff_members")
+    .select("id")
+    .eq("business_id", businessId)
+    .eq("auth_user_id", u.userId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (staffRow) return { ok: true, userId: u.userId, scope: "staff" };
+
   return { ok: false, error: "Forbidden", status: 403 };
 }
 
