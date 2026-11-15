@@ -50,9 +50,9 @@ type FormState = {
   photo_url: string;
 };
 
-function initialFormState(editing: StaffMemberRow | null): FormState {
+function initialFormState(editing: StaffMemberRow | null, defaultBranchId?: string | null): FormState {
   if (!editing) {
-    return { full_name: "", phone: "", email: "", branch_id: "", employment_type: "full_time", department: "", status: "active", photo_url: "" };
+    return { full_name: "", phone: "", email: "", branch_id: defaultBranchId ?? "", employment_type: "full_time", department: "", status: "active", photo_url: "" };
   }
   return {
     full_name: editing.full_name,
@@ -73,6 +73,7 @@ export default function StaffFormDialog({
   branches,
   editing,
   onSaved,
+  defaultBranchId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -80,9 +81,12 @@ export default function StaffFormDialog({
   branches: Branch[];
   editing: StaffMemberRow | null;
   onSaved: (row: StaffMemberRow) => void;
+  /** Branch preselected for a new staff member (e.g. opened from a branch's
+   * own detail page). Ignored when editing an existing row. */
+  defaultBranchId?: string | null;
 }) {
   const t = useTranslations("Workforce");
-  const [form, setForm] = useState<FormState>(() => initialFormState(editing));
+  const [form, setForm] = useState<FormState>(() => initialFormState(editing, defaultBranchId));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const lastEditingId = useRef(editing?.id ?? null);
@@ -92,7 +96,7 @@ export default function StaffFormDialog({
   // same dialog must not wipe in-progress input on a re-render).
   if (lastEditingId.current !== (editing?.id ?? null)) {
     lastEditingId.current = editing?.id ?? null;
-    setForm(initialFormState(editing));
+    setForm(initialFormState(editing, defaultBranchId));
     setError(null);
   }
 

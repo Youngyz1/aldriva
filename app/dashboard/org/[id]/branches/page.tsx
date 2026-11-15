@@ -89,6 +89,7 @@ export default async function OrgBranchesPage({
         businessId={activeBusiness.id}
         initialBranches={branches ?? []}
         staffCountByBranch={staffCountByBranch}
+        orgBasePath={`/dashboard/org/${organizerId}/branches`}
       />
     </div>
   );

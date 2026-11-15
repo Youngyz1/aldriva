@@ -1,19 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { createBranch, updateBranch, type BranchInput } from "@/lib/actions/business-branches";
+import { updateBranch } from "@/lib/actions/business-branches";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import BranchFormDialog from "./BranchFormDialog";
 
 // Dynamic/runtime-determined key, same `as any` escape next-intl's own
 // strict Translator type requires here as OrgDashboardSidebar.tsx already
@@ -40,70 +34,44 @@ export type Branch = {
   status: "active" | "archived";
 };
 
-const EMPTY_FORM = { label: "", address: "", city: "", state: "", country: "", phone: "" };
-
 export default function BranchesClient({
   businessId,
   initialBranches,
   staffCountByBranch,
+  orgBasePath,
 }: {
   businessId: string;
   initialBranches: Branch[];
   staffCountByBranch: Record<string, number>;
+  /** Org-workspace branches list base path (e.g. /dashboard/org/{id}/branches).
+   * When provided, each row's label links to its detail page under this
+   * base. Omitted on the businesses/[id] route, which has no detail page. */
+  orgBasePath?: string;
 }) {
   const t = useTranslations("Workforce");
   const [branches, setBranches] = useState<Branch[]>(initialBranches);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [editing, setEditing] = useState<Branch | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   function openCreate() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
+    setEditing(null);
     setError(null);
     setDialogOpen(true);
   }
 
   function openEdit(b: Branch) {
-    setEditingId(b.id);
-    setForm({
-      label: b.label,
-      address: b.address ?? "",
-      city: b.city ?? "",
-      state: b.state ?? "",
-      country: b.country ?? "",
-      phone: b.phone ?? "",
-    });
+    setEditing(b);
     setError(null);
     setDialogOpen(true);
   }
 
-  async function handleSave() {
-    setError(null);
-    setSaving(true);
-    const input: BranchInput = {
-      label: form.label,
-      address: form.address || null,
-      city: form.city || null,
-      state: form.state || null,
-      country: form.country || null,
-      phone: form.phone || null,
-    };
-    const res = editingId ? await updateBranch(editingId, input) : await createBranch(businessId, input);
-    setSaving(false);
-    if (!res.success) {
-      setError(translateByCode(t, res.code, res.error));
-      return;
-    }
-    if (editingId) {
-      setBranches((prev) => prev.map((b) => (b.id === editingId ? (res.data as Branch) : b)));
-    } else {
-      setBranches((prev) => [...prev, res.data as Branch]);
-    }
-    setDialogOpen(false);
+  function handleSaved(branch: Branch) {
+    setBranches((prev) => {
+      const exists = prev.some((b) => b.id === branch.id);
+      return exists ? prev.map((b) => (b.id === branch.id ? branch : b)) : [...prev, branch];
+    });
   }
 
   async function handleSetMain(b: Branch) {
@@ -152,12 +120,19 @@ export default function BranchesClient({
           {branches.map((b) => {
             const isArchived = b.status === "archived";
             const staffCount = staffCountByBranch[b.id] ?? 0;
+            const labelBlock = <p className="truncate text-sm font-bold text-zinc-900">{b.label}</p>;
             return (
               <Card key={b.id} className={isArchived ? "opacity-60" : undefined}>
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-bold text-zinc-900">{b.label}</p>
+                      {orgBasePath ? (
+                        <Link href={`${orgBasePath}/${b.id}`} className="hover:underline">
+                          {labelBlock}
+                        </Link>
+                      ) : (
+                        labelBlock
+                      )}
                       {b.is_main && <Badge variant="orange">{t("brMain")}</Badge>}
                       <Badge variant={isArchived ? "neutral" : "emerald"}>{isArchived ? t("brInactiveBadge") : t("brActiveBadge")}</Badge>
                     </div>
@@ -187,60 +162,13 @@ export default function BranchesClient({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[32rem]">
-          <DialogHeader>
-            <DialogTitle>{editingId ? t("brEditTitle") : t("brAddTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
-            <Input
-              className="min-w-0 w-full"
-              placeholder={t("brLabelPlaceholder")}
-              value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-            />
-            <Input
-              className="min-w-0 w-full"
-              placeholder={t("brAddressPlaceholder")}
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                className="min-w-0 w-full"
-                placeholder={t("brCityPlaceholder")}
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-              <Input
-                className="min-w-0 w-full"
-                placeholder={t("brStatePlaceholder")}
-                value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value })}
-              />
-              <Input
-                className="min-w-0 w-full"
-                placeholder={t("brCountryPlaceholder")}
-                value={form.country}
-                onChange={(e) => setForm({ ...form, country: e.target.value })}
-              />
-              <Input
-                className="min-w-0 w-full"
-                placeholder={t("brPhonePlaceholder")}
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{t("brCancel")}</Button>
-            <Button onClick={handleSave} disabled={saving || form.label.trim().length < 2}>
-              {saving ? t("brSaving") : t("brSave")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BranchFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        businessId={businessId}
+        editing={editing}
+        onSaved={handleSaved}
+      />
     </div>
   );
 }
