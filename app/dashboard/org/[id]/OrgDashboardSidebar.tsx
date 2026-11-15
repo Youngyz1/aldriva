@@ -30,6 +30,7 @@ import {
   IconCalendarCheck as CalendarCheck,
   IconCalendarClock as CalendarClock,
   IconCar as Car,
+  IconUserCog as UserCog,
 } from "@tabler/icons-react";
 import { getFullOrgNavItems } from "./org-nav-items";
 import type { Capability } from "@/lib/business-taxonomy";
@@ -45,7 +46,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {

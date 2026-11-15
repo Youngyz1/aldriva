@@ -280,6 +280,30 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     routeExists: true,
   },
   {
+    id: "staff",
+    // Visibility below is organizer-type ("business"), not capability-gated --
+    // shown to every organizer-level user with at least one business row,
+    // regardless of that business's capabilities (e.g. Apex Car Rental has
+    // no STAFF capability). capabilities: [] matches the same choice made
+    // for "website" above, which uses the same visibility kind.
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "staff",
+      icon: "UserCog",
+      group: "manage",
+      label: "Staff",
+      visibility: { kind: "organizer-type", flag: "business" },
+    },
+    i18n: { title: "Organizer.staff", empty: "Staff.empty", error: "Staff.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/staff`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
     id: "bookings",
     capabilities: ["BOOKINGS", "APPOINTMENTS"],
     permission: "manage",
