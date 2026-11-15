@@ -624,8 +624,10 @@ export interface ImageUploaderMultipleMessages {
 }
 
 export interface ImageUploaderMultipleProps {
-  bucket: string;
-  folder: string;
+  /** Optional only in defer mode (`onCropped`): the caller uploads later. */
+  bucket?: string;
+  /** Optional only in defer mode (`onCropped`): the caller uploads later. */
+  folder?: string;
   maxFiles: number;
   maxLongEdge?: number;
   label: string;
@@ -633,6 +635,13 @@ export interface ImageUploaderMultipleProps {
   disabled?: boolean;
   messages: ImageUploaderMultipleMessages;
   onUploaded: (url: string) => void;
+  /**
+   * Defer mode: instead of uploading each file, hand the rendered File plus
+   * an object-URL preview back to the caller per file. Pass either
+   * `onCropped`, or both `bucket` and `folder`. Mirrors the single-image
+   * ImageUploader's existing defer mode.
+   */
+  onCropped?: (file: File, previewUrl: string) => void;
 }
 
 type BatchJobStatus = "queued" | "processing" | "uploading" | "complete" | "error";
@@ -657,6 +666,7 @@ export function ImageUploaderMultiple({
   disabled,
   messages,
   onUploaded,
+  onCropped,
 }: ImageUploaderMultipleProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef(new Map<string, File>());
@@ -688,8 +698,17 @@ export function ImageUploaderMultiple({
         updateJob(id, { status: "processing", progress: 20, error: undefined });
         normalized = await normalizeImageFile(file, maxLongEdge);
         const rendered = await renderFinalImage(normalized.url, null, 0, file.type, file.name, "auto");
+        if (onCropped) {
+          // Defer mode: no Storage write path exists for this caller (e.g.
+          // Phase 5 anonymous drafts) — hand the rendered file back instead.
+          updateJob(id, { status: "complete", progress: 100, retryable: false });
+          filesRef.current.delete(id);
+          const previewUrl = URL.createObjectURL(rendered.file);
+          onCropped(rendered.file, previewUrl);
+          return;
+        }
         updateJob(id, { status: "uploading", progress: 70 });
-        const url = await uploadImage(rendered.file, bucket, folder);
+        const url = await uploadImage(rendered.file, bucket as string, folder as string);
         onUploadedRef.current(url);
         filesRef.current.delete(id);
         updateJob(id, { status: "complete", progress: 100, retryable: false });

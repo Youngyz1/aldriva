@@ -94,8 +94,10 @@ export default async function EventInvitationPageDashboardRoute({
     );
   }
 
-  // No invitation templates ship with the platform. The builder renders a
-  // neutral state; template selection is disabled until new templates are added.
+  // minimalism-dark-blue is the only registered template, so the builder's
+  // "template" section is a read-only card (see InvitationPageBuilder.tsx),
+  // not a picker. A new event defaults straight to it — there is nothing to
+  // choose between yet.
   return (
     <InvitationPageDashboardClient
       eventId={eventId}

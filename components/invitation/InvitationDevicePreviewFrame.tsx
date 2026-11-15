@@ -22,8 +22,16 @@ export interface InvitationDevicePreviewFrameProps {
   mode: "mobile" | "desktop";
   containerWidth: number;
   containerHeight?: number;
-  iframeRef: React.RefObject<HTMLIFrameElement | null>;
-  iframeSrc: string;
+  iframeRef?: React.RefObject<HTMLIFrameElement | null>;
+  iframeSrc?: string;
+  /**
+   * Local-mode escape hatch: render this in the screen viewport instead of
+   * an `<iframe>`, for callers (the anonymous builder) that direct-render
+   * the invitation in the same React tree rather than through an iframe.
+   * When set, `iframeRef`/`iframeSrc` are ignored. Server mode never passes
+   * this, so its rendering path (the `<iframe>` branch below) is unchanged.
+   */
+  children?: React.ReactNode;
   title?: string;
   className?: string;
 }
@@ -34,6 +42,7 @@ export function InvitationDevicePreviewFrame({
   containerHeight,
   iframeRef,
   iframeSrc,
+  children,
   title = "Live invitation preview",
   className,
 }: InvitationDevicePreviewFrameProps) {
@@ -48,7 +57,7 @@ export function InvitationDevicePreviewFrame({
   const frameHeight = isMobile ? 868 : 860; // 844 + 24px bezel vs 820 + 40px chrome
 
   // Fit scale: fits available width and height, never exceeds 1.0
-  const scale = calculatePreviewFitScale({
+  const fitScale = calculatePreviewFitScale({
     containerWidth,
     containerHeight,
     frameWidth,
@@ -56,6 +65,16 @@ export function InvitationDevicePreviewFrame({
     paddingX: 16,
     paddingY: 16,
   });
+  const widthOnlyScale = calculatePreviewFitScale({
+    containerWidth,
+    frameWidth,
+    frameHeight,
+    paddingX: 16,
+    paddingY: 16,
+  });
+  // A measured container with width but no usable height must never collapse
+  // the frame to scale 0; fall back to the width-only fit until height arrives.
+  const scale = fitScale > 0 ? fitScale : widthOnlyScale;
 
   const scaledWidth = Math.round(frameWidth * scale);
   const scaledHeight = Math.round(frameHeight * scale);
@@ -141,16 +160,26 @@ export function InvitationDevicePreviewFrame({
             </>
           )}
 
-          <iframe
-            ref={iframeRef}
-            data-testid="invitation-preview"
-            title={title}
-            src={iframeSrc}
-            className="block h-full w-full border-0 bg-white"
-            style={{ width: contentWidth, height: contentHeight }}
-            allow="autoplay"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          {children ? (
+            <div
+              data-testid="invitation-preview"
+              className="h-full w-full overflow-y-auto overflow-x-hidden bg-white"
+              style={{ width: contentWidth, height: contentHeight }}
+            >
+              {children}
+            </div>
+          ) : (
+            <iframe
+              ref={iframeRef}
+              data-testid="invitation-preview"
+              title={title}
+              src={iframeSrc}
+              className="block h-full w-full border-0 bg-white"
+              style={{ width: contentWidth, height: contentHeight }}
+              allow="autoplay"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          )}
         </div>
       </div>
     </div>

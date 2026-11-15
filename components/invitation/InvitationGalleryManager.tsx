@@ -8,7 +8,7 @@
  * full-image uploader. Upload errors stay on the failing item with Retry.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconTrash as Trash2 } from "@tabler/icons-react";
 import type { InvitationGalleryItem } from "@/types/invitation-template";
 import { canAddGalleryItem, INVITATION_GALLERY_MAX, moveGalleryItem } from "@/lib/invitation-images";
@@ -16,6 +16,7 @@ import {
   InvitationImageUploadBatchField,
   InvitationImageUploadField,
 } from "@/components/invitation/InvitationImageUploadField";
+import { useInvitationBuilderPersistence } from "@/components/invitation/InvitationBuilderPersistenceContext";
 
 interface Props {
   eventId: string;
@@ -25,6 +26,9 @@ interface Props {
 }
 
 export function InvitationGalleryManager({ eventId, items, onChange, disabled }: Props) {
+  const persistence = useInvitationBuilderPersistence();
+  const [addError, setAddError] = useState<string | null>(null);
+  const [itemErrors, setItemErrors] = useState<Record<number, string>>({});
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
@@ -37,6 +41,7 @@ export function InvitationGalleryManager({ eventId, items, onChange, disabled }:
   }
 
   function handleBatchUploaded(url: string) {
+    setAddError(null);
     const current = itemsRef.current;
     if (!canAddGalleryItem(current.length)) return;
     setItems([...current, { url, alt: "", caption: "" }]);
@@ -69,9 +74,16 @@ export function InvitationGalleryManager({ eventId, items, onChange, disabled }:
             maxFiles={Math.max(0, INVITATION_GALLERY_MAX - items.length)}
             disabled={disabled}
             onUploaded={handleBatchUploaded}
+            onLocalCropped={
+              persistence.mode === "local"
+                ? (file, previewUrl) =>
+                    persistence.handleLocalGalleryImageCropped?.(file, previewUrl, handleBatchUploaded, setAddError)
+                : undefined
+            }
           />
         )}
       </div>
+      {addError ? <p className="text-xs font-semibold text-red-600">{addError}</p> : null}
 
       {items.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-200 p-6 text-center">
@@ -121,9 +133,23 @@ export function InvitationGalleryManager({ eventId, items, onChange, disabled }:
               label="Select Photo"
               hint="Max 5MB original (auto-resized to 1600px)"
               disabled={disabled}
-              onUploaded={(url) => handleUpdate(i, { url })}
+              onUploaded={(url) => {
+                setItemErrors((prev) => { const next = { ...prev }; delete next[i]; return next; });
+                handleUpdate(i, { url });
+              }}
               onRemove={() => handleUpdate(i, { url: "" })}
+              onLocalCropped={
+                persistence.mode === "local"
+                  ? (file, previewUrl) =>
+                      persistence.handleLocalGalleryImageCropped?.(
+                        file, previewUrl,
+                        (url) => handleUpdate(i, { url }),
+                        (message) => setItemErrors((prev) => ({ ...prev, [i]: message }))
+                      )
+                  : undefined
+              }
             />
+            {itemErrors[i] ? <p className="text-xs font-semibold text-red-600">{itemErrors[i]}</p> : null}
 
             <div className="space-y-2">
               <input
