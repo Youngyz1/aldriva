@@ -11,6 +11,11 @@ export type NavItem = {
   description?: string;
   badge?: number | string;
   settingsHref?: string;
+  /** Child items rendered as a collapsible submenu under this one (e.g.
+   *  Workforce -> Branches, Staff). The parent's own href still points at
+   *  its own page (an "Overview" for the group). A later slice adds a
+   *  sibling here with one more entry -- no renderer changes needed. */
+  children?: NavItem[];
 };
 
 export type NavGroup = {
@@ -46,7 +51,22 @@ export function computeSharedBases(groups: NavGroup[]): Set<string> {
     for (const item of group.items) {
       const base = item.href.split("?")[0];
       counts.set(base, (counts.get(base) ?? 0) + 1);
+      for (const child of item.children ?? []) {
+        const childBase = child.href.split("?")[0];
+        counts.set(childBase, (counts.get(childBase) ?? 0) + 1);
+      }
     }
   }
   return new Set([...counts].filter(([, count]) => count > 1).map(([base]) => base));
+}
+
+/** True if the item itself or any of its children match the current route. */
+export function isNavItemOrChildActive(
+  pathname: string,
+  currentTab: string | null,
+  item: NavItem,
+  sharedBases: ReadonlySet<string>
+): boolean {
+  if (isNavItemActive(pathname, currentTab, item, sharedBases)) return true;
+  return (item.children ?? []).some((child) => isNavItemActive(pathname, currentTab, child, sharedBases));
 }

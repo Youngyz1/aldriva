@@ -1,5 +1,9 @@
 [
   "lib/staff/__tests__/whatsapp-invite-message.test.cjs",
+  "lib/staff/__tests__/errors.test.cjs",
+  "lib/staff/__tests__/phone-validation.test.cjs",
+  "lib/staff/__tests__/photo-validation.test.cjs",
+  "lib/branches/__tests__/rules.test.cjs",
   "lib/__tests__/invitation-delivery-team-invite.test.cjs",
   "lib/__tests__/invitation-delivery-guest-invite.test.cjs",
   "lib/__tests__/invitation-delivery-source-assertions.test.cjs",
@@ -284,5 +288,7 @@
   "lib/__tests__/rental-storefront-booking.test.cjs",
   "lib/__tests__/rental-booking-age-validation.test.cjs",
   "lib/__tests__/rental-pickup-guards.test.cjs",
-  "lib/__tests__/rental-handover.test.cjs"
+  "lib/__tests__/rental-handover.test.cjs",
+  "components/ui/__tests__/local-branded-placeholder.test.cjs",
+  "components/nav/__tests__/nav-active.test.cjs"
 ]

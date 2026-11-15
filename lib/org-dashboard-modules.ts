@@ -47,6 +47,9 @@ export interface OrgNavModule {
   visibility: OrgNavVisibility;
   /** False for reserved items whose routes do not exist yet — never rendered. */
   routeExists: boolean;
+  /** When set, this module is nested as a child under the module with this
+   *  key, instead of rendered as its own top-level nav item. */
+  parent?: string;
 }
 
 /**
@@ -64,6 +67,7 @@ export const ORG_NAV_MODULES: readonly OrgNavModule[] = MODULE_REGISTRY
     icon: m.nav.icon,
     visibility: m.nav.visibility,
     routeExists: m.routeExists ?? true,
+    parent: m.nav.parent,
   }));
 
 export interface OrgNavSignalCounts {

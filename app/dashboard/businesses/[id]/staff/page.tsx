@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
+import { assertCanAccessBusinessStaffArea, assertCanManageBusiness } from "@/lib/entity-authz";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { listStaffMembers } from "@/lib/actions/staff-members";
 import StaffClient from "./StaffClient";
@@ -14,11 +14,15 @@ export default async function BusinessStaffPage({ params }: { params: Promise<{ 
   const supabase = await createSupabaseServer();
   const { data: branches } = await supabase
     .from("business_branches")
-    .select("id, label")
+    .select("id, label, status")
     .eq("business_id", id)
     .order("label", { ascending: true });
 
   const staffResult = await listStaffMembers(id);
+
+  // canDelete is organizer-level only -- staff_members' DELETE policy has no
+  // branch-manager clause. Computed here, not trusted from the client.
+  const organizerAuth = await assertCanManageBusiness(id);
 
   return (
     <StaffClient
@@ -26,6 +30,7 @@ export default async function BusinessStaffPage({ params }: { params: Promise<{ 
       branches={branches ?? []}
       initialStaff={staffResult.success ? staffResult.data : []}
       initialError={staffResult.success ? null : staffResult.error}
+      canDelete={organizerAuth.ok}
     />
   );
 }

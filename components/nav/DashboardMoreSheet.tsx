@@ -15,8 +15,9 @@
  * Overview's own quick actions (lib/overview-resolver.ts).
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   IconWorld as Globe,
@@ -44,8 +45,11 @@ import {
   IconArrowLeft as ArrowLeft,
   IconX as X,
   IconCalendarPlus,
+  IconUserCog as UserCog,
+  IconMapPin as MapPin,
+  IconChevronDown as ChevronDown,
 } from "@tabler/icons-react";
-import type { NavItem } from "./nav-active";
+import { isNavItemActive, isNavItemOrChildActive, computeSharedBases, type NavItem } from "./nav-active";
 
 export interface DashboardMoreSheetProps {
   open: boolean;
@@ -59,7 +63,7 @@ export interface DashboardMoreSheetProps {
 // Same icon set as app/dashboard/org/[id]/OrgDashboardSidebar.tsx's
 // ORG_ICON_MAP (icon glyphs only — no gating logic lives here).
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog, MapPin,
 };
 
 export function DashboardMoreSheet({
@@ -71,6 +75,8 @@ export function DashboardMoreSheet({
 }: DashboardMoreSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("Organizer");
+  const pathname = usePathname();
+  const [manuallyToggled, setManuallyToggled] = useState<Record<string, boolean>>({});
 
   // Esc key close
   useEffect(() => {
@@ -112,14 +118,16 @@ export function DashboardMoreSheet({
   // navItems — label keys are lowercased English fallbacks (e.g.
   // "rentals", "fleet"); untranslated labels (e.g. "Tables & QR") fall
   // back to themselves when the key doesn't exist.
-  const translatedNavItems = navItems.map((item) => {
-    const key = item.label.toLowerCase() as any;
-    try {
-      return { ...item, label: t(key) };
-    } catch {
-      return item;
-    }
-  });
+  function translateLabel(label: string): string {
+    const key = label.toLowerCase() as any;
+    try { return t(key); } catch { return label; }
+  }
+  const translatedNavItems = navItems.map((item) => ({
+    ...item,
+    label: translateLabel(item.label),
+    children: item.children?.map((child) => ({ ...child, label: translateLabel(child.label) })),
+  }));
+  const sharedBases = computeSharedBases([{ items: translatedNavItems }]);
 
   return (
     <div className="fixed inset-0 z-[var(--z-sheet-backdrop)] flex items-end justify-center lg:hidden">
@@ -180,28 +188,69 @@ export function DashboardMoreSheet({
         <div className="divide-y divide-zinc-100 mt-1">
           {translatedNavItems.map((item) => {
             const Icon = ICON_MAP[item.icon] ?? Globe;
+            const hasChildren = (item.children?.length ?? 0) > 0;
+            const active = isNavItemOrChildActive(pathname, null, item, sharedBases);
+            const submenuId = `more-sheet-submenu-${item.href.replace(/[^a-zA-Z0-9]/g, "-")}`;
+            const expanded = hasChildren ? (manuallyToggled[item.href] ?? active) : false;
             return (
               <React.Fragment key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className="min-h-[48px] flex items-center justify-between py-3 px-2 rounded-lg hover:bg-zinc-50 group transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-200/80 transition">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <span className="text-[15px] font-semibold text-zinc-900">
-                      {item.label}
-                    </span>
-                    {item.badge !== undefined && Number(item.badge) > 0 && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                        {item.badge}
+                <div className="flex items-center gap-1">
+                  <Link
+                    href={item.href}
+                    onClick={onClose}
+                    aria-current={active ? "page" : undefined}
+                    className={`min-h-[48px] flex flex-1 items-center justify-between py-3 px-2 rounded-lg transition group ${active ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-200/80 transition">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[15px] font-semibold">
+                        {item.label}
                       </span>
-                    )}
+                      {item.badge !== undefined && Number(item.badge) > 0 && (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                    {!hasChildren && <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700" />}
+                  </Link>
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={submenuId}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label}`}
+                      onClick={() => setManuallyToggled((prev) => ({ ...prev, [item.href]: !expanded }))}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition"
+                    >
+                      <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
+                </div>
+                {hasChildren && expanded && (
+                  <div id={submenuId} className="pb-1 pl-12 pr-2 space-y-0.5">
+                    {item.children!.map((child) => {
+                      const ChildIcon = ICON_MAP[child.icon] ?? Globe;
+                      const childIsActive = isNavItemActive(pathname, null, child, sharedBases);
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={onClose}
+                          aria-current={childIsActive ? "page" : undefined}
+                          className={`min-h-[44px] flex items-center gap-3 py-2 px-2 rounded-lg transition ${childIsActive ? "bg-orange-50 text-orange-700" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}
+                        >
+                          <ChildIcon className="h-3.5 w-3.5" />
+                          <span className="text-sm font-medium">
+                            {child.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
-                  <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700" />
-                </Link>
+                )}
                 {item.settingsHref && (
                   <Link
                     href={item.settingsHref}
