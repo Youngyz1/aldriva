@@ -19,7 +19,7 @@
  * generateGoogleCalendarUrl (lib/event-time), MusicBlock and MemoriesGallery.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { IconPhoto } from "@tabler/icons-react";
 import type { InvitationPageData } from "@/types/invitation-template";
@@ -29,7 +29,13 @@ import { MusicBlock } from "@/components/invitation/blocks/InvitationPresentatio
 import { MemoriesGallery } from "@/components/memories/MemoriesGallery";
 import { SAMPLE_MEMORY_ITEMS } from "@/lib/memories/sample-memories";
 import type { MemoryGalleryPage } from "@/lib/memories/gallery-types";
-import { HeartMark, MusicButtonFace, SectionDivider } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
+import {
+  GiftBoxArt,
+  HeartMark,
+  MusicButtonFace,
+  PanelCorner,
+  SectionDivider,
+} from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import {
   burgundyCountdownTarget,
   burgundyWelcomeTime,
@@ -49,15 +55,38 @@ const GOLD = "#cdb073";
 const GOLD_BRIGHT = "#e7cf98";
 const CREAM = "#f6ead0";
 const BURGUNDY_DEEP = "#2b0710";
-const BURGUNDY_PANEL = "#551124";
-
-const PANEL_STYLE: CSSProperties = {
-  backgroundColor: `${BURGUNDY_PANEL}f2`,
-  border: `1px solid ${GOLD}99`,
-  boxShadow: `inset 0 0 0 4px ${BURGUNDY_DEEP}, inset 0 0 0 5px ${GOLD}55`,
-};
 
 const SECTION_WIDTH = "mx-auto w-full max-w-md";
+
+/**
+ * Unfilled section shell: no fill, no border, no shadow — the page backdrop
+ * shows through with 1px gold hairlines down both sides and a divider across
+ * the top, matching the ceremony panel. Corners are opt-in (reception only).
+ */
+function SectionFrame({
+  children,
+  corners = false,
+  align = "center",
+}: {
+  children: ReactNode;
+  corners?: boolean;
+  align?: "center" | "left";
+}) {
+  return (
+    <div className={`${SECTION_WIDTH} relative px-5 pb-10 pt-12 sm:px-8`}>
+      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-px" style={{ backgroundColor: `${GOLD}66` }} />
+      <span aria-hidden="true" className="absolute inset-y-0 right-0 w-px" style={{ backgroundColor: `${GOLD}66` }} />
+      <SectionDivider size="100%" className="absolute left-0 top-0" tone={GOLD} />
+      {corners ? (
+        <>
+          <PanelCorner corner="top-left" size={24} tone={GOLD} className="absolute left-0 top-0" />
+          <PanelCorner corner="top-right" size={24} tone={GOLD} className="absolute right-0 top-0" />
+        </>
+      ) : null}
+      <div className={align === "center" ? "text-center" : undefined}>{children}</div>
+    </div>
+  );
+}
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
@@ -232,6 +261,53 @@ export function BurgundyGoldSections({
   const rsvpTriggerRef = useRef<HTMLButtonElement>(null);
   const nestedDialogEscapeRef = useRef(false);
 
+  // Gift box: same dialog as "Confirm presence", with the box remembered as the
+  // focus-return target.
+  const [giftOpen, setGiftOpen] = useState(false);
+  const giftTimerRef = useRef<number | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  function prefersReducedMotion(): boolean {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function openRsvp(trigger: HTMLElement | null) {
+    returnFocusRef.current = trigger;
+    setRsvpOpen(true);
+  }
+
+  function closeRsvp() {
+    setRsvpOpen(false);
+    setGiftOpen(false);
+    const target = returnFocusRef.current;
+    if (target && typeof target.focus === "function") target.focus();
+    returnFocusRef.current = null;
+  }
+
+  /** Lid lift → ~700 ms → dialog. Reduced motion skips both the delay and the animation. */
+  function openGift() {
+    if (!hasRsvp) return;
+    returnFocusRef.current = rootRef.current?.querySelector<HTMLElement>("[data-burgundy-gift-open]") ?? null;
+    setGiftOpen(true);
+    if (giftTimerRef.current !== null) {
+      window.clearTimeout(giftTimerRef.current);
+      giftTimerRef.current = null;
+    }
+    if (prefersReducedMotion()) {
+      setRsvpOpen(true);
+      return;
+    }
+    giftTimerRef.current = window.setTimeout(() => {
+      giftTimerRef.current = null;
+      setRsvpOpen(true);
+    }, 700);
+  }
+
+  useEffect(() => () => {
+    if (giftTimerRef.current !== null) window.clearTimeout(giftTimerRef.current);
+  }, []);
+
   useEffect(() => {
     if (!rsvpOpen) return;
     const dialog = rsvpDialogRef.current;
@@ -338,7 +414,7 @@ export function BurgundyGoldSections({
       {/* 5. Reception info — welcome/reception times, countdown, calendar, add-to-calendar, RSVP. */}
       {hasReceptionContent ? (
       <section id="inv-reception" data-burgundy-section="reception" className="px-4 pb-14 pt-2 sm:px-6">
-        <div className={`${SECTION_WIDTH} relative px-5 py-8 text-center sm:px-8 sm:py-10`} style={PANEL_STYLE}>
+        <SectionFrame corners>
           <SectionHeading>{t("burgundyReceptionHeading")}</SectionHeading>
 
           {times ? (
@@ -459,7 +535,7 @@ export function BurgundyGoldSections({
             <button
               ref={rsvpTriggerRef}
               type="button"
-              onClick={() => setRsvpOpen(true)}
+              onClick={() => openRsvp(rsvpTriggerRef.current)}
               data-burgundy-confirm-presence="true"
               className="mt-7 inline-flex min-h-11 items-center rounded-full px-7 py-2 text-sm font-semibold tracking-[0.06em]"
               style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
@@ -467,7 +543,7 @@ export function BurgundyGoldSections({
               {t("burgundyConfirmPresence")}
             </button>
           ) : null}
-        </div>
+        </SectionFrame>
       </section>
       ) : null}
 
@@ -476,6 +552,7 @@ export function BurgundyGoldSections({
         <section id="inv-venue" data-burgundy-section="venue" className="px-4 py-14 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyVenueHeading")}</SectionHeading>
+            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             {venue.name ? (
               <p className="mt-3 text-center text-lg" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>{venue.name}</p>
             ) : null}
@@ -523,6 +600,7 @@ export function BurgundyGoldSections({
         <section id="inv-dress-code" data-burgundy-section="dress-code" className="px-4 py-14 sm:px-6">
           <div className="mx-auto w-full max-w-md text-center">
             <SectionHeading>{t("burgundyDressCodeHeading")}</SectionHeading>
+            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             {dressCodeLine ? (
               <p className="mx-auto mt-4 max-w-sm text-sm leading-6" style={{ color: `${CREAM}dd` }}>{dressCodeLine}</p>
             ) : null}
@@ -552,8 +630,9 @@ export function BurgundyGoldSections({
       {/* 8. Day programme — vertical timeline, capped at 15 entries. */}
       {programme ? (
         <section id="inv-programme" data-burgundy-section="programme" className="px-4 py-14 sm:px-6">
-          <div className={`${SECTION_WIDTH} relative px-5 py-8 text-left sm:px-8 sm:py-10`} style={PANEL_STYLE}>
+          <SectionFrame align="left">
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
+            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             <ol className="mt-6 space-y-5">
               {programme.map((entry, index) => (
                 <li key={`${entry.time}-${index}`} className="relative flex gap-4 pl-1">
@@ -572,15 +651,16 @@ export function BurgundyGoldSections({
                 </li>
               ))}
             </ol>
-          </div>
+          </SectionFrame>
         </section>
       ) : null}
 
       {/* 9. Guestbook — typeable in preview/demo; local-only feed (no persistence yet). */}
       {showGuestbook ? (
         <section id="inv-guestbook" data-burgundy-section="guestbook" className="px-4 py-14 sm:px-6">
-          <div className={`${SECTION_WIDTH} relative px-5 py-8 text-left sm:px-8`} style={PANEL_STYLE}>
+          <SectionFrame align="left">
             <SectionHeading>{t("burgundyGuestbookHeading")}</SectionHeading>
+            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             <div className="mt-6 flex flex-col gap-3">
               <label className="sr-only" htmlFor="burgundy-guestbook-name">{t("burgundyGuestbookName")}</label>
               <input
@@ -634,7 +714,7 @@ export function BurgundyGoldSections({
             ) : (
               <p className="mt-6 text-sm" style={{ color: `${CREAM}99` }}>{t("burgundyGuestbookEmpty")}</p>
             )}
-          </div>
+          </SectionFrame>
         </section>
       ) : null}
 
@@ -739,10 +819,9 @@ export function BurgundyGoldSections({
           onCancel={(event) => {
             event.preventDefault();
             if (nestedDialogEscapeRef.current || event.currentTarget.querySelector('[role="dialog"][data-state="open"]')) return;
-            setRsvpOpen(false);
-            rsvpTriggerRef.current?.focus();
+            closeRsvp();
           }}
-          onClose={() => { setRsvpOpen(false); rsvpTriggerRef.current?.focus(); }}
+          onClose={closeRsvp}
         >
           <div className="max-h-[94dvh] overflow-y-auto overscroll-contain px-4 pb-8 pt-3 sm:px-6">
             <div className="sticky top-0 z-10 flex justify-end py-2" style={{ backgroundColor: "#ffffffee" }}>
@@ -760,6 +839,28 @@ export function BurgundyGoldSections({
             {actionPortal}
           </div>
         </dialog>
+      ) : null}
+
+      {/* 11. Gift box — last section; opens the very same RSVP dialog. */}
+      {hasRsvp ? (
+        <section id="inv-gift" data-burgundy-section="gift" className="px-4 pb-20 sm:px-6">
+          <SectionFrame>
+            <SectionHeading>{t("burgundyGiftTitle")}</SectionHeading>
+            <GiftBoxArt
+              open={giftOpen}
+              onOpen={openGift}
+              label={t("burgundyGiftOpenLabel")}
+              size={132}
+              className="mt-7"
+            />
+            <p className="mt-5 text-[0.66rem] uppercase tracking-[0.22em]" style={{ color: `${CREAM}aa` }}>
+              {t("burgundyGiftHint")}
+            </p>
+            <p className="mx-auto mt-6 max-w-xs text-sm leading-6" style={{ color: `${CREAM}dd` }}>
+              {t("burgundyGiftClosing")}
+            </p>
+          </SectionFrame>
+        </section>
       ) : null}
 
       {showMemories ? (

@@ -183,35 +183,98 @@ export function SectionDivider({ size = 176, className, style, tone = GOLD }: Bu
 }
 
 /**
- * Gift box artwork — PLACEHOLDER drawing for now (no bundled asset). The gift
- * section itself is not part of this stage; this export only reserves the
- * swappable slot so the reference's present can drop in later.
+ * Idle float / sparkle and the lift-and-tilt reveal. Kept here so the whole
+ * gift animation is artwork-owned, and disabled wholesale under
+ * prefers-reduced-motion (the caller then opens immediately).
  */
-export function GiftBoxArt({ size = 72, className, style, tone = GOLD_BRIGHT }: BurgundyArtProps) {
+const GIFT_ANIMATION_CSS = `
+@keyframes bgg-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes bgg-twinkle { 0%,100% { opacity: .2; transform: scale(.85) } 50% { opacity: .95; transform: scale(1.1) } }
+@keyframes bgg-rise { 0% { opacity: 0; transform: translateY(4px) scale(.7) } 28% { opacity: 1 } 100% { opacity: 0; transform: translateY(-30px) scale(1.2) } }
+.bgg-float { animation: bgg-float 4.6s ease-in-out infinite }
+.bgg-spark { animation: bgg-twinkle 3.2s ease-in-out infinite }
+.bgg-lid { transform-box: fill-box; transform-origin: 4% 96%; transition: transform 460ms cubic-bezier(.3,.9,.3,1.15) }
+.bgg-box[data-gift-open="true"] .bgg-lid { transform: translate(-7px, -11px) rotate(-16deg) }
+.bgg-box[data-gift-open="true"] .bgg-spark { animation: bgg-rise 900ms ease-out forwards }
+@media (prefers-reduced-motion: reduce) {
+  .bgg-float, .bgg-spark { animation: none }
+  .bgg-lid { transition: none }
+  .bgg-box[data-gift-open="true"] .bgg-lid { transform: none }
+  .bgg-box[data-gift-open="true"] .bgg-spark { animation: none; opacity: 0 }
+}
+`;
+
+/**
+ * Gift box. A real <button> so keyboard and screen-reader use come for free;
+ * the drawing carries no text — the accessible name arrives via `label`.
+ * `open` lifts and tilts the lid and lets the sparkles rise.
+ */
+export function GiftBoxArt({
+  size = 132,
+  className,
+  style,
+  tone = GOLD_BRIGHT,
+  open = false,
+  onOpen,
+  label,
+  disabled = false,
+}: BurgundyArtProps & {
+  open?: boolean;
+  onOpen?: () => void;
+  /** Accessible name for the button; also used as a tooltip. */
+  label?: string;
+  disabled?: boolean;
+}) {
   return (
-    <span
-      aria-hidden="true"
-      data-burgundy-art="gift-box-placeholder"
-      className={`inline-block ${className ?? ""}`}
-      style={{ width: boxSize(size, 72), height: boxSize(size, 72), color: tone, ...style }}
-    >
-      <svg
-        viewBox="0 0 64 64"
-        className="h-full w-full"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
+    <span className={`inline-flex flex-col items-center ${className ?? ""}`} style={style}>
+      <style>{GIFT_ANIMATION_CSS}</style>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={disabled}
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={label}
+        data-burgundy-gift-open="true"
+        data-gift-open={open ? "true" : "false"}
+        className="bgg-box inline-flex items-center justify-center rounded-full transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-default"
+        style={{
+          width: boxSize(size, 132),
+          height: boxSize(size, 132),
+          color: tone,
+          outlineColor: GOLD_BRIGHT,
+          backgroundImage: `radial-gradient(circle at 50% 42%, ${GOLD}1f 0%, transparent 68%)`,
+        }}
       >
-        <path d="M10 26h44v28H10z" />
-        <path d="M7 20h50v8H7z" />
-        <path d="M32 20v34" />
-        <path d="M32 20c-3-7-8-10-12-8-3 2-2 6 3 8M32 20c3-7 8-10 12-8 3 2 2 6-3 8" />
-        <path d="M10 34h44" opacity="0.5" />
-      </svg>
+        <span className="bgg-float block h-full w-full">
+          <svg
+            viewBox="0 0 64 64"
+            className="h-full w-full"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {/* body */}
+            <path d="M11 28h42v26H11z" />
+            <path d="M11 36h42" opacity="0.45" />
+            <path d="M32 28v26" opacity="0.75" />
+            {/* lid */}
+            <g className="bgg-lid">
+              <path d="M7 21h50v8H7z" />
+              <path d="M32 21c-3-7-8-10-12-8-3 2-2 6 3 8M32 21c3-7 8-10 12-8 3 2 2 6-3 8" />
+            </g>
+            {/* sparkles */}
+            <path className="bgg-spark" d="M14 15l.9 2.3L17 18l-2.1.7L14 21l-.9-2.3L11 18l2.1-.7z" fill="currentColor" stroke="none" style={{ animationDelay: "0ms" }} />
+            <path className="bgg-spark" d="M50 12l.8 2L53 15l-2.2.9L50 18l-.8-2.1L47 15l2.2-1z" fill="currentColor" stroke="none" style={{ animationDelay: "700ms" }} />
+            <circle className="bgg-spark" cx="32" cy="10" r="1.6" fill="currentColor" stroke="none" style={{ animationDelay: "1300ms" }} />
+          </svg>
+        </span>
+      </button>
     </span>
   );
 }
