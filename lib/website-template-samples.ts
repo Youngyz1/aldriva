@@ -239,19 +239,35 @@ export const STORE_SAMPLES: ContentDoc = {
 };
 
 export const SHOWCASE_SAMPLES: ContentDoc = {
-  business_name: "Showcase Business",
-  tagline: "A sample tagline",
-  about_text: "Our story begins here.",
-  about_headline: "About Us",
+  business_name: "Your business",
+  tagline: "A thoughtful place to begin",
+  about_text: "Learn about the people, ideas, and craft behind this business.",
+  about_headline: "About",
   primary_cta_label: "Explore",
   trust: [
-    { title: "Quality", description: "We deliver quality." },
-    { title: "Care", description: "We care about you." },
+    { title: "Point 1", description: "Details shared by this business." },
+    { title: "Point 2", description: "Explore the options offered here." },
   ],
-  hours: { mon: { open: "09:00", close: "18:00" }, today_tag: "Open today until 6pm" },
+  hours: { mon: { open: "09:00", close: "18:00" }, today_tag: "Open today" },
   address: "123 Main Street",
-  phone: "+1 (555) 123-4567",
+  phone: "+1 (555) 012-3456",
   nav_labels: { home: "Home", menu: "Catalog", contact: "Contact" },
+};
+
+export const SHOWCASE_SAMPLES_FR: ContentDoc = {
+  business_name: "Votre entreprise",
+  tagline: "Un point de départ réfléchi",
+  about_text: "Découvrez les personnes, les idées et le savoir-faire derrière cette entreprise.",
+  about_headline: "À propos",
+  primary_cta_label: "Explorer",
+  trust: [
+    { title: "Point 1", description: "Détails partagés par cette entreprise." },
+    { title: "Point 2", description: "Découvrez les options proposées ici." },
+  ],
+  hours: { mon: { open: "09:00", close: "18:00" }, today_tag: "Ouvert aujourd'hui" },
+  address: "123 Rue Principale",
+  phone: "+1 (555) 012-3456",
+  nav_labels: { home: "Accueil", menu: "Catalogue", contact: "Contact" },
 };
 
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {

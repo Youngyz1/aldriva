@@ -895,13 +895,19 @@ function buildProductsEmbedForStore(ctx: BuildContext, home: boolean): ProductsE
       ? Math.min(24, Math.max(1, Math.floor(densityRaw)))
       : home ? 6 : 12;
   const featured = asRecord(effectiveValue(ctx, "featured"));
-  const picks = home && Array.isArray(featured?.product_ids)
-    ? (featured.product_ids as unknown[]).filter(
-        (id): id is string =>
-          typeof id === "string" &&
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
-      ).map((id) => id.trim()).slice(0, 12)
-    : [];
+  const rawProductIds = Array.isArray(featured?.product_ids) ? featured.product_ids : [];
+  const picks: string[] = [];
+  if (home) {
+    for (const id of rawProductIds) {
+      if (
+        typeof id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+      ) {
+        picks.push(id.trim());
+        if (picks.length >= 12) break;
+      }
+    }
+  }
   return {
     type: "products_embed",
     heading: home
@@ -954,8 +960,14 @@ function buildCatalogSectionBlock(
     // Delegate to buildMenuEmbed for full parity (heading, featured picks, imageFit, currency).
     // limit: 6 for home sections, 200 for catalog/full-page sections.
     // bindFeatured: true so owner-picked menu_item_ids propagate (same as menu.featured).
-    const limit = section.page === "home" ? 6 : 200;
-    const base = buildMenuEmbed(ctx, "Best sellers", limit, true);
+    const isHome = section.page === "home";
+    const limit = isHome ? 6 : 200;
+    const heading = ctx.template.id === "showcase"
+      ? (isHome
+          ? ctx.foodOrderCopy?.popularItemsHeading ?? "Popular items"
+          : ctx.foodOrderCopy?.menuPageHeading ?? "Browse the menu")
+      : (isHome ? "Best sellers" : "Our full menu");
+    const base = buildMenuEmbed(ctx, heading, limit, isHome);
     // Override variant: "carousel" on the section -> "catalog-carousel" on the block.
     const isCarousel = section.variant === "carousel";
     return {
