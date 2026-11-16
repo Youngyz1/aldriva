@@ -855,7 +855,14 @@
     "foodOrderEditorItem": "Étape {number}",
     "foodOrderEditorClearItem": "Supprimer l'étape",
     "foodOrderEditorAddStep": "Ajouter une étape",
-    "foodOrderEditorClearSteps": "Effacer les étapes"
+    "foodOrderEditorClearSteps": "Effacer les étapes",
+    "promoPercentOff": "-{percent} %",
+    "promoSpecialPrice": "Prix spécial",
+    "promoFreeDelivery": "Livraison offerte",
+    "promoDefaultOffer": "Offre spéciale",
+    "promoPause": "Mettre le diaporama en pause",
+    "promoResume": "Reprendre le diaporama",
+    "promoSlideNofM": "Diapositive {current} sur {total}"
   },
   "Storefront": {
     "categories": "Catégories",

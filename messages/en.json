@@ -855,7 +855,14 @@
     "foodOrderEditorItem": "Step {number}",
     "foodOrderEditorClearItem": "Remove step",
     "foodOrderEditorAddStep": "Add step",
-    "foodOrderEditorClearSteps": "Clear steps"
+    "foodOrderEditorClearSteps": "Clear steps",
+    "promoPercentOff": "{percent}% off",
+    "promoSpecialPrice": "Special price",
+    "promoFreeDelivery": "Free delivery",
+    "promoDefaultOffer": "Special offer",
+    "promoPause": "Pause slideshow",
+    "promoResume": "Resume slideshow",
+    "promoSlideNofM": "Slide {current} of {total}"
   },
   "Storefront": {
     "categories": "Categories",

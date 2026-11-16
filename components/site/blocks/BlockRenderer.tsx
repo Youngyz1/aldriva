@@ -63,6 +63,7 @@ import { readableOn } from "@/lib/readable-on";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ProductCarousel } from "./ProductCarousel";
+import { PromoCarousel } from "./PromoCarousel";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
@@ -2132,12 +2133,14 @@ async function PromotionsEmbedBlockRenderer({
   hasMenuEmbedOnPage?: boolean;
   scopeInternalLinks?: boolean;
 }) {
-  if (!tenantId || block.enabled === false) return null;
-  const promotions = await resolvePromotionsEmbed(block, tenantId, {
-    hasMenuEmbedOnPage,
-    hasPublishedMenuPage,
-  });
-  if (promotions.length === 0) return null;
+  if (block.enabled === false) return null;
+  const promotions = tenantId
+    ? await resolvePromotionsEmbed(block, tenantId, {
+        hasMenuEmbedOnPage,
+        hasPublishedMenuPage,
+      })
+    : [];
+  if (promotions.length === 0 && !block.fallback) return null;
 
   const layoutFor = (promotion: (typeof promotions)[number]) =>
     block.layout && block.layout !== "auto" ? block.layout : promotion.layout ?? "banner";
@@ -2148,6 +2151,57 @@ async function PromotionsEmbedBlockRenderer({
       ? resolveSiteHref(siteSlug, href)
       : href;
   };
+
+  if (block.variant === "carousel") {
+    let pauseLabel = "Pause slideshow";
+    let resumeLabel = "Resume slideshow";
+    let slideNofMLabel = "Slide {current} of {total}";
+    let percentOffLabel = "{percent}% off";
+    let specialPriceLabel = "Special price";
+    let freeDeliveryLabel = "Free delivery";
+    let defaultOfferLabel = "Special offer";
+
+    try {
+      const publicT = await getTranslations("PublicSite");
+      pauseLabel = publicT("promoPause");
+      resumeLabel = publicT("promoResume");
+      slideNofMLabel = publicT("promoSlideNofM");
+      percentOffLabel = publicT("promoPercentOff", { percent: "{percent}" });
+      specialPriceLabel = publicT("promoSpecialPrice");
+      freeDeliveryLabel = publicT("promoFreeDelivery");
+      defaultOfferLabel = publicT("promoDefaultOffer");
+    } catch {
+      // Keep defaults when translations unavailable
+    }
+
+    const labels = {
+      pause: pauseLabel,
+      resume: resumeLabel,
+      slideNofM: slideNofMLabel,
+      percentOff: percentOffLabel,
+      specialPrice: specialPriceLabel,
+      freeDelivery: freeDeliveryLabel,
+      defaultOffer: defaultOfferLabel,
+    };
+    const mappedPromotions = promotions.map((p) => ({
+      ...p,
+      destination_href: safeHrefFor(p) ?? "",
+    }));
+    const mappedFallback = block.fallback
+      ? {
+          ...block.fallback,
+          href: block.fallback.href && siteSlug ? resolveSiteHref(siteSlug, block.fallback.href) : block.fallback.href,
+        }
+      : undefined;
+
+    return (
+      <PromoCarousel
+        promotions={mappedPromotions}
+        fallback={mappedFallback}
+        labels={labels}
+      />
+    );
+  }
   const offerLabel = (promotion: (typeof promotions)[number]) =>
     promotion.offer_type === "percent_off" && promotion.percent_off
       ? `${promotion.percent_off}% off`

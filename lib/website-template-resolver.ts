@@ -25,6 +25,7 @@ import type {
   BlockType,
   MenuEmbedBlock,
   ProductsEmbedBlock,
+  PromotionFallback,
 } from "./website-blocks";
 import {
   validateBlock,
@@ -340,6 +341,7 @@ interface BuildContext {
   storeCopy?: TemplateResolutionOptions["storeCopy"];
   timeZone?: string;
   now?: Date;
+  siteSlug?: string;
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -1141,8 +1143,33 @@ function buildSectionBlock(
       }
       return buildMenuEmbed(ctx, ctx.template.id === "restaurant-savannah" ? "Best sellers" : "Featured dishes", 6, true); // menu.featured — picks only
     }
-    case "promotions_embed":
-      return { type: "promotions_embed", enabled: true, layout: "auto" };
+    case "promotions_embed": {
+      const isCarousel = section.variant === "carousel";
+      let fallback: PromotionFallback | undefined;
+      if (isCarousel) {
+        const headline = asString(effectiveValue(ctx, "hero_headline")) ?? asString(effectiveValue(ctx, "business_name")) ?? "";
+        const subtext = asString(effectiveValue(ctx, "hero_subtext")) ?? asString(effectiveValue(ctx, "tagline")) ?? "";
+        const image = asString(effectiveValue(ctx, "hero_image")) ?? "";
+        const buttonLabel = asString(effectiveValue(ctx, "primary_cta_label")) ?? "";
+        const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
+        const catalogSlug = catalogPage ? catalogPage.slug : "menu";
+        const href = ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogSlug) : `/${encodeURIComponent(catalogSlug)}`;
+        fallback = {
+          ...(headline ? { headline } : {}),
+          ...(subtext ? { subtext } : {}),
+          ...(image ? { image } : {}),
+          ...(buttonLabel ? { buttonLabel } : {}),
+          href,
+        };
+      }
+      return {
+        type: "promotions_embed",
+        enabled: true,
+        layout: "auto",
+        ...(isCarousel ? { variant: "carousel" } : {}),
+        ...(fallback ? { fallback } : {}),
+      };
+    }
     case "products_embed": {
       if (ctx.template.id !== "store") return null;
       if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
@@ -1361,6 +1388,7 @@ export function resolveTemplateManifest(
     storeCopy: options.storeCopy,
     timeZone: options.timeZone,
     now: options.now,
+    siteSlug: options.siteSlug,
   };
 
   const pages: ResolvedPage[] = [];

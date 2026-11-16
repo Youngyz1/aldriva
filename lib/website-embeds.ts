@@ -555,8 +555,32 @@ export async function resolvePromotionsEmbed(
   });
   if (result.error) return [];
   const now = new Date();
-  return result.promotions
-    .filter((promotion) => isPromotionActive(promotion, now) && (promotion.targets?.length ?? 0) > 0)
+  const activePromotions = result.promotions
+    .filter((promotion) => isPromotionActive(promotion, now) && (promotion.targets?.length ?? 0) > 0);
+
+  if (block.variant === "carousel") {
+    const sorted = [...activePromotions].sort((a, b) => {
+      const prioA = a.priority ?? 0;
+      const prioB = b.priority ?? 0;
+      if (prioB !== prioA) return prioB - prioA;
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
+    return sorted
+      .filter((promotion) => promotion.layout === "banner" || promotion.layout === "dish_card")
+      .slice(0, 5)
+      .map((promotion) => {
+        const href = getMenuPromotionDestination(promotion, options);
+        return {
+          ...promotion,
+          destination_href: href,
+          destination_external: promotion.destination_type === "external" && Boolean(href),
+        };
+      });
+  }
+
+  return activePromotions
     .map((promotion) => {
       const href = getMenuPromotionDestination(promotion, options);
       return {

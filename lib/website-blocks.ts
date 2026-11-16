@@ -300,6 +300,14 @@ export interface MenuEmbedBlock extends BaseBlock {
   imageFit?: "cover" | "contain";
 }
 
+export interface PromotionFallback {
+  headline?: string;
+  subtext?: string;
+  image?: string;
+  buttonLabel?: string;
+  href?: string;
+}
+
 export interface PromotionsEmbedBlock extends BaseBlock {
   type: "promotions_embed";
   /** Section-level switch; disabled blocks render no promotion content. */
@@ -307,6 +315,7 @@ export interface PromotionsEmbedBlock extends BaseBlock {
   /** auto respects each dashboard promotion's layout. */
   layout?: "auto" | "banner" | "dish_card" | "announcement_bar";
   variant?: "carousel";
+  fallback?: PromotionFallback;
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -1731,7 +1740,27 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         ? obj.layout
         : "auto";
       const variant = obj.variant === "carousel" ? obj.variant : undefined;
-      return { success: true, data: { type: "promotions_embed", ...envelope, enabled, layout, ...(variant ? { variant } : {}) } };
+      const fallbackRaw = typeof obj.fallback === "object" && obj.fallback !== null && !Array.isArray(obj.fallback)
+        ? (obj.fallback as Record<string, unknown>)
+        : undefined;
+      const fallback: PromotionFallback | undefined = fallbackRaw ? {
+        ...(typeof fallbackRaw.headline === "string" ? { headline: fallbackRaw.headline } : {}),
+        ...(typeof fallbackRaw.subtext === "string" ? { subtext: fallbackRaw.subtext } : {}),
+        ...(typeof fallbackRaw.image === "string" ? { image: fallbackRaw.image } : {}),
+        ...(typeof fallbackRaw.buttonLabel === "string" ? { buttonLabel: fallbackRaw.buttonLabel } : {}),
+        ...(typeof fallbackRaw.href === "string" ? { href: fallbackRaw.href } : {}),
+      } : undefined;
+      return {
+        success: true,
+        data: {
+          type: "promotions_embed",
+          ...envelope,
+          enabled,
+          layout,
+          ...(variant ? { variant } : {}),
+          ...(fallback ? { fallback } : {}),
+        },
+      };
     }
 
     case "cta_banner": {
@@ -2172,14 +2201,26 @@ export function parseBlock(raw: unknown): Block | null {
         variant: obj.variant === "rows" ? "rows" : obj.variant === "editorial" ? "editorial" : undefined,
       };
 
-    case "promotions_embed":
+    case "promotions_embed": {
+      const fallbackRaw = typeof obj.fallback === "object" && obj.fallback !== null && !Array.isArray(obj.fallback)
+        ? (obj.fallback as Record<string, unknown>)
+        : undefined;
+      const fallback: PromotionFallback | undefined = fallbackRaw ? {
+        ...(typeof fallbackRaw.headline === "string" ? { headline: fallbackRaw.headline.trim() } : {}),
+        ...(typeof fallbackRaw.subtext === "string" ? { subtext: fallbackRaw.subtext.trim() } : {}),
+        ...(typeof fallbackRaw.image === "string" ? { image: fallbackRaw.image.trim() } : {}),
+        ...(typeof fallbackRaw.buttonLabel === "string" ? { buttonLabel: fallbackRaw.buttonLabel.trim() } : {}),
+        ...(typeof fallbackRaw.href === "string" ? { href: fallbackRaw.href.trim() } : {}),
+      } : undefined;
       return {
         type: "promotions_embed",
         ...envelope,
         enabled: obj.enabled !== false,
         layout: obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar" ? obj.layout : "auto",
         ...(obj.variant === "carousel" ? { variant: "carousel" } : {}),
+        ...(fallback ? { fallback } : {}),
       };
+    }
 
     case "cta_banner":
       return {
