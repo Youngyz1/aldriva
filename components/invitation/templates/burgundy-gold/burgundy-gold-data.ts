@@ -168,6 +168,21 @@ export interface BurgundyReceptionTimes {
 
 const WELCOME_LABEL = /(welcome|accueil|guest|invit)/i;
 const RECEPTION_LABEL = /(reception|réception|salle|dinner|dîner|banquet)/i;
+const WELCOME_TITLE = /(welcome|accueil)/i;
+
+/**
+ * Guest-welcome time from the day programme. In the reference the welcome is
+ * its own moment before the ceremony, not a venue, so it is read from the
+ * schedule and then shown only inside the reception info block.
+ */
+export function burgundyWelcomeTime(
+  schedule: InvitationScheduleItem[] | null | undefined
+): string | null {
+  const entry = (schedule ?? []).find(
+    (item) => item?.time?.trim() && WELCOME_TITLE.test(item.title ?? item.label ?? "")
+  );
+  return entry?.time?.trim() || null;
+}
 
 /**
  * Guest-welcome and reception times. Labels are matched first (a three-venue
@@ -180,13 +195,39 @@ export function burgundyReceptionTimes(
   const timed = (venues ?? []).filter((venue) => venue?.time?.trim());
   const welcomeVenue = timed.find((venue) => WELCOME_LABEL.test(venue.label ?? ""));
   const receptionVenue = timed.find((venue) => RECEPTION_LABEL.test(venue.label ?? ""));
-  const welcome = welcomeVenue?.time?.trim() || timed[0]?.time?.trim() || fallbackWelcome?.trim() || null;
+  // A labelled welcome venue wins, then the programme's welcome moment, then
+  // whatever is listed first. The first venue is usually the ceremony, so it
+  // is the last resort rather than the default.
+  const welcome = welcomeVenue?.time?.trim() || fallbackWelcome?.trim() || timed[0]?.time?.trim() || null;
   const reception =
     receptionVenue?.time?.trim()
     || timed[1]?.time?.trim()
     || (welcomeVenue ? null : timed[0]?.time?.trim() ?? null);
   if (!welcome && !reception) return null;
   return { welcome, reception };
+}
+
+const FIRST_NAME_SPLIT = /\s*(?:&|\bet\b|\band\b)\s*/i;
+
+function firstWord(value?: string | null): string {
+  return value?.trim().split(/\s+/)[0] ?? "";
+}
+
+/**
+ * Hero names: first names only, stacked under the eyebrow. Derived from the
+ * partner names; falls back to the host names when partners are unset. Full
+ * names stay available for the ceremony panel.
+ */
+export function burgundyHeroNames(data: InvitationPageData): string[] {
+  const first = firstWord(data.partner1Name);
+  const second = firstWord(data.partner2Name);
+  if (first && second) return [first, second];
+  if (first || second) return [first || second];
+
+  const hosts = data.hostNames?.trim() ?? "";
+  if (!hosts) return [];
+  const parts = hosts.split(FIRST_NAME_SPLIT).map(firstWord).filter(Boolean);
+  return parts.length > 1 ? parts : [firstWord(hosts)];
 }
 
 export interface BurgundySwatch {

@@ -1,22 +1,23 @@
 "use client";
 
-import { Children, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Children, Fragment, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Cormorant_Garamond, EB_Garamond, Parisienne } from "next/font/google";
+import { Alex_Brush, Cormorant_Garamond, EB_Garamond } from "next/font/google";
 import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import type { InvitationPageData } from "@/types/invitation-template";
 import { formatLocalizedEventDate } from "@/lib/invitation-i18n";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
 import {
-  BurgundyCornerOrnament,
-  BurgundyDivider,
-  BurgundyFlourish,
-} from "@/components/invitation/templates/burgundy-gold/BurgundyGoldOrnaments";
+  PageBackdrop,
+  PanelCorner,
+  SectionDivider,
+  TopFlourish,
+} from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import { BurgundyGoldSections } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldSections";
+import { burgundyHeroNames } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
 
 const BURGUNDY = "#4a0d1c";
 const BURGUNDY_DEEP = "#2b0710";
-const BURGUNDY_PANEL = "#551124";
 const GOLD = "#cdb073";
 const GOLD_BRIGHT = "#e7cf98";
 const CREAM = "#f6ead0";
@@ -31,7 +32,10 @@ const bodyFont = EB_Garamond({
   weight: ["400", "500", "600"],
   variable: "--font-burgundy-body",
 });
-const scriptFont = Parisienne({
+// Brush script: chosen from Allura / Alex Brush / Great Vibes / Pinyon Script by
+// rendering each at 390px — Alex Brush keeps the brush weight and the thick/thin
+// contrast of the reference at mobile size.
+const scriptFont = Alex_Brush({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-burgundy-script",
@@ -140,8 +144,9 @@ function ParentColumn({
   align: "left" | "right";
 }) {
   if (!label?.trim() && !nameOne?.trim() && !nameTwo?.trim()) return null;
+  // Plain columns: the reference has no vertical rule between the two families.
   return (
-    <div className={align === "right" ? "border-l pl-4 text-left sm:pl-5" : "border-r pr-4 text-right sm:pr-5"} style={{ borderColor: `${GOLD}40` }}>
+    <div className={align === "right" ? "text-left" : "text-right"}>
       {label?.trim() ? <p className="text-[0.66rem] uppercase tracking-[0.16em] opacity-75">{label.trim()}</p> : null}
       {nameOne?.trim() ? <p className="mt-1 text-sm font-medium leading-5">{nameOne.trim()}</p> : null}
       {nameTwo?.trim() ? <p className="text-sm font-medium leading-5">{nameTwo.trim()}</p> : null}
@@ -204,6 +209,9 @@ export function BurgundyGoldPageTemplate({
     return couple || data.hostNames?.trim() || data.title?.trim() || "";
   }, [data.hostNames, data.partner1Name, data.partner2Name, data.title]);
 
+  // Hero shows FIRST names only; the full names stay in the ceremony panel.
+  const heroNames = burgundyHeroNames(data);
+
   const eyebrow = data.eyebrow?.trim() || t("burgundyEyebrow");
   const openingMessage = data.openingMessage?.trim() || data.invitationLine?.trim() || "";
   const invitationLine = data.invitationLine?.trim() || t("burgundyInvitationLine");
@@ -249,22 +257,7 @@ export function BurgundyGoldPageTemplate({
         data-burgundy-page="true"
         data-burgundy-locale={data.locale === "fr" ? "fr" : "en"}
       >
-        <div
-          aria-hidden="true"
-          data-burgundy-backdrop="true"
-          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
-          style={{
-            backgroundColor: BURGUNDY_DEEP,
-            backgroundImage: [
-              `radial-gradient(ellipse at 50% 8%, ${BURGUNDY_PANEL} 0%, ${BURGUNDY} 38%, ${BURGUNDY_DEEP} 78%)`,
-              `repeating-linear-gradient(45deg, ${GOLD}08 0px, ${GOLD}08 1px, transparent 1px, transparent 18px)`,
-              `repeating-linear-gradient(-45deg, ${GOLD}06 0px, ${GOLD}06 1px, transparent 1px, transparent 18px)`,
-            ].join(", "),
-            backgroundSize: "auto, auto, auto",
-            backgroundPosition: "center, center, center",
-            backgroundRepeat: "no-repeat, repeat, repeat",
-          }}
-        />
+        <PageBackdrop />
 
         {!pageIsActive ? (
           <section
@@ -289,7 +282,7 @@ export function BurgundyGoldPageTemplate({
             />
 
             <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-              <BurgundyFlourish className="h-10 w-56" style={{ color: GOLD }} />
+              <TopFlourish size={224} tone={GOLD} />
               <p className="mt-4 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>{eyebrow}</p>
               <h1
                 className="mt-3 text-4xl leading-[1.15] sm:text-5xl"
@@ -300,7 +293,7 @@ export function BurgundyGoldPageTemplate({
               {openingMessage ? (
                 <p className="mt-5 max-w-xs text-sm leading-6" style={{ color: `${CREAM}dd` }}>{openingMessage}</p>
               ) : null}
-              <BurgundyDivider className="mt-6 flex w-40 items-center gap-2" style={{ color: GOLD }} />
+              <SectionDivider size={160} className="mt-6" tone={GOLD} />
               {data.eventDate && dateParts ? (
                 <p className="mt-4 text-[0.66rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
                   {dateParts.day} {dateParts.month} {dateParts.year}
@@ -329,40 +322,61 @@ export function BurgundyGoldPageTemplate({
           </section>
         ) : (
           <main className="relative z-10" data-burgundy-main="true">
-            <header className="px-5 pb-8 pt-10 text-center sm:pt-14">
-              <BurgundyFlourish className="mx-auto h-11 w-60" style={{ color: GOLD }} />
-              <p className="mt-3 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
+            {/* Hero: a full-viewport opening after the gate — flourish, eyebrow,
+                then the first names stacked in the brush script. */}
+            <header
+              data-burgundy-hero="true"
+              className="relative flex min-h-[100svh] flex-col items-center justify-center px-6 py-20 text-center"
+            >
+              <TopFlourish size={240} tone={GOLD} />
+              <p className="mt-12 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
                 {eyebrow}
               </p>
               <h1
-                className="mx-auto mt-2 max-w-md text-4xl leading-[1.12] sm:text-5xl"
+                data-burgundy-hero-names="true"
+                className="mt-8 flex flex-col items-center"
                 style={{ fontFamily: "var(--font-burgundy-script)", color: GOLD_BRIGHT }}
               >
-                {names}
+                {heroNames.map((name, index) => (
+                  <Fragment key={`${name}-${index}`}>
+                    {index > 0 ? (
+                      <span className="my-1 block text-3xl leading-none" style={{ color: GOLD }}>&amp;</span>
+                    ) : null}
+                    <span
+                      data-burgundy-hero-name={name}
+                      className="block text-[3.6rem] leading-[1.05] sm:text-[4.5rem]"
+                    >
+                      {name}
+                    </span>
+                  </Fragment>
+                ))}
               </h1>
-              <BurgundyDivider className="mx-auto mt-5 flex w-44 items-center gap-2" style={{ color: GOLD }} />
+              <SectionDivider size={160} className="mt-14" tone={GOLD} />
             </header>
 
             <section id="inv-details" className="px-4 pb-20 pt-2 sm:px-6">
+              {/* Ceremony panel: no filled box — the page backdrop shows through,
+                  with gold hairlines down both sides and a divider across the top. */}
               <div
-                className="relative mx-auto w-full max-w-md px-5 py-8 text-center sm:px-8 sm:py-10"
-                style={{
-                  backgroundColor: `${BURGUNDY_PANEL}f2`,
-                  border: `1px solid ${GOLD}99`,
-                  boxShadow: `inset 0 0 0 4px ${BURGUNDY_DEEP}, inset 0 0 0 5px ${GOLD}55`,
-                }}
+                data-burgundy-panel="true"
+                data-burgundy-panel-fill="none"
+                className="relative mx-auto w-full max-w-md"
               >
-                <BurgundyCornerOrnament className="absolute left-2 top-2 size-8" style={{ color: GOLD }} />
-                <BurgundyCornerOrnament className="absolute right-2 top-2 size-8 -scale-x-100" style={{ color: GOLD }} />
-                <BurgundyCornerOrnament className="absolute bottom-2 left-2 size-8 -scale-y-100" style={{ color: GOLD }} />
-                <BurgundyCornerOrnament className="absolute bottom-2 right-2 size-8 -scale-100" style={{ color: GOLD }} />
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-px" style={{ backgroundColor: `${GOLD}80` }} />
+                <span aria-hidden="true" className="absolute inset-y-0 right-0 w-px" style={{ backgroundColor: `${GOLD}80` }} />
+                <SectionDivider size="100%" className="absolute left-0 top-0" tone={GOLD} />
+                <PanelCorner corner="top-left" size={28} tone={GOLD} className="absolute left-0 top-0" />
+                <PanelCorner corner="top-right" size={28} tone={GOLD} className="absolute right-0 top-0" />
 
-                <h2 className="text-base font-semibold uppercase tracking-[0.22em] sm:text-lg" style={{ color: GOLD_BRIGHT }}>
+                <h2
+                  className="px-6 pt-10 text-[0.95rem] font-bold uppercase tracking-[0.22em] sm:text-base"
+                  style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}
+                >
                   {panelHeading}
                 </h2>
 
                 {hasParents ? (
-                  <div className="mt-6 grid grid-cols-2 gap-3 text-xs leading-5 sm:text-sm">
+                  <div className="mt-7 grid grid-cols-2 gap-x-6 gap-y-4 px-6 text-xs leading-5 sm:text-sm">
                     <ParentColumn
                       align="left"
                       label={data.parentOneLabel}
@@ -378,6 +392,7 @@ export function BurgundyGoldPageTemplate({
                   </div>
                 ) : null}
 
+                <div className="px-6 pb-12 pt-6 text-center">
                 <p className="mt-6 text-sm leading-6" style={{ color: `${CREAM}e6` }}>{invitationLine}</p>
 
                 <div className="mt-5 space-y-1">
@@ -419,6 +434,7 @@ export function BurgundyGoldPageTemplate({
                     })}
                   </div>
                 ) : null}
+                </div>
               </div>
             </section>
 

@@ -155,8 +155,10 @@ export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {
   venue: "Cathedrale du Souvenir Africain",
   address: "Dakar",
   city: "Dakar",
+  // The guest welcome is a programme moment (17:00), not a venue: venues[0] is
+  // the ceremony, so no venue can be labelled "Guest welcome".
   venues: [
-    { label: "Guest welcome", name: "Cathedrale du Souvenir Africain", time: "17:30" },
+    { label: "Ceremony", name: "Cathedrale du Souvenir Africain", time: "18:00" },
     { label: "Reception", name: "Espace Point E", time: "19:30" },
   ],
   dressCode: "Black tie with burgundy and gold accents",
@@ -167,14 +169,17 @@ export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {
     { name: "Cream", hex: "#f6ead0" },
   ],
   schedule: [
-    { time: "17:30", title: "Guest welcome", icon: "cocktail" },
+    { time: "17:00", title: "Guest welcome", icon: "cocktail" },
     { time: "18:00", title: "Ceremony", icon: "ceremony" },
     { time: "19:30", title: "Reception", icon: "dining" },
     { time: "21:00", title: "First dance", icon: "dancing" },
     { time: "23:00", title: "Late buffet", icon: "dining" },
   ],
-  musicAudioUrl: null,
-  musicTitle: null,
+  // Placeholder demo track: the existing minimalism demo audio already shipped
+  // in this repository (see public/images/invitations/burgundy-gold/SOURCES.md).
+  // Scoped to the burgundy-gold sample data only.
+  musicAudioUrl: "/audio/invitations/minimalism-dark-blue/demo.mp3",
+  musicTitle: "Wedding instrumental (placeholder)",
   musicLinks: [],
   guest: BURGUNDY_GOLD_SAMPLE_GUEST,
   token: "preview-sample-token",
@@ -200,7 +205,7 @@ export const BURGUNDY_GOLD_SAMPLE_DATA_FR: InvitationPageData = {
   venue: "Cathédrale du Souvenir Africain",
   city: "Dakar",
   venues: [
-    { label: "Accueil des invités", name: "Cathédrale du Souvenir Africain", time: "17:30" },
+    { label: "Cérémonie", name: "Cathédrale du Souvenir Africain", time: "18:00" },
     { label: "Réception", name: "Espace Point E", time: "19:30" },
   ],
   dressCode: "Tenue de soirée, accents bordeaux et or",
@@ -211,7 +216,7 @@ export const BURGUNDY_GOLD_SAMPLE_DATA_FR: InvitationPageData = {
     { name: "Crème", hex: "#f6ead0" },
   ],
   schedule: [
-    { time: "17:30", title: "Accueil des invités", icon: "cocktail" },
+    { time: "17:00", title: "Accueil des invités", icon: "cocktail" },
     { time: "18:00", title: "Cérémonie", icon: "ceremony" },
     { time: "19:30", title: "Réception", icon: "dining" },
     { time: "21:00", title: "Première danse", icon: "dancing" },

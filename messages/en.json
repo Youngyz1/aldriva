@@ -744,6 +744,8 @@
     "burgundyMemoriesRetry": "Retry",
     "burgundyMemoriesSample": "Sample",
     "burgundyMusicLabel": "Music",
+    "burgundyMusicPlay": "Play our music",
+    "burgundyMusicPause": "Pause our music",
     "manifestGroupMemories": "Memories",
     "manifestShowMemories": "Show guest memories on this invitation",
     "manifestShowMemoriesHelper": "Only photos you approved appear.",

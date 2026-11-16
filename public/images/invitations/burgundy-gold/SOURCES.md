@@ -29,6 +29,13 @@ folder's `CREDITS.md`).
 | Placeholder file | Origin | Purpose |
 | --- | --- | --- |
 | `gallery-01.jpg` … `gallery-06.jpg` | minimalism-dark-blue demo library | sample gallery tiles / memories |
+| `/audio/invitations/minimalism-dark-blue/demo.mp3` | minimalism-dark-blue demo audio, already shipped in this repository | demo music control |
+
+The demo music track is a **placeholder**: the burgundy-gold sample data points at
+the existing minimalism demo MP3 instead of a bundled Burgundy Gold track. No
+audio file was copied into this folder. Replace `musicAudioUrl` in
+`components/invitation/templates/invitation-sample-data.ts` once an owner-supplied
+royalty-free track exists.
 
 ## Supplied reference captures — NOT served
 

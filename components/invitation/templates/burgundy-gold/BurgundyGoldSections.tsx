@@ -29,9 +29,10 @@ import { MusicBlock } from "@/components/invitation/blocks/InvitationPresentatio
 import { MemoriesGallery } from "@/components/memories/MemoriesGallery";
 import { SAMPLE_MEMORY_ITEMS } from "@/lib/memories/sample-memories";
 import type { MemoryGalleryPage } from "@/lib/memories/gallery-types";
-import { BurgundyDivider, BurgundyHeartMark } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldOrnaments";
+import { HeartMark, MusicButtonFace, SectionDivider } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import {
   burgundyCountdownTarget,
+  burgundyWelcomeTime,
   burgundyDressSwatches,
   burgundyGalleryTiles,
   burgundyHasMusic,
@@ -96,6 +97,62 @@ function useBurgundyCountdown(targetIso: string | null | undefined) {
   return state;
 }
 
+/**
+ * Floating music control for uploaded audio: the burgundy face on a round gold
+ * button. The shared FloatingMusicControl keeps its own pill, so this is scoped
+ * to burgundy-gold and only takes the audio path it can style.
+ */
+function BurgundyMusicButton({
+  audioUrl,
+  title,
+  playLabel,
+  pauseLabel,
+}: {
+  audioUrl: string;
+  title?: string | null;
+  playLabel: string;
+  pauseLabel: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => audio?.pause();
+  }, []);
+
+  const toggle = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
+    audio
+      .play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false));
+  };
+
+  return (
+    <div className="fixed bottom-4 right-4 z-40" data-burgundy-section="music" data-burgundy-music-control="true">
+      <audio ref={audioRef} src={audioUrl} loop preload="none" />
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={isPlaying}
+        aria-label={isPlaying ? pauseLabel : playLabel}
+        title={title?.trim() || undefined}
+        className="block rounded-full transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        style={{ outlineColor: GOLD_BRIGHT }}
+      >
+        <MusicButtonFace size={56} playing={isPlaying} />
+      </button>
+    </div>
+  );
+}
+
 export interface BurgundyGoldSectionsProps {
   data: InvitationPageData;
   sectionSettings: Record<string, unknown>;
@@ -155,7 +212,7 @@ export function BurgundyGoldSections({
   const monthLabel = calendar
     ? new Intl.DateTimeFormat(localeCode, { month: "long" }).format(new Date(calendar.year, calendar.monthIndex, 1))
     : null;
-  const times = burgundyReceptionTimes(data.venues);
+  const times = burgundyReceptionTimes(data.venues, burgundyWelcomeTime(data.schedule));
   const calendarPayload: CalendarEventPayload | null = data.eventDate
     ? {
         title: data.title,
@@ -247,7 +304,7 @@ export function BurgundyGoldSections({
         <section id="inv-gallery" data-burgundy-section="gallery" className="px-4 py-14 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyGalleryHeading")}</SectionHeading>
-            <BurgundyDivider className="mx-auto mt-4 flex w-40 items-center gap-2" style={{ color: GOLD } as CSSProperties} />
+            <SectionDivider size={176} className="mx-auto mt-4" tone={GOLD} />
             <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3">
               {galleryTiles.map((tile) => (
                 <button
@@ -356,7 +413,7 @@ export function BurgundyGoldSections({
                           className="relative flex size-5 items-center justify-center"
                           style={{ color: CREAM }}
                         >
-                          <BurgundyHeartMark className="absolute inset-0 size-5" style={{ color: BURGUNDY_DEEP }} />
+                          <HeartMark size={20} className="absolute inset-0" tone={BURGUNDY_DEEP} />
                           <span className="relative lining-nums tabular-nums text-[0.65rem]">{cell.date}</span>
                         </span>
                       ) : (
@@ -598,11 +655,19 @@ export function BurgundyGoldSections({
         </section>
       ) : null}
 
-      {/* Music — floating round control, rendered only when music is configured. */}
+      {/* Music — floating round gold control (burgundy face) for uploaded audio;
+          provider links keep the shared control, which owns the embed SDKs. */}
       {hasMusic ? (
-        <div data-burgundy-section="music" aria-label={t("burgundyMusicLabel")}>
+        data.musicAudioUrl ? (
+          <BurgundyMusicButton
+            audioUrl={data.musicAudioUrl}
+            title={data.musicTitle}
+            playLabel={t("burgundyMusicPlay")}
+            pauseLabel={t("burgundyMusicPause")}
+          />
+        ) : (
           <MusicBlock data={data} />
-        </div>
+        )
       ) : null}
 
       {/* Gallery viewer — native dialog so Escape and focus handling are free. */}
