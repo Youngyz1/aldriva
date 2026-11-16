@@ -182,6 +182,7 @@ export function v2ThemeStyle(
     : undefined;
   const isTableFlame = template.id === "restaurant-table-flame";
   const isSavannah = template.id === "restaurant-savannah";
+  const isShowcase = template.id === "showcase";
   const accentId = readAccentId(metadata) ?? template.defaultAccentId;
   const accentPalette = getPublicAccentPalette(accentId);
   const hasExplicitPaletteChoice = typeof readBrandValue(metadata, "paletteId") === "string" &&
@@ -259,9 +260,12 @@ export function v2ThemeStyle(
       "--ps-card-radius": "12px",
       "--ps-card-shadow": "none",
       "--ps-card-border": `1px solid ${roles.border}`,
-      ...(isSavannah ? {
+      ...(isSavannah || isShowcase ? {
         "--tf-soft": roles.soft ?? roles.subtle,
         "--tf-on-soft": roles.onSoft,
+      } : {}),
+      ...(isShowcase ? {
+        "--tf-card": "#FFFFFF",
       } : {}),
       ...(isSavannah ? {
         "--site-card-radius": "0px",

@@ -738,6 +738,8 @@ export const STORE_TEMPLATE: WebsiteTemplateV2 = {
   tags: ["store", "retail", "products"],
 };
 
+import { SHOWCASE_TEMPLATE } from "./website-template-showcase";
+
 // ── Flagship registry ───────────────────────────────────────────────────────
 
 export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
@@ -746,6 +748,7 @@ export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   RENTAL_DRIVELINE,
   FOOD_ORDER_TEMPLATE,
   STORE_TEMPLATE,
+  SHOWCASE_TEMPLATE,
 ];
 
 /** Templates shown when creating a new V2 site. Legacy manifests remain resolvable. */

@@ -238,10 +238,27 @@ export const STORE_SAMPLES: ContentDoc = {
   nav_labels: { home: "Home", shop: "Shop", contact: "Contact" },
 };
 
+export const SHOWCASE_SAMPLES: ContentDoc = {
+  business_name: "Showcase Business",
+  tagline: "A sample tagline",
+  about_text: "Our story begins here.",
+  about_headline: "About Us",
+  primary_cta_label: "Explore",
+  trust: [
+    { title: "Quality", description: "We deliver quality." },
+    { title: "Care", description: "We care about you." },
+  ],
+  hours: { mon: { open: "09:00", close: "18:00" }, today_tag: "Open today until 6pm" },
+  address: "123 Main Street",
+  phone: "+1 (555) 123-4567",
+  nav_labels: { home: "Home", menu: "Catalog", contact: "Contact" },
+};
+
 export const FLAGSHIP_SAMPLES: Record<string, ContentDoc> = {
   "restaurant-table-flame": RESTAURANT_SAMPLES,
   "restaurant-savannah": SAVANNAH_SAMPLES,
   "rental-driveline": RENTAL_SAMPLES,
   "food-order": FOOD_ORDER_SAMPLES,
   store: STORE_SAMPLES,
+  showcase: SHOWCASE_SAMPLES,
 };
