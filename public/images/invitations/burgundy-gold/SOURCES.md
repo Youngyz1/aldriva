@@ -17,6 +17,19 @@ The opening photo is a placeholder until the owner supplies a real
 `mf_opening_photo`. It is an existing sample photograph already shipped in this
 repository, not an owner-supplied Burgundy Gold asset.
 
+## Placeholder media (placeholder)
+
+The stage 2B demo/preview gallery points at **placeholder** photos that already
+ship with the minimalism-dark-blue demo. No file was copied into this folder and
+no new image was added; only the existing public paths are referenced.
+
+Origin: `public/images/invitations/minimalism-dark-blue/demo/` (see that
+folder's `CREDITS.md`).
+
+| Placeholder file | Origin | Purpose |
+| --- | --- | --- |
+| `gallery-01.jpg` … `gallery-06.jpg` | minimalism-dark-blue demo library | sample gallery tiles / memories |
+
 ## Supplied reference captures — NOT served
 
 The owner supplied eight full-page iPhone captures. They contain baked-in

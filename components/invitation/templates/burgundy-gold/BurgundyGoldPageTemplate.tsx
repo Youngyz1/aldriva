@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Children, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Cormorant_Garamond, EB_Garamond, Parisienne } from "next/font/google";
 import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import type { InvitationPageData } from "@/types/invitation-template";
@@ -11,6 +12,7 @@ import {
   BurgundyDivider,
   BurgundyFlourish,
 } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldOrnaments";
+import { BurgundyGoldSections } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldSections";
 
 const BURGUNDY = "#4a0d1c";
 const BURGUNDY_DEEP = "#2b0710";
@@ -90,6 +92,23 @@ export function formatBurgundyDateParts(
   }
 }
 
+/**
+ * Splits rendered layout children by block type so the RSVP dialog can host the
+ * action_portal block. Copied from MinimalismDarkBluePageTemplate.tsx (~L234),
+ * which does not export the helper and whose renderer is frozen.
+ */
+function groupRenderedBlocks(children: ReactNode): Map<string, ReactNode[]> {
+  const groups = new Map<string, ReactNode[]>();
+  for (const child of Children.toArray(children)) {
+    if (!isValidElement(child)) continue;
+    const props = child.props as { "data-layout-block-type"?: unknown };
+    const type = props["data-layout-block-type"];
+    if (typeof type !== "string") continue;
+    groups.set(type, [...(groups.get(type) ?? []), child]);
+  }
+  return groups;
+}
+
 function DateBlock({ parts }: { parts: BurgundyDateParts }) {
   return (
     <div
@@ -133,11 +152,29 @@ function ParentColumn({
 export function BurgundyGoldPageTemplate({
   layout,
   data,
+  children,
   mode,
   isEditMode,
   wrapperClassName,
+  hasAction,
 }: BurgundyGoldPageProps) {
+  const t = useTranslations("Events");
   const rootRef = useRef<HTMLDivElement>(null);
+  const groups = useMemo(() => groupRenderedBlocks(children), [children]);
+  const actionPortal = groups.get("action_portal") ?? [];
+  const sectionSettings = layout.template_data ?? {};
+  const memoriesLabels = useMemo(
+    () => ({
+      title: t("burgundyMemoriesTitle"),
+      close: t("burgundyMemoriesClose"),
+      loadMore: t("burgundyMemoriesLoadMore"),
+      empty: t("burgundyMemoriesEmpty"),
+      error: t("burgundyMemoriesError"),
+      retry: t("burgundyMemoriesRetry"),
+      sample: t("burgundyMemoriesSample"),
+    }),
+    [t]
+  );
   const [hasEntered, setHasEntered] = useState(false);
 
   const showGate = true;
@@ -167,12 +204,9 @@ export function BurgundyGoldPageTemplate({
     return couple || data.hostNames?.trim() || data.title?.trim() || "";
   }, [data.hostNames, data.partner1Name, data.partner2Name, data.title]);
 
-  const eyebrow = data.eyebrow?.trim() || (data.locale === "fr" ? "Le mariage de" : "The wedding of");
+  const eyebrow = data.eyebrow?.trim() || t("burgundyEyebrow");
   const openingMessage = data.openingMessage?.trim() || data.invitationLine?.trim() || "";
-  const invitationLine = data.invitationLine?.trim()
-    || (data.locale === "fr"
-      ? "Avec leurs familles, ils vous invitent à célébrer leur mariage."
-      : "Together with their families, they invite you to celebrate their marriage.");
+  const invitationLine = data.invitationLine?.trim() || t("burgundyInvitationLine");
   const openingPhoto = data.openingPhoto?.trim() || "";
 
   const hasParents = Boolean(
@@ -188,7 +222,7 @@ export function BurgundyGoldPageTemplate({
   const flatAddress = [data.address, data.city].filter((part) => part?.trim()).join(", ");
   const fallbackVenue = !meaningfulVenues.length && (data.venue?.trim() || flatAddress)
     ? [{
-        label: data.locale === "fr" ? "Cérémonie" : "Ceremony",
+        label: t("burgundyCeremonyLabel"),
         name: data.venue ?? "",
         address: flatAddress,
         time: null as string | null,
@@ -198,9 +232,9 @@ export function BurgundyGoldPageTemplate({
 
   const eventDate = data.eventDate ? formatLocalizedEventDate(data.eventDate, data.locale, data.timezone) : null;
   const dateParts = formatBurgundyDateParts(data.eventDate, data.locale, data.timezone);
-  const panelHeading = data.locale === "fr" ? "Info cérémonie" : "Ceremony information";
-  const openLabel = data.locale === "fr" ? "Ouvrir l’invitation" : "Open invitation";
-  const skipLabel = data.locale === "fr" ? "Passer l’ouverture" : "Skip opening";
+  const panelHeading = t("burgundyCeremonyHeading");
+  const openLabel = t("burgundyOpenInvitation");
+  const skipLabel = t("burgundySkipOpening");
 
   const ceremonyParts = dateParts;
   const receptionParts = dateParts;
@@ -211,6 +245,7 @@ export function BurgundyGoldPageTemplate({
         ref={rootRef}
         className={`relative min-w-0 overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${scriptFont.variable}`}
         style={{ fontFamily: "var(--font-burgundy-body)", backgroundColor: BURGUNDY_DEEP, color: CREAM }}
+        lang={data.locale === "fr" ? "fr" : "en"}
         data-burgundy-page="true"
         data-burgundy-locale={data.locale === "fr" ? "fr" : "en"}
       >
@@ -365,7 +400,7 @@ export function BurgundyGoldPageTemplate({
                       const venueTime = venue.time?.trim() || eventDate?.timeDisplay || "";
                       const parts = index === 0 ? ceremonyParts : receptionParts;
                       const label = venue.label?.trim()
-                        || (data.locale === "fr" ? (index === 0 ? "Cérémonie" : "Réception") : (index === 0 ? "Ceremony" : "Reception"));
+                        || (index === 0 ? t("burgundyCeremonyLabel") : t("burgundyReceptionLabel"));
                       return (
                         <div key={`${venue.label ?? "venue"}-${index}`} className="border-t pt-6" style={{ borderColor: `${GOLD}40` }}>
                           <p className="text-[0.68rem] uppercase tracking-[0.24em]" style={{ color: GOLD_BRIGHT }}>{label}</p>
@@ -386,6 +421,16 @@ export function BurgundyGoldPageTemplate({
                 ) : null}
               </div>
             </section>
+
+            {/* Stage 2B: gallery, reception, venue, dress code, programme, guestbook, memories, music. */}
+            <BurgundyGoldSections
+              data={data}
+              sectionSettings={sectionSettings}
+              mode={mode}
+              hasAction={hasAction}
+              actionPortal={actionPortal.length ? <>{actionPortal}</> : null}
+              memoriesLabels={memoriesLabels}
+            />
           </main>
         )}
       </div>

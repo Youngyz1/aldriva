@@ -55,6 +55,26 @@ export function BurgundyCornerOrnament({ className, style }: { className?: strin
   );
 }
 
+/**
+ * Solid heart used as the calendar marker on the event day. Copied from the
+ * inline HeartGlyph in MinimalismDarkBluePageTemplate.tsx (~L89), which is not
+ * exported and whose renderer is frozen.
+ */
+export function BurgundyHeartMark({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      style={style}
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z" />
+    </svg>
+  );
+}
+
 export function BurgundyDivider({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <div className={className} style={style} aria-hidden="true">

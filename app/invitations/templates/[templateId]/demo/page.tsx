@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getDemoTemplateSummary } from "@/lib/invitation-template-public-catalog";
@@ -45,33 +47,67 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
-export default async function InvitationTemplateDemoPage({ params }: { params: Promise<Params> }) {
+export default async function InvitationTemplateDemoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  // Opt-in only: `?locale=fr` renders the French sample dataset. Without the
+  // query param the demo stays English, so existing demo output is unchanged.
+  searchParams: Promise<{ locale?: string }>;
+}) {
   const { templateId } = await params;
   const summary = getDemoTemplateSummary(templateId);
   if (!summary) notFound();
 
   const layout = legacyInvitationTemplateToLayout(summary.id);
   layout.template_data = { ...(layout.template_data ?? {}), mf_show_memories: true };
-  const realData = assembleInvitationPageData(
-    { ...EMPTY_SNAPSHOT, template_id: summary.id },
-    EMPTY_LIVE_EVENT,
-    { ...SAMPLE_PREVIEW_GUEST },
-    { ...SAMPLE_PREVIEW_TICKET },
-    null
-  );
-  const preview = mergeInvitationTemplatePreviewData(summary.id, realData, { demoRoute: true });
 
   return (
     <>
       <InvitationDemoTopBar templateId={summary.id} />
       <div className="pt-10">
-        <InvitationBlocksLayoutClient
-          layout={layout}
-          data={preview}
-          templateId={summary.id}
-          mode="live"
-        />
+        {/* searchParams is runtime data, so it must be read inside a Suspense
+            boundary for the static shell (Cache Components). */}
+        <Suspense fallback={<div className="min-h-[60vh]" />}>
+          <DemoInvitation summaryId={summary.id} layout={layout} searchParams={searchParams} />
+        </Suspense>
       </div>
     </>
+  );
+}
+
+async function DemoInvitation({
+  summaryId,
+  layout,
+  searchParams,
+}: {
+  summaryId: string;
+  layout: ReturnType<typeof legacyInvitationTemplateToLayout>;
+  searchParams: Promise<{ locale?: string }>;
+}) {
+  // Opt-in only: `?locale=fr` renders the French sample dataset. Without the
+  // query param the demo stays English, so existing demo output is unchanged.
+  // `connection()` marks the segment as request-time work, so the query string
+  // is read per request instead of being frozen into the prerendered shell.
+  await connection();
+  const { locale } = await searchParams;
+  const demoLocale = locale === "fr" ? "fr" : "en";
+  const realData = assembleInvitationPageData(
+    { ...EMPTY_SNAPSHOT, template_id: summaryId, locale: demoLocale },
+    EMPTY_LIVE_EVENT,
+    { ...SAMPLE_PREVIEW_GUEST },
+    { ...SAMPLE_PREVIEW_TICKET },
+    null
+  );
+  const preview = mergeInvitationTemplatePreviewData(summaryId, realData, { demoRoute: true });
+
+  return (
+    <InvitationBlocksLayoutClient
+      layout={layout}
+      data={preview}
+      templateId={summaryId}
+      mode="live"
+    />
   );
 }

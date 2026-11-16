@@ -123,7 +123,8 @@ export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefi
     defaultThemePreset: "burgundyGold", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
     composition: "burgundy-gold",
     pageRenderer: { kind: "custom", componentId: "burgundy-gold" },
-    defaultBlockTypes: ["details"],
+    // action_portal carries the RSVP block rendered inside the "Confirm presence" dialog.
+    defaultBlockTypes: ["details", "action_portal"],
     supportedBlockTypes: ["hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
     requiredBlockTypes: ["details"],
     supportedCustomizations: { palette: true, fontPack: true, textScale: true },

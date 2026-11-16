@@ -113,6 +113,13 @@ export const MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR: InvitationPageData = {
 
 const BURGUNDY_DEMO_BASE = "/images/invitations/burgundy-gold/demo";
 
+// Placeholder gallery tiles for the demo/preview only — the shared minimalism
+// sample photo library, already shipped in this repository. No new image files.
+const BURGUNDY_GALLERY: InvitationGalleryItem[] = Array.from({ length: 6 }, (_, index) => ({
+  url: `/images/invitations/minimalism-dark-blue/demo/gallery-${String(index + 1).padStart(2, "0")}.jpg`,
+  alt: "Sample wedding photo (placeholder)",
+}));
+
 const BURGUNDY_GOLD_SAMPLE_GUEST = {
   name: "Honored Guest",
   rsvpStatus: "pending" as const,
@@ -141,18 +148,31 @@ export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {
   envelopePhoto: null,
   envelopePhotoTwo: null,
   coverPhoto: null,
-  gallery: [],
   partner1Name: "Modou Gueye",
   partner2Name: "Ndeye Sarr",
   familyNote: "Together with their families",
+  gallery: BURGUNDY_GALLERY,
   venue: "Cathedrale du Souvenir Africain",
   address: "Dakar",
   city: "Dakar",
   venues: [
-    { label: "Ceremony", name: "Cathedrale du Souvenir Africain", time: "18:00" },
+    { label: "Guest welcome", name: "Cathedrale du Souvenir Africain", time: "17:30" },
     { label: "Reception", name: "Espace Point E", time: "19:30" },
   ],
-  schedule: [],
+  dressCode: "Black tie with burgundy and gold accents",
+  dressCodeNotes: "Floor-length gowns and dark suits; the reception is indoors with a garden terrace.",
+  dressCodeSwatches: [
+    { name: "Burgundy", hex: "#4a0d1c" },
+    { name: "Gold", hex: "#cdb073" },
+    { name: "Cream", hex: "#f6ead0" },
+  ],
+  schedule: [
+    { time: "17:30", title: "Guest welcome", icon: "cocktail" },
+    { time: "18:00", title: "Ceremony", icon: "ceremony" },
+    { time: "19:30", title: "Reception", icon: "dining" },
+    { time: "21:00", title: "First dance", icon: "dancing" },
+    { time: "23:00", title: "Late buffet", icon: "dining" },
+  ],
   musicAudioUrl: null,
   musicTitle: null,
   musicLinks: [],
@@ -180,7 +200,21 @@ export const BURGUNDY_GOLD_SAMPLE_DATA_FR: InvitationPageData = {
   venue: "Cathédrale du Souvenir Africain",
   city: "Dakar",
   venues: [
-    { label: "Cérémonie", name: "Cathédrale du Souvenir Africain", time: "18:00" },
+    { label: "Accueil des invités", name: "Cathédrale du Souvenir Africain", time: "17:30" },
     { label: "Réception", name: "Espace Point E", time: "19:30" },
+  ],
+  dressCode: "Tenue de soirée, accents bordeaux et or",
+  dressCodeNotes: "Robes longues et costumes sombres ; la réception se tient à l'intérieur avec une terrasse.",
+  dressCodeSwatches: [
+    { name: "Bordeaux", hex: "#4a0d1c" },
+    { name: "Or", hex: "#cdb073" },
+    { name: "Crème", hex: "#f6ead0" },
+  ],
+  schedule: [
+    { time: "17:30", title: "Accueil des invités", icon: "cocktail" },
+    { time: "18:00", title: "Cérémonie", icon: "ceremony" },
+    { time: "19:30", title: "Réception", icon: "dining" },
+    { time: "21:00", title: "Première danse", icon: "dancing" },
+    { time: "23:00", title: "Buffet tardif", icon: "dining" },
   ],
 };
