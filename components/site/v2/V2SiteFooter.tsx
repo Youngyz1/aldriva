@@ -116,7 +116,7 @@ export function V2SiteFooter({
     : [];
   const availablePages = availablePageSlugs ? new Set(availablePageSlugs) : undefined;
   const visibleNavigation = navigation.filter((item) =>
-    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.feature || (item.feature === "catalog" ? true : storefrontFeatures?.[item.feature])) &&
     (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
   );
   const hoursLine = todayHours?.closed

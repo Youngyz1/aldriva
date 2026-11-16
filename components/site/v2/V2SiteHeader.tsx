@@ -239,7 +239,7 @@ export function V2SiteHeader({
     : {};
 
   const visibleNavigation = navigation.filter((item) =>
-    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.feature || (item.feature === "catalog" ? true : storefrontFeatures?.[item.feature])) &&
     (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
   );
   const closeMenu = () => {

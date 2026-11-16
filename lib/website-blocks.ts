@@ -96,6 +96,7 @@ export interface FeaturesBlock extends BaseBlock {
   subheading?: string;
   items?: FeatureItem[];
   columns?: 2 | 3 | 4;
+  variant?: "trust_strip";
 }
 
 export interface AboutHighlight extends WithItemId {
@@ -116,6 +117,7 @@ export interface AboutBlock extends BaseBlock {
   founderRole?: string;
   founderImage?: string;
   highlights?: AboutHighlight[];
+  variant?: "split";
 }
 
 export interface GalleryImage extends WithItemId {
@@ -179,6 +181,7 @@ export interface ContactBlock extends BaseBlock {
   directionsUrl?: string;
   showMap?: boolean;
   mapQuery?: string;
+  variant?: "card";
 }
 
 export interface FaqItem extends WithItemId {
@@ -220,6 +223,7 @@ export interface ProductsEmbedBlock extends BaseBlock {
   browsePageSize?: number;
   /** Render-only gallery/editor preview data; public resolvers omit this field. */
   previewProducts?: StorefrontProductPreviewItem[];
+  variant?: "carousel";
 }
 
 export interface StorefrontProductPreviewItem {
@@ -302,6 +306,7 @@ export interface PromotionsEmbedBlock extends BaseBlock {
   enabled?: boolean;
   /** auto respects each dashboard promotion's layout. */
   layout?: "auto" | "banner" | "dish_card" | "announcement_bar";
+  variant?: "carousel";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -858,6 +863,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "trust_strip" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -867,6 +874,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(subheading ? { subheading } : {}),
           items,
           columns,
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -984,6 +992,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "split" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -999,6 +1009,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(founderRole ? { founderRole } : {}),
           ...(founderImage ? { founderImage } : {}),
           highlights,
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1289,6 +1300,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "card" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -1305,6 +1318,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(directionsUrl ? { directionsUrl } : {}),
           showMap,
           ...(mapQuery ? { mapQuery } : {}),
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1545,6 +1559,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "carousel" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -1560,6 +1576,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           // resolve time and is intentionally never persisted here.
           ...storeFlags,
           ...(browsePageSize !== undefined ? { browsePageSize } : {}),
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1713,7 +1730,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       const layout = obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar"
         ? obj.layout
         : "auto";
-      return { success: true, data: { type: "promotions_embed", ...envelope, enabled, layout } };
+      const variant = obj.variant === "carousel" ? obj.variant : undefined;
+      return { success: true, data: { type: "promotions_embed", ...envelope, enabled, layout, ...(variant ? { variant } : {}) } };
     }
 
     case "cta_banner": {
@@ -1923,6 +1941,7 @@ export function parseBlock(raw: unknown): Block | null {
               href: sanitizeUrl(it?.href) || undefined,
             }))
           : [],
+        ...(obj.variant === "trust_strip" ? { variant: "trust_strip" } : {}),
       };
 
     case "about":
@@ -1946,6 +1965,7 @@ export function parseBlock(raw: unknown): Block | null {
               icon: typeof h?.icon === "string" ? h.icon.slice(0, 50) : undefined,
             }))
           : [],
+        ...(obj.variant === "split" ? { variant: "split" } : {}),
       };
 
     case "gallery":
@@ -2025,6 +2045,7 @@ export function parseBlock(raw: unknown): Block | null {
         directionsUrl: typeof obj.directionsUrl === "string" ? sanitizeUrl(obj.directionsUrl).slice(0, BLOCK_LIMITS.URL_MAX_LENGTH) || undefined : undefined,
         showMap: Boolean(obj.showMap),
         mapQuery: typeof obj.mapQuery === "string" ? obj.mapQuery.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
+        ...(obj.variant === "card" ? { variant: "card" } : {}),
       };
 
     case "faq":
@@ -2093,6 +2114,7 @@ export function parseBlock(raw: unknown): Block | null {
               ),
             }
           : {}),
+        ...(obj.variant === "carousel" ? { variant: "carousel" } : {}),
       };
 
     case "fundraiser_embed":
@@ -2156,6 +2178,7 @@ export function parseBlock(raw: unknown): Block | null {
         ...envelope,
         enabled: obj.enabled !== false,
         layout: obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar" ? obj.layout : "auto",
+        ...(obj.variant === "carousel" ? { variant: "carousel" } : {}),
       };
 
     case "cta_banner":

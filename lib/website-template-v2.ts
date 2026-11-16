@@ -99,7 +99,7 @@ export interface TemplateV2NavEntry {
   /** External URL for entries that do not target a template page. */
   href?: string;
   order: number;
-  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment";
+  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment" | "catalog";
 }
 
 export interface TemplateSection {
@@ -127,6 +127,13 @@ export interface TemplateSection {
   note?: string;
   /** Optional template-owned section rhythm. Absent keeps the legacy default. */
   spacing?: SectionSpacing;
+  /** Optional section display variant (e.g. "carousel", "trust_strip", "split", "card"). */
+  variant?: string;
+  /**
+   * When true, this section resolves dynamically to menu_embed or products_embed
+   * based on tenant catalog availability and extras.catalogSource.
+   */
+  catalog?: boolean;
 }
 
 // ── Locked look ─────────────────────────────────────────────────────────────

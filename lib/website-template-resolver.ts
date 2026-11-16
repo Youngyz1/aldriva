@@ -113,7 +113,7 @@ export interface ResolvedNavigationItem extends NavigationItem {
   pageSlug: string | null;
   anchor?: string;
   /** Optional commerce gate; nav appears only when the resolved feature is live. */
-  feature?: keyof StorefrontFeatureState;
+  feature?: keyof StorefrontFeatureState | "catalog";
 }
 
 export interface TemplateSourceMapEntry {
@@ -884,10 +884,67 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
   } as Block;
 }
 
+function buildCatalogSectionBlock(
+  ctx: BuildContext,
+  section: TemplateSection
+): Block | null {
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const choice = asString(extras?.catalogSource);
+
+  let source: "menu" | "products" | null = null;
+  if (choice === "products") {
+    source = "products";
+  } else if (choice === "menu") {
+    source = "menu";
+  } else {
+    // auto or unset: products only -> products; menu only -> menu; both -> menu
+    if (ctx.catalogAvailability) {
+      const hasProducts = Boolean(ctx.catalogAvailability.products);
+      const hasMenu = Boolean(ctx.catalogAvailability.menuItems);
+      if (hasProducts && !hasMenu) {
+        source = "products";
+      } else if (hasMenu) {
+        source = "menu";
+      } else {
+        source = null;
+      }
+    } else if (ctx.includeSamples) {
+      source = "menu";
+    }
+  }
+
+  if (!source) return null;
+
+  if (source === "menu") {
+    if (ctx.catalogAvailability && !ctx.catalogAvailability.menuItems) return null;
+    const isCarousel = section.variant === "carousel";
+    return {
+      type: "menu_embed",
+      layout: "grid",
+      limit: section.page === "home" ? 6 : 200,
+      ...(isCarousel ? { variant: "catalog-carousel" } : {}),
+      ...(ctx.currency ? { currency: ctx.currency } : {}),
+    } as Block;
+  }
+
+  if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
+  const isCarousel = section.variant === "carousel";
+  return {
+    type: "products_embed",
+    layout: "grid",
+    limit: section.page === "home" ? 6 : 200,
+    ...(isCarousel ? { variant: "carousel" } : {}),
+    ...(ctx.includeSamples && !ctx.catalogAvailability ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
+  } as Block;
+}
+
 function buildSectionBlock(
   ctx: BuildContext,
   section: TemplateSection
 ): Block | null {
+  if (section.catalog) {
+    return buildCatalogSectionBlock(ctx, section);
+  }
   switch (section.block) {
     case "hero":
       return buildHero(ctx);
@@ -1266,7 +1323,7 @@ export function resolveTemplateManifest(
       if (section.page !== page.purpose) continue;
       if (section.chrome) continue;
       if (!isSectionEnabled(section, doc, template)) continue;
-      if (!section.block) {
+      if (!section.block && !section.catalog) {
         if (section.pendingBlock) {
           skipped.push({
             page: page.purpose,
@@ -1281,6 +1338,35 @@ export function resolveTemplateManifest(
       const block = buildSectionBlock(ctx, section);
       if (block) {
         if (section.spacing) block.spacing = section.spacing;
+        if (section.variant) {
+          switch (block.type) {
+            case "features":
+              if (section.variant === "trust_strip") block.variant = "trust_strip";
+              break;
+            case "about":
+              if (section.variant === "split") block.variant = "split";
+              break;
+            case "contact":
+              if (section.variant === "card") block.variant = "card";
+              break;
+            case "products_embed":
+              if (section.variant === "carousel") block.variant = "carousel";
+              break;
+            case "promotions_embed":
+              if (section.variant === "carousel") block.variant = "carousel";
+              break;
+            case "menu_embed":
+              if (
+                section.variant === "cards" ||
+                section.variant === "rows" ||
+                section.variant === "editorial" ||
+                section.variant === "catalog-carousel"
+              ) {
+                block.variant = section.variant;
+              }
+              break;
+          }
+        }
         if (!ctx.includeSamples && !hasBlockContent(block)) {
           continue;
         }
@@ -1401,12 +1487,23 @@ export function resolveTemplateManifest(
   };
   const homeSlug = template.pages.find((page) => page.isHome)?.slug ?? template.pages[0]?.slug ?? "home";
   const navLabelMap: Record<string, TemplateSourceMapEntry> = {};
+  const hasCatalogItems = (() => {
+    if (ctx.catalogAvailability) {
+      const extras = asRecord(effectiveValue(ctx, "template_extras"));
+      const choice = asString(extras?.catalogSource);
+      if (choice === "products") return Boolean(ctx.catalogAvailability.products);
+      if (choice === "menu") return Boolean(ctx.catalogAvailability.menuItems);
+      return Boolean(ctx.catalogAvailability.products || ctx.catalogAvailability.menuItems);
+    }
+    return ctx.includeSamples !== false;
+  })();
+
   const navigation: ResolvedNavigationItem[] = template.navigation
     .filter((entry) =>
       (!entry.pageSlug || emittedSlugs.has(entry.pageSlug)) &&
       (!entry.pageSlug || !availablePageSlugs || availablePageSlugs.has(entry.pageSlug)) &&
       (!entry.anchor || emittedAnchors.has(entry.anchor)) &&
-      (!entry.feature || storefrontFeatures[entry.feature])
+      (!entry.feature || (entry.feature === "catalog" ? hasCatalogItems : storefrontFeatures[entry.feature]))
     )
     .map((entry, index) => ({
       id: `${template.id}-nav-${index}`,
