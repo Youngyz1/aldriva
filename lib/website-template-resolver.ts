@@ -23,6 +23,8 @@
 import type {
   Block,
   BlockType,
+  MenuEmbedBlock,
+  ProductsEmbedBlock,
 } from "./website-blocks";
 import {
   validateBlock,
@@ -853,7 +855,7 @@ function buildCtaBand(ctx: BuildContext): Block {
   } as Block;
 }
 
-function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): Block {
+function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): MenuEmbedBlock {
   // Featured menu_item_ids bind only when they are UUID-shaped (anything else
   // is dropped so validation never fails); section scoping + tenant isolation
   // stay in resolveMenuEmbed. Unset/empty keeps "show all" behavior.
@@ -881,7 +883,39 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     ...(menuImageFit ? { imageFit: menuImageFit } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
-  } as Block;
+  };
+}
+
+function buildProductsEmbedForStore(ctx: BuildContext, home: boolean): ProductsEmbedBlock {
+  // Owner-tunable grid density; mirrors the products_embed case in buildSectionBlock.
+  const densityExtras = asRecord(effectiveValue(ctx, "template_extras"));
+  const densityRaw = densityExtras?.storeBrowsePageSize;
+  const density =
+    typeof densityRaw === "number" && Number.isFinite(densityRaw)
+      ? Math.min(24, Math.max(1, Math.floor(densityRaw)))
+      : home ? 6 : 12;
+  const featured = asRecord(effectiveValue(ctx, "featured"));
+  const picks = home && Array.isArray(featured?.product_ids)
+    ? (featured.product_ids as unknown[]).filter(
+        (id): id is string =>
+          typeof id === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+      ).map((id) => id.trim()).slice(0, 12)
+    : [];
+  return {
+    type: "products_embed",
+    heading: home
+      ? ctx.storeCopy?.homeProductsHeading ?? "Featured products"
+      : ctx.storeCopy?.shopHeading ?? "Shop all products",
+    limit: 200,
+    layout: "grid",
+    categoryTiles: true,
+    siteLocalProductDetails: true,
+    allowLargeCatalog: true,
+    browsePageSize: density,
+    ...(picks.length > 0 ? { selectedProductIds: picks } : {}),
+    ...(!ctx.catalogAvailability && ctx.includeSamples ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
+  };
 }
 
 function buildCatalogSectionBlock(
@@ -917,25 +951,31 @@ function buildCatalogSectionBlock(
 
   if (source === "menu") {
     if (ctx.catalogAvailability && !ctx.catalogAvailability.menuItems) return null;
+    // Delegate to buildMenuEmbed for full parity (heading, featured picks, imageFit, currency).
+    // limit: 6 for home sections, 200 for catalog/full-page sections.
+    // bindFeatured: true so owner-picked menu_item_ids propagate (same as menu.featured).
+    const limit = section.page === "home" ? 6 : 200;
+    const base = buildMenuEmbed(ctx, "Best sellers", limit, true);
+    // Override variant: "carousel" on the section -> "catalog-carousel" on the block.
     const isCarousel = section.variant === "carousel";
     return {
-      type: "menu_embed",
-      layout: "grid",
-      limit: section.page === "home" ? 6 : 200,
+      ...base,
       ...(isCarousel ? { variant: "catalog-carousel" } : {}),
-      ...(ctx.currency ? { currency: ctx.currency } : {}),
-    } as Block;
+    };
   }
 
   if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
+  // Delegate to the shared store products builder for full parity
+  // (heading, categoryTiles, siteLocalProductDetails, allowLargeCatalog, browsePageSize, selectedProductIds).
+  const home = section.page === "home";
+  const base = buildProductsEmbedForStore(ctx, home);
+  // Override limit and variant to match catalog-section semantics:
+  // section.variant "carousel" -> products_embed variant "carousel".
   const isCarousel = section.variant === "carousel";
   return {
-    type: "products_embed",
-    layout: "grid",
-    limit: section.page === "home" ? 6 : 200,
+    ...base,
     ...(isCarousel ? { variant: "carousel" } : {}),
-    ...(ctx.includeSamples && !ctx.catalogAvailability ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
-  } as Block;
+  };
 }
 
 function buildSectionBlock(
