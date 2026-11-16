@@ -228,6 +228,10 @@ export interface InvitationPageData {
   scrollPrompt?: string | null;
   /** [HIDE-IF-EMPTY] Manifest-driven invitation line override (template-specific). */
   invitationLine?: string | null;
+  /** [HIDE-IF-EMPTY] Manifest-driven opening-gate photo (template-specific). */
+  openingPhoto?: string | null;
+  /** [HIDE-IF-EMPTY] Manifest-driven opening-gate message (template-specific). */
+  openingMessage?: string | null;
 
   // ── [DEFAULT-WITH-OVERRIDE] Welcome / Story ───────────────────────────────
   /** Optional story section headline. */

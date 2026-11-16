@@ -301,5 +301,6 @@
   "lib/__tests__/minimalism-dark-blue-stage4e.test.cjs",
   "lib/__tests__/minimalism-dark-blue-template.test.cjs",
   "lib/__tests__/minimalism-dark-blue-venues-time.test.cjs",
-  "lib/__tests__/burgundy-gold-template.test.cjs"
+  "lib/__tests__/burgundy-gold-template.test.cjs",
+  "lib/__tests__/burgundy-gold-stage2a.test.cjs"
 ]

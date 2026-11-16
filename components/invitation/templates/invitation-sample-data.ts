@@ -111,6 +111,8 @@ export const MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR: InvitationPageData = {
   ],
 };
 
+const BURGUNDY_DEMO_BASE = "/images/invitations/burgundy-gold/demo";
+
 const BURGUNDY_GOLD_SAMPLE_GUEST = {
   name: "Honored Guest",
   rsvpStatus: "pending" as const,
@@ -125,6 +127,15 @@ export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {
   eventDate: "2027-10-16T18:00:00Z",
   timezone: "Africa/Dakar",
   heroImageFocus: { x: 50, y: 30 },
+  invitationLine: "Together with their families, invite you to celebrate their marriage.",
+  openingPhoto: `${BURGUNDY_DEMO_BASE}/opening-photo.jpg`,
+  openingMessage: "We are delighted to welcome you to the celebration of our marriage.",
+  parentOneLabel: "Mr. and Mrs.",
+  parentOneNameOne: "Abdoulaye Gueye",
+  parentOneNameTwo: "Fatou Gueye",
+  parentTwoLabel: "Mr. and Mrs.",
+  parentTwoNameOne: "Ousmane Sarr",
+  parentTwoNameTwo: "Aminata Sarr",
   heroImage: null,
   storyImage: null,
   envelopePhoto: null,
@@ -156,6 +167,14 @@ export const BURGUNDY_GOLD_SAMPLE_DATA_FR: InvitationPageData = {
   eyebrow: "Le mariage de",
   hostNames: "Modou Gueye et Ndeye Sarr",
   familyNote: "Avec leurs familles",
+  invitationLine: "Avec leurs familles, ils vous invitent à célébrer leur mariage.",
+  openingMessage: "Nous sommes heureux de vous accueillir pour célébrer notre mariage.",
+  parentOneLabel: "M. et Mme",
+  parentOneNameOne: "Abdoulaye Guèye",
+  parentOneNameTwo: "Fatou Guèye",
+  parentTwoLabel: "M. et Mme",
+  parentTwoNameOne: "Ousmane Sarr",
+  parentTwoNameTwo: "Aminata Sarr",
   eventDate: "2027-10-16T18:00:00Z",
   timezone: "Africa/Dakar",
   venue: "Cathédrale du Souvenir Africain",

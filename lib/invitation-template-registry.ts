@@ -123,15 +123,12 @@ export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefi
     defaultThemePreset: "burgundyGold", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
     composition: "burgundy-gold",
     pageRenderer: { kind: "custom", componentId: "burgundy-gold" },
-    defaultBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map", "gallery", "music", "action_portal"],
-    supportedBlockTypes: ["interactive_envelope", "romantic_hero", "hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
-    requiredBlockTypes: ["interactive_envelope", "romantic_hero", "details", "countdown", "schedule", "location_map"],
+    defaultBlockTypes: ["details"],
+    supportedBlockTypes: ["hero", "story", "details", "countdown", "location_map", "schedule", "gallery", "music", "action_portal"],
+    requiredBlockTypes: ["details"],
     supportedCustomizations: { palette: true, fontPack: true, textScale: true },
-    supportedEffects: ["envelope-reveal", "scroll-reveal"],
-    defaultEffects: [
-      { type: "envelope-reveal", enabled: true, transitionDurationMs: 900 },
-      { type: "scroll-reveal", enabled: false, durationMs: 650 },
-    ],
+    supportedEffects: ["scroll-reveal"],
+    defaultEffects: [{ type: "scroll-reveal", enabled: false, durationMs: 650 }],
   },
 };
 

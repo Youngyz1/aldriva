@@ -259,6 +259,19 @@ function readManifestHeroPhotos(td: Record<string, unknown> | undefined): Array<
   return out;
 }
 
+function readManifestOpeningPhoto(td: Record<string, unknown> | undefined): string | undefined {
+  if (!td) return undefined;
+  const raw = td.mf_opening_photo;
+  if (typeof raw === "string") return raw.trim() || undefined;
+  if (!Array.isArray(raw)) return undefined;
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const url = typeof item.url === "string" ? item.url.trim() : "";
+    if (url) return url;
+  }
+  return undefined;
+}
+
 function readManifestSwatches(td: Record<string, unknown> | undefined): Array<{ name?: string | null; hex: string }> | undefined {
   if (!td) return undefined;
   const raw = td.mf_dress_code_swatches;
@@ -281,7 +294,7 @@ export function assembleInvitationPageData(
   seat?: SeatLiveRecord | null
 ): InvitationPageData {
   const evergreen = snapshot.template_id === "evergreen-envelope" ? snapshot.blocks_layout?.template_data : undefined;
-  const isManifest = snapshot.template_id === "minimalism-dark-blue";
+  const isManifest = snapshot.template_id === "minimalism-dark-blue" || snapshot.template_id === "burgundy-gold";
   const mf = isManifest ? (snapshot.blocks_layout?.template_data as Record<string, unknown> | undefined) : undefined;
   const mfHeroPhotos = readManifestHeroPhotos(mf);
   const effectiveTitle = snapshot.display_title?.trim() || event.title;
@@ -367,6 +380,10 @@ export function assembleInvitationPageData(
     scrollPrompt: snapshot.scroll_prompt ?? undefined,
     invitationLine: (isManifest && typeof mf?.mf_invitation_line === "string" && (mf.mf_invitation_line as string).trim())
       ? (mf.mf_invitation_line as string).trim()
+      : undefined,
+    openingPhoto: isManifest ? readManifestOpeningPhoto(mf) : undefined,
+    openingMessage: (isManifest && typeof mf?.mf_opening_message === "string" && (mf.mf_opening_message as string).trim())
+      ? (mf.mf_opening_message as string).trim()
       : undefined,
 
     parkingNotes: snapshot.parking_notes ?? undefined,

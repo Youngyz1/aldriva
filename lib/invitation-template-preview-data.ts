@@ -36,6 +36,7 @@ const NON_CONTENT_FIELDS = new Set(["guest", "ticketInstance", "seat", "token", 
 const PHOTO_FIELDS = new Set([
   "heroImage",
   "storyImage",
+  "openingPhoto",
   "gallery",
   "weddingStory",
   "envelopePhoto",
@@ -98,6 +99,7 @@ export function mergeInvitationTemplatePreviewData(
     [
       data.heroImage,
       data.storyImage,
+      data.openingPhoto,
       data.envelopePhoto,
       data.envelopePhotoTwo,
       data.coverPhoto,

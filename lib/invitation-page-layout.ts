@@ -211,9 +211,9 @@ export function legacyInvitationTemplateToLayout(
   const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope"
     || templateDefinition?.composition === "botanical-reverie"
     || templateDefinition?.composition === "evergreen-envelope"
-    || templateDefinition?.composition === "minimalism-dark-blue"
-    || templateDefinition?.composition === "burgundy-gold";
+    || templateDefinition?.composition === "minimalism-dark-blue";
   const isEvergreen = templateDefinition?.composition === "evergreen-envelope";
+  const isBurgundyGold = templateDefinition?.composition === "burgundy-gold";
   const blockCatalog: PageLayoutBlock[] = [
     { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },
     {
@@ -295,7 +295,9 @@ export function legacyInvitationTemplateToLayout(
     // user switches to a template with the standard two-column hero.
     if (!isRomanticEnvelope && block.type === "romantic_hero") return { ...block, type: "hero" };
     return block;
-  });
+  }).filter((block) => !(isBurgundyGold && (
+    block.type === "interactive_envelope" || block.type === "romantic_envelope_gate"
+  )));
   const savedEnvelopeGate = savedBlocks.find((block) => block.type === "interactive_envelope");
   const countdownBlock = layoutBlocks.find((block) => block.type === "countdown");
   const locationMapBlock = layoutBlocks.find((block) => block.type === "location_map");
