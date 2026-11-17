@@ -153,6 +153,17 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
       { label: "Off", value: "off" },
     ],
   },
+  {
+    slotId: "promo.image_style",
+    field: "template_extras",
+    extraKey: "promoImageStyle",
+    label: "Promotion image fit",
+    kind: "select",
+    options: [
+      { label: "Contain", value: "contain" },
+      { label: "Cover", value: "cover" },
+    ],
+  },
   { slotId: "catalog.featured", field: "featured", label: "Popular picks", kind: "pick", max: 6 },
   { slotId: "trust.items", field: "trust", label: "Trust points", kind: "items", max: 4 },
   { slotId: "about.caption", field: "about_caption", label: "About caption", kind: "text" },
@@ -178,7 +189,7 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     page: "home",
     block: "promotions_embed",
     variant: "carousel",
-    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.cta_primary", "promo.autoplay"],
+    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.cta_primary", "promo.autoplay", "promo.image_style"],
     note: "Promotions carousel at top of home; falls back to hero content when 0 promotions active.",
   },
   {

@@ -2481,6 +2481,7 @@ async function PromotionsEmbedBlockRenderer({
       <PromoCarousel
         promotions={mappedPromotions}
         fallback={mappedFallback}
+        imageStyle={block.imageStyle}
         labels={labels}
       />
     );

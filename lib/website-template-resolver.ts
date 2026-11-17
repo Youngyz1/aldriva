@@ -1154,6 +1154,8 @@ function buildSectionBlock(
     }
     case "promotions_embed": {
       const isCarousel = section.variant === "carousel";
+      const extras = asRecord(effectiveValue(ctx, "template_extras"));
+      const promoImageStyle = asString(extras?.promoImageStyle) === "cover" ? "cover" : "contain";
       let fallback: PromotionFallback | undefined;
       if (isCarousel) {
         // headline: hero_headline if set, else business_name; subtext: hero_subtext, else tagline.
@@ -1181,6 +1183,7 @@ function buildSectionBlock(
         type: "promotions_embed",
         enabled: true,
         layout: "auto",
+        ...(ctx.template.id === "showcase" ? { imageStyle: promoImageStyle } : {}),
         ...(isCarousel ? { variant: "carousel" } : {}),
         ...(fallback ? { fallback } : {}),
       };

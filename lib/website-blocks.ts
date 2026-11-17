@@ -316,6 +316,7 @@ export interface PromotionsEmbedBlock extends BaseBlock {
   layout?: "auto" | "banner" | "dish_card" | "announcement_bar";
   variant?: "carousel";
   fallback?: PromotionFallback;
+  imageStyle?: "contain" | "cover";
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -1569,6 +1570,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       }
 
       const variant = obj.variant === "carousel" ? obj.variant : undefined;
+      const imageStyle = obj.imageStyle === "cover" ? "cover" : obj.imageStyle === "contain" ? "contain" : undefined;
 
       return {
         success: true,
@@ -1740,6 +1742,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         ? obj.layout
         : "auto";
       const variant = obj.variant === "carousel" ? obj.variant : undefined;
+      const imageStyle = obj.imageStyle === "cover" ? "cover" : obj.imageStyle === "contain" ? "contain" : undefined;
       const fallbackRaw = typeof obj.fallback === "object" && obj.fallback !== null && !Array.isArray(obj.fallback)
         ? (obj.fallback as Record<string, unknown>)
         : undefined;
@@ -1758,6 +1761,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           enabled,
           layout,
           ...(variant ? { variant } : {}),
+          ...(imageStyle ? { imageStyle } : {}),
           ...(fallback ? { fallback } : {}),
         },
       };
