@@ -92,6 +92,13 @@ import {
   IconMail as Mail,
   IconClock as Clock,
   IconArrowRight as ArrowRight,
+  IconShieldCheck,
+  IconTruck,
+  IconRefresh,
+  IconSparkles,
+  IconCreditCard,
+  IconAward,
+  IconHeadset,
 } from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
@@ -536,6 +543,45 @@ export function HeroBlockRenderer({
 
 // ── 2. Features Block ────────────────────────────────────────────────────────
 
+const TRUST_STRIP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  shield: IconShieldCheck,
+  shield_check: IconShieldCheck,
+  iconshieldcheck: IconShieldCheck,
+  truck: IconTruck,
+  delivery: IconTruck,
+  shipping: IconTruck,
+  icontruck: IconTruck,
+  refresh: IconRefresh,
+  returns: IconRefresh,
+  iconrefresh: IconRefresh,
+  sparkles: IconSparkles,
+  quality: IconSparkles,
+  iconsparkles: IconSparkles,
+  clock: Clock,
+  time: Clock,
+  iconclock: Clock,
+  credit_card: IconCreditCard,
+  card: IconCreditCard,
+  payment: IconCreditCard,
+  iconcreditcard: IconCreditCard,
+  award: IconAward,
+  guarantee: IconAward,
+  iconaward: IconAward,
+  headset: IconHeadset,
+  support: IconHeadset,
+  contact: IconHeadset,
+  iconheadset: IconHeadset,
+};
+
+function resolveTrustIcon(name?: string, index = 0): React.ComponentType<{ className?: string }> {
+  if (name) {
+    const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (TRUST_STRIP_ICONS[key]) return TRUST_STRIP_ICONS[key];
+  }
+  const fallbacks = [IconShieldCheck, IconTruck, IconRefresh, IconHeadset];
+  return fallbacks[index % fallbacks.length];
+}
+
 function FeaturesBlockRenderer({
   block,
   editMode,
@@ -557,6 +603,56 @@ function FeaturesBlockRenderer({
   const savannah = siteTemplateId === "restaurant-savannah";
   const items = block.items ?? [];
   if (savannah && items.length === 0) return null;
+
+  if (block.variant === "trust_strip") {
+    if (items.length === 0) return null;
+    const displayItems = items.slice(0, 3);
+    const gridCols =
+      displayItems.length === 1
+        ? "grid-cols-1 max-w-md mx-auto"
+        : displayItems.length === 2
+          ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto";
+
+    return (
+      <section className="w-full">
+        {block.heading ? (
+          <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
+        ) : null}
+        <div className={`grid gap-4 sm:gap-6 ${gridCols}`}>
+          {displayItems.map((item, i) => {
+            const IconComponent = resolveTrustIcon(item.icon, i);
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-4 rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-4 sm:p-5 shadow-none text-[var(--tf-ink)]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tf-soft)] text-[var(--tf-accent)]">
+                  <IconComponent className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3
+                    {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")}
+                    className="font-[var(--v2-heading-font)] text-[15px] font-semibold text-[var(--tf-ink)] truncate"
+                  >
+                    {item.title}
+                  </h3>
+                  {item.description ? (
+                    <p
+                      {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")}
+                      className="mt-0.5 text-[13px] text-[var(--tf-muted)] line-clamp-1"
+                    >
+                      {item.description}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
   const colClass =
     cols === 2
       ? "sm:grid-cols-2"
@@ -680,7 +776,47 @@ function AboutBlockRenderer({
   businessName?: string;
   businessLogo?: string;
 }) {
-  const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
+  const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) || "" : "";
+
+  if (block.variant === "split") {
+    const hasImage = Boolean(safeFounderImage);
+    const hasHeadline = Boolean(block.heading);
+    return (
+      <section id="about" className="w-full">
+        <div className={`grid grid-cols-1 items-center gap-8 ${hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
+          {hasImage ? (
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-soft)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                {...elementPathProps(editMode, sourceMap, "founderImage")}
+                src={safeFounderImage}
+                alt={businessName || block.heading || "About"}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-4">
+            {hasHeadline ? (
+              <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="font-[var(--v2-heading-font)] text-2xl sm:text-3xl font-bold tracking-tight text-[var(--tf-ink)]">
+                {block.heading}
+              </h2>
+            ) : null}
+            {block.subheading ? (
+              <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-base font-medium text-[var(--tf-accent)]">
+                {block.subheading}
+              </p>
+            ) : null}
+            {block.story ? (
+              <div {...elementPathProps(editMode, sourceMap, "story")} className="text-[15px] leading-relaxed text-[var(--tf-muted)] space-y-3">
+                <p>{block.story}</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (siteTemplateId === "restaurant-table-flame") {
     return (
@@ -1113,6 +1249,107 @@ function ContactBlockRenderer({
   const safeMapLink = mapSearch
     ? sanitizeUrl(`https://maps.google.com/?q=${encodeURIComponent(mapSearch)}`)
     : "";
+
+  if (block.variant === "card") {
+    const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
+    const hasHours = Boolean(block.hoursTable?.length || block.hours);
+    const hasLocation = Boolean(block.address || block.phone || block.email || safeDirections || block.locations?.length);
+    if (!hasHours && !hasLocation) return null;
+
+    const normalizedRows = (() => {
+      if (!block.hoursTable || block.hoursTable.length === 0) return [];
+      if (block.hoursTable.length >= 7) return block.hoursTable.slice(0, 7);
+      const dayMap = new Map<string, { day: string; open?: string; close?: string; closed?: boolean }>();
+      for (const row of block.hoursTable) {
+        dayMap.set(row.day.toLowerCase().slice(0, 3), row);
+      }
+      const defaultWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      return defaultWeekdays.map((d) => {
+        const existing = dayMap.get(d.toLowerCase());
+        if (existing) return existing;
+        return { day: d, closed: true };
+      });
+    })();
+
+    return (
+      <section id="contact" className="w-full">
+        <SectionHeading heading={block.heading || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
+        <div className={`grid grid-cols-1 gap-6 md:gap-8 max-w-5xl mx-auto ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
+          {hasHours ? (
+            <div className="rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)]">
+              <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">Opening Hours</h3>
+              {normalizedRows.length > 0 ? (
+                <ul className="divide-y divide-[var(--tf-border)] text-sm">
+                  {normalizedRows.map((row, index) => {
+                    const isClosed = row.closed || (!row.open && !row.close);
+                    const timeText = isClosed ? closedLabel : [row.open, row.close].filter(Boolean).join(" – ") || closedLabel;
+                    const overnight = !isClosed && isOvernightWebsiteInterval(row.open, row.close);
+                    return (
+                      <li key={index} className="flex items-center justify-between gap-4 py-2.5">
+                        <span className="font-medium text-[var(--tf-ink)]">{row.day}</span>
+                        <span className="text-[var(--tf-muted)]">
+                          {timeText}
+                          {overnight ? ` (${nextDayLabel})` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-[14px] leading-relaxed text-[var(--tf-muted)]">{block.hours}</p>
+              )}
+            </div>
+          ) : null}
+
+          {hasLocation ? (
+            <div className="flex flex-col justify-between rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)] space-y-4">
+              <div>
+                <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-3">Location</h3>
+                {block.address ? (
+                  <p {...elementPathProps(editMode, sourceMap, "address")} className="text-[14px] leading-relaxed text-[var(--tf-muted)] mb-3">
+                    {block.address}
+                  </p>
+                ) : null}
+                <div className="space-y-2 text-sm">
+                  {block.phone && safePhone ? (
+                    <div>
+                      <a {...elementPathProps(editMode, sourceMap, "phone")} className="inline-flex items-center gap-2 font-medium text-[var(--tf-ink)] hover:text-[var(--tf-accent)]" href={safePhone}>
+                        <Phone className="h-4 w-4 text-[var(--tf-accent)]" />
+                        {block.phone}
+                      </a>
+                    </div>
+                  ) : null}
+                  {block.email && safeEmail ? (
+                    <div>
+                      <a {...elementPathProps(editMode, sourceMap, "email")} className="inline-flex items-center gap-2 font-medium text-[var(--tf-ink)] hover:text-[var(--tf-accent)]" href={safeEmail}>
+                        <Mail className="h-4 w-4 text-[var(--tf-accent)]" />
+                        {block.email}
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+                {block.locations?.map((location, index) => (
+                  <div key={index} className="border-t border-[var(--tf-border)] pt-3 text-sm mt-3">
+                    {location.name ? <p className="font-semibold text-[var(--tf-ink)]">{location.name}</p> : null}
+                    {location.address ? <p className="text-[var(--tf-muted)]">{location.address}</p> : null}
+                    {location.hours ? <p className="text-[var(--tf-muted)]">{location.hours}</p> : null}
+                  </div>
+                ))}
+              </div>
+
+              {safeDirections ? (
+                <div className="pt-2">
+                  <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
+                    Get directions
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (siteTemplateId === "restaurant-table-flame") {
     const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
