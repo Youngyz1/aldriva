@@ -862,7 +862,17 @@
     "promoDefaultOffer": "Special offer",
     "promoPause": "Pause slideshow",
     "promoResume": "Resume slideshow",
-    "promoSlideNofM": "Slide {current} of {total}"
+    "promoSlideNofM": "Slide {current} of {total}",
+    "promotionsAriaLabel": "Promotions",
+    "promoSlideNavAriaLabel": "Slide navigation",
+    "badgePopular": "Popular",
+    "badgeNew": "New",
+    "badgeSoldOut": "Sold out",
+    "contactHoursAndLocation": "Hours & Location",
+    "contactOpeningHours": "Opening Hours",
+    "contactLocation": "Location",
+    "contactGetDirections": "Get directions",
+    "contactCall": "Call {phone}"
   },
   "Storefront": {
     "categories": "Categories",

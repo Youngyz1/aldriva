@@ -14,6 +14,8 @@ export interface PromoCarouselLabels {
   specialPrice: string;
   freeDelivery: string;
   defaultOffer: string;
+  promotionsLabel?: string;
+  slideNavLabel?: string;
 }
 
 export interface PromoCarouselProps {
@@ -161,7 +163,7 @@ export function PromoCarousel({
 
   return (
     <section
-      aria-label="Promotions"
+      aria-label={labels.promotionsLabel || "Promotions"}
       className="mx-auto w-full max-w-7xl px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] py-[var(--ps-space-4)]"
     >
       <div
@@ -198,12 +200,14 @@ export function PromoCarousel({
               >
                 {/* Text panel: solid --tf-accent fill, --tf-on-accent text */}
                 <div className="flex flex-col justify-center p-[var(--ps-space-6)] sm:p-[var(--ps-space-8)] md:p-[var(--ps-space-12)] bg-[var(--tf-accent)] text-[var(--tf-on-accent)]">
-                  {/* Offer chip */}
-                  <div className="mb-[var(--ps-space-3)]">
-                    <span className="inline-block rounded-full border border-[var(--tf-on-accent)] px-[var(--ps-space-3)] py-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--tf-on-accent)]">
-                      {getOfferLabel(slide)}
-                    </span>
-                  </div>
+                  {/* Offer chip (only for real promotions, never on fallback) */}
+                  {slide.id !== "fallback" ? (
+                    <div className="mb-[var(--ps-space-3)]">
+                      <span className="inline-block rounded-full border border-[var(--tf-on-accent)] px-[var(--ps-space-3)] py-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--tf-on-accent)]">
+                        {getOfferLabel(slide)}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {/* Headline */}
                   <h2
@@ -246,27 +250,29 @@ export function PromoCarousel({
                   {isMultiSlide && idx === currentIndex ? (
                     <div
                       className="mt-[var(--ps-space-6)] flex items-center gap-[var(--ps-space-2)] pt-[var(--ps-space-2)]"
-                      role="tablist"
-                      aria-label="Slides"
+                      aria-label={labels.slideNavLabel || "Slide navigation"}
                     >
                       {slides.map((_, dotIdx) => (
                         <button
                           key={dotIdx}
                           type="button"
-                          role="tab"
-                          aria-selected={dotIdx === currentIndex}
+                          aria-current={dotIdx === currentIndex ? "true" : undefined}
                           aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
                           onClick={() => goToSlide(dotIdx)}
-                          className={`h-2.5 rounded-full transition-all bg-[var(--tf-on-accent)] ${
-                            dotIdx === currentIndex ? "w-6 opacity-100" : "w-2.5 opacity-40 hover:opacity-75"
-                          }`}
-                        />
+                          className="flex h-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-on-accent)]"
+                        >
+                          <span
+                            className={`h-2.5 rounded-full transition-all bg-[var(--tf-on-accent)] ${
+                              dotIdx === currentIndex ? "w-6 opacity-100" : "w-2.5 opacity-40 hover:opacity-75"
+                            }`}
+                          />
+                        </button>
                       ))}
                       <button
                         type="button"
                         onClick={() => setIsPaused((prev) => !prev)}
                         aria-label={isPaused ? labels.resume : labels.pause}
-                        className="ml-[var(--ps-space-2)] flex h-6 w-6 items-center justify-center rounded-full border border-[var(--tf-on-accent)] text-[var(--tf-on-accent)] hover:opacity-80"
+                        className="ml-[var(--ps-space-2)] flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center rounded-full border border-[var(--tf-on-accent)] text-[var(--tf-on-accent)] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-on-accent)]"
                       >
                         {isPaused ? <IconPlayerPlay size={12} /> : <IconPlayerPause size={12} />}
                       </button>
@@ -276,7 +282,7 @@ export function PromoCarousel({
 
                 {/* Photo panel: object-contain on --tf-card surface */}
                 {hasImage ? (
-                  <div className="relative flex items-center justify-center bg-[var(--tf-card)] p-[var(--ps-space-4)] md:p-[var(--ps-space-8)] min-h-[240px] md:min-h-full">
+                  <div className="relative flex aspect-[4/3] md:aspect-auto items-center justify-center bg-[var(--tf-card)] p-[var(--ps-space-4)] md:p-[var(--ps-space-8)] min-h-[240px] md:min-h-[380px]">
                     <img
                       src={slide.imageUrl}
                       alt={slide.headline}

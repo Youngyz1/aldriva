@@ -1234,6 +1234,10 @@ function ContactBlockRenderer({
   closedLabel,
   siteTemplateId,
   sectionAlign,
+  hoursAndLocationLabel,
+  openingHoursLabel,
+  locationLabel,
+  getDirectionsLabel,
 }: {
   block: ContactBlock;
   editMode?: boolean;
@@ -1242,6 +1246,10 @@ function ContactBlockRenderer({
   closedLabel: string;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
+  hoursAndLocationLabel?: string;
+  openingHoursLabel?: string;
+  locationLabel?: string;
+  getDirectionsLabel?: string;
 }) {
   const safeEmail = block.email ? sanitizeUrl(`mailto:${block.email}`) : "";
   const safePhone = block.phone ? sanitizeUrl(`tel:${block.phone}`) : "";
@@ -1273,11 +1281,11 @@ function ContactBlockRenderer({
 
     return (
       <section id="contact" className="w-full">
-        <SectionHeading heading={block.heading || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
+        <SectionHeading heading={block.heading || hoursAndLocationLabel || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
         <div className={`grid grid-cols-1 gap-6 md:gap-8 max-w-5xl mx-auto ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
           {hasHours ? (
             <div className="rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)]">
-              <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">Opening Hours</h3>
+              <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">{openingHoursLabel || "Opening Hours"}</h3>
               {normalizedRows.length > 0 ? (
                 <ul className="divide-y divide-[var(--tf-border)] text-sm">
                   {normalizedRows.map((row, index) => {
@@ -1304,7 +1312,7 @@ function ContactBlockRenderer({
           {hasLocation ? (
             <div className="flex flex-col justify-between rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)] space-y-4">
               <div>
-                <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-3">Location</h3>
+                <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-3">{locationLabel || "Location"}</h3>
                 {block.address ? (
                   <p {...elementPathProps(editMode, sourceMap, "address")} className="text-[14px] leading-relaxed text-[var(--tf-muted)] mb-3">
                     {block.address}
@@ -1340,7 +1348,7 @@ function ContactBlockRenderer({
               {safeDirections ? (
                 <div className="pt-2">
                   <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
-                    Get directions
+                    {getDirectionsLabel || "Get directions"}
                   </a>
                 </div>
               ) : null}
@@ -1797,6 +1805,17 @@ async function ProductsEmbedBlockRenderer({
     : block.previewProducts ?? [];
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
+  let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
+  let badgePopular = locale === "fr" ? "Populaire" : "Popular";
+  let badgeNew = locale === "fr" ? "Nouveau" : "New";
+  try {
+    const publicT = await getTranslations("PublicSite");
+    badgeSoldOut = publicT("badgeSoldOut");
+    badgePopular = publicT("badgePopular");
+    badgeNew = publicT("badgeNew");
+  } catch {
+    // Keep defaults
+  }
   // Shop prices live in Stripe (products store no local price): resolve once
   // per render, per-item failures omit the price but keep the card + link.
   const priceMap = tenantId ? await resolveShopPrices(
@@ -2399,6 +2418,8 @@ async function PromotionsEmbedBlockRenderer({
     let specialPriceLabel = "Special price";
     let freeDeliveryLabel = "Free delivery";
     let defaultOfferLabel = "Special offer";
+    let promotionsLabel = "Promotions";
+    let slideNavLabel = "Slide navigation";
 
     try {
       const publicT = await getTranslations("PublicSite");
@@ -2409,6 +2430,8 @@ async function PromotionsEmbedBlockRenderer({
       specialPriceLabel = publicT("promoSpecialPrice");
       freeDeliveryLabel = publicT("promoFreeDelivery");
       defaultOfferLabel = publicT("promoDefaultOffer");
+      promotionsLabel = publicT("promotionsAriaLabel");
+      slideNavLabel = publicT("promoSlideNavAriaLabel");
     } catch {
       // Keep defaults when translations unavailable
     }
@@ -2421,6 +2444,8 @@ async function PromotionsEmbedBlockRenderer({
       specialPrice: specialPriceLabel,
       freeDelivery: freeDeliveryLabel,
       defaultOffer: defaultOfferLabel,
+      promotionsLabel,
+      slideNavLabel,
     };
     const mappedPromotions = promotions.map((p) => ({
       ...p,
@@ -2563,6 +2588,17 @@ async function MenuEmbedBlockRenderer({
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
+  let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
+  let badgePopular = locale === "fr" ? "Populaire" : "Popular";
+  let badgeNew = locale === "fr" ? "Nouveau" : "New";
+  try {
+    const publicT = await getTranslations("PublicSite");
+    badgeSoldOut = publicT("badgeSoldOut");
+    badgePopular = publicT("badgePopular");
+    badgeNew = publicT("badgeNew");
+  } catch {
+    // Keep defaults
+  }
   const browseLabels = {
     categories: t("categories"),
     all: t("all"),
@@ -2776,9 +2812,9 @@ async function MenuEmbedBlockRenderer({
                     nextLabel={t("carouselNext")}
                     appearance={isShowcase ? "showcase" : "default"}
                     showcaseLabels={{
-                      soldOut: locale === "fr" ? "Épuisé" : "Sold out",
-                      popular: locale === "fr" ? "Populaire" : "Popular",
-                      new: locale === "fr" ? "Nouveau" : "New",
+                      soldOut: badgeSoldOut,
+                      popular: badgePopular,
+                      new: badgeNew,
                     }}
                   />
                 ) : (
@@ -3208,7 +3244,34 @@ export async function BlockRenderer({
     case "contact":
       {
         const t = await getTranslations("Storefront");
-        content = <ContactBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} nextDayLabel={t("nextDay")} closedLabel={t("closed")} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
+        let hoursAndLocationLabel = "Hours & Location";
+        let openingHoursLabel = "Opening Hours";
+        let locationLabel = "Location";
+        let getDirectionsLabel = "Get directions";
+        try {
+          const publicT = await getTranslations("PublicSite");
+          hoursAndLocationLabel = publicT("contactHoursAndLocation");
+          openingHoursLabel = publicT("contactOpeningHours");
+          locationLabel = publicT("contactLocation");
+          getDirectionsLabel = publicT("contactGetDirections");
+        } catch {
+          // Keep defaults
+        }
+        content = (
+          <ContactBlockRenderer
+            block={b}
+            editMode={editMode}
+            sourceMap={blockSourceMap}
+            nextDayLabel={t("nextDay")}
+            closedLabel={t("closed")}
+            siteTemplateId={siteTemplateId}
+            sectionAlign={sectionAlign}
+            hoursAndLocationLabel={hoursAndLocationLabel}
+            openingHoursLabel={openingHoursLabel}
+            locationLabel={locationLabel}
+            getDirectionsLabel={getDirectionsLabel}
+          />
+        );
       }
       break;
     case "faq":

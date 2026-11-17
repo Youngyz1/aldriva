@@ -591,6 +591,11 @@ function sourceEntriesForBlock(
       add("ctaLabel", "cta.button_label", "template_extras", Boolean(object.ctaLabel), { subfield: "ctaBandButtonLabel" });
       add("ctaHref", "cta.button_link", "template_extras", Boolean(object.ctaHref), { subfield: "ctaBandButtonLink" });
     }
+  } else if (block.type === "promotions_embed" && block.fallback) {
+    add("fallback.headline", "hero.headline", "hero_headline", Boolean(block.fallback.headline) || !isValueAvailable("hero_headline"));
+    add("fallback.subtext", "hero.subtext", "hero_subtext", Boolean(block.fallback.subtext));
+    add("fallback.image", "hero.image", "hero_image", Boolean(block.fallback.image) || !isValueAvailable("hero_image"));
+    add("fallback.buttonLabel", "hero.cta_primary", "primary_cta_label", Boolean(block.fallback.buttonLabel));
   }
 
   return entries;
@@ -1147,10 +1152,10 @@ function buildSectionBlock(
       const isCarousel = section.variant === "carousel";
       let fallback: PromotionFallback | undefined;
       if (isCarousel) {
-        const headline = asString(effectiveValue(ctx, "hero_headline")) ?? asString(effectiveValue(ctx, "business_name")) ?? "";
-        const subtext = asString(effectiveValue(ctx, "hero_subtext")) ?? asString(effectiveValue(ctx, "tagline")) ?? "";
-        const image = asString(effectiveValue(ctx, "hero_image")) ?? "";
-        const buttonLabel = asString(effectiveValue(ctx, "primary_cta_label")) ?? "";
+        const headline = asString(take(ctx, "hero_headline", "hero.headline")) ?? asString(effectiveValue(ctx, "business_name")) ?? "";
+        const subtext = asString(take(ctx, "hero_subtext", "hero.subtext")) ?? asString(effectiveValue(ctx, "tagline")) ?? "";
+        const image = asString(take(ctx, "hero_image", "hero.image")) ?? "";
+        const buttonLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary")) ?? "";
         const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
         const catalogSlug = catalogPage ? catalogPage.slug : "menu";
         const href = ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogSlug) : `/${encodeURIComponent(catalogSlug)}`;
@@ -1186,13 +1191,19 @@ function buildSectionBlock(
       // only when UUID-shaped; anything else falls back to latest. Tenant
       // scoping stays in resolveProductsEmbed, so foreign ids resolve empty.
       const featured = asRecord(effectiveValue(ctx, "featured"));
-      const picks = section.id === "store.home.products" && Array.isArray(featured?.product_ids)
-        ? (featured.product_ids as unknown[]).filter(
-            (id): id is string =>
-              typeof id === "string" &&
-              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
-          ).map((id) => id.trim()).slice(0, 12)
-        : [];
+      const rawProductIds = Array.isArray(featured?.product_ids) ? featured.product_ids : [];
+      const picks: string[] = [];
+      if (section.id === "store.home.products") {
+        for (const id of rawProductIds) {
+          if (
+            typeof id === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+          ) {
+            picks.push(id.trim());
+          }
+          if (picks.length >= 12) break;
+        }
+      }
       return {
         type: "products_embed",
         heading: home
