@@ -2664,10 +2664,10 @@ async function MenuEmbedBlockRenderer({
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
   const isShowcase = siteTemplateId === "showcase";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
-  const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
-  let allSections = sections;
+  const rawSections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
+  let sections = rawSections;
   if (isShowcase && block.variant === "catalog-carousel" && tenantId) {
-    const existingCount = sections.reduce((acc, s) => acc + s.items.length, 0);
+    const existingCount = rawSections.reduce((acc, s) => acc + s.items.length, 0);
     if (existingCount < 6) {
       const allResolved = await resolveMenuEmbed(
         { ...block, selectedItemIds: undefined, limit: 12 },
@@ -2676,7 +2676,7 @@ async function MenuEmbedBlockRenderer({
         undefined,
         displayCurrency
       );
-      const existingIds = new Set(sections.flatMap((s) => s.items.map((i) => i.id)));
+      const existingIds = new Set(rawSections.flatMap((s) => s.items.map((i) => i.id)));
       const topUpItems: ResolvedMenuItem[] = [];
       for (const sec of allResolved) {
         for (const item of sec.items) {
@@ -2689,12 +2689,12 @@ async function MenuEmbedBlockRenderer({
         if (existingCount + topUpItems.length >= 6) break;
       }
       if (topUpItems.length > 0) {
-        if (allSections.length > 0) {
-          allSections = allSections.map((sec, idx) =>
+        if (sections.length > 0) {
+          sections = sections.map((sec, idx) =>
             idx === 0 ? { ...sec, items: [...sec.items, ...topUpItems] } : sec
           );
         } else {
-          allSections = [{
+          sections = [{
             id: "featured",
             name: block.heading || "Featured",
             description: null,
@@ -2778,8 +2778,8 @@ async function MenuEmbedBlockRenderer({
     copyTrackingLink: t("copyTrackingLink"),
     trackingLinkCopied: t("trackingLinkCopied"),
   };
-  const populatedSections = allSections.filter((section: ResolvedMenuSection) => section.items.length > 0);
-  const menuItemsTruncated = allSections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
+  const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
+  const menuItemsTruncated = sections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
   const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
     id: sec.id,
     title: sec.name,
