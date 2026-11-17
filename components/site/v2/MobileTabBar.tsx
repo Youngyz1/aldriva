@@ -255,7 +255,7 @@ export function MobileTabBar({
       `}</style>
       <nav
         aria-label="Mobile navigation bar"
-        className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-center justify-around border-t border-[var(--tf-border)] bg-[var(--tf-base)] px-2 pb-[env(safe-area-inset-bottom)] text-[var(--tf-on-base)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-center justify-around rounded-t-2xl border-t border-[var(--tf-border)] bg-[var(--tf-base)] px-2 pb-[env(safe-area-inset-bottom)] text-[var(--tf-on-base)] md:hidden shadow-lg"
       >
         {tabs.map((tab) => {
           const isActive = tab.pageSlug ? tab.pageSlug === activePageSlug : false;
@@ -268,8 +268,8 @@ export function MobileTabBar({
                 {renderIcon(tab.icon)}
               </span>
               <span
-                className={`text-[10px] font-medium leading-none ${
-                  isActive ? "text-[var(--tf-accent)]" : "text-[var(--tf-muted)]"
+                className={`text-[10px] leading-none ${
+                  isActive ? "text-[var(--tf-accent)] font-bold" : "text-[var(--tf-muted)] font-medium"
                 }`}
               >
                 {tab.label}
