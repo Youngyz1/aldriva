@@ -127,6 +127,9 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
     extraKey: "whatsappPhone",
     label: "WhatsApp phone",
     kind: "text",
+    // E.164-style: optional leading +, then 7–15 digits.
+    pattern: "^\\+?[0-9]{7,15}$",
+    validationMessage: "Enter 7–15 digits with an optional leading +",
   },
   {
     slotId: "nav.mobile_tab_bar",

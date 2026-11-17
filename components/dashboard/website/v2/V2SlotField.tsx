@@ -102,30 +102,36 @@ export function V2SlotField({
       {label}
       {showSample ? <p className="-mt-1 text-xs text-amber-700 dark:text-amber-300">Sample: type to replace.</p> : null}
 
-      {(control.kind === "text" || control.kind === "url") && control.field !== "nav_labels" ? (
-        <>
-          <input
-            className={inputClass}
-            type={urlField ? "url" : "text"}
-            value={urlField && urlDraft !== null ? urlDraft : scalarText}
-            maxLength={urlField ? BLOCK_LIMITS.URL_MAX_LENGTH : maxText}
-            onChange={(event) => {
-              const next = event.currentTarget.value;
-              if (urlField) setUrlDraft(next);
-              else onChange(next);
-            }}
-            onBlur={() => {
-              if (!urlField || urlDraft === null) return;
-              const clean = urlDraft.trim() ? sanitizeUrl(urlDraft) : "";
-              onChange(clean);
-              setUrlDraft(null);
-            }}
-            aria-label={control.label}
-          />
-          {maxText ? <Counter current={scalarText.length} max={maxText} /> : null}
-          {urlField ? <><Counter current={(urlDraft ?? scalarText).length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /><p className="text-[11px] text-zinc-500">Links are cleaned before they are saved.</p></> : null}
-        </>
-      ) : null}
+      {(control.kind === "text" || control.kind === "url") && control.field !== "nav_labels" ? (() => {
+        const patternInvalid = !urlField && Boolean(control.pattern) && scalarText.length > 0 && !new RegExp(control.pattern!).test(scalarText);
+        return (
+          <>
+            <input
+              className={`${inputClass}${patternInvalid ? " border-rose-500 focus:border-rose-500 focus:ring-rose-500/20" : ""}`}
+              type={urlField ? "url" : "text"}
+              value={urlField && urlDraft !== null ? urlDraft : scalarText}
+              maxLength={urlField ? BLOCK_LIMITS.URL_MAX_LENGTH : maxText}
+              onChange={(event) => {
+                const next = event.currentTarget.value;
+                if (urlField) setUrlDraft(next);
+                else onChange(next);
+              }}
+              onBlur={() => {
+                if (!urlField || urlDraft === null) return;
+                const clean = urlDraft.trim() ? sanitizeUrl(urlDraft) : "";
+                onChange(clean);
+                setUrlDraft(null);
+              }}
+              aria-label={control.label}
+            />
+            {patternInvalid && control.validationMessage ? (
+              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{control.validationMessage}</p>
+            ) : null}
+            {maxText ? <Counter current={scalarText.length} max={maxText} /> : null}
+            {urlField ? <><Counter current={(urlDraft ?? scalarText).length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /><p className="text-[11px] text-zinc-500">Links are cleaned before they are saved.</p></> : null}
+          </>
+        );
+      })() : null}
 
       {control.kind === "textarea" ? (
         <>

@@ -35,7 +35,7 @@ import {
   ProductCarousel,
   type ProductCarouselItem,
 } from "./ProductCarousel";
-import { CatalogCarousel } from "./CatalogCard";
+import { CatalogCard, CatalogCarousel } from "./CatalogCard";
 import type { Locale } from "@/i18n/routing";
 import {
   StoreCartWidget,
@@ -177,6 +177,15 @@ interface StorefrontBrowseProps {
     regionLabel: string;
     imageFit?: "cover" | "contain";
   };
+  /**
+   * Opt-in visual style for the variant="cards" grid. When "showcase", each
+   * item is rendered through CatalogCard appearance="showcase" using the same
+   * onSelect/onQuickAdd/openSheet/handleQuickMenuAdd callbacks as catalog-carousel.
+   * Absent (default) keeps the existing card markup byte-for-byte identical.
+   */
+  appearance?: "default" | "showcase";
+  /** Badge labels forwarded to CatalogCard when appearance="showcase". */
+  showcaseLabels?: { soldOut?: string; popular?: string; new?: string };
   /**
    * Opt-in Shop sorting (Store template only): featured / newest /
    * price low-high / price high-low. Absent everywhere else, so existing
@@ -360,9 +369,12 @@ export function StorefrontBrowse({
   variant = "cards",
   currency,
   currencyLocale,
+  appearance,
+  showcaseLabels,
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
   const isEditorial = variant === "editorial";
+  const isShowcaseCards = appearance === "showcase" && variant === "cards";
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(() => groups[0]?.id ?? BROWSE_ALL_GROUP);
@@ -1076,6 +1088,35 @@ export function StorefrontBrowse({
                     {...(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)
                       ? { onQuickAdd: (selectedItem: BrowseItem, trigger: HTMLButtonElement) => handleQuickMenuAdd(selectedItem, trigger) }
                       : {})}
+                  />
+                ) : isShowcaseCards ? (
+                  <CatalogCard
+                    key={item.id}
+                    item={{
+                      id: item.id,
+                      name: item.name,
+                      description: item.description,
+                      image: item.image,
+                      priceLabel: item.priceLabel,
+                      numericPrice: item.numericPrice,
+                      originalPriceLabel: item.originalPriceLabel,
+                      discountLabel: item.discountLabel,
+                      promotionEndsAt: item.promotionEndsAt,
+                      freeDeliveryLabel: item.freeDeliveryLabel,
+                      isSoldOut: item.isSoldOut,
+                      isNew: item.isNew,
+                      isPopular: item.isPopular,
+                      canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
+                    }}
+                    onSelect={(id, trigger) => openSheet(id, trigger ?? null)}
+                    onQuickAdd={(id, trigger) => {
+                      const candidate = allItems.find((it) => it.id === id);
+                      if (candidate) handleQuickMenuAdd(candidate, trigger);
+                    }}
+                    appearance="showcase"
+                    showcaseLabels={showcaseLabels}
+                    currency={currency}
+                    locale={currencyLocale}
                   />
                 ) : (
                   <div key={item.id} className="flex items-stretch gap-2">

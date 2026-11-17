@@ -1152,10 +1152,16 @@ function buildSectionBlock(
       const isCarousel = section.variant === "carousel";
       let fallback: PromotionFallback | undefined;
       if (isCarousel) {
+        // headline: hero_headline if set, else business_name; subtext: hero_subtext, else tagline.
         const headline = asString(take(ctx, "hero_headline", "hero.headline")) ?? asString(effectiveValue(ctx, "business_name")) ?? "";
         const subtext = asString(take(ctx, "hero_subtext", "hero.subtext")) ?? asString(effectiveValue(ctx, "tagline")) ?? "";
         const image = asString(take(ctx, "hero_image", "hero.image")) ?? "";
         const buttonLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary")) ?? "";
+        // For Showcase (or any template using fallback slide):
+        // if there is no headline and no image, omit the block.
+        if (ctx.template.id === "showcase" && !headline && !image) {
+          return null;
+        }
         const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
         const catalogSlug = catalogPage ? catalogPage.slug : "menu";
         const href = ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogSlug) : `/${encodeURIComponent(catalogSlug)}`;

@@ -26,6 +26,10 @@ export interface WebsiteEditorControl {
   options?: Array<{ label: string; value: string }>;
   required: boolean;
   itemFields?: WebsiteItemFieldSchema[];
+  /** Regex pattern (without delimiters) for client-side validation on text inputs. */
+  pattern?: string;
+  /** Message shown when the pattern fails to match. */
+  validationMessage?: string;
 }
 
 export interface WebsiteEditorSection {
@@ -293,6 +297,8 @@ export function buildWebsiteEditorSections(
         max: slot.max,
         ...(slot.options ? { options: slot.options } : {}),
         required: availableIds.some((id) => byId.get(id)?.required),
+        ...(slot.pattern ? { pattern: slot.pattern } : {}),
+        ...(slot.validationMessage ? { validationMessage: slot.validationMessage } : {}),
         ...(ITEM_FIELDS[requestedId] || (template.id === "restaurant-savannah" && requestedId === "highlights.items")
           ? {
             itemFields: (() => {

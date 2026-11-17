@@ -2768,6 +2768,12 @@ async function MenuEmbedBlockRenderer({
                   ? "catalog-carousel"
                   : "cards"
           }
+          appearance={isShowcase ? "showcase" : "default"}
+          showcaseLabels={{
+            soldOut: badgeSoldOut,
+            popular: badgePopular,
+            new: badgeNew,
+          }}
         >
           {block.variant === "catalog-carousel" ? null : (
             <div className="space-y-[var(--ps-space-8)]">

@@ -59,6 +59,10 @@ export interface TemplateSlot {
   max?: number;
   options?: Array<{ label: string; value: string }>;
   required?: boolean;
+  /** Optional regex pattern (without delimiters) for client-side validation. */
+  pattern?: string;
+  /** Message shown when the pattern fails to match. */
+  validationMessage?: string;
 }
 
 export interface WebsiteTemplatePalette {
