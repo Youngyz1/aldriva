@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getLocale } from "next-intl/server";
+import { isValidLocale } from "@/i18n/routing";
 import { getDemoTemplateSummary } from "@/lib/invitation-template-public-catalog";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import { mergeInvitationTemplatePreviewData } from "@/lib/invitation-template-preview-data";
@@ -52,8 +54,9 @@ export default async function InvitationTemplateDemoPage({
   searchParams,
 }: {
   params: Promise<Params>;
-  // Opt-in only: `?locale=fr` renders the French sample dataset. Without the
-  // query param the demo stays English, so existing demo output is unchanged.
+  // Defaults to the visitor's site locale (same resolution next-intl uses
+  // elsewhere: path prefix > NEXT_LOCALE cookie > Accept-Language > default).
+  // `?locale=en|fr` is an explicit override for testing a specific locale.
   searchParams: Promise<{ locale?: string }>;
 }) {
   const { templateId } = await params;
@@ -86,13 +89,13 @@ async function DemoInvitation({
   layout: ReturnType<typeof legacyInvitationTemplateToLayout>;
   searchParams: Promise<{ locale?: string }>;
 }) {
-  // Opt-in only: `?locale=fr` renders the French sample dataset. Without the
-  // query param the demo stays English, so existing demo output is unchanged.
+  // `?locale=en|fr` is an explicit test override; otherwise the demo follows
+  // the visitor's resolved site locale via next-intl's getLocale().
   // `connection()` marks the segment as request-time work, so the query string
   // is read per request instead of being frozen into the prerendered shell.
   await connection();
-  const { locale } = await searchParams;
-  const demoLocale = locale === "fr" ? "fr" : "en";
+  const [{ locale }, siteLocale] = await Promise.all([searchParams, getLocale()]);
+  const demoLocale = isValidLocale(locale) ? locale : siteLocale;
   const realData = assembleInvitationPageData(
     { ...EMPTY_SNAPSHOT, template_id: summaryId, locale: demoLocale },
     EMPTY_LIVE_EVENT,

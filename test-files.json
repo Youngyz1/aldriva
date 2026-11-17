@@ -307,5 +307,6 @@
   "lib/__tests__/burgundy-gold-stage2a.test.cjs",
   "lib/__tests__/burgundy-gold-stage2b.test.cjs",
   "lib/__tests__/burgundy-gold-structure.test.cjs",
-  "lib/__tests__/burgundy-gold-stage2d.test.cjs"
+  "lib/__tests__/burgundy-gold-stage2d.test.cjs",
+  "lib/__tests__/invitation-template-public-catalog.test.cjs"
 ]
