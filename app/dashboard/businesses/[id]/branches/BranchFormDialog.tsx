@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createBranch, updateBranch, type BranchInput } from "@/lib/actions/business-branches";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import BranchCoverImage from "@/components/branches/BranchCoverImage";
 import type { Branch } from "./BranchesClient";
 
 // Dynamic/runtime-determined key, same `as any` escape next-intl's own
@@ -26,7 +28,7 @@ function translateByCode(t: (key: any) => string, code: string, fallback: string
   }
 }
 
-const EMPTY_FORM = { label: "", address: "", city: "", state: "", country: "", phone: "" };
+const EMPTY_FORM = { label: "", address: "", city: "", state: "", country: "", phone: "", cover_image_url: "" };
 
 function initialFormState(editing: Branch | null): typeof EMPTY_FORM {
   if (!editing) return EMPTY_FORM;
@@ -37,6 +39,7 @@ function initialFormState(editing: Branch | null): typeof EMPTY_FORM {
     state: editing.state ?? "",
     country: editing.country ?? "",
     phone: editing.phone ?? "",
+    cover_image_url: editing.cover_image_url ?? "",
   };
 }
 
@@ -71,6 +74,12 @@ export default function BranchFormDialog({
     setError(null);
   }
 
+  const { uploading: coverUploading, triggerUpload: triggerCoverUpload, handleFileChange: handleCoverFileChange, fileInputRef: coverFileInputRef } = useImageUpload({
+    folder: "branch-covers",
+    onSuccess: (url) => setForm((f) => ({ ...f, cover_image_url: url })),
+    onError: (msg) => setError(msg),
+  });
+
   async function handleSave() {
     setError(null);
     setSaving(true);
@@ -81,6 +90,7 @@ export default function BranchFormDialog({
       state: form.state || null,
       country: form.country || null,
       phone: form.phone || null,
+      cover_image_url: form.cover_image_url || null,
     };
     const res = editing ? await updateBranch(editing.id, input) : await createBranch(businessId, input);
     setSaving(false);
@@ -100,6 +110,33 @@ export default function BranchFormDialog({
         </DialogHeader>
         <div className="space-y-2">
           {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
+
+          <div className="flex items-center gap-3">
+            <BranchCoverImage coverImageUrl={form.cover_image_url || null} label={form.label} className="h-16 w-24" />
+            <input
+              ref={coverFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleCoverFileChange}
+            />
+            <div className="flex flex-col gap-1">
+              <Button type="button" variant="outline" size="sm" onClick={triggerCoverUpload} disabled={coverUploading}>
+                {coverUploading ? t("brUploadingCover") : t("brUploadCover")}
+              </Button>
+              {form.cover_image_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setForm((f) => ({ ...f, cover_image_url: "" }))}
+                >
+                  {t("brRemoveCover")}
+                </Button>
+              )}
+            </div>
+          </div>
+
           <Input
             className="min-w-0 w-full"
             placeholder={t("brLabelPlaceholder")}
@@ -141,7 +178,7 @@ export default function BranchFormDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t("brCancel")}</Button>
-          <Button onClick={handleSave} disabled={saving || form.label.trim().length < 2}>
+          <Button onClick={handleSave} disabled={saving || coverUploading || form.label.trim().length < 2}>
             {saving ? t("brSaving") : t("brSave")}
           </Button>
         </DialogFooter>

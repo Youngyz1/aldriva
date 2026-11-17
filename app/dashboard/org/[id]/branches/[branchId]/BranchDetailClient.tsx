@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import StaffAvatar from "@/components/staff/StaffAvatar";
+import BranchCoverImage from "@/components/branches/BranchCoverImage";
 import { updateBranch } from "@/lib/actions/business-branches";
 import type { Branch } from "@/app/dashboard/businesses/[id]/branches/BranchesClient";
 import BranchFormDialog from "@/app/dashboard/businesses/[id]/branches/BranchFormDialog";
@@ -125,10 +126,13 @@ export default function BranchDetailClient({
 
       <Card>
         <CardContent className="space-y-5 p-5 sm:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-lg font-black text-zinc-900">{branch.label}</h1>
-            {branch.is_main && <Badge variant="orange">{t("brMain")}</Badge>}
-            <Badge variant={isArchived ? "neutral" : "emerald"}>{isArchived ? t("brInactiveBadge") : t("brActiveBadge")}</Badge>
+          <div className="flex flex-wrap items-center gap-3">
+            <BranchCoverImage coverImageUrl={branch.cover_image_url} label={branch.label} className="h-16 w-24" />
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-lg font-black text-zinc-900">{branch.label}</h1>
+              {branch.is_main && <Badge variant="orange">{t("brMain")}</Badge>}
+              <Badge variant={isArchived ? "neutral" : "emerald"}>{isArchived ? t("brInactiveBadge") : t("brActiveBadge")}</Badge>
+            </div>
           </div>
 
           <dl className="grid gap-3 sm:grid-cols-2">

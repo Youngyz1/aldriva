@@ -1845,6 +1845,9 @@
     "brCancel": "Cancel",
     "brSave": "Save",
     "brSaving": "Saving...",
+    "brUploadCover": "Upload cover image",
+    "brUploadingCover": "Uploading...",
+    "brRemoveCover": "Remove image",
 
     "stTitle": "Staff",
     "stSubtitle": "Team members for this business, their roles, branch and status.",

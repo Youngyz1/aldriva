@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { assertCanManageBusiness } from "@/lib/entity-authz";
 import { checkBranchMainGuard, checkNewBranchMainGuard } from "@/lib/branches/rules";
+import { validateBranchCoverImageUrl } from "@/lib/branches/cover-image-validation";
 import { revalidatePath } from "next/cache";
 
 export type BranchInput = {
@@ -14,6 +15,8 @@ export type BranchInput = {
   phone?: string | null;
   is_main?: boolean;
   status?: "active" | "archived";
+  /** https:// URL on the fundraiser-media host, max 500 chars, or null/empty for none. Never trusted as-is -- see validateBranchCoverImageUrl. */
+  cover_image_url?: string | null;
 };
 
 export type BranchErrorResult = { success: false; error: string; code: string };
@@ -68,6 +71,10 @@ export async function createBranch(businessId: string, input: BranchInput) {
   if (label.length < 2 || label.length > 100) {
     return { success: false as const, error: "Label must be 2-100 characters", code: "label_length" };
   }
+  const coverImage = validateBranchCoverImageUrl(input.cover_image_url);
+  if (coverImage.error) {
+    return { success: false as const, error: coverImage.error.message, code: coverImage.error.code };
+  }
 
   const { count } = await admin
     .from("business_branches")
@@ -112,6 +119,7 @@ export async function createBranch(businessId: string, input: BranchInput) {
       phone: input.phone?.trim() || null,
       is_main: wantsMain,
       status,
+      cover_image_url: coverImage.value,
     })
     .select("*")
     .single();
@@ -154,6 +162,13 @@ export async function updateBranch(branchId: string, input: Partial<BranchInput>
   if (input.country !== undefined) updates.country = input.country?.trim() || null;
   if (input.phone !== undefined) updates.phone = input.phone?.trim() || null;
   if (input.status !== undefined) updates.status = input.status;
+  if (input.cover_image_url !== undefined) {
+    const coverImage = validateBranchCoverImageUrl(input.cover_image_url);
+    if (coverImage.error) {
+      return { success: false as const, error: coverImage.error.message, code: coverImage.error.code };
+    }
+    updates.cover_image_url = coverImage.value;
+  }
 
   // Main swap, step 1: unset the current main (if any) before setting this
   // branch as main. If the update (step 2) then fails, restore it.

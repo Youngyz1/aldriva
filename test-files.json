@@ -4,6 +4,7 @@
   "lib/staff/__tests__/phone-validation.test.cjs",
   "lib/staff/__tests__/photo-validation.test.cjs",
   "lib/branches/__tests__/rules.test.cjs",
+  "lib/branches/__tests__/cover-image-validation.test.cjs",
   "lib/__tests__/invitation-delivery-team-invite.test.cjs",
   "lib/__tests__/invitation-delivery-guest-invite.test.cjs",
   "lib/__tests__/invitation-delivery-source-assertions.test.cjs",

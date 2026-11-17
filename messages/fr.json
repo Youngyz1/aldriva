@@ -1845,6 +1845,9 @@
     "brCancel": "Annuler",
     "brSave": "Enregistrer",
     "brSaving": "Enregistrement...",
+    "brUploadCover": "Téléverser une image de couverture",
+    "brUploadingCover": "Téléversement...",
+    "brRemoveCover": "Supprimer l'image",
 
     "stTitle": "Personnel",
     "stSubtitle": "Membres du personnel de cette entreprise, leurs rôles, succursale et statut.",

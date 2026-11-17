@@ -7,6 +7,7 @@ import { updateBranch } from "@/lib/actions/business-branches";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import BranchCoverImage from "@/components/branches/BranchCoverImage";
 import BranchFormDialog from "./BranchFormDialog";
 
 // Dynamic/runtime-determined key, same `as any` escape next-intl's own
@@ -32,6 +33,7 @@ export type Branch = {
   phone: string | null;
   is_main: boolean;
   status: "active" | "archived";
+  cover_image_url: string | null;
 };
 
 export default function BranchesClient({
@@ -124,23 +126,26 @@ export default function BranchesClient({
             return (
               <Card key={b.id} className={isArchived ? "opacity-60" : undefined}>
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {orgBasePath ? (
-                        <Link href={`${orgBasePath}/${b.id}`} className="hover:underline">
-                          {labelBlock}
-                        </Link>
-                      ) : (
-                        labelBlock
-                      )}
-                      {b.is_main && <Badge variant="orange">{t("brMain")}</Badge>}
-                      <Badge variant={isArchived ? "neutral" : "emerald"}>{isArchived ? t("brInactiveBadge") : t("brActiveBadge")}</Badge>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <BranchCoverImage coverImageUrl={b.cover_image_url} label={b.label} className="h-14 w-20" />
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {orgBasePath ? (
+                          <Link href={`${orgBasePath}/${b.id}`} className="hover:underline">
+                            {labelBlock}
+                          </Link>
+                        ) : (
+                          labelBlock
+                        )}
+                        {b.is_main && <Badge variant="orange">{t("brMain")}</Badge>}
+                        <Badge variant={isArchived ? "neutral" : "emerald"}>{isArchived ? t("brInactiveBadge") : t("brActiveBadge")}</Badge>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {[b.address, b.city, b.state, b.country].filter(Boolean).join(", ") || t("brNoAddress")}
+                        {b.phone ? ` · ${b.phone}` : ""}
+                      </p>
+                      <p className="text-xs text-zinc-500">{staffCount} {t("brStaffCountSuffix")}</p>
                     </div>
-                    <p className="text-xs text-zinc-500">
-                      {[b.address, b.city, b.state, b.country].filter(Boolean).join(", ") || t("brNoAddress")}
-                      {b.phone ? ` · ${b.phone}` : ""}
-                    </p>
-                    <p className="text-xs text-zinc-500">{staffCount} {t("brStaffCountSuffix")}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEdit(b)}>{t("brEdit")}</Button>
