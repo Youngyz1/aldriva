@@ -259,6 +259,7 @@ export const SHOWCASE_TEMPLATE: WebsiteTemplateV2 = {
   style: "modern",
   previewColor: "#0E4D4A",
   supportedCategories: ["restaurant", "retail", "service"],
+  mobileTabBar: true,
   theme: {
     ...DEFAULT_THEME_CONFIG,
     theme: "default",

@@ -61,6 +61,7 @@ interface V2SiteHeaderProps {
   availablePageSlugs?: readonly string[] | ReadonlySet<string>;
   onPageNavigate?: (pageSlug: string) => void;
   overHero?: boolean;
+  hideHamburger?: boolean;
 }
 
 function nonEmpty(value: unknown): boolean {
@@ -102,6 +103,7 @@ export function V2SiteHeader({
   availablePageSlugs,
   onPageNavigate,
   overHero = false,
+  hideHamburger = false,
 }: V2SiteHeaderProps) {
   const tStorefront = useTranslations("Storefront");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -365,17 +367,19 @@ export function V2SiteHeader({
           )}
         </div>
 
-        <button
-          ref={menuButtonRef}
-          type="button"
-          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-current/60 text-sm hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={menuOpen}
-          aria-controls={overlayMenu ? "v2-site-mobile-menu" : undefined}
-          onClick={() => menuOpen ? closeMenu() : setMenuOpen(true)}
-        >
-          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
-        </button>
+        {!hideHamburger ? (
+          <button
+            ref={menuButtonRef}
+            type="button"
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-current/60 text-sm hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls={overlayMenu ? "v2-site-mobile-menu" : undefined}
+            onClick={() => menuOpen ? closeMenu() : setMenuOpen(true)}
+          >
+            <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
+          </button>
+        ) : null}
       </div>
       {menuOpen && (overlayMenu ? (
         <div

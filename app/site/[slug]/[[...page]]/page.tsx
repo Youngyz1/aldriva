@@ -55,6 +55,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
+import { MobileTabBar } from "@/components/site/v2/MobileTabBar";
 import { DraftPreviewBanner } from "@/components/site/DraftPreviewBanner";
 
 interface Props {
@@ -629,23 +630,31 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       )}
 
       {/* Branded Site Header */}
-      {v2Content && v2Template ? (
-        <V2SiteHeader
-          template={v2Template}
-          content={v2Content.content}
-          sampleContent={v2Content.samples}
-          navigation={v2Content.resolved.navigation}
-          siteTitle={website.site_title}
-          siteSlug={website.slug}
-          previewMode={isTeamMember}
-          editMode={isTeamMember}
-          sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
-          storefrontFeatures={v2Content.resolved.storefrontFeatures}
-          primaryAction={v2Content.resolved.primaryAction.primary}
-          availablePageSlugs={v2Content.availablePageSlugs}
-          overHero={startsWithScrimHero}
-        />
-      ) : (
+      {v2Content && v2Template ? (() => {
+        const extras = (v2Content.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        const mobileTabBarActive = Boolean(v2Template.mobileTabBar && extras.mobileTabBar !== "off");
+
+        return (
+          <V2SiteHeader
+            template={v2Template}
+            content={v2Content.content}
+            sampleContent={v2Content.samples}
+            navigation={v2Content.resolved.navigation}
+            siteTitle={website.site_title}
+            siteSlug={website.slug}
+            previewMode={isTeamMember}
+            editMode={isTeamMember}
+            sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
+            storefrontFeatures={v2Content.resolved.storefrontFeatures}
+            primaryAction={v2Content.resolved.primaryAction.primary}
+            availablePageSlugs={v2Content.availablePageSlugs}
+            overHero={startsWithScrimHero}
+            hideHamburger={mobileTabBarActive}
+          />
+        );
+      })() : (
         <SiteHeader
           siteTitle={website.site_title}
           siteSlug={website.slug}
@@ -656,7 +665,14 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       )}
 
       {/* Page Body / Block Renderer */}
-      <main className="flex-1">
+      <main className={`flex-1${(() => {
+        const extras = (v2Content?.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        return Boolean(v2Template?.mobileTabBar && extras.mobileTabBar !== "off")
+          ? " pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
+          : "";
+      })()}`}>
         {blocks.length === 0 ? (
           <div className="mx-auto max-w-4xl px-[var(--ps-space-6)] py-[var(--ps-space-16)] text-center text-[var(--ps-muted)]">
             <h2 className="text-xl font-semibold text-[var(--ps-text)]">
@@ -718,6 +734,24 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
           primaryColor={website.theme_config.primaryColor}
         />
       )}
+
+      {/* Mobile Navigation Tab Bar (Showcase / opt-in templates) */}
+      {v2Content && v2Template ? (() => {
+        const extras = (v2Content.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        const mobileTabBarActive = Boolean(v2Template.mobileTabBar && extras.mobileTabBar !== "off");
+        if (!mobileTabBarActive) return null;
+
+        return (
+          <MobileTabBar
+            siteSlug={website.slug}
+            navigation={v2Content.resolved.navigation}
+            storefrontFeatures={v2Content.resolved.storefrontFeatures}
+            activePageSlug={targetPage.slug}
+          />
+        );
+      })() : null}
     </div>
   );
 }

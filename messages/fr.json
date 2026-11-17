@@ -872,7 +872,10 @@
     "contactOpeningHours": "Horaires d'ouverture",
     "contactLocation": "Adresse",
     "contactGetDirections": "Itinéraire",
-    "contactCall": "Appeler {phone}"
+    "contactCall": "Appeler {phone}",
+    "mobileTabMore": "Plus",
+    "mobileTabCart": "Panier",
+    "mobileTabClose": "Fermer"
   },
   "Storefront": {
     "categories": "Catégories",

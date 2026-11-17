@@ -206,6 +206,8 @@ export interface WebsiteTemplateV2 {
   patterns?: readonly WebsiteTemplatePattern[];
   /** Palette selected when no valid saved palette id exists. */
   defaultPaletteId?: string;
+  /** When true, template declares support for the mobile navigation tab bar. */
+  mobileTabBar?: boolean;
 }
 
 // ── Restaurant: Table & Flame ───────────────────────────────────────────────
