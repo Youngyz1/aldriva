@@ -439,6 +439,28 @@ export function manifestBuilderSections(templateId: string | null | undefined): 
   return getInvitationTemplateManifest(templateId)?.sections ?? null;
 }
 
+/** Every template manifest, in module declaration order. Pure. */
+export function listInvitationTemplateManifests(): TemplateManifest[] {
+  return Object.values(MANIFESTS);
+}
+
+/**
+ * Storage paths of every manifest image-list field kept in `template_data`
+ * (e.g. "mf_hero_photos", "mf_opening_photo"). Derived from the manifests, so
+ * a new image-list field is picked up without touching call sites (the local
+ * draft's image capture/restore is the main consumer). Pure.
+ */
+export function listManifestImageListDataPaths(): string[] {
+  const paths: string[] = [];
+  for (const manifest of Object.values(MANIFESTS)) {
+    for (const field of manifest.fields) {
+      if (field.type !== "image-list" || field.storage.kind !== "template_data") continue;
+      if (!paths.includes(field.storage.path)) paths.push(field.storage.path);
+    }
+  }
+  return paths;
+}
+
 /** Resolve a manifest label to a display string (client: pass `t` from useTranslations("Events")). */
 export function resolveManifestLabel(
   label: ManifestLabel,

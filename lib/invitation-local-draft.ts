@@ -20,6 +20,7 @@ import {
   readDraftEnvelope,
 } from "@/lib/local-draft-envelope";
 import { ALLOWED_IMAGE_TYPES, MAX_ORIGINAL_BYTES } from "@/lib/imageCompression";
+import { listManifestImageListDataPaths } from "@/lib/invitation-template-manifests";
 
 export const INVITATION_LOCAL_DRAFT_KIND = "invitation";
 /** Matches the existing server-side gallery cap (lib/invitation-page-schema.ts). */
@@ -140,10 +141,29 @@ const EVERGREEN_IMAGE_FIELD_KEYS = [
 ] as const;
 
 /**
+ * Manifest image-list storage paths (template_data arrays of { url }), derived
+ * from the template manifests rather than a hard-coded id/key list — so every
+ * current (mf_hero_photos, mf_opening_photo) and future image-list field is
+ * enumerated by the same code. Key scheme per item is `${path}_${index}`.
+ */
+function manifestImageListPaths(): string[] {
+  return listManifestImageListDataPaths();
+}
+
+/** Reads a manifest image-list array's item url by index. */
+function readImageListUrl(templateData: Record<string, unknown>, path: string, index: number): string | null {
+  const list = Array.isArray(templateData[path]) ? (templateData[path] as unknown[]) : [];
+  const item = list[index];
+  const url = typeof item === "object" && item !== null ? (item as Record<string, unknown>).url : null;
+  return typeof url === "string" ? url : null;
+}
+
+/**
  * Enumerates every known image-bearing field on a local BuilderDraft-shaped
- * object (hero, wedding-story moments, gallery items, evergreen photo
- * slots). Pure — never touches IndexedDB. Used by both save-time capture
- * and load-time restore below, so the two stay in lockstep by construction.
+ * object (hero, wedding-story moments, gallery items, evergreen photo slots,
+ * and every manifest image-list slot under template_data). Pure — never
+ * touches IndexedDB. Used by both save-time capture and load-time restore
+ * below, so the two stay in lockstep by construction.
  */
 export function listLocalDraftImageFields(
   builderDraft: Record<string, unknown>
@@ -173,17 +193,18 @@ export function listLocalDraftImageFields(
       fields.push({ key, value: typeof value === "string" ? value : null });
     }
 
-    // Manifest-driven templates (e.g. minimalism-dark-blue) store photo
-    // slots as an array under template_data, not a flat EVERGREEN key —
-    // mf_hero_photos was previously invisible here, so a hero photo
-    // uploaded in local mode was never captured or restored.
-    const heroPhotos = Array.isArray((templateData as Record<string, unknown>).mf_hero_photos)
-      ? ((templateData as Record<string, unknown>).mf_hero_photos as unknown[])
-      : [];
-    heroPhotos.forEach((item, index) => {
-      const url = typeof item === "object" && item !== null ? (item as Record<string, unknown>).url : null;
-      fields.push({ key: `mf_hero_photos_${index}`, value: typeof url === "string" ? url : null });
-    });
+    // Manifest-driven templates store photo slots as arrays under
+    // template_data. The paths come from the manifests themselves
+    // (mf_hero_photos, mf_opening_photo, …), so no per-template branch is
+    // needed and the `${path}_${index}` key scheme is uniform.
+    for (const path of manifestImageListPaths()) {
+      const list = Array.isArray((templateData as Record<string, unknown>)[path])
+        ? ((templateData as Record<string, unknown>)[path] as unknown[])
+        : [];
+      list.forEach((_item, index) => {
+        fields.push({ key: `${path}_${index}`, value: readImageListUrl(templateData as Record<string, unknown>, path, index) });
+      });
+    }
   }
 
   return fields;
@@ -218,23 +239,28 @@ export function setLocalDraftImageField(
     gallery[index] = { ...existing, url };
     return { ...builderDraft, gallery };
   }
-  const heroPhotoMatch = /^mf_hero_photos_(\d+)$/.exec(key);
-  if (heroPhotoMatch) {
-    const index = Number(heroPhotoMatch[1]);
+  // Manifest image-list slots: `${template_data path}_${index}`. Derived from
+  // the manifests, so mf_hero_photos_0 keeps its exact stored key while new
+  // fields (e.g. mf_opening_photo_0) get the same scheme for free.
+  for (const path of manifestImageListPaths()) {
+    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = new RegExp(`^${escapedPath}_(\\d+)$`).exec(key);
+    if (!match) continue;
+    const index = Number(match[1]);
     const layout = builderDraft.blocks_layout && typeof builderDraft.blocks_layout === "object"
       ? (builderDraft.blocks_layout as Record<string, unknown>)
       : {};
     const templateData = layout.template_data && typeof layout.template_data === "object"
       ? (layout.template_data as Record<string, unknown>)
       : {};
-    const heroPhotos = Array.isArray(templateData.mf_hero_photos) ? [...(templateData.mf_hero_photos as unknown[])] : [];
-    const existing = typeof heroPhotos[index] === "object" && heroPhotos[index] !== null
-      ? (heroPhotos[index] as Record<string, unknown>)
+    const list = Array.isArray(templateData[path]) ? [...(templateData[path] as unknown[])] : [];
+    const existing = typeof list[index] === "object" && list[index] !== null
+      ? (list[index] as Record<string, unknown>)
       : {};
-    heroPhotos[index] = { ...existing, url };
+    list[index] = { ...existing, url };
     return {
       ...builderDraft,
-      blocks_layout: { ...layout, template_data: { ...templateData, mf_hero_photos: heroPhotos } },
+      blocks_layout: { ...layout, template_data: { ...templateData, [path]: list } },
     };
   }
   if ((EVERGREEN_IMAGE_FIELD_KEYS as readonly string[]).includes(key)) {

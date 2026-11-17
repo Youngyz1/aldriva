@@ -277,6 +277,7 @@
   "lib/__tests__/bookings-actions.test.cjs",
   "lib/__tests__/bookings-page.test.cjs",
   "lib/__tests__/messages-key-validity.test.cjs",
+  "lib/__tests__/invitation-manifest-message-keys.test.cjs",
   "lib/__tests__/general-booking-slot-validation.test.cjs",
   "lib/__tests__/general-booking-hours-source-of-truth.test.cjs",
   "lib/dashboard/__tests__/status-map.test.cjs",
