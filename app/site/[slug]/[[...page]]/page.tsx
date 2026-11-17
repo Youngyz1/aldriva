@@ -306,10 +306,10 @@ export async function resolveWebsiteAndPage(
         offeringsHeading: storeT("whatWeOffer"),
         restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
         rentalCtaBandHeading: storeT("rentalBrandMessage"),
-        foodOrderCopy: v2Template.id === "food-order"
+        foodOrderCopy: (v2Template.id === "food-order" || v2Template.id === "showcase")
           ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
           : undefined,
-        storeCopy: v2Template.id === "store"
+        storeCopy: (v2Template.id === "store" || v2Template.id === "showcase")
           ? getStoreLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
           : undefined,
       }

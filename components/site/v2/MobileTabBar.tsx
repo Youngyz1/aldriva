@@ -88,7 +88,7 @@ export function buildMobileTabs(
       label: catalogItem.label || "Catalog",
       href: sanitizeUrl(catalogItem.pageSlug ? getSitePageHref(siteSlug, catalogItem.pageSlug, catalogItem.anchor) : resolveSiteHref(siteSlug, catalogItem.href)),
       pageSlug: catalogItem.pageSlug,
-      icon: isStore ? "catalog" : "order",
+      icon: "catalog",
     });
   }
 

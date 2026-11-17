@@ -208,7 +208,7 @@ export function v2ThemeStyle(
   const light = roles?.accentLight ?? accentPalette?.light ?? "#fbe9e3";
   const foreground = roles?.onAccent ?? (isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : accentPalette?.foreground ?? "#ffffff");
   const savannahFont = "'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif";
-  const headingFont = isSavannah
+  const headingFont = isSavannah || isShowcase
     ? savannahFont
     : isTableFlame
     ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
@@ -222,7 +222,7 @@ export function v2ThemeStyle(
     "--site-accent": primary,
     "--site-bg": roles?.base ?? template.templateBackground.base,
     "--v2-heading-font": headingFont,
-    ...(isSavannah ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
+    ...(isSavannah || isShowcase ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
     "--ps-accent": primary,
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,

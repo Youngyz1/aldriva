@@ -767,6 +767,7 @@ function AboutBlockRenderer({
   siteTemplateId,
   sectionAlign,
   businessName,
+  defaultAboutHeading,
 }: {
   block: AboutBlock;
   editMode?: boolean;
@@ -775,12 +776,13 @@ function AboutBlockRenderer({
   sectionAlign?: "left" | "center";
   businessName?: string;
   businessLogo?: string;
+  defaultAboutHeading?: string;
 }) {
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) || "" : "";
 
   if (block.variant === "split") {
     const hasImage = Boolean(safeFounderImage);
-    const hasHeadline = Boolean(block.heading);
+    const heading = block.heading || defaultAboutHeading || "About";
     return (
       <section id="about" className="w-full">
         <div className={`grid grid-cols-1 items-center gap-8 ${hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
@@ -790,18 +792,16 @@ function AboutBlockRenderer({
               <img
                 {...elementPathProps(editMode, sourceMap, "founderImage")}
                 src={safeFounderImage}
-                alt={businessName || block.heading || "About"}
+                alt={businessName || block.heading || defaultAboutHeading || "About"}
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
             </div>
           ) : null}
           <div className="flex flex-col gap-4">
-            {hasHeadline ? (
-              <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="font-[var(--v2-heading-font)] text-2xl sm:text-3xl font-bold tracking-tight text-[var(--tf-ink)]">
-                {block.heading}
-              </h2>
-            ) : null}
+            <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="font-[var(--v2-heading-font)] text-2xl sm:text-3xl font-bold tracking-tight text-[var(--tf-ink)]">
+              {heading}
+            </h2>
             {block.subheading ? (
               <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-base font-medium text-[var(--tf-accent)]">
                 {block.subheading}
@@ -2425,7 +2425,7 @@ async function PromotionsEmbedBlockRenderer({
       const publicT = await getTranslations("PublicSite");
       pauseLabel = publicT("promoPause");
       resumeLabel = publicT("promoResume");
-      slideNofMLabel = publicT("promoSlideNofM");
+      slideNofMLabel = publicT("promoSlideNofM", { current: "{current}", total: "{total}" });
       percentOffLabel = publicT("promoPercentOff", { percent: "{percent}" });
       specialPriceLabel = publicT("promoSpecialPrice");
       freeDeliveryLabel = publicT("promoFreeDelivery");
@@ -3241,7 +3241,16 @@ export async function BlockRenderer({
       content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
       break;
     case "about":
-      content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
+      {
+        let aboutHeading = "About";
+        try {
+          const publicT = await getTranslations("PublicSite");
+          aboutHeading = publicT("about");
+        } catch {
+          // Keep default
+        }
+        content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} defaultAboutHeading={aboutHeading} />;
+      }
       break;
     case "gallery":
       content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} />;

@@ -113,6 +113,7 @@ export function V2SiteHeader({
   const overlayMenu = template.header.mobileMenu === "overlay";
   const tableFlame = template.id === "restaurant-table-flame";
   const savannah = template.id === "restaurant-savannah";
+  const showcase = template.id === "showcase";
   const paletteTheme = tableFlame || savannah;
 
   useEffect(() => {
@@ -341,7 +342,7 @@ export function V2SiteHeader({
               <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
             )
           ) : null}
-          {(!logoSrc || tableFlame || savannah) && (
+          {(!logoSrc || tableFlame || savannah || showcase) && (
             <span className="truncate">{!logoSrc && editMode && sourceMap?.logo ? "Add logo" : businessName}</span>
           )}
         </a>

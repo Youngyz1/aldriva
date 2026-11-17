@@ -239,7 +239,7 @@ export function PromoCarousel({
                       <a
                         href={slide.href}
                         {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                        className="inline-flex items-center justify-center rounded-lg px-[var(--ps-space-5)] py-[var(--ps-space-2)] text-sm font-semibold transition-opacity hover:opacity-90 bg-[var(--tf-on-accent)] text-[var(--tf-accent)]"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-lg px-[var(--ps-space-5)] py-[var(--ps-space-2)] text-sm font-semibold font-sans transition-opacity hover:opacity-90 bg-[var(--tf-on-accent)] text-[var(--tf-accent)]"
                       >
                         {slide.buttonLabel}
                       </a>

@@ -931,34 +931,38 @@ function buildProductsEmbedForStore(ctx: BuildContext, home: boolean): ProductsE
   };
 }
 
-function buildCatalogSectionBlock(
-  ctx: BuildContext,
-  section: TemplateSection
-): Block | null {
+function resolveCatalogSourceForCtx(ctx: BuildContext): "menu" | "products" | null {
   const extras = asRecord(effectiveValue(ctx, "template_extras"));
   const choice = asString(extras?.catalogSource);
 
-  let source: "menu" | "products" | null = null;
   if (choice === "products") {
-    source = "products";
+    return "products";
   } else if (choice === "menu") {
-    source = "menu";
+    return "menu";
   } else {
     // auto or unset: products only -> products; menu only -> menu; both -> menu
     if (ctx.catalogAvailability) {
       const hasProducts = Boolean(ctx.catalogAvailability.products);
       const hasMenu = Boolean(ctx.catalogAvailability.menuItems);
       if (hasProducts && !hasMenu) {
-        source = "products";
+        return "products";
       } else if (hasMenu) {
-        source = "menu";
+        return "menu";
       } else {
-        source = null;
+        return null;
       }
     } else if (ctx.includeSamples) {
-      source = "menu";
+      return "menu";
     }
   }
+  return null;
+}
+
+function buildCatalogSectionBlock(
+  ctx: BuildContext,
+  section: TemplateSection
+): Block | null {
+  const source = resolveCatalogSourceForCtx(ctx);
 
   if (!source) return null;
 
@@ -1501,10 +1505,16 @@ export function resolveTemplateManifest(
         sourceMap[block.id ?? stableUuid(template.id + ":" + page.slug + ":" + index)] = entries;
       }
     });
+    const showcaseCatalogSource = template.id === "showcase" ? resolveCatalogSourceForCtx(ctx) : null;
+    const pageTitle = (template.id === "showcase" && page.slug === "menu")
+      ? (showcaseCatalogSource === "products"
+          ? (options.storeCopy?.shopHeading ?? "Shop all products")
+          : (options.foodOrderCopy?.menuPageHeading ?? "Browse the menu"))
+      : page.title;
     pages.push({
       id: pageIdFor(template.id, page.slug),
       slug: page.slug,
-      title: page.title,
+      title: pageTitle,
       isHome: page.isHome,
       sortOrder: page.sortOrder,
       purpose: page.purpose,
@@ -1602,21 +1612,37 @@ export function resolveTemplateManifest(
       (!entry.anchor || emittedAnchors.has(entry.anchor)) &&
       (!entry.feature || (entry.feature === "catalog" ? hasCatalogItems : storefrontFeatures[entry.feature]))
     )
-    .map((entry, index) => ({
-      id: `${template.id}-nav-${index}`,
-      label: asString(navLabels?.[labelKeyFor(entry)]) ??
-        (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
-        (template.id === "store" ? options.storeCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
-        entry.label,
-      href: entry.pageSlug
-        ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
-        : resolveSiteHref(siteSlug, entry.href ?? ""),
-      page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
-      pageSlug: entry.pageSlug,
-      ...(entry.anchor ? { anchor: entry.anchor } : {}),
-      target: "_self" as const,
-      order: entry.order,
-    }));
+    .map((entry, index) => {
+      const showcaseCatalogSource = template.id === "showcase" ? resolveCatalogSourceForCtx(ctx) : null;
+      const isCatalog = entry.pageSlug === "menu" || entry.feature === "catalog";
+      const isOrder = entry.pageSlug === "order" || entry.feature === "ordering";
+      const showcaseLabel = template.id === "showcase"
+        ? (isCatalog
+            ? (showcaseCatalogSource === "products"
+                ? (options.storeCopy?.navigationLabels?.shop ?? "Shop")
+                : (options.foodOrderCopy?.navigationLabels?.menu === "Explore" ? "Menu" : options.foodOrderCopy?.navigationLabels?.menu ?? "Menu"))
+            : isOrder
+            ? (options.foodOrderCopy?.navigationLabels?.order ?? "Order")
+            : undefined)
+        : undefined;
+
+      return {
+        id: `${template.id}-nav-${index}`,
+        label: asString(navLabels?.[labelKeyFor(entry)]) ??
+          showcaseLabel ??
+          (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+          (template.id === "store" ? options.storeCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+          entry.label,
+        href: entry.pageSlug
+          ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
+          : resolveSiteHref(siteSlug, entry.href ?? ""),
+        page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
+        pageSlug: entry.pageSlug,
+        ...(entry.anchor ? { anchor: entry.anchor } : {}),
+        target: "_self" as const,
+        order: entry.order,
+      };
+    });
 
   navigation.forEach((item, index) => {
     const labelKey = labelKeyFor(item);
