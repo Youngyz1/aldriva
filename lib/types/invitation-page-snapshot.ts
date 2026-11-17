@@ -23,6 +23,7 @@ import type {
 import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
+import { getInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
 
 export type InvitationLocale = "en" | "fr";
 export type InvitationPageStatus = "draft" | "published";
@@ -294,7 +295,7 @@ export function assembleInvitationPageData(
   seat?: SeatLiveRecord | null
 ): InvitationPageData {
   const evergreen = snapshot.template_id === "evergreen-envelope" ? snapshot.blocks_layout?.template_data : undefined;
-  const isManifest = snapshot.template_id === "minimalism-dark-blue" || snapshot.template_id === "burgundy-gold";
+  const isManifest = getInvitationTemplateManifest(snapshot.template_id) != null;
   const mf = isManifest ? (snapshot.blocks_layout?.template_data as Record<string, unknown> | undefined) : undefined;
   const mfHeroPhotos = readManifestHeroPhotos(mf);
   const effectiveTitle = snapshot.display_title?.trim() || event.title;

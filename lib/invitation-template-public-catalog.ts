@@ -50,10 +50,31 @@ function toPublicSummary(id: InvitationTemplateId): PublicTemplateSummary {
   };
 }
 
+function getFlagAllowedUnlistedIds(): Set<string> {
+  const raw = process.env.INVITATION_UNLISTED_TEMPLATE_IDS;
+  if (!raw) return new Set();
+  const allowed = new Set<string>();
+  for (const part of raw.split(",")) {
+    const id = part.trim();
+    if (!id) continue;
+    if (!Object.prototype.hasOwnProperty.call(INVITATION_TEMPLATE_REGISTRY, id)) continue;
+    const status = INVITATION_TEMPLATE_REGISTRY[id as InvitationTemplateId].publicationStatus as string;
+    if (status === "retired") continue;
+    allowed.add(id);
+  }
+  return allowed;
+}
+
+function isEffectivelyPublic(id: InvitationTemplateId): boolean {
+  const status = INVITATION_TEMPLATE_REGISTRY[id].publicationStatus as string;
+  if (status === "published") return true;
+  return getFlagAllowedUnlistedIds().has(id);
+}
+
 /** All publicly browsable templates (publicationStatus "published" only). */
 export function getPublicTemplateCatalog(): PublicTemplateSummary[] {
   return (Object.keys(INVITATION_TEMPLATE_REGISTRY) as InvitationTemplateId[])
-    .filter((id) => (INVITATION_TEMPLATE_REGISTRY[id].publicationStatus as string) === "published")
+    .filter((id) => isEffectivelyPublic(id as InvitationTemplateId))
     .map(toPublicSummary);
 }
 
@@ -61,7 +82,7 @@ export function getPublicTemplateCatalog(): PublicTemplateSummary[] {
 export function getPublicTemplateSummary(id: string | null | undefined): PublicTemplateSummary | undefined {
   if (!id || !Object.prototype.hasOwnProperty.call(INVITATION_TEMPLATE_REGISTRY, id)) return undefined;
   const templateId = id as InvitationTemplateId;
-  if ((INVITATION_TEMPLATE_REGISTRY[templateId].publicationStatus as string) !== "published") return undefined;
+  if (!isEffectivelyPublic(templateId)) return undefined;
   return toPublicSummary(templateId);
 }
 
@@ -86,4 +107,13 @@ export function getPublicTemplateCategories(): InvitationTemplateCategory[] {
   const seen = new Set<InvitationTemplateCategory>();
   for (const summary of getPublicTemplateCatalog()) seen.add(summary.category);
   return Array.from(seen);
+}
+
+/** Builder summary by stable id for any non-retired registry template (published or unlisted), independent of flags. */
+export function getTemplateSummaryForBuilder(id: string | null | undefined): PublicTemplateSummary | undefined {
+  if (!id || !Object.prototype.hasOwnProperty.call(INVITATION_TEMPLATE_REGISTRY, id)) return undefined;
+  const templateId = id as InvitationTemplateId;
+  const status = INVITATION_TEMPLATE_REGISTRY[templateId].publicationStatus as string;
+  if (status === "retired") return undefined;
+  return toPublicSummary(templateId);
 }

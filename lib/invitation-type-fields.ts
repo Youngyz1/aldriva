@@ -11,6 +11,7 @@
  */
 
 import type { InvitationTemplateCategory as TemplateCategory } from "@/lib/invitation-template-registry";
+import { getInvitationTemplateManifest, readManifestStorage, resolveManifestLabel } from "@/lib/invitation-template-manifests";
 
 /** First-screen choice of the builder (and of the future Create flow). */
 export type InvitationType = "wedding" | "birthday" | "gala" | "other";
@@ -30,10 +31,10 @@ export const DEFAULT_TEMPLATE_FOR_TYPE: Record<InvitationType, string> = {
   other: "",
 };
 
-/** Recover the builder type from the saved page template when reopening.
- * No templates exist, so any saved template_id resolves to "other". */
+/** Recover the builder type from the saved page template when reopening. */
 export function invitationTypeForTemplate(templateId?: string | null): InvitationType {
-  if (templateId === "minimalism-dark-blue") return "wedding";
+  const manifest = getInvitationTemplateManifest(templateId);
+  if (manifest?.invitationType) return manifest.invitationType;
   return "other";
 }
 
@@ -154,21 +155,40 @@ export function hiddenContentOnTemplateSwitch(
       hidden.push(TYPE_FIELD_LABELS[key]);
     }
   }
-  // Manifest-driven templates: warn when switching away if manifest fields hold content.
-  if (fromTemplateId === "minimalism-dark-blue" && toTemplateId !== "minimalism-dark-blue") {
-    const blocksLayout = draft.blocks_layout;
-    const td = typeof blocksLayout === "object" && blocksLayout !== null && !Array.isArray(blocksLayout)
-      ? (blocksLayout as Record<string, unknown>).template_data
-      : null;
-    const tdr = typeof td === "object" && td !== null && !Array.isArray(td) ? (td as Record<string, unknown>) : {};
-    const manifestKeys = [
-      "mf_parent_one_label","mf_parent_one_name_one","mf_parent_one_name_two",
-      "mf_parent_two_label","mf_parent_two_name_one","mf_parent_two_name_two",
-      "mf_hero_photos","mf_hero_eyebrow","mf_invitation_line","mf_dress_code_swatches",
-    ];
-    const hasManifestContent = manifestKeys.some((k) => hasContent(tdr[k]))
-      || hasContent(draft.partner1_name) || hasContent(draft.partner2_name);
-    if (hasManifestContent) hidden.push("Template fields (names, photos, parents, details)");
+
+  const fromManifest = getInvitationTemplateManifest(fromTemplateId);
+  const toManifest = getInvitationTemplateManifest(toTemplateId);
+  if (fromManifest) {
+    // Preserve existing minimalism warning text and behavior.
+    if (fromTemplateId === "minimalism-dark-blue" && toTemplateId !== "minimalism-dark-blue") {
+      const blocksLayout = draft.blocks_layout;
+      const td = typeof blocksLayout === "object" && blocksLayout !== null && !Array.isArray(blocksLayout)
+        ? (blocksLayout as Record<string, unknown>).template_data
+        : null;
+      const tdr = typeof td === "object" && td !== null && !Array.isArray(td) ? (td as Record<string, unknown>) : {};
+      const manifestKeys = [
+        "mf_parent_one_label","mf_parent_one_name_one","mf_parent_one_name_two",
+        "mf_parent_two_label","mf_parent_two_name_one","mf_parent_two_name_two",
+        "mf_hero_photos","mf_hero_eyebrow","mf_invitation_line","mf_dress_code_swatches",
+      ];
+      const hasManifestContent = manifestKeys.some((k) => hasContent(tdr[k]))
+        || hasContent(draft.partner1_name) || hasContent(draft.partner2_name);
+      if (hasManifestContent) hidden.push("Template fields (names, photos, parents, details)");
+    }
+
+    const toStorageKeys = new Set(
+      (toManifest?.fields ?? []).map((f) =>
+        f.storage.kind === "column" ? `col:${f.storage.column}` : `td:${f.storage.path}`
+      )
+    );
+    for (const field of fromManifest.fields) {
+      const key = field.storage.kind === "column" ? `col:${field.storage.column}` : `td:${field.storage.path}`;
+      if (toStorageKeys.has(key)) continue;
+      const value = readManifestStorage(draft, field.storage);
+      if (!hasContent(value)) continue;
+      const label = resolveManifestLabel(field.label, undefined, "en");
+      if (!hidden.includes(label)) hidden.push(label);
+    }
   }
   return hidden;
 }

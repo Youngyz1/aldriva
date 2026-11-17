@@ -59,7 +59,7 @@ import {
 import { InvitationBuilderLocalPreview } from "./InvitationBuilderLocalPreview";
 import { getBuilderSectionIds } from "@/lib/invitation-builder-section-ids";
 import { getInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
-import { getPublicTemplateSummary } from "@/lib/invitation-template-public-catalog";
+import { getTemplateSummaryForBuilder } from "@/lib/invitation-template-public-catalog";
 import { getInvitationTemplateGalleryHref } from "@/lib/invitation-template-marketplace-routes";
 import { InvitationTemplatePreviewFrame } from "@/components/invitation/marketplace/InvitationTemplatePreviewFrame";
 import { TemplateFieldsSection } from "./sections/TemplateFieldsSection";
@@ -754,7 +754,9 @@ export function InvitationPageBuilder({
                 />
               )}
               {id === "template" && (() => {
-                const summary = getPublicTemplateSummary(draft.template_id) ?? getPublicTemplateSummary("minimalism-dark-blue");
+                const summary =
+                  getTemplateSummaryForBuilder(draft.template_id) ??
+                  getTemplateSummaryForBuilder("minimalism-dark-blue");
                 return (
                   <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
                     <InvitationTemplatePreviewFrame

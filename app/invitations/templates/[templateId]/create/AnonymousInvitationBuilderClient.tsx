@@ -11,10 +11,10 @@
  * Port adaptation: feat also passed `cardSlug`/`cardTemplates` (resolved
  * via `getUnifiedTemplate`/`DEFAULT_INVITATION_TEMPLATES`) for the
  * UnifiedTemplatePicker's card-design step. Neither that picker nor the
- * legacy card-template catalog exists on this branch (minimalism-dark-blue
- * is the only registered template, chosen on the gallery before reaching
- * this route), so those two props are omitted — InvitationPageBuilder
- * defaults them to `null`/`[]`, which is a no-op without the picker.
+ * legacy card-template catalog exists on this branch (the template is chosen
+ * before reaching this route), so those two props are omitted —
+ * InvitationPageBuilder defaults them to `null`/`[]`, which is a no-op
+ * without the picker.
  */
 
 import { InvitationPageBuilder } from "@/app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder";

@@ -94,10 +94,10 @@ export default async function EventInvitationPageDashboardRoute({
     );
   }
 
-  // minimalism-dark-blue is the only registered template, so the builder's
-  // "template" section is a read-only card (see InvitationPageBuilder.tsx),
-  // not a picker. A new event defaults straight to it — there is nothing to
-  // choose between yet.
+  // The builder's template section is currently a read-only card
+  // (see InvitationPageBuilder.tsx), not a picker. A new event defaults to
+  // the default invitation template; other registered templates may still be
+  // opened when their id is already saved (including unlisted templates).
   return (
     <InvitationPageDashboardClient
       eventId={eventId}

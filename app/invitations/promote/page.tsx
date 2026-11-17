@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase";
 import { promoteLocalDraft, type PromoteLocalDraftResult } from "@/lib/invitation-local-draft-promotion";
 import { isValidLocalDraftId } from "@/lib/invitation-promotion-core";
 import { getInvitationTemplateCreateHref } from "@/lib/invitation-template-marketplace-routes";
+import { resolveInvitationTemplateId } from "@/lib/invitation-template-registry";
 
 type UiState =
   | { kind: "working" }
@@ -30,7 +31,7 @@ function PromoteInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get("draftId") ?? "";
-  const template = searchParams.get("template") || "minimalism-dark-blue";
+  const template = resolveInvitationTemplateId(searchParams.get("template"));
 
   const [state, setState] = useState<UiState>({ kind: "working" });
   // React Strict Mode double-invokes effects in dev; promotion must run at
