@@ -952,12 +952,20 @@ export function StorefrontBrowse({
 
       {showGroups && categoryGroups.length > 1 ? (
         <div
-          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : isEditorial ? "bg-[var(--tf-base)]" : "bg-[var(--ps-surface)]/95"}`}
+          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${
+            variant === "rows"
+              ? "bg-[var(--ps-cream)]"
+              : isEditorial
+                ? "bg-[var(--tf-base)]"
+                : appearance === "showcase"
+                  ? "bg-[var(--tf-base)]/95"
+                  : "bg-[var(--ps-surface)]/95"
+          }`}
           role="tablist"
           aria-label={labels.categories}
           id={chipsId}
         >
-          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
+          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)] scrollbar-none">
             {categoryGroups.map((group) => {
               const groupId = group.id;
               const active = selectedTabGroup === groupId;
@@ -973,13 +981,21 @@ export function StorefrontBrowse({
                   tabIndex={active ? 0 : -1}
                   onClick={() => scrollToGroup(groupId)}
                   onKeyDown={(event) => moveCategoryTab(event, groupId)}
-                  className={isEditorial
-                    ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
-                    : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
-                    active
-                      ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
-                      : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
-                  }`}
+                  className={
+                    appearance === "showcase"
+                      ? `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] ${
+                          active
+                            ? "border-[var(--tf-accent)] bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
+                            : "border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)]"
+                        }`
+                      : isEditorial
+                        ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
+                        : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                        active
+                          ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
+                          : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
+                      }`
+                  }
                 >
                   {title}
                 </button>
@@ -1000,14 +1016,20 @@ export function StorefrontBrowse({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={labels.searchPlaceholder}
-            className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
+            className={
+              appearance === "showcase"
+                ? "w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-4)] py-[var(--ps-space-2.5)] text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+                : "w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
+            }
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery("")}
               aria-label={labels.clearFilters}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
+              className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] ${
+                appearance === "showcase" ? "text-[var(--tf-muted)] hover:text-[var(--tf-ink)]" : "text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
+              }`}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1019,20 +1041,39 @@ export function StorefrontBrowse({
 
       {sort && totalVisibleItems > 0 ? (
         <div className="mb-[var(--ps-space-4)] flex items-center justify-end gap-[var(--ps-space-2)]">
-          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)]">
+          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)] sr-only">
             {sort.label}
           </label>
-          <select
-            id={`${searchId}-sort`}
-            value={sortKey}
-            onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
-            className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
-          >
-            <option value="featured">{sort.featured}</option>
-            <option value="newest">{sort.newest}</option>
-            <option value="priceAsc">{sort.priceAsc}</option>
-            <option value="priceDesc">{sort.priceDesc}</option>
-          </select>
+          {appearance === "showcase" ? (
+            <div className="relative inline-flex items-center">
+              <select
+                id={`${searchId}-sort`}
+                value={sortKey}
+                onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+                className="appearance-none cursor-pointer rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] pl-3.5 pr-7 py-1 text-xs font-medium text-[var(--tf-ink)] focus:border-[var(--tf-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--tf-accent)]"
+              >
+                <option value="featured">{sort.featured}</option>
+                <option value="newest">{sort.newest}</option>
+                <option value="priceAsc">{sort.priceAsc}</option>
+                <option value="priceDesc">{sort.priceDesc}</option>
+              </select>
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--tf-muted)] text-[9px]" aria-hidden="true">
+                ▼
+              </span>
+            </div>
+          ) : (
+            <select
+              id={`${searchId}-sort`}
+              value={sortKey}
+              onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+              className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+            >
+              <option value="featured">{sort.featured}</option>
+              <option value="newest">{sort.newest}</option>
+              <option value="priceAsc">{sort.priceAsc}</option>
+              <option value="priceDesc">{sort.priceDesc}</option>
+            </select>
+          )}
         </div>
       ) : null}
 

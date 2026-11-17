@@ -2029,7 +2029,7 @@ async function ProductsEmbedBlockRenderer({
             </div>
           </>
         ) : (
-          <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
+          <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={siteTemplateId === "showcase" ? undefined : block.subheading} />
         )}
         <StorefrontBrowse
           groups={productGroups}
@@ -2903,7 +2903,7 @@ async function MenuEmbedBlockRenderer({
         </>
       ) : (
         <div {...elementPathProps(editMode, sourceMap, "heading")}>
-          <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
+          <SectionHeading heading={block.heading || "Our Menu"} subheading={isShowcase ? undefined : block.subheading} align={sectionAlign} />
         </div>
       )}
       {!hasMenuItems ? (
