@@ -208,6 +208,7 @@ interface StorefrontBrowseProps {
     addLabel: string;
     labels: StoreCartLabels;
   };
+  siteSlug?: string;
   children: React.ReactNode;
 }
 
@@ -371,10 +372,12 @@ export function StorefrontBrowse({
   currencyLocale,
   appearance,
   showcaseLabels,
+  siteSlug,
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
   const isEditorial = variant === "editorial";
   const isShowcaseCards = appearance === "showcase" && variant === "cards";
+  const effectiveSiteSlug = siteSlug || orderConfig?.slug || storeCart?.slug;
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>(() => groups[0]?.id ?? BROWSE_ALL_GROUP);
@@ -680,6 +683,9 @@ export function StorefrontBrowse({
               currency={currency}
               locale={locale}
               imageFit={carousel?.imageFit}
+              appearance={appearance}
+              showcaseLabels={showcaseLabels}
+              siteSlug={effectiveSiteSlug}
               onSelect={(id, trigger) => openSheet(id, trigger ?? null)}
               onQuickAdd={(id, trigger) => {
                 const item = allItems.find((candidate) => candidate.id === id);
@@ -1060,7 +1066,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              {renderedGroupIds.has(group.id) || group.id === selectedTabGroup ? <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+              {renderedGroupIds.has(group.id) || group.id === selectedTabGroup ? <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : isShowcaseCards ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -1149,6 +1155,7 @@ export function StorefrontBrowse({
                     }}
                     appearance="showcase"
                     showcaseLabels={showcaseLabels}
+                    siteSlug={effectiveSiteSlug}
                     currency={currency}
                     locale={currencyLocale}
                   />

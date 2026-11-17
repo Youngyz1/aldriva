@@ -80,6 +80,7 @@ import {
   ResolvedFundraiserItem,
   ResolvedServiceItem,
   ResolvedMenuSection,
+  ResolvedMenuItem,
 } from "@/lib/website-embeds";
 import {
   IconCalendar as Calendar,
@@ -1790,6 +1791,7 @@ async function ProductsEmbedBlockRenderer({
   accentColor,
   siteSlug,
   currency,
+  siteTemplateId,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
@@ -1798,11 +1800,22 @@ async function ProductsEmbedBlockRenderer({
   accentColor?: string;
   siteSlug?: string;
   currency?: string;
+  siteTemplateId?: string;
 }) {
   const isStore = block.siteLocalProductDetails === true;
-  const products: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
+  const rawProducts: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
     ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember) && !isStore)
     : block.previewProducts ?? [];
+
+  let products = rawProducts;
+  if (siteTemplateId === "showcase" && block.selectedProductIds && block.selectedProductIds.length > 0) {
+    const pickSet = new Set(block.selectedProductIds);
+    const picked = rawProducts.filter((p) => pickSet.has(p.id));
+    const remaining = rawProducts.filter((p) => !pickSet.has(p.id));
+    products = [...picked, ...remaining].slice(0, 6);
+  } else if (siteTemplateId === "showcase" && block.variant === "carousel") {
+    products = rawProducts.slice(0, 6);
+  }
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
   let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
@@ -1966,6 +1979,12 @@ async function ProductsEmbedBlockRenderer({
           labels={{ ...browseLabels, loadMore: t("storeLoadMore") }}
           showGroups={Boolean(block.categoryTiles && realCategoryCount >= 2)}
           categoryTiles={Boolean(block.categoryTiles)}
+          appearance={siteTemplateId === "showcase" ? "showcase" : "default"}
+          showcaseLabels={{
+            soldOut: badgeSoldOut,
+            popular: badgePopular,
+            new: badgeNew,
+          }}
           itemMode="links"
           pageSize={block.browsePageSize ?? 12}
           accentColor={accentColor}
@@ -2588,6 +2607,49 @@ async function MenuEmbedBlockRenderer({
   const isShowcase = siteTemplateId === "showcase";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
+  let allSections = sections;
+  if (isShowcase && block.variant === "catalog-carousel" && tenantId) {
+    const existingCount = sections.reduce((acc, s) => acc + s.items.length, 0);
+    if (existingCount < 6) {
+      const allResolved = await resolveMenuEmbed(
+        { ...block, selectedItemIds: undefined, limit: 12 },
+        tenantId,
+        Boolean(isTeamMember),
+        undefined,
+        displayCurrency
+      );
+      const existingIds = new Set(sections.flatMap((s) => s.items.map((i) => i.id)));
+      const topUpItems: ResolvedMenuItem[] = [];
+      for (const sec of allResolved) {
+        for (const item of sec.items) {
+          if (!existingIds.has(item.id)) {
+            topUpItems.push(item);
+            existingIds.add(item.id);
+            if (existingCount + topUpItems.length >= 6) break;
+          }
+        }
+        if (existingCount + topUpItems.length >= 6) break;
+      }
+      if (topUpItems.length > 0) {
+        if (allSections.length > 0) {
+          allSections = allSections.map((sec, idx) =>
+            idx === 0 ? { ...sec, items: [...sec.items, ...topUpItems] } : sec
+          );
+        } else {
+          allSections = [{
+            id: "featured",
+            name: block.heading || "Featured",
+            description: null,
+            is_active: true,
+            isDraft: false,
+            items: topUpItems,
+            hasMoreItems: false,
+            hasMoreItemsOverall: false,
+          }];
+        }
+      }
+    }
+  }
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
   let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
@@ -2658,8 +2720,8 @@ async function MenuEmbedBlockRenderer({
     copyTrackingLink: t("copyTrackingLink"),
     trackingLinkCopied: t("trackingLinkCopied"),
   };
-  const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
-  const menuItemsTruncated = sections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
+  const populatedSections = allSections.filter((section: ResolvedMenuSection) => section.items.length > 0);
+  const menuItemsTruncated = allSections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
   const menuGroups: BrowseGroup[] = populatedSections.map((sec: ResolvedMenuSection) => ({
     id: sec.id,
     title: sec.name,

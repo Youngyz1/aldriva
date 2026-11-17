@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IconChevronLeft as ChevronLeft, IconChevronRight as ChevronRight } from "@tabler/icons-react";
+import { IconChevronLeft as ChevronLeft, IconChevronRight as ChevronRight, IconHeart, IconHeartFilled } from "@tabler/icons-react";
 import { computeCarouselEnds } from "./ProductCarousel";
 import { formatCurrency } from "@/lib/format-locale";
 
@@ -44,6 +44,8 @@ export interface CatalogCardProps {
     popular?: string;
     new?: string;
   };
+  /** Site slug used to key favorites in localStorage. */
+  siteSlug?: string;
 }
 
 export function hasCatalogCarouselOverflow(scrollWidth: number, clientWidth: number, tolerance = 1): boolean {
@@ -88,7 +90,7 @@ function resolveShowcaseBadge(
   return null;
 }
 
-export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit, appearance, showcaseLabels }: CatalogCardProps) {
+export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit, appearance, showcaseLabels, siteSlug }: CatalogCardProps) {
   const isShowcase = appearance === "showcase";
   const effectivePriceLabel = typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
     ? formatCurrency(item.numericPrice, currency, locale)
@@ -96,6 +98,61 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
   const promotionEndLabel = formatPromotionEndDate(item.promotionEndsAt, locale);
   const badge = isShowcase ? resolveShowcaseBadge(item, showcaseLabels) : null;
   const isSoldOut = Boolean(item.isSoldOut);
+
+  const [isFavorite, setIsFavorite] = useState(false);
+  useEffect(() => {
+    if (!siteSlug || !isShowcase) return;
+    try {
+      const raw = localStorage.getItem(`aldriva_favorites_${siteSlug}`);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.includes(item.id)) {
+          setIsFavorite(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [siteSlug, item.id, isShowcase]);
+
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      const next = !isFavorite;
+      setIsFavorite(next);
+      if (!siteSlug) return;
+      const raw = localStorage.getItem(`aldriva_favorites_${siteSlug}`);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      const updated = next
+        ? Array.from(new Set([...list, item.id]))
+        : list.filter((id) => id !== item.id);
+      localStorage.setItem(`aldriva_favorites_${siteSlug}`, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  const heartButton = isShowcase ? (
+    <button
+      type="button"
+      aria-pressed={isFavorite}
+      aria-label={
+        isFavorite
+          ? (locale === "fr" ? "Retirer des favoris" : "Remove from favorites")
+          : (locale === "fr" ? "Ajouter aux favoris" : "Add to favorites")
+      }
+      onClick={toggleFavorite}
+      className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-[var(--tf-muted)] shadow-xs transition-colors hover:text-[var(--tf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+    >
+      {isFavorite ? (
+        <IconHeartFilled className="h-4 w-4 text-[var(--tf-accent)]" />
+      ) : (
+        <IconHeart className="h-4 w-4" />
+      )}
+    </button>
+  ) : null;
+
   const content = isShowcase ? (
     <div
       className={`flex h-full flex-col overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] ${isSoldOut ? "opacity-60" : ""} ${className ?? ""}`}
@@ -119,42 +176,32 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
             {badge.label}
           </span>
         ) : null}
+        {!onSelect ? heartButton : null}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="font-[var(--v2-heading-font)] text-[16px] font-semibold leading-snug text-[var(--tf-ink)] line-clamp-2">
+        <h3 className="font-[var(--v2-heading-font)] text-[16px] font-medium leading-snug text-[var(--tf-ink)] line-clamp-2">
           {item.name}
         </h3>
-        {item.description ? (
-          <p className="text-[14px] text-[var(--tf-muted)] line-clamp-2">
-            {item.description}
-          </p>
-        ) : null}
         <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1">
           {isSoldOut ? (
             <span className="text-[14px] font-semibold text-[var(--tf-muted)]">
-              {showcaseLabels?.soldOut ?? "Sold out"}
+              {showcaseLabels?.soldOut ?? (locale === "fr" ? "Épuisé" : "Sold out")}
             </span>
           ) : (
             <>
+              {effectivePriceLabel ? (
+                <span className="text-[18px] font-extrabold text-[var(--tf-ink)]">
+                  {effectivePriceLabel}
+                </span>
+              ) : null}
               {item.originalPriceLabel ? (
                 <span className="text-[13px] font-normal text-[var(--tf-muted)] line-through">
                   {item.originalPriceLabel}
                 </span>
               ) : null}
-              {effectivePriceLabel ? (
-                <span className={`text-[16px] font-bold ${item.originalPriceLabel ? "text-[var(--tf-accent)]" : "text-[var(--tf-ink)]"}`}>
-                  {effectivePriceLabel}
-                </span>
-              ) : null}
             </>
           )}
         </div>
-        {!isSoldOut && (item.freeDeliveryLabel || promotionEndLabel) ? (
-          <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
-            {item.freeDeliveryLabel ? <span className="rounded-full bg-[var(--tf-accent)] px-2 py-0.5 font-semibold text-[var(--tf-on-accent)]">{item.freeDeliveryLabel}</span> : null}
-            {promotionEndLabel ? <span className="text-[var(--tf-muted)]">{promotionEndLabel}</span> : null}
-          </div>
-        ) : null}
       </div>
     </div>
   ) : (
@@ -220,6 +267,7 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
         >
           {content}
         </button>
+        {heartButton}
         {(isShowcase ? !isSoldOut && item.canQuickAdd : item.canQuickAdd) && onQuickAdd ? (
           <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className={isShowcase ? "absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-[var(--tf-ink)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]" : "absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"}>+</button>
         ) : null}
@@ -247,9 +295,11 @@ export interface CatalogCarouselProps {
   appearance?: "default" | "showcase";
   /** Badge labels passed through to CatalogCard. */
   showcaseLabels?: CatalogCardProps["showcaseLabels"];
+  /** Site slug used to key favorites in localStorage. */
+  siteSlug?: string;
 }
 
-export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd, appearance, showcaseLabels }: CatalogCarouselProps) {
+export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd, appearance, showcaseLabels, siteSlug }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: false });
   const [overflowing, setOverflowing] = useState(false);
@@ -285,7 +335,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
       scrollByPage(-1);
     } else if (event.key === "ArrowRight") {
       event.preventDefault();
-      scrollByPage(1);
+      handleNext();
     } else if (event.key === "Home") {
       event.preventDefault();
       element.scrollTo({ left: 0, behavior: "smooth" });
@@ -294,6 +344,8 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
       element.scrollTo({ left: element.scrollWidth, behavior: "smooth" });
     }
   };
+
+  const handleNext = () => scrollByPage(1);
 
   if (items.length === 0) return null;
 
@@ -325,8 +377,8 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
         className={overflowing ? "flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] [&::-webkit-scrollbar]:hidden" : "flex gap-4 overflow-x-hidden px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"}
       >
         {items.map((item) => (
-          <div key={item.id} className={overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72"}>
-            <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} appearance={appearance} showcaseLabels={showcaseLabels} />
+          <div key={item.id} className={appearance === "showcase" ? "flex w-[38%] min-w-[135px] max-w-[200px] sm:w-60 md:w-64 shrink-0 snap-start flex-col" : (overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72")}>
+            <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} appearance={appearance} showcaseLabels={showcaseLabels} siteSlug={siteSlug} />
           </div>
         ))}
       </div>
