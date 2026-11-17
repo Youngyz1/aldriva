@@ -102,6 +102,7 @@ import {
   IconHeadset,
   IconShoppingBag,
   IconToolsKitchen2,
+  IconSearch as Search,
 } from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
@@ -1981,9 +1982,55 @@ async function ProductsEmbedBlockRenderer({
       unavailable: t("storeCartUnavailable"),
       locale: locale === "fr" ? "fr-FR" : "en-US",
     };
+    const isShowcaseHomeCarousel = siteTemplateId === "showcase" && block.variant === "carousel";
+    const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "shop") : "/shop";
+
     return (
       <section className="w-full">
-        <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
+        {isShowcaseHomeCarousel ? (
+          <>
+            <form action={catalogHref} method="GET" className="mb-[var(--ps-space-3)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
+                <input
+                  type="search"
+                  name="q"
+                  placeholder={browseLabels.searchPlaceholder || "Search..."}
+                  className="w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] pl-10 pr-4 py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+                />
+              </div>
+            </form>
+            {productGroups.length > 0 ? (
+              <div className="mb-[var(--ps-space-6)] flex gap-[var(--ps-space-2)] overflow-x-auto scrollbar-none pb-1 max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]" role="navigation" aria-label={browseLabels.categories}>
+                {productGroups.map((group) => (
+                  <a
+                    key={group.id}
+                    href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
+                    className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
+                  >
+                    {group.title}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+              <h2
+                className="text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"
+              >
+                {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+              </h2>
+              <a
+                href={catalogHref}
+                className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+              >
+                <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+                <ArrowRight size={15} aria-hidden="true" />
+              </a>
+            </div>
+          </>
+        ) : (
+          <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
+        )}
         <StorefrontBrowse
           groups={productGroups}
           labels={{ ...browseLabels, loadMore: t("storeLoadMore") }}
@@ -2806,11 +2853,59 @@ async function MenuEmbedBlockRenderer({
   }));
   const hasMenuItems = hasBrowseableItems(menuGroups);
   if (!hasMenuItems && siteTemplateId === "restaurant-savannah") return null;
+
+  const isShowcaseHomeCarousel = isShowcase && block.variant === "catalog-carousel";
+  const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
+
   return (
     <section className="w-full">
-      <div {...elementPathProps(editMode, sourceMap, "heading")}>
-        <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
-      </div>
+      {isShowcaseHomeCarousel ? (
+        <>
+          <form action={catalogHref} method="GET" className="mb-[var(--ps-space-3)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
+              <input
+                type="search"
+                name="q"
+                placeholder={browseLabels.searchPlaceholder || "Search..."}
+                className="w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] pl-10 pr-4 py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+              />
+            </div>
+          </form>
+          {menuGroups.length > 0 ? (
+            <div className="mb-[var(--ps-space-6)] flex gap-[var(--ps-space-2)] overflow-x-auto scrollbar-none pb-1 max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]" role="navigation" aria-label={browseLabels.categories}>
+              {menuGroups.map((group) => (
+                <a
+                  key={group.id}
+                  href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
+                  className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
+                >
+                  {group.title}
+                </a>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+            <h2
+              {...elementPathProps(editMode, sourceMap, "heading")}
+              className="text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"
+            >
+              {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+            </h2>
+            <a
+              href={catalogHref}
+              className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+            >
+              <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+              <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </div>
+        </>
+      ) : (
+        <div {...elementPathProps(editMode, sourceMap, "heading")}>
+          <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
+        </div>
+      )}
       {!hasMenuItems ? (
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : (

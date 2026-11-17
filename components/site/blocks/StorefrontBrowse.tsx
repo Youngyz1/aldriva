@@ -209,6 +209,7 @@ interface StorefrontBrowseProps {
     labels: StoreCartLabels;
   };
   siteSlug?: string;
+  initialQuery?: string;
   children: React.ReactNode;
 }
 
@@ -373,13 +374,14 @@ export function StorefrontBrowse({
   appearance,
   showcaseLabels,
   siteSlug,
+  initialQuery,
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
   const isEditorial = variant === "editorial";
   const isShowcaseCards = appearance === "showcase" && variant === "cards";
   const effectiveSiteSlug = siteSlug || orderConfig?.slug || storeCart?.slug;
   const [mounted, setMounted] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [activeGroup, setActiveGroup] = useState<string>(() => groups[0]?.id ?? BROWSE_ALL_GROUP);
   const activeGroupRef = useRef(groups[0]?.id ?? BROWSE_ALL_GROUP);
   const [sortKey, setSortKey] = useState<BrowseSortKey>("featured");
@@ -554,6 +556,10 @@ export function StorefrontBrowse({
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const qParam = params.get("q");
+    if (qParam && !initialQuery) {
+      setQuery(qParam);
+    }
     const itemId = params.get("item");
     const sectionId = params.get("section");
     const key = `${itemId ?? ""}|${sectionId ?? ""}`;
