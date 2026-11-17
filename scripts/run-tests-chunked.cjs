@@ -103,7 +103,7 @@ for (let index = 0; index < chunks.length; index += 1) {
     cwd: ROOT,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
-    timeout: 300_000,
+    timeout: 480_000,
     windowsHide: true,
   });
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;

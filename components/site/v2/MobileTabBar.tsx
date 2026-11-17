@@ -13,14 +13,19 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import type { ResolvedNavigationItem } from "@/lib/website-template-resolver";
-import type { StorefrontFeatureState } from "@/lib/website-template-resolver";
+import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import { getSitePageHref, resolveSiteHref } from "@/lib/site-paths";
 import { sanitizeUrl } from "@/lib/sanitize-url";
+
+export type MobileTabBarFeatures = Partial<StorefrontFeatureState> & { store?: boolean };
+
+const isCommerceFeature = (f: string): f is keyof StorefrontFeatureState =>
+  f === "ordering" || f === "delivery" || f === "pickup" || f === "reservations" || f === "onlinePayment";
 
 export interface MobileTabBarProps {
   siteSlug: string;
   navigation: ResolvedNavigationItem[];
-  storefrontFeatures?: StorefrontFeatureState;
+  storefrontFeatures?: MobileTabBarFeatures;
   activePageSlug?: string;
   labels?: {
     more?: string;
@@ -38,7 +43,7 @@ export interface TabItem {
   key: string;
   label: string;
   href: string;
-  pageSlug?: string;
+  pageSlug?: string | null;
   icon: "home" | "catalog" | "order" | "cart" | "more" | "contact" | "calendar";
   isCart?: boolean;
   isMore?: boolean;
@@ -47,18 +52,22 @@ export interface TabItem {
 export function buildMobileTabs(
   siteSlug: string,
   navigation: ResolvedNavigationItem[],
-  storefrontFeatures?: StorefrontFeatureState,
+  storefrontFeatures?: MobileTabBarFeatures,
   labels?: { more?: string; cart?: string }
 ): { tabs: TabItem[]; overflow: ResolvedNavigationItem[] } {
-  const visibleNav = navigation.filter((item) =>
-    !item.feature || (item.feature === "catalog" ? true : storefrontFeatures?.[item.feature])
-  );
+  const visibleNav = navigation.filter((item) => {
+    if (!item.feature || item.feature === "catalog") return true;
+    if (isCommerceFeature(item.feature)) {
+      return Boolean(storefrontFeatures?.[item.feature]);
+    }
+    return true;
+  });
 
   const homeItem = visibleNav.find((i) => i.pageSlug === "home");
   const catalogItem = visibleNav.find((i) => i.feature === "catalog" || i.pageSlug === "menu" || i.pageSlug === "shop");
   const orderLive = Boolean(storefrontFeatures?.ordering);
   const orderItem = orderLive ? visibleNav.find((i) => i.feature === "ordering" || i.pageSlug === "order") : undefined;
-  const hasCart = Boolean(storefrontFeatures?.ordering || storefrontFeatures?.store);
+  const hasCart = Boolean(storefrontFeatures?.ordering || storefrontFeatures?.store || storefrontFeatures?.onlinePayment);
 
   const mainTabs: TabItem[] = [];
 
@@ -73,7 +82,7 @@ export function buildMobileTabs(
 
   // 2. Catalog
   if (catalogItem) {
-    const isStore = storefrontFeatures?.store && !storefrontFeatures?.ordering;
+    const isStore = !storefrontFeatures?.ordering;
     mainTabs.push({
       key: "catalog",
       label: catalogItem.label || "Catalog",
@@ -109,13 +118,13 @@ export function buildMobileTabs(
   }
 
   // Remaining navigation items
-  const coveredSlugs = new Set(mainTabs.map((t) => t.pageSlug).filter(Boolean));
-  const remaining = visibleNav.filter((i) => !coveredSlugs.has(i.pageSlug));
+  const coveredSlugs = new Set(mainTabs.map((t) => t.pageSlug).filter((s): s is string => Boolean(s)));
+  const remaining = visibleNav.filter((i) => !i.pageSlug || !coveredSlugs.has(i.pageSlug));
 
   // If tabs + remaining <= 5, fill directly
   if (mainTabs.length + remaining.length <= 5) {
     for (const rem of remaining) {
-      const isContact = rem.pageSlug === "contact" || rem.feature === "contact";
+      const isContact = rem.pageSlug === "contact";
       const isReservation = rem.pageSlug === "reservations" || rem.feature === "reservations";
       mainTabs.push({
         key: rem.id || rem.pageSlug || rem.label,
@@ -132,8 +141,10 @@ export function buildMobileTabs(
   const slotsBeforeMore = 4;
   while (mainTabs.length < slotsBeforeMore && remaining.length > 0) {
     const rem = remaining.shift()!;
-    coveredSlugs.add(rem.pageSlug);
-    const isContact = rem.pageSlug === "contact" || rem.feature === "contact";
+    if (rem.pageSlug) {
+      coveredSlugs.add(rem.pageSlug);
+    }
+    const isContact = rem.pageSlug === "contact";
     const isReservation = rem.pageSlug === "reservations" || rem.feature === "reservations";
     mainTabs.push({
       key: rem.id || rem.pageSlug || rem.label,
@@ -235,6 +246,13 @@ export function MobileTabBar({
 
   return (
     <>
+      <style>{`
+        @media (max-width: 767px) {
+          :root {
+            --mobile-cart-bar-offset: calc(3.5rem + env(safe-area-inset-bottom) + 0.75rem);
+          }
+        }
+      `}</style>
       <nav
         aria-label="Mobile navigation bar"
         className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-center justify-around border-t border-[var(--tf-border)] bg-[var(--tf-base)] px-2 pb-[env(safe-area-inset-bottom)] text-[var(--tf-on-base)] md:hidden"

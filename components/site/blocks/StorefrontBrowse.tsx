@@ -495,8 +495,22 @@ export function StorefrontBrowse({
     setCart(nextCart);
     if (orderConfig?.slug) {
       saveCart(orderConfig.slug, nextCart);
+      try {
+        const count = nextCart.reduce((sum, it) => sum + it.quantity, 0);
+        const pricing = browseCartPricing(nextCart, allItems, orderConfig.currency || currency || "USD");
+        const subtotal = Math.round(pricing.subtotal * 100);
+        const summary = { count, subtotal, currency: orderConfig.currency || currency || "USD" };
+        localStorage.setItem(`aldriva_cart_summary_${orderConfig.slug}`, JSON.stringify(summary));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("aldriva:cart-summary-updated"));
+        }
+      } catch {
+        // Storage access unavailable
+      }
     }
   };
+
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     return () => {
@@ -505,6 +519,28 @@ export function StorefrontBrowse({
       }
     };
   }, []);
+
+  // Listen for ?cart=1 deep-link and aldriva:open-cart-drawer event
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("cart") === "1" && orderConfig?.enabled && totalCartCount > 0) {
+      setIsCartOpen(true);
+      searchParams.delete("cart");
+      const cleanQuery = searchParams.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`);
+    }
+
+    const handleOpenCart = () => {
+      if (orderConfig?.enabled && totalCartCount > 0) {
+        setIsCartOpen(true);
+      }
+    };
+    window.addEventListener("aldriva:open-cart-drawer", handleOpenCart);
+    return () => {
+      window.removeEventListener("aldriva:open-cart-drawer", handleOpenCart);
+    };
+  }, [mounted, orderConfig?.enabled, totalCartCount]);
 
   const openSheet = (id: string, trigger: HTMLElement | null, line?: CartItem) => {
     triggerRef.current = trigger;
@@ -557,8 +593,6 @@ export function StorefrontBrowse({
   const selected = selectedId
     ? allItems.find((item) => item.id === selectedId) ?? null
     : null;
-
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Compute cart subtotal from items
   const cartPricing = useMemo(() => browseCartPricing(cart, allItems, orderConfig?.currency || currency || "USD"), [cart, allItems, orderConfig?.currency, currency]);
@@ -686,7 +720,7 @@ export function StorefrontBrowse({
 
         {/* Floating cart bar */}
         {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none rounded-none">
               <div className="flex items-center gap-[var(--ps-space-3)]">
                 <span className="flex h-7 w-7 items-center justify-center rounded-none bg-[var(--ps-accent)] text-xs font-bold text-[var(--tf-on-accent)]">
@@ -1208,7 +1242,7 @@ export function StorefrontBrowse({
 
       {/* Floating cart bar */}
       {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
           <div className={isEditorial
             ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"
             : `flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
