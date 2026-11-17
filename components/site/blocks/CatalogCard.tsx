@@ -19,6 +19,10 @@ export interface CatalogCardItem {
   isSoldOut?: boolean;
   isFeatured?: boolean;
   canQuickAdd?: boolean;
+  /** Server-computed: true when created within 14 days. Never use Date.now() during render. */
+  isNew?: boolean;
+  /** Server-computed: products with "popular" tag, menu items with is_featured. */
+  isPopular?: boolean;
 }
 
 export interface CatalogCardProps {
@@ -32,6 +36,14 @@ export interface CatalogCardProps {
   locale?: "en" | "fr";
   /** How the menu item image fits its 4:3 container ('cover' | 'contain'). Defaults to 'cover'. */
   imageFit?: "cover" | "contain";
+  /** Card visual style. "default" matches Savannah (no border, no radius, no shadow). "showcase" uses --tf-card, border, radius, badges. */
+  appearance?: "default" | "showcase";
+  /** Labels for showcase badges and sold-out state. */
+  showcaseLabels?: {
+    soldOut?: string;
+    popular?: string;
+    new?: string;
+  };
 }
 
 export function hasCatalogCarouselOverflow(scrollWidth: number, clientWidth: number, tolerance = 1): boolean {
@@ -62,12 +74,90 @@ function InitialFallback({ name }: { name: string }) {
   );
 }
 
-export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit }: CatalogCardProps) {
+/** Resolve the single showcase badge to display, in strict priority order. */
+function resolveShowcaseBadge(
+  item: CatalogCardItem,
+  labels: CatalogCardProps["showcaseLabels"],
+): { label: string; tone: "accent" | "muted" } | null {
+  // 1. Discount badge (highest priority)
+  if (item.discountLabel) return { label: item.discountLabel, tone: "accent" };
+  // 2. Popular
+  if (item.isPopular) return { label: labels?.popular ?? "Popular", tone: "muted" };
+  // 3. New
+  if (item.isNew) return { label: labels?.new ?? "New", tone: "muted" };
+  return null;
+}
+
+export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = "USD", locale = "en", imageFit, appearance, showcaseLabels }: CatalogCardProps) {
+  const isShowcase = appearance === "showcase";
   const effectivePriceLabel = typeof item.numericPrice === "number" && Number.isFinite(item.numericPrice)
     ? formatCurrency(item.numericPrice, currency, locale)
     : item.priceLabel;
   const promotionEndLabel = formatPromotionEndDate(item.promotionEndsAt, locale);
-  const content = (
+  const badge = isShowcase ? resolveShowcaseBadge(item, showcaseLabels) : null;
+  const isSoldOut = Boolean(item.isSoldOut);
+  const content = isShowcase ? (
+    <div
+      className={`flex h-full flex-col overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] ${isSoldOut ? "opacity-60" : ""} ${className ?? ""}`}
+    >
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--tf-soft)] p-0">
+        {item.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.image}
+            alt={item.name}
+            width={640}
+            height={480}
+            className={`h-full w-full ${imageFit === "contain" ? "object-contain" : "object-cover"}`}
+            loading="lazy"
+          />
+        ) : (
+          <InitialFallback name={item.name} />
+        )}
+        {badge ? (
+          <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold leading-none ${badge.tone === "accent" ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-soft)] text-[var(--tf-on-soft)]"}`}>
+            {badge.label}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <h3 className="font-[var(--v2-heading-font)] text-[16px] font-semibold leading-snug text-[var(--tf-ink)] line-clamp-2">
+          {item.name}
+        </h3>
+        {item.description ? (
+          <p className="text-[14px] text-[var(--tf-muted)] line-clamp-2">
+            {item.description}
+          </p>
+        ) : null}
+        <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1">
+          {isSoldOut ? (
+            <span className="text-[14px] font-semibold text-[var(--tf-muted)]">
+              {showcaseLabels?.soldOut ?? "Sold out"}
+            </span>
+          ) : (
+            <>
+              {item.originalPriceLabel ? (
+                <span className="text-[13px] font-normal text-[var(--tf-muted)] line-through">
+                  {item.originalPriceLabel}
+                </span>
+              ) : null}
+              {effectivePriceLabel ? (
+                <span className={`text-[16px] font-bold ${item.originalPriceLabel ? "text-[var(--tf-accent)]" : "text-[var(--tf-ink)]"}`}>
+                  {effectivePriceLabel}
+                </span>
+              ) : null}
+            </>
+          )}
+        </div>
+        {!isSoldOut && (item.freeDeliveryLabel || promotionEndLabel) ? (
+          <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
+            {item.freeDeliveryLabel ? <span className="rounded-full bg-[var(--tf-accent)] px-2 py-0.5 font-semibold text-[var(--tf-on-accent)]">{item.freeDeliveryLabel}</span> : null}
+            {promotionEndLabel ? <span className="text-[var(--tf-muted)]">{promotionEndLabel}</span> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : (
     <div
       className={`flex h-full flex-col overflow-hidden rounded-none shadow-none border-0 bg-[var(--tf-soft)] text-[var(--tf-on-soft)] ${className ?? ""}`}
     >
@@ -123,14 +213,15 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
       <div className="relative h-full">
         <button
           type="button"
-          className="group flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+          className={`group flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 ${isShowcase ? "focus-visible:outline-[var(--tf-accent)]" : "focus-visible:outline-[var(--ps-accent-hover)]"}`}
           onClick={(event) => onSelect(item.id, event.currentTarget)}
           aria-label={item.name}
+          disabled={isShowcase && isSoldOut}
         >
           {content}
         </button>
-        {item.canQuickAdd && onQuickAdd ? (
-          <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
+        {(isShowcase ? !isSoldOut && item.canQuickAdd : item.canQuickAdd) && onQuickAdd ? (
+          <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className={isShowcase ? "absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-[var(--tf-ink)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]" : "absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"}>+</button>
         ) : null}
       </div>
     );
@@ -152,9 +243,13 @@ export interface CatalogCarouselProps {
   /** When set, cards render as buttons that call this handler on click. */
   onSelect?: (id: string, trigger?: HTMLButtonElement) => void;
   onQuickAdd?: (id: string, trigger: HTMLButtonElement) => void;
+  /** Card visual style passed through to CatalogCard. */
+  appearance?: "default" | "showcase";
+  /** Badge labels passed through to CatalogCard. */
+  showcaseLabels?: CatalogCardProps["showcaseLabels"];
 }
 
-export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd }: CatalogCarouselProps) {
+export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD", locale = "en", imageFit = "cover", onSelect, onQuickAdd, appearance, showcaseLabels }: CatalogCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ canPrev: false, canNext: false });
   const [overflowing, setOverflowing] = useState(false);
@@ -231,7 +326,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
       >
         {items.map((item) => (
           <div key={item.id} className={overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72"}>
-            <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} />
+            <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} appearance={appearance} showcaseLabels={showcaseLabels} />
           </div>
         ))}
       </div>

@@ -625,6 +625,8 @@ export function StorefrontBrowse({
                 promotionEndsAt: item.promotionEndsAt,
                 freeDeliveryLabel: item.freeDeliveryLabel,
                 isSoldOut: item.isSoldOut,
+                isNew: item.isNew,
+                isPopular: item.isPopular,
                 canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
               }))}
               prevLabel={carousel?.prevLabel ?? labels.all}

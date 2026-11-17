@@ -1614,6 +1614,8 @@ async function ProductsEmbedBlockRenderer({
         numericPrice: price ? price.amount : undefined,
         createdAt: "created_at" in product ? (product.created_at ?? null) : null,
         isSoldOut: stockState === "sold_out",
+        isNew: "is_new" in product ? Boolean(product.is_new) : false,
+        isPopular: "is_popular" in product ? Boolean(product.is_popular) : false,
         tags: product.tags,
         badge:
           stockState === "sold_out"
@@ -2319,6 +2321,7 @@ async function MenuEmbedBlockRenderer({
 }) {
   const tableFlameRows = siteTemplateId === "restaurant-table-flame" && block.variant === "rows";
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
+  const isShowcase = siteTemplateId === "showcase";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
   const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
@@ -2528,10 +2531,18 @@ async function MenuEmbedBlockRenderer({
                         freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? t("freeDelivery") : null,
                         isSoldOut: Boolean(it.is_sold_out),
                         isFeatured: Boolean(it.is_featured),
+                        isNew: Boolean(it.is_new),
+                        isPopular: Boolean(it.is_popular ?? it.is_featured),
                       };
                     })}
                     prevLabel={t("carouselPrev")}
                     nextLabel={t("carouselNext")}
+                    appearance={isShowcase ? "showcase" : "default"}
+                    showcaseLabels={{
+                      soldOut: locale === "fr" ? "Épuisé" : "Sold out",
+                      popular: locale === "fr" ? "Populaire" : "Popular",
+                      new: locale === "fr" ? "Nouveau" : "New",
+                    }}
                   />
                 ) : (
                   sec.items.map((it) => {

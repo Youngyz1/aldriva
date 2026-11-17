@@ -609,7 +609,7 @@ function buildHero(ctx: BuildContext): Block {
   const eyebrow = isTableFlame
     ? [asString(ctx.business.businessType), area].filter(Boolean).join(" · ") || tagline
     : tagline;
-  const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone) : null;
+  const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone, ctx.now) : null;
   const phone = asString(effectiveValue(ctx, "phone"));
   const metaPills = isTableFlame
     ? [
@@ -1666,7 +1666,7 @@ export function resolveTemplateManifest(
     omittedPages,
     storefrontFeatures,
     primaryAction,
-    todayHours: resolveTodayHours(effectiveValue(ctx, "hours"), options.timeZone),
+    todayHours: resolveTodayHours(effectiveValue(ctx, "hours"), options.timeZone, options.now),
   };
 }
 

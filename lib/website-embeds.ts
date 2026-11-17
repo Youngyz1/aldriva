@@ -64,6 +64,10 @@ export interface ResolvedProductItem {
   stripe_price_id: string | null;
   /** ISO timestamp for newest-first sorting; null when unknown. */
   created_at?: string | null;
+  /** Server-computed: true when created within 14 days. Never use Date.now() during render. */
+  is_new?: boolean;
+  /** Server-computed: true when item has "popular" tag or is featured. */
+  is_popular?: boolean;
 }
 
 export interface ResolvedFundraiserItem {
@@ -113,6 +117,10 @@ export interface ResolvedMenuItem {
   is_active: boolean;
   is_featured: boolean;
   isDraft: boolean;
+  /** Server-computed: true when created within 14 days. */
+  is_new?: boolean;
+  /** Server-computed: true when item has "popular" tag or is featured. */
+  is_popular?: boolean;
 }
 
 export interface ResolvedMenuSection {
@@ -256,30 +264,41 @@ export async function resolveProductsEmbed(
     return [];
   }
 
-  return data.map((item) => ({
-    id: item.id,
-    name: item.name,
-    slug: item.slug,
-    description: item.description,
-    images: Array.isArray(item.images) ? item.images : [],
-    price_type: item.price_type,
-    stock_quantity:
-      item.stock_quantity != null ? Number(item.stock_quantity) : null,
-    status: item.status,
-    isDraft: item.status !== "active",
-    category:
-      typeof item.category === "string" && item.category.trim() !== ""
-        ? item.category.trim()
-        : null,
-    tags: Array.isArray(item.tags)
+  const nowMs = Date.now();
+  const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+
+  return data.map((item) => {
+    const tags = Array.isArray(item.tags)
       ? item.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim() !== "")
-      : [],
-    stripe_price_id:
-      typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
-        ? item.stripe_price_id.trim()
-        : null,
-    created_at: typeof item.created_at === "string" ? item.created_at : null,
-  }));
+      : [];
+    const isNew = typeof item.created_at === "string" ? nowMs - new Date(item.created_at).getTime() <= fourteenDaysMs : false;
+    const isPopular = tags.some((tag) => tag.toLowerCase() === "popular");
+
+    return {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description,
+      images: Array.isArray(item.images) ? item.images : [],
+      price_type: item.price_type,
+      stock_quantity:
+        item.stock_quantity != null ? Number(item.stock_quantity) : null,
+      status: item.status,
+      isDraft: item.status !== "active",
+      category:
+        typeof item.category === "string" && item.category.trim() !== ""
+          ? item.category.trim()
+          : null,
+      tags,
+      stripe_price_id:
+        typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
+          ? item.stripe_price_id.trim()
+          : null,
+      created_at: typeof item.created_at === "string" ? item.created_at : null,
+      is_new: isNew,
+      is_popular: isPopular,
+    };
+  });
 }
 
 /**
@@ -408,6 +427,8 @@ export async function resolveMenuEmbed(
     ? await loadMenuPromotions(supabase, tenantId, { includeCodes: false, status: "active", context: "resolveMenuEmbed" })
     : { promotions: [], error: null, missingSchema: false };
   const promotionNow = new Date();
+  const nowMs = promotionNow.getTime();
+  const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
   const publicPromotions = promotionLoad.promotions.filter((promotion) => isPromotionActive(promotion, promotionNow));
   let assignments: any[] = [];
   if (normalizedSchemaAvailable && returnedItemIds.length > 0) {
@@ -493,6 +514,7 @@ export async function resolveMenuEmbed(
       currency,
       variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined,
     });
+    const isNew = typeof it.created_at === "string" ? nowMs - new Date(it.created_at).getTime() <= fourteenDaysMs : false;
     const mapped: ResolvedMenuItem = {
       id: it.id,
       section_id: it.section_id,
@@ -515,6 +537,8 @@ export async function resolveMenuEmbed(
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
       isDraft: !it.is_active,
+      is_new: isNew,
+      is_popular: Boolean(it.is_featured),
     };
     // For public, filter items where parent section is inactive already handled by sectionQuery, but double-check
     sectionItems.push(mapped);
