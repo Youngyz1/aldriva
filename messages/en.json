@@ -875,7 +875,12 @@
     "contactCall": "Call {phone}",
     "mobileTabMore": "More",
     "mobileTabCart": "Cart",
-    "mobileTabClose": "Close"
+    "mobileTabClose": "Close",
+    "trustFeatureDelivery": "Delivery",
+    "trustFeaturePickup": "Pickup",
+    "trustFeatureReservations": "Reservations",
+    "trustFeatureOnlinePayment": "Online payment",
+    "trustFeatureOrderOnline": "Order online"
   },
   "Storefront": {
     "categories": "Categories",

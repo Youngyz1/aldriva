@@ -100,6 +100,8 @@ import {
   IconCreditCard,
   IconAward,
   IconHeadset,
+  IconShoppingBag,
+  IconToolsKitchen2,
 } from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
@@ -572,6 +574,17 @@ const TRUST_STRIP_ICONS: Record<string, React.ComponentType<{ className?: string
   support: IconHeadset,
   contact: IconHeadset,
   iconheadset: IconHeadset,
+  bag: IconShoppingBag,
+  pickup: IconShoppingBag,
+  shoppingbag: IconShoppingBag,
+  iconshoppingbag: IconShoppingBag,
+  calendar: Calendar,
+  reservations: Calendar,
+  booking: Calendar,
+  iconcalendar: Calendar,
+  kitchen: IconToolsKitchen2,
+  ordering: IconToolsKitchen2,
+  icontoolskitchen2: IconToolsKitchen2,
 };
 
 function resolveTrustIcon(name?: string, index = 0): React.ComponentType<{ className?: string }> {
@@ -579,7 +592,7 @@ function resolveTrustIcon(name?: string, index = 0): React.ComponentType<{ class
     const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (TRUST_STRIP_ICONS[key]) return TRUST_STRIP_ICONS[key];
   }
-  const fallbacks = [IconShieldCheck, IconTruck, IconRefresh, IconHeadset];
+  const fallbacks = [Check, IconSparkles];
   return fallbacks[index % fallbacks.length];
 }
 
@@ -607,41 +620,38 @@ function FeaturesBlockRenderer({
 
   if (block.variant === "trust_strip") {
     if (items.length === 0) return null;
-    const displayItems = items.slice(0, 3);
-    const gridCols =
-      displayItems.length === 1
-        ? "grid-cols-1 max-w-md mx-auto"
-        : displayItems.length === 2
-          ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
-          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto";
 
     return (
-      <section className="w-full">
+      <section className="w-full overflow-hidden">
         {block.heading ? (
           <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
         ) : null}
-        <div className={`grid gap-4 sm:gap-6 ${gridCols}`}>
-          {displayItems.map((item, i) => {
+        <div
+          className="flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]"
+          role="list"
+        >
+          {items.map((item, i) => {
             const IconComponent = resolveTrustIcon(item.icon, i);
             return (
               <div
                 key={i}
-                className="flex items-center gap-4 rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-4 sm:p-5 shadow-none text-[var(--tf-ink)]"
+                role="listitem"
+                className="flex-shrink-0 snap-start flex items-center gap-[var(--ps-space-2.5)] rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-[var(--ps-space-2.5)] text-[var(--tf-ink)]"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tf-soft)] text-[var(--tf-accent)]">
-                  <IconComponent className="h-6 w-6" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--tf-soft)] text-[var(--tf-accent)]">
+                  <IconComponent className="h-[18px] w-[18px]" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3
+                <div className="min-w-0">
+                  <p
                     {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")}
-                    className="font-[var(--v2-heading-font)] text-[15px] font-semibold text-[var(--tf-ink)] truncate"
+                    className="text-[13px] font-semibold text-[var(--tf-ink)] whitespace-nowrap"
                   >
                     {item.title}
-                  </h3>
+                  </p>
                   {item.description ? (
                     <p
                       {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")}
-                      className="mt-0.5 text-[13px] text-[var(--tf-muted)] line-clamp-1"
+                      className="text-[12px] text-[var(--tf-muted)] whitespace-nowrap"
                     >
                       {item.description}
                     </p>

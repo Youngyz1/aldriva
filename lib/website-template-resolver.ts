@@ -691,6 +691,35 @@ function buildFeatures(
   } as Block;
 }
 
+function buildShowcaseTrustStrip(ctx: BuildContext): Block | null {
+  // 1. Owner trust items
+  const trustItems = buildFeatureItems(take(ctx, "trust", "trust.items")).slice(0, 4);
+  // 2. Fallback: highlights (Savannah carry-over), only if no trust items
+  const baseItems: Array<{ title: string; description?: string; icon?: string }> =
+    trustItems.length > 0
+      ? trustItems
+      : buildFeatureItems(take(ctx, "highlights", "highlights.items")).slice(0, 4);
+  // 3. Auto-chips for live storefrontFeatures
+  const autoChips: Array<{ title: string; icon: string }> = [];
+  const sf = ctx.storefrontFeatures;
+  if (sf.ordering) autoChips.push({ title: "Order online", icon: "icontoolskitchen2" });
+  if (sf.delivery) autoChips.push({ title: "Delivery", icon: "icontruck" });
+  if (sf.pickup) autoChips.push({ title: "Pickup", icon: "iconshoppingbag" });
+  if (sf.reservations) autoChips.push({ title: "Reservations", icon: "iconcalendar" });
+  if (sf.onlinePayment) autoChips.push({ title: "Online payment", icon: "iconcreditcard" });
+  // Merge: owner items first, then auto-chips not already in owner titles
+  const ownerTitles = new Set(baseItems.map((it) => it.title.toLowerCase()));
+  const chips = autoChips.filter((c) => !ownerTitles.has(c.title.toLowerCase()));
+  const allItems = [...baseItems, ...chips].slice(0, 8);
+  if (allItems.length === 0) return null;
+  return {
+    type: "features",
+    columns: 3,
+    variant: "trust_strip",
+    items: allItems,
+  } as Block;
+}
+
 function buildBusinessOfferings(ctx: BuildContext): Block | null {
   const selectedFacts = getSelectedFactOfferings(
     ctx.business.offerings,
@@ -1024,7 +1053,10 @@ function buildSectionBlock(
           items: [{ title: ctx.storeCopy?.trustItemHeading ?? "A note from this business", description: text }],
         } as Block;
       }
-      if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
+      if (section.id === "trust") {
+        if (ctx.template.id === "showcase") return buildShowcaseTrustStrip(ctx);
+        return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
+      }
       if (section.id === "how-it-works") {
         const heading = ctx.template.id === "food-order"
           ? ctx.foodOrderCopy?.stepsHeading ?? "Order steps"
