@@ -590,6 +590,7 @@ export function calculatePromotionCartPricing(
   promotions: readonly MenuPromotion[],
   context: MenuPricingContext = {}
 ): PromotionCartPricingResult {
+  const discountPromotions = promotions.filter((p) => p.offer_type !== "highlight");
   const preDiscountSubtotal = roundToCurrencyMinorUnit(lines.reduce((sum, line) => sum + computeLineTotal({
     item: { ...line.item, promo_price: null },
     selection: line.selection,
@@ -601,20 +602,20 @@ export function calculatePromotionCartPricing(
   }).lineTotal, 0), context.currency);
   const normalizedContext = { ...context, subtotal: preDiscountSubtotal };
   const codePromotion = context.code
-    ? findEligibleCodePromotion(context.code, promotions, {
+    ? findEligibleCodePromotion(context.code, discountPromotions, {
         organizerId: context.organizerId,
         subtotal: preDiscountSubtotal,
         now: context.now,
       })
     : null;
   const validCode = !context.code || Boolean(codePromotion && lines.some((line) =>
-    eligiblePromotionsForItem(line.item, promotions, { ...normalizedContext, code: context.code })
+    eligiblePromotionsForItem(line.item, discountPromotions, { ...normalizedContext, code: context.code })
       .some((promotion) => promotion.id === codePromotion.id)
   ));
   if (!validCode) return { validCode: false, codePromotion: null, preDiscountSubtotal, subtotal: 0, lines: [] };
   const calculatedLines = lines.map((line) => computeLineTotal({
     ...line,
-    promotions,
+    promotions: discountPromotions,
     code: context.code,
     now: context.now,
     subtotal: preDiscountSubtotal,

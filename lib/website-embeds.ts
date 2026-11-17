@@ -579,8 +579,14 @@ export async function resolvePromotionsEmbed(
   });
   if (result.error) return [];
   const now = new Date();
-  const activePromotions = result.promotions
-    .filter((promotion) => isPromotionActive(promotion, now) && (promotion.targets?.length ?? 0) > 0);
+  const isCarousel = block.variant === "carousel";
+  const activePromotions = result.promotions.filter((promotion) => {
+    if (!isPromotionActive(promotion, now)) return false;
+    if (promotion.offer_type === "highlight") {
+      return isCarousel;
+    }
+    return (promotion.targets?.length ?? 0) > 0;
+  });
 
   if (block.variant === "carousel") {
     const sorted = [...activePromotions].sort((a, b) => {

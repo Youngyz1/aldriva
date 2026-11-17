@@ -2473,7 +2473,9 @@ async function PromotionsEmbedBlockRenderer({
         ? "Special price"
         : promotion.offer_type === "free_delivery"
           ? "Free delivery"
-          : "Promotion";
+          : promotion.offer_type === "highlight"
+            ? "Featured"
+            : "Promotion";
   const cta = (promotion: (typeof promotions)[number], className: string) => {
     const href = safeHrefFor(promotion);
     if (!href || !promotion.cta_label?.trim()) return null;

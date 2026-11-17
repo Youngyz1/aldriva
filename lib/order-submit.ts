@@ -347,7 +347,7 @@ export async function submitOrderRequestWithClient(
     if (promotionLoad.error) {
       return { success: false, error: "db_error", message: "Failed to validate menu promotions." };
     }
-    const promotions = promotionLoad.promotions;
+    const promotions = promotionLoad.promotions.filter((p) => p.offer_type !== "highlight");
     const pricingNow = new Date();
 
     let assignments: NormalizedOptionAssignmentRow[] = [];

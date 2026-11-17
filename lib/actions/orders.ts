@@ -237,9 +237,10 @@ export async function validatePromoCode(
 
     const promotionLoad = await loadMenuPromotions(admin, organizerId, { includeCodes: true, status: "active", context: "validatePromoCode" });
     if (promotionLoad.error) return invalidCode();
+    const promotions = promotionLoad.promotions.filter((p) => p.offer_type !== "highlight");
     const now = new Date();
     const currency = resolveStorefrontCurrency(website.metadata, business?.country ?? null);
-    const pricing = calculatePromotionCartPricing(pricingLines, promotionLoad.promotions, { code: rawCode ? rawCode.toUpperCase() : null, now, currency, organizerId });
+    const pricing = calculatePromotionCartPricing(pricingLines, promotions, { code: rawCode ? rawCode.toUpperCase() : null, now, currency, organizerId });
     if (!pricing.validCode) return invalidCode();
     return {
       success: true,
