@@ -155,9 +155,10 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
 
   const content = isShowcase ? (
     <div
-      className={`flex h-full flex-col overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] ${isSoldOut ? "opacity-60" : ""} ${className ?? ""}`}
+      data-catalog-card="true"
+      className={`flex h-full flex-col overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] shadow-none ${isSoldOut ? "opacity-60" : ""} ${className ?? ""}`}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--tf-soft)] p-0">
+      <div className="relative m-2 overflow-hidden rounded-xl bg-[var(--tf-soft)]" style={{ aspectRatio: "4/3" }}>
         {item.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -172,17 +173,17 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           <InitialFallback name={item.name} />
         )}
         {badge ? (
-          <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold leading-none ${badge.tone === "accent" ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-soft)] text-[var(--tf-on-soft)]"}`}>
+          <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold leading-none ${badge.tone === "accent" ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-card)] text-[var(--tf-muted)]"}`}>
             {badge.label}
           </span>
         ) : null}
         {!onSelect ? heartButton : null}
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="font-[var(--v2-heading-font)] text-[16px] font-medium leading-snug text-[var(--tf-ink)] line-clamp-2">
+      <div className="flex flex-1 flex-col gap-1 px-3 pb-3 pt-1">
+        <h3 className="catalog-card-title font-[var(--v2-heading-font)] font-medium leading-[1.3] text-[var(--tf-ink)] line-clamp-2">
           {item.name}
         </h3>
-        <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1">
+        <div className="mt-auto flex flex-wrap items-baseline gap-2">
           {isSoldOut ? (
             <span className="text-[14px] font-semibold text-[var(--tf-muted)]">
               {showcaseLabels?.soldOut ?? (locale === "fr" ? "Épuisé" : "Sold out")}
@@ -190,12 +191,12 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           ) : (
             <>
               {effectivePriceLabel ? (
-                <span className="text-[18px] font-extrabold text-[var(--tf-ink)]">
+                <span className="catalog-card-price text-[var(--tf-ink)] [font-variant-numeric:lining-nums_tabular-nums]">
                   {effectivePriceLabel}
                 </span>
               ) : null}
               {item.originalPriceLabel ? (
-                <span className="text-[13px] font-normal text-[var(--tf-muted)] line-through">
+                <span className="text-[12px] font-normal text-[var(--tf-muted)] line-through">
                   {item.originalPriceLabel}
                 </span>
               ) : null}

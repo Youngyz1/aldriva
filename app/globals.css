@@ -428,6 +428,59 @@
     transform: none;
   }
 }
+/* ── Showcase template scoped overrides ───────────────────────────────── */
+.public-site[data-site-template="showcase"] {
+  --site-card-radius: 16px;
+  --ps-card-radius: 16px;
+  --site-card-shadow: none;
+  --ps-card-shadow: none;
+  --ps-font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ps-font-heading: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+/* Neutralise the global h3 rule that overrides card title size */
+.public-site[data-site-template="showcase"] h3 {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+/* Card title: 14px mobile, 15px desktop, weight 500 */
+.public-site[data-site-template="showcase"] [data-catalog-card] h3,
+.public-site[data-site-template="showcase"] .catalog-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] [data-catalog-card] h3,
+  .public-site[data-site-template="showcase"] .catalog-card-title {
+    font-size: 15px;
+  }
+}
+/* Card price: 16px mobile, 18px desktop, weight 700 (spec section 3) */
+.public-site[data-site-template="showcase"] [data-catalog-card] .catalog-card-price {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] [data-catalog-card] .catalog-card-price {
+    font-size: 18px;
+  }
+}
+/* Section gap: 24px mobile, 40px desktop (spec section 5) */
+.public-site[data-site-template="showcase"] main > section,
+.public-site[data-site-template="showcase"] main > div[class*="py-"] {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] main > section,
+  .public-site[data-site-template="showcase"] main > div[class*="py-"] {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+}
+
 .public-site .ps-card {
   border: var(--ps-card-border);
   border-radius: var(--ps-card-radius);
