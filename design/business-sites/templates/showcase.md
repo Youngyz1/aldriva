@@ -31,7 +31,6 @@ These are old global rules leaking into Showcase. Fix them before anything else.
 | 2 | Sans stack resolves to empty | `--ps-font-*` references `var(--font-arimo)`, which is only attached for Savannah, so the variable is invalid | Showcase font stack must not depend on `--font-arimo`. Use a stack that works on its own (section 3). |
 | 3 | Card titles render 24px | `.public-site h3 { font-size: var(--ps-h3) }` beats `text-[16px]` | Scope or neutralise this rule under `[data-site-template="showcase"]`, or give the card title a selector that wins. |
 | 4 | Card radius is 8px | `.public-site .rounded-xl.border { border-radius: var(--site-card-radius, 8px) }` | Define `--site-card-radius: 16px` for Showcase, or scope the rule out. |
-
 | 5 | Section headings oversized ("Popular items", "About", "Visit us" render about 32-40px) | Same family of global `.public-site h2` rules | Scope out for Showcase. Headings follow the section 3 scale. |
 | 6 | Catalog title touches the header | No top padding on the page | 16px padding above the page title. |
 | 7 | Item detail sheet looks broken | See section 10c | Rebuild to section 10c. |
@@ -119,13 +118,15 @@ Radii:
 
 Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). Chips may be 36px high with a 44px tap area.
 
+**One container everywhere.** Header, Home sections, Menu page and footer share the same content container (max 1152px, padding 16px mobile / 24px desktop). Page title, chips, search, promo, services strip and cards all share the same left edge at both viewports.
+
 **Do not** use `py-10 sm:py-16` style section padding on the Home page. Use the gap values above. The Home top area (search, chips, promo, popular) is one continuous block with the gaps in this table.
 
 ---
 
 ## 6. Home page, top to bottom
 
-1. **Header:** logo and business name on the left, cart icon (with count badge) on the right. Height 56px.
+1. **Header:** logo and business name on the left. On desktop, a cart icon with a count badge on the right (it opens the cart drawer, section 10d). On mobile there is no header cart icon: the Cart tab is the only cart entry point. Height 56px.
 2. **Search field:** full width, pill, 44px high, search icon inside, filter button on the right (opens a sheet with categories and sort). Submits to the catalog page with `?q=`.
 3. **Promo carousel (the hero):** see section 7. Directly after search. No category chips between them.
 4. **Services strip:** directly below the promo card (section 10).
@@ -140,34 +141,38 @@ There is no separate hero image. If the owner has no promotions, step 3 is skipp
 
 ## 7. Promo carousel (hero)
 
-The owner can add one or many promotions. Each promotion is one slide. This is where the owner promotes a dish, an offer or any product.
+The owner can add one or many promotions. Each promotion is one slide, with its own headline, subtext, button and image. This is where the owner promotes a dish, an offer or any product. With no promotions the whole block is absent (no gap).
 
-**Slide card**
-- Background: soft gradient `var(--tf-soft)` to `var(--tf-base)`, left to right.
-- Radius 20px, 1px `--tf-border`.
-- Height: 200px mobile, 300px desktop.
-- Slide width: 88% on mobile (the next slide peeks), full container width on desktop.
+**Slide card (default style: full-bleed photo)**
+- The photo fills the whole card, `object-fit: cover`, `object-position: 70% 50%` so a subject on the right stays visible.
+- Radius 20px, 1px `--tf-border`, overflow hidden.
+- Height: 200px mobile, 300px desktop. Slide width: 88% on mobile (the next slide peeks), full container width on desktop.
+- **Scrim over the photo** so text is always readable: a left-to-right gradient from `--tf-ink` at 70% opacity at the left edge, fading to transparent at about 75% of the width. Opacity must be at least 60% everywhere text sits.
+- Text sits on the left over the scrim, about 60% of the card width, vertically centred. Padding 16px mobile, 32px desktop.
 
-**Left side (text, about 55% width)**
-- Headline in `--tf-ink`, max 3 lines on mobile. Step the size down for long text instead of clamping.
-- One line of subtext.
-- Optional offer chip outlined in accent.
-- CTA button: pill, accent fill, `--tf-on-accent` text, 44px high, horizontal padding 20px, arrow icon.
+**Text (all over the scrim)**
+- Text colour: the readable-on-ink colour from the existing colour engine (`readableOn`), never raw white.
+- Headline 22px/700 mobile, 36px/700 desktop, max 3 lines. Step the size down for long text instead of clamping.
+- One line of subtext, 14px mobile / 16px desktop.
+- Optional offer chip: 1px outline and text in the readable-on-ink colour, pill, 12px/600.
+- CTA button: pill, `--tf-accent` fill, `--tf-on-accent` text, 44px high, 20px horizontal padding, arrow icon.
 
-**Right side (image, about 45% width)**
-- Bottom-aligned, no frame, no border, no card behind it.
-- `object-fit: contain` by default (`promoImageStyle` can switch to `cover`).
-- Edges softened with a CSS mask (fade of about 12%) so rectangular photos blend into the gradient.
-- No image: render a text-only slide on the same gradient, text spans the full width.
+**Alternate style: cutout (`promoImageStyle: contain`)**
+- For product cutouts. Card background is the soft gradient `var(--tf-soft)` to `var(--tf-base)`, text in `--tf-ink`, and the image sits on the right half, bottom-aligned, `object-fit: contain`, edges faded with a CSS mask. No scrim.
+- Select values: `cover` (default, full-bleed) or `contain` (cutout).
+
+**No image:** a text slide on the soft gradient with `--tf-ink` text, text spanning the full width.
 
 **Controls**
-- Dots centred at the bottom of the card. Active dot uses accent. Pause button stays.
+- Dots centred at the bottom of the card, on top of the photo, with a small translucent backing so they are visible on any image. Active dot uses accent. Pause button stays.
 - Auto-advance 5s, paused on hover or touch.
 
-**Content guidance for owners (show as helper text in the editor)**
-- Best results: a product on a plain or transparent background (PNG cutout).
-- Ordinary photos work. They will be faded at the edges. Switch to "cover" for full-bleed photos.
+**Contrast test:** for all 7 palettes, text colour against the worst-case scrim (the ink scrim at its lowest opacity over a pure white photo) must be at least 4.5:1. At 60% opacity over white the scrim is about #707070, which gives white-ish text about 4.9:1.
+
+**Content guidance for owners (helper text in the editor)**
+- Any good photo works. Put the subject on the right side so the text on the left stays clear.
 - Keep the headline short (under 40 characters) and the subtext to one line.
+- Product cutout on a plain background? Choose the "Cutout" image style.
 
 ---
 
@@ -208,7 +213,7 @@ Used identically on the Home strip and the catalog page.
 
 Top to bottom:
 
-1. Back arrow, search field (pill, with "Search in <section>" placeholder), cart icon.
+1. Back arrow and search field (pill, with "Search in <section>" placeholder). On desktop only, a cart icon with a count.
 2. Page title (24px/700). One-line subtitle (14px, `--tf-muted`) only if the section has a description.
 3. Chip row: category chips first, then a **Sort** chip with a small chevron. No Filter, Colour or Material chips.
 4. Product grid (section 8).
@@ -307,7 +312,7 @@ A template must never look empty when a customer opens it in the gallery. Showca
 - Sample content is template manifest data. It is not written to the database rows of real businesses.
 
 **What to include**
-- 3 promo slides (headline, one line of subtext, button, image), so the carousel, dots and swiping are visible.
+- 3 promo slides (headline, one line of subtext, button, image), so the carousel, dots and swiping are visible. Use ordinary dish photos with the subject on the right, not cutouts.
 - 8 menu items across 3 categories (for example rice dishes, soups and grills, drinks and desserts), each with a photo, a price, and one with a struck-through original price and a Discount badge.
 - 1 About image and sample About text.
 - Sample hours, address, phone and email for Visit us, clearly generic. No real business names or numbers.
@@ -353,8 +358,11 @@ Computed values, not source:
 - [ ] Photo aspect ratio is 4:3.
 - [ ] Catalog grid: 2 columns at 390px, 4 columns at 1280px. Columns fill the container width.
 - [ ] Home strip: cards are 160px wide on mobile with the next card peeking.
+- [ ] One container: the left edge of the page title, search, promo, services strip and cards is identical on Home and Menu at 390px and 1280px.
 - [ ] Gap between Home sections is 24px (mobile) and 40px (desktop). No overlaps.
-- [ ] Promo slide: height 200px (mobile), image bottom-aligned, edges faded, dots centred.
+- [ ] Promo slide (default style): the photo fills the whole card at 390px and 1280px, no hard-edged rectangle, no small corner thumbnail. Scrim present, text readable, headline 22px/700 mobile.
+- [ ] Promo contrast test passes for all 7 palettes against the worst-case scrim.
+- [ ] Switching a slide to Cutout shows the gradient card with the faded image on the right.
 - [ ] Home order is: header, search, promo, services, Popular, About, Visit us, footer.
 - [ ] No prev/next arrows on the Popular strip.
 - [ ] With no promotions, the promo block is absent and there is no empty gap between search and the next section.
@@ -371,4 +379,4 @@ Computed values, not source:
 - [ ] Item sheet: title 20px, image radius 12px, sticky footer, nothing clipped at 390px.
 - [ ] Every text and background pair passes 4.5:1 in all 7 palettes.
 - [ ] The other five templates are unchanged (snapshot comparison).
-- [ ] Screenshots saved and compared side by side with the mockup
+- [ ] Screenshots saved and compared side by side with the mockup.
