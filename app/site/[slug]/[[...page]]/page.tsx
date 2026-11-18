@@ -656,6 +656,7 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
             availablePageSlugs={v2Content.availablePageSlugs}
             overHero={startsWithScrimHero}
             hideHamburger={mobileTabBarActive}
+            orderConfig={orderConfig}
           />
         );
       })() : (

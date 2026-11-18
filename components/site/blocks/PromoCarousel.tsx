@@ -22,6 +22,7 @@ export interface PromoCarouselProps {
   promotions: ResolvedMenuPromotion[];
   fallback?: PromotionFallback;
   autoplaySetting?: string;
+  /** "cover" (default): full-bleed photo with text scrim. "contain": cutout on a soft gradient card. */
   imageStyle?: "contain" | "cover";
   labels: PromoCarouselLabels;
 }
@@ -60,7 +61,7 @@ export function PromoCarousel({
   promotions,
   fallback,
   autoplaySetting,
-  imageStyle = "contain",
+  imageStyle = "cover",
   labels,
 }: PromoCarouselProps) {
   const slides: CarouselSlideData[] =
@@ -118,25 +119,23 @@ export function PromoCarousel({
     goToSlide(currentIndex - 1);
   }, [currentIndex, goToSlide]);
 
-  // Autoplay effect
+  // Autoplay: advance every 5s, paused on hover or touch.
   useEffect(() => {
     if (!isMultiSlide || autoplaySetting === "off" || isPaused || isHovered || isTouched) {
       return;
     }
 
-    // Check prefers-reduced-motion
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
 
     const timer = setInterval(() => {
       handleNext();
-    }, 6000);
+    }, 5000);
 
     return () => clearInterval(timer);
   }, [isMultiSlide, autoplaySetting, isPaused, isHovered, isTouched, handleNext]);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isMultiSlide) return;
     if (e.key === "ArrowLeft") {
@@ -161,13 +160,16 @@ export function PromoCarousel({
     return labels.defaultOffer;
   };
 
+  // Worst case for slide text is the ink scrim at its lowest opacity over a
+  // pure white photo; text must stay readable against it in every palette.
+  const scrimBackground =
+    "linear-gradient(to right, color-mix(in srgb, var(--tf-ink) 70%, transparent) 0%, color-mix(in srgb, var(--tf-ink) 60%, transparent) 60%, transparent 75%)";
+  const cutoutMask = "linear-gradient(to right, transparent, black)";
+
   if (slides.length === 0) return null;
 
   return (
-    <section
-      aria-label={labels.promotionsLabel || "Promotions"}
-      className="mx-auto w-full max-w-7xl px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] py-[var(--ps-space-4)]"
-    >
+    <section aria-label={labels.promotionsLabel || "Promotions"} className="w-full">
       <div
         ref={containerRef}
         role="region"
@@ -182,8 +184,9 @@ export function PromoCarousel({
       >
         {slides.map((slide, idx) => {
           const isLongHeadline = slide.headline.length > 60;
-          const isLongDesc = slide.description.length > 180;
           const hasImage = Boolean(slide.imageUrl);
+          const isCover = imageStyle !== "contain";
+          const slideTextClass = isCover && hasImage ? "text-[var(--tf-on-ink)]" : "text-[var(--tf-ink)]";
 
           return (
             <div
@@ -193,114 +196,112 @@ export function PromoCarousel({
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
               className={`${
                 isMultiSlide ? "w-[88%] md:w-full flex-shrink-0 snap-center md:snap-start" : "w-full"
-              } relative overflow-hidden rounded-xl border border-[var(--tf-border)] bg-gradient-to-r from-[var(--tf-soft)] to-[var(--tf-base)] min-h-[190px] h-[210px] md:h-auto md:min-h-[280px]`}
+              } relative overflow-hidden border border-[var(--tf-border)] rounded-[20px] h-[200px] md:h-[300px] ${
+                isCover && hasImage ? "bg-[var(--tf-soft)]" : "bg-gradient-to-r from-[var(--tf-soft)] to-[var(--tf-base)]"
+              }`}
             >
-              <div className="flex h-full w-full">
-                {/* Left text column: --tf-ink text */}
+              {hasImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={slide.imageUrl}
+                  alt={slide.headline}
+                  className={`absolute inset-0 h-full w-full ${isCover ? "object-cover object-position-[70%_50%]" : "object-contain object-position-bottom"}`}
+                  loading="lazy"
+                />
+              ) : null}
+
+              {isCover && hasImage ? (
+                <div className="absolute inset-0 z-10" style={{ backgroundImage: scrimBackground }} />
+              ) : null}
+
+              <div className="relative z-20 flex h-full w-full items-center">
                 <div
-                  className={`flex flex-col justify-center z-10 p-[var(--ps-space-4)] sm:p-[var(--ps-space-6)] md:p-[var(--ps-space-8)] ${
-                    hasImage ? "w-[62%] sm:w-[58%] md:w-1/2" : "w-full max-w-2xl"
-                  }`}
+                  className={`flex flex-col justify-center gap-3 px-4 md:px-8 ${hasImage && isCover ? "w-[60%]" : "w-full"}`}
                 >
-                  {/* Offer chip (only for real promotions, never on fallback) */}
                   {slide.id !== "fallback" ? (
-                    <div className="mb-[var(--ps-space-2)] md:mb-[var(--ps-space-3)]">
-                      <span className="inline-block rounded-full border border-[var(--tf-accent)] px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--tf-accent)]">
-                        {getOfferLabel(slide)}
-                      </span>
-                    </div>
+                    <span className={`inline-block rounded-full border border-[var(--tf-accent)] px-2 py-0.5 leading-none text-[12px] font-semibold ${slideTextClass}`}>
+                      {getOfferLabel(slide)}
+                    </span>
                   ) : null}
 
-                  {/* Headline */}
-                  <h2
-                    className={`${
-                      isLongHeadline
-                        ? "text-xl sm:text-2xl font-bold leading-tight"
-                        : "text-2xl sm:text-3xl md:text-4xl font-bold leading-tight"
-                    } mb-1.5 md:mb-[var(--ps-space-2)] text-[var(--tf-ink)]`}
-                  >
+                  {/* Headline: 22px/700 mobile, 36px/700 desktop, max 3 lines */}
+                  <h2 className={`font-bold leading-[1.15] line-clamp-3 ${slideTextClass} ${isLongHeadline ? "text-[20px] md:text-[32px]" : "text-[22px] md:text-[36px]"}`}>
                     {slide.headline}
                   </h2>
 
-                  {/* Description: one line of subtext */}
+                  {/* Subtext: one line, 14px mobile / 16px desktop */}
                   {slide.description ? (
-                    <p
-                      className={`${
-                        isLongDesc
-                          ? "text-xs sm:text-sm leading-relaxed"
-                          : "text-sm sm:text-base leading-relaxed"
-                      } mb-[var(--ps-space-3)] md:mb-[var(--ps-space-4)] text-[var(--tf-ink)] opacity-85 line-clamp-1`}
-                    >
+                    <p className={`leading-[1.4] line-clamp-1 text-[14px] md:text-[16px] ${slideTextClass}`}>
                       {slide.description}
                     </p>
                   ) : null}
 
-                  {/* CTA button: filled --tf-accent, --tf-on-accent text, arrow icon */}
+                  {/* CTA: pill, --tf-accent fill, 44px high, 20px horizontal padding */}
                   {slide.href && slide.buttonLabel ? (
-                    <div>
-                      <a
-                        href={slide.href}
-                        {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                        className="inline-flex min-h-[38px] md:min-h-[44px] items-center gap-1.5 rounded-lg px-3.5 md:px-[var(--ps-space-5)] py-1.5 md:py-[var(--ps-space-2)] text-xs md:text-sm font-semibold font-sans transition-opacity hover:opacity-90 bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
-                      >
-                        <span>{slide.buttonLabel}</span>
-                        <IconArrowRight size={15} aria-hidden="true" />
-                      </a>
-                    </div>
+                    <a
+                      href={slide.href}
+                      {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                    >
+                      {slide.buttonLabel}
+                      <IconArrowRight size={15} aria-hidden="true" />
+                    </a>
                   ) : null}
                 </div>
 
-                {/* Right photo: NO frame, bottom-aligned, soft edge fade via mask */}
-                {hasImage ? (
-                  <div className="relative flex-1 flex items-end justify-end self-stretch overflow-hidden">
+                {imageStyle === "contain" && hasImage ? (
+                  <div className="absolute inset-y-0 right-0 w-1/2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={slide.imageUrl}
-                      alt={slide.headline}
-                      className={`h-full w-full object-bottom ${
-                        imageStyle === "cover" ? "object-cover" : "object-contain"
-                      }`}
-                      style={{
-                        maskImage: "radial-gradient(ellipse at 80% 85%, black 45%, transparent 100%)",
-                        WebkitMaskImage: "radial-gradient(ellipse at 80% 85%, black 45%, transparent 100%)",
-                      }}
+                      alt=""
+                      className="h-full w-full object-contain object-position-bottom"
+                      style={{ maskImage: cutoutMask, WebkitMaskImage: cutoutMask }}
+                      loading="lazy"
                     />
                   </div>
                 ) : null}
               </div>
+
+              {/* Dots centred at the bottom of the card, on top of the photo */}
+              {isMultiSlide ? (
+                <div
+                  aria-label={labels.slideNavLabel || "Slide navigation"}
+                  className="absolute z-30 left-1/2 -translate-x-1/2 bottom-3 flex h-10 min-h-[44px] items-center gap-2 px-1.5 py-0.5 rounded-full bg-[var(--tf-ink)]/20 backdrop-blur-sm"
+                >
+                  {slides.map((_, dotIdx) => (
+                    <button
+                      key={dotIdx}
+                      type="button"
+                      aria-current={dotIdx === currentIndex ? "true" : undefined}
+                      aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
+                      onClick={() => goToSlide(dotIdx)}
+                      className="flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                    >
+                      <span
+                        className={`rounded-full transition-all ${
+                          dotIdx === currentIndex ? "w-6 h-6 bg-[var(--tf-accent)] opacity-100" : "w-2.5 h-2.5 bg-[var(--tf-ink)]/40 hover:opacity-80"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           );
         })}
       </div>
 
-      {/* Controls (dots + pause) centered at the bottom when multi-slide */}
+      {/* Pause control centred below the carousel */}
       {isMultiSlide ? (
-        <div
-          className="mt-[var(--ps-space-3)] flex items-center justify-center gap-[var(--ps-space-2)]"
-          aria-label={labels.slideNavLabel || "Slide navigation"}
-        >
-          {slides.map((_, dotIdx) => (
-            <button
-              key={dotIdx}
-              type="button"
-              aria-current={dotIdx === currentIndex ? "true" : undefined}
-              aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
-              onClick={() => goToSlide(dotIdx)}
-              className="flex h-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-            >
-              <span
-                className={`h-2.5 rounded-full transition-all bg-[var(--tf-accent)] ${
-                  dotIdx === currentIndex ? "w-6 opacity-100" : "w-2.5 opacity-35 hover:opacity-70"
-                }`}
-              />
-            </button>
-          ))}
+        <div className="mt-[var(--ps-space-3)] flex items-center justify-center gap-[var(--ps-space-2)]">
           <button
             type="button"
             onClick={() => setIsPaused((prev) => !prev)}
             aria-label={isPaused ? labels.resume : labels.pause}
-            className="ml-[var(--ps-space-2)] flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center rounded-full border border-[var(--tf-border)] text-[var(--tf-ink)] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            className="flex min-h-[44px] h-10 w-10 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
           >
-            {isPaused ? <IconPlayerPlay size={12} /> : <IconPlayerPause size={12} />}
+            {isPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
           </button>
         </div>
       ) : null}

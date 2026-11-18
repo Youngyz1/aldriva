@@ -913,47 +913,11 @@ export function StorefrontBrowse({
     scrollToGroup(next.id);
   };
 
-  return (
+  const browseChrome = (
     <>
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
-      {/* Active order persistent banner */}
-      {activeOrder && !orderSuccess && orderConfig?.slug ? (
-        <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
-          <div className="flex items-center gap-[var(--ps-space-2)] min-w-0">
-            <span className="h-2 w-2 rounded-full bg-[var(--ps-accent)] shrink-0 animate-pulse" />
-            <span className="truncate">
-              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
-            </span>
-          </div>
-          <div className="flex items-center gap-[var(--ps-space-3)] shrink-0">
-            <a
-              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
-              className="font-bold text-[var(--ps-accent-hover)] underline hover:text-[var(--ps-accent-hover)] transition-colors"
-            >
-              {labels.trackOrder || "Track order"} →
-            </a>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveOrder(null);
-                try {
-                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
-                } catch {
-                  // ignore
-                }
-              }}
-              className="text-[var(--ps-muted)] hover:text-[var(--ps-muted)] text-xs px-[var(--ps-space-1)]"
-              aria-label="Dismiss active order banner"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {showGroups && categoryGroups.length > 1 ? (
         <div
-          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${
+          className={`sticky top-[var(--site-header-h)] z-30 ${appearance === "showcase" ? "" : "-mx-[var(--ps-space-1)]"} py-[var(--ps-space-2)] backdrop-blur ${
             variant === "rows"
               ? "bg-[var(--ps-cream)]"
               : isEditorial
@@ -1263,7 +1227,54 @@ export function StorefrontBrowse({
             {labels.loadMore || "Load more"}
           </button>
         </div>
+          ) : null}
+
+    </>
+  );
+
+  return (
+    <>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
+      {/* Active order persistent banner */}
+      {activeOrder && !orderSuccess && orderConfig?.slug ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
+          <div className="flex items-center gap-[var(--ps-space-2)] min-w-0">
+            <span className="h-2 w-2 rounded-full bg-[var(--ps-accent)] shrink-0 animate-pulse" />
+            <span className="truncate">
+              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-[var(--ps-space-3)] shrink-0">
+            <a
+              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
+              className="font-bold text-[var(--ps-accent-hover)] underline hover:text-[var(--ps-accent-hover)] transition-colors"
+            >
+              {labels.trackOrder || "Track order"} →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveOrder(null);
+                try {
+                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="text-[var(--ps-muted)] hover:text-[var(--ps-muted)] text-xs px-[var(--ps-space-1)]"
+              aria-label="Dismiss active order banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       ) : null}
+
+      {appearance === "showcase" ? (
+        <div className="max-w-[1152px] mx-auto px-4 sm:px-6">{browseChrome}</div>
+      ) : (
+        <>{browseChrome}</>
+      )}
 
       {selected ? (
         <ItemDetailSheet

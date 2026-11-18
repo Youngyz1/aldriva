@@ -148,7 +148,9 @@ export function V2SiteFooter({
     >
       <div
         className={tableFlame || savannah || showcase
-          ? "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
+          ? showcase
+            ? "mx-auto grid w-full max-w-[1152px] gap-[var(--ps-space-12)] px-4 sm:px-6 py-[var(--ps-space-12)]"
+            : "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
           : "mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:px-[var(--ps-space-8)]"}
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))" }}
       >
