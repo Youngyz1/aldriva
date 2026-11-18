@@ -352,24 +352,28 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
 
   return (
     <div className="relative">
-      {overflowing ? <button
-        type="button"
-        aria-label={prevLabel}
-        disabled={!ends.canPrev}
-        onClick={() => scrollByPage(-1)}
-        className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button> : null}
-      {overflowing ? <button
-        type="button"
-        aria-label={nextLabel}
-        disabled={!ends.canNext}
-        onClick={() => scrollByPage(1)}
-        className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button> : null}
+      {overflowing && appearance !== "showcase" ? (
+        <button
+          type="button"
+          aria-label={prevLabel}
+          disabled={!ends.canPrev}
+          onClick={() => scrollByPage(-1)}
+          className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      ) : null}
+      {overflowing && appearance !== "showcase" ? (
+        <button
+          type="button"
+          aria-label={nextLabel}
+          disabled={!ends.canNext}
+          onClick={() => scrollByPage(1)}
+          className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-[var(--tf-soft)] text-[var(--tf-on-soft)] opacity-90 shadow-xs transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] disabled:opacity-40"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      ) : null}
       <div
         ref={trackRef}
         tabIndex={overflowing ? 0 : undefined}
