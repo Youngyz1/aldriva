@@ -195,19 +195,32 @@ export function PromoCarousel({
               aria-roledescription="slide"
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
               className={`${
-                isMultiSlide ? "w-[88%] md:w-full flex-shrink-0 snap-center md:snap-start" : "w-full"
+                isMultiSlide ? "w-[88%] md:w-full flex-shrink-0 snap-start md:snap-start" : "w-full"
               } relative overflow-hidden border border-[var(--tf-border)] rounded-[20px] h-[200px] md:h-[300px] ${
-                isCover && hasImage ? "bg-[var(--tf-soft)]" : "bg-gradient-to-r from-[var(--tf-soft)] to-[var(--tf-base)]"
+                hasImage && isCover ? "bg-[var(--tf-soft)]" : "bg-gradient-to-r from-[var(--tf-soft)] to-[var(--tf-base)]"
               }`}
             >
               {hasImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={slide.imageUrl}
-                  alt={slide.headline}
-                  className={`absolute inset-0 h-full w-full ${isCover ? "object-cover object-position-[70%_50%]" : "object-contain object-position-bottom"}`}
-                  loading="lazy"
-                />
+                isCover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={slide.imageUrl}
+                    alt={slide.headline}
+                    className="absolute inset-0 h-full w-full object-cover object-position-[70%_50%]"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="absolute inset-y-0 right-0 w-1/2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={slide.imageUrl}
+                      alt=""
+                      className="h-full w-full object-contain object-position-bottom"
+                      style={{ maskImage: cutoutMask, WebkitMaskImage: cutoutMask }}
+                      loading="lazy"
+                    />
+                  </div>
+                )
               ) : null}
 
               {isCover && hasImage ? (
@@ -219,19 +232,19 @@ export function PromoCarousel({
                   className={`flex flex-col justify-center gap-3 px-4 md:px-8 ${hasImage && isCover ? "w-[60%]" : "w-full"}`}
                 >
                   {slide.id !== "fallback" ? (
-                    <span className={`inline-block rounded-full border border-[var(--tf-accent)] px-2 py-0.5 leading-none text-[12px] font-semibold ${slideTextClass}`}>
+                    <span className={`self-start inline-block rounded-full border border-[var(--tf-accent)] px-2 py-0.5 leading-none text-[12px] font-semibold ${slideTextClass}`}>
                       {getOfferLabel(slide)}
                     </span>
                   ) : null}
 
                   {/* Headline: 22px/700 mobile, 36px/700 desktop, max 3 lines */}
-                  <h2 className={`font-bold leading-[1.15] line-clamp-3 ${slideTextClass} ${isLongHeadline ? "text-[20px] md:text-[32px]" : "text-[22px] md:text-[36px]"}`}>
+                  <h2 className={`showcase-promo-headline leading-[1.15] line-clamp-3 ${slideTextClass} ${isLongHeadline ? "text-[20px] md:text-[32px]" : ""}`}>
                     {slide.headline}
                   </h2>
 
                   {/* Subtext: one line, 14px mobile / 16px desktop */}
                   {slide.description ? (
-                    <p className={`leading-[1.4] line-clamp-1 text-[14px] md:text-[16px] ${slideTextClass}`}>
+                    <p className={`showcase-promo-subtext leading-[1.4] line-clamp-1 ${slideTextClass}`}>
                       {slide.description}
                     </p>
                   ) : null}
@@ -241,27 +254,13 @@ export function PromoCarousel({
                     <a
                       href={slide.href}
                       {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                      className="self-start inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
                     >
                       {slide.buttonLabel}
                       <IconArrowRight size={15} aria-hidden="true" />
                     </a>
                   ) : null}
                 </div>
-
-                {imageStyle === "contain" && hasImage ? (
-                  <div className="absolute inset-y-0 right-0 w-1/2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={slide.imageUrl}
-                      alt=""
-                      className="h-full w-full object-contain object-position-bottom"
-                      style={{ maskImage: cutoutMask, WebkitMaskImage: cutoutMask }}
-                      loading="lazy"
-                    />
-                  </div>
-                ) : null}
-              </div>
 
               {/* Dots centred at the bottom of the card, on top of the photo */}
               {isMultiSlide ? (
@@ -287,6 +286,7 @@ export function PromoCarousel({
                   ))}
                 </div>
               ) : null}
+              </div>
             </div>
           );
         })}

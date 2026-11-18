@@ -628,7 +628,7 @@ function FeaturesBlockRenderer({
           <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
         ) : null}
         <div
-          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " max-w-[1152px] mx-auto" : ""}`}
+          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " max-w-[1152px]" : ""}`}
           role="list"
         >
           {items.map((item, i) => {
@@ -797,7 +797,7 @@ function AboutBlockRenderer({
     const heading = block.heading || defaultAboutHeading || "About";
     return (
       <section id="about" className="w-full">
-        <div className={`grid grid-cols-1 items-center gap-8 ${siteTemplateId === "showcase" ? (hasImage ? "md:grid-cols-2 md:gap-12 max-w-[1152px] mx-auto" : "max-w-[1152px] mx-auto") : hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
+        <div className={`grid grid-cols-1 items-center gap-8 ${siteTemplateId === "showcase" ? (hasImage ? "md:grid-cols-2 md:gap-12 max-w-[1152px]" : "max-w-[1152px]") : hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
           {hasImage ? (
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-soft)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1294,7 +1294,7 @@ function ContactBlockRenderer({
     return (
       <section id="contact" className="w-full">
         <SectionHeading heading={block.heading || hoursAndLocationLabel || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
-        <div className={`grid grid-cols-1 gap-6 md:gap-8 ${siteTemplateId === "showcase" ? "max-w-[1152px] mx-auto" : "max-w-5xl mx-auto"} ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
+        <div className={`grid grid-cols-1 gap-6 md:gap-8 ${siteTemplateId === "showcase" ? "max-w-[1152px]" : "max-w-5xl mx-auto"} ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
           {hasHours ? (
             <div className="rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)]">
               <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">{openingHoursLabel || "Opening Hours"}</h3>
@@ -1988,7 +1988,7 @@ async function ProductsEmbedBlockRenderer({
     return (
       <section className="w-full">
         {isShowcaseHomeCarousel ? (
-          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1152px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
             <h2
               className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
             >
@@ -2467,7 +2467,7 @@ async function PromotionsEmbedBlockRenderer({
     <form
       action={catalogHref}
       method="GET"
-      className="w-full max-w-[1152px] mx-auto px-4 sm:px-6 mb-6 sm:mb-10"
+      className="w-full max-w-[1152px] px-4 sm:px-6 mb-6 sm:mb-10"
       role="search"
       aria-label={searchPlaceholder}
     >
@@ -2555,7 +2555,7 @@ async function PromotionsEmbedBlockRenderer({
     return (
       <section className={`w-full ${siteTemplateId === "showcase" ? "px-4 sm:px-6" : ""}`}>
         {siteTemplateId === "showcase" ? (
-          <div className="max-w-[1152px] mx-auto">
+          <div className="max-w-[1152px]">
             {searchForm}
             <PromoCarousel
               promotions={mappedPromotions}
@@ -2913,7 +2913,7 @@ async function MenuEmbedBlockRenderer({
           </a>
         </div>
       ) : isShowcase ? (
-        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-[1152px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
             {block.heading || "Our Menu"}
           </h1>
@@ -2930,7 +2930,7 @@ async function MenuEmbedBlockRenderer({
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : isShowcaseHomeCarousel ? (
         // Showcase home Popular strip: flat single carousel across all sections (no per-category sections)
-        <div className="max-w-[1152px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div className="max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <CatalogCarousel
             items={populatedSections.flatMap((sec) =>
               sec.items.map((it) => {
@@ -3121,20 +3121,11 @@ async function MenuEmbedBlockRenderer({
         )}
         </StorefrontBrowse>
       )}
-      {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
-        <div className="mt-[var(--ps-space-8)] text-center">
-          {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
-          {hasPublishedMenuPage ? (
-            <a
-              href={`/site/${encodeURIComponent(siteSlug)}/menu`}
-              className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
-            >
-              {t("viewFullMenu")}
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </a>
-          ) : null}
-        </div>
-      ) : null}
+        {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
+          <div className="mt-[var(--ps-space-8)] text-center">
+            {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
+          </div>
+        ) : null}
     </section>
   );
 }

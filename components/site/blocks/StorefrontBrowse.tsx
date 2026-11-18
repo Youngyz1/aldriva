@@ -1271,7 +1271,7 @@ export function StorefrontBrowse({
       ) : null}
 
       {appearance === "showcase" ? (
-        <div className="max-w-[1152px] mx-auto px-4 sm:px-6">{browseChrome}</div>
+        <div className="max-w-[1152px] px-4 sm:px-6">{browseChrome}</div>
       ) : (
         <>{browseChrome}</>
       )}
@@ -2169,7 +2169,7 @@ function ItemDetailSheet({
                   type="button"
                   disabled={!canAddToOrder}
                   onClick={addOrUpdateOrderLine}
-                  className={`flex-1 h-12 min-h-[48px] rounded-full bg-[var(--tf-accent)] px-4 text-center text-sm font-semibold text-[var(--tf-on-accent)] shadow-xs hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${
+                  className={`h-12 min-h-[48px] rounded-full bg-[var(--tf-accent)] px-4 text-center text-sm font-semibold text-[var(--tf-on-accent)] shadow-xs hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${
                     isSoldOut ? "opacity-60" : ""
                   }`}
                 >

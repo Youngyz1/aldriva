@@ -446,6 +446,30 @@
   font-weight: inherit;
   line-height: inherit;
 }
+/* Promo headline: 22px/700 mobile, 36px/700 desktop (spec section 7) */
+.public-site[data-site-template="showcase"] h2.showcase-promo-headline {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: normal;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] h2.showcase-promo-headline {
+    font-size: 36px;
+    letter-spacing: -0.01em;
+  }
+}
+/* Promo subtext: 14px mobile, 16px desktop (spec section 7) */
+.public-site[data-site-template="showcase"] p.showcase-promo-subtext {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] p.showcase-promo-subtext {
+    font-size: 16px;
+  }
+}
 /* Section titles ("Popular items", "Visit us", etc. per spec section 3) */
 .public-site[data-site-template="showcase"] .showcase-section-title,
 .public-site[data-site-template="showcase"] h2.showcase-section-title {
@@ -504,7 +528,7 @@
 .public-site[data-site-template="showcase"] main {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 .public-site[data-site-template="showcase"] main > section,
 .public-site[data-site-template="showcase"] main > div[class*="py-"] {
@@ -513,7 +537,7 @@
 }
 @media (min-width: 640px) {
   .public-site[data-site-template="showcase"] main {
-    gap: 40px;
+    gap: 56px;
   }
 }
 
