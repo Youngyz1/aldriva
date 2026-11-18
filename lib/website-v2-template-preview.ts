@@ -123,7 +123,10 @@ export function createNeutralGallerySampleContent(
   logoUrl: string | null | undefined,
   copy: NeutralGallerySampleCopy
 ): ContentDoc {
-  if (templateId === "restaurant-savannah") {
+  if (templateId === "restaurant-savannah" || templateId === "showcase") {
+    // These templates own a complete flagship sample document (text, photos,
+    // hours, sample menu) that must render finished in the gallery (Showcase
+    // spec 10e). Only the owner's display name/logo are substituted.
     return normalizeContent({
       ...FLAGSHIP_SAMPLES[templateId],
       business_name: businessName,

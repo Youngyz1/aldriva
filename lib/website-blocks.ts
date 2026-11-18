@@ -14,6 +14,22 @@
 import { sanitizeUrl } from "./sanitize-url";
 import { MAX_ARTICLE_HTML_LENGTH } from "./sanitize-limits";
 import { safeImageSrc } from "./image-url";
+import type { ResolvedMenuItem, ResolvedMenuPromotion, ResolvedMenuSection } from "./website-embeds";
+
+/**
+ * Render-only sample menu/promotion data used by template previews.
+ *
+ * These never enter a saved content document or a database row: the resolver
+ * attaches them to blocks only while `includeSamples` is true, and the block
+ * renderers prefer tenant data whenever a tenant exists. `isSample` marks the
+ * records so preview UI can label them (Showcase spec section 10e).
+ */
+export type PreviewMenuItem = ResolvedMenuItem & { isSample?: boolean };
+export type PreviewMenuSection = Omit<ResolvedMenuSection, "items"> & {
+  items: PreviewMenuItem[];
+  isSample?: boolean;
+};
+export type PreviewMenuPromotion = ResolvedMenuPromotion & { isSample?: boolean };
 
 // ── 1. Block Component Types ──────────────────────────────────────────────────
 
@@ -298,6 +314,8 @@ export interface MenuEmbedBlock extends BaseBlock {
   variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
   /** How menu card images fit their container in catalog-carousel ('cover' | 'contain'). Defaults to 'cover'. */
   imageFit?: "cover" | "contain";
+  /** Render-only sample sections for template previews. Never persisted; tenant menu wins. */
+  previewSections?: PreviewMenuSection[];
 }
 
 export interface PromotionFallback {
@@ -317,6 +335,8 @@ export interface PromotionsEmbedBlock extends BaseBlock {
   variant?: "carousel";
   fallback?: PromotionFallback;
   imageStyle?: "contain" | "cover";
+  /** Render-only sample slides for template previews. Never persisted; tenant promotions win. */
+  previewPromotions?: PreviewMenuPromotion[];
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */

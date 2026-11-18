@@ -2473,7 +2473,7 @@ async function PromotionsEmbedBlockRenderer({
         hasMenuEmbedOnPage,
         hasPublishedMenuPage,
       })
-    : [];
+    : block.previewPromotions ?? [];
   if (promotions.length === 0 && !block.fallback) return null;
 
   const layoutFor = (promotion: (typeof promotions)[number]) =>
@@ -2664,7 +2664,9 @@ async function MenuEmbedBlockRenderer({
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
   const isShowcase = siteTemplateId === "showcase";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
-  const rawSections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
+  const rawSections = tenantId
+    ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency)
+    : block.previewSections ?? [];
   let sections = rawSections;
   if (isShowcase && block.variant === "catalog-carousel" && tenantId) {
     const existingCount = rawSections.reduce((acc, s) => acc + s.items.length, 0);

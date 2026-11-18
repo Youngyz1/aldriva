@@ -40,7 +40,7 @@ import type {
   TemplateSection,
 } from "./website-template-v2";
 import { getFlagshipTemplate } from "./website-template-v2";
-import { FLAGSHIP_SAMPLES, STORE_PREVIEW_PRODUCTS } from "./website-template-samples";
+import { FLAGSHIP_SAMPLES, SHOWCASE_PREVIEW_MENU, SHOWCASE_PREVIEW_PROMOTIONS, STORE_PREVIEW_PRODUCTS } from "./website-template-samples";
 import type { TemplatePagePurpose } from "./website-template-v2";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import type { Capability } from "./business-taxonomy";
@@ -919,6 +919,11 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     ...(menuImageFit ? { imageFit: menuImageFit } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
+    // Showcase previews ship a render-only sample menu (spec 10e). Live sites
+    // never reach includeSamples, so owner data is the only source there.
+    ...(ctx.includeSamples && ctx.template.id === "showcase"
+      ? { previewSections: SHOWCASE_PREVIEW_MENU }
+      : {}),
   };
 }
 
@@ -1218,6 +1223,9 @@ function buildSectionBlock(
         ...(ctx.template.id === "showcase" ? { imageStyle: promoImageStyle } : {}),
         ...(isCarousel ? { variant: "carousel" } : {}),
         ...(fallback ? { fallback } : {}),
+        ...(ctx.includeSamples && ctx.template.id === "showcase"
+          ? { previewPromotions: SHOWCASE_PREVIEW_PROMOTIONS }
+          : {}),
       };
     }
     case "products_embed": {

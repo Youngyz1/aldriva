@@ -371,4 +371,4 @@ Computed values, not source:
 - [ ] Item sheet: title 20px, image radius 12px, sticky footer, nothing clipped at 390px.
 - [ ] Every text and background pair passes 4.5:1 in all 7 palettes.
 - [ ] The other five templates are unchanged (snapshot comparison).
-- [ ] Screenshots saved and compared side by side with the mockup.
+- [ ] Screenshots saved and compared side by side with the mockup
