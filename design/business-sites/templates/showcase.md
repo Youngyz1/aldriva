@@ -37,6 +37,9 @@ These are old global rules leaking into Showcase. Fix them before anything else.
 | 8 | Promo shows the photo twice, with a pale panel and unreadable text | Old split layout still rendering under the new full-bleed layer | One `<img>` per slide, no panel, soft scrim only (section 7). Find and remove the old layer. |
 | 9 | Buttons stretched across the whole card or sheet | Missing content-width rule (flex stretch / w-full) | Buttons size to their content (section 5). |
 | 10 | Dead controls: "View full menu" on the menu page, Popular cards not clickable, Cart / Order / More tabs open a blank page | Not wired | Remove the redundant link; wire the rest (sections 6, 10, 10d). |
+| 11 | Promo is a small rounded card with a faded half-width photo | Cutout layout still used (stored imageStyle falls back to contain) | Full-bleed hero band, always cover, no fade (section 7). |
+| 12 | Header logo and content start at different x; nav and footer still say "Catalog" while the tab says "Menu" | Header outside the container; label override only applied in some components | Header in the same container (section 5); one catalog label everywhere (section 10f). |
+| 13 | /order page is blank; cart bar is full-width on desktop and covers cards | Order page not built; bar has no width limit or page padding | Section 10d. |
 
 After the fix, computed values must match section 3 and section 5. Verify with `getComputedStyle`, not by reading source.
 
@@ -101,7 +104,7 @@ Rules:
 | Token | Mobile | Desktop |
 |-------|--------|---------|
 | Page horizontal padding | 16px | 24px |
-| Max content width | 100% | 1152px, centred |
+| Max content width | 100% | 1280px, centred |
 | Gap between sections | 32px | 56px |
 | Gap between heading and its content | 12px | 16px |
 | Card inner padding | 12px | 12px |
@@ -121,7 +124,7 @@ Radii:
 
 Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). **Buttons size to their content:** height 44 to 48px, horizontal padding 20 to 24px, never stretched to the full width of the card, sheet or page (the search field is the only full-width control). In a footer with a quantity stepper or a total, the button sits on the right at its natural width. Chips may be 36px high with a 44px tap area.
 
-**One container everywhere.** Header, Home sections, Menu page and footer share the same content container (max 1152px, padding 16px mobile / 24px desktop). Page title, chips, search, promo, services strip and cards all share the same left edge at both viewports.
+**One container everywhere.** Header (logo and nav), Home sections, Menu page and footer content share the same container (max 1280px, padding 16px mobile / 24px desktop). At any screen width the logo, page title, chips, search, services strip and cards share one left edge. Only the hero band and the footer background go edge to edge; their content still aligns to the container.
 
 **Do not** use `py-10 sm:py-16` style section padding on the Home page. Use the gap values above. The Home top area (search, chips, promo, popular) is one continuous block with the gaps in this table.
 
@@ -131,7 +134,7 @@ Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). **B
 
 1. **Header:** logo and business name on the left. On desktop, a cart icon with a count badge on the right (it opens the cart drawer, section 10d). On mobile there is no header cart icon: the Cart tab is the only cart entry point. Height 56px.
 2. **Search field:** full width, pill, 44px high, search icon inside, filter button on the right (opens a sheet with categories and sort). Submits to the catalog page with `?q=`.
-3. **Promo carousel (the hero):** see section 7. Directly after search. No category chips between them.
+3. **Promo carousel (the hero):** a full-width band, edge to edge, not a card (section 7). Directly after search. No category chips between them.
 4. **Services strip:** directly below the promo card (section 10).
 5. **Popular strip:** title on the left, "View all" link on the right to the catalog page (14px, `--tf-muted`). Below: cards in a horizontal scroll-snap row on mobile and a grid on desktop. **No prev/next arrow buttons**: swipe on touch, grid on desktop. Owners edit these items from their catalog. Tapping a card opens the same item sheet as on the catalog page; the heart and the "+" keep their own actions and do not open it. Cards are the same size as on the catalog page.
 6. **About:** section 10a.
@@ -142,41 +145,35 @@ There is no separate hero image. If the owner has no promotions, step 3 is skipp
 
 ---
 
-## 7. Promo carousel (hero)
+## 7. Hero: promo carousel (full-bleed band)
 
-The owner can add one or many promotions. Each promotion is one slide, with its own headline, subtext, button and image. This is where the owner promotes a dish, an offer or any product. With no promotions the whole block is absent (no gap).
+The promo carousel is the hero. The owner can add one or many promotions; each is one slide with its own headline, subtext, button and image. With no promotions the whole block is absent (no gap).
 
-**Slide card (default style: full-bleed photo)**
-- The photo fills the whole card, `object-fit: cover`, `object-position: 70% 50%` so a subject on the right stays visible.
-- Radius 20px, 1px `--tf-border`, overflow hidden.
-- Exactly one `<img>` per slide. No panel, box or solid background behind the text; only the soft scrim, with no visible edge.
-- Height: 200px mobile, 300px desktop. Slide width: 88% on mobile (the next slide peeks), full container width on desktop.
-- **Scrim over the photo** so text is always readable: a left-to-right gradient from `--tf-ink` at 70% opacity at the left edge, fading to transparent at about 75% of the width. Opacity must be at least 60% everywhere text sits.
-- Text sits on the left over the scrim, about 60% of the card width, vertically centred. Padding 16px mobile, 32px desktop.
+**Band**
+- Full width of the screen, edge to edge. Not a card: no radius, no border, no side margin.
+- Height: 320px on mobile, 520px on desktop (about 60% of the screen height, so search and Popular items stay in view).
+- One slide fills the band. No peek of the next slide. Swipe on touch, arrows only on desktop hover. Dots centred at the bottom.
 
-**Text (all over the scrim)**
-- Text colour: the readable-on-ink colour from the existing colour engine (`readableOn`), never raw white.
-- Headline 22px/700 mobile, 36px/700 desktop, max 3 lines. Step the size down for long text instead of clamping.
-- One line of subtext, 14px mobile / 16px desktop.
-- Optional offer chip: 1px outline and text in the readable-on-ink colour, pill, 12px/600.
-- CTA button: pill, `--tf-accent` fill, `--tf-on-accent` text, 44px high, 20px horizontal padding, arrow icon.
+**Photo**
+- Exactly one `<img>` per slide, filling the whole band, `object-fit: cover`, `object-position: 70% 50%`.
+- **Always cover.** Showcase ignores any stored `imageStyle` such as `contain`. No cutout mode, no CSS mask, no fade on the photo. The photo is shown at full strength.
 
-**Alternate style: cutout (`promoImageStyle: contain`)**
-- For product cutouts. Card background is the soft gradient `var(--tf-soft)` to `var(--tf-base)`, text in `--tf-ink`, and the image sits on the right half, bottom-aligned, `object-fit: contain`, edges faded with a CSS mask. No scrim.
-- Select values: `cover` (default, full-bleed) or `contain` (cutout).
+**Text (over the photo)**
+- Text block sits on the left, aligned to the page container's left edge, max width 560px, vertically centred on desktop. On mobile it sits at the bottom of the band, above the dots.
+- Headline 28px mobile / 48px desktop, weight 700, max 3 lines. Step the size down for long text instead of clamping. Subtext 16px mobile / 18px desktop, one line. Optional offer chip (outlined, pill, 12px/600). CTA: accent pill, `--tf-on-accent` text, 44px high, natural width, arrow icon.
+- Text colour: the readable-on-ink colour from the colour engine (`readableOn`), never raw white.
 
-**No image:** a text slide on the soft gradient with `--tf-ink` text, text spanning the full width.
+**Readability scrim (the only overlay)**
+- No panel, box or solid block behind the text.
+- Desktop: a left-to-right gradient from `--tf-ink` at 70% opacity at the left edge, reaching transparent at about 55% of the width. Opacity at least 60% wherever text sits.
+- Mobile: a bottom-to-top gradient from `--tf-ink` at 70% at the bottom, transparent at about 60% of the height.
+- Contrast test, all 7 palettes: text colour against the worst-case scrim (the ink scrim at its lowest opacity over a pure white photo) at least 4.5:1.
 
-**Controls**
-- Dots centred at the bottom of the card, on top of the photo, with a small translucent backing so they are visible on any image. Active dot uses accent. Pause button stays.
-- Auto-advance 5s, paused on hover or touch.
+**No image:** a text slide on the soft gradient `var(--tf-soft)` to `var(--tf-base)`, same band size, `--tf-ink` text.
 
-**Contrast test:** for all 7 palettes, text colour against the worst-case scrim (the ink scrim at its lowest opacity over a pure white photo) must be at least 4.5:1. At 60% opacity over white the scrim is about #707070, which gives white-ish text about 4.9:1.
+**Controls:** dots on the photo with a small translucent backing; active dot uses accent; pause button stays; auto-advance 5s, paused on hover or touch.
 
-**Content guidance for owners (helper text in the editor)**
-- Any good photo works. Put the subject on the right side so the text on the left stays clear.
-- Keep the headline short (under 40 characters) and the subtext to one line.
-- Product cutout on a plain background? Choose the "Cutout" image style.
+**Owner helper text in the editor:** use a landscape photo at least 1600px wide, with the subject on the right side. Keep the headline under 40 characters and the subtext to one line.
 
 ---
 
@@ -293,7 +290,7 @@ Based on the supplied `hero-fashion` component, adapted to this template.
 
 **Rules**
 - **Two ways in, one cart view.** The Cart tab (with a count badge) and the order bar both open the same cart view. On desktop (no tab bar) the header cart icon opens it too.
-- **Order bar:** shown when the cart has items, above the tab bar on mobile. Dark pill (`--tf-ink` background). Left: "Your cart · $79.16" (no count circle, because the Cart tab badge already shows the count). Right: "View cart" accent button at its natural width. Not shown when ordering is disabled.
+- **Order bar:** shown when the cart has items, above the tab bar on mobile. Dark pill (`--tf-ink` background), width `min(100% - 32px, 560px)`, centred, never full-width on desktop. The page gets bottom padding equal to the bar height plus 16px while it is shown, so the bar never covers cards or prices. Left: "Your cart · $79.16" (no count circle, because the Cart tab badge already shows the count). Right: "View cart" accent button at its natural width. Not shown when ordering is disabled.
 - **Vocabulary (en and fr):** "Cart" means items chosen but not yet placed. "Order" means something already placed. The item sheet button reads "Add to cart · $50.00".
 - **Cart tab** opens the cart view: a bottom sheet on mobile (same style as the item sheet) and a right-side drawer, 400px wide, on desktop.
   - Title "Your cart". Each row: name, unit price, quantity stepper (pill, 36px round buttons), remove control. Line total on the right.
@@ -329,7 +326,7 @@ A template must never look empty when a customer opens it in the gallery. Showca
 - Source: Unsplash. Do not guess photo IDs from memory. Use the Unsplash API or pages you can actually open, and confirm each URL returns HTTP 200 with an image content type.
 - Check that each photo shows what its slot says (a soup photo for a soup item). Report the Unsplash page URL for each photo so a person can review them.
 - Self-host them (follow how existing templates store preview images) instead of hotlinking, so previews load fast and never break.
-- Sizes: menu items 800x600, promo images 1200x900, About 1000x1250. WebP, under 150KB for menu items. Real alt text on every image.
+- Sizes: menu items 800x600, promo images 1920x1080 (landscape, subject on the right), About 1000x1250. WebP, under 150KB for menu items. Real alt text on every image.
 - Keep a `CREDITS.md` next to the images with photographer and Unsplash URL for each.
 - Before building this, look at how the existing templates (Savannah, Table & Flame) provide preview content and follow that pattern.
 
@@ -376,11 +373,11 @@ Computed values, not source:
 - [ ] Photo aspect ratio is 4:3.
 - [ ] Catalog grid: 2 columns at 390px, 4 columns at 1280px. Columns fill the container width.
 - [ ] Home strip: cards are 160px wide on mobile with the next card peeking.
-- [ ] One container: the left edge of the page title, search, promo, services strip and cards is identical on Home and Menu at 390px and 1280px.
+- [ ] One container: the left edge of the header logo, page title, chips, search, services strip and cards is identical on Home and Menu at 390, 1280 and 1920px.
 - [ ] Gap between Home sections is 32px (mobile) and 56px (desktop). No overlaps.
-- [ ] Promo slide (default style): the photo fills the whole card at 390px and 1280px, no hard-edged rectangle, no small corner thumbnail. Scrim present, text readable, headline 22px/700 mobile.
+- [ ] Hero band: full width edge to edge (no card, no radius), height 320px mobile / 520px desktop, one photo filling it, no fade or mask on the photo, headline 28px mobile / 48px desktop bold, text readable.
 - [ ] Promo contrast test passes for all 7 palettes against the worst-case scrim.
-- [ ] Switching a slide to Cutout shows the gradient card with the faded image on the right.
+- [ ] A promotion with a stored imageStyle of contain still renders full-bleed cover.
 - [ ] Home order is: header, search, promo, services, Popular, About, Visit us, footer.
 - [ ] No prev/next arrows on the Popular strip.
 - [ ] With no promotions, the promo block is absent and there is no empty gap between search and the next section.
@@ -392,7 +389,7 @@ Computed values, not source:
 - [ ] No "View full menu" button on the catalog page.
 - [ ] Tapping a Popular card opens the item sheet. Heart and "+" do not open it.
 - [ ] Every button is content-width (no button wider than its text plus padding, except the search field).
-- [ ] Promo slide has exactly one <img>, no panel behind the text, readable text on the car photo.
+- [ ] Hero slide has exactly one <img> and no panel behind the text.
 - [ ] Renaming the catalog to "Services" changes the label in the nav, tab bar, page title, search placeholder and buttons. No hardcoded "Menu" or "Catalog" remains.
 - [ ] With ordering disabled: no Cart or Order tabs, no bar, no "+", and the item sheet shows its action button.
 - [ ] More tab opens a list of the remaining pages. No tab opens a blank page.
@@ -405,3 +402,6 @@ Computed values, not source:
 - [ ] Every text and background pair passes 4.5:1 in all 7 palettes.
 - [ ] The other five templates are unchanged (snapshot comparison).
 - [ ] Screenshots saved and compared side by side with the mockup.
+- [ ] The /order page shows "Your orders" or "No orders yet", never a blank page.
+- [ ] Nav, footer, tab bar, page title and buttons all use the same owner-named catalog word.
+- [ ] Order bar on desktop is at most 560px wide and does not cover any card.
