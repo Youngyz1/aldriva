@@ -34,6 +34,9 @@ These are old global rules leaking into Showcase. Fix them before anything else.
 | 5 | Section headings oversized ("Popular items", "About", "Visit us" render about 32-40px) | Same family of global `.public-site h2` rules | Scope out for Showcase. Headings follow the section 3 scale. |
 | 6 | Catalog title touches the header | No top padding on the page | 16px padding above the page title. |
 | 7 | Item detail sheet looks broken | See section 10c | Rebuild to section 10c. |
+| 8 | Promo shows the photo twice, with a pale panel and unreadable text | Old split layout still rendering under the new full-bleed layer | One `<img>` per slide, no panel, soft scrim only (section 7). Find and remove the old layer. |
+| 9 | Buttons stretched across the whole card or sheet | Missing content-width rule (flex stretch / w-full) | Buttons size to their content (section 5). |
+| 10 | Dead controls: "View full menu" on the menu page, Popular cards not clickable, Cart / Order / More tabs open a blank page | Not wired | Remove the redundant link; wire the rest (sections 6, 10, 10d). |
 
 After the fix, computed values must match section 3 and section 5. Verify with `getComputedStyle`, not by reading source.
 
@@ -99,7 +102,7 @@ Rules:
 |-------|--------|---------|
 | Page horizontal padding | 16px | 24px |
 | Max content width | 100% | 1152px, centred |
-| Gap between sections | 24px | 40px |
+| Gap between sections | 32px | 56px |
 | Gap between heading and its content | 12px | 16px |
 | Card inner padding | 12px | 12px |
 | Grid gap | 12px | 16px |
@@ -116,7 +119,7 @@ Radii:
 | Trust strip items | 12px |
 | Tab bar | 20px top corners |
 
-Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). Chips may be 36px high with a 44px tap area.
+Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). **Buttons size to their content:** height 44 to 48px, horizontal padding 20 to 24px, never stretched to the full width of the card, sheet or page (the search field is the only full-width control). In a footer with a quantity stepper or a total, the button sits on the right at its natural width. Chips may be 36px high with a 44px tap area.
 
 **One container everywhere.** Header, Home sections, Menu page and footer share the same content container (max 1152px, padding 16px mobile / 24px desktop). Page title, chips, search, promo, services strip and cards all share the same left edge at both viewports.
 
@@ -130,7 +133,7 @@ Controls: minimum height 44px for anything tappable (buttons, inputs, tabs). Chi
 2. **Search field:** full width, pill, 44px high, search icon inside, filter button on the right (opens a sheet with categories and sort). Submits to the catalog page with `?q=`.
 3. **Promo carousel (the hero):** see section 7. Directly after search. No category chips between them.
 4. **Services strip:** directly below the promo card (section 10).
-5. **Popular strip:** title on the left, "View all" link on the right to the catalog page (14px, `--tf-muted`). Below: cards in a horizontal scroll-snap row on mobile and a grid on desktop. **No prev/next arrow buttons**: swipe on touch, grid on desktop. Owners edit these items from their menu.
+5. **Popular strip:** title on the left, "View all" link on the right to the catalog page (14px, `--tf-muted`). Below: cards in a horizontal scroll-snap row on mobile and a grid on desktop. **No prev/next arrow buttons**: swipe on touch, grid on desktop. Owners edit these items from their catalog. Tapping a card opens the same item sheet as on the catalog page; the heart and the "+" keep their own actions and do not open it. Cards are the same size as on the catalog page.
 6. **About:** section 10a.
 7. **Visit us:** section 10b.
 8. **Footer** and **bottom tab bar** (section 10).
@@ -146,6 +149,7 @@ The owner can add one or many promotions. Each promotion is one slide, with its 
 **Slide card (default style: full-bleed photo)**
 - The photo fills the whole card, `object-fit: cover`, `object-position: 70% 50%` so a subject on the right stays visible.
 - Radius 20px, 1px `--tf-border`, overflow hidden.
+- Exactly one `<img>` per slide. No panel, box or solid background behind the text; only the soft scrim, with no visible edge.
 - Height: 200px mobile, 300px desktop. Slide width: 88% on mobile (the next slide peeks), full container width on desktop.
 - **Scrim over the photo** so text is always readable: a left-to-right gradient from `--tf-ink` at 70% opacity at the left edge, fading to transparent at about 75% of the width. Opacity must be at least 60% everywhere text sits.
 - Text sits on the left over the scrim, about 60% of the card width, vertically centred. Padding 16px mobile, 32px desktop.
@@ -214,10 +218,10 @@ Used identically on the Home strip and the catalog page.
 Top to bottom:
 
 1. Back arrow and search field (pill, with "Search in <section>" placeholder). On desktop only, a cart icon with a count.
-2. Page title (24px/700). One-line subtitle (14px, `--tf-muted`) only if the section has a description.
+2. Page title (24px/700), using the owner-named catalog (section 10f). One-line subtitle (14px, `--tf-muted`) only if the section has a description.
 3. Chip row: category chips first, then a **Sort** chip with a small chevron. No Filter, Colour or Material chips.
 4. Product grid (section 8).
-5. **No floating cart bar.** The cart is reached from the Cart tab (section 10d). Nothing covers the product grid.
+5. No "View full menu" button on this page (it points to the page you are on). The order bar (section 10d) appears above the tab bar when the cart has items, and the page gets extra bottom padding so it never covers the last row.
 
 ---
 
@@ -233,6 +237,7 @@ Top to bottom:
 - `--tf-card` surface, rounded 20px top corners, hairline top border.
 - Active tab: accent icon and accent label at 600 weight. Inactive: `--tf-muted`.
 - Do not change heights, offsets or safe-area handling.
+- Tabs depend on the site: Home, the owner-named catalog (section 10f), Order and Cart (only when ordering is enabled), More. **More** opens a sheet listing the remaining pages that exist (for example Reservations, Contact) and the language switch. No tab may open a blank page.
 
 **Footer**
 - `--tf-soft` background, `--tf-ink` text, links `--tf-muted`.
@@ -254,7 +259,7 @@ Based on the supplied `hero-fashion` component, adapted to this template.
 - Headline: the owner's headline, else the business name, else the localized word "About". Display size 32px mobile / 48px desktop, weight 700, tracking -0.02em, line height 1.1, `--tf-ink`.
 - Link list: the business's menu categories (up to 5), 18px/500, each linking to the catalog with `?section=<id>`. Hover: shift up 2px and full opacity, as a CSS transition of 200-300ms. No animation library.
 - Body: the owner's text, 16px, line height 1.6, `--tf-muted`, max width 448px.
-- Optional text link "View menu" to the catalog.
+- Optional text link "View <catalog name>" to the catalog.
 
 **Do not copy from the component:** the brand name "Kokonut.", "SUMMER 2025", the Anglomania paragraph, the external image URL, `bg-white`, `text-black`, the pink hex blob, or the `motion` dependency. The component's generic setup instructions (shadcn folders, installing `motion`) do not apply, and its fashion image is replaced by a food sample image (section 10e). The layout and rhythm are what to borrow.
 
@@ -284,18 +289,19 @@ Based on the supplied `hero-fashion` component, adapted to this template.
 
 ## 10d. Cart and Orders
 
-**Problem found:** the site had two cart entry points (a floating "Your order" bar and the Cart tab), the Cart tab did nothing, and the Order tab only opened the menu. The same thing was also called "order" in one place and "cart" in another.
+**Problem found:** the Cart, Order and More tabs opened blank pages, and the same thing was called both "order" and "cart".
 
 **Rules**
-- **One cart entry point on mobile: the Cart tab,** with a count badge. Remove the floating "Your order / View order" bar entirely for Showcase. On desktop (no tab bar) a cart icon with a count in the header opens the same view.
+- **Two ways in, one cart view.** The Cart tab (with a count badge) and the order bar both open the same cart view. On desktop (no tab bar) the header cart icon opens it too.
+- **Order bar:** shown when the cart has items, above the tab bar on mobile. Dark pill (`--tf-ink` background). Left: "Your cart · $79.16" (no count circle, because the Cart tab badge already shows the count). Right: "View cart" accent button at its natural width. Not shown when ordering is disabled.
 - **Vocabulary (en and fr):** "Cart" means items chosen but not yet placed. "Order" means something already placed. The item sheet button reads "Add to cart · $50.00".
 - **Cart tab** opens the cart view: a bottom sheet on mobile (same style as the item sheet) and a right-side drawer, 400px wide, on desktop.
   - Title "Your cart". Each row: name, unit price, quantity stepper (pill, 36px round buttons), remove control. Line total on the right.
-  - Footer (sticky): total and an accent "Checkout" pill button, 48px.
-  - Empty state: short message ("Your cart is empty") and a "Browse menu" button.
+  - Footer (sticky): total on the left and an accent "Checkout" pill button at its natural width on the right, 48px.
+  - Empty state: short message ("Your cart is empty") and a "Browse <catalog name>" button.
   - Adding an item does not open anything. The badge updates (small bump animation).
 - **Order tab** opens "Your orders": orders placed from this device, newest first, each with status, time and total. Tapping one shows its detail.
-  - Empty state: "No orders yet" and a "Browse menu" button.
+  - Empty state: "No orders yet" and a "Browse <catalog name>" button.
   - It must no longer just open the menu.
   - Data source: use whatever the system already provides for looking up a guest's orders. If there is none, keep the ids of orders placed from this device in `localStorage`, keyed by site slug (try/catch, no account, no server change), and list those.
 
@@ -329,6 +335,18 @@ A template must never look empty when a customer opens it in the gallery. Showca
 
 ---
 
+## 10f. Owner-named catalog
+
+The catalog is the owner's to name. A restaurant calls it "Menu", a shop "Catalog" or "Products", a service business "Services", a studio "Gallery". The template must never hardcode "menu" or "catalog".
+
+- Read the owner's catalog name (follow how `extras.catalogSource` and the existing en/fr copy keys work today and extend that; report how it is configured). Use it everywhere: header nav, tab bar, page title ("Browse the <name>"), search placeholder, "View all", empty-state buttons ("Browse <name>"), About link, footer links. Same word in every place.
+- Items may be dishes, products, services or plain pictures. Price is optional. Nothing assumes food.
+- **Ordering enabled:** cards have the "+", the item sheet shows "Add to cart", and the Cart tab, Order tab and order bar exist.
+- **Ordering disabled** (for example a services or portfolio site): no "+", no Cart or Order tabs, no order bar. The item sheet shows the item's own action button (existing `action`, for example "Contact us" or "Book") at its natural width. Tapping a card still opens the sheet.
+- Sample content stays a menu for the preview, but every label must come from the owner name, so changing it to "Services" changes every label.
+
+---
+
 ## 11. Do and don't
 
 **Do**
@@ -359,7 +377,7 @@ Computed values, not source:
 - [ ] Catalog grid: 2 columns at 390px, 4 columns at 1280px. Columns fill the container width.
 - [ ] Home strip: cards are 160px wide on mobile with the next card peeking.
 - [ ] One container: the left edge of the page title, search, promo, services strip and cards is identical on Home and Menu at 390px and 1280px.
-- [ ] Gap between Home sections is 24px (mobile) and 40px (desktop). No overlaps.
+- [ ] Gap between Home sections is 32px (mobile) and 56px (desktop). No overlaps.
 - [ ] Promo slide (default style): the photo fills the whole card at 390px and 1280px, no hard-edged rectangle, no small corner thumbnail. Scrim present, text readable, headline 22px/700 mobile.
 - [ ] Promo contrast test passes for all 7 palettes against the worst-case scrim.
 - [ ] Switching a slide to Cutout shows the gradient card with the faded image on the right.
@@ -370,7 +388,14 @@ Computed values, not source:
 - [ ] Preview mode shows sample images in the promo carousel, Popular items, the full menu, and About, with no broken images and no empty placeholders.
 - [ ] Live mode with no owner data shows none of the sample dishes. Empty parts are hidden.
 - [ ] Every sample image returns HTTP 200, matches its slot, and has alt text.
-- [ ] No floating cart bar anywhere. Exactly one cart entry point on mobile (Cart tab).
+- [ ] Order bar: appears with items in the cart, reads "Your cart · $", has no count circle, "View cart" opens the cart view. Hidden when the cart is empty.
+- [ ] No "View full menu" button on the catalog page.
+- [ ] Tapping a Popular card opens the item sheet. Heart and "+" do not open it.
+- [ ] Every button is content-width (no button wider than its text plus padding, except the search field).
+- [ ] Promo slide has exactly one <img>, no panel behind the text, readable text on the car photo.
+- [ ] Renaming the catalog to "Services" changes the label in the nav, tab bar, page title, search placeholder and buttons. No hardcoded "Menu" or "Catalog" remains.
+- [ ] With ordering disabled: no Cart or Order tabs, no bar, no "+", and the item sheet shows its action button.
+- [ ] More tab opens a list of the remaining pages. No tab opens a blank page.
 - [ ] Cart tab opens the cart with the added items, quantities and total. Empty cart shows the empty state.
 - [ ] Order tab opens "Your orders" (or "No orders yet"), never the menu.
 - [ ] The words "cart" and "order" are used as defined in section 10d, in en and fr.
