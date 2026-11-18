@@ -59,6 +59,25 @@ export default async function InvitationTemplateDemoPage({
   // `?locale=en|fr` is an explicit override for testing a specific locale.
   searchParams: Promise<{ locale?: string }>;
 }) {
+  // `params` (and `searchParams`) are runtime data. Reading `params` here is
+  // intentionally inside a Suspense boundary so the route can be prerendered:
+  // accessing `cookies()`, `headers()`, `params` or `searchParams` outside of
+  // `<Suspense>` prevents prerendering and breaks client-side hydration, which
+  // previously left the burgundy demo stuck on its opening gate in production.
+  return (
+    <Suspense fallback={<div className="min-h-[60vh]" />}>
+      <DemoInvitation params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function DemoInvitation({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<{ locale?: string }>;
+}) {
   const { templateId } = await params;
   const summary = getDemoTemplateSummary(templateId);
   if (!summary) notFound();
@@ -73,14 +92,14 @@ export default async function InvitationTemplateDemoPage({
         {/* searchParams is runtime data, so it must be read inside a Suspense
             boundary for the static shell (Cache Components). */}
         <Suspense fallback={<div className="min-h-[60vh]" />}>
-          <DemoInvitation summaryId={summary.id} layout={layout} searchParams={searchParams} />
+          <DemoInvitationContent summaryId={summary.id} layout={layout} searchParams={searchParams} />
         </Suspense>
       </div>
     </>
   );
 }
 
-async function DemoInvitation({
+async function DemoInvitationContent({
   summaryId,
   layout,
   searchParams,

@@ -309,5 +309,6 @@
   "lib/__tests__/burgundy-gold-structure.test.cjs",
   "lib/__tests__/burgundy-gold-stage2d.test.cjs",
   "lib/__tests__/burgundy-gold-viewer.test.cjs",
+  "lib/__tests__/invitation-demo-locale.test.cjs",
   "lib/__tests__/invitation-template-public-catalog.test.cjs"
 ]
