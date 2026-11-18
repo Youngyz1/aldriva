@@ -1988,46 +1988,20 @@ async function ProductsEmbedBlockRenderer({
     return (
       <section className="w-full">
         {isShowcaseHomeCarousel ? (
-          <>
-            <form action={catalogHref} method="GET" className="mb-[var(--ps-space-3)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
-                <input
-                  type="search"
-                  name="q"
-                  placeholder={browseLabels.searchPlaceholder || "Search..."}
-                  className="w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] pl-10 pr-4 py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
-                />
-              </div>
-            </form>
-            {productGroups.length > 0 ? (
-              <div className="mb-[var(--ps-space-6)] flex gap-[var(--ps-space-2)] overflow-x-auto scrollbar-none pb-1 max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]" role="navigation" aria-label={browseLabels.categories}>
-                {productGroups.map((group) => (
-                  <a
-                    key={group.id}
-                    href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
-                    className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
-                  >
-                    {group.title}
-                  </a>
-                ))}
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
-              <h2
-                className="text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"
-              >
-                {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
-              </h2>
-              <a
-                href={catalogHref}
-                className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
-              >
-                <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
-                <ArrowRight size={15} aria-hidden="true" />
-              </a>
-            </div>
-          </>
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+            <h2
+              className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
+            >
+              {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+            </h2>
+            <a
+              href={catalogHref}
+              className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+            >
+              <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+              <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </div>
         ) : (
           <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={siteTemplateId === "showcase" ? undefined : block.subheading} />
         )}
@@ -2459,6 +2433,7 @@ async function PromotionsEmbedBlockRenderer({
   hasPublishedMenuPage,
   hasMenuEmbedOnPage,
   scopeInternalLinks,
+  siteTemplateId,
 }: {
   block: PromotionsEmbedBlock;
   tenantId?: string;
@@ -2466,6 +2441,7 @@ async function PromotionsEmbedBlockRenderer({
   hasPublishedMenuPage?: boolean;
   hasMenuEmbedOnPage?: boolean;
   scopeInternalLinks?: boolean;
+  siteTemplateId?: string;
 }) {
   if (block.enabled === false) return null;
   const promotions = tenantId
@@ -2474,7 +2450,49 @@ async function PromotionsEmbedBlockRenderer({
         hasPublishedMenuPage,
       })
     : block.previewPromotions ?? [];
-  if (promotions.length === 0 && !block.fallback) return null;
+
+  const isShowcase = siteTemplateId === "showcase";
+  let searchPlaceholder = "Search...";
+  if (isShowcase) {
+    try {
+      const t = await getTranslations("Storefront");
+      searchPlaceholder = t("searchPlaceholder") || searchPlaceholder;
+    } catch {
+      // Keep defaults
+    }
+  }
+
+  const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
+  const searchForm = isShowcase ? (
+    <form
+      action={catalogHref}
+      method="GET"
+      className="w-full max-w-7xl mx-auto px-4 sm:px-6 mb-4"
+      role="search"
+      aria-label={searchPlaceholder}
+    >
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
+        <input
+          type="search"
+          name="q"
+          placeholder={searchPlaceholder}
+          className="w-full h-11 min-h-[44px] rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] pl-11 pr-4 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] shadow-none focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+        />
+      </div>
+    </form>
+  ) : null;
+
+  if (promotions.length === 0 && !block.fallback) {
+    if (isShowcase) {
+      return (
+        <section className="w-full">
+          {searchForm}
+        </section>
+      );
+    }
+    return null;
+  }
 
   const layoutFor = (promotion: (typeof promotions)[number]) =>
     block.layout && block.layout !== "auto" ? block.layout : promotion.layout ?? "banner";
@@ -2535,12 +2553,15 @@ async function PromotionsEmbedBlockRenderer({
       : undefined;
 
     return (
-      <PromoCarousel
-        promotions={mappedPromotions}
-        fallback={mappedFallback}
-        imageStyle={block.imageStyle}
-        labels={labels}
-      />
+      <section className="w-full">
+        {searchForm}
+        <PromoCarousel
+          promotions={mappedPromotions}
+          fallback={mappedFallback}
+          imageStyle={block.imageStyle}
+          labels={labels}
+        />
+      </section>
     );
   }
   const offerLabel = (promotion: (typeof promotions)[number]) =>
@@ -2862,49 +2883,21 @@ async function MenuEmbedBlockRenderer({
   return (
     <section className="w-full">
       {isShowcaseHomeCarousel ? (
-        <>
-          <form action={catalogHref} method="GET" className="mb-[var(--ps-space-3)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
-              <input
-                type="search"
-                name="q"
-                placeholder={browseLabels.searchPlaceholder || "Search..."}
-                className="w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] pl-10 pr-4 py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
-              />
-            </div>
-          </form>
-          {menuGroups.length > 0 ? (
-            <div className="mb-[var(--ps-space-6)] flex gap-[var(--ps-space-2)] overflow-x-auto scrollbar-none pb-1 max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]" role="navigation" aria-label={browseLabels.categories}>
-              {menuGroups.map((group) => (
-                <a
-                  key={group.id}
-                  href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
-                  className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
-                >
-                  {group.title}
-                </a>
-              ))}
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
-            <h2
-              {...elementPathProps(editMode, sourceMap, "heading")}
-              className={isShowcase
-                ? "showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
-                : "text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"}
-            >
-              {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
-            </h2>
-            <a
-              href={catalogHref}
-              className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
-            >
-              <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
-              <ArrowRight size={15} aria-hidden="true" />
-            </a>
-          </div>
-        </>
+        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <h2
+            {...elementPathProps(editMode, sourceMap, "heading")}
+            className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
+          >
+            {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+          </h2>
+          <a
+            href={catalogHref}
+            className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+          >
+            <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+            <ArrowRight size={15} aria-hidden="true" />
+          </a>
+        </div>
       ) : isShowcase ? (
         <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
@@ -2921,6 +2914,41 @@ async function MenuEmbedBlockRenderer({
       )}
       {!hasMenuItems ? (
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
+      ) : isShowcaseHomeCarousel ? (
+        // Showcase home Popular strip: flat single carousel across all sections (no per-category sections)
+        <div className="max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <CatalogCarousel
+            items={populatedSections.flatMap((sec) =>
+              sec.items.map((it) => {
+                const safeImg = safeImageSrc(it.image_url);
+                const effectivePrice = Number(it.effective_price ?? it.price);
+                const originalPrice = Number(it.original_price ?? it.price);
+                const isPromo = effectivePrice < originalPrice;
+                const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
+                return {
+                  id: it.id,
+                  name: it.name,
+                  description: it.description,
+                  image: safeImg,
+                  priceLabel: formatCurrency(effectivePrice, displayCurrency, locale),
+                  numericPrice: effectivePrice,
+                  originalPriceLabel: isPromo ? formatCurrency(originalPrice, displayCurrency, locale) : null,
+                  discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
+                  promotionEndsAt: it.applied_promotion?.ends_at ?? null,
+                  freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? t("freeDelivery") : null,
+                  isSoldOut: Boolean(it.is_sold_out),
+                  isFeatured: Boolean(it.is_featured),
+                  isNew: Boolean(it.is_new),
+                  isPopular: Boolean(it.is_popular ?? it.is_featured),
+                };
+              })
+            )}
+            prevLabel={t("carouselPrev")}
+            nextLabel={t("carouselNext")}
+            appearance="showcase"
+            showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+          />
+        </div>
       ) : (
         <StorefrontBrowse
           groups={menuGroups}
@@ -3545,6 +3573,7 @@ export async function BlockRenderer({
         hasPublishedMenuPage={hasPublishedMenuPage}
         hasMenuEmbedOnPage={hasMenuEmbedOnPage}
         scopeInternalLinks={scopeInternalLinks}
+        siteTemplateId={siteTemplateId}
       />;
       break;
     case "rich_text":

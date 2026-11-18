@@ -193,20 +193,20 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     note: "Promotions carousel at top of home; falls back to hero content when 0 promotions active.",
   },
   {
-    id: "picks",
-    page: "home",
-    catalog: true,
-    variant: "carousel",
-    slots: ["catalog.featured", "catalog.source", "catalog.card_action"],
-    note: "Popular picks carousel resolving dynamically to menu items or products.",
-  },
-  {
     id: "trust",
     page: "home",
     block: "features",
     variant: "trust_strip",
     slots: ["trust.items"],
     note: "Trust badge strip highlighting key business reassurances.",
+  },
+  {
+    id: "picks",
+    page: "home",
+    catalog: true,
+    variant: "carousel",
+    slots: ["catalog.featured", "catalog.source", "catalog.card_action"],
+    note: "Popular picks carousel resolving dynamically to menu items or products.",
   },
   {
     id: "about",
