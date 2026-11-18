@@ -26,13 +26,14 @@ import type { InvitationPageData } from "@/types/invitation-template";
 import { getInvitationDictionary } from "@/lib/invitation-i18n";
 import { downloadIcsFile, generateGoogleCalendarUrl, type CalendarEventPayload } from "@/lib/event-time";
 import { MusicBlock } from "@/components/invitation/blocks/InvitationPresentationBlocks";
-import { MemoriesGallery } from "@/components/memories/MemoriesGallery";
 import { SAMPLE_MEMORY_ITEMS } from "@/lib/memories/sample-memories";
 import type { MemoryGalleryPage } from "@/lib/memories/gallery-types";
 import {
   GiftBoxArt,
   HeartMark,
   MusicButtonFace,
+  BurgundyGoldGalleryViewer,
+  type GalleryPhoto,
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import {
   burgundyCountdownTarget,
@@ -211,16 +212,10 @@ export function BurgundyGoldSections({
     () => (data.gallery ?? []).filter((item) => item?.url?.trim()),
     [data.gallery]
   );
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const viewerRef = useRef<HTMLDialogElement>(null);
-  const viewerOpen = viewerIndex !== null;
-
-  useEffect(() => {
-    const dialog = viewerRef.current;
-    if (!dialog) return;
-    if (viewerOpen && !dialog.open) dialog.showModal();
-    if (!viewerOpen && dialog.open) dialog.close();
-  }, [viewerOpen]);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerPhotos, setViewerPhotos] = useState<GalleryPhoto[]>([]);
+  const [viewerTrigger, setViewerTrigger] = useState<HTMLElement | null>(null);
 
   // ── Reception: countdown, calendar, add-to-calendar ─────────────────────────
   const countdown = useBurgundyCountdown(data.eventDate);
@@ -341,7 +336,8 @@ export function BurgundyGoldSections({
 
   // ── Memories ────────────────────────────────────────────────────────────────
   const showMemories = burgundyShowMemories(sectionSettings, data);
-  const [memoriesOpen, setMemoriesOpen] = useState(false);
+  const [memoriesPhotos, setMemoriesPhotos] = useState<GalleryPhoto[]>([]);
+  const [memoriesLoaded, setMemoriesLoaded] = useState(false);
   const loadMemoriesPage = useCallback(
     async (cursor: string | null): Promise<MemoryGalleryPage> => {
       if (!data.memoriesToken) return { items: [], nextCursor: null };
@@ -355,8 +351,45 @@ export function BurgundyGoldSections({
     [data.memoriesToken]
   );
 
+  useEffect(() => {
+    if (!showMemories || memoriesLoaded) return;
+    if (data.memoriesSample) {
+      setMemoriesPhotos(
+        SAMPLE_MEMORY_ITEMS.map((item) => ({
+          url: item.url,
+          alt: item.url,
+          width: item.width ?? null,
+          height: item.height ?? null,
+        }))
+      );
+      setMemoriesLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    loadMemoriesPage(null)
+      .then((page) => {
+        if (cancelled) return;
+        setMemoriesPhotos(
+          page.items.map((item) => ({
+            url: item.url,
+            alt: item.url,
+            width: item.width ?? null,
+            height: item.height ?? null,
+          }))
+        );
+      })
+      .catch(() => {
+        // keep the grid empty on failure
+      })
+      .finally(() => {
+        if (!cancelled) setMemoriesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showMemories, memoriesLoaded, data.memoriesSample, loadMemoriesPage]);
+
   const hasMusic = burgundyHasMusic(data);
-  const viewerPhoto = viewerIndex !== null ? allPhotos[viewerIndex] : undefined;
   // Hide the reception section entirely when it has nothing to show.
   const hasReceptionContent = Boolean(times || countdown || calendar || calendarPayload || hasRsvp);
 
@@ -372,7 +405,14 @@ export function BurgundyGoldSections({
                 <button
                   key={`${tile.url}-${tile.index}`}
                   type="button"
-                  onClick={() => setViewerIndex(tile.index)}
+                  onClick={(event) => {
+                    setViewerTrigger(event.currentTarget as HTMLElement);
+                    setViewerPhotos(
+                      allPhotos.map((photo) => ({ url: photo.url, alt: photo.alt ?? "", width: photo.width, height: photo.height }))
+                    );
+                    setViewerIndex(tile.index);
+                    setViewerOpen(true);
+                  }}
                   aria-label={`${t("burgundyGalleryOpen")} ${tile.index + 1}`}
                   data-burgundy-gallery-tile={tile.index}
                   className="group relative aspect-square overflow-hidden rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -707,19 +747,47 @@ export function BurgundyGoldSections({
         </section>
       ) : null}
 
-      {/* 10. Guest memories — only when the layout switch is on and approved photos exist. */}
-      {showMemories ? (
+      {/* 10. Guest memories — inline preview of up to 4 square tiles; nothing
+          renders when there are no memories. Tapping a tile (or the +N tile)
+          opens the unified viewer at that photo. */}
+      {showMemories && memoriesLoaded && memoriesPhotos.length > 0 ? (
         <section id="inv-memories" data-burgundy-section="memories" className="px-4 pb-16 sm:px-6">
-          <div className="mx-auto flex w-full max-w-md justify-center">
-            <button
-              type="button"
-              onClick={() => setMemoriesOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.14em]"
-              style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
-            >
-              <IconPhoto size={16} stroke={1.75} aria-hidden="true" />
-              {memoriesLabels.title}
-            </button>
+          <div className={SECTION_WIDTH}>
+            <SectionHeading>{t("burgundyMemoriesTitle")}</SectionHeading>
+            <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3">
+              {memoriesPhotos.slice(0, 4).map((photo, index) => {
+                const isOverflow = index === 3 && memoriesPhotos.length > 4;
+                return (
+                  <button
+                    key={photo.url}
+                    type="button"
+                    onClick={(event) => {
+                      setViewerTrigger(event.currentTarget as HTMLElement);
+                      setViewerPhotos(memoriesPhotos);
+                      setViewerIndex(index);
+                      setViewerOpen(true);
+                    }}
+                    aria-label={`${t("burgundyGalleryOpen")} ${index + 1}`}
+                    data-burgundy-memories-tile={index}
+                    className="group relative aspect-square overflow-hidden rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ border: `1px solid ${GOLD}66`, outlineColor: GOLD_BRIGHT }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.url} alt={photo.alt} loading="lazy" className="h-full w-full object-cover" />
+                    {isOverflow ? (
+                      <span
+                        data-burgundy-memories-more={memoriesPhotos.length - 4}
+                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
+                        style={{ backgroundColor: `${BURGUNDY_DEEP}cc`, color: GOLD_BRIGHT }}
+                      >
+                        <IconPhoto size={22} stroke={1.5} aria-hidden="true" />
+                        +{memoriesPhotos.length - 4}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
       ) : null}
@@ -739,58 +807,20 @@ export function BurgundyGoldSections({
         )
       ) : null}
 
-      {/* Gallery viewer — native dialog so Escape and focus handling are free. */}
-      <dialog
-        ref={viewerRef}
-        aria-label={t("burgundyGalleryViewerLabel")}
-        data-burgundy-gallery-viewer="true"
-        onClose={() => setViewerIndex(null)}
-        onCancel={() => setViewerIndex(null)}
-        className="m-auto max-h-[94dvh] w-[min(28rem,calc(100%-1.5rem))] max-w-none overflow-hidden rounded-sm border p-0"
-        style={{ borderColor: `${GOLD}66`, backgroundColor: BURGUNDY_DEEP, color: CREAM }}
-      >
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-[0.66rem] uppercase tracking-[0.14em]" style={{ color: `${CREAM}aa` }}>
-            {viewerIndex !== null ? `${viewerIndex + 1} / ${allPhotos.length}` : ""}
-          </span>
-          <button
-            type="button"
-            autoFocus
-            onClick={() => setViewerIndex(null)}
-            aria-label={t("burgundyGalleryClose")}
-            className="grid size-9 place-items-center rounded-full text-2xl leading-none"
-            style={{ color: GOLD_BRIGHT }}
-          >
-            ×
-          </button>
-        </div>
-        {viewerPhoto ? (
-          <div className="px-3 pb-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={viewerPhoto.url} alt={viewerPhoto.alt?.trim() ?? ""} className="max-h-[70dvh] w-full object-contain" />
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between gap-3 border-t px-3 py-2" style={{ borderColor: `${GOLD}33` }}>
-          <button
-            type="button"
-            onClick={() => setViewerIndex((current) => (current === null ? null : Math.max(0, current - 1)))}
-            disabled={viewerIndex === null || viewerIndex === 0}
-            className="text-xs uppercase tracking-[0.12em] disabled:opacity-40"
-            style={{ color: GOLD_BRIGHT }}
-          >
-            {t("burgundyGalleryPrevious")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewerIndex((current) => (current === null ? null : Math.min(allPhotos.length - 1, current + 1)))}
-            disabled={viewerIndex === null || viewerIndex >= allPhotos.length - 1}
-            className="text-xs uppercase tracking-[0.12em] disabled:opacity-40"
-            style={{ color: GOLD_BRIGHT }}
-          >
-            {t("burgundyGalleryNext")}
-          </button>
-        </div>
-      </dialog>
+      {/* Unified gallery viewer — shared by the photo gallery and memories preview. */}
+      <BurgundyGoldGalleryViewer
+        open={viewerOpen}
+        photos={viewerPhotos}
+        index={viewerIndex}
+        onClose={() => setViewerOpen(false)}
+        labels={{
+          close: t("burgundyGalleryClose"),
+          previous: t("burgundyGalleryPrevious"),
+          next: t("burgundyGalleryNext"),
+          viewerLabel: t("burgundyGalleryViewerLabel"),
+        }}
+        returnTo={viewerTrigger}
+      />
 
       {/* RSVP dialog — same native <dialog> + scroll-lock pattern as minimalism. */}
       {hasRsvp ? (
@@ -850,16 +880,6 @@ export function BurgundyGoldSections({
             </p>
           </SectionFrame>
         </section>
-      ) : null}
-
-      {showMemories ? (
-        <MemoriesGallery
-          open={memoriesOpen}
-          onClose={() => setMemoriesOpen(false)}
-          loadPage={data.memoriesSample ? undefined : loadMemoriesPage}
-          sampleItems={data.memoriesSample ? SAMPLE_MEMORY_ITEMS : undefined}
-          labels={memoriesLabels}
-        />
       ) : null}
     </div>
   );

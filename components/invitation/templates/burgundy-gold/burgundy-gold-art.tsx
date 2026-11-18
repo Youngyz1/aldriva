@@ -15,7 +15,7 @@
  * cropped or painted behind text.
  */
 
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, ReactNode } from "react";
 
 const GOLD = "#cdb073";
 const GOLD_BRIGHT = "#e7cf98";
@@ -283,5 +283,273 @@ export function HeartMark({ size = 20, className, style, tone = BURGUNDY_DEEP }:
         <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z" />
       </svg>
     </span>
+  );
+}
+
+export interface GalleryPhoto {
+  url: string;
+  alt: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+const GALLERY_FOCUSABLE =
+  'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function galleryScrollLockTarget(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>('[data-testid="invitation-preview"]') ?? document.body;
+}
+
+/**
+ * Unified full-screen photo viewer shared by the Burgundy Gold photo gallery
+ * and the inline guest-memories preview. One fixed-size stage (object-contain)
+ * so every photo is displayed at identical dimensions regardless of aspect
+ * ratio. Escapes, arrow keys, swipe, previous/next arrows, a thumbnail strip
+ * with the current thumbnail outlined, a visible close button, a counter,
+ * focus trapping, focus return to the opening tile, and body scroll lock on
+ * open/release on close and unmount.
+ */
+export function BurgundyGoldGalleryViewer({
+  open,
+  photos,
+  index: initialIndex,
+  onClose,
+  labels,
+  returnTo,
+}: {
+  open: boolean;
+  photos: GalleryPhoto[];
+  index: number;
+  onClose: () => void;
+  labels: { close: string; previous: string; next: string; viewerLabel: string };
+  /** Element to return focus to when the viewer closes. */
+  returnTo: HTMLElement | null;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number } | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  const total = photos.length;
+  const safeIndex = Math.max(0, Math.min(total - 1, currentIndex));
+  const current = total > 0 ? photos[safeIndex] : undefined;
+
+  const counter = `${safeIndex + 1} / ${total}`;
+
+  const goPrevious = useCallback(() => {
+    if (total === 0) return;
+    setCurrentIndex((prev) => Math.max(0, prev - 1));
+  }, [total]);
+  const goNext = useCallback(() => {
+    if (total === 0) return;
+    setCurrentIndex((prev) => Math.min(total - 1, prev + 1));
+  }, [total]);
+  const goTo = useCallback((n: number) => setCurrentIndex(() => Math.max(0, Math.min(total - 1, n))), [total]);
+
+  // Scroll lock while open, released on close and unmount.
+  useEffect(() => {
+    if (!open) return;
+    const target = galleryScrollLockTarget();
+    if (!target) return;
+    const previous = target.style.overflow;
+    target.style.overflow = "hidden";
+    return () => {
+      target.style.overflow = previous;
+    };
+  }, [open]);
+
+  // Focus returns to the opening tile when closed.
+  useEffect(() => {
+    if (open) return;
+    if (returnTo && typeof returnTo.focus === "function") {
+      window.setTimeout(() => returnTo.focus(), 0);
+    }
+  }, [open, returnTo]);
+
+  // The stage always opens at the index the parent passed (the tapped tile).
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+
+  // Keyboard: Escape closes, arrows navigate.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goPrevious();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goNext();
+        return;
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose, goPrevious, goNext]);
+
+  // Focus trap: Tab cycles within the viewer.
+  useEffect(() => {
+    if (!open) return;
+    const root = containerRef.current;
+    if (!root) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(root.querySelectorAll<HTMLElement>(GALLERY_FOCUSABLE)).filter(
+        (el) => !el.hasAttribute("disabled") && el.tabIndex !== -1
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        root.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [open]);
+
+  const onTouchStart = (event: React.TouchEvent) => {
+    setTouchStart({ x: event.touches[0].clientX });
+  };
+  const onTouchEnd = (event: React.TouchEvent) => {
+    if (!touchStart) return;
+    const dx = event.changedTouches[0].clientX - touchStart.x;
+    setTouchStart(null);
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) goNext(); else goPrevious();
+    }
+  };
+
+  const handleBackdropPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
+  const handleImageError = () => setImageFailed(true);
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={labels.viewerLabel}
+      onPointerDown={handleBackdropPointerDown}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 overflow-hidden"
+      style={{ backgroundColor: "rgba(18,3,9,0.92)" }}
+    >
+      <div className="relative flex flex-col h-full w-full items-center justify-center max-w-[min(28rem,calc(100vw-1.5rem))]">
+        <div className="flex w-full items-center justify-between px-3 py-2">
+          <span className="text-[0.66rem] uppercase tracking-[0.14em]" style={{ color: "#f6ead0" }}>
+            {counter}
+          </span>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label={labels.close}
+            className="grid size-9 place-items-center rounded-full text-2xl leading-none"
+            style={{ color: "#e7cf98" }}
+          >
+            ×
+          </button>
+        </div>
+        <div
+          ref={stageRef}
+          className="mx-auto mt-2 flex items-center justify-center rounded-sm border overflow-hidden"
+          style={{
+            width: "min(24rem,calc(100vw-1.5rem))",
+            height: "40svh",
+            borderColor: "#cdb07366",
+            backgroundColor: "#2b0710",
+          }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {current ? (
+            <img
+              src={current.url}
+              alt={current.alt?.trim() || ""}
+              loading="lazy"
+              decoding="async"
+              onError={handleImageError}
+              className="max-h-full max-w-full object-contain block"
+            />
+          ) : null}
+          {imageFailed ? (
+            <div className="flex items-center justify-center h-full w-full" style={{ color: "#e7cf98" }}>
+              <span className="text-[0.6rem] uppercase tracking-[0.1em]">Photo unavailable</span>
+            </div>
+          ) : null}
+          {total > 1 ? (
+            <>
+              <button
+                type="button"
+                aria-label={labels.previous}
+                onClick={goPrevious}
+                disabled={safeIndex === 0}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/50 disabled:opacity-40"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label={labels.next}
+                onClick={goNext}
+                disabled={safeIndex >= total - 1}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white hover:bg-black/50 disabled:opacity-40"
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+        </div>
+        <div className="mt-4 flex items-center gap-1 overflow-x-auto pb-2">
+          {photos.map((photo, photoIndex) => (
+            <button
+              key={photo.url}
+              type="button"
+              aria-label={`${labels.previous} ${photoIndex + 1}`}
+              onClick={() => goTo(photoIndex)}
+              className="shrink-0 size-9 rounded-sm overflow-hidden border object-cover"
+              style={{
+                borderColor: photoIndex === safeIndex ? "#e7cf98" : "transparent",
+              }}
+            >
+              <img
+                src={photo.url}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+                onError={() => {}}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

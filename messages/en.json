@@ -712,6 +712,7 @@
     "burgundyGalleryClose": "Close",
     "burgundyGalleryPrevious": "Previous",
     "burgundyGalleryNext": "Next",
+    "burgundyGalleryCounter": "{current} / {total}",
     "burgundyReceptionHeading": "Reception information",
     "burgundyWelcomeLabel": "Guest welcome",
     "burgundyReceptionTimeLabel": "Reception",
