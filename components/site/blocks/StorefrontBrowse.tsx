@@ -983,7 +983,7 @@ export function StorefrontBrowse({
                   onKeyDown={(event) => moveCategoryTab(event, groupId)}
                   className={
                     appearance === "showcase"
-                      ? `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] ${
+                      ? `shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] ${
                           active
                             ? "border-[var(--tf-accent)] bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
                             : "border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)]"
@@ -1018,7 +1018,7 @@ export function StorefrontBrowse({
             placeholder={labels.searchPlaceholder}
             className={
               appearance === "showcase"
-                ? "w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-4)] py-[var(--ps-space-2.5)] text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+                ? "w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-4)] py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
                 : "w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
             }
           />

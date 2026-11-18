@@ -207,8 +207,11 @@ export function v2ThemeStyle(
   const hover = roles?.accentDeep ?? accentPalette?.hover ?? primary;
   const light = roles?.accentLight ?? accentPalette?.light ?? "#fbe9e3";
   const foreground = roles?.onAccent ?? (isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : accentPalette?.foreground ?? "#ffffff");
+  const showcaseSansFont = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
   const savannahFont = "'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif";
-  const headingFont = isSavannah || isShowcase
+  const headingFont = isShowcase
+    ? showcaseSansFont
+    : isSavannah
     ? savannahFont
     : isTableFlame
     ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
@@ -222,7 +225,15 @@ export function v2ThemeStyle(
     "--site-accent": primary,
     "--site-bg": roles?.base ?? template.templateBackground.base,
     "--v2-heading-font": headingFont,
-    ...(isSavannah || isShowcase ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
+    ...(isSavannah ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
+    ...(isShowcase ? {
+      "--ps-font-body": showcaseSansFont,
+      "--ps-font-heading": showcaseSansFont,
+      "--site-font": showcaseSansFont,
+      fontFamily: showcaseSansFont,
+      "--site-card-radius": "16px",
+      "--ps-card-radius": "16px",
+    } : {}),
     "--ps-accent": primary,
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,

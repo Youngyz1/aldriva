@@ -519,9 +519,13 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
   // Template-first sites use locked tokens and v2 chrome. Legacy sites retain
   // their existing SiteHeader/SiteFooter components.
   const v2Template = v2Content?.template;
+  const isShowcase = v2Template?.id === "showcase";
+  const effectiveThemeConfig = isShowcase
+    ? { ...website.theme_config, fontFamily: "sans" as const }
+    : website.theme_config;
   const themeStyle = {
     ...themeTokensToStyle(tokens),
-    ...themeConfigToStyle(website.theme_config),
+    ...themeConfigToStyle(effectiveThemeConfig),
     ...(v2Template ? v2ThemeStyle(v2Template, website.metadata) : {}),
     ...(v2Template
       ? { backgroundColor: v2Template.palettes?.length

@@ -637,7 +637,7 @@ function FeaturesBlockRenderer({
               <div
                 key={i}
                 role="listitem"
-                className="flex-shrink-0 snap-start flex items-center gap-[var(--ps-space-2.5)] rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-[var(--ps-space-2.5)] text-[var(--tf-ink)]"
+                className="flex-shrink-0 snap-start flex items-center gap-2.5 rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-2.5 text-[var(--tf-ink)]"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--tf-soft)] text-[var(--tf-accent)]">
                   <IconComponent className="h-[18px] w-[18px]" />
@@ -2006,7 +2006,7 @@ async function ProductsEmbedBlockRenderer({
                   <a
                     key={group.id}
                     href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
-                    className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
+                    className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
                   >
                     {group.title}
                   </a>
@@ -2878,7 +2878,7 @@ async function MenuEmbedBlockRenderer({
                 <a
                   key={group.id}
                   href={`${catalogHref}?section=${encodeURIComponent(group.id)}`}
-                  className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-3.5)] py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
+                  className="flex-shrink-0 inline-flex items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-1.5 text-xs font-medium text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)] transition-colors whitespace-nowrap"
                 >
                   {group.title}
                 </a>

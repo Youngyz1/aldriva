@@ -205,7 +205,7 @@ export function PromoCarousel({
                   {/* Offer chip (only for real promotions, never on fallback) */}
                   {slide.id !== "fallback" ? (
                     <div className="mb-[var(--ps-space-2)] md:mb-[var(--ps-space-3)]">
-                      <span className="inline-block rounded-full border border-[var(--tf-accent)] px-[var(--ps-space-2.5)] py-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--tf-accent)]">
+                      <span className="inline-block rounded-full border border-[var(--tf-accent)] px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--tf-accent)]">
                         {getOfferLabel(slide)}
                       </span>
                     </div>
@@ -217,7 +217,7 @@ export function PromoCarousel({
                       isLongHeadline
                         ? "text-xl sm:text-2xl font-bold leading-tight"
                         : "text-2xl sm:text-3xl md:text-4xl font-bold leading-tight"
-                    } mb-[var(--ps-space-1.5)] md:mb-[var(--ps-space-2)] text-[var(--tf-ink)]`}
+                    } mb-1.5 md:mb-[var(--ps-space-2)] text-[var(--tf-ink)]`}
                   >
                     {slide.headline}
                   </h2>
@@ -241,7 +241,7 @@ export function PromoCarousel({
                       <a
                         href={slide.href}
                         {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                        className="inline-flex min-h-[38px] md:min-h-[44px] items-center gap-[var(--ps-space-1.5)] rounded-lg px-[var(--ps-space-3.5)] md:px-[var(--ps-space-5)] py-[var(--ps-space-1.5)] md:py-[var(--ps-space-2)] text-xs md:text-sm font-semibold font-sans transition-opacity hover:opacity-90 bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
+                        className="inline-flex min-h-[38px] md:min-h-[44px] items-center gap-1.5 rounded-lg px-3.5 md:px-[var(--ps-space-5)] py-1.5 md:py-[var(--ps-space-2)] text-xs md:text-sm font-semibold font-sans transition-opacity hover:opacity-90 bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
                       >
                         <span>{slide.buttonLabel}</span>
                         <IconArrowRight size={15} aria-hidden="true" />
