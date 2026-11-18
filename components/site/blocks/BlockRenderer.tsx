@@ -2890,7 +2890,9 @@ async function MenuEmbedBlockRenderer({
           <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
             <h2
               {...elementPathProps(editMode, sourceMap, "heading")}
-              className="text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"
+              className={isShowcase
+                ? "showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
+                : "text-xl sm:text-2xl font-bold text-[var(--tf-ink)] font-[var(--v2-heading-font)]"}
             >
               {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
             </h2>
@@ -2903,6 +2905,15 @@ async function MenuEmbedBlockRenderer({
             </a>
           </div>
         </>
+      ) : isShowcase ? (
+        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-7xl mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
+            {block.heading || "Our Menu"}
+          </h1>
+          {block.subheading ? (
+            <p className="mt-1 text-[14px] text-[var(--tf-muted)] line-clamp-1">{block.subheading}</p>
+          ) : null}
+        </div>
       ) : (
         <div {...elementPathProps(editMode, sourceMap, "heading")}>
           <SectionHeading heading={block.heading || "Our Menu"} subheading={isShowcase ? undefined : block.subheading} align={sectionAlign} />

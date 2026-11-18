@@ -437,11 +437,41 @@
   --ps-font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ps-font-heading: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-/* Neutralise the global h3 rule that overrides card title size */
+/* Neutralise global heading rules from overriding Showcase typography scale (bugs 3 & 5) */
+.public-site[data-site-template="showcase"] h1,
+.public-site[data-site-template="showcase"] h2,
 .public-site[data-site-template="showcase"] h3 {
+  font-family: inherit;
   font-size: inherit;
   font-weight: inherit;
   line-height: inherit;
+}
+/* Section titles ("Popular items", "Visit us", etc. per spec section 3) */
+.public-site[data-site-template="showcase"] .showcase-section-title,
+.public-site[data-site-template="showcase"] h2.showcase-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] .showcase-section-title,
+  .public-site[data-site-template="showcase"] h2.showcase-section-title {
+    font-size: 22px;
+  }
+}
+/* Catalog page title (spec section 3 & 9, bug 6: 16px top padding) */
+.public-site[data-site-template="showcase"] .showcase-catalog-title,
+.public-site[data-site-template="showcase"] h1.showcase-catalog-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding-top: 16px;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] .showcase-catalog-title,
+  .public-site[data-site-template="showcase"] h1.showcase-catalog-title {
+    font-size: 32px;
+  }
 }
 /* Card title: 14px mobile, 15px desktop, weight 500 */
 .public-site[data-site-template="showcase"] [data-catalog-card] h3,
