@@ -137,15 +137,21 @@ export function SectionDivider(): null {
  */
 const GIFT_ANIMATION_CSS = `
 @keyframes bgg-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
-@keyframes bgg-twinkle { 0%,100% { opacity: .2; transform: scale(.85) } 50% { opacity: .95; transform: scale(1.1) } }
-@keyframes bgg-rise { 0% { opacity: 0; transform: translateY(4px) scale(.7) } 28% { opacity: 1 } 100% { opacity: 0; transform: translateY(-30px) scale(1.2) } }
+@keyframes bgg-bow-wiggle { 0%,100% { transform: rotate(0) } 25% { transform: rotate(5deg) } 75% { transform: rotate(-5deg) } }
+@keyframes bgg-shine-sweep { 0% { transform: translateX(-140%) } 60% { transform: translateX(140%) } 100% { transform: translateX(140%) } }
+@keyframes bgg-spark-twinkle { 0%,100% { opacity: .3; transform: scale(.8) } 50% { opacity: 1; transform: scale(1.2) } }
+@keyframes bgg-lid-lift { to { transform: translateY(-10px) rotate(-14deg) } }
+@keyframes bgg-burst { 0% { opacity: 0; transform: translateY(6px) scale(.6) } 35% { opacity: 1 } 100% { opacity: 0; transform: translateY(-30px) scale(1.3) } }
 .bgg-float { animation: bgg-float 4.6s ease-in-out infinite }
-.bgg-spark { animation: bgg-twinkle 3.2s ease-in-out infinite }
-.bgg-lid { transform-box: fill-box; transform-origin: 4% 96%; transition: transform 460ms cubic-bezier(.3,.9,.3,1.15) }
-.bgg-box[data-gift-open="true"] .bgg-lid { transform: translate(-7px, -11px) rotate(-16deg) }
-.bgg-box[data-gift-open="true"] .bgg-spark { animation: bgg-rise 900ms ease-out forwards }
+.bgg-bow { animation: bgg-bow-wiggle 3s ease-in-out infinite }
+.bgg-shine { animation: bgg-shine-sweep 3s linear infinite }
+.bgg-spark { animation: bgg-spark-twinkle 3.2s ease-in-out infinite }
+.bgg-lid { transform-origin: 50% 0%; transition: transform 460ms cubic-bezier(.3,.9,.3,1.15) }
+.bgg-box[data-gift-open="true"] .bgg-lid { transform: translate(-6px, -10px) rotate(-14deg) }
+.bgg-box[data-gift-open="true"] .bgg-spark { animation: bgg-burst 700ms ease-out forwards }
 @media (prefers-reduced-motion: reduce) {
   .bgg-float, .bgg-spark { animation: none }
+  .bgg-bow, .bgg-shine { animation: none }
   .bgg-lid { transition: none }
   .bgg-box[data-gift-open="true"] .bgg-lid { transform: none }
   .bgg-box[data-gift-open="true"] .bgg-spark { animation: none; opacity: 0 }
@@ -155,10 +161,11 @@ const GIFT_ANIMATION_CSS = `
 /**
  * Gift box. A real <button> so keyboard and screen-reader use come for free;
  * the drawing carries no text — the accessible name arrives via `label`.
- * `open` lifts and tilts the lid and lets the sparkles rise.
+ * `open` lifts and tilts the lid and lets the sparkles burst. Roughly
+ * 220–260 px wide on mobile. All artwork is filled CSS/SVG shapes, no assets.
  */
 export function GiftBoxArt({
-  size = 132,
+  size = 220,
   className,
   style,
   tone = GOLD_BRIGHT,
@@ -188,38 +195,59 @@ export function GiftBoxArt({
         data-gift-open={open ? "true" : "false"}
         className="bgg-box inline-flex items-center justify-center rounded-full transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-default"
         style={{
-          width: boxSize(size, 132),
-          height: boxSize(size, 132),
+          width: boxSize(size, 220),
+          height: boxSize(size, 220),
           color: tone,
           outlineColor: GOLD_BRIGHT,
-          backgroundImage: `radial-gradient(circle at 50% 42%, ${GOLD}1f 0%, transparent 68%)`,
+          boxShadow: `0 10px 30px rgba(0,0,0,0.45)`,
         }}
       >
         <span className="bgg-float block h-full w-full">
           <svg
-            viewBox="0 0 64 64"
+            viewBox="0 0 100 100"
             className="h-full w-full"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
             aria-hidden="true"
             focusable="false"
           >
-            {/* body */}
-            <path d="M11 28h42v26H11z" />
-            <path d="M11 36h42" opacity="0.45" />
-            <path d="M32 28v26" opacity="0.75" />
+            <defs>
+              <radialGradient id="bgg-shine" cx="30%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+                <stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            {/* soft shadow beneath the box */}
+            <ellipse cx="50" cy="86" rx="26" ry="7" fill="#000000" opacity="0.30" />
+            {/* burgundy box body */}
+            <rect x="20" y="46" width="60" height="40" fill="#4a0d1c" />
+            <rect x="20" y="54" width="60" height="2" fill="#2b0710" opacity="0.7" />
             {/* lid */}
             <g className="bgg-lid">
-              <path d="M7 21h50v8H7z" />
-              <path d="M32 21c-3-7-8-10-12-8-3 2-2 6 3 8M32 21c3-7 8-10 12-8 3 2 2 6-3 8" />
+              <rect x="17" y="40" width="66" height="9" fill="#2b0710" />
+              <rect x="17" y="46" width="66" height="2" fill="#4a0d1c" opacity="0.5" />
             </g>
-            {/* sparkles */}
-            <path className="bgg-spark" d="M14 15l.9 2.3L17 18l-2.1.7L14 21l-.9-2.3L11 18l2.1-.7z" fill="currentColor" stroke="none" style={{ animationDelay: "0ms" }} />
-            <path className="bgg-spark" d="M50 12l.8 2L53 15l-2.2.9L50 18l-.8-2.1L47 15l2.2-1z" fill="currentColor" stroke="none" style={{ animationDelay: "700ms" }} />
-            <circle className="bgg-spark" cx="32" cy="10" r="1.6" fill="currentColor" stroke="none" style={{ animationDelay: "1300ms" }} />
+            {/* gold ribbon cross */}
+            <rect x="47" y="46" width="6" height="40" fill="#cdb073" className="bgg-ribbon" />
+            <rect x="20" y="61" width="60" height="6" fill="#cdb073" className="bgg-ribbon" />
+            {/* gradient shine sweeping across the ribbon */}
+            <rect x="20" y="61" width="60" height="6" fill="url(#bgg-shine)" className="bgg-shine" />
+            {/* gold bow */}
+            <g className="bgg-bow" fill="#cdb073">
+              <ellipse cx="32" cy="55" rx="6" ry="9" transform="rotate(-22 32 55)" />
+              <ellipse cx="68" cy="55" rx="6" ry="9" transform="rotate(22 68 55)" />
+              <rect x="46" y="51" width="8" height="14" />
+              <rect x="43" y="63" width="4" height="10" />
+              <rect x="53" y="63" width="4" height="10" />
+            </g>
+            {/* twinkling gold sparkles */}
+            <g className="bgg-spark" fill="#e7cf98">
+              <path d="M24 22l1 2.6 1.6-1 -2.1 0.6 -1-2.6 -1.6 1z" />
+              <path d="M76 28l1 2.6 1.6-1 -2.1 0.6 -1-2.6 -1.6 1z" />
+              <path d="M50 16l1 2.6 1.6-1 -2.1 0.6 -1-2.6 -1.6 1z" />
+              <path d="M34 62l1 2.6 1.6-1 -2.1 0.6 -1-2.6 -1.6 1z" />
+              <path d="M66 62l1 2.6 1.6-1 -2.1 0.6 -1-2.6 -1.6 1z" />
+            </g>
           </svg>
         </span>
       </button>
