@@ -1855,6 +1855,8 @@ async function ProductsEmbedBlockRenderer({
     details: t("details"),
     close: t("close"),
     allergens: t("allergens"),
+    yourCart: t("storeCartTitle"),
+    viewCart: t("storeViewCart"),
   };
   const categoryOrder: string[] = [];
   const productsByCategory = new Map<string, ResolvedProductItem[]>();
@@ -2679,6 +2681,7 @@ async function MenuEmbedBlockRenderer({
   accentColor,
   siteTemplateId,
   sectionAlign,
+  catalogName,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
@@ -2694,6 +2697,7 @@ async function MenuEmbedBlockRenderer({
   accentColor?: string;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
+  catalogName?: string;
 }) {
   const tableFlameRows = siteTemplateId === "restaurant-table-flame" && block.variant === "rows";
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
@@ -2768,6 +2772,8 @@ async function MenuEmbedBlockRenderer({
     details: t("details"),
     close: t("close"),
     allergens: t("allergens"),
+    yourCart: t("storeCartTitle"),
+    viewCart: t("storeViewCart"),
     soldOut: t("soldOut"),
     required: t("required"),
     optional: t("optional"),
@@ -2915,7 +2921,7 @@ async function MenuEmbedBlockRenderer({
       ) : isShowcase ? (
         <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
-            {block.heading || "Our Menu"}
+            {isShowcase && catalogName ? `Browse the ${catalogName}` : block.heading || "Our Menu"}
           </h1>
           {block.subheading ? (
             <p className="mt-1 text-[14px] text-[var(--tf-muted)] line-clamp-1">{block.subheading}</p>
@@ -3402,6 +3408,7 @@ export async function BlockRenderer({
   sectionAlign,
   businessName,
   businessLogo,
+  catalogName,
 }: {
   block: unknown;
   tenantId?: string;
@@ -3422,6 +3429,7 @@ export async function BlockRenderer({
   sectionAlign?: "left" | "center";
   businessName?: string;
   businessLogo?: string;
+  catalogName?: string;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -3564,6 +3572,7 @@ export async function BlockRenderer({
           accentColor,
           siteTemplateId,
           sectionAlign,
+          catalogName,
         };
         content = siteTemplateId === "restaurant-savannah"
           ? await MenuEmbedBlockRenderer(menuProps)

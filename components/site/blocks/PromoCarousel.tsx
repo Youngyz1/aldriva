@@ -244,7 +244,7 @@ export function PromoCarousel({
 
                   {/* Subtext: one line, 14px mobile / 16px desktop */}
                   {slide.description ? (
-                    <p className={`showcase-promo-subtext leading-[1.4] line-clamp-1 ${slideTextClass}`}>
+                    <p className={`showcase-promo-subtext text-[14px] md:text-[16px] leading-[1.4] line-clamp-1 ${slideTextClass}`}>
                       {slide.description}
                     </p>
                   ) : null}

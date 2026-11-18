@@ -711,6 +711,11 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
               sectionAlign={v2Template?.sectionAlign}
               businessName={typeof v2Content?.content.business_name === "string" ? v2Content.content.business_name : website.site_title}
               businessLogo={typeof v2Content?.content.logo_url === "string" ? v2Content.content.logo_url : undefined}
+              catalogName={typeof v2Content?.resolved?.navigation === "object" && v2Content.resolved.navigation
+                ? (Array.isArray(v2Content.resolved.navigation) ? v2Content.resolved.navigation : []).find(
+                    (item) => item.feature === "catalog" || item.pageSlug === "menu",
+                  )?.label
+                : undefined}
             />
           ))
         )}

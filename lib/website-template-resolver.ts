@@ -992,6 +992,21 @@ function resolveCatalogSourceForCtx(ctx: BuildContext): "menu" | "products" | nu
   return null;
 }
 
+/**
+ * Resolves the owner-named catalog for Showcase. The owner-editable name is
+ * `nav_labels.menu` (the "Menu bar labels" editor slot). When unset, the name
+ * falls back to the source-based translation default ("Menu" / "Shop").
+ * Changing `nav_labels.menu` to e.g. "Services" updates every catalog label.
+ */
+export function resolveCatalogName(ctx: BuildContext): string | undefined {
+  const navLabels = asRecord(take(ctx, "nav_labels", "nav.labels"));
+  const ownerName = asString(navLabels?.menu);
+  if (ownerName) return ownerName;
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const choice = asString(extras?.catalogSource);
+  return choice === "products" ? "Shop" : "Menu";
+}
+
 function buildCatalogSectionBlock(
   ctx: BuildContext,
   section: TemplateSection

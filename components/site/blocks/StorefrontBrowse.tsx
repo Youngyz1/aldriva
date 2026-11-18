@@ -100,6 +100,8 @@ export interface StorefrontBrowseLabels {
   optional?: string;
   options?: string;
   addToOrder?: string;
+  yourCart?: string;
+  viewCart?: string;
   updateOrder?: string;
   quantityLimit?: string;
   viewOrder?: string;
@@ -731,8 +733,25 @@ export function StorefrontBrowse({
           />
         ) : null}
 
-        {/* Floating cart bar */}
-        {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
+        {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+            <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
+              <div className="text-sm font-semibold leading-none">
+                {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+              >
+                {labels.viewCart || "View cart"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
+        {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
           <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none rounded-none">
               <div className="flex items-center gap-[var(--ps-space-3)]">
@@ -753,7 +772,6 @@ export function StorefrontBrowse({
             </div>
           </div>
         ) : null}
-
         {/* Order Drawer */}
         {isCartOpen && orderConfig ? (
           <OrderDrawer
@@ -1307,8 +1325,25 @@ export function StorefrontBrowse({
         />
       ) : null}
 
-      {/* Floating cart bar */}
-      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+      {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
+      {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+          <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
+            <div className="text-sm font-semibold leading-none">
+              {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            >
+              {labels.viewCart || "View cart"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
+      {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
           <div className={isEditorial
             ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"

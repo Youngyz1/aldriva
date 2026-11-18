@@ -311,7 +311,7 @@ export const SHOWCASE_TEMPLATE: WebsiteTemplateV2 = {
   ],
   navigation: [
     { label: "Home", pageSlug: "home", order: 0 },
-    { label: "Catalog", pageSlug: "menu", order: 1, feature: "catalog" },
+    { label: "", pageSlug: "menu", order: 1, feature: "catalog" },
     { label: "Order", pageSlug: "order", order: 2, feature: "ordering" },
     { label: "Reservations", pageSlug: "reservations", order: 3, feature: "reservations" },
     { label: "Contact", pageSlug: "contact", order: 4 },
