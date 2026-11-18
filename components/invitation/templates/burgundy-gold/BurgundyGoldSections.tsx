@@ -448,7 +448,7 @@ export function BurgundyGoldSections({
           {times ? (
             <dl className="mt-6 grid grid-cols-2 gap-3 text-xs sm:text-sm" data-burgundy-reception-times="true">
               {times.welcome ? (
-                <div className="border-r pr-3" style={{ borderColor: `${GOLD}40` }}>
+                <div className="pr-3">
                   <dt className="text-[0.62rem] uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
                     {t("burgundyWelcomeLabel")}
                   </dt>
@@ -531,7 +531,7 @@ export function BurgundyGoldSections({
           ) : null}
 
           {calendarPayload ? (
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-4 border-t pt-5 text-xs" style={{ borderColor: `${GOLD}33` }}>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-4 pt-5 text-xs" style={{ borderColor: `${GOLD}33` }}>
               <button
                 type="button"
                 disabled={mode === "preview"}
@@ -879,7 +879,7 @@ export function BurgundyGoldSections({
               open={giftOpen}
               onOpen={openGift}
               label={t("burgundyGiftOpenLabel")}
-              size={132}
+              size={240}
               className="mt-7"
             />
             <p className="mt-5 text-[0.66rem] uppercase tracking-[0.22em]" style={{ color: `${CREAM}aa` }}>
