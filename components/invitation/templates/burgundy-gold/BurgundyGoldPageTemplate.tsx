@@ -165,18 +165,6 @@ export function BurgundyGoldPageTemplate({
   const groups = useMemo(() => groupRenderedBlocks(children), [children]);
   const actionPortal = groups.get("action_portal") ?? [];
   const sectionSettings = layout.template_data ?? {};
-  const memoriesLabels = useMemo(
-    () => ({
-      title: t("burgundyMemoriesTitle"),
-      close: t("burgundyMemoriesClose"),
-      loadMore: t("burgundyMemoriesLoadMore"),
-      empty: t("burgundyMemoriesEmpty"),
-      error: t("burgundyMemoriesError"),
-      retry: t("burgundyMemoriesRetry"),
-      sample: t("burgundyMemoriesSample"),
-    }),
-    [t]
-  );
   const [hasEntered, setHasEntered] = useState(false);
 
   const showGate = true;
@@ -321,30 +309,58 @@ export function BurgundyGoldPageTemplate({
                 then the first names stacked in the brush script. */}
             <header
               data-burgundy-hero="true"
-              className="relative flex min-h-[100svh] flex-col items-center justify-center px-6 py-20 text-center"
+              className="relative flex min-h-[100svh] flex-col items-center text-center px-6 py-4"
             >
-              <p className="mt-12 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
+              <p className="mt-4 text-[0.8rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
                 {eyebrow}
               </p>
               <h1
                 data-burgundy-hero-names="true"
-                className="mt-8 flex flex-col items-center"
+                className="mt-6 flex flex-col items-center"
                 style={{ fontFamily: "var(--font-burgundy-script)", color: GOLD_BRIGHT }}
               >
                 {heroNames.map((name, index) => (
                   <Fragment key={`${name}-${index}`}>
                     {index > 0 ? (
-                      <span className="my-1 block text-3xl leading-none" style={{ color: GOLD }}>&amp;</span>
+                      <span className="my-2 block text-4xl leading-none" style={{ color: GOLD }}>&amp;</span>
                     ) : null}
                     <span
                       data-burgundy-hero-name={name}
-                      className="block text-[3.6rem] leading-[1.05] sm:text-[4.5rem]"
+                      className="block"
+                      style={{ fontSize: "clamp(2rem, 8vw, 4rem)", lineHeight: "1.05" }}
                     >
                       {name}
                     </span>
                   </Fragment>
                 ))}
               </h1>
+              {data.eventDate && dateParts ? (
+                <p className="mt-5 text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
+                  {dateParts.day} {dateParts.month} {dateParts.year}{data.city ? ` · ${data.city}` : ""}
+                </p>
+              ) : null}
+              <div className="mt-auto mb-6" aria-hidden="true">
+                <div
+                  className="bgg-chevron"
+                  style={{
+                    borderTop: `8px solid ${GOLD_BRIGHT}`,
+                    borderLeft: "6px solid transparent",
+                    borderRight: "6px solid transparent",
+                    width: 0,
+                    height: 0,
+                  }}
+                />
+                <style jsx>{`
+                  @keyframes bgg-chevron-bounce {
+                    0%, 100% { transform: translateY(0) }
+                    50% { transform: translateY(-6px) }
+                  }
+                  .bgg-chevron { animation: bgg-chevron-bounce 2.4s ease-in-out infinite }
+                  @media (prefers-reduced-motion: reduce) {
+                    .bgg-chevron { animation: none }
+                  }
+                `}</style>
+              </div>
             </header>
 
             <section id="inv-details" className="px-4 pb-20 pt-2 sm:px-6">
@@ -432,7 +448,6 @@ export function BurgundyGoldPageTemplate({
               mode={mode}
               hasAction={hasAction}
               actionPortal={actionPortal.length ? <>{actionPortal}</> : null}
-              memoriesLabels={memoriesLabels}
             />
           </main>
         )}

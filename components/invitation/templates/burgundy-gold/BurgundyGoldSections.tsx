@@ -177,16 +177,7 @@ export interface BurgundyGoldSectionsProps {
   hasAction?: boolean;
   /** Rendered action_portal block; the RSVP dialog body. */
   actionPortal: ReactNode;
-  memoriesLabels: {
-    title: string;
-    close: string;
-    loadMore: string;
-    empty: string;
-    error: string;
-    retry: string;
-    sample: string;
-  };
-}
+};
 
 export function BurgundyGoldSections({
   data,
@@ -194,7 +185,6 @@ export function BurgundyGoldSections({
   mode,
   hasAction,
   actionPortal,
-  memoriesLabels,
 }: BurgundyGoldSectionsProps) {
   const t = useTranslations("Events");
   const dictionary = getInvitationDictionary(data.locale ?? "en");
@@ -216,6 +206,8 @@ export function BurgundyGoldSections({
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerPhotos, setViewerPhotos] = useState<GalleryPhoto[]>([]);
   const [viewerTrigger, setViewerTrigger] = useState<HTMLElement | null>(null);
+  /** Gallery tiles whose `src` failed to load; used to render a visible fallback. */
+  const [failedGalleryTiles, setFailedGalleryTiles] = useState<Set<string>>(new Set());
 
   // ── Reception: countdown, calendar, add-to-calendar ─────────────────────────
   const countdown = useBurgundyCountdown(data.eventDate);
@@ -240,7 +232,6 @@ export function BurgundyGoldSections({
   const hasRsvp = Boolean(actionPortal);
   const [rsvpOpen, setRsvpOpen] = useState(false);
   const rsvpDialogRef = useRef<HTMLDialogElement>(null);
-  const rsvpTriggerRef = useRef<HTMLButtonElement>(null);
   const nestedDialogEscapeRef = useRef(false);
 
   // Gift box: same dialog as "Confirm presence", with the box remembered as the
@@ -252,11 +243,6 @@ export function BurgundyGoldSections({
   function prefersReducedMotion(): boolean {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-
-  function openRsvp(trigger: HTMLElement | null) {
-    returnFocusRef.current = trigger;
-    setRsvpOpen(true);
   }
 
   function closeRsvp() {
@@ -419,8 +405,24 @@ export function BurgundyGoldSections({
                   style={{ border: `1px solid ${GOLD}66`, outlineColor: GOLD_BRIGHT }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={tile.url} alt={tile.alt} loading="lazy" className="h-full w-full object-cover" />
-                  {tile.remaining > 0 ? (
+                  <img
+                    src={tile.url}
+                    alt={tile.alt}
+                    loading="lazy"
+                    className={`h-full w-full object-cover ${failedGalleryTiles.has(tile.url) ? "hidden" : ""}`}
+                    onError={() => {
+                      setFailedGalleryTiles((previous) => new Set([...previous, tile.url]));
+                    }}
+                  />
+                  {failedGalleryTiles.has(tile.url) ? (
+                    <span
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
+                      style={{ backgroundColor: BURGUNDY_DEEP + "cc", color: GOLD_BRIGHT }}
+                    >
+                      <IconPhoto size={22} stroke={1.5} aria-hidden="true" />
+                      {tile.remaining > 0 ? `+${tile.remaining}` : null}
+                    </span>
+                  ) : tile.remaining > 0 ? (
                     <span
                       data-burgundy-gallery-more={tile.remaining}
                       className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
@@ -556,19 +558,6 @@ export function BurgundyGoldSections({
               )}
             </div>
           ) : null}
-
-          {hasRsvp ? (
-            <button
-              ref={rsvpTriggerRef}
-              type="button"
-              onClick={() => openRsvp(rsvpTriggerRef.current)}
-              data-burgundy-confirm-presence="true"
-              className="mt-7 inline-flex min-h-11 items-center rounded-full px-7 py-2 text-sm font-semibold tracking-[0.06em]"
-              style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
-            >
-              {t("burgundyConfirmPresence")}
-            </button>
-          ) : null}
         </SectionFrame>
       </section>
       ) : null}
@@ -656,27 +645,32 @@ export function BurgundyGoldSections({
         <section id="inv-programme" data-burgundy-section="programme" className="px-4 py-14 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
-            <div className="mt-8 relative mx-auto max-w-[300px]">
+            <div className="mt-8 relative mx-auto" style={{ width: "fit-content" }}>
               <span
                 aria-hidden="true"
                 className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-px"
                 style={{ backgroundColor: `${GOLD}40` }}
               />
-              <ol className="relative space-y-8">
+              <ol
+                className="space-y-8"
+                style={{ marginInline: "auto", width: "fit-content", display: "inline-flex", flexDirection: "column" }}
+              >
                 {programme.map((entry, index) => (
-                  <li key={`${entry.time}-${index}`} className="relative flex w-full items-center gap-3">
-                    <time
-                      className="w-1/2 shrink-0 text-right pr-3 text-xs uppercase tracking-[0.14em]"
-                      style={{ color: GOLD_BRIGHT }}
-                    >
+                  <li
+                    key={`${entry.time}-${index}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "auto auto auto",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                    }}
+                  >
+                    <time className="text-right shrink-0 text-xs uppercase tracking-[0.14em]" style={{ color: GOLD_BRIGHT }}>
                       {entry.time}
                     </time>
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-1/2 -translate-x-1/2 z-10 size-2.5 rounded-full"
-                      style={{ backgroundColor: GOLD }}
-                    />
-                    <span className="w-1/2 pl-3 text-sm leading-6" style={{ color: CREAM }}>{entry.title}</span>
+                    <span aria-hidden="true" className="size-2.5 rounded-full" style={{ backgroundColor: GOLD }} />
+                    <span className="text-left text-sm leading-6" style={{ color: CREAM, maxWidth: "60%" }}>{entry.title}</span>
                   </li>
                 ))}
               </ol>
@@ -700,27 +694,27 @@ export function BurgundyGoldSections({
                 disabled={!canWriteGuestbook}
                 placeholder={t("burgundyGuestbookName")}
                 data-burgundy-guestbook-field="name"
-                className="rounded-sm px-3 py-2 text-sm disabled:opacity-50"
+                className="rounded-sm w-full max-w-md px-3 py-2 text-base disabled:opacity-50"
                 style={{ backgroundColor: `${BURGUNDY_DEEP}b3`, border: `1px solid ${GOLD}4d`, color: CREAM }}
               />
               <label className="sr-only" htmlFor="burgundy-guestbook-message">{t("burgundyGuestbookMessage")}</label>
               <textarea
                 id="burgundy-guestbook-message"
-                rows={3}
+                rows={6}
                 value={wishText}
                 onChange={(event) => setWishText(event.target.value)}
                 disabled={!canWriteGuestbook}
                 placeholder={t("burgundyGuestbookMessage")}
                 data-burgundy-guestbook-field="message"
-                className="rounded-sm px-3 py-2 text-sm disabled:opacity-50"
-                style={{ backgroundColor: `${BURGUNDY_DEEP}b3`, border: `1px solid ${GOLD}4d`, color: CREAM }}
+                className="rounded-sm w-full max-w-md px-3 py-2 text-base disabled:opacity-50"
+                style={{ backgroundColor: `${BURGUNDY_DEEP}b3`, border: `1px solid ${GOLD}4d`, minHeight: 140, color: CREAM }}
               />
               <button
                 type="button"
                 onClick={sendWish}
                 disabled={!canWriteGuestbook || !wishName.trim() || !wishText.trim()}
                 data-burgundy-guestbook-send="true"
-                className="rounded-full mx-auto px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+                className="rounded-full mx-auto px-5 min-h-[48px] py-3 text-base font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
                 style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
               >
                 {t("burgundyGuestbookSend")}
@@ -730,10 +724,10 @@ export function BurgundyGoldSections({
               ) : null}
             </div>
             {feed.length ? (
-              <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain" style={{ border: `1px solid ${GOLD}33` }} data-burgundy-guestbook-feed="true">
+              <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain" data-burgundy-guestbook-feed="true">
                 <ul className="flex flex-col gap-3 p-2 text-sm">
                   {feed.map((wish, index) => (
-                    <li key={`${wish.name}-${index}`} className="px-3 py-2" style={{ border: `1px solid ${GOLD}26` }}>
+                    <li key={`${wish.name}-${index}`} className="px-3 py-2">
                       <p className="font-semibold" style={{ color: GOLD_BRIGHT }}>{wish.name}</p>
                       <p className="mt-1 leading-6" style={{ color: `${CREAM}dd` }}>{wish.text}</p>
                     </li>
@@ -773,8 +767,24 @@ export function BurgundyGoldSections({
                     style={{ border: `1px solid ${GOLD}66`, outlineColor: GOLD_BRIGHT }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photo.url} alt={photo.alt} loading="lazy" className="h-full w-full object-cover" />
-                    {isOverflow ? (
+                    <img
+                      src={photo.url}
+                      alt={photo.alt}
+                      loading="lazy"
+                      className={`h-full w-full object-cover ${failedGalleryTiles.has(photo.url) ? "hidden" : ""}`}
+                      onError={() => {
+                        setFailedGalleryTiles((previous) => new Set([...previous, photo.url]));
+                      }}
+                    />
+                    {failedGalleryTiles.has(photo.url) ? (
+                      <span
+                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
+                        style={{ backgroundColor: BURGUNDY_DEEP + "cc", color: GOLD_BRIGHT }}
+                      >
+                        <IconPhoto size={22} stroke={1.5} aria-hidden="true" />
+                        {isOverflow ? `+${memoriesPhotos.length - 4}` : null}
+                      </span>
+                    ) : isOverflow ? (
                       <span
                         data-burgundy-memories-more={memoriesPhotos.length - 4}
                         className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
