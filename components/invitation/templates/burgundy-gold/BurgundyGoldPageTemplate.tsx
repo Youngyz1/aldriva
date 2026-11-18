@@ -322,12 +322,17 @@ export function BurgundyGoldPageTemplate({
                 {heroNames.map((name, index) => (
                   <Fragment key={`${name}-${index}`}>
                     {index > 0 ? (
-                      <span className="my-2 block text-4xl leading-none" style={{ color: GOLD }}>&amp;</span>
+                      <span className="my-2 block leading-none" style={{ color: GOLD, fontSize: "clamp(2rem, 10vw, 3rem)" }}>&amp;</span>
                     ) : null}
                     <span
                       data-burgundy-hero-name={name}
                       className="block"
-                      style={{ fontSize: "clamp(2rem, 8vw, 4rem)", lineHeight: "1.05" }}
+                      style={{
+                        fontFamily: "var(--font-burgundy-script)",
+                        color: GOLD_BRIGHT,
+                        fontSize: "clamp(3rem, 13vw, 4rem)",
+                        lineHeight: "1.05",
+                      }}
                     >
                       {name}
                     </span>

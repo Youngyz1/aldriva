@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 import type { InvitationPageData } from "@/types/invitation-template";
 import { invitationDetailsPresentationForTemplate, type InvitationBlocksLayout } from "@/lib/invitation-template-schema";
@@ -33,6 +33,7 @@ export function InvitationBlocksLayoutClient({
   mode = "preview",
   isEditMode = false,
   wrapperClassName,
+  locale,
 }: {
   layout: InvitationBlocksLayout;
   data: InvitationPageData;
@@ -42,7 +43,13 @@ export function InvitationBlocksLayoutClient({
   shared?: boolean;
   mode?: "preview" | "live" | "shared";
   isEditMode?: boolean;
+  locale?: string;
 }) {
+  useEffect(() => {
+    if (locale) {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
   const resolvedTemplateId = resolveInvitationTemplateId(templateId);
   const definition = getInvitationTemplateDefinition(resolvedTemplateId);
   const detailsPresentation = invitationDetailsPresentationForTemplate(resolvedTemplateId);

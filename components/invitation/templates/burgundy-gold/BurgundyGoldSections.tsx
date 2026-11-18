@@ -416,6 +416,7 @@ export function BurgundyGoldSections({
                   />
                   {failedGalleryTiles.has(tile.url) ? (
                     <span
+                      data-burgundy-gallery-more={tile.remaining}
                       className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
                       style={{ backgroundColor: BURGUNDY_DEEP + "cc", color: GOLD_BRIGHT }}
                     >
@@ -640,41 +641,52 @@ export function BurgundyGoldSections({
         </section>
       ) : null}
 
-      {/* 8. Day programme — vertical timeline, capped at 15 entries. */}
+      {/* 8. Day programme — centered inline grid, capped at 15 entries. */}
       {programme ? (
         <section id="inv-programme" data-burgundy-section="programme" className="px-4 py-14 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
-            <div className="mt-8 relative mx-auto" style={{ width: "fit-content" }}>
+            <ol
+              style={{
+                display: "grid",
+                gridTemplateColumns: "auto auto auto",
+                columnGap: "8px",
+                rowGap: "12px",
+                marginInline: "auto",
+                width: "fit-content",
+                position: "relative",
+              }}
+            >
               <span
                 aria-hidden="true"
                 className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-px"
                 style={{ backgroundColor: `${GOLD}40` }}
               />
-              <ol
-                className="space-y-8"
-                style={{ marginInline: "auto", width: "fit-content", display: "inline-flex", flexDirection: "column" }}
-              >
-                {programme.map((entry, index) => (
-                  <li
-                    key={`${entry.time}-${index}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto auto auto",
-                      alignItems: "center",
-                      gap: "8px",
-                      width: "100%",
-                    }}
+              {programme.map((entry, index) => (
+                <li key={`prog-${index}`} style={{ display: "contents" }}>
+                  <time
+                    key={`time-${index}`}
+                    className="text-right shrink-0 text-xs uppercase tracking-[0.14em]"
+                    style={{ color: GOLD_BRIGHT }}
                   >
-                    <time className="text-right shrink-0 text-xs uppercase tracking-[0.14em]" style={{ color: GOLD_BRIGHT }}>
-                      {entry.time}
-                    </time>
-                    <span aria-hidden="true" className="size-2.5 rounded-full" style={{ backgroundColor: GOLD }} />
-                    <span className="text-left text-sm leading-6" style={{ color: CREAM, maxWidth: "60%" }}>{entry.title}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+                    {entry.time}
+                  </time>
+                  <span
+                    key={`dot-${index}`}
+                    aria-hidden="true"
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: GOLD }}
+                  />
+                  <span
+                    key={`label-${index}`}
+                    className="text-left text-sm leading-6"
+                    style={{ color: CREAM, maxWidth: "60vw" }}
+                  >
+                    {entry.title}
+                  </span>
+                </li>
+              ))}
+            </ol>
           </SectionFrame>
         </section>
       ) : null}
@@ -778,6 +790,7 @@ export function BurgundyGoldSections({
                     />
                     {failedGalleryTiles.has(photo.url) ? (
                       <span
+                        data-burgundy-memories-more={memoriesPhotos.length - 4}
                         className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
                         style={{ backgroundColor: BURGUNDY_DEEP + "cc", color: GOLD_BRIGHT }}
                       >

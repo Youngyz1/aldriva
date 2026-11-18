@@ -3,7 +3,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
-import { isValidLocale } from "@/i18n/routing";
+import { isValidLocale, type Locale, getLocaleFromAcceptLanguage } from "@/i18n/routing";
+import { headers } from "next/headers";
 import { getDemoTemplateSummary } from "@/lib/invitation-template-public-catalog";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import { mergeInvitationTemplatePreviewData } from "@/lib/invitation-template-preview-data";
@@ -113,8 +114,23 @@ async function DemoInvitationContent({
   // `connection()` marks the segment as request-time work, so the query string
   // is read per request instead of being frozen into the prerendered shell.
   await connection();
-  const [{ locale }, siteLocale] = await Promise.all([searchParams, getLocale()]);
-  const demoLocale = isValidLocale(locale) ? locale : siteLocale;
+  const searchParamsResolved = await searchParams;
+  const queryLocale = searchParamsResolved?.locale;
+  // ?locale is an explicit override per the route comment; it wins over cookie
+  // and Accept-Language. If absent, check Accept-Language directly, then fall
+  // back to getLocale() (path prefix > cookie > Accept-Language > default).
+  let demoLocale: Locale = "en";
+  if (isValidLocale(queryLocale)) {
+    demoLocale = queryLocale;
+  } else {
+    const acceptLangLocale = getLocaleFromAcceptLanguage((await headers()).get("accept-language"));
+    if (isValidLocale(acceptLangLocale)) {
+      demoLocale = acceptLangLocale;
+    } else {
+      const siteLocale = await getLocale();
+      demoLocale = isValidLocale(siteLocale) ? siteLocale : acceptLangLocale;
+    }
+  }
   const realData = assembleInvitationPageData(
     { ...EMPTY_SNAPSHOT, template_id: summaryId, locale: demoLocale },
     EMPTY_LIVE_EVENT,
@@ -130,6 +146,7 @@ async function DemoInvitationContent({
       data={preview}
       templateId={summaryId}
       mode="live"
+      locale={demoLocale}
     />
   );
 }

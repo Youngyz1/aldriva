@@ -464,12 +464,15 @@ function redirectAndSignOut(
 }
 
 export async function proxy(req: NextRequest) {
-  // ---- Locale resolution (path prefix > cookie > Accept-Language > default) ----
+  // ---- Locale resolution (?locale > path prefix > cookie > Accept-Language > default) ----
   const rawPathname = req.nextUrl.pathname;
   const {locale: pathLocale, stripped: strippedPath} = getLocaleFromPath(rawPathname);
+  const queryLocale = req.nextUrl.searchParams.get('locale');
+  const queryLocaleValid = isSupportedLocale(queryLocale) ? queryLocale as SupportedLocale : null;
   const cookieLocale = req.cookies.get(LOCALE_COOKIE)?.value ?? null;
   const acceptLang = req.headers.get('accept-language');
-  const inferredLocale: SupportedLocale = pathLocale ?? (isSupportedLocale(cookieLocale) ? cookieLocale as SupportedLocale : localeFromAcceptLanguage(acceptLang));
+  // ?locale is an explicit test override; it wins over cookie and Accept-Language.
+  const inferredLocale: SupportedLocale = queryLocaleValid ?? pathLocale ?? (isSupportedLocale(cookieLocale) ? cookieLocale as SupportedLocale : localeFromAcceptLanguage(acceptLang));
   const effectiveLocale: SupportedLocale = inferredLocale;
 
   // For routing/logic we use the stripped path (so /en/dashboard -> /dashboard)
@@ -511,9 +514,12 @@ export async function proxy(req: NextRequest) {
     res.headers.set('Referrer-Policy', 'no-referrer');
     res.headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
-  // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale
+  // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale.
+  // When ?locale is present, always set the cookie to the query value (explicit override).
   const existingCookie = req.cookies.get(LOCALE_COOKIE)?.value;
-  if (hasLocalePrefix) {
+  if (queryLocaleValid) {
+    res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
+  } else if (hasLocalePrefix) {
     if (existingCookie !== effectiveLocale) {
       res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
     }
