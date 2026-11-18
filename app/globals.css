@@ -467,17 +467,23 @@
     font-size: 18px;
   }
 }
-/* Section gap: 24px mobile, 40px desktop (spec section 5) */
+/* Section gap: 24px mobile, 40px desktop (spec section 5)
+   Use gap on main so sections 12px apart vertically (12pb+0+12pt = 24px internal,
+   but adjacent sections need actual gap). Override py-10 with controlled padding
+   and add gap via flexbox on main. */
+.public-site[data-site-template="showcase"] main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 .public-site[data-site-template="showcase"] main > section,
 .public-site[data-site-template="showcase"] main > div[class*="py-"] {
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 @media (min-width: 640px) {
-  .public-site[data-site-template="showcase"] main > section,
-  .public-site[data-site-template="showcase"] main > div[class*="py-"] {
-    padding-top: 20px;
-    padding-bottom: 20px;
+  .public-site[data-site-template="showcase"] main {
+    gap: 40px;
   }
 }
 

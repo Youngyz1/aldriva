@@ -378,7 +378,7 @@ export function CatalogCarousel({ items, prevLabel, nextLabel, currency = "USD",
         className={overflowing ? "flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] [&::-webkit-scrollbar]:hidden" : "flex gap-4 overflow-x-hidden px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"}
       >
         {items.map((item) => (
-          <div key={item.id} className={appearance === "showcase" ? "flex w-[38%] min-w-[135px] max-w-[200px] sm:w-60 md:w-64 shrink-0 snap-start flex-col" : (overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72")}>
+          <div key={item.id} className={appearance === "showcase" ? "flex w-[42%] min-w-[160px] max-w-[220px] sm:w-56 md:w-64 shrink-0 snap-start flex-col" : (overflowing ? "flex w-64 shrink-0 snap-start flex-col sm:w-72" : "flex w-64 shrink-0 flex-col sm:w-72")}>
             <CatalogCard item={item} onSelect={onSelect} onQuickAdd={onQuickAdd} currency={currency} locale={locale} imageFit={imageFit} appearance={appearance} showcaseLabels={showcaseLabels} siteSlug={siteSlug} />
           </div>
         ))}
