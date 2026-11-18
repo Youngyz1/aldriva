@@ -719,6 +719,7 @@ export function StorefrontBrowse({
             action={selected.action}
             tableFlame={false}
             savannah={true}
+            appearance={appearance}
             closeLabel={labels.close}
             labels={labels}
             orderConfig={orderConfig}
@@ -1283,6 +1284,7 @@ export function StorefrontBrowse({
           action={selected.action}
           tableFlame={isTableFlame}
           savannah={isEditorial}
+          appearance={appearance}
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
@@ -1404,6 +1406,7 @@ function ItemDetailSheet({
   action,
   tableFlame: _tableFlame,
   savannah,
+  appearance,
   closeLabel,
   labels,
   orderConfig,
@@ -1429,6 +1432,7 @@ function ItemDetailSheet({
   action?: { label: string; href: string };
   tableFlame: boolean;
   savannah: boolean;
+  appearance?: "default" | "showcase";
   closeLabel: string;
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
@@ -1444,6 +1448,7 @@ function ItemDetailSheet({
   onClose: () => void;
 }) {
   void _tableFlame;
+  const isShowcase = appearance === "showcase";
   const availableOptionGroups = availableBrowseOptionGroups(optionGroups || []);
   const orderedOptionGroups = availableOptionGroups.map((group, index) => ({ group, index }))
     .sort((left, right) => Number(right.group.required || right.group.kind === "variant") - Number(left.group.required || left.group.kind === "variant") || left.index - right.index)
@@ -1629,7 +1634,13 @@ function ItemDetailSheet({
 
   return (
     <div
-      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center" : "bg-black/50 p-0 sm:p-[var(--ps-space-6)] sm:items-center"}`}
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${
+        isShowcase
+          ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center"
+          : savannah
+            ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center"
+            : "bg-black/50 p-0 sm:p-[var(--ps-space-6)] sm:items-center"
+      }`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -1640,11 +1651,36 @@ function ItemDetailSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={savannah
-          ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none motion-reduce:transition-none"
-          : "relative flex max-h-[90dvh] w-full max-w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl outline-none motion-reduce:transition-none sm:max-w-[520px] sm:rounded-xl"}
+        className={
+          isShowcase
+            ? "relative max-w-full sm:max-w-[480px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-[20px] sm:rounded-[20px] shadow-2xl bg-[var(--tf-card)] outline-none motion-reduce:transition-none"
+            : savannah
+              ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none motion-reduce:transition-none"
+              : "relative flex max-h-[90dvh] w-full max-w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl outline-none motion-reduce:transition-none sm:max-w-[520px] sm:rounded-xl"
+        }
       >
-        {savannah ? (
+        {isShowcase ? (
+          /* Showcase Header: drag handle on mobile, title 20px/600 (max 2 lines, lh 1.3), 36px circle close button top right */
+          <div className="relative pt-3 px-4 pb-2">
+            <div className="sm:hidden mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--tf-border)]" aria-hidden="true" />
+            <div className="flex items-start justify-between gap-3 pr-10">
+              <h2
+                id={titleId}
+                className="showcase-sheet-title font-[var(--v2-heading-font)] text-[20px] font-semibold leading-[1.3] text-[var(--tf-ink)] line-clamp-2"
+              >
+                {title}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={closeLabel}
+              className="absolute right-3 top-3 z-20 flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-[var(--tf-soft)] text-[var(--tf-ink)] hover:bg-[var(--tf-border)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : savannah ? (
           /* Savannah: Close button overlaid on top-right, no separate header bar */
           <button
             type="button"
@@ -1681,8 +1717,166 @@ function ItemDetailSheet({
         )}
 
         {/* Body - single scrollable container */}
-        <div className={`min-h-0 flex-1 overflow-y-auto ${savannah ? "p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
-          {savannah ? (
+        <div className={`min-h-0 flex-1 overflow-y-auto ${isShowcase ? "p-4 space-y-4" : savannah ? "p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
+          {isShowcase ? (
+            /* Showcase Stacked Layout per section 10c */
+            <div className="flex flex-col space-y-4">
+              {image ? (
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[12px] bg-[var(--tf-soft)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image}
+                    alt={title}
+                    width={1200}
+                    height={900}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ) : null}
+
+              {/* Price: 18px/700 */}
+              {priceLabel || typeof numericPrice === "number" ? (
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-[18px] font-bold text-[var(--tf-ink)] [font-variant-numeric:lining-nums_tabular-nums]">
+                    {formattedBasePrice}
+                  </span>
+                  {formattedOriginalBasePrice ? (
+                    <span className="text-[14px] font-normal text-[var(--tf-muted)] line-through [font-variant-numeric:lining-nums_tabular-nums]">
+                      {formattedOriginalBasePrice}
+                    </span>
+                  ) : null}
+                  {discountPercent > 0 ? (
+                    <span className="rounded-full bg-[var(--tf-accent)] px-2 py-0.5 text-[11px] font-bold leading-none text-[var(--tf-on-accent)]">
+                      -{discountPercent}%
+                    </span>
+                  ) : null}
+                  {isSoldOut && labels.soldOut ? (
+                    <span className="rounded-full bg-[var(--tf-soft)] border border-[var(--tf-border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--tf-muted)]">
+                      {labels.soldOut}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Description: 14px, --tf-muted */}
+              {description ? (
+                <p className="text-[14px] leading-relaxed text-[var(--tf-muted)]">
+                  {description}
+                </p>
+              ) : null}
+
+              {/* Tags: small pills, 12px */}
+              {tags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-[var(--tf-soft)] px-2.5 py-1 text-[12px] font-medium capitalize text-[var(--tf-ink)]"
+                    >
+                      {tag.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Allergens: compact row, 14px, on --tf-soft background with 12px radius */}
+              {(() => {
+                const allergenRow = detailRows.find((r) => r.label.toLowerCase().includes("allergen"));
+                if (!allergenRow || !allergenRow.value) return null;
+                return (
+                  <div className="rounded-[12px] bg-[var(--tf-soft)] p-3 text-[14px] text-[var(--tf-ink)]">
+                    <span className="font-semibold">{allergenRow.label}: </span>
+                    <span className="text-[var(--tf-muted)]">{allergenRow.value}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Other detail rows (excluding allergens) */}
+              {(() => {
+                const nonAllergenRows = detailRows.filter((r) => !r.label.toLowerCase().includes("allergen"));
+                if (nonAllergenRows.length === 0) return null;
+                return (
+                  <dl className="divide-y divide-[var(--tf-border)] rounded-[12px] border border-[var(--tf-border)]">
+                    {nonAllergenRows.map((row, index) => (
+                      <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-3 px-3 py-2 text-[14px]">
+                        <dt className="font-medium text-[var(--tf-muted)]">{row.label}</dt>
+                        <dd className="text-right font-medium text-[var(--tf-ink)]">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                );
+              })()}
+
+              {/* Option groups */}
+              {orderedOptionGroups.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--tf-muted)]">
+                    {labels.options || "Options"}
+                  </h3>
+                  <div className="space-y-3">
+                    {orderedOptionGroups.map((group) => {
+                      const currentSelected = selectedOptions[group.id] || [];
+                      const isSingle = group.kind === "variant" || group.max === 1;
+
+                      return (
+                        <div key={group.id} ref={(node) => { if (node) groupRefs.current.set(group.id, node); else groupRefs.current.delete(group.id); }} className={`rounded-[12px] border bg-[var(--tf-soft)] p-3 ${missingGroupId === group.id ? "border-2 border-[var(--tf-accent)] ring-2 ring-[var(--tf-accent)]" : "border-[var(--tf-border)]"}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[var(--tf-ink)]">{group.name}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-card)] text-[var(--tf-muted)]"}`}
+                            >
+                              {describeBrowseOptionGroupRules(group, labels)}
+                            </span>
+                          </div>
+                          {missingGroupId === group.id ? <p id={`group-error-${group.id}`} role="alert" className="mt-2 border-l-4 border-[var(--tf-accent)] pl-2 text-xs font-semibold text-[var(--tf-ink)]">Choose {Math.max(1, group.min)} to continue</p> : null}
+                          <div className="mt-2.5 space-y-2">
+                            {group.options.map((opt) => {
+                              const isChecked = currentSelected.includes(opt.id);
+                              const optionQty = selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1;
+
+                              return (
+                                <div key={opt.id} className="flex items-center gap-2">
+                                  <label
+                                    className={`flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 text-xs p-2 rounded-[8px] border transition cursor-pointer motion-reduce:transition-none ${
+                                      isChecked
+                                        ? "border-[var(--tf-accent)] bg-[var(--tf-card)] text-[var(--tf-ink)]"
+                                        : "border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:border-[var(--tf-accent)]"
+                                    }`}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group, opt.id)} aria-describedby={missingGroupId === group.id ? `group-error-${group.id}` : undefined} className="text-[var(--tf-accent)] focus:ring-[var(--tf-accent)]" />
+                                      {opt.imageUrl ? (
+                                        <>
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={opt.imageUrl} alt={opt.name} width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                                        </>
+                                      ) : null}
+                                      <span className="min-w-0"><span className="block font-medium">{opt.name}</span>{opt.description ? <span className="mt-0.5 block text-[11px] font-normal text-[var(--tf-muted)]">{opt.description}</span> : null}</span>
+                                    </div>
+                                    {opt.priceDeltaLabel ? (
+                                      <span className="ml-2 shrink-0 font-medium text-[var(--tf-ink)]">{opt.priceDeltaLabel}</span>
+                                    ) : null}
+                                  </label>
+                                  {isChecked && (opt.maxQty ?? 1) > 1 ? (
+                                    <div className="flex items-center gap-1">
+                                      <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-9 w-9 rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] disabled:opacity-40">−</button>
+                                      <span className="min-w-5 text-center text-xs tabular-nums text-[var(--tf-ink)]">{optionQty}</span>
+                                      <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-9 w-9 rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] disabled:opacity-40">+</button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : savannah ? (
             /* Savannah Stacked Layout: edge-to-edge image on top, clean text below */
             <div className="flex flex-col">
               {image ? (
@@ -1926,46 +2120,97 @@ function ItemDetailSheet({
         </div>
 
         {/* Footer - pinned */}
-        <div className={`border-t border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-4)] ${savannah ? "pb-[env(safe-area-inset-bottom)]" : ""}`}>
+        <div
+          className={`border-t border-[var(--tf-border)] bg-[var(--tf-card)] p-4 ${
+            isShowcase || savannah ? "pb-[calc(1rem+env(safe-area-inset-bottom))]" : ""
+          }`}
+        >
           {orderConfig?.enabled ? (
-            <div className="space-y-[var(--ps-space-3)]">
-              {!isSoldOut ? (
-                <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
-                  <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
-                  <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
+            isShowcase ? (
+              /* Showcase Sticky Footer per section 10c & 10d */
+              <div className="flex items-center gap-3">
+                {!isSoldOut ? (
+                  <div className="flex h-10 items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-soft)] px-1 shrink-0">
                     <button
                       type="button"
                       aria-label="Decrease quantity"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-sm font-semibold text-[var(--tf-ink)] shadow-xs hover:bg-[var(--tf-border)] disabled:opacity-40"
                     >
-                      -
+                      −
                     </button>
-                    <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
+                    <span className="w-7 text-center text-xs font-bold text-[var(--tf-ink)] tabular-nums">{quantity}</span>
                     <button
                       type="button"
                       aria-label="Increase quantity"
                       onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
                       disabled={quantity >= MAX_LINE_QUANTITY}
-                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-sm font-semibold text-[var(--tf-ink)] shadow-xs hover:bg-[var(--tf-border)] disabled:opacity-40"
                     >
                       +
                     </button>
                   </div>
-                </div>
-              ) : null}
-              {!isSoldOut && quantity >= MAX_LINE_QUANTITY ? (
-                <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
-              ) : null}
+                ) : null}
 
-              <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
-              <button type="button" disabled={!canAddToOrder} onClick={addOrUpdateOrderLine} className={`ps-button ps-button-primary min-h-11 w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${isSoldOut ? "opacity-60" : ""}`}>
-                {isSoldOut ? labels.soldOut || "Sold out" : `${isEditing ? labels.updateOrder || "Update order" : labels.addToOrder || "Add to order"} · ${lineTotalFormatted}`}
-              </button>
-            </div>
+                <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
+                <button
+                  type="button"
+                  disabled={!canAddToOrder}
+                  onClick={addOrUpdateOrderLine}
+                  className={`flex-1 h-12 min-h-[48px] rounded-full bg-[var(--tf-accent)] px-4 text-center text-sm font-semibold text-[var(--tf-on-accent)] shadow-xs hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${
+                    isSoldOut ? "opacity-60" : ""
+                  }`}
+                >
+                  {isSoldOut
+                    ? labels.soldOut || "Sold out"
+                    : isEditing
+                      ? `${labels.updateOrder || "Update order"} · ${lineTotalFormatted}`
+                      : locale === "fr"
+                        ? `Ajouter au panier · ${lineTotalFormatted}`
+                        : `Add to cart · ${lineTotalFormatted}`}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-[var(--ps-space-3)]">
+                {!isSoldOut ? (
+                  <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
+                    <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
+                    <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
+                      <button
+                        type="button"
+                        aria-label="Decrease quantity"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        disabled={quantity <= 1}
+                        className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
+                      <button
+                        type="button"
+                        aria-label="Increase quantity"
+                        onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
+                        disabled={quantity >= MAX_LINE_QUANTITY}
+                        className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {!isSoldOut && quantity >= MAX_LINE_QUANTITY ? (
+                  <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
+                ) : null}
+
+                <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
+                <button type="button" disabled={!canAddToOrder} onClick={addOrUpdateOrderLine} className={`ps-button ps-button-primary min-h-11 w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${isSoldOut ? "opacity-60" : ""}`}>
+                  {isSoldOut ? labels.soldOut || "Sold out" : `${isEditing ? labels.updateOrder || "Update order" : labels.addToOrder || "Add to order"} · ${lineTotalFormatted}`}
+                </button>
+              </div>
+            )
           ) : action ? (
-            <a href={action.href} className={`block rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-bold text-[var(--tf-on-accent)] hover:bg-[var(--tf-accent-deep)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}>{action.label}</a>
+            <a href={action.href} className={`block rounded-full bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-3 text-center text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]`}>{action.label}</a>
           ) : null}
         </div>
       </div>
