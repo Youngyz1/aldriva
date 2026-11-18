@@ -107,79 +107,27 @@ function FlourishMark({ className }: { className?: string }) {
 }
 
 /** Top flourish above the hero eyebrow. `size` is the rendered width. */
-export function TopFlourish({ size = 240, className, style, tone = GOLD }: BurgundyArtProps) {
-  return (
-    <span
-      className={`inline-block ${className ?? ""}`}
-      style={{ width: boxSize(size, 240), color: tone, ...style }}
-      data-burgundy-art="top-flourish"
-    >
-      <FlourishMark className="h-auto w-full" />
-    </span>
-  );
+export function TopFlourish(): null {
+  // Intentionally empty: no decorative ornament is rendered until artwork is
+  // supplied. The export is kept so call sites and the swap contract stay
+  // stable; it renders nothing.
+  return null;
 }
 
 /** Corner ornament; `corner` flips it so one drawing serves all four corners. */
-export function PanelCorner({
-  size = 32,
-  corner = "top-left",
-  className,
-  style,
-  tone = GOLD,
-}: BurgundyArtProps & { corner?: "top-left" | "top-right" | "bottom-left" | "bottom-right" }) {
-  const flipX = corner === "top-right" || corner === "bottom-right";
-  const flipY = corner === "bottom-left" || corner === "bottom-right";
-  const transform = `scale(${flipX ? -1 : 1}, ${flipY ? -1 : 1})`;
-
-  return (
-    <span
-      aria-hidden="true"
-      data-burgundy-art="panel-corner"
-      data-burgundy-art-corner={corner}
-      className={`pointer-events-none block ${className ?? ""}`}
-      style={{ width: boxSize(size, 32), height: boxSize(size, 32), color: tone, transform, ...style }}
-    >
-      <svg
-        viewBox="0 0 52 52"
-        className="h-full w-full"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <path d="M2 2h32M2 2v32" />
-        <path d="M9 9c10 0 17 4 22 11-7 1-13 5-17 12" />
-        <path d="M9 9c0 10 4 17 11 22 1-7 5-13 12-17" />
-        <path d="M16 16c5-1 9 1 12 5-4 2-7 5-8 10" />
-        <circle cx="7" cy="7" r="2.2" fill="currentColor" stroke="none" />
-        <path d="M31 4c-2 1-3 3-3 5M4 31c1-2 3-3 5-3" />
-      </svg>
-    </span>
-  );
+export function PanelCorner(): null {
+  // Intentionally empty: no decorative ornament is rendered until artwork is
+  // supplied. The export is kept so call sites and the swap contract stay
+  // stable; it renders nothing.
+  return null;
 }
 
 /** Hairline rule with a centred diamond. `size` is the rendered width. */
-export function SectionDivider({ size = 176, className, style, tone = GOLD }: BurgundyArtProps) {
-  return (
-    <span
-      aria-hidden="true"
-      data-burgundy-art="section-divider"
-      className={`flex items-center gap-2 ${className ?? ""}`}
-      style={{ width: boxSize(size, 176), color: tone, ...style }}
-    >
-      <span className="h-px flex-1 bg-current opacity-45" />
-      <span className="flex items-center gap-1">
-        <span className="h-2 w-px bg-current opacity-60" />
-        <svg viewBox="0 0 20 20" className="size-2.5 shrink-0" fill="currentColor" aria-hidden="true" focusable="false">
-          <path d="M10 1.5 12 8l6.5 2-6.5 2-2 6.5-2-6.5L1.5 10 8 8 10 1.5Z" />
-        </svg>
-        <span className="h-2 w-px bg-current opacity-60" />
-      </span>
-      <span className="h-px flex-1 bg-current opacity-45" />
-    </span>
-  );
+export function SectionDivider(): null {
+  // Intentionally empty: no decorative ornament is rendered until artwork is
+  // supplied. The export is kept so call sites and the swap contract stay
+  // stable; it renders nothing.
+  return null;
 }
 
 /**

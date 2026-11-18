@@ -33,8 +33,6 @@ import {
   GiftBoxArt,
   HeartMark,
   MusicButtonFace,
-  PanelCorner,
-  SectionDivider,
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import {
   burgundyCountdownTarget,
@@ -65,24 +63,13 @@ const SECTION_WIDTH = "mx-auto w-full max-w-md";
  */
 function SectionFrame({
   children,
-  corners = false,
   align = "center",
 }: {
   children: ReactNode;
-  corners?: boolean;
   align?: "center" | "left";
 }) {
   return (
-    <div className={`${SECTION_WIDTH} relative px-5 pb-10 pt-12 sm:px-8`}>
-      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-px" style={{ backgroundColor: `${GOLD}66` }} />
-      <span aria-hidden="true" className="absolute inset-y-0 right-0 w-px" style={{ backgroundColor: `${GOLD}66` }} />
-      <SectionDivider size="100%" className="absolute left-0 top-0" tone={GOLD} />
-      {corners ? (
-        <>
-          <PanelCorner corner="top-left" size={24} tone={GOLD} className="absolute left-0 top-0" />
-          <PanelCorner corner="top-right" size={24} tone={GOLD} className="absolute right-0 top-0" />
-        </>
-      ) : null}
+    <div className={`${SECTION_WIDTH} px-5 pb-10 pt-12 sm:px-8`}>
       <div className={align === "center" ? "text-center" : undefined}>{children}</div>
     </div>
   );
@@ -380,8 +367,7 @@ export function BurgundyGoldSections({
         <section id="inv-gallery" data-burgundy-section="gallery" className="px-4 py-14 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyGalleryHeading")}</SectionHeading>
-            <SectionDivider size={176} className="mx-auto mt-4" tone={GOLD} />
-            <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="mt-8 grid grid-cols-2 gap-2 sm:gap-3">
               {galleryTiles.map((tile) => (
                 <button
                   key={`${tile.url}-${tile.index}`}
@@ -414,7 +400,7 @@ export function BurgundyGoldSections({
       {/* 5. Reception info — welcome/reception times, countdown, calendar, add-to-calendar, RSVP. */}
       {hasReceptionContent ? (
       <section id="inv-reception" data-burgundy-section="reception" className="px-4 pb-14 pt-2 sm:px-6">
-        <SectionFrame corners>
+        <SectionFrame>
           <SectionHeading>{t("burgundyReceptionHeading")}</SectionHeading>
 
           {times ? (
@@ -552,7 +538,6 @@ export function BurgundyGoldSections({
         <section id="inv-venue" data-burgundy-section="venue" className="px-4 py-14 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyVenueHeading")}</SectionHeading>
-            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             {venue.name ? (
               <p className="mt-3 text-center text-lg" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>{venue.name}</p>
             ) : null}
@@ -600,7 +585,6 @@ export function BurgundyGoldSections({
         <section id="inv-dress-code" data-burgundy-section="dress-code" className="px-4 py-14 sm:px-6">
           <div className="mx-auto w-full max-w-md text-center">
             <SectionHeading>{t("burgundyDressCodeHeading")}</SectionHeading>
-            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
             {dressCodeLine ? (
               <p className="mx-auto mt-4 max-w-sm text-sm leading-6" style={{ color: `${CREAM}dd` }}>{dressCodeLine}</p>
             ) : null}
@@ -630,27 +614,33 @@ export function BurgundyGoldSections({
       {/* 8. Day programme — vertical timeline, capped at 15 entries. */}
       {programme ? (
         <section id="inv-programme" data-burgundy-section="programme" className="px-4 py-14 sm:px-6">
-          <SectionFrame align="left">
+          <SectionFrame>
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
-            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
-            <ol className="mt-6 space-y-5">
-              {programme.map((entry, index) => (
-                <li key={`${entry.time}-${index}`} className="relative flex gap-4 pl-1">
-                  <span className="flex flex-col items-center">
-                    <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: GOLD }} aria-hidden="true" />
-                    {index < programme.length - 1 ? (
-                      <span className="mt-1 w-px flex-1" style={{ backgroundColor: `${GOLD}40` }} aria-hidden="true" />
-                    ) : null}
-                  </span>
-                  <span className="pb-1">
-                    <span className="block lining-nums tabular-nums text-xs uppercase tracking-[0.14em]" style={{ color: GOLD_BRIGHT }}>
+            <div className="mt-8 relative mx-auto max-w-[300px]">
+              <span
+                aria-hidden="true"
+                className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-px"
+                style={{ backgroundColor: `${GOLD}40` }}
+              />
+              <ol className="relative space-y-8">
+                {programme.map((entry, index) => (
+                  <li key={`${entry.time}-${index}`} className="relative flex w-full items-center gap-3">
+                    <time
+                      className="w-1/2 shrink-0 text-right pr-3 text-xs uppercase tracking-[0.14em]"
+                      style={{ color: GOLD_BRIGHT }}
+                    >
                       {entry.time}
-                    </span>
-                    <span className="mt-1 block text-sm leading-6" style={{ color: CREAM }}>{entry.title}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
+                    </time>
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1/2 -translate-x-1/2 z-10 size-2.5 rounded-full"
+                      style={{ backgroundColor: GOLD }}
+                    />
+                    <span className="w-1/2 pl-3 text-sm leading-6" style={{ color: CREAM }}>{entry.title}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </SectionFrame>
         </section>
       ) : null}
@@ -658,10 +648,9 @@ export function BurgundyGoldSections({
       {/* 9. Guestbook — typeable in preview/demo; local-only feed (no persistence yet). */}
       {showGuestbook ? (
         <section id="inv-guestbook" data-burgundy-section="guestbook" className="px-4 py-14 sm:px-6">
-          <SectionFrame align="left">
+          <SectionFrame>
             <SectionHeading>{t("burgundyGuestbookHeading")}</SectionHeading>
-            <SectionDivider size={160} className="mx-auto mt-4" tone={GOLD} />
-            <div className="mt-6 flex flex-col gap-3">
+            <div className="mt-6 flex flex-col gap-3 items-center">
               <label className="sr-only" htmlFor="burgundy-guestbook-name">{t("burgundyGuestbookName")}</label>
               <input
                 id="burgundy-guestbook-name"
@@ -691,7 +680,7 @@ export function BurgundyGoldSections({
                 onClick={sendWish}
                 disabled={!canWriteGuestbook || !wishName.trim() || !wishText.trim()}
                 data-burgundy-guestbook-send="true"
-                className="self-end rounded-full px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+                className="rounded-full mx-auto px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
                 style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
               >
                 {t("burgundyGuestbookSend")}

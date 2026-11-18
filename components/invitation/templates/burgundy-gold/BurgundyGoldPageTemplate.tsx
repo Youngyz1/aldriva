@@ -9,9 +9,6 @@ import { formatLocalizedEventDate } from "@/lib/invitation-i18n";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
 import {
   PageBackdrop,
-  PanelCorner,
-  SectionDivider,
-  TopFlourish,
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import { BurgundyGoldSections } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldSections";
 import { burgundyHeroNames } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
@@ -282,7 +279,6 @@ export function BurgundyGoldPageTemplate({
             />
 
             <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-              <TopFlourish size={224} tone={GOLD} />
               <p className="mt-4 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>{eyebrow}</p>
               <h1
                 className="mt-3 text-4xl leading-[1.15] sm:text-5xl"
@@ -293,7 +289,6 @@ export function BurgundyGoldPageTemplate({
               {openingMessage ? (
                 <p className="mt-5 max-w-xs text-sm leading-6" style={{ color: `${CREAM}dd` }}>{openingMessage}</p>
               ) : null}
-              <SectionDivider size={160} className="mt-6" tone={GOLD} />
               {data.eventDate && dateParts ? (
                 <p className="mt-4 text-[0.66rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
                   {dateParts.day} {dateParts.month} {dateParts.year}
@@ -328,7 +323,6 @@ export function BurgundyGoldPageTemplate({
               data-burgundy-hero="true"
               className="relative flex min-h-[100svh] flex-col items-center justify-center px-6 py-20 text-center"
             >
-              <TopFlourish size={240} tone={GOLD} />
               <p className="mt-12 text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
                 {eyebrow}
               </p>
@@ -351,29 +345,22 @@ export function BurgundyGoldPageTemplate({
                   </Fragment>
                 ))}
               </h1>
-              <SectionDivider size={160} className="mt-14" tone={GOLD} />
             </header>
 
             <section id="inv-details" className="px-4 pb-20 pt-2 sm:px-6">
               {/* Ceremony panel: no filled box — the page backdrop shows through,
                   with gold hairlines down both sides and a divider across the top. */}
-              <div
-                data-burgundy-panel="true"
-                data-burgundy-panel-fill="none"
-                className="relative mx-auto w-full max-w-md"
-              >
-                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-px" style={{ backgroundColor: `${GOLD}80` }} />
-                <span aria-hidden="true" className="absolute inset-y-0 right-0 w-px" style={{ backgroundColor: `${GOLD}80` }} />
-                <SectionDivider size="100%" className="absolute left-0 top-0" tone={GOLD} />
-                <PanelCorner corner="top-left" size={28} tone={GOLD} className="absolute left-0 top-0" />
-                <PanelCorner corner="top-right" size={28} tone={GOLD} className="absolute right-0 top-0" />
-
-                <h2
-                  className="px-6 pt-10 text-[0.95rem] font-bold uppercase tracking-[0.22em] sm:text-base"
-                  style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}
+                <div
+                  data-burgundy-panel="true"
+                  data-burgundy-panel-fill="none"
+                  className="relative mx-auto w-full max-w-md"
                 >
-                  {panelHeading}
-                </h2>
+                  <h2
+                    className="px-6 pt-10 text-[0.95rem] font-bold uppercase tracking-[0.22em] sm:text-base"
+                    style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}
+                  >
+                    {panelHeading}
+                  </h2>
 
                 {hasParents ? (
                   <div className="mt-7 grid grid-cols-2 gap-x-6 gap-y-4 px-6 text-xs leading-5 sm:text-sm">
