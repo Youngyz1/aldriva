@@ -1992,7 +1992,7 @@ async function ProductsEmbedBlockRenderer({
     return (
       <section className="w-full">
         {isShowcaseHomeCarousel ? (
-          <div className="flex items-center justify-between mb-[var(--ps-space-4)] mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] mx-auto max-w-[1280px]">
             <h2
               className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
             >
@@ -2471,7 +2471,7 @@ async function PromotionsEmbedBlockRenderer({
     <form
       action={catalogHref}
       method="GET"
-      className="w-full max-w-[1280px] px-4 sm:px-6 mb-6 sm:mb-10"
+      className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 mb-6 sm:mb-10"
       role="search"
       aria-label={searchPlaceholder}
     >
@@ -2904,7 +2904,7 @@ async function MenuEmbedBlockRenderer({
   return (
     <section className="w-full">
       {isShowcaseHomeCarousel ? (
-        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1280px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1280px] mx-auto">
           <h2
             {...elementPathProps(editMode, sourceMap, "heading")}
             className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
@@ -2920,7 +2920,7 @@ async function MenuEmbedBlockRenderer({
           </a>
         </div>
       ) : isShowcase ? (
-        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] mx-auto max-w-[1280px]">
           <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
             {isShowcase && catalogName ? `Browse the ${catalogName}` : block.heading || "Our Menu"}
           </h1>
@@ -2937,7 +2937,7 @@ async function MenuEmbedBlockRenderer({
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : isShowcaseHomeCarousel ? (
         // Showcase home Popular strip: flat single carousel across all sections (no per-category sections)
-        <div className="mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div className="mx-auto max-w-[1280px]">
           <HomePopularCarousel
             items={populatedSections.flatMap((sec) => sec.items)}
             prevLabel={t("carouselPrev")}
@@ -3110,9 +3110,17 @@ async function MenuEmbedBlockRenderer({
         )}
         </StorefrontBrowse>
       )}
-        {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
+        {!isShowcase && siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
           <div className="mt-[var(--ps-space-8)] text-center">
             {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
+            {hasPublishedMenuPage ? (
+              <a
+                href={`/site/${encodeURIComponent(siteSlug)}/menu`}
+                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
+              >
+                {t("viewFullMenu")}
+              </a>
+            ) : null}
           </div>
         ) : null}
     </section>

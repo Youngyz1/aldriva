@@ -735,7 +735,7 @@ export function StorefrontBrowse({
 
         {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
         {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
+          <div data-storefront-order-bar="true" className="fixed inset-x-0 bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
               <div className="text-sm font-semibold leading-none">
                 {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
@@ -1289,7 +1289,7 @@ export function StorefrontBrowse({
       ) : null}
 
       {appearance === "showcase" ? (
-        <div className={`mx-auto max-w-[1280px] px-4 sm:px-6 ${orderConfig?.enabled ? "pb-[6rem]" : ""}`}>{browseChrome}</div>
+        <div className={`mx-auto max-w-[1280px] ${orderConfig?.enabled ? "pb-[6rem]" : ""}`}>{browseChrome}</div>
       ) : (
         <>{browseChrome}</>
       )}
@@ -1327,7 +1327,7 @@ export function StorefrontBrowse({
 
       {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
       {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
+        <div data-storefront-order-bar="true" className="fixed inset-x-0 bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
           <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
             <div className="text-sm font-semibold leading-none">
               {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
