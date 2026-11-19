@@ -73,7 +73,7 @@ export default function CookieConsent() {
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
                 <Cookie className="h-4 w-4" />
               </div>
-              <p className="text-xs leading-4 text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm leading-4 text-zinc-600 dark:text-zinc-400">
                 {t("cookieBannerDescription")} {" "}
                 <Link
                   href="/cookies"
@@ -90,7 +90,7 @@ export default function CookieConsent() {
               <button
                 id="cookie-decline"
                 onClick={() => dismiss("declined")}
-                className="rounded-full border border-zinc-300 px-3.5 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="rounded-full border border-zinc-300 px-3.5 py-1.5 text-sm font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {t("cookieBannerDecline")}
               </button>
@@ -99,7 +99,7 @@ export default function CookieConsent() {
               <button
                 id="cookie-accept"
                 onClick={() => dismiss("accepted")}
-                className="rounded-full bg-orange-600 px-4 py-1.5 text-xs font-black text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-orange-700 active:scale-[0.98]"
+                className="rounded-full bg-orange-600 px-4 py-1.5 text-sm font-black text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-orange-700 active:scale-[0.98]"
               >
                 {t("cookieBannerAccept")}
               </button>

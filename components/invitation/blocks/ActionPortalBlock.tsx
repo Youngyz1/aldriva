@@ -157,7 +157,7 @@ export function ActionPortalBlock({
             <>
               {invitationData ? (
                 <div className="mt-6 text-center">
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${theme.classes.body ?? ""}`}>
+                  <p className={`text-sm font-semibold uppercase tracking-wide ${theme.classes.body ?? ""}`}>
                     {invitationData.guest.isVip ? dictionary.vipGuestPass : dictionary.officialGuestPass}
                   </p>
                   <p className={`mt-2 break-words text-lg ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy(invitationData.guest.name, locale)}</p>
@@ -269,7 +269,7 @@ export function ActionPortalBlock({
                     context={showQrContext ? [invitationData.guest.name, invitationData.title].filter((item): item is string => Boolean(item?.trim())) : undefined}
                     portalIntoNearestDialog={showQrContext}
                   />
-                  <p className={`mt-2 text-xs ${theme.classes.body ?? ""}`}>{dictionary.presentForAdmission}</p>
+                  <p className={`mt-2 text-sm ${theme.classes.body ?? ""}`}>{dictionary.presentForAdmission}</p>
                 </div>
               ) : null}
               {calendar ? (
@@ -304,7 +304,7 @@ export function ActionPortalBlock({
           )}
 
           {!onAction && !shared ? (
-            <p className={`mt-4 text-center text-xs ${theme.classes.body ?? ""}`}>
+            <p className={`mt-4 text-center text-sm ${theme.classes.body ?? ""}`}>
               {localizeInvitationSystemCopy(actionType === "RSVP_SUBMISSION" ? "Responses are disabled in preview." : "This form is shown in preview.", locale)}
             </p>
           ) : null}

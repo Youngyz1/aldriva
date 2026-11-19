@@ -490,7 +490,7 @@ export function BurgundyGoldGalleryViewer({
     >
       <div className="relative flex flex-col h-full w-full items-center justify-center max-w-[min(28rem,calc(100vw-1.5rem))]">
         <div className="flex w-full items-center justify-between px-3 py-2">
-          <span className="text-[0.66rem] uppercase tracking-[0.14em]" style={{ color: "#f6ead0" }}>
+          <span className="uppercase tracking-[0.14em]" style={{ color: "#f6ead0", fontSize: 13 }}>
             {counter}
           </span>
           <button
@@ -528,7 +528,7 @@ export function BurgundyGoldGalleryViewer({
           ) : null}
           {imageFailed ? (
             <div className="flex items-center justify-center h-full w-full" style={{ color: "#e7cf98" }}>
-              <span className="text-[0.6rem] uppercase tracking-[0.1em]">Photo unavailable</span>
+              <span className="uppercase tracking-[0.1em]" style={{ color: "#e7cf98", fontSize: 13 }}>Photo unavailable</span>
             </div>
           ) : null}
           {total > 1 ? (

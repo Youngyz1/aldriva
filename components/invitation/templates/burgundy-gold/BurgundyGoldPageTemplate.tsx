@@ -117,11 +117,11 @@ function DateBlock({ parts }: { parts: BurgundyDateParts }) {
       className="mt-4 flex items-center justify-center gap-3 uppercase tracking-[0.18em]"
       style={{ color: GOLD_BRIGHT }}
     >
-      <span data-burgundy-date-weekday={parts.weekday} className="text-[0.62rem] leading-4 opacity-90">{parts.weekday}</span>{" "}
+      <span data-burgundy-date-weekday={parts.weekday} className="leading-4 opacity-90" style={{ fontSize: 13 }}>{parts.weekday}</span>{" "}
       <span className="h-8 w-px" style={{ backgroundColor: `${GOLD}66` }} aria-hidden="true" />
       <span data-burgundy-date-day={parts.day} className="lining-nums tabular-nums text-2xl leading-none">{parts.day}</span>{" "}
       <span className="h-8 w-px" style={{ backgroundColor: `${GOLD}66` }} aria-hidden="true" />
-      <span className="text-left text-[0.62rem] leading-4">
+      <span className="text-left leading-4" style={{ fontSize: 13 }}>
         <span data-burgundy-date-month={parts.month} className="block">{parts.month}</span>{" "}
         <span data-burgundy-date-year={parts.year} className="block opacity-75">{parts.year}</span>
       </span>
@@ -144,7 +144,7 @@ function ParentColumn({
   // Plain columns: the reference has no vertical rule between the two families.
   return (
     <div className={align === "right" ? "text-left" : "text-right"}>
-      {label?.trim() ? <p className="text-[0.66rem] uppercase tracking-[0.16em] opacity-75">{label.trim()}</p> : null}
+      {label?.trim() ? <p className="uppercase tracking-[0.16em] opacity-75" style={{ fontSize: 13 }}>{label.trim()}</p> : null}
       {nameOne?.trim() ? <p className="mt-1 text-sm font-medium leading-5">{nameOne.trim()}</p> : null}
       {nameTwo?.trim() ? <p className="text-sm font-medium leading-5">{nameTwo.trim()}</p> : null}
     </div>
@@ -196,6 +196,9 @@ export function BurgundyGoldPageTemplate({
 
   // Hero shows FIRST names only; the full names stay in the ceremony panel.
   const heroNames = burgundyHeroNames(data);
+  // Longest name length, used to scale per-name font size so the longest name
+  // fills ~75% of the viewport and shorter names scale up accordingly.
+  const heroLongestLen = Math.max(...heroNames.map((n) => n.length));
 
   const eyebrow = data.eyebrow?.trim() || t("burgundyEyebrow");
   const openingMessage = data.openingMessage?.trim() || data.invitationLine?.trim() || "";
@@ -313,7 +316,7 @@ export function BurgundyGoldPageTemplate({
               data-burgundy-hero="true"
               className="relative flex min-h-[100svh] flex-col items-center justify-between text-center px-6 pt-8 pb-4"
             >
-              <p className="mt-2 text-[0.8rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
+              <p className="mt-2 uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT, fontSize: 13 }}>
                 {eyebrow}
               </p>
               <div className="flex-grow-1 flex flex-col items-center justify-center">
@@ -333,9 +336,10 @@ export function BurgundyGoldPageTemplate({
                         style={{
                           fontFamily: "var(--font-burgundy-script)",
                           color: GOLD_BRIGHT,
-                          fontSize: "clamp(2rem, 14vw, 4rem)",
                           lineHeight: "1.05",
-                          maxWidth: "70vw",
+                          // Longest name fills ~75% of the viewport; shorter names
+                          // scale up (capped at 22vw). No 4rem cap, no max-width.
+                          fontSize: `${Math.min(22, 15 * (heroLongestLen / name.length))}vw`,
                         }}
                       >
                         {name}
@@ -346,9 +350,9 @@ export function BurgundyGoldPageTemplate({
               </div>
               <div className="flex flex-col items-center">
                 {data.eventDate && dateParts ? (
-                  <p className="mb-4 text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
-                    {dateParts.day} {dateParts.month} {dateParts.year}{data.city ? ` · ${data.city}` : ""}
-                  </p>
+                <p className="mb-4 uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc`, fontSize: 13 }}>
+                  {dateParts.day} {dateParts.month} {dateParts.year}{data.city ? ` · ${data.city}` : ""}
+                </p>
                 ) : null}
                 <div className="mb-4" aria-hidden="true">
                   <div
@@ -433,7 +437,7 @@ export function BurgundyGoldPageTemplate({
                         || (index === 0 ? t("burgundyCeremonyLabel") : t("burgundyReceptionLabel"));
                       return (
                         <div key={`${venue.label ?? "venue"}-${index}`} className="border-t pt-6" style={{ borderColor: `${GOLD}40` }}>
-                          <p className="text-[0.68rem] uppercase tracking-[0.24em]" style={{ color: GOLD_BRIGHT }}>{label}</p>
+                          <p className="uppercase tracking-[0.24em]" style={{ color: GOLD_BRIGHT, fontSize: 13 }}>{label}</p>
                           {venue.name?.trim() ? (
                             <p className="mt-2 text-base font-medium leading-6" style={{ color: CREAM }}>{venue.name}</p>
                           ) : null}
