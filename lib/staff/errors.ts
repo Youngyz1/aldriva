@@ -17,9 +17,14 @@
  *   another branch" -- branch_id is in the same protected-column list
  *   (line 1148), so there is no separate message for that case.
  * - line 1319-1320: RAISE EXCEPTION 'Only head office can assign the % role'
- *   USING ERRCODE = '42501' (staff_guard_privileged_role). Not reachable from
- *   any Part B staff_members write (role assignment is Slice C), kept here
- *   for completeness since it shares the staff error surface.
+ *   USING ERRCODE = '42501' (staff_guard_privileged_role). That text was
+ *   REPLACED by migration 240's rank guard, which now raises 'Only a
+ *   sufficiently senior role can assign the ...'; the old head-office text is
+ *   no longer produced by the database and is not matched anywhere below.
+ * - Machine-readable hints are the primary signal (migrations 238, 240 and
+ *   241; 248 planned). StaffDbError.hint is checked FIRST, before any message
+ *   match, and message text is only a fallback for guards that still raise
+ *   without a hint.
  * - line 299-301: uq_staff_members_business_auth_user, a partial UNIQUE
  *   index (business_id, auth_user_id) WHERE auth_user_id IS NOT NULL ->
  *   generic Postgres unique-violation, SQLSTATE 23505. Not reachable from
@@ -53,6 +58,7 @@
 export type StaffDbError = {
   code?: string | null;
   message?: string | null;
+  hint?: string | null;
 };
 
 export type StaffError = {
@@ -61,7 +67,16 @@ export type StaffError = {
 };
 
 const SELF_EDIT_MESSAGE = "Staff can only update their own phone, email and photo";
-const PRIVILEGED_ROLE_MESSAGE_PREFIX = "Only head office can assign the";
+const SENIOR_ROLE_MESSAGE_PREFIX = "Only a sufficiently senior role can assign the";
+const ESCALATION_MESSAGE_PREFIX = "Cannot grant a permission you do not hold yourself";
+
+const HINT_ERRORS: Record<string, StaffError> = {
+  privileged_role_denied: { code: "privileged_role_denied", message: "Your role isn't senior enough to assign that role." },
+  permission_escalation_denied: { code: "permission_escalation_denied", message: "You can't grant a permission you don't have yourself." },
+  all_branches_change_denied: { code: "all_branches_change_denied", message: "You don't have permission to change a staff member's all-branches access." },
+  primary_branch_scope_delete_denied: { code: "primary_branch_scope_delete_denied", message: "A staff member's home branch can't be removed from their branch access." },
+  last_owner_removal_denied: { code: "last_owner_removal_denied", message: "At least one owner must remain." },
+};
 
 export const NOT_FOUND_OR_DENIED: StaffError = {
   code: "not_found_or_denied",
@@ -72,11 +87,19 @@ export function mapStaffError(error: StaffDbError): StaffError {
   const message = error.message ?? "";
   const code = error.code ?? "";
 
+  // Hints first: a stable machine-readable hint from the database always wins
+  // over matching the raw message text.
+  const hint = (error.hint ?? "").trim();
+  if (hint && Object.prototype.hasOwnProperty.call(HINT_ERRORS, hint)) return { ...HINT_ERRORS[hint] };
+
   if (message.includes(SELF_EDIT_MESSAGE)) {
     return { code: "self_edit_only", message: "You can only update your own phone, email and photo." };
   }
-  if (message.includes(PRIVILEGED_ROLE_MESSAGE_PREFIX)) {
-    return { code: "privileged_role_denied", message: "Only head office can assign that role." };
+  if (message.includes(SENIOR_ROLE_MESSAGE_PREFIX)) {
+    return { ...HINT_ERRORS.privileged_role_denied };
+  }
+  if (message.includes(ESCALATION_MESSAGE_PREFIX)) {
+    return { ...HINT_ERRORS.permission_escalation_denied };
   }
   if (code === "23505") {
     return { code: "duplicate_login", message: "This login is already linked to another staff member in this business." };
