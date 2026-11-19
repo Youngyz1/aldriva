@@ -446,20 +446,31 @@
   font-weight: inherit;
   line-height: inherit;
 }
-/* Promo headline: 28px/700 mobile, 48px/700 desktop (spec section 7) */
-.public-site[data-site-template="showcase"] h2.showcase-promo-headline {
+/* Hero headline: 28px/700 mobile, 48px/700 desktop (full-bleed band, never slidable) */
+.public-site[data-site-template="showcase"] h1.showcase-hero-headline {
   font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: normal;
 }
 @media (min-width: 640px) {
-  .public-site[data-site-template="showcase"] h2.showcase-promo-headline {
+  .public-site[data-site-template="showcase"] h1.showcase-hero-headline {
     font-size: 48px;
     letter-spacing: -0.01em;
   }
 }
-/* Promo subtext: 14px mobile, 16px desktop (spec section 7) */
+/* Promo card headline: 20px/700 mobile, 28px/700 desktop (compact, slidable card) */
+.public-site[data-site-template="showcase"] h3.showcase-promo-card-headline {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] h3.showcase-promo-card-headline {
+    font-size: 28px;
+  }
+}
+/* Promo subtext: 14px mobile, 16px desktop */
 .public-site[data-site-template="showcase"] p.showcase-promo-subtext {
   font-size: 14px;
   font-weight: 400;

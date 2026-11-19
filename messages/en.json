@@ -823,6 +823,8 @@
     "foodOrderOfferHeading": "A little something special",
     "foodOrderOfferSubheading": "See what is available today.",
     "foodOrderContactHeading": "Get in touch",
+    "foodOrderHeroCtaBrowse": "Browse {catalog}",
+    "foodOrderHeroCtaContact": "Contact us",
     "foodOrderEditorBusiness": "Business identity",
     "foodOrderEditorHero": "First impression",
     "foodOrderEditorSteps": "Order steps",

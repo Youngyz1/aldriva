@@ -25,7 +25,6 @@ import type {
   BlockType,
   MenuEmbedBlock,
   ProductsEmbedBlock,
-  PromotionFallback,
 } from "./website-blocks";
 import {
   validateBlock,
@@ -184,6 +183,9 @@ export interface TemplateResolutionOptions {
     offerHeading?: string;
     offerSubheading?: string;
     contactHeading?: string;
+    /** "Browse {catalog}" — {catalog} is replaced with the owner-named catalog label. */
+    heroCtaBrowseTemplate?: string;
+    heroCtaContact?: string;
     navigationLabels?: Record<string, string>;
   };
   /** Locale-resolved headings/navigation used only by the Store template. */
@@ -601,13 +603,53 @@ function sourceEntriesForBlock(
   return entries;
 }
 
-function buildHero(ctx: BuildContext): Block {
+function buildHero(ctx: BuildContext): Block | null {
+  const isShowcase = ctx.template.id === "showcase";
   const primaryCtaLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary"));
   const hours = asRecord(take(ctx, "hours", "hero.open_tag") ?? take(ctx, "hours", "hours.table"));
   const badge = hours ? asString(hours.today_tag) : undefined;
   const isTableFlame = ctx.template.id === "restaurant-table-flame";
   const isSavannah = ctx.template.id === "restaurant-savannah";
   const isRestaurantEditorial = isTableFlame || isSavannah;
+
+  if (isShowcase) {
+    const heroImage = asString(take(ctx, "hero_image", "hero.image"));
+    const heroHeadline = asString(take(ctx, "hero_headline", "hero.headline"));
+    const heroSubtext = asString(take(ctx, "hero_subtext", "hero.subtext"));
+    // Nothing filled in: the hero is hidden entirely.
+    if (!heroImage && !heroHeadline && !heroSubtext) return null;
+    const catalogName = resolveCatalogName(ctx);
+    const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
+    const contactPage = ctx.template.pages.find((p) => p.purpose === "contact");
+    const catalogHref = catalogPage
+      ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogPage.slug) : `/${encodeURIComponent(catalogPage.slug)}`)
+      : undefined;
+    const contactHref = contactPage
+      ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, contactPage.slug) : `/${encodeURIComponent(contactPage.slug)}`)
+      : undefined;
+    const ordering = ctx.storefrontFeatures.ordering;
+    const browseTemplate = ctx.foodOrderCopy?.heroCtaBrowseTemplate ?? "Browse {catalog}";
+    const contactLabel = ctx.foodOrderCopy?.heroCtaContact ?? "Contact us";
+    const defaultCtaLabel = ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel;
+    const defaultCtaHref = ordering ? catalogHref : contactHref;
+    const secondaryCtaLabel = asString(take(ctx, "secondary_cta_label", "hero.cta_secondary"));
+    return {
+      type: "hero",
+      variant: "full-bleed",
+      align: "left",
+      tagline: asString(take(ctx, "tagline", "hero.tagline")),
+      heading: heroHeadline,
+      subheading: heroSubtext,
+      backgroundImage: heroImage,
+      ctaLabel: primaryCtaLabel || defaultCtaLabel,
+      ctaHref: defaultCtaHref || "",
+      ...(secondaryCtaLabel && ordering && contactHref
+        ? { secondaryCtaLabel: contactLabel, secondaryCtaHref: contactHref }
+        : {}),
+      scrim: true,
+    } as Block;
+  }
+
   const tagline = asString(take(ctx, "tagline", "hero.tagline"));
   const address = asString(effectiveValue(ctx, "address"));
   const area = address?.split(",").slice(-2).join(",").trim();
@@ -1208,36 +1250,15 @@ function buildSectionBlock(
       const isCarousel = section.variant === "carousel";
       const extras = asRecord(effectiveValue(ctx, "template_extras"));
       const promoImageStyle = asString(extras?.promoImageStyle) === "cover" ? "cover" : "contain";
-      let fallback: PromotionFallback | undefined;
-      if (isCarousel) {
-        // headline: hero_headline if set, else business_name; subtext: hero_subtext, else tagline.
-        const headline = asString(take(ctx, "hero_headline", "hero.headline")) ?? asString(effectiveValue(ctx, "business_name")) ?? "";
-        const subtext = asString(take(ctx, "hero_subtext", "hero.subtext")) ?? asString(effectiveValue(ctx, "tagline")) ?? "";
-        const image = asString(take(ctx, "hero_image", "hero.image")) ?? "";
-        const buttonLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary")) ?? "";
-        // For Showcase (or any template using fallback slide):
-        // if there is no headline and no image, omit the block.
-        if (ctx.template.id === "showcase" && !headline && !image) {
-          return null;
-        }
-        const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
-        const catalogSlug = catalogPage ? catalogPage.slug : "menu";
-        const href = ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogSlug) : `/${encodeURIComponent(catalogSlug)}`;
-        fallback = {
-          ...(headline ? { headline } : {}),
-          ...(subtext ? { subtext } : {}),
-          ...(image ? { image } : {}),
-          ...(buttonLabel ? { buttonLabel } : {}),
-          href,
-        };
-      }
+      // Showcase's compact promo card is dashboard-managed Promotions only — the
+      // hero now owns the owner's default/fallback content (buildHero above).
+      // No active promotions: the renderer hides the whole block, no gap.
       return {
         type: "promotions_embed",
         enabled: true,
         layout: "auto",
         ...(ctx.template.id === "showcase" ? { imageStyle: promoImageStyle } : {}),
         ...(isCarousel ? { variant: "carousel" } : {}),
-        ...(fallback ? { fallback } : {}),
         ...(ctx.includeSamples && ctx.template.id === "showcase"
           ? { previewPromotions: SHOWCASE_PREVIEW_PROMOTIONS }
           : {}),
@@ -1626,6 +1647,11 @@ export function resolveTemplateManifest(
     : undefined);
   for (const page of pages) {
     if (!page.isHome) continue;
+    // Showcase's hero fully resolves its own CTA (owner-named catalog label,
+    // ordering-aware default, contact fallback) inside buildHero — this
+    // platform-wide fallback would clobber that with the generic site-wide
+    // primary action instead.
+    if (template.id === "showcase") continue;
     const hero = page.blocks.find((block) => block.type === "hero");
     if (!hero || hero.type !== "hero" || !primaryAction.primary) continue;
     const actionIsFixedFallback = ["viewMenu", "viewProducts", "shopNow", "contact", "rentalContactCta"].includes(primaryAction.primary.labelKey);

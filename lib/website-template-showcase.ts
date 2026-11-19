@@ -8,8 +8,9 @@
  * ink (#111111), and 7 curated accent palettes.
  *
  * Layout:
- * - Home: Promos (carousel) -> Popular Picks (catalog: true, carousel) ->
- *         Trust Strip (features, trust_strip) -> Story (about, split) ->
+ * - Home: Hero (full-bleed, one, never slidable) -> Promo card (compact, slidable,
+ *         only when promotions are active) -> Trust Strip (features, trust_strip) ->
+ *         Popular Picks (catalog: true, carousel) -> Story (about, split) ->
  *         Hours & Location (contact, card)
  * - Menu/Shop: Catalog (catalog: true)
  * - Order: menu_order
@@ -92,10 +93,12 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
   { slotId: "nav.logo", field: "logo_url", label: "Logo", kind: "image" },
   { slotId: "nav.labels", field: "nav_labels", label: "Menu bar labels", kind: "text" },
   { slotId: "nav.cta", field: "primary_cta_label", label: "Order / Shop button", kind: "text", required: true },
-  { slotId: "hero.image", field: "hero_image", label: "Hero / Fallback photo", kind: "image" },
-  { slotId: "hero.headline", field: "hero_headline", label: "Hero / Fallback headline", kind: "text" },
-  { slotId: "hero.subtext", field: "hero_subtext", label: "Hero / Fallback subtext", kind: "textarea" },
-  { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Fallback button label", kind: "text" },
+  { slotId: "hero.image", field: "hero_image", label: "Hero photo", kind: "image" },
+  { slotId: "hero.headline", field: "hero_headline", label: "Hero headline", kind: "text" },
+  { slotId: "hero.subtext", field: "hero_subtext", label: "Hero subtext", kind: "textarea" },
+  { slotId: "hero.tagline", field: "tagline", label: "Hero eyebrow", kind: "text" },
+  { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Hero button label", kind: "text" },
+  { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Hero second button label (optional)", kind: "text" },
   {
     slotId: "catalog.source",
     field: "template_extras",
@@ -185,12 +188,19 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
 const SHOWCASE_SECTIONS: TemplateSection[] = [
   { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta", "nav.mobile_tab_bar"] },
   {
-    id: "promotions",
+    id: "hero",
+    page: "home",
+    block: "hero",
+    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary"],
+    note: "Full-bleed hero band. Always one, never slidable. Hidden entirely when the owner has set no photo, headline, or subtext.",
+  },
+  {
+    id: "promo",
     page: "home",
     block: "promotions_embed",
     variant: "carousel",
-    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.cta_primary", "promo.autoplay", "promo.image_style"],
-    note: "Promotions carousel at top of home; falls back to hero content when 0 promotions active.",
+    slots: ["promo.autoplay", "promo.image_style"],
+    note: "Compact slidable promo card, dashboard-managed Promotions only. Absent (no gap) when there are no active promotions.",
   },
   {
     id: "trust",

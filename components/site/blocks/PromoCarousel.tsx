@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { IconPlayerPlay, IconPlayerPause, IconArrowRight } from "@tabler/icons-react";
 import type { ResolvedMenuPromotion } from "@/lib/website-embeds";
-import type { PromotionFallback } from "@/lib/website-blocks";
 import { safeImageSrc } from "@/lib/image-url";
 
 export interface PromoCarouselLabels {
@@ -20,7 +19,6 @@ export interface PromoCarouselLabels {
 
 export interface PromoCarouselProps {
   promotions: ResolvedMenuPromotion[];
-  fallback?: PromotionFallback;
   autoplaySetting?: string;
   labels: PromoCarouselLabels;
 }
@@ -55,38 +53,27 @@ function trimButton(text?: string | null): string {
   return trimmed.length > 40 ? trimmed.slice(0, 40) : trimmed;
 }
 
+/**
+ * Compact, slidable promotions card — dashboard-managed Promotions only.
+ * Lives inside the page container (not full-bleed): the hero band owns the
+ * full-bleed, never-slidable treatment (see HeroBlockRenderer).
+ */
 export function PromoCarousel({
   promotions,
-  fallback,
   autoplaySetting,
   labels,
 }: PromoCarouselProps) {
-  const slides: CarouselSlideData[] =
-    promotions.length > 0
-      ? promotions.map((p) => ({
-          id: p.id,
-          headline: trimHeadline(p.headline || p.name),
-          description: trimDescription(p.description),
-          imageUrl: p.image_url ? (safeImageSrc(p.image_url) ?? undefined) : undefined,
-          buttonLabel: trimButton(p.cta_label),
-          href: p.destination_href || undefined,
-          external: p.destination_external,
-          offerType: p.offer_type,
-          percentOff: p.percent_off,
-        }))
-      : fallback
-      ? [
-          {
-            id: "fallback",
-            headline: trimHeadline(fallback.headline || "Featured promotion"),
-            description: trimDescription(fallback.subtext),
-            imageUrl: fallback.image ? (safeImageSrc(fallback.image) ?? undefined) : undefined,
-            buttonLabel: trimButton(fallback.buttonLabel || "Explore"),
-            href: fallback.href || undefined,
-            external: false,
-          },
-        ]
-      : [];
+  const slides: CarouselSlideData[] = promotions.map((p) => ({
+    id: p.id,
+    headline: trimHeadline(p.headline || p.name),
+    description: trimDescription(p.description),
+    imageUrl: p.image_url ? (safeImageSrc(p.image_url) ?? undefined) : undefined,
+    buttonLabel: trimButton(p.cta_label),
+    href: p.destination_href || undefined,
+    external: p.destination_external,
+    offerType: p.offer_type,
+    percentOff: p.percent_off,
+  }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -103,7 +90,7 @@ export function PromoCarousel({
     if (containerRef.current) {
       const slideElem = containerRef.current.children[next] as HTMLElement | undefined;
       if (slideElem) {
-        slideElem.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        slideElem.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
       }
     }
   }, [totalSlides]);
@@ -171,12 +158,10 @@ export function PromoCarousel({
         onMouseLeave={() => setIsHovered(false)}
         onTouchStart={() => setIsTouched(true)}
         onTouchEnd={() => setIsTouched(false)}
-        className={`flex w-full ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
+        className={`flex w-full gap-3 ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
       >
         {slides.map((slide, idx) => {
           const hasImage = Boolean(slide.imageUrl);
-          const isLongHeadline = slide.headline.length > 60;
-          const slideTextClass = hasImage ? "text-[var(--tf-on-ink)]" : "text-[var(--tf-ink)]";
 
           return (
             <div
@@ -184,105 +169,97 @@ export function PromoCarousel({
               role="group"
               aria-roledescription="slide"
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
-              className={`w-full flex-shrink-0 snap-start relative overflow-hidden h-[320px] md:h-[520px] bg-[var(--tf-soft)]`}
+              className="relative flex-shrink-0 snap-start overflow-hidden rounded-[20px] h-[150px] md:h-[200px] w-[88%] md:w-full bg-[var(--tf-soft)]"
             >
               {hasImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={slide.imageUrl}
                   alt={slide.headline}
-                  className="absolute inset-0 h-full w-full object-cover object-position-[70%_50%]"
-                  style={{ objectPosition: "70% 50%" }}
+                  className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                   decoding="async"
                 />
               ) : null}
 
-              {/* Scrim behind the text only: horizontal on desktop, bottom-up on mobile.
-                  No mask or fade is applied to the photo itself. */}
+              {/* Soft scrim under the text only. */}
               {hasImage ? (
                 <div
-                  className="absolute inset-0 z-10"
+                  aria-hidden="true"
+                  className="absolute inset-0"
                   style={{
                     backgroundImage:
-                      "linear-gradient(to top, color-mix(in srgb, var(--tf-ink) 70%, transparent) 0%, color-mix(in srgb, var(--tf-ink) 60%, transparent) 55%, transparent 70%)",
+                      "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.68) 0%, rgba(var(--tf-scrim-rgb), 0.4) 50%, transparent 78%)",
                   }}
                 />
               ) : null}
 
-              <div className="absolute inset-0 z-20 px-4 sm:px-6 flex flex-col h-full items-start justify-end md:justify-center">
-                <div className="max-w-[560px] pb-[20px] sm:pb-0">
-                  {slide.id !== "fallback" ? (
-                    <span className={`self-start inline-block rounded-full border border-[var(--tf-accent)] px-2 py-0.5 leading-none text-[12px] font-semibold ${slideTextClass}`}>
-                      {getOfferLabel(slide)}
-                    </span>
-                  ) : null}
+              <div className="absolute inset-0 flex flex-col items-start justify-end px-4 py-3 md:px-6 md:py-4">
+                <div className="max-w-[420px] text-[var(--tf-on-scrim)]">
+                  <span className="mb-1 inline-block rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold leading-none">
+                    {getOfferLabel(slide)}
+                  </span>
 
-                  {/* Headline: 28px mobile / 48px desktop, bold, max 3 lines */}
-                  <h2 className={`showcase-promo-headline leading-[1.15] line-clamp-3 text-[28px] md:text-[48px] font-bold ${slideTextClass}`}>
+                  {/* Headline: 20px mobile / 28px desktop, bold, max 2 lines */}
+                  <h3 className="showcase-promo-card-headline line-clamp-2">
                     {slide.headline}
-                  </h2>
+                  </h3>
 
-                  {/* Subtext: one line, 14px mobile / 16px desktop */}
+                  {/* Subtext: one line */}
                   {slide.description ? (
-                    <p className={`showcase-promo-subtext text-[14px] md:text-[16px] leading-[1.4] line-clamp-1 ${slideTextClass}`}>
+                    <p className="showcase-promo-subtext line-clamp-1 opacity-90">
                       {slide.description}
                     </p>
                   ) : null}
 
-                  {/* CTA: pill, --tf-accent fill, 44px high, 20px horizontal padding */}
+                  {/* Small CTA, natural width */}
                   {slide.href && slide.buttonLabel ? (
                     <a
                       href={slide.href}
                       {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      className="self-start inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                      className="mt-1.5 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
                     >
                       {slide.buttonLabel}
-                      <IconArrowRight size={15} aria-hidden="true" />
+                      <IconArrowRight size={12} aria-hidden="true" />
                     </a>
                   ) : null}
                 </div>
               </div>
-
-              {/* Dots centred at the bottom of the band, on top of the photo */}
-              {isMultiSlide ? (
-                <div
-                  aria-label={labels.slideNavLabel || "Slide navigation"}
-                  className="absolute z-30 left-1/2 -translate-x-1/2 bottom-3 flex h-10 min-h-[44px] items-center gap-2 px-1.5 py-0.5 rounded-full bg-[var(--tf-ink)]/20 backdrop-blur-sm"
-                >
-                  {slides.map((_, dotIdx) => (
-                    <button
-                      key={dotIdx}
-                      type="button"
-                      aria-current={dotIdx === currentIndex ? "true" : undefined}
-                      aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
-                      onClick={() => goToSlide(dotIdx)}
-                      className="flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-                    >
-                      <span
-                        className={`rounded-full transition-all ${
-                          dotIdx === currentIndex ? "w-6 h-6 bg-[var(--tf-accent)] opacity-100" : "w-2.5 h-2.5 bg-[var(--tf-ink)]/40 hover:opacity-80"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
           );
         })}
       </div>
 
-      {/* Pause control centred below the carousel */}
       {isMultiSlide ? (
-        <div className="mt-[var(--ps-space-3)] flex items-center justify-center gap-[var(--ps-space-2)]">
+        <div className="mt-2.5 flex items-center justify-center gap-2.5">
+          <div
+            aria-label={labels.slideNavLabel || "Slide navigation"}
+            className="flex h-6 items-center gap-1.5"
+          >
+            {slides.map((_, dotIdx) => (
+              <button
+                key={dotIdx}
+                type="button"
+                aria-current={dotIdx === currentIndex ? "true" : undefined}
+                aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
+                onClick={() => goToSlide(dotIdx)}
+                className="flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+              >
+                <span
+                  className={`rounded-full transition-all ${
+                    dotIdx === currentIndex ? "w-5 h-2 bg-[var(--tf-accent)] opacity-100" : "w-2 h-2 bg-[var(--tf-ink)]/30 hover:opacity-80"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => setIsPaused((prev) => !prev)}
             aria-label={isPaused ? labels.resume : labels.pause}
-            className="flex min-h-[44px] h-10 w-10 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            className="flex min-h-[32px] h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
           >
-            {isPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+            {isPaused ? <IconPlayerPlay size={12} /> : <IconPlayerPause size={12} />}
           </button>
         </div>
       ) : null}

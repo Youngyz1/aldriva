@@ -204,6 +204,7 @@ export function HeroBlockRenderer({
   accentColor,
   tableFlame = false,
   savannah = false,
+  showcase = false,
   businessName,
 }: {
   block: HeroBlock;
@@ -214,6 +215,7 @@ export function HeroBlockRenderer({
   accentColor?: string;
   tableFlame?: boolean;
   savannah?: boolean;
+  showcase?: boolean;
   businessName?: string;
 }) {
   const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) || "" : "";
@@ -224,6 +226,98 @@ export function HeroBlockRenderer({
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.secondaryCtaHref) : block.secondaryCtaHref)
     : "";
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
+
+  if (block.variant === "full-bleed" && showcase) {
+    const hasPhoto = Boolean(safeBgImage);
+    const accent = accentColor || "var(--ps-accent)";
+    const imagePosition = block.imagePosition || "70% 50%";
+    return (
+      <section className="relative w-full overflow-hidden h-[320px] md:h-[520px]" data-site-motion-hero>
+        {hasPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={safeBgImage}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: imagePosition }}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{ backgroundImage: "linear-gradient(135deg, var(--tf-soft) 0%, var(--tf-base) 100%)" }}
+          />
+        )}
+        {hasPhoto ? (
+          <>
+            {/* Mobile: bottom-up scrim, at least 60% opaque where the text sits. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 md:hidden"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.72) 0%, rgba(var(--tf-scrim-rgb), 0.62) 45%, transparent 85%)",
+              }}
+            />
+            {/* Desktop: left-to-right scrim, text reads against the opaque side. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 hidden md:block"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to right, rgba(var(--tf-scrim-rgb), 0.72) 0%, rgba(var(--tf-scrim-rgb), 0.62) 45%, transparent 75%)",
+              }}
+            />
+          </>
+        ) : null}
+        <div className="relative z-10 flex h-full w-full items-end md:items-center">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6">
+            <div className={`max-w-[560px] pb-6 md:pb-0 ${hasPhoto ? "text-[var(--tf-on-scrim)]" : "text-[var(--tf-ink)]"}`}>
+              {block.tagline ? (
+                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em]">
+                  {block.tagline}
+                </p>
+              ) : null}
+              {block.heading ? (
+                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline">
+                  {block.heading}
+                </h1>
+              ) : null}
+              {block.subheading ? (
+                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 line-clamp-1 text-sm leading-relaxed md:text-base">
+                  {block.subheading}
+                </p>
+              ) : null}
+              {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  {block.ctaLabel && safeCtaHref ? (
+                    <a
+                      {...elementPathProps(editMode, sourceMap, "ctaLabel")}
+                      href={safeCtaHref}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-on-scrim)]"
+                      style={{ backgroundColor: accent, color: "var(--tf-on-accent)" }}
+                    >
+                      {block.ctaLabel}
+                    </a>
+                  ) : null}
+
+                  {block.secondaryCtaLabel && safeSecCtaHref ? (
+                    <a
+                      {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
+                      href={safeSecCtaHref}
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 ${hasPhoto ? "border-[var(--tf-on-scrim)] text-[var(--tf-on-scrim)] focus-visible:outline-[var(--tf-on-scrim)]" : "border-[var(--tf-ink)] text-[var(--tf-ink)] focus-visible:outline-[var(--tf-ink)]"}`}
+                    >
+                      {block.secondaryCtaLabel}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (block.variant === "full-bleed") {
     const hasPhoto = Boolean(
@@ -2549,31 +2643,23 @@ async function PromotionsEmbedBlockRenderer({
       ...p,
       destination_href: safeHrefFor(p) ?? "",
     }));
-    const mappedFallback = block.fallback
-      ? {
-          ...block.fallback,
-          href: block.fallback.href && siteSlug ? resolveSiteHref(siteSlug, block.fallback.href) : block.fallback.href,
-        }
-      : undefined;
 
     return (
       <section className="w-full">
         {siteTemplateId === "showcase" ? (
           <>
-            {/* Hero band: full-bleed edge to edge (spec 7). No container, card, radius or border. */}
+            {searchForm}
+            {/* Compact slidable promo card, inside the page margins (spec: Promo Card). */}
             <PromoCarousel
               promotions={mappedPromotions}
-              fallback={mappedFallback}
               labels={labels}
             />
-            {searchForm}
           </>
         ) : (
           <>
             {searchForm}
             <PromoCarousel
               promotions={mappedPromotions}
-              fallback={mappedFallback}
               labels={labels}
             />
           </>
@@ -3309,13 +3395,15 @@ function SectionEnvelopeWrapper({
   const bg = raw.background as Record<string, unknown> | undefined;
   const container = raw.container as string | undefined;
 
-  const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
-  const spacingClass = spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
-  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
-  const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const tableFlame = siteTemplateId === "restaurant-table-flame";
   const savannah = siteTemplateId === "restaurant-savannah";
   const isShowcase = siteTemplateId === "showcase";
+  // Showcase hero: full-bleed, exact 320/520px band height — no outer spacing bleed.
+  const isShowcaseHero = isShowcase && block.type === "hero" && (block as HeroBlock).variant === "full-bleed";
+  const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
+  const spacingClass = isShowcaseHero ? "" : spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
+  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
+  const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const fullBleedTableFlameBlock = tableFlame && (
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
@@ -3324,10 +3412,10 @@ function SectionEnvelopeWrapper({
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
   );
-  const containerClass = isShowcase && block.type === "promotions_embed"
-    ? "w-full" // spec 7 hero band: full-bleed edge to edge (viewport width)
+  const containerClass = isShowcaseHero
+    ? "w-full" // Hero: full-bleed edge to edge (viewport width), never constrained.
     : isShowcase
-      ? "mx-auto max-w-[1280px] px-4 sm:px-6" // spec 5: one container, max 1280px, 16px mobile / 24px desktop
+      ? "mx-auto max-w-[1280px] px-4 sm:px-6" // one shared container, max 1280px, 16px mobile / 24px desktop
       : fullBleedTableFlameBlock || fullBleedSavannahBlock
         ? "w-full"
         : tableFlame || savannah
@@ -3453,7 +3541,7 @@ export async function BlockRenderer({
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} businessName={businessName} />;
+      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} showcase={siteTemplateId === "showcase"} businessName={businessName} />;
       break;
     case "features":
       content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
