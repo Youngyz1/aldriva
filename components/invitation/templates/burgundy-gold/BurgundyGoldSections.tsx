@@ -447,10 +447,10 @@ export function BurgundyGoldSections({
           <SectionHeading>{t("burgundyReceptionHeading")}</SectionHeading>
 
           {times ? (
-            <dl className="mt-6 grid grid-cols-2 gap-3 text-xs sm:text-sm" data-burgundy-reception-times="true">
+            <dl className="mt-6 grid grid-cols-2 gap-3 text-base sm:text-lg" data-burgundy-reception-times="true">
               {times.welcome ? (
                 <div className="pr-3">
-                  <dt className="text-[0.62rem] uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
+                  <dt className="text-xs uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
                     {t("burgundyWelcomeLabel")}
                   </dt>
                   <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>{times.welcome}</dd>
@@ -458,7 +458,7 @@ export function BurgundyGoldSections({
               ) : null}
               {times.reception ? (
                 <div className="pl-3">
-                  <dt className="text-[0.62rem] uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
+                  <dt className="text-xs uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
                     {t("burgundyReceptionTimeLabel")}
                   </dt>
                   <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>{times.reception}</dd>
@@ -469,13 +469,13 @@ export function BurgundyGoldSections({
 
           {countdown ? (
             <div className="mt-7" data-burgundy-section="countdown">
-              <p className="text-[0.62rem] uppercase tracking-[0.22em]" style={{ color: `${CREAM}99` }}>
+              <p className="text-xs uppercase tracking-[0.14em]" style={{ color: `${CREAM}99` }}>
                 {t("burgundyCountdownLabel")}
               </p>
               {countdown.isPast ? (
-                <p className="mt-3 text-sm italic" style={{ color: `${CREAM}dd` }}>{dictionary.celebrationUnderway}</p>
+                <p className="mt-3 text-base italic" style={{ color: `${CREAM}dd` }}>{dictionary.celebrationUnderway}</p>
               ) : (
-                <div className="mt-3 grid grid-cols-4 gap-2" aria-label={t("burgundyCountdownLabel")}>
+                <div className="mt-4 grid grid-cols-4 gap-3" aria-label={t("burgundyCountdownLabel")}>
                   {([
                     [countdown.days, dictionary.days],
                     [countdown.hours, dictionary.hours],
@@ -486,7 +486,7 @@ export function BurgundyGoldSections({
                       <p className="lining-nums tabular-nums text-xl sm:text-2xl" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>
                         {value}
                       </p>
-                      <p className="text-[0.6rem] uppercase tracking-[0.1em]" style={{ color: `${CREAM}99` }}>{label}</p>
+                      <p className="text-xs uppercase tracking-[0.12em]" style={{ color: `${CREAM}99` }}>{label}</p>
                     </div>
                   ))}
                 </div>
@@ -501,14 +501,14 @@ export function BurgundyGoldSections({
               className="mx-auto mt-7 w-full max-w-[260px] rounded-sm px-3 py-4"
               style={{ backgroundColor: CREAM, color: BURGUNDY_DEEP }}
             >
-              <p className="text-sm">
+              <p className="text-base">
                 <span style={{ fontFamily: "var(--font-burgundy-script)" }}>{monthLabel}</span>{" "}
                 <span className="lining-nums tabular-nums" style={{ fontFamily: "var(--font-burgundy-body)" }}>{calendar.year}</span>
               </p>
-              <div className="mt-2 grid grid-cols-7 gap-y-1 text-[0.6rem] uppercase opacity-60">
+              <div className="mt-3 grid grid-cols-7 gap-y-1 text-xs uppercase opacity-60">
                 {burgundyWeekdayHeaders(localeCode).map((label, index) => <span key={index}>{label}</span>)}
               </div>
-              <div className="mt-1 grid grid-cols-7 gap-y-1 text-xs">
+              <div className="mt-2 grid grid-cols-7 gap-y-1 text-sm">
                 {calendar.weeks.flat().map((cell, index) => (
                   <span key={index} className="relative flex h-6 items-center justify-center">
                     {cell.date ? (
@@ -519,7 +519,7 @@ export function BurgundyGoldSections({
                           style={{ color: CREAM }}
                         >
                           <HeartMark size={20} className="absolute inset-0" tone={BURGUNDY_DEEP} />
-                          <span className="relative lining-nums tabular-nums text-[0.65rem]">{cell.date}</span>
+                          <span className="relative lining-nums tabular-nums text-sm">{cell.date}</span>
                         </span>
                       ) : (
                         <span className="lining-nums tabular-nums">{cell.date}</span>
@@ -616,7 +616,7 @@ export function BurgundyGoldSections({
           <div className="mx-auto w-full max-w-md text-center">
             <SectionHeading>{t("burgundyDressCodeHeading")}</SectionHeading>
             {dressCodeLine ? (
-              <p className="mx-auto mt-4 max-w-sm text-sm leading-6" style={{ color: `${CREAM}dd` }}>{dressCodeLine}</p>
+              <p className="mx-auto mt-4 max-w-sm text-base leading-6" style={{ color: `${CREAM}dd` }}>{dressCodeLine}</p>
             ) : null}
             {swatches ? (
               <div className="mt-5 flex justify-center gap-3" data-burgundy-swatches={swatches.length}>
@@ -631,7 +631,7 @@ export function BurgundyGoldSections({
               </div>
             ) : null}
             {swatches ? (
-              <ul className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.66rem] uppercase tracking-[0.12em]" style={{ color: `${CREAM}99` }}>
+              <ul className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs uppercase tracking-[0.12em]" style={{ color: `${CREAM}99` }}>
                 {swatches.map((swatch, index) => (
                   <li key={`${swatch.hex}-label-${index}`}>{swatch.name ?? swatch.hex}</li>
                 ))}
@@ -679,7 +679,7 @@ export function BurgundyGoldSections({
                   />
                   <span
                     key={`label-${index}`}
-                    className="text-left text-sm leading-6"
+                    className="text-left text-base leading-6"
                     style={{ color: CREAM, maxWidth: "60vw" }}
                   >
                     {entry.title}
@@ -737,7 +737,7 @@ export function BurgundyGoldSections({
             </div>
             {feed.length ? (
               <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain" data-burgundy-guestbook-feed="true">
-                <ul className="flex flex-col gap-3 p-2 text-sm">
+                <ul className="flex flex-col gap-3 p-2 text-base">
                   {feed.map((wish, index) => (
                     <li key={`${wish.name}-${index}`} className="px-3 py-2">
                       <p className="font-semibold" style={{ color: GOLD_BRIGHT }}>{wish.name}</p>
@@ -747,7 +747,7 @@ export function BurgundyGoldSections({
                 </ul>
               </div>
             ) : (
-              <p className="mt-6 text-sm" style={{ color: `${CREAM}99` }}>{t("burgundyGuestbookEmpty")}</p>
+              <p className="mt-6 text-base" style={{ color: `${CREAM}99` }}>{t("burgundyGuestbookEmpty")}</p>
             )}
           </SectionFrame>
         </section>
@@ -895,10 +895,10 @@ export function BurgundyGoldSections({
               size={240}
               className="mt-7"
             />
-            <p className="mt-5 text-[0.66rem] uppercase tracking-[0.22em]" style={{ color: `${CREAM}aa` }}>
+            <p className="mt-5 text-xs uppercase tracking-[0.22em]" style={{ color: `${CREAM}aa` }}>
               {t("burgundyGiftHint")}
             </p>
-            <p className="mx-auto mt-6 max-w-xs text-sm leading-6" style={{ color: `${CREAM}dd` }}>
+            <p className="mx-auto mt-6 max-w-xs text-base leading-6" style={{ color: `${CREAM}dd` }}>
               {t("burgundyGiftClosing")}
             </p>
           </SectionFrame>
