@@ -346,7 +346,7 @@ export function V2SiteHeader({
       <div className={tableFlame
         ? "mx-auto flex h-[var(--site-header-h)] w-full max-w-6xl items-center justify-between gap-[var(--ps-space-4)] px-6"
         : showcase
-          ? "flex h-[var(--site-header-h)] max-w-[1152px] items-center justify-between gap-[var(--ps-space-4)] px-4 sm:px-6"
+          ? "mx-auto flex h-[var(--site-header-h)] max-w-[1280px] items-center justify-between gap-[var(--ps-space-4)] px-4 sm:px-6"
           : "mx-auto flex h-[var(--site-header-h)] max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:px-[var(--ps-space-8)]"}>
         <a
           {...editablePath(editMode, sourceMap, "logo")}

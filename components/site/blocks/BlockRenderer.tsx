@@ -64,6 +64,8 @@ import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ProductCarousel } from "./ProductCarousel";
 import { PromoCarousel } from "./PromoCarousel";
+import { OrdersList } from "./OrdersList";
+import { HomePopularCarousel } from "./HomePopularCarousel";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
@@ -628,7 +630,7 @@ function FeaturesBlockRenderer({
           <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
         ) : null}
         <div
-          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " max-w-[1152px]" : ""}`}
+          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " mx-auto max-w-[1280px]" : ""}`}
           role="list"
         >
           {items.map((item, i) => {
@@ -797,7 +799,7 @@ function AboutBlockRenderer({
     const heading = block.heading || defaultAboutHeading || "About";
     return (
       <section id="about" className="w-full">
-        <div className={`grid grid-cols-1 items-center gap-8 ${siteTemplateId === "showcase" ? (hasImage ? "md:grid-cols-2 md:gap-12 max-w-[1152px]" : "max-w-[1152px]") : hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
+        <div className={`grid grid-cols-1 items-center gap-8 ${siteTemplateId === "showcase" ? (hasImage ? "md:grid-cols-2 md:gap-12 mx-auto max-w-[1280px]" : "mx-auto max-w-[1280px]") : hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
           {hasImage ? (
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-soft)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1294,7 +1296,7 @@ function ContactBlockRenderer({
     return (
       <section id="contact" className="w-full">
         <SectionHeading heading={block.heading || hoursAndLocationLabel || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
-        <div className={`grid grid-cols-1 gap-6 md:gap-8 ${siteTemplateId === "showcase" ? "max-w-[1152px]" : "max-w-5xl mx-auto"} ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
+        <div className={`grid grid-cols-1 gap-6 md:gap-8 ${siteTemplateId === "showcase" ? "mx-auto max-w-[1280px]" : "max-w-5xl mx-auto"} ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
           {hasHours ? (
             <div className="rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)]">
               <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">{openingHoursLabel || "Opening Hours"}</h3>
@@ -1990,7 +1992,7 @@ async function ProductsEmbedBlockRenderer({
     return (
       <section className="w-full">
         {isShowcaseHomeCarousel ? (
-          <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
             <h2
               className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
             >
@@ -2469,7 +2471,7 @@ async function PromotionsEmbedBlockRenderer({
     <form
       action={catalogHref}
       method="GET"
-      className="w-full max-w-[1152px] px-4 sm:px-6 mb-6 sm:mb-10"
+      className="w-full max-w-[1280px] px-4 sm:px-6 mb-6 sm:mb-10"
       role="search"
       aria-label={searchPlaceholder}
     >
@@ -2555,24 +2557,23 @@ async function PromotionsEmbedBlockRenderer({
       : undefined;
 
     return (
-      <section className={`w-full ${siteTemplateId === "showcase" ? "px-4 sm:px-6" : ""}`}>
+      <section className="w-full">
         {siteTemplateId === "showcase" ? (
-          <div className="max-w-[1152px]">
-            {searchForm}
+          <>
+            {/* Hero band: full-bleed edge to edge (spec 7). No container, card, radius or border. */}
             <PromoCarousel
               promotions={mappedPromotions}
               fallback={mappedFallback}
-              imageStyle={block.imageStyle}
               labels={labels}
             />
-          </div>
+            {searchForm}
+          </>
         ) : (
           <>
             {searchForm}
             <PromoCarousel
               promotions={mappedPromotions}
               fallback={mappedFallback}
-              imageStyle={block.imageStyle}
               labels={labels}
             />
           </>
@@ -2903,7 +2904,7 @@ async function MenuEmbedBlockRenderer({
   return (
     <section className="w-full">
       {isShowcaseHomeCarousel ? (
-        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1152px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1280px] mx-auto px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <h2
             {...elementPathProps(editMode, sourceMap, "heading")}
             className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
@@ -2919,7 +2920,7 @@ async function MenuEmbedBlockRenderer({
           </a>
         </div>
       ) : isShowcase ? (
-        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
           <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
             {isShowcase && catalogName ? `Browse the ${catalogName}` : block.heading || "Our Menu"}
           </h1>
@@ -2936,37 +2937,19 @@ async function MenuEmbedBlockRenderer({
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : isShowcaseHomeCarousel ? (
         // Showcase home Popular strip: flat single carousel across all sections (no per-category sections)
-        <div className="max-w-[1152px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
-          <CatalogCarousel
-            items={populatedSections.flatMap((sec) =>
-              sec.items.map((it) => {
-                const safeImg = safeImageSrc(it.image_url);
-                const effectivePrice = Number(it.effective_price ?? it.price);
-                const originalPrice = Number(it.original_price ?? it.price);
-                const isPromo = effectivePrice < originalPrice;
-                const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
-                return {
-                  id: it.id,
-                  name: it.name,
-                  description: it.description,
-                  image: safeImg,
-                  priceLabel: formatCurrency(effectivePrice, displayCurrency, locale),
-                  numericPrice: effectivePrice,
-                  originalPriceLabel: isPromo ? formatCurrency(originalPrice, displayCurrency, locale) : null,
-                  discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
-                  promotionEndsAt: it.applied_promotion?.ends_at ?? null,
-                  freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? t("freeDelivery") : null,
-                  isSoldOut: Boolean(it.is_sold_out),
-                  isFeatured: Boolean(it.is_featured),
-                  isNew: Boolean(it.is_new),
-                  isPopular: Boolean(it.is_popular ?? it.is_featured),
-                };
-              })
-            )}
+        <div className="mx-auto max-w-[1280px] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]">
+          <HomePopularCarousel
+            items={populatedSections.flatMap((sec) => sec.items)}
             prevLabel={t("carouselPrev")}
             nextLabel={t("carouselNext")}
+            currency={displayCurrency}
+            locale={locale}
             appearance="showcase"
             showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+            siteSlug={siteSlug}
+            orderConfig={orderConfig}
+            labels={browseLabels}
+            closeLabel={browseLabels.close ?? "Close"}
           />
         </div>
       ) : (
@@ -3324,6 +3307,7 @@ function SectionEnvelopeWrapper({
   const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const tableFlame = siteTemplateId === "restaurant-table-flame";
   const savannah = siteTemplateId === "restaurant-savannah";
+  const isShowcase = siteTemplateId === "showcase";
   const fullBleedTableFlameBlock = tableFlame && (
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
@@ -3332,11 +3316,15 @@ function SectionEnvelopeWrapper({
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
   );
-  const containerClass = fullBleedTableFlameBlock || fullBleedSavannahBlock
-    ? "w-full"
-    : tableFlame || savannah
-      ? "mx-auto w-full max-w-6xl px-6"
-      : getContainerClass(container as never);
+  const containerClass = isShowcase && block.type === "promotions_embed"
+    ? "w-full" // spec 7 hero band: full-bleed edge to edge (viewport width)
+    : isShowcase
+      ? "mx-auto max-w-[1280px] px-4 sm:px-6" // spec 5: one container, max 1280px, 16px mobile / 24px desktop
+      : fullBleedTableFlameBlock || fullBleedSavannahBlock
+        ? "w-full"
+        : tableFlame || savannah
+          ? "mx-auto w-full max-w-6xl px-6"
+          : getContainerClass(container as never);
   const tableFlameCta = tableFlame && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
   const savannahCta = savannah && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
   const tableFlameDots = tableFlame && bg?.pattern === "dots";
@@ -3597,7 +3585,8 @@ export async function BlockRenderer({
       content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} />;
       break;
     case "menu_order":
-      return null;
+      content = <OrdersList siteSlug={siteSlug} catalogName={catalogName} />;
+      break;
     case "reservation_form":
       content = (
         <ReservationFormBlockRenderer

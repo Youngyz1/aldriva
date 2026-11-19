@@ -22,8 +22,6 @@ export interface PromoCarouselProps {
   promotions: ResolvedMenuPromotion[];
   fallback?: PromotionFallback;
   autoplaySetting?: string;
-  /** "cover" (default): full-bleed photo with text scrim. "contain": cutout on a soft gradient card. */
-  imageStyle?: "contain" | "cover";
   labels: PromoCarouselLabels;
 }
 
@@ -61,7 +59,6 @@ export function PromoCarousel({
   promotions,
   fallback,
   autoplaySetting,
-  imageStyle = "cover",
   labels,
 }: PromoCarouselProps) {
   const slides: CarouselSlideData[] =
@@ -160,12 +157,6 @@ export function PromoCarousel({
     return labels.defaultOffer;
   };
 
-  // Worst case for slide text is the ink scrim at its lowest opacity over a
-  // pure white photo; text must stay readable against it in every palette.
-  const scrimBackground =
-    "linear-gradient(to right, color-mix(in srgb, var(--tf-ink) 70%, transparent) 0%, color-mix(in srgb, var(--tf-ink) 60%, transparent) 60%, transparent 75%)";
-  const cutoutMask = "linear-gradient(to right, transparent, black)";
-
   if (slides.length === 0) return null;
 
   return (
@@ -180,13 +171,12 @@ export function PromoCarousel({
         onMouseLeave={() => setIsHovered(false)}
         onTouchStart={() => setIsTouched(true)}
         onTouchEnd={() => setIsTouched(false)}
-        className={`flex w-full ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none gap-[var(--ps-space-4)]" : ""}`}
+        className={`flex w-full ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
       >
         {slides.map((slide, idx) => {
-          const isLongHeadline = slide.headline.length > 60;
           const hasImage = Boolean(slide.imageUrl);
-          const isCover = imageStyle !== "contain";
-          const slideTextClass = isCover && hasImage ? "text-[var(--tf-on-ink)]" : "text-[var(--tf-ink)]";
+          const isLongHeadline = slide.headline.length > 60;
+          const slideTextClass = hasImage ? "text-[var(--tf-on-ink)]" : "text-[var(--tf-ink)]";
 
           return (
             <div
@@ -194,51 +184,42 @@ export function PromoCarousel({
               role="group"
               aria-roledescription="slide"
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
-              className={`${
-                isMultiSlide ? "w-[88%] md:w-full flex-shrink-0 snap-start md:snap-start" : "w-full"
-              } relative overflow-hidden border border-[var(--tf-border)] rounded-[20px] h-[200px] md:h-[300px] ${
-                hasImage && isCover ? "bg-[var(--tf-soft)]" : "bg-gradient-to-r from-[var(--tf-soft)] to-[var(--tf-base)]"
-              }`}
+              className={`w-full flex-shrink-0 snap-start relative overflow-hidden h-[320px] md:h-[520px] bg-[var(--tf-soft)]`}
             >
               {hasImage ? (
-                isCover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={slide.imageUrl}
-                    alt={slide.headline}
-                    className="absolute inset-0 h-full w-full object-cover object-position-[70%_50%]"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="absolute inset-y-0 right-0 w-1/2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={slide.imageUrl}
-                      alt=""
-                      className="h-full w-full object-contain object-position-bottom"
-                      style={{ maskImage: cutoutMask, WebkitMaskImage: cutoutMask }}
-                      loading="lazy"
-                    />
-                  </div>
-                )
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={slide.imageUrl}
+                  alt={slide.headline}
+                  className="absolute inset-0 h-full w-full object-cover object-position-[70%_50%]"
+                  style={{ objectPosition: "70% 50%" }}
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : null}
 
-              {isCover && hasImage ? (
-                <div className="absolute inset-0 z-10" style={{ backgroundImage: scrimBackground }} />
-              ) : null}
-
-              <div className="relative z-20 flex h-full w-full items-center">
+              {/* Scrim behind the text only: horizontal on desktop, bottom-up on mobile.
+                  No mask or fade is applied to the photo itself. */}
+              {hasImage ? (
                 <div
-                  className={`flex flex-col justify-center gap-3 px-4 md:px-8 ${hasImage && isCover ? "w-[60%]" : "w-full"}`}
-                >
+                  className="absolute inset-0 z-10"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(to top, color-mix(in srgb, var(--tf-ink) 70%, transparent) 0%, color-mix(in srgb, var(--tf-ink) 60%, transparent) 55%, transparent 70%)",
+                  }}
+                />
+              ) : null}
+
+              <div className="absolute inset-0 z-20 px-4 sm:px-6 flex flex-col h-full items-start justify-end md:justify-center">
+                <div className="max-w-[560px] pb-[20px] sm:pb-0">
                   {slide.id !== "fallback" ? (
                     <span className={`self-start inline-block rounded-full border border-[var(--tf-accent)] px-2 py-0.5 leading-none text-[12px] font-semibold ${slideTextClass}`}>
                       {getOfferLabel(slide)}
                     </span>
                   ) : null}
 
-                  {/* Headline: 22px/700 mobile, 36px/700 desktop, max 3 lines */}
-                  <h2 className={`showcase-promo-headline leading-[1.15] line-clamp-3 ${slideTextClass} ${isLongHeadline ? "text-[20px] md:text-[32px]" : ""}`}>
+                  {/* Headline: 28px mobile / 48px desktop, bold, max 3 lines */}
+                  <h2 className={`showcase-promo-headline leading-[1.15] line-clamp-3 text-[28px] md:text-[48px] font-bold ${slideTextClass}`}>
                     {slide.headline}
                   </h2>
 
@@ -261,8 +242,9 @@ export function PromoCarousel({
                     </a>
                   ) : null}
                 </div>
+              </div>
 
-              {/* Dots centred at the bottom of the card, on top of the photo */}
+              {/* Dots centred at the bottom of the band, on top of the photo */}
               {isMultiSlide ? (
                 <div
                   aria-label={labels.slideNavLabel || "Slide navigation"}
@@ -286,7 +268,6 @@ export function PromoCarousel({
                   ))}
                 </div>
               ) : null}
-              </div>
             </div>
           );
         })}

@@ -446,16 +446,16 @@
   font-weight: inherit;
   line-height: inherit;
 }
-/* Promo headline: 22px/700 mobile, 36px/700 desktop (spec section 7) */
+/* Promo headline: 28px/700 mobile, 48px/700 desktop (spec section 7) */
 .public-site[data-site-template="showcase"] h2.showcase-promo-headline {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: normal;
 }
 @media (min-width: 640px) {
   .public-site[data-site-template="showcase"] h2.showcase-promo-headline {
-    font-size: 36px;
+    font-size: 48px;
     letter-spacing: -0.01em;
   }
 }

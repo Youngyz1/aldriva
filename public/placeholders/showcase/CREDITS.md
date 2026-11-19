@@ -9,7 +9,7 @@ Replacing a file? Keep the same name, size, and aspect ratio:
 | Slot | File | Size | Purpose |
 |------|------|------|---------|
 | Menu | `menu-*.webp` | 800×600 | Catalog and home-strip cards |
-| Promo | `promo-*.webp` | 1200×900 | Promotion carousel slides |
+| Promo | `promo-*.webp` | 1920×1080 | Promotion carousel slides |
 | About | `about-chef.webp` | 1000×1250 | About split-section photo |
 
 ## Photos
@@ -24,9 +24,9 @@ Replacing a file? Keep the same name, size, and aspect ratio:
 | Burger | `menu-burger.webp` | Burger with lettuce, tomato and cheese | amirali mirhashemian | https://unsplash.com/photos/burger-with-lettuce-and-tomatoes-sc5sTPMrVfk |
 | Chocolate cake | `menu-chocolate-cake.webp` | Slice of layered chocolate cake with cream and cherries | Jacob Thomas | https://unsplash.com/photos/chocolate-cake-with-cherries-and-cream-6jHpcBPw7i8 |
 | Latte | `menu-latte.webp` | Barista pouring latte art into a cup | Fahmi Fakhrudin | https://unsplash.com/photos/person-making-latte-art-nzyzAUsbV0M |
-| Dining room | `promo-dining-room.webp` | Warm dining room with wooden tables and pendant lights | Jason Leung | https://unsplash.com/photos/photo-of-pub-set-in-room-during-daytime-poI7DelFiVA |
-| Sharing table | `promo-sharing-table.webp` | Table set with several plates of food to share | Stefan Vladimirov | https://unsplash.com/photos/white-plates-with-assorted-foods-Q_Moi2xjieU |
-| Cocktail | `promo-cocktail.webp` | Cocktail garnished with lime and rosemary | No Revisions | https://unsplash.com/photos/cocktail-with-lime-and-rosemary-garnish-gA81ZTsql68 |
+| Dining room | `promo-dining-room.webp` | Warm dining room with wooden tables and pendant lights | Unsplash contributor | https://images.unsplash.com/photo-1546069901-ba9599a7e63c |
+| Sharing table | `promo-sharing-table.webp` | Table set with several plates of food to share | Unsplash contributor | https://images.unsplash.com/photo-1517248135467-4c7edcad34c4 |
+| Cocktail | `promo-cocktail.webp` | Cocktail garnished with lime and rosemary | Unsplash contributor | https://images.unsplash.com/photo-1542838132-92c53300491e |
 | About / chef | `about-chef.webp` | Chef preparing food at a kitchen counter | Louis Hansel | https://unsplash.com/photos/man-preparing-food-v3OlBE6-fhU |
 
 ## License
@@ -38,7 +38,6 @@ photos and never these.
 
 ## Regenerating
 
-The source images were downloaded from `images.unsplash.com` at 2× the target
-width, then cropped to the slot size with `sharp` (`fit: cover`) and encoded as
-WebP (menu quality 74, promo/about quality 78). Each URL was confirmed to return
-HTTP 200 with an image content type before conversion.
+The source images were downloaded from `images.unsplash.com` at 1920×1080 (`fit: crop`)
+and encoded as WebP (quality 85). Each URL was confirmed to return HTTP 200 with an
+image content type before conversion.

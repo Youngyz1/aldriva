@@ -735,7 +735,7 @@ export function StorefrontBrowse({
 
         {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
         {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
               <div className="text-sm font-semibold leading-none">
                 {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
@@ -752,7 +752,7 @@ export function StorefrontBrowse({
         ) : null}
         {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
         {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none rounded-none">
               <div className="flex items-center gap-[var(--ps-space-3)]">
                 <span className="flex h-7 w-7 items-center justify-center rounded-none bg-[var(--ps-accent)] text-xs font-bold text-[var(--tf-on-accent)]">
@@ -1289,7 +1289,7 @@ export function StorefrontBrowse({
       ) : null}
 
       {appearance === "showcase" ? (
-        <div className="max-w-[1152px] px-4 sm:px-6">{browseChrome}</div>
+        <div className={`mx-auto max-w-[1280px] px-4 sm:px-6 ${orderConfig?.enabled ? "pb-[6rem]" : ""}`}>{browseChrome}</div>
       ) : (
         <>{browseChrome}</>
       )}
@@ -1327,7 +1327,7 @@ export function StorefrontBrowse({
 
       {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
       {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
           <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
             <div className="text-sm font-semibold leading-none">
               {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
@@ -1344,7 +1344,7 @@ export function StorefrontBrowse({
       ) : null}
       {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
       {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] inset-x-4 z-40 max-w-lg mx-auto">
+        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
           <div className={isEditorial
             ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"
             : `flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
@@ -1436,7 +1436,7 @@ export function StorefrontBrowse({
   );
 }
 
-function ItemDetailSheet({
+export function ItemDetailSheet({
   itemId,
   title,
   image,
@@ -3125,14 +3125,19 @@ function OrderConfirmationModal({
   useEffect(() => {
     if (trackingToken && slug && typeof window !== "undefined") {
       try {
+        const order = {
+          token: trackingToken,
+          orderNumber,
+          scheduledFor: scheduledFor ?? null,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(`aldriva_active_order_${slug}`, JSON.stringify(order));
+        const raw = localStorage.getItem(`aldriva_orders_${slug}`);
+        const parsed = JSON.parse(raw || "[]");
+        const list = Array.isArray(parsed) ? parsed : [];
         localStorage.setItem(
-          `aldriva_active_order_${slug}`,
-          JSON.stringify({
-            token: trackingToken,
-            orderNumber,
-            scheduledFor: scheduledFor ?? null,
-            savedAt: Date.now(),
-          })
+          `aldriva_orders_${slug}`,
+          JSON.stringify([order, ...list].slice(0, 50)),
         );
       } catch {
         // Storage unavailable (private browsing)
