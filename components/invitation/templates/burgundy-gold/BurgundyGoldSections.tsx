@@ -619,23 +619,20 @@ export function BurgundyGoldSections({
               <p className="mx-auto mt-4 max-w-sm text-base leading-6" style={{ color: `${CREAM}dd` }}>{dressCodeLine}</p>
             ) : null}
             {swatches ? (
-              <div className="mt-5 flex justify-center gap-3" data-burgundy-swatches={swatches.length}>
+              <div className="mt-5 flex justify-center gap-6" data-burgundy-swatches={swatches.length}>
                 {swatches.map((swatch, index) => (
-                  <span
-                    key={`${swatch.hex}-${index}`}
-                    className="size-8 rounded-full"
-                    style={{ backgroundColor: swatch.hex, border: `1px solid ${GOLD}66` }}
-                    aria-label={swatch.name ?? swatch.hex}
-                  />
+                  <div key={`${swatch.hex}-${index}`} className="flex flex-col items-center">
+                    <span
+                      className="w-10 h-10 rounded-full"
+                      style={{ backgroundColor: swatch.hex, border: `1px solid ${GOLD}66` }}
+                      aria-label={swatch.name ?? swatch.hex}
+                    />
+                    <span className="mt-1 text-[13px] uppercase tracking-[0.08em]" style={{ color: `${CREAM}99`, whiteSpace: "nowrap" }}>
+                      {swatch.name ?? swatch.hex}
+                    </span>
+                  </div>
                 ))}
               </div>
-            ) : null}
-            {swatches ? (
-              <ul className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs uppercase tracking-[0.12em]" style={{ color: `${CREAM}99` }}>
-                {swatches.map((swatch, index) => (
-                  <li key={`${swatch.hex}-label-${index}`}>{swatch.name ?? swatch.hex}</li>
-                ))}
-              </ul>
             ) : null}
           </div>
         </section>
