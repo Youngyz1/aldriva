@@ -384,7 +384,7 @@ export function BurgundyGoldPageTemplate({
                   className="relative mx-auto w-full max-w-md"
                 >
                   <h2
-                    className="px-6 pt-10 text-[0.95rem] font-bold uppercase tracking-[0.22em] sm:text-base"
+                    className="text-center px-6 pt-10 text-[0.95rem] font-bold uppercase tracking-[0.22em] sm:text-base"
                     style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}
                   >
                     {panelHeading}
