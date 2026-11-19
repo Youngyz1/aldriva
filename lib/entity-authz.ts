@@ -93,6 +93,50 @@ export async function assertCanManageBusiness(businessId: string): Promise<Authz
   return { ok: false, error: "Forbidden", status: 403 };
 }
 
+// Staff-area management gate (branches, staff writes). Stricter than
+// assertCanManageBusiness: entity role must be owner/admin/manager, never
+// editor/finance/viewer. businesses.owner_id also passes. A missing business
+// returns the same 403 as a denial, so callers cannot probe which ids exist.
+// Denials are logged best-effort through the CALLER's own session client,
+// because staff_log_permission_check uses auth.uid() (the admin client would
+// have no actor and log nothing). The DB function decides whether the denial
+// is logged: outsiders, repeats within 60 s and floods are dropped there.
+const STAFF_AREA_MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
+
+async function logStaffAreaDenial(businessId: string): Promise<void> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { error } = await supabase.rpc("staff_log_permission_check", {
+      p_business_id: businessId,
+      p_permission_key: "workforce.update",
+      p_branch_id: null,
+      p_source: "authz:manage_staff_area",
+    });
+    if (error) console.error("[assertCanManageStaffArea] denial log failed:", error.message);
+  } catch (err) {
+    console.error("[assertCanManageStaffArea] denial log threw:", err instanceof Error ? err.message : err);
+  }
+}
+
+export async function assertCanManageStaffArea(businessId: string): Promise<AuthzResult> {
+  const u = await requireUser();
+  if ("error" in u) return { ok: false, error: u.error, status: 401 };
+  const supabaseAdmin = createSupabaseAdmin();
+  const { data: b } = await supabaseAdmin
+    .from("businesses")
+    .select("id, owner_id, organizer_id")
+    .eq("id", businessId)
+    .maybeSingle();
+  if (!b) return { ok: false, error: "Forbidden", status: 403 };
+  if (b.owner_id === u.userId) return { ok: true, userId: u.userId };
+  if (b.organizer_id) {
+    const r = await checkTenantAccess(u.userId, b.organizer_id, STAFF_AREA_MANAGE_ROLES);
+    if (r.hasAccess) return { ok: true, userId: u.userId, role: r.role };
+  }
+  await logStaffAreaDenial(businessId);
+  return { ok: false, error: "Forbidden", status: 403 };
+}
+
 // Reachability gate for the business staff area only: organizer-level access
 // (same as assertCanManageBusiness) OR an active staff_members row for this
 // business, any role. The staff_members lookup uses the RLS-respecting
