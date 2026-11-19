@@ -305,66 +305,73 @@ export function BurgundyGoldPageTemplate({
           </section>
         ) : (
           <main className="relative z-10" data-burgundy-main="true">
-            {/* Hero: a full-viewport opening after the gate — flourish, eyebrow,
-                then the first names stacked in the brush script. */}
+            {/* Hero: a full-viewport opening after the gate — eyebrow in the upper
+                third, stacked names large in the middle, date/city + scroll arrow
+                at the bottom. Vertical flex column with justify-between so nothing
+                floats at the top edge and the names sit in the middle. */}
             <header
               data-burgundy-hero="true"
-              className="relative flex min-h-[100svh] flex-col items-center text-center px-6 py-4"
+              className="relative flex min-h-[100svh] flex-col items-center justify-between text-center px-6 pt-8 pb-4"
             >
-              <p className="mt-4 text-[0.8rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
+              <p className="mt-2 text-[0.8rem] uppercase tracking-[0.34em]" style={{ color: GOLD_BRIGHT }}>
                 {eyebrow}
               </p>
-              <h1
-                data-burgundy-hero-names="true"
-                className="mt-6 flex flex-col items-center"
-                style={{ fontFamily: "var(--font-burgundy-script)", color: GOLD_BRIGHT }}
-              >
-                {heroNames.map((name, index) => (
-                  <Fragment key={`${name}-${index}`}>
-                    {index > 0 ? (
-                      <span className="my-2 block leading-none" style={{ color: GOLD, fontSize: "clamp(2rem, 10vw, 3rem)" }}>&amp;</span>
-                    ) : null}
-                    <span
-                      data-burgundy-hero-name={name}
-                      className="block"
-                      style={{
-                        fontFamily: "var(--font-burgundy-script)",
-                        color: GOLD_BRIGHT,
-                        fontSize: "clamp(3rem, 13vw, 4rem)",
-                        lineHeight: "1.05",
-                      }}
-                    >
-                      {name}
-                    </span>
-                  </Fragment>
-                ))}
-              </h1>
-              {data.eventDate && dateParts ? (
-                <p className="mt-5 text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
-                  {dateParts.day} {dateParts.month} {dateParts.year}{data.city ? ` · ${data.city}` : ""}
-                </p>
-              ) : null}
-              <div className="mt-auto mb-6" aria-hidden="true">
-                <div
-                  className="bgg-chevron"
-                  style={{
-                    borderTop: `8px solid ${GOLD_BRIGHT}`,
-                    borderLeft: "6px solid transparent",
-                    borderRight: "6px solid transparent",
-                    width: 0,
-                    height: 0,
-                  }}
-                />
-                <style jsx>{`
-                  @keyframes bgg-chevron-bounce {
-                    0%, 100% { transform: translateY(0) }
-                    50% { transform: translateY(-6px) }
-                  }
-                  .bgg-chevron { animation: bgg-chevron-bounce 2.4s ease-in-out infinite }
-                  @media (prefers-reduced-motion: reduce) {
-                    .bgg-chevron { animation: none }
-                  }
-                `}</style>
+              <div className="flex-grow-1 flex flex-col items-center justify-center">
+                <h1
+                  data-burgundy-hero-names="true"
+                  className="flex flex-col items-center"
+                  style={{ fontFamily: "var(--font-burgundy-script)", color: GOLD_BRIGHT }}
+                >
+                  {heroNames.map((name, index) => (
+                    <Fragment key={`${name}-${index}`}>
+                      {index > 0 ? (
+                        <span className="my-2 block leading-none" style={{ color: GOLD, fontSize: "clamp(2rem, 14vw, 3rem)" }}>&amp;</span>
+                      ) : null}
+                      <span
+                        data-burgundy-hero-name={name}
+                        className="block"
+                        style={{
+                          fontFamily: "var(--font-burgundy-script)",
+                          color: GOLD_BRIGHT,
+                          fontSize: "clamp(2rem, 14vw, 4rem)",
+                          lineHeight: "1.05",
+                          maxWidth: "70vw",
+                        }}
+                      >
+                        {name}
+                      </span>
+                    </Fragment>
+                  ))}
+                </h1>
+              </div>
+              <div className="flex flex-col items-center">
+                {data.eventDate && dateParts ? (
+                  <p className="mb-4 text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: `${GOLD_BRIGHT}cc` }}>
+                    {dateParts.day} {dateParts.month} {dateParts.year}{data.city ? ` · ${data.city}` : ""}
+                  </p>
+                ) : null}
+                <div className="mb-4" aria-hidden="true">
+                  <div
+                    className="bgg-chevron"
+                    style={{
+                      borderTop: `8px solid ${GOLD_BRIGHT}`,
+                      borderLeft: "6px solid transparent",
+                      borderRight: "6px solid transparent",
+                      width: 0,
+                      height: 0,
+                    }}
+                  />
+                  <style jsx>{`
+                    @keyframes bgg-chevron-bounce {
+                      0%, 100% { transform: translateY(0) }
+                      50% { transform: translateY(-6px) }
+                    }
+                    .bgg-chevron { animation: bgg-chevron-bounce 2.4s ease-in-out infinite }
+                    @media (prefers-reduced-motion: reduce) {
+                      .bgg-chevron { animation: none }
+                    }
+                  `}</style>
+                </div>
               </div>
             </header>
 
