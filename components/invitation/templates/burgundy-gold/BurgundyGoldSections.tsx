@@ -55,7 +55,7 @@ const GOLD_BRIGHT = "#e7cf98";
 const CREAM = "#f6ead0";
 const BURGUNDY_DEEP = "#2b0710";
 
-const SECTION_WIDTH = "mx-auto w-full max-w-md";
+const SECTION_WIDTH = "mx-auto w-full max-w-md sm:max-w-[480px]";
 
 /**
  * Unfilled section shell: no fill, no border, no shadow — the page backdrop
@@ -383,7 +383,7 @@ export function BurgundyGoldSections({
     <div ref={rootRef} data-burgundy-sections="true" className="relative">
       {/* 4. Photo gallery — 2 × 2 mosaic with a "+N" badge on the last tile. */}
       {galleryTiles ? (
-        <section id="inv-gallery" data-burgundy-section="gallery" className="px-4 py-14 sm:px-6">
+        <section id="inv-gallery" data-burgundy-section="gallery" className="px-4 pb-16 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyGalleryHeading")}</SectionHeading>
             <div className="mt-8 grid grid-cols-2 gap-2 sm:gap-3">
@@ -442,7 +442,7 @@ export function BurgundyGoldSections({
 
       {/* 5. Reception info — welcome/reception times, countdown, calendar, add-to-calendar, RSVP. */}
       {hasReceptionContent ? (
-      <section id="inv-reception" data-burgundy-section="reception" className="px-4 pb-14 pt-2 sm:px-6">
+      <section id="inv-reception" data-burgundy-section="reception" className="px-4 pb-16 sm:px-6">
         <SectionFrame>
           <SectionHeading>{t("burgundyReceptionHeading")}</SectionHeading>
 
@@ -565,7 +565,7 @@ export function BurgundyGoldSections({
 
       {/* 6. Venue — map embed, view on map, itinerary. */}
       {venue ? (
-        <section id="inv-venue" data-burgundy-section="venue" className="px-4 py-14 sm:px-6">
+        <section id="inv-venue" data-burgundy-section="venue" className="px-4 pb-16 sm:px-6">
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyVenueHeading")}</SectionHeading>
             {venue.name ? (
@@ -612,7 +612,7 @@ export function BurgundyGoldSections({
 
       {/* 7. Dress code — theme line + swatches from mf_dress_code_swatches. */}
       {dressCodeLine || swatches ? (
-        <section id="inv-dress-code" data-burgundy-section="dress-code" className="px-4 py-14 sm:px-6">
+        <section id="inv-dress-code" data-burgundy-section="dress-code" className="px-4 pb-16 sm:px-6">
           <div className="mx-auto w-full max-w-md text-center">
             <SectionHeading>{t("burgundyDressCodeHeading")}</SectionHeading>
             {dressCodeLine ? (
@@ -683,7 +683,7 @@ export function BurgundyGoldSections({
 
       {/* 9. Guestbook — typeable in preview/demo; local-only feed (no persistence yet). */}
       {showGuestbook ? (
-        <section id="inv-guestbook" data-burgundy-section="guestbook" className="px-4 py-14 sm:px-6">
+        <section id="inv-guestbook" data-burgundy-section="guestbook" className="px-4 pb-16 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyGuestbookHeading")}</SectionHeading>
             <div className="mt-6 flex flex-col gap-3 items-center">
@@ -875,7 +875,7 @@ export function BurgundyGoldSections({
 
       {/* 11. Gift box — last section; opens the very same RSVP dialog. */}
       {hasRsvp ? (
-        <section id="inv-gift" data-burgundy-section="gift" className="px-4 pb-20 sm:px-6">
+        <section id="inv-gift" data-burgundy-section="gift" className="px-4 pb-16 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyGiftTitle")}</SectionHeading>
             <GiftBoxArt
