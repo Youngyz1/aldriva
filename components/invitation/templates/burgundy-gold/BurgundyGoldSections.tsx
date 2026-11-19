@@ -641,32 +641,25 @@ export function BurgundyGoldSections({
         </section>
       ) : null}
 
-      {/* 8. Day programme — centered inline grid, capped at 15 entries. */}
+      {/* 8. Day programme — centred inline grid with line through dots. */}
       {programme ? (
-        <section id="inv-programme" data-burgundy-section="programme" className="px-4 py-14 sm:px-6">
+        <section id="inv-programme" data-burgundy-section="programme" className="px-4 pb-16 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
-            <ol
-              style={{
-                display: "grid",
-                gridTemplateColumns: "auto auto auto",
-                columnGap: "8px",
-                rowGap: "12px",
-                marginInline: "auto",
-                width: "fit-content",
-                position: "relative",
-              }}
-            >
+            <ol className="relative mt-10 gap-y-7 max-w-[460px] margin-inline-auto">
               <span
                 aria-hidden="true"
-                className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-px"
+                className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-[1px]"
                 style={{ backgroundColor: `${GOLD}40` }}
               />
               {programme.map((entry, index) => (
-                <li key={`prog-${index}`} style={{ display: "contents" }}>
+                <li
+                  key={`prog-${index}`}
+                  className="grid grid-cols-[1fr_auto_1fr] gap-x-4 items-center"
+                >
                   <time
                     key={`time-${index}`}
-                    className="text-right shrink-0 text-xs uppercase tracking-[0.14em]"
+                    className="text-right shrink-0 text-sm uppercase tracking-normal font-medium"
                     style={{ color: GOLD_BRIGHT }}
                   >
                     {entry.time}
@@ -674,13 +667,13 @@ export function BurgundyGoldSections({
                   <span
                     key={`dot-${index}`}
                     aria-hidden="true"
-                    className="size-2.5 rounded-full"
+                    className="size-3 rounded-full"
                     style={{ backgroundColor: GOLD }}
                   />
                   <span
                     key={`label-${index}`}
-                    className="text-left text-base leading-6"
-                    style={{ color: CREAM, maxWidth: "60vw" }}
+                    className="text-left text-sm leading-6 max-w-[240px]"
+                    style={{ color: CREAM }}
                   >
                     {entry.title}
                   </span>
