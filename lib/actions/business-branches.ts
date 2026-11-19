@@ -1,7 +1,7 @@
 "use server";
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { assertCanManageBusiness } from "@/lib/entity-authz";
+import { assertCanManageBusiness, assertCanManageStaffArea } from "@/lib/entity-authz";
 import { checkBranchMainGuard, checkNewBranchMainGuard } from "@/lib/branches/rules";
 import { validateBranchCoverImageUrl } from "@/lib/branches/cover-image-validation";
 import { revalidatePath } from "next/cache";
@@ -45,6 +45,29 @@ function revalidateBranchPaths(businessId: string) {
   revalidatePath("/dashboard/org/[id]/workforce", "page");
 }
 
+// Best-effort audit trail. A failed or throwing RPC must never change the
+// outcome of the branch write, so every error is swallowed after logging.
+async function auditBranchWrite(
+  businessId: string,
+  actorId: string,
+  action: "branch_created" | "branch_updated" | "branch_deleted",
+  branchId: string,
+  changedFields: string[]
+): Promise<void> {
+  try {
+    const { error } = await admin.rpc("log_branch_write", {
+      p_business_id: businessId,
+      p_actor: actorId,
+      p_action: action,
+      p_branch_id: branchId,
+      p_changed_fields: changedFields,
+    });
+    if (error) console.error("[business-branches] audit write failed:", error.message);
+  } catch (err) {
+    console.error("[business-branches] audit write threw:", err instanceof Error ? err.message : err);
+  }
+}
+
 export async function listBranches(businessId: string) {
   const auth = await assertCanManageBusiness(businessId);
   if (!auth.ok) return { success: false as const, error: auth.error, code: "not_allowed" };
@@ -65,7 +88,7 @@ export async function listBranches(businessId: string) {
 }
 
 export async function createBranch(businessId: string, input: BranchInput) {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageStaffArea(businessId);
   if (!auth.ok) return { success: false as const, error: auth.error, code: "not_allowed" };
   const label = input.label.trim();
   if (label.length < 2 || label.length > 100) {
@@ -130,14 +153,27 @@ export async function createBranch(businessId: string, input: BranchInput) {
     return { success: false as const, error: mapped.message, code: mapped.code };
   }
 
+  await auditBranchWrite(businessId, auth.userId, "branch_created", data.id, [
+    "label",
+    "address",
+    "city",
+    "state",
+    "country",
+    "phone",
+    "is_main",
+    "status",
+    "cover_image_url",
+  ]);
   revalidateBranchPaths(businessId);
   return { success: true as const, data };
 }
 
 export async function updateBranch(branchId: string, input: Partial<BranchInput>) {
   const { data: branch } = await admin.from("business_branches").select("*").eq("id", branchId).maybeSingle();
-  if (!branch) return { success: false as const, error: "Branch not found", code: "branch_not_found" };
-  const auth = await assertCanManageBusiness(branch.business_id);
+  // Same response as an authorization denial: callers must not be able to
+  // probe which branch ids exist.
+  if (!branch) return { success: false as const, error: "Forbidden", code: "not_allowed" };
+  const auth = await assertCanManageStaffArea(branch.business_id);
   if (!auth.ok) return { success: false as const, error: auth.error, code: "not_allowed" };
 
   const guardError = checkBranchMainGuard({
@@ -199,14 +235,22 @@ export async function updateBranch(branchId: string, input: Partial<BranchInput>
     return { success: false as const, error: mapped.message, code: mapped.code };
   }
 
+  await auditBranchWrite(
+    branch.business_id,
+    auth.userId,
+    "branch_updated",
+    branchId,
+    Object.keys(updates).filter((k) => k !== "updated_at")
+  );
   revalidateBranchPaths(branch.business_id);
   return { success: true as const, data };
 }
 
 export async function deleteBranch(branchId: string) {
   const { data: branch } = await admin.from("business_branches").select("business_id, is_main").eq("id", branchId).maybeSingle();
-  if (!branch) return { success: false as const, error: "Branch not found", code: "branch_not_found" };
-  const auth = await assertCanManageBusiness(branch.business_id);
+  // Same response as an authorization denial (no existence probing).
+  if (!branch) return { success: false as const, error: "Forbidden", code: "not_allowed" };
+  const auth = await assertCanManageStaffArea(branch.business_id);
   if (!auth.ok) return { success: false as const, error: auth.error, code: "not_allowed" };
 
   // The main branch can never be deleted directly -- make another branch
@@ -223,6 +267,7 @@ export async function deleteBranch(branchId: string) {
     console.error("[deleteBranch]", error.message);
     return { success: false as const, error: "Could not delete branch. Please try again.", code: "generic_error" };
   }
+  await auditBranchWrite(branch.business_id, auth.userId, "branch_deleted", branchId, []);
   revalidateBranchPaths(branch.business_id);
   return { success: true as const };
 }
