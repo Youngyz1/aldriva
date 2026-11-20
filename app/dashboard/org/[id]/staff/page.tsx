@@ -5,7 +5,8 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { isOrganizerDashboardBusiness } from "@/lib/organizer-dashboard-classifier";
 import { resolveActiveBusiness, getActiveBusinessCookieName } from "@/lib/active-business";
-import { assertCanAccessBusinessStaffArea, assertCanManageBusiness } from "@/lib/entity-authz";
+import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
+import { getStaffUiCapabilities } from "@/lib/staff/staff-capabilities-server";
 import { listStaffMembers } from "@/lib/actions/staff-members";
 import StaffClient from "@/app/dashboard/businesses/[id]/staff/StaffClient";
 
@@ -69,9 +70,9 @@ export default async function OrgStaffPage({
 
   const staffResult = await listStaffMembers(activeBusiness.id);
 
-  // canDelete is organizer-level only -- staff_members' DELETE policy has no
-  // branch-manager clause. Computed here, not trusted from the client.
-  const organizerAuth = await assertCanManageBusiness(activeBusiness.id);
+  // Button visibility only (RLS is the real gate). Delete is head-office only,
+  // because staff_members' DELETE policy has no branch-manager clause.
+  const capabilities = await getStaffUiCapabilities(activeBusiness.id);
 
   return (
     <div className="space-y-1">
@@ -81,7 +82,7 @@ export default async function OrgStaffPage({
         branches={branches ?? []}
         initialStaff={staffResult.success ? staffResult.data : []}
         initialError={staffResult.success ? null : staffResult.error}
-        canDelete={organizerAuth.ok}
+        capabilities={capabilities}
         orgBasePath={`/dashboard/org/${organizerId}/staff`}
       />
     </div>

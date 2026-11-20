@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { assertCanAccessBusinessStaffArea, assertCanManageBusiness } from "@/lib/entity-authz";
+import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
+import { getStaffUiCapabilities } from "@/lib/staff/staff-capabilities-server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { listStaffMembers } from "@/lib/actions/staff-members";
 import StaffClient from "./StaffClient";
@@ -20,9 +21,9 @@ export default async function BusinessStaffPage({ params }: { params: Promise<{ 
 
   const staffResult = await listStaffMembers(id);
 
-  // canDelete is organizer-level only -- staff_members' DELETE policy has no
-  // branch-manager clause. Computed here, not trusted from the client.
-  const organizerAuth = await assertCanManageBusiness(id);
+  // Button visibility only (RLS is the real gate). Delete is head-office only,
+  // because staff_members' DELETE policy has no branch-manager clause.
+  const capabilities = await getStaffUiCapabilities(id);
 
   return (
     <StaffClient
@@ -30,7 +31,7 @@ export default async function BusinessStaffPage({ params }: { params: Promise<{ 
       branches={branches ?? []}
       initialStaff={staffResult.success ? staffResult.data : []}
       initialError={staffResult.success ? null : staffResult.error}
-      canDelete={organizerAuth.ok}
+      capabilities={capabilities}
     />
   );
 }

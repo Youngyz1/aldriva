@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import StaffAvatar from "@/components/staff/StaffAvatar";
 import { deleteStaffMember, setStaffStatus, type StaffMemberRow, type StaffStatus } from "@/lib/actions/staff-members";
 import StaffFormDialog from "./StaffFormDialog";
+import { canEditRow, canDeactivateRow, type StaffUiCapabilities } from "@/lib/staff/staff-capabilities";
 
 // Dynamic/runtime-determined key, same `as any` escape next-intl's own
 // strict Translator type requires here as OrgDashboardSidebar.tsx already
@@ -52,14 +53,14 @@ export default function StaffClient({
   branches,
   initialStaff,
   initialError,
-  canDelete,
+  capabilities,
   orgBasePath,
 }: {
   businessId: string;
   branches: Branch[];
   initialStaff: StaffMemberRow[];
   initialError: string | null;
-  canDelete: boolean;
+  capabilities: StaffUiCapabilities;
   /** Org-workspace staff list base path (e.g. /dashboard/org/{id}/staff). When
    * provided, each row's name links to its profile page under this base.
    * Omitted on the businesses/[id] route, which has no profile page. */
@@ -157,7 +158,7 @@ export default function StaffClient({
           <h1 className="text-xl font-black">{t("stTitle")}</h1>
           <p className="text-sm text-zinc-500">{t("stSubtitle")}</p>
         </div>
-        <Button onClick={openCreate}>{t("stAddStaff")}</Button>
+        {capabilities.canAdd && <Button onClick={openCreate}>{t("stAddStaff")}</Button>}
       </header>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
@@ -226,11 +227,15 @@ export default function StaffClient({
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(s)}>{t("stEdit")}</Button>
-                        <Button variant="ghost" size="sm" disabled={rowBusy === s.id} onClick={() => handleToggleStatus(s)}>
-                          {s.status === "active" ? t("stDeactivate") : t("stReactivate")}
-                        </Button>
-                        {canDelete && (
+                        {canEditRow(capabilities, s) && (
+                          <Button variant="outline" size="sm" onClick={() => openEdit(s)}>{t("stEdit")}</Button>
+                        )}
+                        {canDeactivateRow(capabilities, s) && (
+                          <Button variant="ghost" size="sm" disabled={rowBusy === s.id} onClick={() => handleToggleStatus(s)}>
+                            {s.status === "active" ? t("stDeactivate") : t("stReactivate")}
+                          </Button>
+                        )}
+                        {capabilities.canDelete && (
                           <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(s)}>{t("stDelete")}</Button>
                         )}
                       </div>
