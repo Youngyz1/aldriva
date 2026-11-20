@@ -79,13 +79,30 @@ export function PromoCarousel({
   const [isPaused, setIsPaused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
+  // Desktop shows two cards per page; phone shows one. Dots/autoplay move a
+  // whole page at a time. Starts at 1 (phone) and corrects after mount to
+  // avoid depending on a server-rendered viewport width.
+  const [slidesPerPage, setSlidesPerPage] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const totalSlides = slides.length;
   const isMultiSlide = totalSlides > 1;
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mql = window.matchMedia("(min-width: 768px)");
+    const update = () => setSlidesPerPage(mql.matches ? 2 : 1);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+
+  const pageCount = Math.max(1, Math.ceil(totalSlides / slidesPerPage));
+  const currentPage = Math.min(pageCount - 1, Math.floor(currentIndex / slidesPerPage));
+  const isMultiPage = pageCount > 1;
+
   const goToSlide = useCallback((index: number) => {
-    const next = (index + totalSlides) % totalSlides;
+    const next = ((index % totalSlides) + totalSlides) % totalSlides;
     setCurrentIndex(next);
     if (containerRef.current) {
       const slideElem = containerRef.current.children[next] as HTMLElement | undefined;
@@ -95,17 +112,21 @@ export function PromoCarousel({
     }
   }, [totalSlides]);
 
-  const handleNext = useCallback(() => {
-    goToSlide(currentIndex + 1);
-  }, [currentIndex, goToSlide]);
+  const goToPage = useCallback((page: number) => {
+    goToSlide(((page % pageCount) + pageCount) % pageCount * slidesPerPage);
+  }, [goToSlide, pageCount, slidesPerPage]);
 
-  const handlePrev = useCallback(() => {
-    goToSlide(currentIndex - 1);
-  }, [currentIndex, goToSlide]);
+  const handleNextPage = useCallback(() => {
+    goToPage(currentPage + 1);
+  }, [currentPage, goToPage]);
 
-  // Autoplay: advance every 5s, paused on hover or touch.
+  const handlePrevPage = useCallback(() => {
+    goToPage(currentPage - 1);
+  }, [currentPage, goToPage]);
+
+  // Autoplay: advance one page every 5s, paused on hover or touch.
   useEffect(() => {
-    if (!isMultiSlide || autoplaySetting === "off" || isPaused || isHovered || isTouched) {
+    if (!isMultiPage || autoplaySetting === "off" || isPaused || isHovered || isTouched) {
       return;
     }
 
@@ -114,20 +135,20 @@ export function PromoCarousel({
     }
 
     const timer = setInterval(() => {
-      handleNext();
+      handleNextPage();
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [isMultiSlide, autoplaySetting, isPaused, isHovered, isTouched, handleNext]);
+  }, [isMultiPage, autoplaySetting, isPaused, isHovered, isTouched, handleNextPage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isMultiSlide) return;
+    if (!isMultiPage) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
-      handlePrev();
+      handlePrevPage();
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
-      handleNext();
+      handleNextPage();
     }
   };
 
@@ -158,10 +179,11 @@ export function PromoCarousel({
         onMouseLeave={() => setIsHovered(false)}
         onTouchStart={() => setIsTouched(true)}
         onTouchEnd={() => setIsTouched(false)}
-        className={`flex w-full gap-3 ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
+        className={`flex w-full gap-4 ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
       >
         {slides.map((slide, idx) => {
           const hasImage = Boolean(slide.imageUrl);
+          const slideWidthClass = totalSlides === 1 ? "w-full" : "w-[88%] md:w-[calc(50%-8px)]";
 
           return (
             <div
@@ -169,7 +191,7 @@ export function PromoCarousel({
               role="group"
               aria-roledescription="slide"
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
-              className="relative flex-shrink-0 snap-start overflow-hidden rounded-[20px] h-[150px] md:h-[200px] w-[88%] md:w-full bg-[var(--tf-soft)]"
+              className={`relative flex-shrink-0 snap-start overflow-hidden rounded-[20px] h-[150px] md:h-[200px] ${slideWidthClass} bg-[var(--tf-soft)]`}
             >
               {hasImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -196,7 +218,9 @@ export function PromoCarousel({
 
               <div className="absolute inset-0 flex flex-col items-start justify-end px-4 py-3 md:px-6 md:py-4">
                 <div className="max-w-[420px] text-[var(--tf-on-scrim)]">
-                  <span className="mb-1 inline-block rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold leading-none">
+                  {/* Eyebrow pill: hidden on phone only — the 150px card is too
+                      crowded for pill + headline + subtext + button there. */}
+                  <span className="mb-2 hidden rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold leading-none md:inline-block">
                     {getOfferLabel(slide)}
                   </span>
 
@@ -205,19 +229,19 @@ export function PromoCarousel({
                     {slide.headline}
                   </h3>
 
-                  {/* Subtext: one line */}
+                  {/* Subtext: one line, >=8px below the headline */}
                   {slide.description ? (
-                    <p className="showcase-promo-subtext line-clamp-1 opacity-90">
+                    <p className="showcase-promo-subtext mt-2 line-clamp-1 opacity-90">
                       {slide.description}
                     </p>
                   ) : null}
 
-                  {/* Small CTA, natural width */}
+                  {/* Small CTA, natural width, >=8px below the subtext/headline */}
                   {slide.href && slide.buttonLabel ? (
                     <a
                       href={slide.href}
                       {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      className="mt-1.5 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                      className="mt-2 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
                     >
                       {slide.buttonLabel}
                       <IconArrowRight size={12} aria-hidden="true" />
@@ -230,24 +254,24 @@ export function PromoCarousel({
         })}
       </div>
 
-      {isMultiSlide ? (
+      {isMultiPage ? (
         <div className="mt-2.5 flex items-center justify-center gap-2.5">
           <div
             aria-label={labels.slideNavLabel || "Slide navigation"}
             className="flex h-6 items-center gap-1.5"
           >
-            {slides.map((_, dotIdx) => (
+            {Array.from({ length: pageCount }, (_, pageIdx) => (
               <button
-                key={dotIdx}
+                key={pageIdx}
                 type="button"
-                aria-current={dotIdx === currentIndex ? "true" : undefined}
-                aria-label={labels.slideNofM.replace("{current}", String(dotIdx + 1)).replace("{total}", String(totalSlides))}
-                onClick={() => goToSlide(dotIdx)}
+                aria-current={pageIdx === currentPage ? "true" : undefined}
+                aria-label={labels.slideNofM.replace("{current}", String(pageIdx + 1)).replace("{total}", String(pageCount))}
+                onClick={() => goToPage(pageIdx)}
                 className="flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
               >
                 <span
                   className={`rounded-full transition-all ${
-                    dotIdx === currentIndex ? "w-5 h-2 bg-[var(--tf-accent)] opacity-100" : "w-2 h-2 bg-[var(--tf-ink)]/30 hover:opacity-80"
+                    pageIdx === currentPage ? "w-5 h-2 bg-[var(--tf-accent)] opacity-100" : "w-2 h-2 bg-[var(--tf-ink)]/30 hover:opacity-80"
                   }`}
                 />
               </button>

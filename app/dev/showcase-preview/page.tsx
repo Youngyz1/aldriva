@@ -3,6 +3,7 @@ import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { MobileTabBar } from "@/components/site/v2/MobileTabBar";
+import { ShowcaseHomeSearch } from "@/components/site/blocks/ShowcaseHomeSearch";
 import { normalizeContent } from "@/lib/website-content";
 import { SHOWCASE_SAMPLES } from "@/lib/website-template-samples";
 import { resolveTemplateContent } from "@/lib/website-template-resolver";
@@ -93,7 +94,9 @@ export default async function ShowcasePreviewPage({ searchParams }: Props) {
         hideHamburger
       />
 
-      <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      {target.isHome ? <ShowcaseHomeSearch siteSlug={siteSlug} /> : null}
+
+      <main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
         {target.blocks.map((block, index) => (
           <BlockRenderer
             key={block.id ?? `showcase-preview-${index}`}

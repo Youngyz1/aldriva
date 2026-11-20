@@ -889,6 +889,7 @@
     "all": "All",
     "searchLabel": "Search",
     "searchPlaceholder": "Search…",
+    "filterLabel": "Filter",
     "clearFilters": "Clear",
     "noDishesMatch": "No dishes match",
     "noProductsMatch": "No items match",

@@ -51,6 +51,7 @@ import { getOrgApproval } from "@/lib/server-approval";
 import { canTakeOrders } from "@/lib/business-approval";
 import { resolveSiteHref } from "@/lib/site-paths";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
+import { ShowcaseHomeSearch } from "@/components/site/blocks/ShowcaseHomeSearch";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
@@ -670,7 +671,11 @@ export default async function TenantWebsitePublicPage({ params }: Props) {
       )}
 
       {/* Page Body / Block Renderer */}
-      <main className={`flex-1${(() => {
+      {v2Template?.id === "showcase" && targetPage.is_home ? (
+        <ShowcaseHomeSearch siteSlug={website.slug} />
+      ) : null}
+
+      <main className={`min-w-0 flex-1${(() => {
         const extras = (v2Content?.content.template_extras && typeof v2Content.content.template_extras === "object"
           ? v2Content.content.template_extras
           : {}) as Record<string, unknown>;

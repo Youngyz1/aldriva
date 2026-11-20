@@ -104,7 +104,6 @@ import {
   IconHeadset,
   IconShoppingBag,
   IconToolsKitchen2,
-  IconSearch as Search,
 } from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
@@ -724,7 +723,7 @@ function FeaturesBlockRenderer({
           <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
         ) : null}
         <div
-          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)] pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " mx-auto max-w-[1280px]" : ""}`}
+          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " mx-auto max-w-[1280px]" : " px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]"}`}
           role="list"
         >
           {items.map((item, i) => {
@@ -2531,7 +2530,6 @@ async function PromotionsEmbedBlockRenderer({
   hasPublishedMenuPage,
   hasMenuEmbedOnPage,
   scopeInternalLinks,
-  siteTemplateId,
 }: {
   block: PromotionsEmbedBlock;
   tenantId?: string;
@@ -2539,7 +2537,6 @@ async function PromotionsEmbedBlockRenderer({
   hasPublishedMenuPage?: boolean;
   hasMenuEmbedOnPage?: boolean;
   scopeInternalLinks?: boolean;
-  siteTemplateId?: string;
 }) {
   if (block.enabled === false) return null;
   const promotions = tenantId
@@ -2549,46 +2546,10 @@ async function PromotionsEmbedBlockRenderer({
       })
     : block.previewPromotions ?? [];
 
-  const isShowcase = siteTemplateId === "showcase";
-  let searchPlaceholder = "Search...";
-  if (isShowcase) {
-    try {
-      const t = await getTranslations("Storefront");
-      searchPlaceholder = t("searchPlaceholder") || searchPlaceholder;
-    } catch {
-      // Keep defaults
-    }
-  }
-
-  const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
-  const searchForm = isShowcase ? (
-    <form
-      action={catalogHref}
-      method="GET"
-      className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 mb-6 sm:mb-10"
-      role="search"
-      aria-label={searchPlaceholder}
-    >
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tf-muted)] pointer-events-none" aria-hidden="true" />
-        <input
-          type="search"
-          name="q"
-          placeholder={searchPlaceholder}
-          className="w-full h-11 min-h-[44px] rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] pl-11 pr-4 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] shadow-none focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
-        />
-      </div>
-    </form>
-  ) : null;
-
+  // Search now lives in its own section above the hero (ShowcaseSearchBar,
+  // rendered from the page shell) — this block is the compact promo card
+  // only. No active promotions: absent, no gap.
   if (promotions.length === 0 && !block.fallback) {
-    if (isShowcase) {
-      return (
-        <section className="w-full">
-          {searchForm}
-        </section>
-      );
-    }
     return null;
   }
 
@@ -2646,24 +2607,10 @@ async function PromotionsEmbedBlockRenderer({
 
     return (
       <section className="w-full">
-        {siteTemplateId === "showcase" ? (
-          <>
-            {searchForm}
-            {/* Compact slidable promo card, inside the page margins (spec: Promo Card). */}
-            <PromoCarousel
-              promotions={mappedPromotions}
-              labels={labels}
-            />
-          </>
-        ) : (
-          <>
-            {searchForm}
-            <PromoCarousel
-              promotions={mappedPromotions}
-              labels={labels}
-            />
-          </>
-        )}
+        <PromoCarousel
+          promotions={mappedPromotions}
+          labels={labels}
+        />
       </section>
     );
   }
@@ -3022,12 +2969,10 @@ async function MenuEmbedBlockRenderer({
       {!hasMenuItems ? (
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : isShowcaseHomeCarousel ? (
-        // Showcase home Popular strip: flat single carousel across all sections (no per-category sections)
+        // Showcase home Popular grid: flat 4-column grid across all sections (no per-category sections)
         <div className="mx-auto max-w-[1280px]">
           <HomePopularCarousel
             items={populatedSections.flatMap((sec) => sec.items)}
-            prevLabel={t("carouselPrev")}
-            nextLabel={t("carouselNext")}
             currency={displayCurrency}
             locale={locale}
             appearance="showcase"
@@ -3401,7 +3346,11 @@ function SectionEnvelopeWrapper({
   // Showcase hero: full-bleed, exact 320/520px band height — no outer spacing bleed.
   const isShowcaseHero = isShowcase && block.type === "hero" && (block as HeroBlock).variant === "full-bleed";
   const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
-  const spacingClass = isShowcaseHero ? "" : spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
+  // Showcase removes the generic py-10 sm:py-16 section padding entirely —
+  // section-to-section rhythm instead comes from a single CSS rule
+  // (main > * + *, globals.css) giving a uniform 32px mobile / 56px desktop
+  // gap between top-level Home sections.
+  const spacingClass = isShowcase ? "" : spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
   const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
   const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const fullBleedTableFlameBlock = tableFlame && (
@@ -3415,7 +3364,11 @@ function SectionEnvelopeWrapper({
   const containerClass = isShowcaseHero
     ? "w-full" // Hero: full-bleed edge to edge (viewport width), never constrained.
     : isShowcase
-      ? "mx-auto max-w-[1280px] px-4 sm:px-6" // one shared container, max 1280px, 16px mobile / 24px desktop
+      // w-full is required (not just mx-auto): these sections are flex items
+      // of <main> (column flex, for the 32/56px gap), and an auto-margin
+      // flex item sizes to its widest descendant's intrinsic content
+      // instead of stretching, unless width is explicit.
+      ? "mx-auto w-full max-w-[1280px] px-5 sm:px-6" // one shared container, max 1280px, 20px mobile / 24px desktop
       : fullBleedTableFlameBlock || fullBleedSavannahBlock
         ? "w-full"
         : tableFlame || savannah
@@ -3671,7 +3624,6 @@ export async function BlockRenderer({
         hasPublishedMenuPage={hasPublishedMenuPage}
         hasMenuEmbedOnPage={hasMenuEmbedOnPage}
         scopeInternalLinks={scopeInternalLinks}
-        siteTemplateId={siteTemplateId}
       />;
       break;
     case "rich_text":

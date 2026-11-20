@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CatalogCarousel } from "./CatalogCard";
+import { CatalogCard } from "./CatalogCard";
 import { ItemDetailSheet } from "./StorefrontBrowse";
 import type { ResolvedMenuItem } from "@/lib/website-embeds";
 import type { BrowseItem } from "@/lib/storefront-browse";
@@ -10,8 +10,6 @@ import { formatCurrency } from "@/lib/format-locale";
 
 interface HomePopularCarouselProps {
   items: ResolvedMenuItem[];
-  prevLabel: string;
-  nextLabel: string;
   currency: string;
   locale: "en" | "fr";
   appearance: "default" | "showcase";
@@ -48,8 +46,6 @@ function mapItem(it: ResolvedMenuItem, currency: string, locale: "en" | "fr", fr
 
 export function HomePopularCarousel({
   items,
-  prevLabel,
-  nextLabel,
   currency,
   locale,
   appearance,
@@ -83,20 +79,27 @@ export function HomePopularCarousel({
       }
     : undefined;
 
+  // Up to 8 items, 2 columns mobile / 3 tablet / 4 desktop — same grid and
+  // the same CatalogCard the catalog page itself uses.
+  const gridItems = items.slice(0, 8).map((it) => mapItem(it, currency, locale, labels.freeDelivery ?? "Free delivery"));
+
   return (
     <div className="space-y-[var(--ps-space-4)]">
-      <CatalogCarousel
-        items={items.map((it) => mapItem(it, currency, locale, labels.freeDelivery ?? "Free delivery"))}
-        prevLabel={prevLabel}
-        nextLabel={nextLabel}
-        currency={currency}
-        locale={locale}
-        imageFit="cover"
-        onSelect={(id) => setSelectedId(id)}
-        appearance={appearance}
-        showcaseLabels={showcaseLabels}
-        siteSlug={siteSlug}
-      />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {gridItems.map((item) => (
+          <CatalogCard
+            key={item.id}
+            item={item}
+            onSelect={(id) => setSelectedId(id)}
+            currency={currency}
+            locale={locale}
+            imageFit="cover"
+            appearance={appearance}
+            showcaseLabels={showcaseLabels}
+            siteSlug={siteSlug}
+          />
+        ))}
+      </div>
       {selected ? (
         <ItemDetailSheet
           key={selected.id}

@@ -562,6 +562,10 @@ export function StorefrontBrowse({
     if (qParam && !initialQuery) {
       setQuery(qParam);
     }
+    const sortParam = params.get("sort");
+    if (sort && sortParam && (["featured", "newest", "priceAsc", "priceDesc"] as const).includes(sortParam as BrowseSortKey)) {
+      setSortKey(sortParam as BrowseSortKey);
+    }
     const itemId = params.get("item");
     const sectionId = params.get("section");
     const key = `${itemId ?? ""}|${sectionId ?? ""}`;
@@ -586,7 +590,7 @@ export function StorefrontBrowse({
         sectionRefs.current.get(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
     }
-  }, [mounted, allItems, groups]);
+  }, [mounted, allItems, groups, initialQuery, sort]);
 
   const closeSheet = () => {
     const editedLineId = editingLineId;
