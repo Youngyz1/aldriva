@@ -169,6 +169,17 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
   },
   { slotId: "catalog.featured", field: "featured", label: "Popular picks", kind: "pick", max: 6 },
   { slotId: "trust.items", field: "trust", label: "Trust points", kind: "items", max: 4 },
+  {
+    slotId: "trust.scrolling",
+    field: "template_extras",
+    extraKey: "servicesMarquee",
+    label: "Scrolling services",
+    kind: "select",
+    options: [
+      { label: "On", value: "on" },
+      { label: "Off", value: "off" },
+    ],
+  },
   { slotId: "about.caption", field: "about_caption", label: "About caption", kind: "text" },
   { slotId: "about.headline", field: "about_headline", label: "About headline", kind: "text" },
   { slotId: "about.subtitle", field: "about_subtitle", label: "About subtitle", kind: "text" },
@@ -207,8 +218,8 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     page: "home",
     block: "features",
     variant: "trust_strip",
-    slots: ["trust.items"],
-    note: "Trust badge strip highlighting key business reassurances.",
+    slots: ["trust.items", "trust.scrolling"],
+    note: "Trust badge strip highlighting key business reassurances. Renders as an always-on infinite marquee at 3+ items (Showcase only) unless the owner turns \"Scrolling services\" off.",
   },
   {
     id: "picks",

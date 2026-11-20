@@ -57,6 +57,8 @@ import { formatMoney as formatCurrency } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
 import { isOvernightWebsiteInterval } from "@/lib/website-hours";
+import { resolveTrustIcon } from "@/lib/trust-strip-icons";
+import { ServicesMarquee } from "./ServicesMarquee";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { readableOn } from "@/lib/readable-on";
@@ -96,15 +98,6 @@ import {
   IconMail as Mail,
   IconClock as Clock,
   IconArrowRight as ArrowRight,
-  IconShieldCheck,
-  IconTruck,
-  IconRefresh,
-  IconSparkles,
-  IconCreditCard,
-  IconAward,
-  IconHeadset,
-  IconShoppingBag,
-  IconToolsKitchen2,
 } from "@tabler/icons-react";
 
 // ── Reusable UI Primitives ───────────────────────────────────────────────────
@@ -643,56 +636,6 @@ export function HeroBlockRenderer({
 
 // ── 2. Features Block ────────────────────────────────────────────────────────
 
-const TRUST_STRIP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  shield: IconShieldCheck,
-  shield_check: IconShieldCheck,
-  iconshieldcheck: IconShieldCheck,
-  truck: IconTruck,
-  delivery: IconTruck,
-  shipping: IconTruck,
-  icontruck: IconTruck,
-  refresh: IconRefresh,
-  returns: IconRefresh,
-  iconrefresh: IconRefresh,
-  sparkles: IconSparkles,
-  quality: IconSparkles,
-  iconsparkles: IconSparkles,
-  clock: Clock,
-  time: Clock,
-  iconclock: Clock,
-  credit_card: IconCreditCard,
-  card: IconCreditCard,
-  payment: IconCreditCard,
-  iconcreditcard: IconCreditCard,
-  award: IconAward,
-  guarantee: IconAward,
-  iconaward: IconAward,
-  headset: IconHeadset,
-  support: IconHeadset,
-  contact: IconHeadset,
-  iconheadset: IconHeadset,
-  bag: IconShoppingBag,
-  pickup: IconShoppingBag,
-  shoppingbag: IconShoppingBag,
-  iconshoppingbag: IconShoppingBag,
-  calendar: Calendar,
-  reservations: Calendar,
-  booking: Calendar,
-  iconcalendar: Calendar,
-  kitchen: IconToolsKitchen2,
-  ordering: IconToolsKitchen2,
-  icontoolskitchen2: IconToolsKitchen2,
-};
-
-function resolveTrustIcon(name?: string, index = 0): React.ComponentType<{ className?: string }> {
-  if (name) {
-    const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (TRUST_STRIP_ICONS[key]) return TRUST_STRIP_ICONS[key];
-  }
-  const fallbacks = [Check, IconSparkles];
-  return fallbacks[index % fallbacks.length];
-}
-
 function FeaturesBlockRenderer({
   block,
   editMode,
@@ -718,13 +661,31 @@ function FeaturesBlockRenderer({
   if (block.variant === "trust_strip") {
     if (items.length === 0) return null;
 
+    if (siteTemplateId === "showcase") {
+      return (
+        <ServicesMarquee
+          heading={block.heading}
+          subheading={block.subheading}
+          sectionAlign={sectionAlign}
+          scrollingEnabled={block.scrollingEnabled !== false}
+          items={items.map((item, i) => ({
+            title: item.title,
+            description: item.description,
+            icon: item.icon,
+            titlePathProps: elementPathProps(editMode, sourceMap, "items[" + i + "].title"),
+            descriptionPathProps: elementPathProps(editMode, sourceMap, "items[" + i + "].description"),
+          }))}
+        />
+      );
+    }
+
     return (
       <section className="w-full overflow-hidden">
         {block.heading ? (
           <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
         ) : null}
         <div
-          className={`flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none pb-[var(--ps-space-1)]${siteTemplateId === "showcase" ? " mx-auto max-w-[1280px]" : " px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]"}`}
+          className="flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none pb-[var(--ps-space-1)] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]"
           role="list"
         >
           {items.map((item, i) => {

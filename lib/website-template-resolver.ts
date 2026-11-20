@@ -756,11 +756,14 @@ function buildShowcaseTrustStrip(ctx: BuildContext): Block | null {
   const chips = autoChips.filter((c) => !ownerTitles.has(c.title.toLowerCase()));
   const allItems = [...baseItems, ...chips].slice(0, 8);
   if (allItems.length === 0) return null;
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const scrollingEnabled = asString(extras?.servicesMarquee) !== "off";
   return {
     type: "features",
     columns: 3,
     variant: "trust_strip",
     items: allItems,
+    scrollingEnabled,
   } as Block;
 }
 

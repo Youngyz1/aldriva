@@ -113,6 +113,9 @@ export interface FeaturesBlock extends BaseBlock {
   items?: FeatureItem[];
   columns?: 2 | 3 | 4;
   variant?: "trust_strip";
+  /** trust_strip (Showcase only): animate as a marquee when 3+ items.
+   * Resolver-computed from template_extras.servicesMarquee; defaults true. */
+  scrollingEnabled?: boolean;
 }
 
 export interface AboutHighlight extends WithItemId {
@@ -905,6 +908,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           items,
           columns,
           ...(variant ? { variant } : {}),
+          ...(typeof obj.scrollingEnabled === "boolean" ? { scrollingEnabled: obj.scrollingEnabled } : {}),
         },
       };
     }
@@ -1995,6 +1999,7 @@ export function parseBlock(raw: unknown): Block | null {
             }))
           : [],
         ...(obj.variant === "trust_strip" ? { variant: "trust_strip" } : {}),
+        ...(typeof obj.scrollingEnabled === "boolean" ? { scrollingEnabled: obj.scrollingEnabled } : {}),
       };
 
     case "about":

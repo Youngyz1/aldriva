@@ -574,6 +574,36 @@
   }
 }
 
+/* Services strip marquee: GPU-only translateX loop (ServicesMarquee.tsx).
+   Exactly two equal-width strips side by side (zero gap between them,
+   each strip padded on its own trailing edge) make translateX(-50%) an
+   exact, seamless one-strip-width loop. */
+@keyframes showcase-marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.public-site[data-site-template="showcase"] .showcase-marquee-track {
+  animation-name: showcase-marquee-x;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-site[data-site-template="showcase"] .showcase-marquee-track {
+    animation: none;
+  }
+}
+/* Edge fade for the marquee viewport. currentColor (not a literal) drives
+   the mask's opaque stops, so this has no hardcoded color. */
+.public-site[data-site-template="showcase"] .showcase-marquee-fade {
+  color: currentColor;
+  -webkit-mask-image: linear-gradient(to right, transparent, currentColor 8%, currentColor 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, currentColor 8%, currentColor 92%, transparent);
+}
+
 .public-site .ps-card {
   border: var(--ps-card-border);
   border-radius: var(--ps-card-radius);
