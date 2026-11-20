@@ -27,19 +27,27 @@ export interface CategoryTilesProps {
 export function CategoryTiles({ categories, catalogHref, heading, itemCountLabel, arrowLabel }: CategoryTilesProps) {
   if (categories.length <= 1) return null;
 
+  // Columns = min(tiles, 4) at md+ (mobile always stays 2). Tile aspect
+  // follows the md+ column count: 4:3 only at 4 columns, 16:9 (the mobile
+  // 2-column ratio) at 2 or 3 columns too, so a sparse catalog never gets
+  // cropped, squarer tiles at desktop.
+  const mdCols = Math.min(categories.length, 4);
+  const mdColsClass = mdCols === 2 ? "md:grid-cols-2" : mdCols === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
+  const mdAspectClass = mdCols >= 4 ? "md:aspect-[4/3]" : "";
+
   return (
     <div className="mx-auto max-w-[1280px]">
       <h2 className="showcase-section-title mb-[var(--ps-space-4)] text-[18px] font-semibold leading-[1.25] text-[var(--tf-ink)] sm:text-[22px]">
         {heading}
       </h2>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${mdColsClass}`}>
         {categories.map((category) => {
           const safeImage = category.image ? safeImageSrc(category.image) : null;
           return (
             <Link
               key={category.id}
               href={`${catalogHref}?section=${encodeURIComponent(category.id)}`}
-              className="group relative block aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+              className={`group relative block aspect-video ${mdAspectClass} overflow-hidden rounded-2xl bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]`}
             >
               {safeImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
