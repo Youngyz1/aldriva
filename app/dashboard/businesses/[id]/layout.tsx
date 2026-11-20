@@ -85,7 +85,7 @@ export default async function BusinessLayout({ children, params }: { children: R
     },
   ];
   return (
-    <ManagementShell entityLabel="Business" entityName={b.name} backHref="/dashboard/businesses" navGroups={navGroups}>
+    <ManagementShell entityLabel="Business" entityName={b.name} backHref="/dashboard/businesses" navGroups={navGroups} hideBackLink={isStaffOnly}>
       {children}
     </ManagementShell>
   );
