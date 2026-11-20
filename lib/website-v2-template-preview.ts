@@ -50,6 +50,7 @@ export function getFoodOrderLocalizedCopy(
       contactHeading: translate("foodOrderContactHeading"),
       heroCtaBrowseTemplate: translate("foodOrderHeroCtaBrowse", { catalog: "{catalog}" }),
       heroCtaContact: translate("foodOrderHeroCtaContact"),
+      closingHeadingOrdering: translate("foodOrderClosingHeadingOrdering"),
       navigationLabels,
     },
   };

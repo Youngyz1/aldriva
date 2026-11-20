@@ -238,6 +238,13 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     note: "Card presentation of business hours and location. Hidden from Home by default — the full week of hours and location always live on the Contact page; the owner can opt back in via the builder's section toggle.",
   },
   {
+    id: "closing",
+    page: "home",
+    block: "cta_banner",
+    locked: true,
+    note: 'Closing CTA banner. Computed, not owner-editable: "Ready to order? / Browse {catalog}" when ordering is on, "Get in touch / Contact us" when off.',
+  },
+  {
     id: "catalog.full",
     page: "catalog",
     catalog: true,

@@ -3351,11 +3351,32 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-export function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean }) {
+export function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false, showcase = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean; showcase?: boolean }) {
   const paletteTheme = tableFlame || savannah;
   const safeCtaHref = block.ctaHref
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
     : "";
+
+  if (showcase) {
+    if (!block.heading && !(block.ctaLabel && safeCtaHref)) return null;
+    return (
+      <section className="w-full">
+        <div className="mx-auto flex max-w-[1280px] flex-col items-center gap-5 rounded-[20px] bg-[var(--tf-soft)] px-6 py-10 text-center text-[var(--tf-on-soft)] sm:px-10 sm:py-12">
+          {block.heading ? (
+            <h2 className="showcase-closing-headline">{block.heading}</h2>
+          ) : null}
+          {block.ctaLabel && safeCtaHref ? (
+            <a
+              href={safeCtaHref}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--tf-accent)] px-6 py-3 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            >
+              {block.ctaLabel}
+            </a>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (block.variant === "promo") {
     const safeImage = block.image ? safeImageSrc(block.image) : "";
@@ -3766,7 +3787,7 @@ export async function BlockRenderer({
       content = <RichTextBlockRenderer block={b} />;
       break;
     case "cta_banner":
-      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} />;
+      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} showcase={siteTemplateId === "showcase"} />;
       break;
     case "menu_order":
       content = <OrdersList siteSlug={siteSlug} catalogName={catalogName} />;

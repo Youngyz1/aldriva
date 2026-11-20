@@ -519,6 +519,17 @@
     font-size: 40px;
   }
 }
+/* Closing CTA banner headline: short, 22px mobile, 28px desktop, bold */
+.public-site[data-site-template="showcase"] h2.showcase-closing-headline {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] h2.showcase-closing-headline {
+    font-size: 28px;
+  }
+}
 /* Card title: 14px mobile, 15px desktop, weight 500 */
 .public-site[data-site-template="showcase"] [data-catalog-card] h3,
 .public-site[data-site-template="showcase"] .catalog-card-title {

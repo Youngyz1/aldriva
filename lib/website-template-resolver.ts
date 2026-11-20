@@ -186,6 +186,8 @@ export interface TemplateResolutionOptions {
     /** "Browse {catalog}" — {catalog} is replaced with the owner-named catalog label. */
     heroCtaBrowseTemplate?: string;
     heroCtaContact?: string;
+    /** Showcase closing banner heading when ordering is enabled ("Ready to order?"). */
+    closingHeadingOrdering?: string;
     navigationLabels?: Record<string, string>;
   };
   /** Locale-resolved headings/navigation used only by the Store template. */
@@ -938,6 +940,30 @@ function buildCtaBand(ctx: BuildContext): Block {
   } as Block;
 }
 
+function buildShowcaseClosingBanner(ctx: BuildContext): Block {
+  const catalogName = resolveCatalogName(ctx);
+  const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
+  const contactPage = ctx.template.pages.find((p) => p.purpose === "contact");
+  const catalogHref = catalogPage
+    ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogPage.slug) : `/${encodeURIComponent(catalogPage.slug)}`)
+    : undefined;
+  const contactHref = contactPage
+    ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, contactPage.slug) : `/${encodeURIComponent(contactPage.slug)}`)
+    : undefined;
+  const ordering = ctx.storefrontFeatures.ordering;
+  const browseTemplate = ctx.foodOrderCopy?.heroCtaBrowseTemplate ?? "Browse {catalog}";
+  const contactLabel = ctx.foodOrderCopy?.heroCtaContact ?? "Contact us";
+  const orderingHeading = ctx.foodOrderCopy?.closingHeadingOrdering ?? "Ready to order?";
+  const contactHeading = ctx.foodOrderCopy?.contactHeading ?? "Get in touch";
+  return {
+    type: "cta_banner",
+    variant: "brand",
+    heading: ordering ? orderingHeading : contactHeading,
+    ctaLabel: ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel,
+    ctaHref: (ordering ? catalogHref : contactHref) || "",
+  } as Block;
+}
+
 function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): MenuEmbedBlock {
   // Featured menu_item_ids bind only when they are UUID-shaped (anything else
   // is dropped so validation never fails); section scoping + tenant isolation
@@ -1216,6 +1242,9 @@ function buildSectionBlock(
           ...(ctaHref ? { ctaHref } : {}),
           ...(endDate ? { endDate } : {}),
         } as Block;
+      }
+      if (section.id === "closing" && ctx.template.id === "showcase") {
+        return buildShowcaseClosingBanner(ctx);
       }
       return buildCtaBand(ctx);
     }
