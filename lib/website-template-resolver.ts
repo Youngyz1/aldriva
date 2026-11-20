@@ -783,6 +783,7 @@ function buildBusinessOfferings(ctx: BuildContext): Block | null {
 
 function buildAbout(ctx: BuildContext): Block {
   const isSavannah = ctx.template.id === "restaurant-savannah";
+  const isShowcase = ctx.template.id === "showcase";
   const stats = asRecordArray(take(ctx, "stats", "about.stats")) ?? [];
   const highlights = stats
     .map((row) => ({
@@ -797,6 +798,10 @@ function buildAbout(ctx: BuildContext): Block {
       caption: asString(take(ctx, "about_caption", "about.caption")),
       heading: asString(take(ctx, "about_headline", "about.headline")) || "Our Story",
       subtitle: asString(take(ctx, "about_subtitle", "about.subtitle")),
+    } : isShowcase ? {
+      // Compact About: owner headline, else business name (handled in the
+      // renderer, which has businessName) — no hardcoded fallback here.
+      heading: asString(take(ctx, "about_headline", "about.headline")),
     } : {
       ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : {}),
     }),

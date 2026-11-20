@@ -876,6 +876,11 @@ function AboutBlockRenderer({
   sectionAlign,
   businessName,
   defaultAboutHeading,
+  eyebrow,
+  viewCatalogTemplate,
+  catalogName,
+  siteSlug,
+  scopeInternalLinks,
 }: {
   block: AboutBlock;
   editMode?: boolean;
@@ -885,15 +890,74 @@ function AboutBlockRenderer({
   businessName?: string;
   businessLogo?: string;
   defaultAboutHeading?: string;
+  eyebrow?: string;
+  viewCatalogTemplate?: string;
+  catalogName?: string;
+  siteSlug?: string;
+  scopeInternalLinks?: boolean;
 }) {
   const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) || "" : "";
+
+  if (block.variant === "split" && siteTemplateId === "showcase") {
+    const hasImage = Boolean(safeFounderImage);
+    const heading = block.heading || businessName || "About";
+    const hasStory = Boolean(block.story);
+    // Hidden entirely when there is no text and no image — a bare heading
+    // (always available via the business-name fallback) isn't enough.
+    if (!hasStory && !hasImage) return null;
+    const catalogHref = catalogName && siteSlug
+      ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, "menu") : "/menu")
+      : null;
+    return (
+      <section id="about" className="w-full">
+        <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-12">
+          {hasImage ? (
+            <div className="relative order-1 aspect-[4/3] w-full overflow-hidden rounded-xl bg-[var(--tf-soft)] md:order-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                {...elementPathProps(editMode, sourceMap, "founderImage")}
+                src={safeFounderImage}
+                alt={businessName || heading || ""}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+          <div className={`order-2 flex flex-col gap-3 md:order-1 ${hasImage ? "" : "mx-auto max-w-2xl text-center"}`}>
+            {eyebrow ? (
+              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-muted)]">{eyebrow}</p>
+            ) : null}
+            {heading ? (
+              <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-about-headline">
+                {heading}
+              </h2>
+            ) : null}
+            {hasStory ? (
+              <p {...elementPathProps(editMode, sourceMap, "story")} className="text-base leading-relaxed text-[var(--tf-muted)]">
+                {block.story}
+              </p>
+            ) : null}
+            {catalogHref && catalogName ? (
+              <a
+                href={catalogHref}
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--tf-accent)] hover:underline"
+              >
+                {(viewCatalogTemplate || "View {catalog}").replace("{catalog}", catalogName)}
+                <ArrowRight size={15} aria-hidden="true" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (block.variant === "split") {
     const hasImage = Boolean(safeFounderImage);
     const heading = block.heading || defaultAboutHeading || "About";
     return (
       <section id="about" className="w-full">
-        <div className={`grid grid-cols-1 items-center gap-8 ${siteTemplateId === "showcase" ? (hasImage ? "md:grid-cols-2 md:gap-12 mx-auto max-w-[1280px]" : "mx-auto max-w-[1280px]") : hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
+        <div className={`grid grid-cols-1 items-center gap-8 ${hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
           {hasImage ? (
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-soft)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3551,6 +3615,13 @@ export async function BlockRenderer({
     !b.address && !b.phone && !b.email && !b.hours &&
     !b.hoursTable?.length && !b.locations?.length && !b.directionsUrl && !b.mapQuery
   ) return null;
+  // Compact About (showcase) hides entirely with no story and no image — matching
+  // AboutBlockRenderer's own hide condition. Checked here too so BlockRenderer
+  // skips the SectionEnvelopeWrapper entirely instead of leaving a stray empty
+  // flex item that still consumes the main > * + * gap.
+  if (!editMode && siteTemplateId === "showcase" && b.type === "about" && !b.story && !b.founderImage) {
+    return null;
+  }
 
   let content: React.ReactNode;
   switch (b.type) {
@@ -3563,13 +3634,17 @@ export async function BlockRenderer({
     case "about":
       {
         let aboutHeading = "About";
+        let aboutEyebrow = "About us";
+        let aboutViewCatalog = "View {catalog}";
         try {
           const publicT = await getTranslations("PublicSite");
           aboutHeading = publicT("about");
+          aboutEyebrow = publicT("showcaseAboutEyebrow");
+          aboutViewCatalog = publicT("showcaseAboutViewCatalog", { catalog: "{catalog}" });
         } catch {
           // Keep default
         }
-        content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} defaultAboutHeading={aboutHeading} />;
+        content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} defaultAboutHeading={aboutHeading} eyebrow={aboutEyebrow} viewCatalogTemplate={aboutViewCatalog} catalogName={catalogName} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} />;
       }
       break;
     case "gallery":

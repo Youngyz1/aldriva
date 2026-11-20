@@ -508,6 +508,17 @@
     font-size: 32px;
   }
 }
+/* Compact About headline: 28px mobile, 40px desktop, bold */
+.public-site[data-site-template="showcase"] h2.showcase-about-headline {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+@media (min-width: 640px) {
+  .public-site[data-site-template="showcase"] h2.showcase-about-headline {
+    font-size: 40px;
+  }
+}
 /* Card title: 14px mobile, 15px desktop, weight 500 */
 .public-site[data-site-template="showcase"] [data-catalog-card] h3,
 .public-site[data-site-template="showcase"] .catalog-card-title {
