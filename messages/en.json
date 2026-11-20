@@ -1910,6 +1910,7 @@
     "all_branches_change_denied": "You don't have permission to change a staff member's all-branches access.",
     "primary_branch_scope_delete_denied": "A staff member's home branch can't be removed from their branch access.",
     "last_owner_removal_denied": "At least one owner must remain.",
+    "invitation_invalid": "This invitation isn't valid for this account, or it has expired.",
     "duplicate_login": "This login is already linked to another staff member in this business.",
     "branch_mismatch": "That branch doesn't belong to this business.",
     "not_allowed": "You don't have permission to do that.",

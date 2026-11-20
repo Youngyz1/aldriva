@@ -1910,6 +1910,7 @@
     "all_branches_change_denied": "Vous n'avez pas la permission de modifier l'accès à toutes les succursales d'un membre du personnel.",
     "primary_branch_scope_delete_denied": "La succursale principale d'un membre du personnel ne peut pas être retirée de son accès.",
     "last_owner_removal_denied": "Au moins un propriétaire doit rester.",
+    "invitation_invalid": "Cette invitation n'est pas valide pour ce compte, ou elle a expiré.",
     "duplicate_login": "Ce compte de connexion est déjà lié à un autre membre du personnel de cette entreprise.",
     "branch_mismatch": "Cette succursale n'appartient pas à cette entreprise.",
     "not_allowed": "Vous n'avez pas la permission de faire cela.",

@@ -76,6 +76,7 @@ const HINT_ERRORS: Record<string, StaffError> = {
   all_branches_change_denied: { code: "all_branches_change_denied", message: "You don't have permission to change a staff member's all-branches access." },
   primary_branch_scope_delete_denied: { code: "primary_branch_scope_delete_denied", message: "A staff member's home branch can't be removed from their branch access." },
   last_owner_removal_denied: { code: "last_owner_removal_denied", message: "At least one owner must remain." },
+  invitation_invalid: { code: "invitation_invalid", message: "This invitation isn't valid for this account, or it has expired." },
 };
 
 export const NOT_FOUND_OR_DENIED: StaffError = {
