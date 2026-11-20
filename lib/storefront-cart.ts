@@ -11,6 +11,10 @@ export interface StorefrontCartLine {
   quantity: number;
   /** Opaque fingerprint of the selected live unit price; no price is stored. */
   priceVersion?: string;
+  /** Item image URL captured at add-time; lines saved before this field
+   * existed simply omit it — callers fall back to looking the item up by
+   * itemId, then to a lettered placeholder tile. */
+  image?: string | null;
 }
 
 /** Stable fingerprint used only to detect live price changes. */
@@ -67,6 +71,7 @@ export function migrateStorefrontCart(
       ...(typeof line.priceVersion === "string" && /^p1-[0-9a-f]{8}$/.test(line.priceVersion)
         ? { priceVersion: line.priceVersion }
         : {}),
+      ...(typeof line.image === "string" ? { image: line.image } : {}),
     });
   }
   if (lines.length !== rawLines.length) needsSave = true;
@@ -140,7 +145,11 @@ export function upsertStorefrontCartLine(
     const combined = lines[otherIndex].quantity + candidate.quantity;
     const next = lines.filter((line) => line.lineId !== editingLineId);
     const targetIndex = next.findIndex((line) => line.lineId === lines[otherIndex].lineId);
-    next[targetIndex] = { ...next[targetIndex], quantity: Math.min(MAX_LINE_QUANTITY, combined) };
+    next[targetIndex] = {
+      ...next[targetIndex],
+      quantity: Math.min(MAX_LINE_QUANTITY, combined),
+      image: candidate.image ?? next[targetIndex].image,
+    };
     return { lines: next, capped: combined > MAX_LINE_QUANTITY };
   }
   if (existingIndex >= 0) {
@@ -152,7 +161,11 @@ export function upsertStorefrontCartLine(
   if (existing < 0) return { lines: [...lines, candidate], capped: incoming.quantity > MAX_LINE_QUANTITY };
   const combined = lines[existing].quantity + candidate.quantity;
   const next = [...lines];
-  next[existing] = { ...next[existing], quantity: Math.min(MAX_LINE_QUANTITY, combined) };
+  next[existing] = {
+    ...next[existing],
+    quantity: Math.min(MAX_LINE_QUANTITY, combined),
+    image: candidate.image ?? next[existing].image,
+  };
   return { lines: next, capped: combined > MAX_LINE_QUANTITY };
 }
 

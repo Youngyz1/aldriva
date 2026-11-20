@@ -135,6 +135,7 @@ export function HomePopularCarousel({
       selectedOptionIds: [],
       selectedOptions: [],
       quantity: 1,
+      image: found.image ?? null,
     });
     saveStorefrontCart(siteSlug, nextCart);
     const count = nextCart.reduce((sum, line) => sum + line.quantity, 0);
@@ -160,9 +161,10 @@ export function HomePopularCarousel({
   ) => {
     if (!siteSlug) return;
     const { lines: cart } = loadStorefrontCart(siteSlug);
+    const found = gridItems.find((candidate) => candidate.id === itemId);
     const { lines: nextCart, capped } = upsertStorefrontCartLine(
       cart,
-      { lineId: editingLineId ?? createStorefrontCartLineId(), itemId, selectedOptionIds, selectedOptions, quantity },
+      { lineId: editingLineId ?? createStorefrontCartLineId(), itemId, selectedOptionIds, selectedOptions, quantity, image: found?.image ?? null },
       editingLineId
     );
     saveStorefrontCart(siteSlug, nextCart);

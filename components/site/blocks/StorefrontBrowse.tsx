@@ -604,6 +604,7 @@ export function StorefrontBrowse({
       selectedOptionIds,
       selectedOptions,
       quantity,
+      image: allItems.find((candidateItem) => candidateItem.id === itemId)?.image ?? null,
     };
     const result = upsertStorefrontCartLine(cart, candidate, editingLineId);
     const pricedCart = browseCartPricing(result.lines, allItems, orderConfig?.currency || currency || "USD");
@@ -2283,6 +2284,29 @@ export function ItemDetailSheet({
 }
 
 
+/** 56px square cart-line thumbnail (Showcase only): photo, or a lettered
+ * --tf-soft tile when no image is available for the line. */
+function CartLineThumbnail({ src, name }: { src?: string | null; name: string }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        width={56}
+        height={56}
+        className="h-14 w-14 shrink-0 rounded-[12px] object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] bg-[var(--tf-soft)] text-base font-semibold text-[var(--tf-muted)]" aria-hidden="true">
+      {(name || "?").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 function OrderDrawer({
   cart,
   orderConfig,
@@ -2738,6 +2762,7 @@ function OrderDrawer({
 
               return (
                 <div key={line.lineId} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
+                  {showcase ? <CartLineThumbnail src={line.image ?? it.image} name={it.name} /> : null}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[var(--ps-text)]">{it.name}</p>
                     {chosenOptions.length > 0 ? (
