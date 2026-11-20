@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
-import { assertCanManageBusiness } from "@/lib/entity-authz";
+import { getStaffUiCapabilities } from "@/lib/staff/staff-capabilities-server";
 import { getStaffMember } from "@/lib/actions/staff-members";
 import StaffProfileClient from "./StaffProfileClient";
 
@@ -38,9 +38,9 @@ export default async function StaffProfilePage({
     .eq("business_id", staffRow.business_id)
     .order("label", { ascending: true });
 
-  // canDelete is organizer-level only -- staff_members' DELETE policy has no
-  // branch-manager clause. Computed here, not trusted from the client.
-  const organizerAuth = await assertCanManageBusiness(staffRow.business_id);
+  // Button visibility only (RLS is the real gate). Delete is head-office only,
+  // because staff_members' DELETE policy has no branch-manager clause.
+  const capabilities = await getStaffUiCapabilities(staffRow.business_id);
 
   return (
     <StaffProfileClient
@@ -48,7 +48,7 @@ export default async function StaffProfilePage({
       businessId={staffRow.business_id}
       staff={result.data}
       branches={(branches ?? []) as { id: string; label: string; status: "active" | "archived" }[]}
-      canDelete={organizerAuth.ok}
+      capabilities={capabilities}
     />
   );
 }

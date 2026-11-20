@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import StaffAvatar from "@/components/staff/StaffAvatar";
 import { deleteStaffMember, setStaffStatus, type StaffMemberRow, type StaffStatus } from "@/lib/actions/staff-members";
 import StaffFormDialog from "@/app/dashboard/businesses/[id]/staff/StaffFormDialog";
+import { canEditRow, canDeactivateRow, type StaffUiCapabilities } from "@/lib/staff/staff-capabilities";
 
 // Dynamic/runtime-determined key, same `as any` escape next-intl's own
 // strict Translator type requires here as OrgDashboardSidebar.tsx already
@@ -52,13 +53,13 @@ export default function StaffProfileClient({
   businessId,
   staff: initialStaff,
   branches,
-  canDelete,
+  capabilities,
 }: {
   organizerId: string;
   businessId: string;
   staff: StaffMemberRow;
   branches: Branch[];
-  canDelete: boolean;
+  capabilities: StaffUiCapabilities;
 }) {
   const t = useTranslations("Workforce");
   const router = useRouter();
@@ -168,11 +169,15 @@ export default function StaffProfileClient({
           </dl>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>{t("stEdit")}</Button>
-            <Button variant="ghost" size="sm" disabled={statusBusy} onClick={handleToggleStatus}>
-              {staff.status === "active" ? t("stDeactivate") : t("stReactivate")}
-            </Button>
-            {canDelete && (
+            {canEditRow(capabilities, staff) && (
+              <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>{t("stEdit")}</Button>
+            )}
+            {canDeactivateRow(capabilities, staff) && (
+              <Button variant="ghost" size="sm" disabled={statusBusy} onClick={handleToggleStatus}>
+                {staff.status === "active" ? t("stDeactivate") : t("stReactivate")}
+              </Button>
+            )}
+            {capabilities.canDelete && (
               <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>{t("stDelete")}</Button>
             )}
           </div>
