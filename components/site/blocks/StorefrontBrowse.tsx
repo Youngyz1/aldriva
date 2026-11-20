@@ -67,6 +67,7 @@ import {
 } from "@/lib/storefront-cart";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
+import { CartAddedToast, useCartAddedToast } from "./CartAddedToast";
 
 export interface StorefrontOrderConfig {
   enabled: boolean;
@@ -379,6 +380,7 @@ export function StorefrontBrowse({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const cartAddedToast = useCartAddedToast();
   const [renderedGroupIds, setRenderedGroupIds] = useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.id)));
   const [orderSuccess, setOrderSuccess] = useState<{
     orderNumber: string;
@@ -622,7 +624,19 @@ export function StorefrontBrowse({
     const updatedLabel = appearance === "showcase"
       ? (locale === "fr" ? "Commande mise à jour" : "Order updated")
       : "Order updated";
-    announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? updatedLabel : addedLabel);
+    if (result.capped) {
+      announce(`Maximum ${MAX_LINE_QUANTITY} per item`);
+    } else if (editingLineId) {
+      announce(updatedLabel);
+    } else if (appearance === "showcase") {
+      // The toast (bottom-centre mobile / bottom-right desktop) is the add
+      // confirmation for Showcase, replacing the old persistent order bar.
+      // It carries its own aria-live region, so it isn't also routed
+      // through the plain sr-only/visible-pill `announce()` below.
+      cartAddedToast.show();
+    } else {
+      announce(addedLabel);
+    }
   };
 
   const handleQuickMenuAdd = (item: BrowseItem, trigger: HTMLButtonElement) => {
@@ -722,23 +736,17 @@ export function StorefrontBrowse({
           />
         ) : null}
 
-        {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
-        {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div data-storefront-order-bar="true" className="fixed inset-x-0 bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
-            <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
-              <div className="text-sm font-semibold leading-none">
-                {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-              >
-                {labels.viewCart || "View cart"}
-              </button>
-            </div>
-          </div>
+        {appearance === "showcase" ? (
+          <CartAddedToast
+            visible={cartAddedToast.visible}
+            locale={locale}
+            onViewCart={() => { cartAddedToast.dismiss(); setIsCartOpen(true); }}
+            onDismiss={cartAddedToast.dismiss}
+            onPause={cartAddedToast.pause}
+            onResume={cartAddedToast.resume}
+          />
         ) : null}
+
         {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
         {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
           <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
@@ -1328,23 +1336,17 @@ export function StorefrontBrowse({
         />
       ) : null}
 
-      {/* Order bar (Showcase: dark pill, no count circle, View cart opens the cart view) */}
-      {appearance === "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div data-storefront-order-bar="true" className="fixed inset-x-0 bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
-          <div className="flex items-center justify-between gap-[var(--ps-space-3)] rounded-[20px] bg-[var(--tf-ink)] p-[var(--ps-space-4)] text-[var(--tf-on-ink)] shadow-lg">
-            <div className="text-sm font-semibold leading-none">
-              {labels.yourCart || "Your cart"} • {formattedCartSubtotal}
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsCartOpen(true)}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-[var(--tf-accent)] px-5 py-1.5 text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-            >
-              {labels.viewCart || "View cart"}
-            </button>
-          </div>
-        </div>
+      {appearance === "showcase" ? (
+        <CartAddedToast
+          visible={cartAddedToast.visible}
+          locale={locale}
+          onViewCart={() => { cartAddedToast.dismiss(); setIsCartOpen(true); }}
+          onDismiss={cartAddedToast.dismiss}
+          onPause={cartAddedToast.pause}
+          onResume={cartAddedToast.resume}
+        />
       ) : null}
+
       {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
       {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
         <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">

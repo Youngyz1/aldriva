@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CatalogCard } from "./CatalogCard";
 import { ItemDetailSheet } from "./StorefrontBrowse";
 import type { ResolvedMenuItem } from "@/lib/website-embeds";
@@ -15,6 +16,8 @@ import {
   writeStorefrontCartSummary,
 } from "@/lib/storefront-cart";
 import { MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
+import { resolveSiteHref } from "@/lib/site-paths";
+import { CartAddedToast, useCartAddedToast } from "./CartAddedToast";
 
 interface HomePopularCarouselProps {
   items: ResolvedMenuItem[];
@@ -82,7 +85,10 @@ export function HomePopularCarousel({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cartAddedToast = useCartAddedToast();
+  const router = useRouter();
   const selected = items.find((it) => it.id === selectedId) ?? null;
+  const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
 
   const announce = useCallback((message: string) => {
     setFeedbackMessage(message);
@@ -148,6 +154,7 @@ export function HomePopularCarousel({
       return priced ? sum + Math.round(priced.numericPrice * 100) * line.quantity : sum;
     }, 0);
     writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
+    cartAddedToast.show();
   };
 
   // Full sheet add/update: mirrors handleQuickAdd's cart write, but carries
@@ -174,15 +181,18 @@ export function HomePopularCarousel({
       return priced ? sum + Math.round(priced.numericPrice * 100) * line.quantity : sum;
     }, 0);
     writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
+    const wasEditing = Boolean(editingLineId);
     setSelectedId(null);
     setEditingLineId(null);
-    announce(
-      capped
-        ? (locale === "fr" ? `Maximum ${MAX_LINE_QUANTITY} par article` : `Maximum ${MAX_LINE_QUANTITY} per item`)
-        : editingLineId
-          ? (locale === "fr" ? "Commande mise à jour" : "Order updated")
-          : (locale === "fr" ? "Ajouté au panier" : "Added to cart")
-    );
+    if (capped) {
+      announce(locale === "fr" ? `Maximum ${MAX_LINE_QUANTITY} par article` : `Maximum ${MAX_LINE_QUANTITY} per item`);
+    } else if (wasEditing) {
+      announce(locale === "fr" ? "Commande mise à jour" : "Order updated");
+    } else {
+      // The toast (bottom-centre mobile / bottom-right desktop) is the add
+      // confirmation; it carries its own aria-live region.
+      cartAddedToast.show();
+    }
   };
 
   return (
@@ -240,6 +250,14 @@ export function HomePopularCarousel({
           {feedbackMessage || ""}
         </span>
       </div>
+      <CartAddedToast
+        visible={cartAddedToast.visible}
+        locale={locale}
+        onViewCart={() => { cartAddedToast.dismiss(); router.push(`${catalogHref}?cart=1`); }}
+        onDismiss={cartAddedToast.dismiss}
+        onPause={cartAddedToast.pause}
+        onResume={cartAddedToast.resume}
+      />
     </div>
   );
 }
