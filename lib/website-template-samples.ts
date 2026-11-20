@@ -273,7 +273,7 @@ export const SHOWCASE_SAMPLES: ContentDoc = {
   address: "123 Sample Street, Springfield",
   phone: "+1 (555) 010-0100",
   email: "hello@example.com",
-  nav_labels: { home: "Home", menu: "Catalog", contact: "Contact" },
+  nav_labels: { home: "Home", menu: "Menu", contact: "Contact" },
   footer_note: "Sample content shown while this template preview is empty.",
 };
 
@@ -308,7 +308,7 @@ export const SHOWCASE_SAMPLES_FR: ContentDoc = {
   address: "123 Rue de l'Exemple, Springfield",
   phone: "+1 (555) 010-0100",
   email: "hello@example.com",
-  nav_labels: { home: "Accueil", menu: "Catalogue", contact: "Contact" },
+  nav_labels: { home: "Accueil", menu: "Menu", contact: "Contact" },
   footer_note: "Contenu d'exemple affiché tant que cet aperçu du modèle est vide.",
 };
 
