@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { CatalogCard } from "./CatalogCard";
 import { ItemDetailSheet } from "./StorefrontBrowse";
 import type { ResolvedMenuItem } from "@/lib/website-embeds";
@@ -14,6 +14,7 @@ import {
   upsertStorefrontCartLine,
   writeStorefrontCartSummary,
 } from "@/lib/storefront-cart";
+import { MAX_LINE_QUANTITY } from "@/lib/menu-pricing";
 
 interface HomePopularCarouselProps {
   items: ResolvedMenuItem[];
@@ -78,7 +79,19 @@ export function HomePopularCarousel({
   closeLabel,
 }: HomePopularCarouselProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selected = items.find((it) => it.id === selectedId) ?? null;
+
+  const announce = useCallback((message: string) => {
+    setFeedbackMessage(message);
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setFeedbackMessage(null);
+      feedbackTimeoutRef.current = null;
+    }, 2000);
+  }, []);
 
   const priceLabel = selected
     ? formatCurrency(Number(selected.effective_price ?? selected.price), currency, locale)
@@ -136,6 +149,40 @@ export function HomePopularCarousel({
     writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
   };
 
+  // Full sheet add/update: mirrors handleQuickAdd's cart write, but carries
+  // quantity/options and supports editing an existing line (same shared cart
+  // as StorefrontBrowse's own handleAddToOrder).
+  const handleSheetAddToOrder = (
+    itemId: string,
+    selectedOptionIds: string[],
+    quantity: number,
+    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
+  ) => {
+    if (!siteSlug) return;
+    const { lines: cart } = loadStorefrontCart(siteSlug);
+    const { lines: nextCart, capped } = upsertStorefrontCartLine(
+      cart,
+      { lineId: editingLineId ?? createStorefrontCartLineId(), itemId, selectedOptionIds, selectedOptions, quantity },
+      editingLineId
+    );
+    saveStorefrontCart(siteSlug, nextCart);
+    const count = nextCart.reduce((sum, line) => sum + line.quantity, 0);
+    const subtotalCents = nextCart.reduce((sum, line) => {
+      const priced = gridItems.find((candidate) => candidate.id === line.itemId);
+      return priced ? sum + Math.round(priced.numericPrice * 100) * line.quantity : sum;
+    }, 0);
+    writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
+    setSelectedId(null);
+    setEditingLineId(null);
+    announce(
+      capped
+        ? (locale === "fr" ? `Maximum ${MAX_LINE_QUANTITY} par article` : `Maximum ${MAX_LINE_QUANTITY} per item`)
+        : editingLineId
+          ? (locale === "fr" ? "Commande mise à jour" : "Order updated")
+          : (locale === "fr" ? "Ajouté au panier" : "Added to cart")
+    );
+  };
+
   return (
     <div className="space-y-[var(--ps-space-4)]">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -176,9 +223,21 @@ export function HomePopularCarousel({
           labels={labels}
           orderConfig={orderConfig ?? undefined}
           locale={locale}
+          isEditing={Boolean(editingLineId)}
+          onAddToOrder={handleSheetAddToOrder}
           onClose={() => setSelectedId(null)}
         />
       ) : null}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={`pointer-events-none fixed inset-x-0 top-4 z-[90] flex justify-center px-4 transition-opacity duration-200 ${feedbackMessage ? "opacity-100" : "opacity-0"}`}
+      >
+        <span className="rounded-full bg-[var(--tf-ink)] px-4 py-2 text-sm font-semibold text-[var(--tf-on-ink)] shadow-lg">
+          {feedbackMessage || ""}
+        </span>
+      </div>
     </div>
   );
 }

@@ -414,7 +414,7 @@ export function StorefrontBrowse({
     feedbackTimeoutRef.current = setTimeout(() => {
       setFeedbackMessage(null);
       feedbackTimeoutRef.current = null;
-    }, 2500);
+    }, 2000);
   }, []);
 
   useEffect(() => {
@@ -615,7 +615,13 @@ export function StorefrontBrowse({
     });
     updateCart(nextCart);
     closeSheet();
-    announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? "Order updated" : "Added to order");
+    const addedLabel = appearance === "showcase"
+      ? (locale === "fr" ? "Ajouté au panier" : "Added to cart")
+      : "Added to order";
+    const updatedLabel = appearance === "showcase"
+      ? (locale === "fr" ? "Commande mise à jour" : "Order updated")
+      : "Order updated";
+    announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? updatedLabel : addedLabel);
   };
 
   const handleQuickMenuAdd = (item: BrowseItem, trigger: HTMLButtonElement) => {
@@ -1235,7 +1241,20 @@ export function StorefrontBrowse({
 
   return (
     <>
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
+      {appearance === "showcase" ? (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={`pointer-events-none fixed inset-x-0 top-4 z-[90] flex justify-center px-4 transition-opacity duration-200 ${feedbackMessage ? "opacity-100" : "opacity-0"}`}
+        >
+          <span className="rounded-full bg-[var(--tf-ink)] px-4 py-2 text-sm font-semibold text-[var(--tf-on-ink)] shadow-lg">
+            {feedbackMessage || ""}
+          </span>
+        </div>
+      ) : (
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
+      )}
       {/* Active order persistent banner */}
       {activeOrder && !orderSuccess && orderConfig?.slug ? (
         <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
@@ -2158,7 +2177,21 @@ export function ItemDetailSheet({
           {orderConfig?.enabled ? (
             isShowcase ? (
               /* Showcase Sticky Footer per section 10c & 10d */
-              <div className="flex items-center gap-3">
+              <div>
+                {orderConfig?.blocked ? (
+                  <p role="status" className="mb-3 text-[13px] leading-snug text-[var(--tf-muted)]">
+                    {locale === "fr"
+                      ? "La commande en ligne n'est pas disponible pour le moment."
+                      : "Online ordering isn't available right now."}
+                  </p>
+                ) : orderConfig?.isClosed ? (
+                  <p role="status" className="mb-3 text-[13px] leading-snug text-[var(--tf-muted)]">
+                    {locale === "fr"
+                      ? `Nous sommes fermés en ce moment.${orderConfig.scheduledFor ? ` Votre commande sera préparée à la réouverture (${new Date(orderConfig.scheduledFor).toLocaleString("fr-FR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}).` : ""}`
+                      : `We're closed right now.${orderConfig.scheduledFor ? ` Your order will be ready when we reopen (${new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}).` : ""}`}
+                  </p>
+                ) : null}
+                <div className="flex items-center gap-3">
                 {!isSoldOut ? (
                   <div className="flex h-10 items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-soft)] px-1 shrink-0">
                     <button
@@ -2200,6 +2233,7 @@ export function ItemDetailSheet({
                         ? `Ajouter au panier · ${lineTotalFormatted}`
                         : `Add to cart · ${lineTotalFormatted}`}
                 </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-[var(--ps-space-3)]">
