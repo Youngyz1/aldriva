@@ -58,10 +58,11 @@ import type { MenuPromotion } from "@/lib/menu-promotions";
 import {
   createStorefrontCartLineId,
   createStorefrontPriceVersion,
-  migrateStorefrontCart,
+  loadStorefrontCart,
   reconcileStorefrontCart,
-  STOREFRONT_CART_VERSION,
+  saveStorefrontCart,
   upsertStorefrontCartLine,
+  writeStorefrontCartSummary,
   type StorefrontCartLine,
 } from "@/lib/storefront-cart";
 import StripeProvider from "@/components/payments/StripeProvider";
@@ -259,25 +260,10 @@ export function TableFlameMenuRows({
   </>;
 }
 
-function loadCart(slug: string): { lines: CartItem[]; needsSave: boolean } {
-  if (typeof window === "undefined" || !slug) return { lines: [], needsSave: false };
-  try {
-    const raw = localStorage.getItem(`aldriva_cart_${slug}`);
-    if (!raw) return { lines: [], needsSave: false };
-    return migrateStorefrontCart(JSON.parse(raw), createStorefrontCartLineId);
-  } catch {
-    return { lines: [], needsSave: false };
-  }
-}
-
-function saveCart(slug: string, cart: CartItem[]): void {
-  if (typeof window === "undefined" || !slug) return;
-  try {
-    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify({ version: STOREFRONT_CART_VERSION, items: cart }));
-  } catch {
-    // quota exceeded or private mode, silently ignore
-  }
-}
+// Cart storage lives in lib/storefront-cart.ts (loadStorefrontCart/saveStorefrontCart)
+// so Home's Popular "+" button can read and write the same slug-keyed cart.
+const loadCart = loadStorefrontCart;
+const saveCart = saveStorefrontCart;
 
 function optionQuantityKey(groupId: string, optionId: string): string {
   return `${groupId}:${optionId}`;
@@ -502,18 +488,10 @@ export function StorefrontBrowse({
     setCart(nextCart);
     if (orderConfig?.slug) {
       saveCart(orderConfig.slug, nextCart);
-      try {
-        const count = nextCart.reduce((sum, it) => sum + it.quantity, 0);
-        const pricing = browseCartPricing(nextCart, allItems, orderConfig.currency || currency || "USD");
-        const subtotal = Math.round(pricing.subtotal * 100);
-        const summary = { count, subtotal, currency: orderConfig.currency || currency || "USD" };
-        localStorage.setItem(`aldriva_cart_summary_${orderConfig.slug}`, JSON.stringify(summary));
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("aldriva:cart-summary-updated"));
-        }
-      } catch {
-        // Storage access unavailable
-      }
+      const count = nextCart.reduce((sum, it) => sum + it.quantity, 0);
+      const pricing = browseCartPricing(nextCart, allItems, orderConfig.currency || currency || "USD");
+      const subtotal = Math.round(pricing.subtotal * 100);
+      writeStorefrontCartSummary(orderConfig.slug, count, subtotal, orderConfig.currency || currency || "USD");
     }
   };
 

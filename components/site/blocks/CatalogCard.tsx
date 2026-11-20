@@ -133,6 +133,8 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
     }
   };
 
+  // Heart and "+" stack in the same top-right corner: 32px visual circle,
+  // 44x44px tap area each, 8px gap between them.
   const heartButton = isShowcase ? (
     <button
       type="button"
@@ -143,13 +145,15 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           : (locale === "fr" ? "Ajouter aux favoris" : "Add to favorites")
       }
       onClick={toggleFavorite}
-      className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-[var(--tf-muted)] shadow-xs transition-colors hover:text-[var(--tf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+      className="flex h-11 w-11 items-center justify-center text-[var(--tf-muted)] transition-colors hover:text-[var(--tf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
     >
-      {isFavorite ? (
-        <IconHeartFilled className="h-4 w-4 text-[var(--tf-accent)]" />
-      ) : (
-        <IconHeart className="h-4 w-4" />
-      )}
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-inherit shadow-xs">
+        {isFavorite ? (
+          <IconHeartFilled className="h-4 w-4 text-[var(--tf-accent)]" />
+        ) : (
+          <IconHeart className="h-4 w-4" />
+        )}
+      </span>
     </button>
   ) : null;
 
@@ -268,10 +272,28 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
         >
           {content}
         </button>
-        {heartButton}
-        {(isShowcase ? !isSoldOut && item.canQuickAdd : item.canQuickAdd) && onQuickAdd ? (
-          <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className={isShowcase ? "absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-[var(--tf-ink)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]" : "absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"}>+</button>
-        ) : null}
+        {isShowcase ? (
+          <div className="absolute right-0 top-0 z-10 flex flex-col items-center gap-2">
+            {heartButton}
+            {!isSoldOut && item.canQuickAdd && onQuickAdd ? (
+              <button
+                type="button"
+                aria-label={`Add ${item.name} to order`}
+                onClick={(event) => onQuickAdd(item.id, event.currentTarget)}
+                className="flex h-11 w-11 items-center justify-center text-[var(--tf-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-inherit shadow-xs">+</span>
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            {heartButton}
+            {item.canQuickAdd && onQuickAdd ? (
+              <button type="button" aria-label={`Add ${item.name} to order`} onClick={(event) => onQuickAdd(item.id, event.currentTarget)} className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-base)] text-lg font-semibold text-[var(--tf-on-base)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]">+</button>
+            ) : null}
+          </>
+        )}
       </div>
     );
   }

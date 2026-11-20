@@ -7,6 +7,13 @@ import type { ResolvedMenuItem } from "@/lib/website-embeds";
 import type { BrowseItem } from "@/lib/storefront-browse";
 import type { StorefrontBrowseLabels, StorefrontOrderConfig } from "./StorefrontBrowse";
 import { formatCurrency } from "@/lib/format-locale";
+import {
+  createStorefrontCartLineId,
+  loadStorefrontCart,
+  saveStorefrontCart,
+  upsertStorefrontCartLine,
+  writeStorefrontCartSummary,
+} from "@/lib/storefront-cart";
 
 interface HomePopularCarouselProps {
   items: ResolvedMenuItem[];
@@ -20,11 +27,26 @@ interface HomePopularCarouselProps {
   closeLabel: string;
 }
 
-function mapItem(it: ResolvedMenuItem, currency: string, locale: "en" | "fr", freeDeliveryLabel: string) {
+/** Mirrors lib/storefront-browse.ts's availableBrowseOptionGroups check:
+ * any option group with at least one available option blocks quick-add
+ * (same rule the catalog page's own "+" uses), not just required groups. */
+function hasQuickAddBlockingOptions(groups: ResolvedMenuItem["option_groups"]): boolean {
+  if (!groups || groups.length === 0) return false;
+  return groups.some((group) => group.options.some((option) => option.is_available !== false));
+}
+
+function mapItem(
+  it: ResolvedMenuItem,
+  currency: string,
+  locale: "en" | "fr",
+  freeDeliveryLabel: string,
+  orderingEnabled: boolean
+) {
   const effectivePrice = Number(it.effective_price ?? it.price);
   const originalPrice = Number(it.original_price ?? it.price);
   const isPromo = effectivePrice < originalPrice;
   const discountPercent = isPromo && originalPrice > 0 ? Math.round(((originalPrice - effectivePrice) / originalPrice) * 100) : 0;
+  const isSoldOut = it.is_sold_out ?? false;
   return {
     id: it.id,
     name: it.name,
@@ -36,9 +58,9 @@ function mapItem(it: ResolvedMenuItem, currency: string, locale: "en" | "fr", fr
     discountLabel: discountPercent > 0 ? `-${discountPercent}%` : null,
     promotionEndsAt: it.applied_promotion?.ends_at ?? null,
     freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? freeDeliveryLabel : null,
-    isSoldOut: it.is_sold_out ?? false,
+    isSoldOut,
     isFeatured: it.is_featured ?? false,
-    canQuickAdd: false,
+    canQuickAdd: orderingEnabled && !isSoldOut && !hasQuickAddBlockingOptions(it.option_groups),
     isNew: it.is_new ?? false,
     isPopular: it.is_popular ?? false,
   };
@@ -81,7 +103,38 @@ export function HomePopularCarousel({
 
   // Up to 8 items, 2 columns mobile / 3 tablet / 4 desktop — same grid and
   // the same CatalogCard the catalog page itself uses.
-  const gridItems = items.slice(0, 8).map((it) => mapItem(it, currency, locale, labels.freeDelivery ?? "Free delivery"));
+  const orderingEnabled = Boolean(orderConfig?.enabled && !orderConfig.blocked);
+  const gridItems = items.slice(0, 8).map((it) => mapItem(it, currency, locale, labels.freeDelivery ?? "Free delivery", orderingEnabled));
+
+  // Quick-add: same cart (shared localStorage, keyed by site slug) and the
+  // same "no sheet" behaviour as the catalog page's own "+". Items that need
+  // a sheet (required/available options) never render a "+" at all — see
+  // canQuickAdd above — so clicking the card opens the sheet instead, same
+  // as the catalog.
+  const handleQuickAdd = (itemId: string) => {
+    if (!siteSlug) return;
+    const found = gridItems.find((candidate) => candidate.id === itemId);
+    if (!found || !found.canQuickAdd) return;
+    const { lines: cart } = loadStorefrontCart(siteSlug);
+    const { lines: nextCart } = upsertStorefrontCartLine(cart, {
+      lineId: createStorefrontCartLineId(),
+      itemId,
+      selectedOptionIds: [],
+      selectedOptions: [],
+      quantity: 1,
+    });
+    saveStorefrontCart(siteSlug, nextCart);
+    const count = nextCart.reduce((sum, line) => sum + line.quantity, 0);
+    // Best-effort subtotal from items Home actually has price data for;
+    // unresolved lines (e.g. added earlier from the full catalog with
+    // options Home doesn't know) contribute 0. Safe: no UI reads this
+    // subtotal today, only `.count` (tab bar / header cart badge).
+    const subtotalCents = nextCart.reduce((sum, line) => {
+      const priced = gridItems.find((candidate) => candidate.id === line.itemId);
+      return priced ? sum + Math.round(priced.numericPrice * 100) * line.quantity : sum;
+    }, 0);
+    writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
+  };
 
   return (
     <div className="space-y-[var(--ps-space-4)]">
@@ -91,6 +144,7 @@ export function HomePopularCarousel({
             key={item.id}
             item={item}
             onSelect={(id) => setSelectedId(id)}
+            onQuickAdd={(id) => handleQuickAdd(id)}
             currency={currency}
             locale={locale}
             imageFit="cover"

@@ -160,3 +160,52 @@ export function createStorefrontCartLineId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   return `line-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
+
+/**
+ * Shared localStorage cart, keyed by site slug — read by StorefrontBrowse
+ * (catalog/order page) and any other surface on the same site that adds to
+ * the same cart (e.g. Home's Popular "+" button).
+ */
+export function loadStorefrontCart(slug: string | undefined): { lines: StorefrontCartLine[]; needsSave: boolean } {
+  if (typeof window === "undefined" || !slug) return { lines: [], needsSave: false };
+  try {
+    const raw = localStorage.getItem(`aldriva_cart_${slug}`);
+    if (!raw) return { lines: [], needsSave: false };
+    return migrateStorefrontCart(JSON.parse(raw), createStorefrontCartLineId);
+  } catch {
+    return { lines: [], needsSave: false };
+  }
+}
+
+export function saveStorefrontCart(slug: string | undefined, lines: readonly StorefrontCartLine[]): void {
+  if (typeof window === "undefined" || !slug) return;
+  try {
+    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify({ version: STOREFRONT_CART_VERSION, items: lines }));
+  } catch {
+    // quota exceeded or private mode, silently ignore
+  }
+}
+
+/**
+ * Writes the small cross-surface cart summary (bottom tab bar / header badge
+ * read `.count` only today) and notifies same-tab listeners. `subtotalCents`
+ * is best-effort — pass 0 when the caller can't price every line (e.g. a
+ * surface that only knows a subset of items); no current UI displays it.
+ */
+export function writeStorefrontCartSummary(
+  slug: string | undefined,
+  count: number,
+  subtotalCents: number,
+  currency: string
+): void {
+  if (typeof window === "undefined" || !slug) return;
+  try {
+    localStorage.setItem(
+      `aldriva_cart_summary_${slug}`,
+      JSON.stringify({ count, subtotal: subtotalCents, currency })
+    );
+    window.dispatchEvent(new CustomEvent("aldriva:cart-summary-updated"));
+  } catch {
+    // Storage access unavailable
+  }
+}
