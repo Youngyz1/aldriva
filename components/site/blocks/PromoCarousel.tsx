@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { IconPlayerPlay, IconPlayerPause, IconArrowRight } from "@tabler/icons-react";
+import { IconArrowRight } from "@tabler/icons-react";
 import type { ResolvedMenuPromotion } from "@/lib/website-embeds";
 import { safeImageSrc } from "@/lib/image-url";
 
@@ -76,9 +76,21 @@ export function PromoCarousel({
   }));
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  // Swiping or tapping a dot pauses autoplay; it resumes after 8s of no
+  // further manual interaction (no visible pause/play button).
+  const [isIdlePaused, setIsIdlePaused] = useState(false);
+  const idleResumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pauseForIdle = useCallback(() => {
+    setIsIdlePaused(true);
+    if (idleResumeTimeoutRef.current) clearTimeout(idleResumeTimeoutRef.current);
+    idleResumeTimeoutRef.current = setTimeout(() => setIsIdlePaused(false), 8000);
+  }, []);
+  useEffect(() => () => {
+    if (idleResumeTimeoutRef.current) clearTimeout(idleResumeTimeoutRef.current);
+  }, []);
   // Desktop shows two cards per page; phone shows one. Dots/autoplay move a
   // whole page at a time. Starts at 1 (phone) and corrects after mount to
   // avoid depending on a server-rendered viewport width.
@@ -151,9 +163,11 @@ export function PromoCarousel({
     goToPage(currentPage - 1);
   }, [currentPage, goToPage]);
 
-  // Autoplay: advance one page every 5s, paused on hover or touch.
+  // Autoplay: advance one page every 5s. Paused on hover, keyboard focus
+  // within, or touch; also pauses after a swipe or a dot tap, resuming
+  // after 8s idle (isIdlePaused).
   useEffect(() => {
-    if (!isMultiPage || autoplaySetting === "off" || isPaused || isHovered || isTouched) {
+    if (!isMultiPage || autoplaySetting === "off" || isHovered || isTouched || isFocused || isIdlePaused) {
       return;
     }
 
@@ -166,7 +180,7 @@ export function PromoCarousel({
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [isMultiPage, autoplaySetting, isPaused, isHovered, isTouched, handleNextPage]);
+  }, [isMultiPage, autoplaySetting, isHovered, isTouched, isFocused, isIdlePaused, handleNextPage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isMultiPage) return;
@@ -204,8 +218,10 @@ export function PromoCarousel({
         onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         onTouchStart={() => setIsTouched(true)}
-        onTouchEnd={() => setIsTouched(false)}
+        onTouchEnd={() => { setIsTouched(false); pauseForIdle(); }}
         className={`flex w-full gap-4 ${isMultiSlide ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
       >
         {slides.map((slide, idx) => {
@@ -342,7 +358,7 @@ export function PromoCarousel({
                 type="button"
                 aria-current={pageIdx === currentPage ? "true" : undefined}
                 aria-label={labels.slideNofM.replace("{current}", String(pageIdx + 1)).replace("{total}", String(pageCount))}
-                onClick={() => goToPage(pageIdx)}
+                onClick={() => { goToPage(pageIdx); pauseForIdle(); }}
                 className="flex h-6 w-6 min-h-[24px] min-w-[24px] items-center justify-center p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
               >
                 <span
@@ -353,14 +369,6 @@ export function PromoCarousel({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setIsPaused((prev) => !prev)}
-            aria-label={isPaused ? labels.resume : labels.pause}
-            className="flex min-h-[32px] h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-          >
-            {isPaused ? <IconPlayerPlay size={12} /> : <IconPlayerPause size={12} />}
-          </button>
         </div>
       ) : null}
     </section>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { IconPlayerPause, IconPlayerPlay } from "@tabler/icons-react";
 import { resolveTrustIcon } from "@/lib/trust-strip-icons";
 
 export interface ServicesMarqueeItem {
@@ -19,8 +18,6 @@ export interface ServicesMarqueeProps {
   sectionAlign?: "left" | "center";
   /** Owner's "Scrolling services" builder toggle (template_extras.servicesMarquee). */
   scrollingEnabled: boolean;
-  pauseLabel?: string;
-  resumeLabel?: string;
 }
 
 /** Constant apparent scroll speed: duration = stripWidth / PX_PER_SECOND. */
@@ -120,15 +117,12 @@ export function ServicesMarquee({
   subheading,
   sectionAlign,
   scrollingEnabled,
-  pauseLabel = "Pause",
-  resumeLabel = "Resume",
 }: ServicesMarqueeProps) {
   const canAnimate = scrollingEnabled && items.length >= 3;
 
   const [enhanced, setEnhanced] = useState(false);
   const [copies, setCopies] = useState(MIN_COPIES);
   const [stripWidth, setStripWidth] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -190,7 +184,7 @@ export function ServicesMarquee({
   const icons = items.map((item, i) => resolveTrustIcon(item.icon, i));
   const durationReady = stripWidth > 0;
   const duration = durationReady ? stripWidth / PX_PER_SECOND : 0;
-  const isRunning = durationReady && !isPaused && !isHovered && !isTouched && !isFocused;
+  const isRunning = durationReady && !isHovered && !isTouched && !isFocused;
 
   if (!enhanced) {
     // Static fallback: fewer than 3 items, the owner turned scrolling off,
@@ -246,18 +240,6 @@ export function ServicesMarquee({
         </div>
         <div ref={probeRef} aria-hidden="true" className="pointer-events-none absolute h-0 w-max overflow-hidden opacity-0">
           <Strip items={items} icons={icons} copies={1} ariaHiddenAll />
-        </div>
-        <div className="mt-2.5 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={() => setIsPaused((prev) => !prev)}
-            aria-label={isPaused ? resumeLabel : pauseLabel}
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-[var(--tf-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] hover:bg-[var(--tf-soft)]">
-              {isPaused ? <IconPlayerPlay size={12} /> : <IconPlayerPause size={12} />}
-            </span>
-          </button>
         </div>
       </div>
     </section>
