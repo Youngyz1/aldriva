@@ -273,19 +273,25 @@ export function CatalogCard({ item, onSelect, onQuickAdd, className, currency = 
           {content}
         </button>
         {isShowcase ? (
-          <div className="absolute right-0 top-0 z-10 flex flex-col items-center gap-2">
-            {heartButton}
+          <>
+            <div className="absolute right-0 top-0 z-10">
+              {heartButton}
+            </div>
             {!isSoldOut && item.canQuickAdd && onQuickAdd ? (
-              <button
-                type="button"
-                aria-label={`Add ${item.name} to order`}
-                onClick={(event) => onQuickAdd(item.id, event.currentTarget)}
-                className="flex h-11 w-11 items-center justify-center text-[var(--tf-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-inherit shadow-xs">+</span>
-              </button>
+              // Bottom-right, on the price row — same position as the catalog
+              // card's own "+" (they're the same component).
+              <div className="absolute bottom-0 right-0 z-10">
+                <button
+                  type="button"
+                  aria-label={`Add ${item.name} to order`}
+                  onClick={(event) => onQuickAdd(item.id, event.currentTarget)}
+                  className="flex h-11 w-11 items-center justify-center text-[var(--tf-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-base font-semibold text-inherit shadow-xs">+</span>
+                </button>
+              </div>
             ) : null}
-          </div>
+          </>
         ) : (
           <>
             {heartButton}
