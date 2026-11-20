@@ -1408,6 +1408,7 @@ export function isSectionEnabled(
   }
 
   if (section.defaultOff) {
+    if (section.requiresExplicitOptIn) return false;
     return sectionHasLiveSlotContent(doc, section, template);
   }
 

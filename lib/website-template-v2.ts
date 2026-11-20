@@ -127,6 +127,14 @@ export interface TemplateSection {
   optional?: boolean;
   /** Defaults to hidden unless explicitly enabled or has existing content. */
   defaultOff?: boolean;
+  /**
+   * With defaultOff, skips the existing-content fallback entirely — stays
+   * hidden until the owner explicitly flips it on via enabled_sections.
+   * For sections whose slots are required fields (e.g. hours/address),
+   * "has content" is true for virtually every tenant, which would make
+   * defaultOff's content fallback a no-op.
+   */
+  requiresExplicitOptIn?: boolean;
   /** Human note for template authors (e.g. why featured ids are unbound). */
   note?: string;
   /** Optional template-owned section rhythm. Absent keeps the legacy default. */

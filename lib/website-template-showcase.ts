@@ -231,8 +231,11 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     page: "home",
     block: "contact",
     variant: "card",
+    optional: true,
+    defaultOff: true,
+    requiresExplicitOptIn: true,
     slots: ["hours.table", "location.address", "location.phone", "location.directions", "contact.whatsapp"],
-    note: "Card presentation of business hours and location.",
+    note: "Card presentation of business hours and location. Hidden from Home by default — the full week of hours and location always live on the Contact page; the owner can opt back in via the builder's section toggle.",
   },
   {
     id: "catalog.full",
