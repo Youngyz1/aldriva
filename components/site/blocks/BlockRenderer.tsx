@@ -223,10 +223,30 @@ export function HeroBlockRenderer({
   if (block.variant === "full-bleed" && showcase) {
     const hasPhoto = Boolean(safeBgImage);
     const accent = accentColor || "var(--ps-accent)";
-    const imagePosition = block.imagePosition || "70% 50%";
+    const isFullPhoto = block.imageFraming === "full";
+    const imagePosition = isFullPhoto
+      ? undefined
+      : block.imageFraming === "fill-top"
+        ? "70% 0%"
+        : block.imageFraming === "fill-bottom"
+          ? "70% 100%"
+          : block.imagePosition || "70% 50%";
     return (
       <section className="relative w-full overflow-hidden h-[320px] md:h-[520px]" data-site-motion-hero>
-        {hasPhoto ? (
+        {hasPhoto && isFullPhoto ? (
+          <>
+            {/* "Show full photo": blurred/darkened backdrop fills the band, sharp copy sits contained on top. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={safeBgImage}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-[24px] brightness-[0.55]"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={safeBgImage} alt="" className="absolute inset-0 h-full w-full object-contain" />
+          </>
+        ) : hasPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={safeBgImage}

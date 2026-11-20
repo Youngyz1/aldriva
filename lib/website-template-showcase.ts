@@ -100,6 +100,19 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
   { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Hero button label", kind: "text" },
   { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Hero second button label (optional)", kind: "text" },
   {
+    slotId: "hero.image_framing",
+    field: "template_extras",
+    extraKey: "heroImageFraming",
+    label: "Image framing — use a landscape photo, 1920px wide or more, with the subject in the right half",
+    kind: "select",
+    options: [
+      { label: "Fill (focus center)", value: "fill-center" },
+      { label: "Fill (focus top)", value: "fill-top" },
+      { label: "Fill (focus bottom)", value: "fill-bottom" },
+      { label: "Show full photo", value: "full" },
+    ],
+  },
+  {
     slotId: "catalog.source",
     field: "template_extras",
     extraKey: "catalogSource",
@@ -202,7 +215,7 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     id: "hero",
     page: "home",
     block: "hero",
-    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary"],
+    slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary", "hero.image_framing"],
     note: "Full-bleed hero band. Always one, never slidable. Hidden entirely when the owner has set no photo, headline, or subtext.",
   },
   {

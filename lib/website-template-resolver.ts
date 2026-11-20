@@ -635,6 +635,8 @@ function buildHero(ctx: BuildContext): Block | null {
     const defaultCtaLabel = ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel;
     const defaultCtaHref = ordering ? catalogHref : contactHref;
     const secondaryCtaLabel = asString(take(ctx, "secondary_cta_label", "hero.cta_secondary"));
+    const extras = asRecord(effectiveValue(ctx, "template_extras"));
+    const imageFraming = asString(extras?.heroImageFraming);
     return {
       type: "hero",
       variant: "full-bleed",
@@ -647,6 +649,9 @@ function buildHero(ctx: BuildContext): Block | null {
       ctaHref: defaultCtaHref || "",
       ...(secondaryCtaLabel && ordering && contactHref
         ? { secondaryCtaLabel: contactLabel, secondaryCtaHref: contactHref }
+        : {}),
+      ...(imageFraming === "fill-top" || imageFraming === "fill-bottom" || imageFraming === "full"
+        ? { imageFraming }
         : {}),
       scrim: true,
     } as Block;
