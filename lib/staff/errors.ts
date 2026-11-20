@@ -71,12 +71,13 @@ const SENIOR_ROLE_MESSAGE_PREFIX = "Only a sufficiently senior role can assign t
 const ESCALATION_MESSAGE_PREFIX = "Cannot grant a permission you do not hold yourself";
 
 const HINT_ERRORS: Record<string, StaffError> = {
-  privileged_role_denied: { code: "privileged_role_denied", message: "Your role isn't senior enough to assign that role." },
+  privileged_role_denied: { code: "privileged_role_denied", message: "Your role isn't senior enough to do that." },
   permission_escalation_denied: { code: "permission_escalation_denied", message: "You can't grant a permission you don't have yourself." },
   all_branches_change_denied: { code: "all_branches_change_denied", message: "You don't have permission to change a staff member's all-branches access." },
   primary_branch_scope_delete_denied: { code: "primary_branch_scope_delete_denied", message: "A staff member's home branch can't be removed from their branch access." },
   last_owner_removal_denied: { code: "last_owner_removal_denied", message: "At least one owner must remain." },
   invitation_invalid: { code: "invitation_invalid", message: "This invitation isn't valid for this account, or it has expired." },
+  staff_identity_change_denied: { code: "staff_identity_change_denied", message: "Only an owner or admin can link or unlink a staff member's login." },
 };
 
 export const NOT_FOUND_OR_DENIED: StaffError = {
