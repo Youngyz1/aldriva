@@ -763,6 +763,7 @@ export function StorefrontBrowse({
             labels={labels}
             accentColor={accentColor}
             savannah={true}
+            showcase={appearance === "showcase"}
             onClose={() => setIsCartOpen(false)}
             onUpdateQuantity={(index, qty) => {
               if (qty <= 0) {
@@ -1358,6 +1359,7 @@ export function StorefrontBrowse({
           labels={labels}
           accentColor={accentColor}
           savannah={isEditorial}
+          showcase={appearance === "showcase"}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={(index, qty) => {
             if (qty <= 0) {
@@ -2254,6 +2256,7 @@ function OrderDrawer({
   labels,
   accentColor,
   savannah,
+  showcase = false,
   onClose,
   onUpdateQuantity,
   onRemoveItem,
@@ -2266,6 +2269,8 @@ function OrderDrawer({
   labels: StorefrontBrowseLabels;
   accentColor?: string;
   savannah: boolean;
+  /** Showcase: adds a visible top border between checkout form sections. */
+  showcase?: boolean;
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
   onRemoveItem: (index: number) => void;
@@ -2792,7 +2797,7 @@ function OrderDrawer({
             </div>
             {/* Fulfilment selector */}
             {allowsDelivery && allowsPickup ? (
-              <div className="space-y-[var(--ps-space-2)]">
+              <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.fulfilment || "Fulfilment"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
@@ -2857,7 +2862,7 @@ function OrderDrawer({
             ) : null}
 
             {/* Timing selection */}
-            <div className="space-y-[var(--ps-space-2)]">
+            <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
               <label className="text-xs font-bold text-[var(--ps-muted)]">Timing</label>
               {orderConfig.isClosed ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-[var(--ps-space-3)] text-xs text-amber-900">
@@ -2916,7 +2921,7 @@ function OrderDrawer({
             </div>
 
             {/* Customer Details */}
-            <div className="space-y-[var(--ps-space-2)]">
+            <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
               <span className="text-xs font-bold text-[var(--ps-muted)]">
                 {labels.customerDetails || "Your details"}
               </span>
@@ -2959,7 +2964,7 @@ function OrderDrawer({
 
             {/* Payment method (choice only when online payment is available) */}
             {canPayOnline ? (
-              <div className="space-y-[var(--ps-space-2)]">
+              <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.paymentMethod || "Payment method"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
