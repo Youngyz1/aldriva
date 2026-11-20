@@ -2792,6 +2792,7 @@ async function MenuEmbedBlockRenderer({
   let categoriesTitle = locale === "fr" ? "Parcourir par catégorie" : "Browse by category";
   let categoryArrowLabel = locale === "fr" ? "Voir" : "View";
   let categoryItemCount = (count: number) => `${count} ${locale === "fr" ? "article(s)" : count === 1 ? "item" : "items"}`;
+  let offersTitle = locale === "fr" ? "Offres" : "Offers";
   try {
     const publicT = await getTranslations("PublicSite");
     badgeSoldOut = publicT("badgeSoldOut");
@@ -2800,6 +2801,7 @@ async function MenuEmbedBlockRenderer({
     categoriesTitle = publicT("showcaseCategoriesTitle");
     categoryArrowLabel = publicT("showcaseCategoryArrowLabel");
     categoryItemCount = (count: number) => publicT("showcaseCategoryItemCount", { count });
+    offersTitle = publicT("showcaseOffersTitle");
   } catch {
     // Keep defaults
   }
@@ -2950,6 +2952,12 @@ async function MenuEmbedBlockRenderer({
     count: sec.items.length,
     image: sec.items.find((it) => it.image_url)?.image_url ?? null,
   }));
+  // Offers: same cards as Popular (reused below), filtered to items with an
+  // active discount — reuses populatedSections too, no extra fetch.
+  const offerItems = populatedSections
+    .flatMap((sec) => sec.items)
+    .filter((it) => Number(it.effective_price ?? it.price) < Number(it.original_price ?? it.price))
+    .slice(0, 8);
 
   return (
     <section className="w-full">
@@ -2998,19 +3006,44 @@ async function MenuEmbedBlockRenderer({
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
       ) : isShowcaseHomeCarousel ? (
         // Showcase home Popular grid: flat 4-column grid across all sections (no per-category sections)
-        <div className="mx-auto max-w-[1280px]">
-          <HomePopularCarousel
-            items={populatedSections.flatMap((sec) => sec.items)}
-            currency={displayCurrency}
-            locale={locale}
-            appearance="showcase"
-            showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
-            siteSlug={siteSlug}
-            orderConfig={orderConfig}
-            labels={browseLabels}
-            closeLabel={browseLabels.close ?? "Close"}
-          />
-        </div>
+        <>
+          <div className="mx-auto max-w-[1280px]">
+            <HomePopularCarousel
+              items={populatedSections.flatMap((sec) => sec.items)}
+              currency={displayCurrency}
+              locale={locale}
+              appearance="showcase"
+              showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+              siteSlug={siteSlug}
+              orderConfig={orderConfig}
+              labels={browseLabels}
+              closeLabel={browseLabels.close ?? "Close"}
+            />
+          </div>
+          {/* Offers: same cards as Popular, filtered to discounted items only.
+              Small, additive reuse of the same already-resolved data — hidden
+              entirely when nothing is discounted. */}
+          {offerItems.length > 0 ? (
+            <div className="mt-8 sm:mt-14">
+              <h2 className="showcase-section-title mb-[var(--ps-space-4)] mx-auto max-w-[1280px] text-[18px] font-semibold leading-[1.25] text-[var(--tf-ink)] sm:text-[22px]">
+                {offersTitle}
+              </h2>
+              <div className="mx-auto max-w-[1280px]">
+                <HomePopularCarousel
+                  items={offerItems}
+                  currency={displayCurrency}
+                  locale={locale}
+                  appearance="showcase"
+                  showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+                  siteSlug={siteSlug}
+                  orderConfig={orderConfig}
+                  labels={browseLabels}
+                  closeLabel={browseLabels.close ?? "Close"}
+                />
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <StorefrontBrowse
           groups={menuGroups}

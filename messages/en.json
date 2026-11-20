@@ -873,6 +873,7 @@
     "showcaseCategoriesTitle": "Browse by category",
     "showcaseCategoryItemCount": "{count, plural, one {# item} other {# items}}",
     "showcaseCategoryArrowLabel": "View",
+    "showcaseOffersTitle": "Offers",
     "contactHoursAndLocation": "Hours & Location",
     "contactOpeningHours": "Opening Hours",
     "contactLocation": "Location",
