@@ -66,6 +66,7 @@ import { ProductCarousel } from "./ProductCarousel";
 import { PromoCarousel } from "./PromoCarousel";
 import { OrdersList } from "./OrdersList";
 import { HomePopularCarousel } from "./HomePopularCarousel";
+import { CategoryTiles } from "./CategoryTiles";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
@@ -2788,11 +2789,17 @@ async function MenuEmbedBlockRenderer({
   let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
   let badgePopular = locale === "fr" ? "Populaire" : "Popular";
   let badgeNew = locale === "fr" ? "Nouveau" : "New";
+  let categoriesTitle = locale === "fr" ? "Parcourir par catégorie" : "Browse by category";
+  let categoryArrowLabel = locale === "fr" ? "Voir" : "View";
+  let categoryItemCount = (count: number) => `${count} ${locale === "fr" ? "article(s)" : count === 1 ? "item" : "items"}`;
   try {
     const publicT = await getTranslations("PublicSite");
     badgeSoldOut = publicT("badgeSoldOut");
     badgePopular = publicT("badgePopular");
     badgeNew = publicT("badgeNew");
+    categoriesTitle = publicT("showcaseCategoriesTitle");
+    categoryArrowLabel = publicT("showcaseCategoryArrowLabel");
+    categoryItemCount = (count: number) => publicT("showcaseCategoryItemCount", { count });
   } catch {
     // Keep defaults
   }
@@ -2933,9 +2940,30 @@ async function MenuEmbedBlockRenderer({
 
   const isShowcaseHomeCarousel = isShowcase && block.variant === "catalog-carousel";
   const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
+  // "Browse by category" tiles reuse populatedSections (already resolved for
+  // the Popular grid below) — no extra catalog fetch. No owner-settable
+  // category image exists yet, so the first item's photo is the fallback;
+  // the tile shows a soft --tf-soft panel when that item has no photo either.
+  const categoryTileData = populatedSections.map((sec) => ({
+    id: sec.id,
+    name: sec.name,
+    count: sec.items.length,
+    image: sec.items.find((it) => it.image_url)?.image_url ?? null,
+  }));
 
   return (
     <section className="w-full">
+      {isShowcaseHomeCarousel && hasMenuItems ? (
+        <div className="mb-8 sm:mb-14">
+          <CategoryTiles
+            categories={categoryTileData}
+            catalogHref={catalogHref}
+            heading={categoriesTitle}
+            itemCountLabel={categoryItemCount}
+            arrowLabel={categoryArrowLabel}
+          />
+        </div>
+      ) : null}
       {isShowcaseHomeCarousel ? (
         <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1280px] mx-auto">
           <h2
