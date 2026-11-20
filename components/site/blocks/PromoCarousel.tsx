@@ -84,6 +84,12 @@ export function PromoCarousel({
   // avoid depending on a server-rendered viewport width.
   const [slidesPerPage, setSlidesPerPage] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Single-slide split treatment: only the lone-slide-at-desktop-width case
+  // (box aspect ratio > 3.4) gets the backdrop+foreground split. Two-slide
+  // desktop (~3:1) and single-slide mobile (~2.3:1) measure under the
+  // threshold and are untouched by construction, not by a breakpoint check.
+  const singleSlideRef = useRef<HTMLDivElement>(null);
+  const [splitTreatment, setSplitTreatment] = useState(false);
 
   const totalSlides = slides.length;
   const isMultiSlide = totalSlides > 1;
@@ -96,6 +102,27 @@ export function PromoCarousel({
     mql.addEventListener("change", update);
     return () => mql.removeEventListener("change", update);
   }, []);
+
+  // Measured via ResizeObserver, not a hardcoded breakpoint. Ratio uses the
+  // slide's PRE-split height (150/200, matching the h-[150px] md:h-[200px]
+  // classes below) rather than the currently-rendered height, so switching
+  // to the split treatment's 240px height can't feed back into — and
+  // destabilize — this same decision.
+  useEffect(() => {
+    if (totalSlides !== 1 || typeof ResizeObserver === "undefined") {
+      setSplitTreatment(false);
+      return;
+    }
+    const el = singleSlideRef.current;
+    if (!el) return;
+    const baseHeight = slidesPerPage >= 2 ? 200 : 150;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (typeof width === "number") setSplitTreatment(width / baseHeight > 3.4);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [totalSlides, slidesPerPage]);
 
   const pageCount = Math.max(1, Math.ceil(totalSlides / slidesPerPage));
   const currentPage = Math.min(pageCount - 1, Math.floor(currentIndex / slidesPerPage));
@@ -184,71 +211,120 @@ export function PromoCarousel({
         {slides.map((slide, idx) => {
           const hasImage = Boolean(slide.imageUrl);
           const slideWidthClass = totalSlides === 1 ? "w-full" : "w-[88%] md:w-[calc(50%-8px)]";
+          const isSplit = totalSlides === 1 && splitTreatment && hasImage;
+
+          const textBlock = (
+            <div className="max-w-[420px] text-[var(--tf-on-scrim)]">
+              {/* Eyebrow pill: hidden on phone only — the 150px card is too
+                  crowded for pill + headline + subtext + button there. */}
+              <span className="mb-2 hidden rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold leading-none md:inline-block">
+                {getOfferLabel(slide)}
+              </span>
+
+              {/* Headline: 20px mobile / 28px desktop, bold, max 2 lines */}
+              <h3 className="showcase-promo-card-headline line-clamp-2">
+                {slide.headline}
+              </h3>
+
+              {/* Subtext: one line, >=8px below the headline */}
+              {slide.description ? (
+                <p className="showcase-promo-subtext mt-2 line-clamp-1 opacity-90">
+                  {slide.description}
+                </p>
+              ) : null}
+
+              {/* Small CTA, natural width, >=8px below the subtext/headline */}
+              {slide.href && slide.buttonLabel ? (
+                <a
+                  href={slide.href}
+                  {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="mt-2 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                >
+                  {slide.buttonLabel}
+                  <IconArrowRight size={12} aria-hidden="true" />
+                </a>
+              ) : null}
+            </div>
+          );
 
           return (
             <div
               key={slide.id}
+              ref={totalSlides === 1 ? singleSlideRef : undefined}
               role="group"
               aria-roledescription="slide"
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
-              className={`relative flex-shrink-0 snap-start overflow-hidden rounded-[20px] h-[150px] md:h-[200px] ${slideWidthClass} bg-[var(--tf-soft)]`}
+              className={`relative flex-shrink-0 snap-start overflow-hidden rounded-[20px] ${isSplit ? "h-[240px]" : "h-[150px] md:h-[200px]"} ${slideWidthClass} bg-[var(--tf-soft)]`}
+              data-promo-split={isSplit ? "true" : undefined}
             >
-              {hasImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={slide.imageUrl}
-                  alt={slide.headline}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : null}
-
-              {/* Soft scrim under the text only. */}
-              {hasImage ? (
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.68) 0%, rgba(var(--tf-scrim-rgb), 0.4) 50%, transparent 78%)",
-                  }}
-                />
-              ) : null}
-
-              <div className="absolute inset-0 flex flex-col items-start justify-end px-4 py-3 md:px-6 md:py-4">
-                <div className="max-w-[420px] text-[var(--tf-on-scrim)]">
-                  {/* Eyebrow pill: hidden on phone only — the 150px card is too
-                      crowded for pill + headline + subtext + button there. */}
-                  <span className="mb-2 hidden rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold leading-none md:inline-block">
-                    {getOfferLabel(slide)}
-                  </span>
-
-                  {/* Headline: 20px mobile / 28px desktop, bold, max 2 lines */}
-                  <h3 className="showcase-promo-card-headline line-clamp-2">
-                    {slide.headline}
-                  </h3>
-
-                  {/* Subtext: one line, >=8px below the headline */}
-                  {slide.description ? (
-                    <p className="showcase-promo-subtext mt-2 line-clamp-1 opacity-90">
-                      {slide.description}
-                    </p>
+              {isSplit ? (
+                <>
+                  {/* Backdrop: same photo, blurred + darkened, scaled up so
+                      the blur never shows a soft/transparent edge, filling
+                      the whole card. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={slide.imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 h-full w-full scale-110 object-cover blur-[24px] brightness-[0.55]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  {/* Foreground: same photo, sharp, right 45% at full height. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={slide.imageUrl}
+                    alt={slide.headline}
+                    className="absolute right-0 top-0 h-full w-[45%] object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  {/* Same soft scrim as the non-split card, constrained to
+                      the left (text) side so the sharp foreground photo
+                      stays unobscured. */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-y-0 left-0 w-[55%]"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.68) 0%, rgba(var(--tf-scrim-rgb), 0.4) 50%, transparent 78%)",
+                    }}
+                  />
+                  <div className="absolute inset-0 flex flex-col items-start justify-end px-4 py-3 md:px-6 md:py-4">
+                    {textBlock}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {hasImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={slide.imageUrl}
+                      alt={slide.headline}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : null}
 
-                  {/* Small CTA, natural width, >=8px below the subtext/headline */}
-                  {slide.href && slide.buttonLabel ? (
-                    <a
-                      href={slide.href}
-                      {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      className="mt-2 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-                    >
-                      {slide.buttonLabel}
-                      <IconArrowRight size={12} aria-hidden="true" />
-                    </a>
+                  {/* Soft scrim under the text only. */}
+                  {hasImage ? (
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.68) 0%, rgba(var(--tf-scrim-rgb), 0.4) 50%, transparent 78%)",
+                      }}
+                    />
                   ) : null}
-                </div>
-              </div>
+
+                  <div className="absolute inset-0 flex flex-col items-start justify-end px-4 py-3 md:px-6 md:py-4">
+                    {textBlock}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
