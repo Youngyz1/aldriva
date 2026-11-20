@@ -16,8 +16,10 @@ import { v2ThemeStyle } from "@/lib/website-v2-theme";
 // 404s in production unless ENABLE_SHOWCASE_PREVIEW=1.
 const PREVIEW_ENABLED = process.env.ENABLE_SHOWCASE_PREVIEW === "1";
 
+const HERO_FRAMING_VALUES = ["fill-center", "fill-top", "fill-bottom", "full"] as const;
+
 interface Props {
-  searchParams: Promise<{ page?: string; mode?: string }>;
+  searchParams: Promise<{ page?: string; mode?: string; framing?: string }>;
 }
 
 export default async function ShowcasePreviewPage({ searchParams }: Props) {
@@ -25,16 +27,31 @@ export default async function ShowcasePreviewPage({ searchParams }: Props) {
     notFound();
   }
 
-  const { page: pageParam, mode } = await searchParams;
+  const { page: pageParam, mode, framing } = await searchParams;
   const live = mode === "live";
   const template = getFlagshipTemplate("showcase");
   if (!template) notFound();
 
   const siteSlug = "showcase-preview";
   const content = normalizeContent(live ? {} : SHOWCASE_SAMPLES);
+  // Dev-only override for screenshotting each "Image framing" value without a
+  // database (?framing=fill-top|fill-bottom|full); ignored outside this harness.
+  if (framing && (HERO_FRAMING_VALUES as readonly string[]).includes(framing) && framing !== "fill-center") {
+    const existingExtras = typeof content.template_extras === "object" && content.template_extras !== null
+      ? content.template_extras as Record<string, unknown>
+      : {};
+    content.template_extras = { ...existingExtras, heroImageFraming: framing };
+  }
   const resolved = resolveTemplateContent(template.id, template.version, content, {
     includeSamples: !live,
     includeSourceMap: false,
+    // Dev-only: without a linked business record, ordering/pickup resolve to
+    // "off" and no cart UI renders. Force them on so this harness can
+    // screenshot the Showcase cart/order flow too.
+    business: {
+      offerings: ["online_ordering", "pickup"],
+      capabilities: ["ONLINE_ORDERING", "PICKUP"],
+    },
     siteSlug,
   });
 
@@ -92,6 +109,7 @@ export default async function ShowcasePreviewPage({ searchParams }: Props) {
         availablePageSlugs={resolved.pages.map((entry) => entry.slug)}
         overHero={false}
         hideHamburger
+        orderConfig={orderConfig}
       />
 
       {target.isHome ? <ShowcaseHomeSearch siteSlug={siteSlug} /> : null}
