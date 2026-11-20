@@ -2817,35 +2817,30 @@ async function MenuEmbedBlockRenderer({
         displayCurrency
       );
       const existingIds = new Set(rawSections.flatMap((s) => s.items.map((i) => i.id)));
-      const topUpItems: ResolvedMenuItem[] = [];
+      // Top-up items keep their real category (merged into the matching
+      // section, or appended as a new section) instead of all landing in
+      // sections[0] — dumping every top-up item into the first section
+      // collapsed real multi-category catalogs (e.g. Rice + Soup) into one
+      // section, which hid "Browse by category" (it needs 2+ categories).
+      const bySectionId = new Map(sections.map((sec) => [sec.id, sec]));
+      let addedCount = 0;
       for (const sec of allResolved) {
+        if (existingCount + addedCount >= 6) break;
+        const newItems: ResolvedMenuItem[] = [];
         for (const item of sec.items) {
-          if (!existingIds.has(item.id)) {
-            topUpItems.push(item);
-            existingIds.add(item.id);
-            if (existingCount + topUpItems.length >= 6) break;
-          }
+          if (existingIds.has(item.id)) continue;
+          newItems.push(item);
+          existingIds.add(item.id);
+          addedCount += 1;
+          if (existingCount + addedCount >= 6) break;
         }
-        if (existingCount + topUpItems.length >= 6) break;
+        if (newItems.length === 0) continue;
+        const existingSection = bySectionId.get(sec.id);
+        bySectionId.set(sec.id, existingSection
+          ? { ...existingSection, items: [...existingSection.items, ...newItems] }
+          : { ...sec, items: newItems });
       }
-      if (topUpItems.length > 0) {
-        if (sections.length > 0) {
-          sections = sections.map((sec, idx) =>
-            idx === 0 ? { ...sec, items: [...sec.items, ...topUpItems] } : sec
-          );
-        } else {
-          sections = [{
-            id: "featured",
-            name: block.heading || "Featured",
-            description: null,
-            is_active: true,
-            isDraft: false,
-            items: topUpItems,
-            hasMoreItems: false,
-            hasMoreItemsOverall: false,
-          }];
-        }
-      }
+      sections = Array.from(bySectionId.values());
     }
   }
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
