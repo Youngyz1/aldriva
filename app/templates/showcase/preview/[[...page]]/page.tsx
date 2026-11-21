@@ -88,7 +88,7 @@ export default async function ShowcaseTemplatePublicPreviewPage({ params }: Prop
           without also patching that shared component would make this bar
           get covered by it on scroll. */}
       <div className="flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-2.5 text-sm">
-        <Link href="/dashboard" className="font-semibold text-zinc-700 hover:text-orange-600">
+        <Link href="/templates" className="font-semibold text-zinc-700 hover:text-orange-600">
           ← Back to templates
         </Link>
         <Link
