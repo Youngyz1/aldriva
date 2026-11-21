@@ -19,6 +19,14 @@ interface WebsitePreviewPanelProps {
   onOpenMenuEditor?: () => void;
   offerings?: string[];
   isOrderingLive?: boolean;
+  /**
+   * Bumped by the caller after a draft save succeeds. Some templates
+   * (Showcase) render their preview body server-side from the saved draft
+   * rather than from postMessage-patched content, so a save alone wouldn't
+   * otherwise ever show up — this forces a real iframe reload, preserving
+   * the visitor's scroll position across it.
+   */
+  reloadKey?: number;
 }
 
 export function WebsitePreviewPanel({
@@ -33,6 +41,7 @@ export function WebsitePreviewPanel({
   onOpenMenuEditor,
   offerings,
   isOrderingLive,
+  reloadKey,
 }: WebsitePreviewPanelProps) {
   const storeT = useTranslations("Storefront");
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -119,6 +128,34 @@ export function WebsitePreviewPanel({
     const timer = window.setTimeout(sendDraft, 140);
     return () => window.clearTimeout(timer);
   }, [content, ready, selectedPageSlug, sendDraft]);
+
+  const prevReloadKeyRef = useRef(reloadKey);
+  useEffect(() => {
+    if (reloadKey === undefined || reloadKey === prevReloadKeyRef.current) return;
+    prevReloadKeyRef.current = reloadKey;
+    const frame = iframeRef.current;
+    if (!frame) return;
+    let scrollY = 0;
+    try {
+      scrollY = frame.contentWindow?.scrollY ?? 0;
+    } catch {
+      scrollY = 0;
+    }
+    const restoreScroll = () => {
+      try {
+        frame.contentWindow?.scrollTo(0, scrollY);
+      } catch {
+        // Cross-origin or torn-down frame — nothing to restore into.
+      }
+      frame.removeEventListener("load", restoreScroll);
+    };
+    frame.addEventListener("load", restoreScroll);
+    try {
+      frame.contentWindow?.location.reload();
+    } catch {
+      frame.removeEventListener("load", restoreScroll);
+    }
+  }, [reloadKey]);
 
   const pages = initialState.previewPages;
 

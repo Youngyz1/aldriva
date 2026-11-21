@@ -8,14 +8,14 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { checkTenantAccess } from "@/lib/entity-auth";
 import { getBuilderState, getV2MenuItemChoices } from "@/lib/actions/website-v2";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { getV2TemplateForWebsite, resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import { getV2TemplateForWebsite, resolveStorefrontCurrency, v2ThemeStyle } from "@/lib/website-v2-theme";
 import { isValidLocale, getLocaleFromAcceptLanguage, type Locale } from "@/i18n/routing";
 import { V2WebsitePreviewClient } from "@/components/dashboard/website/v2/V2WebsitePreviewClient";
 import { resolveTemplateContent } from "@/lib/website-template-resolver";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import { getFoodOrderLocalizedCopy, getStoreLocalizedCopy } from "@/lib/website-v2-template-preview";
-import { PromotionsEmbedBlockRenderer, MenuEmbedBlockRenderer } from "@/components/site/blocks/BlockRenderer";
+import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 
 export const metadata: Metadata = {
   title: "Website Preview | Aldriva Dashboard",
@@ -116,13 +116,18 @@ export default async function WebsiteV2PreviewRoute({
       ? cookieLocale
       : getLocaleFromAcceptLanguage(headerStore.get("accept-language"));
 
-  // Showcase only: the hand-rolled client preview renderer never loaded real
-  // promotions or catalog (Popular/Offers/categories) data — it showed a
-  // static "will appear here" placeholder instead of what /site/[slug]
-  // actually serves. Resolve the same way the live route does (draft content
-  // standing in for published content) and hand the server-rendered blocks
-  // down as overrides so the client preview can slot in real data without
-  // re-implementing BlockRenderer's data loaders.
+  // Showcase only: V2WebsitePreviewClient's hand-rolled PreviewBlock JSX only
+  // ever matched Table Flame / Savannah styling (with two block types patched
+  // to real data in a previous pass) — every other Showcase block rendered
+  // with generic, non-Showcase styling or didn't reflect real data at all.
+  // Resolve the same way /site/[slug] does (draft content standing in for
+  // published content, includeSamples:true so unfilled fields still show the
+  // template's sample content) and render every visible block server-side
+  // through the exact same BlockRenderer used live, handing the results down
+  // as overrides so the client shell never falls back to PreviewBlock for
+  // this template. orderConfig/reservationConfig are intentionally omitted —
+  // this is a builder preview, not a place to let a real order or
+  // reservation get created against real business data.
   let blockOverrides: Record<string, ReactNode> | undefined;
   if (template.id === "showcase") {
     const metadata = (website.metadata && typeof website.metadata === "object"
@@ -179,36 +184,33 @@ export default async function WebsiteV2PreviewRoute({
       const catalogName = resolvedForOverrides.navigation.find(
         (item) => item.feature === "catalog" || item.pageSlug === "menu"
       )?.label;
+      const accentColor = v2ThemeStyle(template, website.metadata)["--ps-accent"];
+      const draftContent = state.data.contentDraftOrLive;
+      const businessName = typeof draftContent.business_name === "string" ? draftContent.business_name : website.site_title as string;
+      const businessLogo = typeof draftContent.logo_url === "string" ? draftContent.logo_url : undefined;
       const overrides: Record<string, ReactNode> = {};
       for (const block of overridePage.blocks) {
         if (!block.id) continue;
-        if (block.type === "promotions_embed") {
-          overrides[block.id] = (
-            <PromotionsEmbedBlockRenderer
-              block={block}
-              tenantId={tenantId}
-              siteSlug={website.slug as string}
-              hasPublishedMenuPage={hasPublishedMenuPage}
-              hasMenuEmbedOnPage={hasMenuEmbedOnPage}
-              scopeInternalLinks
-            />
-          );
-        } else if (block.type === "menu_embed" && block.variant === "catalog-carousel") {
-          overrides[block.id] = (
-            <MenuEmbedBlockRenderer
-              block={block}
-              tenantId={tenantId}
-              isTeamMember
-              currency={currency}
-              currencyLocale={currencyLocale}
-              siteSlug={website.slug as string}
-              hasPublishedMenuPage={hasPublishedMenuPage}
-              siteTemplateId={template.id}
-              sectionAlign={template.sectionAlign}
-              catalogName={catalogName}
-            />
-          );
-        }
+        overrides[block.id] = (
+          <BlockRenderer
+            block={block}
+            tenantId={tenantId}
+            isTeamMember
+            editMode={false}
+            scopeInternalLinks
+            currency={currency}
+            currencyLocale={currencyLocale}
+            siteSlug={website.slug as string}
+            hasPublishedMenuPage={hasPublishedMenuPage}
+            hasMenuEmbedOnPage={hasMenuEmbedOnPage}
+            accentColor={accentColor}
+            siteTemplateId={template.id}
+            sectionAlign={template.sectionAlign}
+            businessName={businessName}
+            businessLogo={businessLogo}
+            catalogName={catalogName}
+          />
+        );
       }
       blockOverrides = overrides;
     }

@@ -70,6 +70,8 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
   const [currentMenuItems, setCurrentMenuItems] = useState<V2MenuItemChoice[]>(menuItems);
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
   const [queueState, setQueueState] = useState(queue.getState());
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const prevSaveStatusRef = useRef(queueState.status);
   const [openSectionId, setOpenSectionId] = useState("business");
   const [selectedPageSlug, setSelectedPageSlug] = useState(initialState.previewPages.find((page) => page.isHome)?.slug ?? initialState.previewPages[0]?.slug ?? "home");
   const [checklistOpen, setChecklistOpen] = useState(false);
@@ -193,6 +195,17 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
       console.error(`[website-draft-save] Save failed: ${queueState.code || "unknown"}`);
     }
   }, [queueState.status, queueState.code]);
+
+  // Showcase's preview renders server-side from the saved draft (see
+  // app/website-preview/[orgId]/page.tsx), so postMessage content patching
+  // alone never reflects it — bump a key on every save-success edge to make
+  // WebsitePreviewPanel reload the iframe.
+  useEffect(() => {
+    if (queueState.status === "saved" && prevSaveStatusRef.current !== "saved") {
+      setPreviewReloadKey((key) => key + 1);
+    }
+    prevSaveStatusRef.current = queueState.status;
+  }, [queueState.status]);
 
   const sendSave = useCallback((draft: ContentDoc) => {
     queue.request(draft);
@@ -522,6 +535,7 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
           onOpenMenuEditor={canManageCommerce ? () => setMenuDrawerOpen(true) : undefined}
           offerings={storefrontOfferings}
           isOrderingLive={resolved.storefrontFeatures.ordering}
+          reloadKey={template.id === "showcase" ? previewReloadKey : undefined}
         />
         </div>
       </div>
