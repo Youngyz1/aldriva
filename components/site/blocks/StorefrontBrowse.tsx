@@ -148,6 +148,7 @@ export interface StorefrontBrowseLabels {
   copyTrackingLink?: string;
   trackingLinkCopied?: string;
   loadMore?: string;
+  relatedItemsTitle?: string;
 }
 
 export type CartItem = StorefrontCartLine;
@@ -190,6 +191,8 @@ interface StorefrontBrowseProps {
   appearance?: "default" | "showcase";
   /** Badge labels forwarded to CatalogCard when appearance="showcase". */
   showcaseLabels?: { soldOut?: string; popular?: string; new?: string };
+  /** Builder "Show suggestions" switch (Task 3). Default on; false hides the row entirely. */
+  relatedItemsEnabled?: boolean;
   /**
    * Opt-in Shop sorting (Store template only): featured / newest /
    * price low-high / price high-low. Absent everywhere else, so existing
@@ -362,6 +365,7 @@ export function StorefrontBrowse({
   currencyLocale,
   appearance,
   showcaseLabels,
+  relatedItemsEnabled,
   siteSlug,
   initialQuery,
 }: StorefrontBrowseProps) {
@@ -589,6 +593,31 @@ export function StorefrontBrowse({
     ? allItems.find((item) => item.id === selectedId) ?? null
     : null;
 
+  // "You might also like" (Task 3): same category first, then Popular;
+  // excludes the current item and sold-out items; up to 4. No owner-picked
+  // field exists yet (Discovery 0d — see db/migration_196, proposed/not
+  // applied), so this is always the automatic fallback today.
+  const suggestions = useMemo(() => {
+    if (!selected || appearance !== "showcase" || relatedItemsEnabled === false) return [];
+    const candidates = allItems.filter((it) => it.id !== selected.id && !it.isSoldOut);
+    const sameCategory = candidates.filter((it) => it.sectionId && it.sectionId === selected.sectionId);
+    const popularRest = candidates.filter((it) => it.isPopular && it.sectionId !== selected.sectionId);
+    const seen = new Set<string>();
+    const picked: BrowseItem[] = [];
+    for (const it of [...sameCategory, ...popularRest]) {
+      if (seen.has(it.id) || picked.length >= 4) continue;
+      seen.add(it.id);
+      picked.push(it);
+    }
+    return picked.map((it) => ({
+      id: it.id,
+      name: it.name,
+      image: it.image ?? null,
+      priceLabel: it.priceLabel,
+      canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !hasAvailableBrowseOptionGroups(it.optionGroups)),
+    }));
+  }, [selected, allItems, appearance, relatedItemsEnabled, orderConfig]);
+
   // Compute cart subtotal from items
   const cartPricing = useMemo(() => browseCartPricing(cart, allItems, orderConfig?.currency || currency || "USD"), [cart, allItems, orderConfig?.currency, currency]);
   const cartSubtotal = cartPricing.subtotal;
@@ -598,7 +627,8 @@ export function StorefrontBrowse({
     itemId: string,
     selectedOptionIds: string[],
     quantity: number,
-    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
+    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>,
+    keepOpen = false
   ) => {
     const candidate: CartItem = {
       lineId: editingLineId ?? createStorefrontCartLineId(),
@@ -617,7 +647,9 @@ export function StorefrontBrowse({
       return calculated ? { ...line, priceVersion: createStorefrontPriceVersion(calculated.unitPrice + calculated.optionsDelta) } : line;
     });
     updateCart(nextCart);
-    closeSheet();
+    // A suggestion quick-add keeps the current item's sheet open — only the
+    // regular sheet footer "Add to cart"/"Update order" flow closes it.
+    if (!keepOpen) closeSheet();
     const addedLabel = appearance === "showcase"
       ? (locale === "fr" ? "Ajouté au panier" : "Added to cart")
       : "Added to order";
@@ -643,6 +675,24 @@ export function StorefrontBrowse({
     if (item.isSoldOut || hasAvailableBrowseOptionGroups(item.optionGroups)) return;
     triggerRef.current = trigger;
     handleAddToOrder(item.id, [], 1, []);
+  };
+
+  // "You might also like" (Task 3, Showcase only): "+" adds directly and
+  // keeps the current item's sheet open; an item that needs its own option
+  // sheet opens that item instead (same as a quick-add that hits options).
+  const handleSuggestionOpen = (suggestedItemId: string) => {
+    setEditingLineId(null);
+    setSelectedId(suggestedItemId);
+  };
+
+  const handleSuggestionQuickAdd = (suggestedItemId: string) => {
+    const item = allItems.find((candidate) => candidate.id === suggestedItemId);
+    if (!item || item.isSoldOut) return;
+    if (hasAvailableBrowseOptionGroups(item.optionGroups)) {
+      handleSuggestionOpen(suggestedItemId);
+      return;
+    }
+    handleAddToOrder(suggestedItemId, [], 1, [], true);
   };
 
   // Catalog carousel (Savannah): render per-category scrollable carousels
@@ -731,6 +781,10 @@ export function StorefrontBrowse({
             locale={locale}
             initialCartLine={cart.find((line) => line.lineId === editingLineId)}
             isEditing={Boolean(editingLineId)}
+            suggestions={suggestions}
+            relatedItemsTitle={labels.relatedItemsTitle}
+            onSuggestionQuickAdd={handleSuggestionQuickAdd}
+            onSuggestionOpen={handleSuggestionOpen}
             onAddToOrder={handleAddToOrder}
             onClose={closeSheet}
           />
@@ -1331,6 +1385,10 @@ export function StorefrontBrowse({
           locale={locale}
           initialCartLine={cart.find((line) => line.lineId === editingLineId)}
           isEditing={Boolean(editingLineId)}
+          suggestions={suggestions}
+          relatedItemsTitle={labels.relatedItemsTitle}
+          onSuggestionQuickAdd={handleSuggestionQuickAdd}
+          onSuggestionOpen={handleSuggestionOpen}
           onAddToOrder={handleAddToOrder}
           onClose={closeSheet}
         />
@@ -1465,6 +1523,10 @@ export function ItemDetailSheet({
   locale = "en",
   initialCartLine,
   isEditing = false,
+  suggestions,
+  relatedItemsTitle,
+  onSuggestionQuickAdd,
+  onSuggestionOpen,
   onAddToOrder,
   onClose,
 }: {
@@ -1491,6 +1553,11 @@ export function ItemDetailSheet({
   locale?: Locale;
   initialCartLine?: CartItem;
   isEditing?: boolean;
+  /** "You might also like" — Showcase only, hidden when empty (Task 3). */
+  suggestions?: Array<{ id: string; name: string; image: string | null; priceLabel: string | null; canQuickAdd: boolean }>;
+  relatedItemsTitle?: string;
+  onSuggestionQuickAdd?: (itemId: string) => void;
+  onSuggestionOpen?: (itemId: string) => void;
   onAddToOrder?: (
     itemId: string,
     selectedOptionIds: string[],
@@ -1924,6 +1991,47 @@ export function ItemDetailSheet({
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* "You might also like" — below options/allergens, above the footer (Task 3). */}
+              {suggestions && suggestions.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--tf-muted)]">
+                    {relatedItemsTitle || (locale === "fr" ? "Vous aimerez peut-être aussi" : "You might also like")}
+                  </h3>
+                  <div className="space-y-2">
+                    {suggestions.map((sug) => (
+                      <div key={sug.id} className="flex items-center gap-3 rounded-[12px] border border-[var(--tf-border)] bg-[var(--tf-card)] p-2">
+                        <button
+                          type="button"
+                          onClick={() => onSuggestionOpen?.(sug.id)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          {sug.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={sug.image} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-[12px] object-cover" loading="lazy" />
+                          ) : (
+                            <div className="h-16 w-16 shrink-0 rounded-[12px] bg-[var(--tf-soft)]" aria-hidden="true" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-[14px] font-semibold text-[var(--tf-ink)]">{sug.name}</span>
+                            {sug.priceLabel ? <span className="mt-0.5 block text-[13px] font-medium text-[var(--tf-muted)]">{sug.priceLabel}</span> : null}
+                          </span>
+                        </button>
+                        {sug.canQuickAdd ? (
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); onSuggestionQuickAdd?.(sug.id); }}
+                            aria-label={`${labels.addToOrder || "Add"} ${sug.name}`}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--tf-border)] text-lg font-semibold text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                          >
+                            +
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : null}

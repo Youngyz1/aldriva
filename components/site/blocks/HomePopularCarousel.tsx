@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CatalogCard } from "./CatalogCard";
 import { ItemDetailSheet } from "./StorefrontBrowse";
@@ -30,6 +30,10 @@ interface HomePopularCarouselProps {
   orderConfig: StorefrontOrderConfig | null | undefined;
   labels: StorefrontBrowseLabels;
   closeLabel: string;
+  /** Full catalog for "You might also like" (Task 3) — wider than `items`, which may be a Popular/Offers subset. Defaults to `items`. */
+  allCatalogItems?: ResolvedMenuItem[];
+  /** Builder "Show suggestions" switch (Task 3). Default on. */
+  relatedItemsEnabled?: boolean;
 }
 
 /** Mirrors lib/storefront-browse.ts's availableBrowseOptionGroups check:
@@ -117,6 +121,8 @@ export function HomePopularCarousel({
   orderConfig,
   labels,
   closeLabel,
+  allCatalogItems,
+  relatedItemsEnabled,
 }: HomePopularCarouselProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -161,6 +167,65 @@ export function HomePopularCarousel({
   // the same CatalogCard the catalog page itself uses.
   const orderingEnabled = Boolean(orderConfig?.enabled && !orderConfig.blocked);
   const gridItems = items.slice(0, 8).map((it) => mapItem(it, currency, locale, labels.freeDelivery ?? "Free delivery", orderingEnabled));
+
+  // "You might also like" (Task 3): searches the full catalog (not just this
+  // row's Popular/Offers subset) — same category first, then Popular;
+  // excludes the current item and sold-out items; up to 4.
+  const catalogForSuggestions = allCatalogItems ?? items;
+  const suggestions = useMemo(() => {
+    if (!selected || relatedItemsEnabled === false) return [];
+    const candidates = catalogForSuggestions.filter((it) => it.id !== selected.id && !(it.is_sold_out ?? false));
+    const sameCategory = candidates.filter((it) => it.section_id && it.section_id === selected.section_id);
+    const popularRest = candidates.filter((it) => it.is_popular && it.section_id !== selected.section_id);
+    const seen = new Set<string>();
+    const picked: ResolvedMenuItem[] = [];
+    for (const it of [...sameCategory, ...popularRest]) {
+      if (seen.has(it.id) || picked.length >= 4) continue;
+      seen.add(it.id);
+      picked.push(it);
+    }
+    return picked.map((it) => ({
+      id: it.id,
+      name: it.name,
+      image: it.image_url ?? null,
+      priceLabel: formatCurrency(Number(it.effective_price ?? it.price), currency, locale),
+      canQuickAdd: orderingEnabled && !hasQuickAddBlockingOptions(it.option_groups),
+    }));
+  }, [selected, catalogForSuggestions, relatedItemsEnabled, orderingEnabled, currency, locale]);
+
+  const handleSuggestionOpen = (suggestedItemId: string) => {
+    setEditingLineId(null);
+    setSelectedId(suggestedItemId);
+  };
+
+  const handleSuggestionQuickAdd = (suggestedItemId: string) => {
+    if (!siteSlug) return;
+    const target = catalogForSuggestions.find((it) => it.id === suggestedItemId);
+    if (!target || (target.is_sold_out ?? false)) return;
+    if (hasQuickAddBlockingOptions(target.option_groups)) {
+      handleSuggestionOpen(suggestedItemId);
+      return;
+    }
+    const { lines: cart } = loadStorefrontCart(siteSlug);
+    const { lines: nextCart } = upsertStorefrontCartLine(cart, {
+      lineId: createStorefrontCartLineId(),
+      itemId: suggestedItemId,
+      selectedOptionIds: [],
+      selectedOptions: [],
+      quantity: 1,
+      image: target.image_url ?? null,
+    });
+    saveStorefrontCart(siteSlug, nextCart);
+    const count = nextCart.reduce((sum, line) => sum + line.quantity, 0);
+    const subtotalCents = nextCart.reduce((sum, line) => {
+      const priced = catalogForSuggestions.find((candidate) => candidate.id === line.itemId);
+      const unit = priced ? Number(priced.effective_price ?? priced.price) : 0;
+      return sum + Math.round(unit * 100) * line.quantity;
+    }, 0);
+    writeStorefrontCartSummary(siteSlug, count, subtotalCents, orderConfig?.currency || currency || "USD");
+    // Keeps the current item's sheet open — only the sheet footer closes it.
+    cartAddedToast.show();
+  };
 
   // Quick-add: same cart (shared localStorage, keyed by site slug) and the
   // same "no sheet" behaviour as the catalog page's own "+". Items that need
@@ -273,6 +338,10 @@ export function HomePopularCarousel({
           orderConfig={orderConfig ?? undefined}
           locale={locale}
           isEditing={Boolean(editingLineId)}
+          suggestions={suggestions}
+          relatedItemsTitle={labels.relatedItemsTitle}
+          onSuggestionQuickAdd={handleSuggestionQuickAdd}
+          onSuggestionOpen={handleSuggestionOpen}
           onAddToOrder={handleSheetAddToOrder}
           onClose={() => setSelectedId(null)}
         />

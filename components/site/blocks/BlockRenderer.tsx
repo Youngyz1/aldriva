@@ -2833,6 +2833,7 @@ async function MenuEmbedBlockRenderer({
   let categoryArrowLabel = locale === "fr" ? "Voir" : "View";
   let categoryItemCount = (count: number) => `${count} ${locale === "fr" ? "article(s)" : count === 1 ? "item" : "items"}`;
   let offersTitle = locale === "fr" ? "Offres" : "Offers";
+  let relatedItemsTitle = locale === "fr" ? "Vous aimerez peut-être aussi" : "You might also like";
   try {
     const publicT = await getTranslations("PublicSite");
     badgeSoldOut = publicT("badgeSoldOut");
@@ -2842,6 +2843,7 @@ async function MenuEmbedBlockRenderer({
     categoryArrowLabel = publicT("showcaseCategoryArrowLabel");
     categoryItemCount = (count: number) => publicT("showcaseCategoryItemCount", { count });
     offersTitle = publicT("showcaseOffersTitle");
+    relatedItemsTitle = publicT("showcaseRelatedItemsTitle");
   } catch {
     // Keep defaults
   }
@@ -2903,6 +2905,7 @@ async function MenuEmbedBlockRenderer({
     trackOrder: t("trackOrder"),
     copyTrackingLink: t("copyTrackingLink"),
     trackingLinkCopied: t("trackingLinkCopied"),
+    relatedItemsTitle,
   };
   const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
   const menuItemsTruncated = sections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
@@ -3058,6 +3061,7 @@ async function MenuEmbedBlockRenderer({
               orderConfig={orderConfig}
               labels={browseLabels}
               closeLabel={browseLabels.close ?? "Close"}
+              relatedItemsEnabled={block.relatedItemsEnabled}
             />
           </div>
           {/* Offers: same cards as Popular, filtered to discounted items only.
@@ -3079,6 +3083,8 @@ async function MenuEmbedBlockRenderer({
                   orderConfig={orderConfig}
                   labels={browseLabels}
                   closeLabel={browseLabels.close ?? "Close"}
+                  allCatalogItems={populatedSections.flatMap((sec) => sec.items)}
+                  relatedItemsEnabled={block.relatedItemsEnabled}
                 />
               </div>
             </div>
@@ -3120,6 +3126,7 @@ async function MenuEmbedBlockRenderer({
             popular: badgePopular,
             new: badgeNew,
           }}
+          relatedItemsEnabled={block.relatedItemsEnabled}
         >
           {block.variant === "catalog-carousel" ? null : (
             <div className="space-y-[var(--ps-space-8)]">

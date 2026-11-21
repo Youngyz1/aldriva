@@ -875,6 +875,7 @@
     "showcaseCategoryItemCount": "{count, plural, one {# item} other {# items}}",
     "showcaseCategoryArrowLabel": "View",
     "showcaseOffersTitle": "Offers",
+    "showcaseRelatedItemsTitle": "You might also like",
     "showcaseAboutEyebrow": "About us",
     "showcaseAboutViewCatalog": "View {catalog}",
     "contactHoursAndLocation": "Hours & Location",

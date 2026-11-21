@@ -331,7 +331,9 @@ const showcaseMenuSection = (
   is_active: true,
   isDraft: false,
   isSample: true,
-  items,
+  // Back-reference so "You might also like" (Task 3) can group preview
+  // items by category the same way a real tenant's section_id does.
+  items: items.map((item) => ({ ...item, section_id: id })),
 });
 
 const showcaseMenuItem = (item: {

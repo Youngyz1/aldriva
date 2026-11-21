@@ -138,6 +138,17 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
     ],
   },
   {
+    slotId: "catalog.related_items",
+    field: "template_extras",
+    extraKey: "relatedItemsEnabled",
+    label: "\"You might also like\" suggestions in the item sheet",
+    kind: "select",
+    options: [
+      { label: "On", value: "on" },
+      { label: "Off", value: "off" },
+    ],
+  },
+  {
     slotId: "contact.whatsapp",
     field: "template_extras",
     extraKey: "whatsappPhone",
@@ -239,7 +250,7 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     page: "home",
     catalog: true,
     variant: "carousel",
-    slots: ["catalog.featured", "catalog.source", "catalog.card_action"],
+    slots: ["catalog.featured", "catalog.source", "catalog.card_action", "catalog.related_items"],
     note: "Popular picks carousel resolving dynamically to menu items or products.",
   },
   {

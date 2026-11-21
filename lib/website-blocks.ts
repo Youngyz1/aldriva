@@ -322,6 +322,8 @@ export interface MenuEmbedBlock extends BaseBlock {
   imageFit?: "cover" | "contain";
   /** Render-only sample sections for template previews. Never persisted; tenant menu wins. */
   previewSections?: PreviewMenuSection[];
+  /** Showcase "Show suggestions" builder switch for the item sheet's "You might also like" row. Default on when unset. */
+  relatedItemsEnabled?: boolean;
 }
 
 export interface PromotionFallback {
@@ -1763,7 +1765,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
       const variant = obj.variant === "rows" || obj.variant === "cards" || obj.variant === "editorial" || obj.variant === "catalog-carousel" ? obj.variant : undefined;
       const imageFit = obj.imageFit === "contain" || obj.imageFit === "cover" ? obj.imageFit : undefined;
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}) } };
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}), ...(typeof obj.relatedItemsEnabled === "boolean" ? { relatedItemsEnabled: obj.relatedItemsEnabled } : {}) } };
     }
 
     case "promotions_embed": {
@@ -2235,6 +2237,7 @@ export function parseBlock(raw: unknown): Block | null {
           : undefined,
         currency: normalizeCurrencyCode(obj.currency),
         variant: obj.variant === "rows" ? "rows" : obj.variant === "editorial" ? "editorial" : undefined,
+        relatedItemsEnabled: typeof obj.relatedItemsEnabled === "boolean" ? obj.relatedItemsEnabled : undefined,
       };
 
     case "promotions_embed": {

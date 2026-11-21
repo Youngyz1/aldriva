@@ -991,6 +991,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
   const menuImageFit = ctx.template.id === "restaurant-savannah" && (extras?.menuImageFit === "contain" || extras?.menuImageFit === "cover")
     ? extras.menuImageFit
     : undefined;
+  const relatedItemsEnabled = ctx.template.id === "showcase" ? extras?.relatedItemsEnabled !== "off" : undefined;
   return {
     type: "menu_embed",
     heading,
@@ -1000,6 +1001,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     ...(menuImageFit ? { imageFit: menuImageFit } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
+    ...(relatedItemsEnabled !== undefined ? { relatedItemsEnabled } : {}),
     // Showcase previews ship a render-only sample menu (spec 10e). Live sites
     // never reach includeSamples, so owner data is the only source there.
     ...(ctx.includeSamples && ctx.template.id === "showcase"
