@@ -19,7 +19,7 @@ const PREVIEW_ENABLED = process.env.ENABLE_SHOWCASE_PREVIEW === "1";
 const HERO_FRAMING_VALUES = ["fill-center", "fill-top", "fill-bottom", "full"] as const;
 
 interface Props {
-  searchParams: Promise<{ page?: string; mode?: string; framing?: string }>;
+  searchParams: Promise<{ page?: string; mode?: string; framing?: string; locale?: string }>;
 }
 
 export default async function ShowcasePreviewPage({ searchParams }: Props) {
@@ -27,7 +27,12 @@ export default async function ShowcasePreviewPage({ searchParams }: Props) {
     notFound();
   }
 
-  const { page: pageParam, mode, framing } = await searchParams;
+  const { page: pageParam, mode, framing, locale: localeParam } = await searchParams;
+  // Dev-only: BlockRenderer derives its `locale` from `currencyLocale`, so
+  // this lets ?locale=fr exercise the French strings without a full
+  // next-intl route locale (publicT()/getTranslations() still resolve to
+  // whatever this harness's default request locale is).
+  const previewLocale = localeParam === "fr" ? "fr" : "en";
   const live = mode === "live";
   const template = getFlagshipTemplate("showcase");
   if (!template) notFound();
@@ -122,7 +127,7 @@ export default async function ShowcasePreviewPage({ searchParams }: Props) {
             editMode={false}
             scopeInternalLinks
             currency="USD"
-            currencyLocale="en"
+            currencyLocale={previewLocale}
             orderConfig={orderConfig}
             siteSlug={siteSlug}
             hasPublishedMenuPage={hasPublishedMenuPage}
