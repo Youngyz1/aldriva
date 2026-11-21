@@ -360,6 +360,30 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     routeExists: true,
   },
   {
+    id: "roles",
+    // Same organizer-type visibility as Branches/Staff above -- this is the
+    // "whatever a later slice adds" case the "workforce" entry's own comment
+    // already anticipated (nav.parent: "workforce", no renderer changes).
+    // Org-workspace only, per the owner's call: no businesses/[id] mirror.
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "roles",
+      icon: "ShieldLock",
+      group: "manage",
+      label: "Roles & Permissions",
+      visibility: { kind: "organizer-type", flag: "business" },
+      parent: "workforce",
+    },
+    i18n: { title: "Organizer.roles", empty: "Roles.empty", error: "Roles.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/roles`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
     id: "bookings",
     capabilities: ["BOOKINGS", "APPOINTMENTS"],
     permission: "manage",

@@ -2,7 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { getStaffUiCapabilities } from "@/lib/staff/staff-capabilities-server";
+import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { getStaffMember } from "@/lib/actions/staff-members";
+import { listAssignableRoles, listStaffMemberRoleAssignments } from "@/lib/actions/staff-role-assignments";
 import StaffProfileClient from "./StaffProfileClient";
 
 export default async function StaffProfilePage({
@@ -42,6 +44,17 @@ export default async function StaffProfilePage({
   // because staff_members' DELETE policy has no branch-manager clause.
   const capabilities = await getStaffUiCapabilities(staffRow.business_id);
 
+  // scope ("organizer" | "staff") drives the assignment panel's privileged-
+  // role disabling -- same reachability check getStaffMember already ran
+  // internally, called again here only to read its `scope` field.
+  const staffAreaAuth = await assertCanAccessBusinessStaffArea(staffRow.business_id);
+  const callerScope = staffAreaAuth.ok ? (staffAreaAuth.scope ?? "staff") : "staff";
+
+  const [assignmentsResult, assignableRolesResult] = await Promise.all([
+    listStaffMemberRoleAssignments(staffId, staffRow.business_id),
+    listAssignableRoles(staffRow.business_id),
+  ]);
+
   return (
     <StaffProfileClient
       organizerId={organizerId}
@@ -49,6 +62,9 @@ export default async function StaffProfilePage({
       staff={result.data}
       branches={(branches ?? []) as { id: string; label: string; status: "active" | "archived" }[]}
       capabilities={capabilities}
+      roleAssignments={assignmentsResult.success ? assignmentsResult.data : []}
+      assignableRoles={assignableRolesResult.success ? assignableRolesResult.data : []}
+      callerScope={callerScope}
     />
   );
 }

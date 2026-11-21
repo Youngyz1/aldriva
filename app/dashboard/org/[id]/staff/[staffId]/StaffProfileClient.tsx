@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import StaffAvatar from "@/components/staff/StaffAvatar";
+import StaffRoleAssignmentPanel from "@/components/staff/StaffRoleAssignmentPanel";
 import { deleteStaffMember, setStaffStatus, type StaffMemberRow, type StaffStatus } from "@/lib/actions/staff-members";
+import type { AssignableRoleRow, StaffRoleAssignmentRow } from "@/lib/actions/staff-role-assignments";
 import StaffFormDialog from "@/app/dashboard/businesses/[id]/staff/StaffFormDialog";
 import { canEditRow, canDeactivateRow, type StaffUiCapabilities } from "@/lib/staff/staff-capabilities";
 
@@ -54,12 +56,18 @@ export default function StaffProfileClient({
   staff: initialStaff,
   branches,
   capabilities,
+  roleAssignments,
+  assignableRoles,
+  callerScope,
 }: {
   organizerId: string;
   businessId: string;
   staff: StaffMemberRow;
   branches: Branch[];
   capabilities: StaffUiCapabilities;
+  roleAssignments: StaffRoleAssignmentRow[];
+  assignableRoles: AssignableRoleRow[];
+  callerScope: "organizer" | "staff";
 }) {
   const t = useTranslations("Workforce");
   const router = useRouter();
@@ -130,6 +138,14 @@ export default function StaffProfileClient({
               </div>
             </div>
           </div>
+
+          <StaffRoleAssignmentPanel
+            businessId={businessId}
+            staffMemberId={staff.id}
+            initialAssignments={roleAssignments}
+            assignableRoles={assignableRoles}
+            callerScope={callerScope}
+          />
 
           <dl className="grid gap-3 sm:grid-cols-2">
             <div className="min-w-0 space-y-0.5">

@@ -291,5 +291,7 @@
   "lib/__tests__/rental-pickup-guards.test.cjs",
   "lib/__tests__/rental-handover.test.cjs",
   "components/ui/__tests__/local-branded-placeholder.test.cjs",
-  "components/nav/__tests__/nav-active.test.cjs"
+  "components/nav/__tests__/nav-active.test.cjs",
+  "lib/staff/__tests__/role-permission-grouping.test.cjs",
+  "lib/staff/__tests__/role-details-validation.test.cjs"
 ]

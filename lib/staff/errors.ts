@@ -29,12 +29,28 @@
  *   index (business_id, auth_user_id) WHERE auth_user_id IS NOT NULL ->
  *   generic Postgres unique-violation, SQLSTATE 23505. Not reachable from
  *   Part B either (no auth_user_id/login field in these forms), kept for
- *   completeness.
+ *   completeness -- now distinguished by constraint name (see below) rather
+ *   than by SQLSTATE alone, since 23505 is shared with two other constraints.
+ * - uq_staff_roles_business_name (staff_roles, migration_231 line 204) ->
+ *   SQLSTATE 23505, message contains the constraint name verbatim (Postgres
+ *   always includes it: 'duplicate key value violates unique constraint
+ *   "uq_staff_roles_business_name"'). Reachable from createStaffRole/
+ *   updateStaffRole when a business already has a role by that name.
+ * - uq_staff_member_roles_member_role (staff_member_roles, migration_231
+ *   line 336) -> SQLSTATE 23505, same message-contains-constraint-name
+ *   convention. Reachable from assignStaffRole when the staff member
+ *   already holds the role being assigned.
  * - line 278-281: staff_members_branch_business_fk, a composite FOREIGN KEY
  *   (branch_id, business_id) REFERENCES business_branches (id, business_id)
  *   -> generic Postgres foreign-key-violation, SQLSTATE 23503. Reachable:
  *   this is what rejects a branch_id that doesn't exist or belongs to a
  *   different business.
+ * - validate_staff_member_role_assignment (migration_231 lines 347-395) ->
+ *   SQLSTATE 23514, three distinct RAISE messages ('Platform roles must be
+ *   global', 'Business role ... does not belong to assignment business ...',
+ *   'Unsupported role scope') all mapped to the single "role_tenant_mismatch"
+ *   code -- the user-facing distinction between them isn't meaningful (all
+ *   three mean "this role doesn't belong to this business").
  * - Plain RLS violations (USING/WITH CHECK clauses on staff_members'
  *   policies, not a RAISE) also surface as SQLSTATE 42501, with Postgres's
  *   own generic message ('new row violates row-level security policy for
@@ -80,6 +96,9 @@ const HINT_ERRORS: Record<string, StaffError> = {
   staff_identity_change_denied: { code: "staff_identity_change_denied", message: "Only an owner or admin can link or unlink a staff member's login." },
   role_identity_change_denied: { code: "role_identity_change_denied", message: "A role can't be moved to another business or changed to another type." },
 };
+const UQ_ROLE_NAME = "uq_staff_roles_business_name";
+const UQ_MEMBER_ROLE = "uq_staff_member_roles_member_role";
+const UQ_LOGIN = "uq_staff_members_business_auth_user";
 
 export const NOT_FOUND_OR_DENIED: StaffError = {
   code: "not_found_or_denied",
@@ -105,10 +124,22 @@ export function mapStaffError(error: StaffDbError): StaffError {
     return { ...HINT_ERRORS.permission_escalation_denied };
   }
   if (code === "23505") {
-    return { code: "duplicate_login", message: "This login is already linked to another staff member in this business." };
+    if (message.includes(UQ_ROLE_NAME)) {
+      return { code: "role_name_exists", message: "A role with this name already exists for this business." };
+    }
+    if (message.includes(UQ_MEMBER_ROLE)) {
+      return { code: "role_already_assigned", message: "This staff member already has that role." };
+    }
+    if (message.includes(UQ_LOGIN)) {
+      return { code: "duplicate_login", message: "This login is already linked to another staff member in this business." };
+    }
+    return { code: "generic_error", message: "Something went wrong. Please try again." };
   }
   if (code === "23503") {
     return { code: "branch_mismatch", message: "That branch doesn't belong to this business." };
+  }
+  if (code === "23514") {
+    return { code: "role_tenant_mismatch", message: "That role doesn't belong to this business." };
   }
   if (code === "42501") {
     return { code: "not_allowed", message: "You don't have permission to do that." };

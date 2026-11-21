@@ -48,6 +48,7 @@ import {
   IconUserCog as UserCog,
   IconMapPin as MapPin,
   IconChevronDown as ChevronDown,
+  IconShieldLock as ShieldLock,
 } from "@tabler/icons-react";
 import { isNavItemActive, isNavItemOrChildActive, computeSharedBases, type NavItem } from "./nav-active";
 
@@ -63,7 +64,7 @@ export interface DashboardMoreSheetProps {
 // Same icon set as app/dashboard/org/[id]/OrgDashboardSidebar.tsx's
 // ORG_ICON_MAP (icon glyphs only — no gating logic lives here).
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog, MapPin,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog, MapPin, ShieldLock,
 };
 
 export function DashboardMoreSheet({

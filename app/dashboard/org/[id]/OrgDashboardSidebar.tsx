@@ -33,6 +33,7 @@ import {
   IconCar as Car,
   IconUserCog as UserCog,
   IconMapPin as MapPin,
+  IconShieldLock as ShieldLock,
 } from "@tabler/icons-react";
 import { getFullOrgNavItems } from "./org-nav-items";
 import { isNavItemActive, isNavItemOrChildActive, computeSharedBases } from "@/components/nav/nav-active";
@@ -49,7 +50,7 @@ type Org = {
 };
 
 const ORG_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog, MapPin,
+  LayoutDashboard, Globe, Calendar, Heart, Package, Briefcase, Users, BookOpen, Star, ImageIcon, BarChart2, Settings, Utensils, Store, ShoppingBag, Tag, ChefHat, Qrcode, CalendarCheck, CalendarClock, Car, UserCog, MapPin, ShieldLock,
 };
 
 const ORG_TYPE_LABELS: Record<string, string> = {
