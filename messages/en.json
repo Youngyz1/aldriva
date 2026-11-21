@@ -973,7 +973,9 @@
     "saveFailedReasons": {
       "unauthorized": "Sign in again",
       "forbidden": "No edit permission",
+      "not_found": "Website not found",
       "not_v2": "Invalid template",
+      "V2_ONLY": "Appearance settings need a V2 website",
       "too_large": "Content too large",
       "db_error": "Server error",
       "unexpected": "Unexpected error",

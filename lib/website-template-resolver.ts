@@ -1292,16 +1292,18 @@ function buildSectionBlock(
     }
     case "promotions_embed": {
       const isCarousel = section.variant === "carousel";
-      const extras = asRecord(effectiveValue(ctx, "template_extras"));
-      const promoImageStyle = asString(extras?.promoImageStyle) === "cover" ? "cover" : "contain";
       // Showcase's compact promo card is dashboard-managed Promotions only — the
       // hero now owns the owner's default/fallback content (buildHero above).
       // No active promotions: the renderer hides the whole block, no gap.
+      // Autoplay and image fit are fixed (no owner-facing editor control
+      // anymore) — always autoplay-on (PromoCarousel's own default when no
+      // autoplaySetting is passed), always "contain", regardless of any
+      // older saved template_extras value.
       return {
         type: "promotions_embed",
         enabled: true,
         layout: "auto",
-        ...(ctx.template.id === "showcase" ? { imageStyle: promoImageStyle } : {}),
+        ...(ctx.template.id === "showcase" ? { imageStyle: "contain" as const } : {}),
         ...(isCarousel ? { variant: "carousel" } : {}),
         ...(ctx.includeSamples && ctx.template.id === "showcase"
           ? { previewPromotions: SHOWCASE_PREVIEW_PROMOTIONS }

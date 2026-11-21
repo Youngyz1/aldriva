@@ -159,7 +159,7 @@ const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
   { id: "business", title: "Business basics", slotIds: ["nav.logo", "footer.business", "nav.labels", "nav.cta", "nav.mobile_tab_bar"] },
   { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary", "hero.focal_x", "hero.focal_y", "hero.fit", "hero.image_framing"] },
-  { id: "promo", title: "Promotional banner (optional)", slotIds: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date", "promo.autoplay", "promo.image_style"] },
+  { id: "promo", title: "Promotional banner (optional)", slotIds: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"] },
   { id: "highlights", title: "Highlights", slotIds: ["highlights.items"] },
   { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items", "trust.scrolling"] },
   { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },

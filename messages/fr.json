@@ -973,7 +973,9 @@
     "saveFailedReasons": {
       "unauthorized": "Reconnectez-vous",
       "forbidden": "Permission refusée",
+      "not_found": "Site introuvable",
       "not_v2": "Modèle invalide",
+      "V2_ONLY": "Paramètres d'apparence réservés aux sites V2",
       "too_large": "Contenu trop volumineux",
       "db_error": "Erreur serveur",
       "unexpected": "Erreur inattendue",
