@@ -2,9 +2,36 @@ import "server-only";
 import { getCurrentUser } from "@/lib/auth";
 import { assertCanManageBusiness } from "@/lib/entity-authz";
 import { createSupabaseServer } from "@/lib/supabase-server";
-import { buildStaffUiCapabilities, type StaffUiCapabilities } from "@/lib/staff/staff-capabilities";
+import {
+  buildStaffUiCapabilities,
+  type StaffReach,
+  type StaffUiCapabilities,
+} from "@/lib/staff/staff-capabilities";
 
 const HEAD_OFFICE_ROLES = ["owner", "admin", "manager"] as string[];
+
+type Supabase = Awaited<ReturnType<typeof createSupabaseServer>>;
+
+// Asks the database the same question the staff_members policies ask (250):
+// staff_has_permission(business, key, branch), once at NULL and once per branch.
+// Any RPC error counts as "no" (fails closed: fewer buttons; RLS still decides writes).
+async function reachFor(
+  supabase: Supabase,
+  businessId: string,
+  key: string,
+  branchIds: string[],
+): Promise<StaffReach> {
+  const ask = async (branchId: string | null): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("staff_has_permission", {
+      p_business_id: businessId,
+      p_permission_key: key,
+      p_branch_id: branchId,
+    });
+    return !error && data === true;
+  };
+  const [all, ...perBranch] = await Promise.all([ask(null), ...branchIds.map((b) => ask(b))]);
+  return { all, branches: branchIds.filter((_, i) => perBranch[i]) };
+}
 
 // Deliberately does NOT use assertCanManageStaffArea: that helper writes a
 // denial-log row on every failure, and this runs on every staff page load.
@@ -35,5 +62,24 @@ export async function getStaffUiCapabilities(businessId: string): Promise<StaffU
     if (!error && data === true) managedBranchId = mine.branch_id;
   }
 
-  return buildStaffUiCapabilities({ headOffice, managedBranchId, myStaffId: mine?.id ?? null });
+  // Head office already passes every clause, so skip the extra calls for it.
+  if (headOffice) return buildStaffUiCapabilities({ headOffice, managedBranchId, myStaffId: mine?.id ?? null });
+
+  const { data: branchRows } = await supabase
+    .from("business_branches")
+    .select("id")
+    .eq("business_id", businessId);
+  const branchIds = (branchRows ?? []).map((b: { id: string }) => b.id);
+
+  const [update, view] = await Promise.all([
+    reachFor(supabase, businessId, "workforce.update", branchIds),
+    reachFor(supabase, businessId, "workforce.view", branchIds),
+  ]);
+
+  return buildStaffUiCapabilities({
+    headOffice,
+    managedBranchId,
+    myStaffId: mine?.id ?? null,
+    reach: { update, view },
+  });
 }
