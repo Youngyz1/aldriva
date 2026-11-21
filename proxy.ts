@@ -269,18 +269,18 @@ async function checkProductAccess(
 }
 
 // ---------------------------------------------------------------------------
-// Showcase dev-preview reserved slug. "showcase-preview" is not a real
-// tenant_websites row — it's the fixed siteSlug used by
-// app/dev/showcase-preview/page.tsx so that slot/font/locale overrides can
-// be screenshotted without a database. Every internal link rendered inside
-// that harness is still built with the ordinary site-link helpers
+// Showcase preview reserved slug. "showcase-preview" is not a real
+// tenant_websites row — it's the fixed siteSlug used by both the internal
+// app/dev/showcase-preview harness and (for real links) the public
+// /templates/showcase/preview route. Every internal link rendered inside
+// those pages is still built with the ordinary site-link helpers
 // (lib/site-paths.ts), so they point at /site/showcase-preview/<page> like a
 // real tenant site would. Rather than special-case siteSlug through every
-// header/footer/tab-bar/block-renderer link builder, redirect those old
-// /site/showcase-preview/* URLs back into the harness here, before
+// header/footer/tab-bar/block-renderer link builder, redirect those
+// /site/showcase-preview/* URLs to the public preview route here, before
 // checkWebsiteAccess ever runs a (guaranteed-miss) DB lookup for this slug.
-// Gated by the same flag the harness itself checks, so this is a no-op in
-// production unless the preview is explicitly enabled.
+// Unconditional — the public route is always reachable, so there is no
+// "disabled in production" state to gate on anymore.
 // ---------------------------------------------------------------------------
 const SHOWCASE_PREVIEW_SLUG = "showcase-preview";
 const SHOWCASE_PREVIEW_PAGES = new Set(["menu", "order", "contact", "reservations"]);
@@ -729,13 +729,11 @@ export async function proxy(req: NextRequest) {
   if (websiteSlugMatch) {
     const slug = websiteSlugMatch[1];
 
-    if (
-      slug === SHOWCASE_PREVIEW_SLUG &&
-      (process.env.NODE_ENV !== "production" || process.env.ENABLE_SHOWCASE_PREVIEW === "1")
-    ) {
+    if (slug === SHOWCASE_PREVIEW_SLUG) {
+      const page = resolveShowcasePreviewPage(pathname);
       const target = req.nextUrl.clone();
-      target.pathname = "/dev/showcase-preview";
-      target.searchParams.set("page", resolveShowcasePreviewPage(pathname));
+      target.pathname = page === "home" ? "/templates/showcase/preview" : `/templates/showcase/preview/${page}`;
+      target.search = "";
       return NextResponse.redirect(target);
     }
 

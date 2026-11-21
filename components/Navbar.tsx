@@ -77,7 +77,18 @@ export default function Navbar() {
   // Round 4: Memories guest upload pages (/m/[token]) are standalone too.
   // Website editor previews (/website-preview/[orgId]) are standalone too —
   // they render inside the editor's device iframe and must carry no chrome.
-  if (pathname?.includes("/invitation") || pathname?.startsWith("/m/") || pathname?.startsWith("/website-preview/")) {
+  // Public template previews (/templates/showcase/preview[/menu|/contact|/order])
+  // render their own site chrome (V2SiteHeader) and must stay chrome-free too.
+  // This is a prefix match, not an exact match: the preview's home/menu/
+  // contact/order pages all share this one path prefix (as path segments),
+  // so an exact-pathname check would only ever match the bare/home URL and
+  // leak the platform navbar back in on every other page.
+  if (
+    pathname?.includes("/invitation") ||
+    pathname?.startsWith("/m/") ||
+    pathname?.startsWith("/website-preview/") ||
+    pathname?.startsWith("/templates/showcase/preview")
+  ) {
     return null;
   }
 

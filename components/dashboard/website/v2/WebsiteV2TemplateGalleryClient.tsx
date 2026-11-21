@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,17 +44,31 @@ export function WebsiteV2TemplateGalleryClient({
   canCreate,
 }: WebsiteV2TemplateGalleryClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const publicT = useTranslations("PublicSite");
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const pendingRef = useRef(false);
   const attemptRef = useRef<V2CreationAttempt | null>(null);
+  const autoCreateRanRef = useRef(false);
   const categoryModel = getV2GalleryCategoryModel(initialCategory);
   const cardsById = new Map(cards.map((card) => [card.id, card]));
   const visibleCards = categoryModel.templates.flatMap((template) => {
     const card = cardsById.get(template.id);
     return card ? [card] : [];
   });
+
+  // Arriving from the public template preview's "Use this template" link
+  // (?templateId=showcase) auto-runs the same create flow a manual click
+  // would, so the visitor never has to find and re-click the card.
+  const autoCreateTemplateId = searchParams.get("templateId");
+  useEffect(() => {
+    if (!autoCreateTemplateId || autoCreateRanRef.current) return;
+    if (!canCreate || !cardsById.has(autoCreateTemplateId)) return;
+    autoCreateRanRef.current = true;
+    void handleCreateTemplate(autoCreateTemplateId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreateTemplateId, canCreate]);
 
   async function handleCreateTemplate(templateId: string) {
     if (!canCreate || pendingRef.current) return;
@@ -137,14 +152,23 @@ export function WebsiteV2TemplateGalleryClient({
                     {errors[card.id]}
                   </p>
                 ) : null}
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={!canCreate || pendingTemplateId !== null}
-                  onClick={() => void handleCreateTemplate(card.id)}
-                >
-                  {busy ? "Creating website…" : "Use this template"}
-                </Button>
+                <div className={card.id === "showcase" ? "flex gap-2" : undefined}>
+                  {card.id === "showcase" ? (
+                    <Button type="button" variant="outline" className="w-full" asChild>
+                      <Link href="/templates/showcase/preview" target="_blank" rel="noopener noreferrer">
+                        Preview
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={!canCreate || pendingTemplateId !== null}
+                    onClick={() => void handleCreateTemplate(card.id)}
+                  >
+                    {busy ? "Creating website…" : "Use this template"}
+                  </Button>
+                </div>
               </div>
             </article>
           );
