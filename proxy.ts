@@ -269,6 +269,29 @@ async function checkProductAccess(
 }
 
 // ---------------------------------------------------------------------------
+// Showcase dev-preview reserved slug. "showcase-preview" is not a real
+// tenant_websites row — it's the fixed siteSlug used by
+// app/dev/showcase-preview/page.tsx so that slot/font/locale overrides can
+// be screenshotted without a database. Every internal link rendered inside
+// that harness is still built with the ordinary site-link helpers
+// (lib/site-paths.ts), so they point at /site/showcase-preview/<page> like a
+// real tenant site would. Rather than special-case siteSlug through every
+// header/footer/tab-bar/block-renderer link builder, redirect those old
+// /site/showcase-preview/* URLs back into the harness here, before
+// checkWebsiteAccess ever runs a (guaranteed-miss) DB lookup for this slug.
+// Gated by the same flag the harness itself checks, so this is a no-op in
+// production unless the preview is explicitly enabled.
+// ---------------------------------------------------------------------------
+const SHOWCASE_PREVIEW_SLUG = "showcase-preview";
+const SHOWCASE_PREVIEW_PAGES = new Set(["menu", "order", "contact", "reservations"]);
+
+function resolveShowcasePreviewPage(pathname: string): string {
+  const rest = pathname.slice(`/site/${SHOWCASE_PREVIEW_SLUG}`.length).replace(/^\/+/, "");
+  const firstSegment = rest.split("/")[0];
+  return SHOWCASE_PREVIEW_PAGES.has(firstSegment) ? firstSegment : "home";
+}
+
+// ---------------------------------------------------------------------------
 // Tenant website access-control helper — mirrors checkArticleAccess.
 //
 // Gate logic:
@@ -705,6 +728,17 @@ export async function proxy(req: NextRequest) {
   const websiteSlugMatch = pathname.match(/^\/site\/([^/]+)(?:\/.*)?$/);
   if (websiteSlugMatch) {
     const slug = websiteSlugMatch[1];
+
+    if (
+      slug === SHOWCASE_PREVIEW_SLUG &&
+      (process.env.NODE_ENV !== "production" || process.env.ENABLE_SHOWCASE_PREVIEW === "1")
+    ) {
+      const target = req.nextUrl.clone();
+      target.pathname = "/dev/showcase-preview";
+      target.searchParams.set("page", resolveShowcasePreviewPage(pathname));
+      return NextResponse.redirect(target);
+    }
+
     const allowed = await checkWebsiteAccess(slug, user?.id ?? null);
     if (!allowed) {
       const notFoundUrl = req.nextUrl.clone();

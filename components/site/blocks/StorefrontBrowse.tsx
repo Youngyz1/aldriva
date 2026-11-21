@@ -2479,6 +2479,7 @@ function OrderDrawer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [promoExpanded, setPromoExpanded] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoValidation, setPromoValidation] = useState<Extract<ValidatePromoCodeResult, { success: true; valid: true }> | null>(null);
@@ -2585,6 +2586,12 @@ function OrderDrawer({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage(null);
+    setPreviewNotice(null);
+
+    if (orderConfig.slug === "showcase-preview") {
+      setPreviewNotice("Preview only: orders are not placed.");
+      return;
+    }
 
     if (!customerName.trim()) {
       setErrorMessage(labels.fullName ? `Please enter your ${labels.fullName.toLowerCase()}` : "Please enter your name.");
@@ -3183,6 +3190,12 @@ function OrderDrawer({
             {errorMessage ? (
               <div className={savannah ? "bg-[var(--tf-subtle)] p-[var(--ps-space-3)] text-xs font-medium text-[var(--tf-ink)]" : "rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700"}>
                 {errorMessage}
+              </div>
+            ) : null}
+
+            {previewNotice ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-[var(--ps-space-3)] text-xs font-medium text-amber-800">
+                {previewNotice}
               </div>
             ) : null}
 
