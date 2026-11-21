@@ -207,6 +207,19 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
     prevSaveStatusRef.current = queueState.status;
   }, [queueState.status]);
 
+  // Dishes live in their own table (menu_items), not the website draft, so
+  // adding one via the Menu drawer never goes through the save queue above —
+  // refreshMenuItems() below still needs to make it into Showcase's
+  // server-rendered preview body the same way a draft save does.
+  const isFirstMenuItemsRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstMenuItemsRenderRef.current) {
+      isFirstMenuItemsRenderRef.current = false;
+      return;
+    }
+    setPreviewReloadKey((key) => key + 1);
+  }, [currentMenuItems]);
+
   const sendSave = useCallback((draft: ContentDoc) => {
     queue.request(draft);
   }, [queue]);

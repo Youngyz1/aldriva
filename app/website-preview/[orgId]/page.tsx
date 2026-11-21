@@ -22,6 +22,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true, noarchive: true },
 };
 
+// connection() below already forces per-request dynamic rendering under this
+// project's cacheComponents:true config, but a freshly-added dish not
+// appearing here is exactly the kind of thing a stray static/cached render
+// would cause — make the "never cached" intent explicit rather than implicit.
+export const dynamic = "force-dynamic";
+
 /**
  * Chrome-free live preview for the v2 website editor, rendered inside the
  * editor's device iframe. Lives outside the dashboard layout (like
