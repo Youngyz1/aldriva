@@ -2569,7 +2569,7 @@ async function ServicesEmbedBlockRenderer({
   );
 }
 
-async function PromotionsEmbedBlockRenderer({
+export async function PromotionsEmbedBlockRenderer({
   block,
   tenantId,
   siteSlug,
@@ -2747,7 +2747,7 @@ async function PromotionsEmbedBlockRenderer({
 
 // ── 12. Menu Embed Block (Live Data) ───────────────────────────────────────
 
-async function MenuEmbedBlockRenderer({
+export async function MenuEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
