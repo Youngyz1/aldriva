@@ -12,6 +12,7 @@ import {
 import { groupPermissionsByDomain } from "@/lib/staff/role-permission-grouping";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ export default function RoleFormDialog({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set(editing?.permission_keys ?? []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmKeys, setConfirmKeys] = useState(false);
   const lastEditingId = useRef(editing?.id ?? null);
 
   // Dialog instance is reused for create/edit; reset local state only when
@@ -88,6 +90,23 @@ export default function RoleFormDialog({
       else next.add(key);
       return next;
     });
+  }
+
+  function keysChanged(): boolean {
+    if (!editing) return false;
+    const before = new Set(editing.permission_keys);
+    if (before.size !== selectedKeys.size) return true;
+    for (const k of selectedKeys) if (!before.has(k)) return true;
+    return false;
+  }
+
+  // A key change on a role in use takes effect for every holder at once.
+  function handleSaveClick() {
+    if (editing && editing.assigned_count > 0 && keysChanged()) {
+      setConfirmKeys(true);
+      return;
+    }
+    void handleSave();
   }
 
   async function handleSave() {
@@ -173,11 +192,23 @@ export default function RoleFormDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t("rlCancel")}</Button>
-          <Button onClick={handleSave} disabled={saving || form.name.trim().length < 2}>
+          <Button onClick={handleSaveClick} disabled={saving || form.name.trim().length < 2}>
             {saving ? t("rlSaving") : t("rlSave")}
           </Button>
         </DialogFooter>
       </DialogContent>
+      <ConfirmDialog
+        open={confirmKeys}
+        onOpenChange={setConfirmKeys}
+        title={t("rlKeysConfirmTitle")}
+        description={t("rlKeysConfirmBody", { count: editing?.assigned_count ?? 0 })}
+        confirmLabel={t("rlKeysConfirmAction")}
+        onConfirm={async () => {
+          setConfirmKeys(false);
+          await handleSave();
+        }}
+        loading={saving}
+      />
     </Dialog>
   );
 }

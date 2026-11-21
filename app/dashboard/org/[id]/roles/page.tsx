@@ -6,6 +6,7 @@ import { isOrganizerDashboardBusiness } from "@/lib/organizer-dashboard-classifi
 import { resolveActiveBusiness, getActiveBusinessCookieName } from "@/lib/active-business";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { listStaffRoles, listStaffPermissions } from "@/lib/actions/staff-roles";
+import { getRolesAccess } from "@/lib/staff/roles-access-server";
 import RolesClient from "@/components/staff/RolesClient";
 
 export default async function OrgRolesPage({
@@ -57,6 +58,10 @@ export default async function OrgRolesPage({
   const auth = await assertCanAccessBusinessStaffArea(activeBusiness.id);
   if (!auth.ok) return notFound();
 
+  // Same rule as the database (256/257): see lib/staff/roles-access.ts.
+  const access = await getRolesAccess(activeBusiness.id, auth.scope === "organizer");
+  if (!access.canView) return notFound();
+
   const [rolesResult, permissionsResult] = await Promise.all([
     listStaffRoles(activeBusiness.id),
     listStaffPermissions(),
@@ -70,7 +75,7 @@ export default async function OrgRolesPage({
         initialRoles={rolesResult.success ? rolesResult.data : []}
         initialError={rolesResult.success ? null : rolesResult.error}
         permissions={permissionsResult.success ? permissionsResult.data : []}
-        canManage={auth.scope === "organizer"}
+        canManage={access.canManage}
       />
     </div>
   );

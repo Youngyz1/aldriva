@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServer } from "@/lib/supabase-server";
-import { assertCanAccessBusinessStaffArea, assertCanManageBusiness } from "@/lib/entity-authz";
+import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
+import { assertCanManageRoles, countActiveRoleAssignmentsAdmin } from "@/lib/staff/roles-access-server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { mapStaffError, NOT_FOUND_OR_DENIED } from "@/lib/staff/errors";
 
 function revalidateRolesPaths() {
@@ -93,7 +95,7 @@ export async function listStaffRoles(businessId: string): Promise<ActionResult<S
   const roleIds = roles.map((r) => r.id);
   const [{ data: permissionLinks }, { data: assignmentLinks }] = await Promise.all([
     supabase.from("staff_role_permissions").select("role_id, staff_permissions ( key )").in("role_id", roleIds),
-    supabase.from("staff_member_roles").select("role_id").eq("is_active", true).in("role_id", roleIds),
+    createSupabaseAdmin().from("staff_member_roles").select("role_id").eq("business_id", businessId).eq("is_active", true).in("role_id", roleIds),
   ]);
 
   const permissionKeysByRole = new Map<string, string[]>();
@@ -139,7 +141,7 @@ export async function createStaffRole(
   businessId: string,
   input: { name: string; description?: string | null }
 ): Promise<ActionResult<StaffRoleRow>> {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageRoles(businessId);
   if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
 
   const nameError = validateRoleName(input.name);
@@ -172,7 +174,7 @@ export async function updateStaffRole(
   businessId: string,
   input: { name?: string; description?: string | null }
 ): Promise<ActionResult<StaffRoleRow>> {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageRoles(businessId);
   if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
 
   const updates: Record<string, unknown> = {};
@@ -221,13 +223,7 @@ export async function updateStaffRole(
 }
 
 async function countActiveRoleAssignments(roleId: string): Promise<number> {
-  const supabase = await createSupabaseServer();
-  const { count } = await supabase
-    .from("staff_member_roles")
-    .select("id", { count: "exact", head: true })
-    .eq("role_id", roleId)
-    .eq("is_active", true);
-  return count ?? 0;
+  return countActiveRoleAssignmentsAdmin(roleId);
 }
 
 export async function setStaffRoleActive(
@@ -235,7 +231,7 @@ export async function setStaffRoleActive(
   businessId: string,
   isActive: boolean
 ): Promise<ActionResult<StaffRoleRow>> {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageRoles(businessId);
   if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
 
   if (!isActive) {
@@ -273,7 +269,7 @@ export async function setStaffRoleActive(
 }
 
 export async function deleteStaffRole(roleId: string, businessId: string): Promise<ActionResult<null>> {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageRoles(businessId);
   if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
 
   const assigned = await countActiveRoleAssignments(roleId);
@@ -315,7 +311,7 @@ export async function setRolePermissions(
   businessId: string,
   permissionKeys: string[]
 ): Promise<ActionResult<string[]>> {
-  const auth = await assertCanManageBusiness(businessId);
+  const auth = await assertCanManageRoles(businessId);
   if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
 
   const supabase = await createSupabaseServer();
@@ -361,10 +357,19 @@ export async function setRolePermissions(
   }
 
   if (toDeleteRowIds.length > 0) {
-    const { error: deleteError } = await supabase.from("staff_role_permissions").delete().in("id", toDeleteRowIds);
+    const { data: deletedRows, error: deleteError } = await supabase
+      .from("staff_role_permissions")
+      .delete()
+      .in("id", toDeleteRowIds)
+      .select("id");
     if (deleteError) {
       const mapped = mapStaffError(deleteError);
       return { success: false, error: mapped.message, code: mapped.code };
+    }
+    // RLS reports a denied delete as zero rows, not an error: never report success for it.
+    if ((deletedRows ?? []).length !== toDeleteRowIds.length) {
+      revalidateRolesPaths();
+      return { success: false, error: NOT_FOUND_OR_DENIED.message, code: NOT_FOUND_OR_DENIED.code };
     }
   }
 
