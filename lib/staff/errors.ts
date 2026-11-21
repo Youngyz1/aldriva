@@ -78,6 +78,7 @@ const HINT_ERRORS: Record<string, StaffError> = {
   last_owner_removal_denied: { code: "last_owner_removal_denied", message: "At least one owner must remain." },
   invitation_invalid: { code: "invitation_invalid", message: "This invitation isn't valid for this account, or it has expired." },
   staff_identity_change_denied: { code: "staff_identity_change_denied", message: "Only an owner or admin can link or unlink a staff member's login." },
+  role_identity_change_denied: { code: "role_identity_change_denied", message: "A role can't be moved to another business or changed to another type." },
 };
 
 export const NOT_FOUND_OR_DENIED: StaffError = {

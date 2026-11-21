@@ -1912,6 +1912,7 @@
     "last_owner_removal_denied": "At least one owner must remain.",
     "invitation_invalid": "This invitation isn't valid for this account, or it has expired.",
     "staff_identity_change_denied": "Only an owner or admin can link or unlink a staff member's login.",
+    "role_identity_change_denied": "A role can't be moved to another business or changed to another type.",
     "duplicate_login": "This login is already linked to another staff member in this business.",
     "branch_mismatch": "That branch doesn't belong to this business.",
     "not_allowed": "You don't have permission to do that.",

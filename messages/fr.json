@@ -1912,6 +1912,7 @@
     "last_owner_removal_denied": "Au moins un propriétaire doit rester.",
     "invitation_invalid": "Cette invitation n'est pas valide pour ce compte, ou elle a expiré.",
     "staff_identity_change_denied": "Seul un propriétaire ou un administrateur peut lier ou délier la connexion d'un membre du personnel.",
+    "role_identity_change_denied": "Un rôle ne peut pas être déplacé vers une autre entreprise ni changer de type.",
     "duplicate_login": "Ce compte de connexion est déjà lié à un autre membre du personnel de cette entreprise.",
     "branch_mismatch": "Cette succursale n'appartient pas à cette entreprise.",
     "not_allowed": "Vous n'avez pas la permission de faire cela.",
