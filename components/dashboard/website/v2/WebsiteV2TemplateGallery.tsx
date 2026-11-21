@@ -18,7 +18,7 @@ interface WebsiteV2TemplateGalleryProps {
   canCreate: boolean;
 }
 
-async function V2TemplateCardPreview({
+export async function V2TemplateCardPreview({
   templateId,
   businessName,
   businessLogo,

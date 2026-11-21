@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
@@ -83,20 +84,32 @@ export default async function ShowcaseTemplatePublicPreviewPage({ params }: Prop
       data-site-template={template.id}
       className="public-site min-h-screen flex flex-col bg-[var(--ps-surface)] text-[var(--ps-text)]"
     >
-      {/* Slim top bar. Not sticky: V2SiteHeader below is itself sticky
-          top-0, and stacking two competing sticky bars at the same offset
-          without also patching that shared component would make this bar
-          get covered by it on scroll. */}
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-2.5 text-sm">
-        <Link href="/templates" className="font-semibold text-zinc-700 hover:text-orange-600">
-          ← Back to templates
-        </Link>
-        <Link
-          href="/dashboard/website/new?templateId=showcase"
-          className="rounded-xl bg-zinc-950 px-4 py-2 font-semibold text-white transition hover:bg-zinc-800"
-        >
-          Use this template
-        </Link>
+      {/* Minimal header + slim action bar, combined into one row. Navbar is
+          excluded on this route, so the logo/Log in link here is the only
+          way back to / or to /login. Not sticky: V2SiteHeader below is
+          itself sticky top-0, and stacking two competing sticky bars at the
+          same offset without also patching that shared component would make
+          this bar get covered by it on scroll. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-2.5 text-sm">
+        <div className="flex items-center gap-4">
+          <Link href="/" aria-label="Aldriva home">
+            <BrandMark className="[&>img]:h-7 [&>img]:max-w-[6rem]" />
+          </Link>
+          <Link href="/templates" className="font-semibold text-zinc-700 hover:text-orange-600">
+            ← Back to templates
+          </Link>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="font-semibold text-zinc-700 hover:text-orange-600">
+            Log in
+          </Link>
+          <Link
+            href="/dashboard/website/new?templateId=showcase"
+            className="rounded-xl bg-zinc-950 px-4 py-2 font-semibold text-white transition hover:bg-zinc-800"
+          >
+            Use this template
+          </Link>
+        </div>
       </div>
 
       <V2SiteHeader
