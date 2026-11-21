@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { CatalogCard } from "./CatalogCard";
 import { ItemDetailSheet } from "./StorefrontBrowse";
 import type { ResolvedMenuItem } from "@/lib/website-embeds";
-import type { BrowseItem } from "@/lib/storefront-browse";
+import type { BrowseItem, BrowseOptionGroup } from "@/lib/storefront-browse";
 import type { StorefrontBrowseLabels, StorefrontOrderConfig } from "./StorefrontBrowse";
 import { formatCurrency } from "@/lib/format-locale";
+import { safeImageSrc } from "@/lib/image-url";
 import {
   createStorefrontCartLineId,
   loadStorefrontCart,
@@ -37,6 +38,42 @@ interface HomePopularCarouselProps {
 function hasQuickAddBlockingOptions(groups: ResolvedMenuItem["option_groups"]): boolean {
   if (!groups || groups.length === 0) return false;
   return groups.some((group) => group.options.some((option) => option.is_available !== false));
+}
+
+/** Mirrors BlockRenderer's menu_embed option-group mapping so the Home
+ * item sheet shows the same groups the catalog page's sheet would. */
+function mapOptionGroups(
+  item: ResolvedMenuItem,
+  currency: string,
+  locale: "en" | "fr"
+): BrowseOptionGroup[] {
+  return (item.option_groups || []).map((og) => ({
+    id: og.id,
+    name: og.name,
+    required: og.required,
+    min: og.min,
+    max: og.max,
+    kind: og.kind || "addon",
+    options: og.options.map((opt) => ({
+      id: opt.id,
+      name: opt.name,
+      description: opt.description ?? null,
+      imageUrl: safeImageSrc(opt.image_url) || null,
+      allergens: Array.isArray(opt.allergens) ? opt.allergens : [],
+      priceDelta: og.kind === "variant" ? 0 : Number(opt.price_delta) || 0,
+      price: Number(opt.price) || 0,
+      isDefault: Boolean(opt.is_default),
+      isAvailable: opt.is_available !== false,
+      maxQty: opt.max_qty ?? 1,
+      priceDeltaLabel: og.kind === "variant"
+        ? formatCurrency(Number(opt.price), currency, locale)
+        : opt.price_delta !== 0
+          ? (opt.price_delta > 0
+              ? `+${formatCurrency(opt.price_delta, currency, locale)}`
+              : formatCurrency(opt.price_delta, currency, locale))
+          : undefined,
+    })),
+  }));
 }
 
 function mapItem(
@@ -114,7 +151,7 @@ export function HomePopularCarousel({
         isSoldOut: selected.is_sold_out ?? false,
         tags: selected.dietary_tags,
         detailRows: [],
-        optionGroups: [],
+        optionGroups: mapOptionGroups(selected, currency, locale),
         isNew: selected.is_new ?? false,
         isPopular: selected.is_popular ?? false,
       }
@@ -224,7 +261,7 @@ export function HomePopularCarousel({
           numericPrice={Number(selected.effective_price ?? selected.price)}
           pricingItem={pricingItem}
           isSoldOut={selected.is_sold_out ?? false}
-          optionGroups={[]}
+          optionGroups={mapOptionGroups(selected, currency, locale)}
           tags={selected.dietary_tags}
           detailRows={[]}
           action={undefined}

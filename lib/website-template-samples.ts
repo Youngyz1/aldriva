@@ -347,6 +347,7 @@ const showcaseMenuItem = (item: {
   effective_price?: number;
   original_price?: number;
   discount_per_unit?: number;
+  option_groups?: PreviewMenuSection["items"][number]["option_groups"];
 }): PreviewMenuSection["items"][number] => ({
   id: item.id,
   name: item.name,
@@ -364,7 +365,55 @@ const showcaseMenuItem = (item: {
   ...(item.effective_price !== undefined ? { effective_price: item.effective_price } : {}),
   ...(item.original_price !== undefined ? { original_price: item.original_price } : {}),
   ...(item.discount_per_unit !== undefined ? { discount_per_unit: item.discount_per_unit } : {}),
+  ...(item.option_groups !== undefined ? { option_groups: item.option_groups } : {}),
 });
+
+/**
+ * Sample option groups for the Showcase item sheet preview (Task 2):
+ * a required size variant plus two optional add-on groups. Render-only —
+ * never written to a business's content document (see isSample above).
+ */
+function showcaseSizeAndAddons(basePrice: number): PreviewMenuSection["items"][number]["option_groups"] {
+  return [
+    {
+      id: "sample-group-size",
+      name: "Choose a size",
+      required: true,
+      min: 1,
+      max: 1,
+      kind: "variant",
+      options: [
+        { id: "sample-size-small", name: "Small", price: basePrice, price_delta: 0, is_default: true, is_available: true },
+        { id: "sample-size-large", name: "Large", price: basePrice + 4, price_delta: 0, is_available: true },
+      ],
+    },
+    {
+      id: "sample-group-extras",
+      name: "Extras",
+      required: false,
+      min: 0,
+      max: 3,
+      kind: "addon",
+      options: [
+        { id: "sample-extra-meat", name: "Extra meat", price_delta: 3, max_qty: 2, is_available: true },
+        { id: "sample-extra-fish", name: "Extra fish", price_delta: 4, max_qty: 2, is_available: true },
+        { id: "sample-extra-plantain", name: "Fried plantain", price_delta: 2, max_qty: 2, is_available: true },
+      ],
+    },
+    {
+      id: "sample-group-drinks",
+      name: "Drinks",
+      required: false,
+      min: 0,
+      max: 2,
+      kind: "addon",
+      options: [
+        { id: "sample-drink-cola", name: "Coca-Cola", price_delta: 2, is_available: true },
+        { id: "sample-drink-water", name: "Water", price_delta: 1, is_available: true },
+      ],
+    },
+  ];
+}
 
 export const SHOWCASE_PREVIEW_MENU: PreviewMenuSection[] = [
   showcaseMenuSection("sample-soups-rice", "Soups & Rice", "Comfort bowls, made to order.", [
@@ -396,6 +445,7 @@ export const SHOWCASE_PREVIEW_MENU: PreviewMenuSection[] = [
       allergens: ["Soy", "Egg"],
       is_featured: true,
       is_popular: true,
+      option_groups: showcaseSizeAndAddons(14),
     }),
   ]),
   showcaseMenuSection("sample-grills-mains", "Grills & Mains", "From the grill and the plancha.", [
@@ -430,6 +480,7 @@ export const SHOWCASE_PREVIEW_MENU: PreviewMenuSection[] = [
       image_url: ph("showcase", "menu-burger.webp"),
       dietary_tags: [],
       allergens: ["Gluten", "Milk", "Egg"],
+      option_groups: showcaseSizeAndAddons(15),
     }),
   ]),
   showcaseMenuSection("sample-sweets-drinks", "Sweets & Drinks", "Something sweet, something hot.", [
