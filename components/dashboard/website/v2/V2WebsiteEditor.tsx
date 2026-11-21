@@ -210,14 +210,20 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
   // Dishes live in their own table (menu_items), not the website draft, so
   // adding one via the Menu drawer never goes through the save queue above —
   // refreshMenuItems() below still needs to make it into Showcase's
-  // server-rendered preview body the same way a draft save does.
-  const isFirstMenuItemsRenderRef = useRef(true);
+  // server-rendered preview body the same way a draft save does. Keyed on
+  // the sorted id set (not array identity): refreshMenuItems() always
+  // returns a new array reference even when nothing actually changed, which
+  // would otherwise reload the iframe on every refetch.
+  const menuItemsKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isFirstMenuItemsRenderRef.current) {
-      isFirstMenuItemsRenderRef.current = false;
+    const key = currentMenuItems.map((item) => item.id).sort().join(",");
+    if (menuItemsKeyRef.current === null) {
+      menuItemsKeyRef.current = key;
       return;
     }
-    setPreviewReloadKey((key) => key + 1);
+    if (key === menuItemsKeyRef.current) return;
+    menuItemsKeyRef.current = key;
+    setPreviewReloadKey((count) => count + 1);
   }, [currentMenuItems]);
 
   const sendSave = useCallback((draft: ContentDoc) => {
