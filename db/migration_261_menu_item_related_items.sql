@@ -1,4 +1,4 @@
--- Migration 196: owner-picked "You might also like" suggestions.
+-- Migration 261: owner-picked "You might also like" suggestions.
 -- PROPOSED — NOT APPLIED. Written for review only (Showcase Task 3,
 -- Discovery 0d-iii: no related/recommended/pairs-with field exists today
 -- on menu_items, products, or services; the Showcase item sheet currently

@@ -595,7 +595,7 @@ export function StorefrontBrowse({
 
   // "You might also like" (Task 3): same category first, then Popular;
   // excludes the current item and sold-out items; up to 4. No owner-picked
-  // field exists yet (Discovery 0d — see db/migration_196, proposed/not
+  // field exists yet (Discovery 0d — see db/migration_261, proposed/not
   // applied), so this is always the automatic fallback today.
   const suggestions = useMemo(() => {
     if (!selected || appearance !== "showcase" || relatedItemsEnabled === false) return [];

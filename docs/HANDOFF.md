@@ -100,7 +100,12 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
 | 190 | Kitchen & delivery — live GPS and transit tracking | **Applied on staging per owner report**; rollback + mirror exist | `feat/phase-2-couriers` |
 | 191 | Kitchen & delivery — courier performance & customer rating | Authored forward + rollback; mirror exists; owner will apply to staging | `feat/phase-2-couriers` |
 | 192 | Kitchen & delivery — early dispatch and location sharing reliability | Owner reports applied on staging and postchecks passed; not independently queried here; guarded rollback + Supabase mirror exist | `staging` |
-| 193+ | unassigned | free as of 2026-10-24 | — |
+| 193 | Events — team members active-user index | Applied; mirror exists | `chore/migration-sync-154-193` |
+| 194 | Staging drift sync | Applied; drift reconciliation for create_website_from_template, orders rider checks, organizers trigger, website_content privileges | `staging` |
+| 260 | Promotions — highlight offer type + product/page destinations | Authored forward + rollback + Supabase mirror; NOT applied; adds `highlight` to offer_type, `product`/`page` to destination_type, `destination_product_id`/`destination_page` columns. Renumbered from a draft 195 — 197-257 are already taken across other, not-yet-merged branches (verified via `git ls-tree` on every local/remote ref). | `feat/showcase-design` |
+| 261 | Menu items — owner-picked related item ids | **PROPOSED, NOT APPLIED** (written for review only); additive `menu_items.related_item_ids uuid[]` (max 4), no existing column touched | `feat/showcase-design` |
+| 197-259 | various in-flight work | assigned across other branches not yet merged to staging — do not reuse (VERIFIED — `git ls-tree` on every local/remote ref, highest seen is 257 on `feat/roles-ui`/`feat/staff-management`) | multiple |
+| 262+ | unassigned | free | — |
 | **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
 
 ---
