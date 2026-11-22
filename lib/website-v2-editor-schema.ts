@@ -185,6 +185,8 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
 const ALIASES: Record<string, string[]> = {
   "nav.cta": ["nav.cta", "hero.cta_primary"],
   "hours.table": ["hours.table", "hero.open_tag"],
+  // Showcase replaced the single hero.image slot with a multi-photo hero.images slot.
+  "hero.image": ["hero.image", "hero.images"],
 };
 
 function isFilled(value: unknown): boolean {

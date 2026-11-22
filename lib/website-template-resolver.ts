@@ -23,6 +23,7 @@
 import type {
   Block,
   BlockType,
+  HeroBlock,
   MenuEmbedBlock,
   ProductsEmbedBlock,
 } from "./website-blocks";
@@ -477,7 +478,16 @@ function sourceEntriesForBlock(
     add("heading", "hero.headline", "hero_headline", Boolean(object.heading) || !isValueAvailable("hero_headline"));
     add("subheading", "hero.subtext", "hero_subtext", Boolean(object.subheading));
     add("tagline", "hero.tagline", "tagline", Boolean(object.tagline));
-    add("image", "hero.image", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+    if (ctx.template.id === "showcase") {
+      const heroImageRows = indexedStrings(effectiveValue(ctx, "hero_images")).slice(0, (block as HeroBlock).images?.length ?? 0);
+      if (heroImageRows.length > 0) {
+        heroImageRows.forEach((row, index) => add("images[" + index + "].src", "hero.images", "hero_images", true, { itemIndex: row.index }));
+      } else {
+        add("images[0].src", "hero.images", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+      }
+    } else {
+      add("image", "hero.image", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+    }
     add("ctaLabel", "hero.cta_primary", "primary_cta_label", Boolean(object.ctaLabel));
     add("secondaryCtaLabel", "hero.cta_secondary", "secondary_cta_label", Boolean(object.secondaryCtaLabel));
     add("badge", "hero.open_tag", "hours", Boolean(object.badge), { subfield: "today_tag" });
@@ -615,11 +625,20 @@ function buildHero(ctx: BuildContext): Block | null {
   const isRestaurantEditorial = isTableFlame || isSavannah;
 
   if (isShowcase) {
-    const heroImage = asString(take(ctx, "hero_image", "hero.image"));
+    const heroImagesRaw = asStringArray(take(ctx, "hero_images", "hero.images"));
+    // Legacy single hero_image reads under the same "hero.images" slot id so
+    // sample/checklist bookkeeping never points at the retired "hero.image" slot.
+    const legacyHeroImage = asString(take(ctx, "hero_image", "hero.images"));
+    const heroImages = (heroImagesRaw && heroImagesRaw.length > 0
+      ? heroImagesRaw
+      : legacyHeroImage ? [legacyHeroImage] : []
+    ).slice(0, 6);
+    const heroImage = heroImages[0];
     const heroHeadline = asString(take(ctx, "hero_headline", "hero.headline"));
     const heroSubtext = asString(take(ctx, "hero_subtext", "hero.subtext"));
     // Nothing filled in: the hero is hidden entirely.
-    if (!heroImage && !heroHeadline && !heroSubtext) return null;
+    if (heroImages.length === 0 && !heroHeadline && !heroSubtext) return null;
+    const images = heroImages.map((src, index) => ({ src, alt: `${heroHeadline || "Hero"} photo ${index + 1}` }));
     const catalogName = resolveCatalogName(ctx);
     const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
     const contactPage = ctx.template.pages.find((p) => p.purpose === "contact");
@@ -635,8 +654,6 @@ function buildHero(ctx: BuildContext): Block | null {
     const defaultCtaLabel = ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel;
     const defaultCtaHref = ordering ? catalogHref : contactHref;
     const secondaryCtaLabel = asString(take(ctx, "secondary_cta_label", "hero.cta_secondary"));
-    const extras = asRecord(effectiveValue(ctx, "template_extras"));
-    const imageFraming = asString(extras?.heroImageFraming);
     return {
       type: "hero",
       variant: "full-bleed",
@@ -644,16 +661,14 @@ function buildHero(ctx: BuildContext): Block | null {
       tagline: asString(take(ctx, "tagline", "hero.tagline")),
       heading: heroHeadline,
       subheading: heroSubtext,
+      // Back-compat convenience mirror of images[0] (builder canvas thumbnail, etc.).
       backgroundImage: heroImage,
+      ...(images.length > 0 ? { images } : {}),
       ctaLabel: primaryCtaLabel || defaultCtaLabel,
       ctaHref: defaultCtaHref || "",
       ...(secondaryCtaLabel && ordering && contactHref
         ? { secondaryCtaLabel: contactLabel, secondaryCtaHref: contactHref }
         : {}),
-      ...(imageFraming === "fill-top" || imageFraming === "fill-bottom" || imageFraming === "full"
-        ? { imageFraming }
-        : {}),
-      scrim: true,
     } as Block;
   }
 

@@ -32,6 +32,7 @@ import { sanitizeUrl } from "@/lib/sanitize-url";
 import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
 import { CatalogCarousel } from "./CatalogCard";
+import { HeroImageCarousel } from "@/components/site/HeroImageCarousel";
 import {
   Block,
   HeroBlock,
@@ -221,93 +222,41 @@ export function HeroBlockRenderer({
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
 
   if (block.variant === "full-bleed" && showcase) {
-    const hasPhoto = Boolean(safeBgImage);
     const accent = accentColor || "var(--ps-accent)";
-    const isFullPhoto = block.imageFraming === "full";
-    const imagePosition = isFullPhoto
-      ? undefined
-      : block.imageFraming === "fill-top"
-        ? "70% 0%"
-        : block.imageFraming === "fill-bottom"
-          ? "70% 100%"
-          : block.imagePosition || "70% 50%";
+    const heroImages = (block.images ?? [])
+      .slice(0, 6)
+      .flatMap((image) => {
+        const src = safeImageSrc(image.src);
+        return src ? [{ src, alt: image.alt || block.heading || "" }] : [];
+      });
+    const hasPhotos = heroImages.length > 0;
     return (
-      <section className="relative w-full overflow-hidden h-[320px] md:h-[520px]" data-site-motion-hero>
-        {hasPhoto && isFullPhoto ? (
-          <>
-            {/* "Show full photo": blurred/darkened backdrop fills the band, sharp copy sits contained on top. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={safeBgImage}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full scale-110 object-cover blur-[24px] brightness-[0.55]"
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={safeBgImage} alt="" className="absolute inset-0 h-full w-full object-contain" />
-          </>
-        ) : hasPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={safeBgImage}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: imagePosition }}
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{ backgroundImage: "linear-gradient(135deg, var(--tf-soft) 0%, var(--tf-base) 100%)" }}
-          />
-        )}
-        {hasPhoto ? (
-          <>
-            {/* Mobile: bottom-up scrim, at least 60% opaque where the text sits. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 md:hidden"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to top, rgba(var(--tf-scrim-rgb), 0.72) 0%, rgba(var(--tf-scrim-rgb), 0.62) 45%, transparent 85%)",
-              }}
-            />
-            {/* Desktop: left-to-right scrim, text reads against the opaque side. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 hidden md:block"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgba(var(--tf-scrim-rgb), 0.72) 0%, rgba(var(--tf-scrim-rgb), 0.62) 45%, transparent 75%)",
-              }}
-            />
-          </>
-        ) : null}
-        <div className="relative z-10 flex h-full w-full items-end md:items-center">
-          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6">
-            <div className={`max-w-[560px] pb-6 md:pb-0 ${hasPhoto ? "text-[var(--tf-on-scrim)]" : "text-[var(--tf-ink)]"}`}>
+      <section className="relative w-full overflow-hidden bg-[var(--tf-soft)]" data-site-motion-hero>
+        <div className="mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-6 md:py-16">
+          <div className={`flex flex-col gap-8 ${hasPhotos ? "md:flex-row md:items-center" : "items-center text-center"}`}>
+            <div className={hasPhotos ? "md:w-1/2" : "max-w-[640px]"}>
               {block.tagline ? (
-                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em]">
+                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-ink)]">
                   {block.tagline}
                 </p>
               ) : null}
               {block.heading ? (
-                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline">
+                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline text-[var(--tf-ink)]">
                   {block.heading}
                 </h1>
               ) : null}
               {block.subheading ? (
-                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 line-clamp-1 text-sm leading-relaxed md:text-base">
+                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 text-sm leading-relaxed text-[var(--tf-muted)] md:text-base">
                   {block.subheading}
                 </p>
               ) : null}
               {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
-                <div className="mt-5 flex flex-wrap items-center gap-3">
+                <div className={`mt-5 flex flex-wrap items-center gap-3 ${hasPhotos ? "" : "justify-center"}`}>
                   {block.ctaLabel && safeCtaHref ? (
                     <a
                       {...elementPathProps(editMode, sourceMap, "ctaLabel")}
                       href={safeCtaHref}
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-on-scrim)]"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
                       style={{ backgroundColor: accent, color: "var(--tf-on-accent)" }}
                     >
                       {block.ctaLabel}
@@ -318,7 +267,7 @@ export function HeroBlockRenderer({
                     <a
                       {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
                       href={safeSecCtaHref}
-                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 ${hasPhoto ? "border-[var(--tf-on-scrim)] text-[var(--tf-on-scrim)] focus-visible:outline-[var(--tf-on-scrim)]" : "border-[var(--tf-ink)] text-[var(--tf-ink)] focus-visible:outline-[var(--tf-ink)]"}`}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] border-[var(--tf-ink)] px-5 py-2 text-sm font-semibold text-[var(--tf-ink)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
                     >
                       {block.secondaryCtaLabel}
                     </a>
@@ -326,6 +275,12 @@ export function HeroBlockRenderer({
                 </div>
               ) : null}
             </div>
+
+            {hasPhotos ? (
+              <div className="w-full md:w-1/2" {...elementPathProps(editMode, sourceMap, "images[0].src")}>
+                <HeroImageCarousel images={heroImages} />
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

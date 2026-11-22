@@ -48,6 +48,7 @@ export type SharedContentKey = (typeof SHARED_CONTENT_KEYS)[number];
 
 export const OPTIONAL_CONTENT_KEYS = [
   "secondary_cta_label",
+  "hero_images",
   "stats",
   "highlights",
   "trust",
@@ -381,6 +382,15 @@ export function normalizeContent(input: unknown): ContentDoc {
     ?.map((src) => safeImageSrc(src))
     .filter((src): src is string => !!src);
   if (gallery && gallery.length > 0) out.gallery_images = gallery;
+
+  const heroImages = clampStringArray(
+    input.hero_images,
+    6,
+    BLOCK_LIMITS.URL_MAX_LENGTH
+  )
+    ?.map((src) => safeImageSrc(src))
+    .filter((src): src is string => !!src);
+  if (heroImages && heroImages.length > 0) out.hero_images = heroImages;
 
   const testimonials = normalizeTestimonials(input.testimonials);
   if (testimonials) out.testimonials = testimonials;

@@ -3,37 +3,26 @@ import { safeImageSrc } from "@/lib/image-url";
 export interface FramedImageProps {
   src: string;
   alt: string;
-  /** Tailwind aspect-ratio class for the frame, e.g. "aspect-[16/9]" (default) or "aspect-square". */
-  aspectClassName?: string;
   className?: string;
 }
 
 /**
- * Fixed-aspect image frame: the whole photo stays visible (object-contain)
- * over a blurred, scaled-up copy of the same photo as backdrop, so there are
- * never empty letterbox bars regardless of the source image's own aspect
- * ratio. Shared across Showcase blocks that show a single dashboard-managed
- * photo (promo cards, etc.) rather than a crop.
+ * Picture-mat: the whole photo stays visible (object-contain, never cropped)
+ * at its natural aspect ratio, centred on a solid soft-tint mat instead of a
+ * blurred backdrop copy — no fixed aspect ratio, so no forced empty bars.
+ * Shared across Showcase blocks that show a single dashboard-managed photo
+ * (promo cards, hero) rather than a crop.
  */
-export function FramedImage({ src, alt, aspectClassName = "aspect-[16/9]", className = "" }: FramedImageProps) {
+export function FramedImage({ src, alt, className = "" }: FramedImageProps) {
   const safeSrc = safeImageSrc(src);
   if (!safeSrc) return null;
   return (
-    <div className={`relative overflow-hidden rounded-[20px] bg-[var(--tf-soft)] ${aspectClassName} ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={safeSrc}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full scale-110 object-cover blur-[24px] brightness-[0.6]"
-        loading="lazy"
-        decoding="async"
-      />
+    <div className={`flex items-center justify-center rounded-[20px] border border-[var(--tf-border)] bg-[var(--tf-soft)] p-4 md:p-6 ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={safeSrc}
         alt={alt}
-        className="absolute inset-0 h-full w-full object-contain"
+        className="h-auto max-h-[420px] w-auto max-w-full rounded-[8px] object-contain md:max-h-[380px]"
         loading="lazy"
         decoding="async"
       />

@@ -96,9 +96,10 @@ export interface HeroBlock extends BaseBlock {
   metaPills?: Array<{ label: string; href?: string }>;
   /** True only when this hero supplies the deterministic header scrim signal. */
   scrim?: boolean;
-  /** Showcase only. Resolver-computed from template_extras.heroImageFraming.
-   * Unset/"fill-center" keeps today's cover+70%-horizontal-center behavior. */
-  imageFraming?: "fill-top" | "fill-bottom" | "full";
+  /** Showcase only. Up to 6 pictures shown in a swipeable picture-mat frame
+   * beside the hero text; resolver-computed from hero_images (falling back
+   * to the legacy single hero_image when unset). Replaces imageFraming. */
+  images?: GalleryImage[];
 }
 
 export interface FeatureItem extends WithItemId {
@@ -1988,7 +1989,6 @@ export function parseBlock(raw: unknown): Block | null {
           const href = sanitizeUrl(pill.href) || undefined;
           return label ? [{ label, ...(href ? { href } : {}) }] : [];
         }) : undefined,
-        imageFraming: obj.imageFraming === "fill-top" || obj.imageFraming === "fill-bottom" || obj.imageFraming === "full" ? obj.imageFraming : undefined,
       };
 
     case "features":

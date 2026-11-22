@@ -59,10 +59,10 @@ function trimButton(text?: string | null): string {
  * Lives inside the page container (not full-bleed): the hero band owns the
  * full-bleed, never-slidable treatment (see HeroBlockRenderer).
  *
- * Image is a fixed 16:9 FramedImage (whole photo visible, no crop); the
- * headline/subtext/button sit in a caption area below it, not overlaid on
- * top — so there's no scrim/legibility concern and no need to split the
- * card into a backdrop+foreground pair at wide (desktop) widths.
+ * Image is a FramedImage picture-mat (whole photo visible, no crop, no
+ * fixed aspect ratio); the headline/subtext/button sit beside it on desktop
+ * (>=768px) and below it on mobile — never overlaid on top, so there's no
+ * scrim/legibility concern.
  */
 export function PromoCarousel({
   promotions,
@@ -214,35 +214,39 @@ export function PromoCarousel({
               aria-label={labels.slideNofM.replace("{current}", String(idx + 1)).replace("{total}", String(totalSlides))}
               className={`relative flex-shrink-0 snap-start ${slideWidthClass}`}
             >
-              {slide.imageUrl ? (
-                <FramedImage src={slide.imageUrl} alt={slide.headline} aspectClassName="aspect-[16/9]" />
-              ) : null}
-
-              <div className="mt-3">
-                <span className="mb-1.5 inline-block rounded-full border border-[var(--tf-border)] px-2 py-0.5 text-[10px] font-semibold leading-none text-[var(--tf-accent-deep)]">
-                  {getOfferLabel(slide)}
-                </span>
-
-                <h3 className="showcase-promo-card-headline line-clamp-2 text-[var(--tf-ink)]">
-                  {slide.headline}
-                </h3>
-
-                {slide.description ? (
-                  <p className="showcase-promo-subtext mt-1 line-clamp-2 text-[var(--tf-muted)]">
-                    {slide.description}
-                  </p>
+              <div className={`flex flex-col gap-4 ${slide.imageUrl ? "md:flex-row md:items-center" : ""}`}>
+                {slide.imageUrl ? (
+                  <div className="md:w-1/2">
+                    <FramedImage src={slide.imageUrl} alt={slide.headline} />
+                  </div>
                 ) : null}
 
-                {slide.href && slide.buttonLabel ? (
-                  <a
-                    href={slide.href}
-                    {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                    className="mt-2 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-                  >
-                    {slide.buttonLabel}
-                    <IconArrowRight size={12} aria-hidden="true" />
-                  </a>
-                ) : null}
+                <div className={slide.imageUrl ? "md:w-1/2" : "w-full"}>
+                  <span className="mb-1.5 inline-block rounded-full border border-[var(--tf-border)] px-2 py-0.5 text-[10px] font-semibold leading-none text-[var(--tf-accent-deep)]">
+                    {getOfferLabel(slide)}
+                  </span>
+
+                  <h3 className="showcase-promo-card-headline line-clamp-2 text-[var(--tf-ink)]">
+                    {slide.headline}
+                  </h3>
+
+                  {slide.description ? (
+                    <p className="showcase-promo-subtext mt-1 line-clamp-2 text-[var(--tf-muted)]">
+                      {slide.description}
+                    </p>
+                  ) : null}
+
+                  {slide.href && slide.buttonLabel ? (
+                    <a
+                      href={slide.href}
+                      {...(slide.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      className="mt-2 inline-flex min-h-[32px] items-center justify-center gap-1 rounded-full bg-[var(--tf-accent)] px-3.5 py-1 text-xs font-semibold text-[var(--tf-on-accent)] hover:opacity-90 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                    >
+                      {slide.buttonLabel}
+                      <IconArrowRight size={12} aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </div>
               </div>
             </div>
           );

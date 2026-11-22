@@ -123,8 +123,8 @@ export function PromotionsManager({
   const router = useRouter();
   const locale = useLocale();
   const promoImageHint = locale === "fr"
-    ? "Recommandé : 16:9, au moins 1600 x 900 px."
-    : "Recommended 16:9, at least 1600x900.";
+    ? "Toutes les proportions fonctionnent et la photo est affichée en entier. Les photos larges (16:9, au moins 1600 x 900 px) remplissent le mieux le cadre."
+    : "Any shape works and is shown whole. Wide photos (16:9, at least 1600x900) fill the frame best.";
   const canEdit = ["owner", "admin", "manager", "editor"].includes(role);
   const canDelete = ["owner", "admin", "manager"].includes(role);
   const [editing, setEditing] = useState<PromotionRecord | null | "new">(null);

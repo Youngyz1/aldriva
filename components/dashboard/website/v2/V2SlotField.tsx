@@ -208,6 +208,13 @@ export function V2SlotField({
 
       {control.kind === "images" ? (
         <div className="space-y-4">
+          {control.slotIds?.includes("hero.images") ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {locale === "fr"
+                ? "Toutes les proportions fonctionnent et la photo est affichée en entier. Les photos larges (16:9, au moins 1600 x 900 px) remplissent le mieux le cadre."
+                : "Any shape works and is shown whole. Wide photos (16:9, at least 1600x900) fill the frame best."}
+            </p>
+          ) : null}
           {(Array.isArray(value) ? value : []).map((image, index) => (
             <div key={`image-${index}`} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
               <div className="mb-2 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">Photo {index + 1}<button type="button" className="text-rose-600" onClick={() => onChange((value as unknown[]).filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div>
