@@ -175,9 +175,9 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
   {
     id: "hours-location",
     title: "Hours and location",
-    slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list", "contact.whatsapp"],
+    slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list"],
   },
-  { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
+  { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.whatsapp", "contact.directions"] },
   { id: "cta-band", title: "Call to action banner", slotIds: ["cta.heading", "cta.button_label", "cta.button_link"] },
   { id: "footer", title: "Social and footer", slotIds: ["footer.socials", "footer.note"] },
 ];

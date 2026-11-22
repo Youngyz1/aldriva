@@ -262,7 +262,7 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     id: "contact.main",
     page: "contact",
     block: "contact",
-    slots: ["hours.table", "location.address", "location.phone", "location.directions", "contact.email"],
+    slots: ["hours.table", "location.address", "location.phone", "location.directions", "contact.email", "contact.whatsapp"],
   },
   {
     id: "footer",

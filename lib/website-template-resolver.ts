@@ -906,8 +906,13 @@ function buildContact(ctx: BuildContext, heading: string): Block {
   const whatsapp = (() => {
     if (ctx.template.id !== "showcase") return undefined;
     const extras = asRecord(effectiveValue(ctx, "template_extras"));
-    const digits = asString(extras?.whatsappPhone)?.replace(/\D/g, "");
-    return digits && digits.length >= 8 ? digits : undefined;
+    const raw = asString(extras?.whatsappPhone);
+    if (!raw) return undefined;
+    // Strip "+" and any other non-digits, then a leading "00" international
+    // dialing prefix — never guess a country code for an unprefixed local number.
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    return digits.length >= 8 ? digits : undefined;
   })();
   return {
     type: "contact",
