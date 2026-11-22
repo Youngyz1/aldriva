@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 // ── Inner component that reads searchParams ──────────────────────
 function LoginForm() {
@@ -30,7 +31,7 @@ function LoginForm() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const redirectUrl = searchParams.get("redirect") || "/";
+        const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/");
         router.push(redirectUrl);
       }
     });
@@ -43,7 +44,7 @@ function LoginForm() {
   async function handleGoogleLogin() {
     setGoogleLoading(true);
     setError("");
-    const redirectUrl = searchParams.get("redirect") || "/dashboard";
+    const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/dashboard");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -111,7 +112,7 @@ function LoginForm() {
       }
     }
 
-    const redirectUrl = searchParams.get("redirect") || "/";
+    const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/");
     router.push(redirectUrl);
     router.refresh();
   }
