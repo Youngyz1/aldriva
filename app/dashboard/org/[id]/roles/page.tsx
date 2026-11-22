@@ -5,9 +5,8 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOrganizerDashboardBusiness } from "@/lib/organizer-dashboard-classifier";
 import { resolveActiveBusiness, getActiveBusinessCookieName } from "@/lib/active-business";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
-import { listStaffRoles, listStaffPermissions } from "@/lib/actions/staff-roles";
 import { getRolesAccess } from "@/lib/staff/roles-access-server";
-import RolesClient from "@/components/staff/RolesClient";
+import RolesPageBody from "@/components/staff/RolesPageBody";
 
 export default async function OrgRolesPage({
   params,
@@ -62,21 +61,11 @@ export default async function OrgRolesPage({
   const access = await getRolesAccess(activeBusiness.id, auth.scope === "organizer");
   if (!access.canView) return notFound();
 
-  const [rolesResult, permissionsResult] = await Promise.all([
-    listStaffRoles(activeBusiness.id),
-    listStaffPermissions(),
-  ]);
-
   return (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold text-zinc-500">{activeBusiness.name}</p>
-      <RolesClient
-        businessId={activeBusiness.id}
-        initialRoles={rolesResult.success ? rolesResult.data : []}
-        initialError={rolesResult.success ? null : rolesResult.error}
-        permissions={permissionsResult.success ? permissionsResult.data : []}
-        canManage={access.canManage}
-      />
-    </div>
+    <RolesPageBody
+      businessId={activeBusiness.id}
+      businessName={activeBusiness.name}
+      canManage={access.canManage}
+    />
   );
 }

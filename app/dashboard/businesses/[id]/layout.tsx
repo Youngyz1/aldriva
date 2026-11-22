@@ -12,6 +12,7 @@ import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { ManagementShell } from "@/components/management/ManagementShell";
 import { getModulesForBusiness } from "@/lib/business-dashboard-modules";
+import { getRolesAccess } from "@/lib/staff/roles-access-server";
 
 export default async function BusinessLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,6 +24,18 @@ export default async function BusinessLayout({ children, params }: { children: R
     return notFound();
   }
   const isStaffOnly = auth.scope === "staff";
+  // Roles nav item: shown only when the same rule the page enforces says the
+  // caller can view roles. Any error fails closed (no item); the page itself
+  // still gates with notFound().
+  let rolesItems: { label: string; href: string; icon: string }[] = [];
+  try {
+    const rolesAccess = await getRolesAccess(id, auth.scope === "organizer");
+    if (rolesAccess.canView) {
+      rolesItems = [{ label: "Roles", href: `/dashboard/businesses/${id}/roles`, icon: "UserCog" }];
+    }
+  } catch {
+    rolesItems = [];
+  }
   const admin = createSupabaseAdmin();
   const { data: b } = await admin
     .from("businesses")
@@ -76,10 +89,11 @@ export default async function BusinessLayout({ children, params }: { children: R
   const navGroups = [
     {
       items: isStaffOnly
-        ? [{ label: "Staff", href: `${base}/staff`, icon: "UserCog" }]
+        ? [{ label: "Staff", href: `${base}/staff`, icon: "UserCog" }, ...rolesItems]
         : [
             { label: "Overview", href: `${base}/overview`, icon: "LayoutDashboard" },
             ...dynamicItems,
+            ...rolesItems,
             { label: "Settings", href: `${base}/edit`, icon: "Settings" },
           ],
     },
