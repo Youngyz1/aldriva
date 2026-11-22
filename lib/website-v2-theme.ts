@@ -79,6 +79,34 @@ export function getWebsiteBackgroundPattern(template: WebsiteTemplateV2, metadat
     : "none";
 }
 
+/**
+ * Validates a draft's stored appearance choice (the
+ * template_extras.websiteAppearance shape: {paletteId, backgroundPattern})
+ * against the template's current palette/pattern definitions, falling back
+ * to the template default rather than treating an unsupported value as an
+ * error. The one source saveV2WebsiteAppearanceDraft and publishContentDraft
+ * both call, so a value that validated when saved but no longer matches
+ * (template palettes changed since) self-heals on the next save instead of
+ * permanently blocking publish. Returns null only when the template has no
+ * palette support at all — nothing to resolve.
+ */
+export function resolveStoredWebsiteAppearance(
+  template: WebsiteTemplateV2,
+  raw: unknown
+): { paletteId: string; backgroundPattern: "none" | "dots" } | null {
+  if (!template.palettes?.length) return null;
+  const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const paletteId = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId)
+    ? value.paletteId
+    : template.defaultPaletteId ?? template.palettes[0].id;
+  const backgroundPattern = template.patterns?.length
+    ? (typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern)
+        ? value.backgroundPattern as "none" | "dots"
+        : "none")
+    : "none";
+  return { paletteId, backgroundPattern };
+}
+
 export function getWebsiteBackgroundPatternStyle(
   template: WebsiteTemplateV2,
   pattern: "none" | "dots"

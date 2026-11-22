@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
 import {
   createPromotion,
@@ -120,6 +121,10 @@ export function PromotionsManager({
   loadError: string | null;
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const promoImageHint = locale === "fr"
+    ? "Recommandé : 16:9, au moins 1600 x 900 px."
+    : "Recommended 16:9, at least 1600x900.";
   const canEdit = ["owner", "admin", "manager", "editor"].includes(role);
   const canDelete = ["owner", "admin", "manager"].includes(role);
   const [editing, setEditing] = useState<PromotionRecord | null | "new">(null);
@@ -348,7 +353,7 @@ export function PromotionsManager({
                 {form.destination_type === "section" && <Field id="promo-destination-section" label="Menu section destination"><select id="promo-destination-section" className={inputClass} value={form.destination_section_id || ""} onChange={(event) => set("destination_section_id", event.currentTarget.value || null)}><option value="">Choose section</option>{sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></Field>}
                 {form.destination_type === "external" && <Field id="promo-destination-url" label="External HTTPS URL"><input id="promo-destination-url" className={inputClass} type="url" placeholder="https://example.com" value={form.destination_url || ""} onChange={(event) => set("destination_url", event.currentTarget.value)} /></Field>}
               </div>
-              <div className="mt-4"><MediaUploadField label="Promotion image" value={form.image_url || ""} onChange={(url) => set("image_url", url)} tenantId={tenantId} folderSubpath="promotions" /></div>
+              <div className="mt-4"><MediaUploadField label="Promotion image" description={promoImageHint} value={form.image_url || ""} onChange={(url) => set("image_url", url)} tenantId={tenantId} folderSubpath="promotions" /></div>
             </section>
           </div>
           <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
