@@ -32,7 +32,7 @@ import { sanitizeUrl } from "@/lib/sanitize-url";
 import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
 import { CatalogCarousel } from "./CatalogCard";
-import { HeroImageCarousel } from "@/components/site/HeroImageCarousel";
+import { HeroImageCarousel, HeroOverlapImages } from "@/components/site/HeroImageCarousel";
 import {
   Block,
   HeroBlock,
@@ -230,58 +230,73 @@ export function HeroBlockRenderer({
         return src ? [{ src, alt: image.alt || block.heading || "" }] : [];
       });
     const hasPhotos = heroImages.length > 0;
-    return (
-      <section className="relative w-full overflow-hidden bg-[var(--tf-soft)]" data-site-motion-hero>
-        <div className="mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-6 md:py-16">
-          <div className={`flex flex-col gap-8 ${hasPhotos ? "md:flex-row md:items-center" : "items-center text-center"}`}>
-            <div className={hasPhotos ? "md:w-1/2" : "max-w-[640px]"}>
-              {block.tagline ? (
-                <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-ink)]">
-                  {block.tagline}
-                </p>
-              ) : null}
-              {block.heading ? (
-                <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline text-[var(--tf-ink)]">
-                  {block.heading}
-                </h1>
-              ) : null}
-              {block.subheading ? (
-                <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 text-sm leading-relaxed text-[var(--tf-muted)] md:text-base">
-                  {block.subheading}
-                </p>
-              ) : null}
-              {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
-                <div className={`mt-5 flex flex-wrap items-center gap-3 ${hasPhotos ? "" : "justify-center"}`}>
-                  {block.ctaLabel && safeCtaHref ? (
-                    <a
-                      {...elementPathProps(editMode, sourceMap, "ctaLabel")}
-                      href={safeCtaHref}
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
-                      style={{ backgroundColor: accent, color: "var(--tf-on-accent)" }}
-                    >
-                      {block.ctaLabel}
-                    </a>
-                  ) : null}
+    const isOverlapLayout = heroImages.length === 2 || heroImages.length === 3;
 
-                  {block.secondaryCtaLabel && safeSecCtaHref ? (
-                    <a
-                      {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
-                      href={safeSecCtaHref}
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] border-[var(--tf-ink)] px-5 py-2 text-sm font-semibold text-[var(--tf-ink)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
-                    >
-                      {block.secondaryCtaLabel}
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+    const textColumn = (
+      <div className={`flex flex-col justify-center ${hasPhotos ? "md:w-1/2" : "mx-auto max-w-[640px] items-center text-center"}`}>
+        {block.tagline ? (
+          <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-ink)]">
+            {block.tagline}
+          </p>
+        ) : null}
+        {block.heading ? (
+          <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline text-[var(--tf-ink)]">
+            {block.heading}
+          </h1>
+        ) : null}
+        {block.subheading ? (
+          <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 text-sm leading-relaxed text-[var(--tf-muted)] md:text-base">
+            {block.subheading}
+          </p>
+        ) : null}
+        {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
+          <div className={`mt-5 flex flex-wrap items-center gap-3 ${hasPhotos ? "" : "justify-center"}`}>
+            {block.ctaLabel && safeCtaHref ? (
+              <a
+                {...elementPathProps(editMode, sourceMap, "ctaLabel")}
+                href={safeCtaHref}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
+                style={{ backgroundColor: accent, color: "var(--tf-on-accent)" }}
+              >
+                {block.ctaLabel}
+              </a>
+            ) : null}
 
-            {hasPhotos ? (
-              <div className="w-full md:w-1/2" {...elementPathProps(editMode, sourceMap, "images[0].src")}>
-                <HeroImageCarousel images={heroImages} />
-              </div>
+            {block.secondaryCtaLabel && safeSecCtaHref ? (
+              <a
+                {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
+                href={safeSecCtaHref}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] border-[var(--tf-ink)] px-5 py-2 text-sm font-semibold text-[var(--tf-ink)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
+              >
+                {block.secondaryCtaLabel}
+              </a>
             ) : null}
           </div>
+        ) : null}
+      </div>
+    );
+
+    return (
+      <section className="relative w-full overflow-hidden bg-[var(--tf-soft)] md:h-[min(80vh,640px)]" data-site-motion-hero>
+        {hasPhotos ? (
+          <div
+            className="absolute inset-y-0 right-0 hidden w-1/2 items-center justify-center bg-[var(--tf-soft)] md:flex"
+            {...elementPathProps(editMode, sourceMap, "images[0].src")}
+          >
+            {isOverlapLayout ? <HeroOverlapImages images={heroImages} /> : <HeroImageCarousel images={heroImages} />}
+          </div>
+        ) : null}
+
+        <div className="relative mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-5 py-10 sm:px-6 md:h-full md:flex-row md:items-stretch md:py-0">
+          {textColumn}
+
+          {hasPhotos ? (
+            <div className="md:hidden">
+              <div className="flex items-center justify-center rounded-xl bg-[var(--tf-soft)] p-6">
+                <HeroImageCarousel images={heroImages} imageClassName="max-h-[420px] max-w-full rounded-xl object-contain shadow-lg" />
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
     );

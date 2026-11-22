@@ -1,18 +1,22 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { FramedImage } from "./FramedImage";
 
 export interface HeroImageCarouselProps {
   images: Array<{ src: string; alt: string }>;
+  /** Sizing/appearance classes for each <img> — caller controls max-height per breakpoint. */
+  imageClassName?: string;
 }
 
+const DEFAULT_IMAGE_CLASSNAME = "max-h-[min(70vh,560px)] max-w-[90%] rounded-xl object-contain shadow-lg";
+
 /**
- * Showcase hero picture-mat: up to 6 photos swipe inside the frame with
+ * Showcase hero picture carousel: up to 6 photos swipe inside the panel with
  * dots, no autoplay. Native horizontal scroll-snap drives the swipe so it
- * works the same on touch and with the dot buttons.
+ * works the same on touch and with the dot buttons. The panel's tint/border
+ * treatment belongs to the caller — this component only lays out the photos.
  */
-export function HeroImageCarousel({ images }: HeroImageCarouselProps) {
+export function HeroImageCarousel({ images, imageClassName = DEFAULT_IMAGE_CLASSNAME }: HeroImageCarouselProps) {
   const [index, setIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const total = images.length;
@@ -43,15 +47,16 @@ export function HeroImageCarousel({ images }: HeroImageCarouselProps) {
   if (total === 0) return null;
 
   return (
-    <div className="w-full">
+    <div className="flex w-full flex-col items-center">
       <div
         ref={containerRef}
         onScroll={multi ? handleScroll : undefined}
         className={`flex w-full ${multi ? "overflow-x-auto snap-x snap-mandatory scrollbar-none" : ""}`}
       >
         {images.map((image, i) => (
-          <div key={i} className="w-full flex-shrink-0 snap-start">
-            <FramedImage src={image.src} alt={image.alt} />
+          <div key={i} className="flex w-full flex-shrink-0 snap-start items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image.src} alt={image.alt} loading="lazy" decoding="async" className={imageClassName} />
           </div>
         ))}
       </div>
@@ -76,6 +81,47 @@ export function HeroImageCarousel({ images }: HeroImageCarouselProps) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+const OVERLAP_TRANSFORMS: Record<2 | 3, Array<{ rotate: string; translateX: string; zClass: string }>> = {
+  2: [
+    { rotate: "rotate-[-3deg]", translateX: "translate-x-[-10%]", zClass: "z-10" },
+    { rotate: "rotate-[3deg]", translateX: "translate-x-[10%]", zClass: "z-20" },
+  ],
+  3: [
+    { rotate: "rotate-[-3deg]", translateX: "translate-x-[-70px]", zClass: "z-10" },
+    { rotate: "rotate-[0deg]", translateX: "translate-x-0", zClass: "z-20" },
+    { rotate: "rotate-[3deg]", translateX: "translate-x-[70px]", zClass: "z-10" },
+  ],
+};
+
+export interface HeroOverlapImagesProps {
+  images: Array<{ src: string; alt: string }>;
+}
+
+/**
+ * Desktop-only treatment for exactly 2 or 3 hero photos: whole images (no
+ * crop), overlapping with a slight CSS rotation and a hover lift — plain
+ * Tailwind transforms, no animation library.
+ */
+export function HeroOverlapImages({ images }: HeroOverlapImagesProps) {
+  const slots = OVERLAP_TRANSFORMS[images.length as 2 | 3];
+  if (!slots) return null;
+  return (
+    <div className="relative flex h-full w-full items-center justify-center">
+      {images.map((image, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={i}
+          src={image.src}
+          alt={image.alt}
+          loading="lazy"
+          decoding="async"
+          className={`absolute max-h-[min(70vh,560px)] max-w-[90%] rounded-xl object-contain shadow-lg transition-transform duration-200 hover:-translate-y-2 hover:z-30 ${slots[i].rotate} ${slots[i].translateX} ${slots[i].zClass}`}
+        />
+      ))}
     </div>
   );
 }
