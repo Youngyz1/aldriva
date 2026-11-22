@@ -7,15 +7,25 @@ export function isInviteToken(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value.trim());
 }
 
+// The token travels in the URL FRAGMENT: browsers never send it to the server,
+// so it stays out of request logs, analytics and the Referer header.
+export const INVITE_ACCEPT_PATH = "/staff/accept";
+export const INVITE_STORAGE_KEY = "staff-invite-token";
+
 export function buildInviteAcceptPath(token: unknown): string | null {
   if (!isInviteToken(token)) return null;
-  return "/staff/accept?token=" + encodeURIComponent(token.trim());
+  return INVITE_ACCEPT_PATH + "#" + token.trim();
 }
 
-// For visitors with no session: the WHOLE accept path is encoded so the
-// token survives the first "?" when the login page reads ?redirect=.
-export function buildInviteLoginPath(token: unknown): string | null {
-  const accept = buildInviteAcceptPath(token);
-  if (accept === null) return null;
-  return "/login?redirect=" + encodeURIComponent(accept);
+// Reads location.hash ("#<uuid>" or "<uuid>"). Anything else returns null.
+export function parseInviteFragment(hash: unknown): string | null {
+  if (typeof hash !== "string") return null;
+  const v = hash.startsWith("#") ? hash.slice(1) : hash;
+  return isInviteToken(v) ? v.trim() : null;
+}
+
+// For visitors with no session. Carries NO token: the page keeps it in
+// sessionStorage across the login round trip.
+export function buildInviteLoginPath(): string {
+  return "/login?redirect=" + encodeURIComponent(INVITE_ACCEPT_PATH);
 }
