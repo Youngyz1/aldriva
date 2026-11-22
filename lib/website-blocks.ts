@@ -15,6 +15,7 @@ import { sanitizeUrl } from "./sanitize-url";
 import { MAX_ARTICLE_HTML_LENGTH } from "./sanitize-limits";
 import { safeImageSrc } from "./image-url";
 import type { ResolvedMenuItem, ResolvedMenuPromotion, ResolvedMenuSection } from "./website-embeds";
+import type { ContentSocials } from "./website-content";
 
 /**
  * Render-only sample menu/promotion data used by template previews.
@@ -207,6 +208,8 @@ export interface ContactBlock extends BaseBlock {
   variant?: "card";
   /** Showcase only. Digits-only phone number (>= 8 digits) for a wa.me WhatsApp button. */
   whatsapp?: string;
+  /** Showcase only. Shown as an icon row alongside the WhatsApp button. */
+  socials?: ContentSocials;
 }
 
 export interface FaqItem extends WithItemId {

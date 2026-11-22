@@ -29,7 +29,40 @@ const DAYS = [
   ["mon", "monday"], ["tue", "tuesday"], ["wed", "wednesday"],
   ["thu", "thursday"], ["fri", "friday"], ["sat", "saturday"], ["sun", "sunday"],
 ] as const;
-const SOCIALS = [["instagram", "Instagram"], ["facebook", "Facebook"], ["tiktok", "TikTok"], ["x", "X"]] as const;
+const SOCIALS = [
+  ["instagram", "Instagram"],
+  ["facebook", "Facebook"],
+  ["tiktok", "TikTok"],
+  ["x", "X"],
+  ["linkedin", "LinkedIn"],
+  ["youtube", "YouTube"],
+] as const;
+
+const SOCIAL_DOMAINS: Record<string, string[]> = {
+  instagram: ["instagram.com"],
+  facebook: ["facebook.com", "fb.com"],
+  tiktok: ["tiktok.com"],
+  x: ["x.com", "twitter.com"],
+  linkedin: ["linkedin.com"],
+  youtube: ["youtube.com", "youtu.be"],
+};
+
+function socialHostname(url: string): string | undefined {
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  try {
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    return new URL(withScheme).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function detectSocialNetwork(host: string): string | undefined {
+  return Object.keys(SOCIAL_DOMAINS).find((net) =>
+    SOCIAL_DOMAINS[net].some((domain) => host === domain || host.endsWith(`.${domain}`))
+  );
+}
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -315,9 +348,21 @@ export function V2SlotField({
 
       {control.kind === "socials" ? (() => {
         const socials = record(value);
+        const labelFor = (net: string) => SOCIALS.find(([n]) => n === net)?.[1] ?? net;
         return <div className="space-y-3">{SOCIALS.map(([network, networkLabel]) => {
           const current = typeof socials[network] === "string" ? socials[network] as string : "";
-          return <label key={network} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{networkLabel}<input className={`${inputClass} mt-1`} type="url" value={current} maxLength={BLOCK_LIMITS.URL_MAX_LENGTH} onChange={(event) => onChange({ ...socials, [network]: event.currentTarget.value })} onBlur={() => onChange({ ...socials, [network]: current.trim() ? sanitizeUrl(current) : "" })} /><Counter current={current.length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /></label>;
+          const host = socialHostname(current);
+          const detected = host ? detectSocialNetwork(host) : undefined;
+          const mismatch = detected && detected !== network ? labelFor(detected) : undefined;
+          return <label key={network} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{networkLabel}<input className={`${inputClass} mt-1`} type="url" value={current} maxLength={BLOCK_LIMITS.URL_MAX_LENGTH} onChange={(event) => onChange({ ...socials, [network]: event.currentTarget.value })} onBlur={() => onChange({ ...socials, [network]: current.trim() ? sanitizeUrl(current) : "" })} /><Counter current={current.length} max={BLOCK_LIMITS.URL_MAX_LENGTH} />
+            {mismatch ? (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                {locale === "fr"
+                  ? `Cela ressemble à un lien ${mismatch}. Collez-le dans le champ ${mismatch}.`
+                  : `This looks like a ${mismatch} link. Paste it in the ${mismatch} field.`}
+              </p>
+            ) : null}
+          </label>;
         })}</div>;
       })() : null}
 

@@ -33,6 +33,7 @@ import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
 import { CatalogCarousel } from "./CatalogCard";
 import { HeroImageCarousel, HeroOverlapImages } from "@/components/site/HeroImageCarousel";
+import { SocialIconRow } from "@/components/site/SocialIconRow";
 import {
   Block,
   HeroBlock,
@@ -1468,25 +1469,14 @@ function ContactBlockRenderer({
                 ))}
               </div>
 
-              {safeDirections || block.whatsapp ? (
-                <div className="flex flex-wrap gap-3 pt-2">
-                  {safeDirections ? (
-                    <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
-                      {getDirectionsLabel || "Get directions"}
-                    </a>
-                  ) : null}
-                  {block.whatsapp ? (
-                    <a
-                      href={`https://wa.me/${block.whatsapp}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center rounded-lg border border-[var(--tf-border)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-ink)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
-                    >
-                      WhatsApp
-                    </a>
-                  ) : null}
+              {safeDirections ? (
+                <div className="pt-2">
+                  <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
+                    {getDirectionsLabel || "Get directions"}
+                  </a>
                 </div>
               ) : null}
+              <SocialIconRow email={block.email} whatsapp={block.whatsapp} socials={block.socials} className="pt-2" />
             </div>
           ) : null}
         </div>
@@ -1712,16 +1702,9 @@ function ContactBlockRenderer({
             </div>
           ) : null}
 
-          {siteTemplateId === "showcase" && block.whatsapp ? (
+          {siteTemplateId === "showcase" ? (
             <div className="sm:col-span-2">
-              <a
-                href={`https://wa.me/${block.whatsapp}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
-              >
-                WhatsApp
-              </a>
+              <SocialIconRow email={block.email} whatsapp={block.whatsapp} socials={block.socials} />
             </div>
           ) : null}
         </div>

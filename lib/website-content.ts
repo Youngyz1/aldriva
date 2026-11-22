@@ -116,6 +116,8 @@ export interface ContentSocials {
   facebook?: string;
   tiktok?: string;
   x?: string;
+  linkedin?: string;
+  youtube?: string;
 }
 
 export interface ContentFeatured {
@@ -250,7 +252,7 @@ function normalizeSocials(value: unknown): ContentSocials | undefined {
   if (!isPlainObject(value)) return undefined;
   const out: ContentSocials = {};
   let filled = false;
-  for (const network of ["instagram", "facebook", "tiktok", "x"] as const) {
+  for (const network of ["instagram", "facebook", "tiktok", "x", "linkedin", "youtube"] as const) {
     const url = clampUrl(value[network]);
     if (url) {
       out[network] = url;

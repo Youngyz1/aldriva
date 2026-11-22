@@ -11,6 +11,8 @@ import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import { resolveV2ThemeColor } from "@/lib/website-v2-color-resolution";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { ResolvedTodayHours } from "@/lib/website-hours";
+import { SocialIconRow } from "@/components/site/SocialIconRow";
+import type { ContentSocials } from "@/lib/website-content";
 
 interface V2SiteFooterProps {
   template: WebsiteTemplateV2;
@@ -90,6 +92,17 @@ export function V2SiteFooter({
   const socials = rawSocials && typeof rawSocials === "object"
     ? rawSocials as Record<string, unknown>
     : {};
+  const emailValue = valueFor(content, sampleContent, "email", previewMode);
+  const footerEmail = typeof emailValue === "string" && emailValue.trim() ? emailValue.trim() : undefined;
+  const extrasValue = valueFor(content, sampleContent, "template_extras", previewMode);
+  const extras = extrasValue && typeof extrasValue === "object" ? extrasValue as Record<string, unknown> : {};
+  const footerWhatsapp = (() => {
+    const raw = typeof extras.whatsappPhone === "string" ? extras.whatsappPhone : "";
+    if (!raw) return undefined;
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    return digits.length >= 8 ? digits : undefined;
+  })();
   const rawLabels = valueFor(content, sampleContent, "nav_labels", previewMode);
   const labels = rawLabels && typeof rawLabels === "object"
     ? rawLabels as Record<string, unknown>
@@ -195,7 +208,11 @@ export function V2SiteFooter({
               ) : null;
             })}
           </nav>
-          {safeSocials.length > 0 && (
+          {showcase ? (
+            <div className="pt-[var(--ps-space-1)]">
+              <SocialIconRow email={footerEmail} whatsapp={footerWhatsapp} socials={socials as ContentSocials} />
+            </div>
+          ) : safeSocials.length > 0 && (
             <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
               {safeSocials.map(({ network, href }) => (
                 <a

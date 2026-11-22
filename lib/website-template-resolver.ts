@@ -33,7 +33,7 @@ import {
   normalizeCurrencyCode,
   KNOWN_BLOCK_TYPES,
 } from "./website-blocks";
-import type { ContentDoc, ContentKey } from "./website-content";
+import type { ContentDoc, ContentKey, ContentSocials } from "./website-content";
 import type { NavigationItem } from "./website-nav";
 import type {
   WebsiteTemplateV2,
@@ -914,6 +914,9 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     if (digits.startsWith("00")) digits = digits.slice(2);
     return digits.length >= 8 ? digits : undefined;
   })();
+  const contactSocials = ctx.template.id === "showcase"
+    ? (asRecord(effectiveValue(ctx, "socials")) as ContentSocials | undefined)
+    : undefined;
   return {
     type: "contact",
     heading,
@@ -926,6 +929,7 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     directionsUrl: asString(take(ctx, "directions_url", "location.directions")),
     showMap: false,
     ...(whatsapp ? { whatsapp } : {}),
+    ...(contactSocials ? { socials: contactSocials } : {}),
   } as Block;
 }
 
