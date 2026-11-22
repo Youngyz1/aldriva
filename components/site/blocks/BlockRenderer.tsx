@@ -1384,7 +1384,7 @@ function ContactBlockRenderer({
   if (block.variant === "card") {
     const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
     const hasHours = Boolean(block.hoursTable?.length || block.hours);
-    const hasLocation = Boolean(block.address || block.phone || block.email || safeDirections || block.locations?.length);
+    const hasLocation = Boolean(block.address || block.phone || block.email || safeDirections || block.locations?.length || block.whatsapp);
     if (!hasHours && !hasLocation) return null;
 
     const normalizedRows = (() => {
@@ -1468,11 +1468,23 @@ function ContactBlockRenderer({
                 ))}
               </div>
 
-              {safeDirections ? (
-                <div className="pt-2">
-                  <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
-                    {getDirectionsLabel || "Get directions"}
-                  </a>
+              {safeDirections || block.whatsapp ? (
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {safeDirections ? (
+                    <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
+                      {getDirectionsLabel || "Get directions"}
+                    </a>
+                  ) : null}
+                  {block.whatsapp ? (
+                    <a
+                      href={`https://wa.me/${block.whatsapp}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-lg border border-[var(--tf-border)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-ink)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                    >
+                      WhatsApp
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1696,6 +1708,19 @@ function ContactBlockRenderer({
                 className="ps-button ps-button-primary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
               >
                 Get Directions
+              </a>
+            </div>
+          ) : null}
+
+          {siteTemplateId === "showcase" && block.whatsapp ? (
+            <div className="sm:col-span-2">
+              <a
+                href={`https://wa.me/${block.whatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold shadow-xs transition"
+              >
+                WhatsApp
               </a>
             </div>
           ) : null}

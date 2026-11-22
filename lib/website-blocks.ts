@@ -205,6 +205,8 @@ export interface ContactBlock extends BaseBlock {
   showMap?: boolean;
   mapQuery?: string;
   variant?: "card";
+  /** Showcase only. Digits-only phone number (>= 8 digits) for a wa.me WhatsApp button. */
+  whatsapp?: string;
 }
 
 export interface FaqItem extends WithItemId {

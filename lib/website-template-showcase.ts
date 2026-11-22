@@ -118,19 +118,6 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
     ],
   },
   {
-    slotId: "catalog.card_action",
-    field: "template_extras",
-    extraKey: "cardAction",
-    label: "Card action",
-    kind: "select",
-    options: [
-      { label: "Automatic", value: "auto" },
-      { label: "Quick add to order", value: "add" },
-      { label: "Open detail sheet", value: "open" },
-      { label: "Enquire", value: "enquire" },
-    ],
-  },
-  {
     slotId: "catalog.related_items",
     field: "template_extras",
     extraKey: "relatedItemsEnabled",
@@ -160,28 +147,6 @@ const SHOWCASE_SLOTS: TemplateSlot[] = [
     options: [
       { label: "On", value: "on" },
       { label: "Off", value: "off" },
-    ],
-  },
-  {
-    slotId: "promo.autoplay",
-    field: "template_extras",
-    extraKey: "carouselAutoplay",
-    label: "Carousel autoplay",
-    kind: "select",
-    options: [
-      { label: "On", value: "on" },
-      { label: "Off", value: "off" },
-    ],
-  },
-  {
-    slotId: "promo.image_style",
-    field: "template_extras",
-    extraKey: "promoImageStyle",
-    label: "Promotion image fit",
-    kind: "select",
-    options: [
-      { label: "Contain", value: "contain" },
-      { label: "Cover", value: "cover" },
     ],
   },
   { slotId: "catalog.featured", field: "featured", label: "Popular picks", kind: "pick", max: 6 },
@@ -228,7 +193,6 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     page: "home",
     block: "promotions_embed",
     variant: "carousel",
-    slots: ["promo.autoplay", "promo.image_style"],
     note: "Compact slidable promo card, dashboard-managed Promotions only. Absent (no gap) when there are no active promotions.",
   },
   {
@@ -246,7 +210,7 @@ const SHOWCASE_SECTIONS: TemplateSection[] = [
     catalog: true,
     variant: "carousel",
     optional: true,
-    slots: ["catalog.featured", "catalog.source", "catalog.card_action", "catalog.related_items"],
+    slots: ["catalog.featured", "catalog.source", "catalog.related_items"],
     note: "Popular picks carousel resolving dynamically to menu items or products. Hideable via the builder's section toggle.",
   },
   {

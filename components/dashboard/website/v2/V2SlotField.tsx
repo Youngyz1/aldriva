@@ -127,6 +127,13 @@ export function V2SlotField({
             {patternInvalid && control.validationMessage ? (
               <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{control.validationMessage}</p>
             ) : null}
+            {control.slotIds?.includes("contact.whatsapp") ? (
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {locale === "fr"
+                  ? "Indiquez l'indicatif du pays, par ex. 2250712345678."
+                  : "Include the country code, e.g. 2250712345678."}
+              </p>
+            ) : null}
             {maxText ? <Counter current={scalarText.length} max={maxText} /> : null}
             {urlField ? <><Counter current={(urlDraft ?? scalarText).length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /><p className="text-[11px] text-zinc-500">Links are cleaned before they are saved.</p></> : null}
           </>

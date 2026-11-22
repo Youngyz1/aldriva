@@ -903,6 +903,12 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     }))
     .filter((row) => Boolean(row.name || row.address || row.hours))
     .slice(0, 12);
+  const whatsapp = (() => {
+    if (ctx.template.id !== "showcase") return undefined;
+    const extras = asRecord(effectiveValue(ctx, "template_extras"));
+    const digits = asString(extras?.whatsappPhone)?.replace(/\D/g, "");
+    return digits && digits.length >= 8 ? digits : undefined;
+  })();
   return {
     type: "contact",
     heading,
@@ -914,6 +920,7 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     ...(locations.length > 0 ? { locations } : {}),
     directionsUrl: asString(take(ctx, "directions_url", "location.directions")),
     showMap: false,
+    ...(whatsapp ? { whatsapp } : {}),
   } as Block;
 }
 
