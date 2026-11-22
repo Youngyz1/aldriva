@@ -294,5 +294,6 @@
   "components/nav/__tests__/nav-active.test.cjs",
   "lib/staff/__tests__/role-permission-grouping.test.cjs",
   "lib/staff/__tests__/role-details-validation.test.cjs",
-  "lib/staff/__tests__/roles-access.test.cjs"
+  "lib/staff/__tests__/roles-access.test.cjs",
+  "lib/staff/__tests__/invitation-contact.test.cjs"
 ]
