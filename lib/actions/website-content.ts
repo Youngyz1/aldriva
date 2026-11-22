@@ -37,6 +37,7 @@ import {
   type SaveOperationalHoursInput,
   type SaveSiteTimezoneInput,
 } from "@/lib/operational-settings";
+import { saveStorefrontSettingsWithClient } from "@/lib/storefront-settings";
 import {
   checkPublishReadiness,
   resolveTemplateContent,
@@ -860,4 +861,71 @@ export async function saveSiteTimezone(
   revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
   revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
   return result;
+}
+
+export interface SaveStorefrontSettingsActionInput {
+  organizerId: string;
+  currency?: string;
+  timezone?: string;
+  acceptOrdersWhenClosed?: boolean;
+}
+
+/**
+ * Live save for the builder's Ordering & payments panel: storefront currency,
+ * site timezone and "accept orders when closed", all in tenant_websites
+ * metadata (jsonb, no migration). Manage roles only; invalid currency or
+ * timezone codes are rejected before anything is written.
+ */
+export async function saveStorefrontSettings(
+  input: SaveStorefrontSettingsActionInput
+): Promise<ContentActionResult<{ currency: string; timezone: string; acceptOrdersWhenClosed: boolean }>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, code: "unauthorized", error: "Please sign in." };
+  const access = await checkTenantAccess(user.id, input.organizerId, [...ENTITY_ROLES_MANAGE]);
+  if (!access.hasAccess) {
+    return {
+      success: false,
+      code: "forbidden",
+      error: "Only owners, admins, and managers can change ordering settings.",
+    };
+  }
+
+  const admin = createSupabaseAdmin();
+  const { data: website } = await admin
+    .from("tenant_websites")
+    .select("id")
+    .eq("tenant_id", input.organizerId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!website) {
+    return { success: false, code: "not_found", error: "Create your website first to set ordering settings." };
+  }
+
+  const result = await saveStorefrontSettingsWithClient(
+    {
+      websiteId: (website as { id: string }).id,
+      ...(input.currency !== undefined ? { currency: input.currency } : {}),
+      ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+      ...(input.acceptOrdersWhenClosed !== undefined
+        ? { acceptOrdersWhenClosed: input.acceptOrdersWhenClosed }
+        : {}),
+    },
+    admin as unknown as Parameters<typeof saveStorefrontSettingsWithClient>[1]
+  );
+  if (!result.success) {
+    // Fixed client strings per code (never echo lib internals — P1 F-08).
+    const message =
+      result.code === "validation_error"
+        ? "Choose a supported currency (ISO 4217) and a valid time zone."
+        : result.code === "not_found"
+          ? "Create your website first to set ordering settings."
+          : "Failed to save ordering settings.";
+    return { success: false, code: result.code, error: message };
+  }
+
+  revalidatePath(`/dashboard/org/${input.organizerId}/website`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
+  return { success: true, data: result.data };
 }

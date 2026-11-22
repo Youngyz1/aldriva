@@ -84,7 +84,7 @@ export interface WebsiteTemplatePattern {
 
 // ── Page purposes + sections ────────────────────────────────────────────────
 
-export type TemplatePagePurpose = "home" | "catalog" | "transaction" | "booking" | "contact";
+export type TemplatePagePurpose = "home" | "catalog" | "transaction" | "booking" | "contact" | "about";
 
 export interface TemplateV2Page {
   slug: string;
@@ -572,6 +572,123 @@ export const RENTAL_DRIVELINE: WebsiteTemplateV2 = {
   tags: ["rental", "cars", "fleet", "booking"],
 };
 
+// ── Home cleaning: Fresh Home ───────────────────────────────────────────────
+
+const CLEANING_FRESH_PALETTES: readonly WebsiteTemplatePalette[] = [
+  { id: "fresh", label: { en: "Fresh", fr: "Frais" }, base: "#0E7C86", accent: "#F26B3A", ink: "#16323A", soft: "#E8F6F6" },
+  { id: "calm", label: { en: "Calm", fr: "Calme" }, base: "#3B82A0", accent: "#E9A23B", ink: "#1F2A37", soft: "#EEF4F8" },
+  { id: "bold", label: { en: "Bold", fr: "Audacieux" }, base: "#1D4ED8", accent: "#FF7A59", ink: "#0F172A", soft: "#EAF0FF" },
+];
+const CLEANING_FRESH_DEFAULT_PALETTE = CLEANING_FRESH_PALETTES[0];
+
+const CLEANING_FRESH_SLOTS: TemplateSlot[] = [
+  { slotId: "nav.logo", field: "logo_url", label: "Logo", kind: "image" },
+  { slotId: "nav.labels", field: "nav_labels", label: "Menu bar labels", kind: "text" },
+  { slotId: "nav.cta", field: "primary_cta_label", label: "Primary action button", kind: "text" },
+  { slotId: "hero.image", field: "hero_image", label: "Hero photo", kind: "image" },
+  { slotId: "hero.headline", field: "hero_headline", label: "Headline", kind: "text", required: true },
+  { slotId: "hero.subtext", field: "hero_subtext", label: "Subtext", kind: "textarea" },
+  { slotId: "hero.tagline", field: "tagline", label: "Tagline", kind: "text" },
+  { slotId: "hero.cta_primary", field: "primary_cta_label", label: "Primary button label", kind: "text" },
+  { slotId: "hero.cta_secondary", field: "secondary_cta_label", label: "Secondary button label", kind: "text" },
+  { slotId: "trust.items", field: "trust", label: "Trust strip items", kind: "items", max: 4 },
+  { slotId: "benefits.items", field: "benefits", label: "Why choose us items", kind: "items", max: 6 },
+  { slotId: "steps.items", field: "steps", label: "How it works steps", kind: "items", max: 4 },
+  { slotId: "areas.items", field: "areas", label: "Areas we cover", kind: "items", max: 6 },
+  { slotId: "gallery.photos", field: "gallery_images", label: "Gallery photos", kind: "images", max: 6 },
+  { slotId: "testimonials.items", field: "testimonials", label: "Testimonials", kind: "items", max: 3 },
+  { slotId: "faq.items", field: "faq", label: "FAQ items", kind: "items", max: 6 },
+  { slotId: "services.heading", field: "services_heading", label: "Services heading", kind: "text" },
+  { slotId: "services.limit", field: "services_limit", label: "Services limit", kind: "number" },
+  { slotId: "services.layout", field: "services_layout", label: "Services layout", kind: "select", options: [
+    { label: "Grid", value: "grid" },
+    { label: "List", value: "list" },
+  ] },
+  { slotId: "values.items", field: "values", label: "Values items", kind: "items", max: 4 },
+  { slotId: "team.items", field: "team", label: "Team text", kind: "items", max: 4 },
+  { slotId: "hours.table", field: "hours", label: "Opening hours", kind: "hours" },
+  { slotId: "location.address", field: "address", label: "Address", kind: "text" },
+  { slotId: "location.phone", field: "phone", label: "Phone", kind: "text" },
+  { slotId: "location.directions", field: "directions_url", label: "Directions link", kind: "url" },
+  { slotId: "contact.email", field: "email", label: "Email", kind: "text" },
+  { slotId: "footer.business", field: "business_name", label: "Business name", kind: "text", required: true },
+  { slotId: "footer.socials", field: "socials", label: "Social links", kind: "socials" },
+  { slotId: "footer.note", field: "footer_note", label: "Footer note", kind: "text" },
+  { slotId: "cta.heading", field: "template_extras", extraKey: "ctaBandHeading", label: "CTA heading", kind: "text" },
+  { slotId: "cta.button_label", field: "template_extras", extraKey: "ctaBandButtonLabel", label: "CTA button label", kind: "text" },
+  { slotId: "cta.button_link", field: "template_extras", extraKey: "ctaBandButtonLink", label: "CTA button link", kind: "url" },
+];
+
+const CLEANING_FRESH_SECTIONS: TemplateSection[] = [
+  { id: "menubar", page: "home", chrome: true, slots: ["nav.logo", "nav.labels", "nav.cta"] },
+  { id: "hero", page: "home", block: "hero", slots: ["hero.image", "hero.headline", "hero.subtext", "hero.tagline", "hero.cta_primary", "hero.cta_secondary"] },
+  { id: "trust-strip", page: "home", block: "features", slots: ["trust.items"] },
+  { id: "services", page: "home", block: "services_embed", slots: ["services.heading", "services.limit", "services.layout"] },
+  { id: "why-choose-us", page: "home", block: "features", slots: ["benefits.items"] },
+  { id: "how-it-works", page: "home", block: "features", slots: ["steps.items"] },
+  { id: "gallery", page: "home", block: "gallery", slots: ["gallery.photos"], optional: true, defaultOff: true },
+  { id: "testimonials", page: "home", block: "testimonials", slots: ["testimonials.items"] },
+  { id: "areas-cover", page: "home", block: "features", slots: ["areas.items"] },
+  { id: "faq", page: "home", block: "faq", slots: ["faq.items"] },
+  { id: "cta-band", page: "home", block: "cta_banner", slots: ["cta.heading", "cta.button_label", "cta.button_link"] },
+  { id: "services.intro", page: "catalog", block: "hero", slots: ["hero.headline", "hero.subtext"] },
+  { id: "services.list", page: "catalog", block: "services_embed", slots: ["services.heading", "services.limit", "services.layout"] },
+  { id: "services.cta", page: "catalog", block: "cta_banner", slots: ["cta.heading", "cta.button_label", "cta.button_link"] },
+  { id: "about.story", page: "about", block: "about", slots: ["about.text"] },
+  { id: "about.values", page: "about", block: "features", slots: ["values.items"] },
+  { id: "about.team", page: "about", block: "features", slots: ["team.items"] },
+  { id: "contact.main", page: "contact", block: "contact", slots: ["contact.email", "location.address", "location.phone", "location.directions", "hours.table"] },
+  { id: "book.intro", page: "booking", block: "hero", slots: ["hero.headline", "hero.subtext"] },
+  { id: "book.form", page: "booking", block: "general_booking_form", slots: [] },
+];
+
+export const CLEANING_FRESH: WebsiteTemplateV2 = {
+  id: "cleaning-fresh",
+  version: "1.0.0",
+  name: "Fresh Home",
+  description: "A light, service-led site for home cleaning businesses, built around a visible services catalogue and simple booking.",
+  localizedName: { en: "Fresh Home", fr: "Foyer Frais" },
+  localizedDescription: {
+    en: "A light, service-led site for home cleaning businesses, built around a visible services catalogue and simple booking.",
+    fr: "Un site léger axé sur les services pour les entreprises de nettoyage à domicile, construit autour d’un catalogue de services visible et d’une réservation simple.",
+  },
+  category: "service",
+  style: "modern",
+  previewColor: "#0E7C86",
+  supportedCategories: ["service"],
+  theme: { ...DEFAULT_THEME_CONFIG, theme: "default", primaryColor: "#0E7C86", fontFamily: "sans" },
+  header: { ...DEFAULT_HEADER_CONFIG, ctaLabel: "Book now", ctaHref: "/book", sticky: true },
+  footer: { ...DEFAULT_FOOTER_CONFIG, showSocials: true, showPoweredBy: true },
+  lockedTheme: { primaryColor: "#0E7C86", headingFont: "sans", bodyFont: "sans" },
+  lockedLayout: true,
+  templateBackground: {
+    base: "#F7F9FA",
+    texture: "none",
+    bands: [],
+  },
+  editableSlots: CLEANING_FRESH_SLOTS,
+  lockedBlocks: ["footer"],
+  pages: [
+    { slug: "home", title: "Home", isHome: true, sortOrder: 0, purpose: "home" },
+    { slug: "services", title: "Services", isHome: false, sortOrder: 1, purpose: "catalog" },
+    { slug: "about", title: "About", isHome: false, sortOrder: 2, purpose: "about" },
+    { slug: "contact", title: "Contact", isHome: false, sortOrder: 3, purpose: "contact" },
+    { slug: "book", title: "Book", isHome: false, sortOrder: 4, purpose: "booking" },
+  ],
+  navigation: [
+    { label: "Home", pageSlug: "home", order: 0 },
+    { label: "Services", pageSlug: "services", order: 1 },
+    { label: "About", pageSlug: "about", order: 2 },
+    { label: "Contact", pageSlug: "contact", order: 3 },
+  ],
+  sections: CLEANING_FRESH_SECTIONS,
+  commerce: {},
+  sectionAlign: "center",
+  palettes: CLEANING_FRESH_PALETTES,
+  defaultPaletteId: CLEANING_FRESH_DEFAULT_PALETTE.id,
+  tags: ["cleaning", "home-services", "service"],
+};
+
 // ── Category-neutral food ordering: Food Order ──────────────────────────────
 
 const FOOD_ORDER_SLOTS: TemplateSlot[] = [
@@ -762,6 +879,7 @@ export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   RENTAL_DRIVELINE,
   FOOD_ORDER_TEMPLATE,
   STORE_TEMPLATE,
+  CLEANING_FRESH,
   SHOWCASE_TEMPLATE,
 ];
 

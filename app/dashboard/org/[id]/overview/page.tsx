@@ -20,7 +20,7 @@ import { getFlagshipTemplate } from "@/lib/website-template-v2";
 import { getApprovalState } from "@/lib/business-approval";
 import { resolveOrderSchedule, resolveTodayHours, hoursBadgeState } from "@/lib/website-hours";
 import { normalizeContent } from "@/lib/website-content";
-import { getStartOfTodayInTimezone, isTodayInTimezone, DEFAULT_SITE_TIMEZONE, defaultTimezoneForCountry, resolveSiteTimezone } from "@/lib/date-timezone";
+import { getStartOfTodayInTimezone, isTodayInTimezone, DEFAULT_SITE_TIMEZONE, resolveSiteTimezone } from "@/lib/date-timezone";
 import { computeOrderOverdue } from "@/lib/order-overdue";
 import { resolveOverviewModules, shouldShowInvitationAction } from "@/lib/overview-resolver";
 import {
@@ -28,8 +28,15 @@ import {
   isOrganizerDashboardBusiness,
 } from "@/lib/organizer-dashboard-classifier";
 import { CreateInvitationButton } from "@/components/events/CreateInvitationButton";
-import { OrgOverviewClient } from "@/components/dashboard/overview/OrgOverviewClient";
-import type { OverviewCounts, RecentOrderSummary, RecentEventSummary } from "@/lib/overview-types";
+import { OverviewShell } from "@/components/dashboard/overview/OverviewShell";
+import { EntityHeader } from "@/components/dashboard/overview/EntityHeader";
+import { AttentionCard } from "@/components/dashboard/overview/AttentionCard";
+import { SetupBanner } from "@/components/dashboard/overview/SetupBanner";
+import { StatCard } from "@/components/dashboard/overview/StatCard";
+import { QuickActions } from "@/components/dashboard/overview/QuickActions";
+import { CapabilityOverviewSections } from "@/components/dashboard/overview/CapabilityOverviewSections";
+import { parsePeriodSearchParams, resolvePeriodRange } from "@/lib/dashboard/date-range";
+import type { OverviewCounts, RecentOrderSummary, RecentEventSummary, AttentionItem, QuickActionItem, SetupChecklistItem } from "@/lib/overview-types";
 
 const ALLOWED_ROLES: EntityRole[] = [
   "owner",
@@ -42,8 +49,10 @@ const ALLOWED_ROLES: EntityRole[] = [
 
 export default async function OrgOverviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id: organizerId } = await params;
   const user = await getCurrentUser();
@@ -111,20 +120,11 @@ export default async function OrgOverviewPage({
     }
   }
 
-  // 2. Resolve Site Timezone, Business Country & Website Metadata
-  // Precedence: owner's explicit metadata.timezone choice, else the default
-  // derived from the primary business country, else Africa/Abidjan.
-  const businessCountry =
-    typeof primaryBusiness?.country === "string" && primaryBusiness.country.trim()
-      ? primaryBusiness.country.trim()
-      : null;
-  const countryDefault = defaultTimezoneForCountry(businessCountry);
+  // 2. Resolve the site timezone. Country is not a reliable timezone source.
   let siteTimezone = DEFAULT_SITE_TIMEZONE;
   if (primaryWebsite?.metadata && typeof primaryWebsite.metadata === "object") {
     const meta = primaryWebsite.metadata as Record<string, unknown>;
-    siteTimezone = resolveSiteTimezone(meta.timezone, countryDefault);
-  } else {
-    siteTimezone = countryDefault;
+    siteTimezone = resolveSiteTimezone(meta.timezone, DEFAULT_SITE_TIMEZONE);
   }
 
   // 3. Approval State
@@ -282,11 +282,13 @@ export default async function OrgOverviewPage({
         .from("reservations")
         .select("id", { count: "exact", head: true })
         .eq("organizer_id", organizerId)
+        .eq("booking_type", "table")
         .eq("status", "pending"),
       supabase
         .from("reservations")
         .select("id, starts_at")
         .eq("organizer_id", organizerId)
+        .eq("booking_type", "table")
         .in("status", ["pending", "confirmed"])
         .gte("starts_at", startOfTodayIso)
         .limit(200),
@@ -294,6 +296,7 @@ export default async function OrgOverviewPage({
         .from("reservations")
         .select("id", { count: "exact", head: true })
         .eq("organizer_id", organizerId)
+        .eq("booking_type", "table")
         .limit(1),
     ]);
 
@@ -318,7 +321,9 @@ export default async function OrgOverviewPage({
 
   // Reservations module visibility mirrors the sidebar rule: capability +
   // offering, or rows exist. Without migration 176 all counts stay zero and
-  // the widget stays hidden.
+  // the widget stays hidden. Table reservations only (booking_type='table')
+  // — general/appointment bookings have their own Bookings page and never
+  // trigger this widget.
   const hasReservationsCapability =
     (capabilities as readonly string[]).includes("RESERVATIONS") ||
     (capabilities as readonly string[]).includes("TABLES");
@@ -369,6 +374,17 @@ export default async function OrgOverviewPage({
   const totalFundraisers = fundraiserCount ?? 0;
   const totalFollowers = (followerCount ?? 0) + (org.follower_offset ?? 0);
   const totalRaised = (fundraisersData ?? []).reduce((sum, f) => sum + Number(f.raised || 0), 0);
+
+  // Augment capabilities from organizer type classification so pure events/
+  // fundraising orgs get their overview sections even with no linked business.
+  const augmentedCaps: string[] = [...(capabilities as string[])];
+  if ((organizerTypes.hasEvents || totalEvents > 0) && !augmentedCaps.includes("EVENTS")) {
+    augmentedCaps.push("EVENTS");
+  }
+  if ((organizerTypes.hasFundraisers || totalFundraisers > 0)) {
+    if (!augmentedCaps.includes("FUNDRAISING")) augmentedCaps.push("FUNDRAISING");
+    if (!augmentedCaps.includes("DONATIONS")) augmentedCaps.push("DONATIONS");
+  }
 
   // Tickets count (only queried if totalEvents > 0 to avoid wasted joins)
   let ticketsSold = 0;
@@ -498,7 +514,7 @@ export default async function OrgOverviewPage({
   const widgets = resolveOverviewModules({
     context: "organizer",
     organizerTypes,
-    capabilities,
+    capabilities: augmentedCaps as typeof capabilities,
     offerings,
     features: {
       ordering: featureRes.ordering,
@@ -512,16 +528,151 @@ export default async function OrgOverviewPage({
     role: access.role,
   });
 
+  const canManage = ["owner", "admin", "manager", "editor"].includes(access.role || "");
+
+  // Resolve active period filter
+  const searchParamsObj = searchParams ? await searchParams : {};
+  const periodValue = parsePeriodSearchParams(searchParamsObj);
+  const periodRange = resolvePeriodRange(
+    periodValue.kind,
+    siteTimezone,
+    periodValue.from,
+    periodValue.to,
+    now
+  );
+
+  // Widget payloads
+  const attentionWidget = widgets.find((w) => w.id === "attention_strip");
+  const attentionItems = (attentionWidget?.data as AttentionItem[]) || [];
+
+  const checklistWidget = widgets.find((w) => w.id === "setup_checklist");
+  const checklistData = checklistWidget?.data as { items?: SetupChecklistItem[] } | undefined;
+  const checklistSteps = checklistData?.items || [];
+
+  const actionsWidget = widgets.find((w) => w.id === "quick_actions");
+  const quickActions = (actionsWidget?.data as QuickActionItem[]) || [];
+
   // Keep the existing invitation draft entry point alongside the role-gated
   // event creation action. View-only roles do not receive either action.
   const canCreateInvitations = shouldShowInvitationAction(widgets);
 
+  // Hide create actions when the workspace already has content.
+  const workspaceHasContent =
+    (counts.eventCount ?? 0) > 0 ||
+    (counts.fundraiserCount ?? 0) > 0 ||
+    (counts.ordersToday ?? 0) > 0 ||
+    (counts.serviceCount ?? 0) > 0 ||
+    (counts.menuItemCount ?? 0) > 0;
+
+  // Filter create actions when workspace has content.
+  const visibleQuickActions = workspaceHasContent
+    ? quickActions.filter((a) => !String((a as { id?: unknown }).id ?? "").startsWith("create_"))
+    : quickActions;
+
   return (
-    <OrgOverviewClient
-      organizerId={organizerId}
-      orgName={org.name}
-      widgets={widgets}
-      invitationAction={canCreateInvitations ? <CreateInvitationButton label="+ New Invitation" className="px-4 py-2.5" /> : null}
-    />
+    <OverviewShell
+      workspaceName={org.name}
+      header={
+        <EntityHeader
+          name={org.name}
+          statusBadge={primaryBusiness ? hoursBadgeText : undefined}
+          currentPeriod={periodRange.kind}
+          timezone={siteTimezone}
+          from={periodValue.from}
+          to={periodValue.to}
+        />
+      }
+    >
+      {/* 1. Needs Attention */}
+      {attentionItems.length > 0 && (
+        <AttentionCard
+          items={attentionItems}
+          organizerId={organizerId}
+        />
+      )}
+
+      {/* 2. Setup Checklist (Slim Banner) */}
+      <SetupBanner steps={checklistSteps} />
+
+      {/* 3. Top Summary Row — only cards relevant to enabled capabilities */}
+      {(() => {
+        const hasCommerce = augmentedCaps.some((c: string) =>
+          ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c)
+        ) || organizerTypes.hasBusiness;
+        const hasBookingsCap = augmentedCaps.some((c: string) =>
+          ["BOOKINGS", "APPOINTMENTS", "RESERVATIONS", "TABLES"].includes(c)
+        );
+        const cards = [];
+        if (hasCommerce) {
+          cards.push(
+            <StatCard
+              key="sales"
+              label="Gross Sales"
+              value={counts.salesToday ?? 0}
+              format="money"
+              currency={counts.currency || "USD"}
+              href={`/dashboard/org/${organizerId}/orders`}
+            />,
+            <StatCard
+              key="orders"
+              label="Orders"
+              value={counts.ordersToday ?? 0}
+              format="count"
+              href={`/dashboard/org/${organizerId}/orders`}
+            />
+          );
+        }
+        if (hasBookingsCap || hasReservationsModule) {
+          cards.push(
+            <StatCard
+              key="bookings"
+              label="Bookings"
+              value={counts.reservationsToday ?? counts.pendingReservations ?? 0}
+              format="count"
+              href={`/dashboard/org/${organizerId}/reservations`}
+            />
+          );
+        }
+        if (organizerTypes.hasFundraisers) {
+          cards.push(
+            <StatCard
+              key="raised"
+              label="Total Raised"
+              value={counts.totalRaised ?? 0}
+              format="money"
+              currency={counts.currency || "USD"}
+              href={`/dashboard/org/${organizerId}/fundraisers`}
+            />
+          );
+        }
+        if (cards.length === 0) return null;
+        return (
+          <div className={`grid gap-3 ${cards.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4"}`}>
+            {cards}
+          </div>
+        );
+      })()}
+
+      {/* 4. Primary Action Area */}
+      {visibleQuickActions.length > 0 && (
+        <QuickActions
+          actions={visibleQuickActions}
+          organizerId={organizerId}
+          additionalAction={(!workspaceHasContent && canCreateInvitations) ? <CreateInvitationButton label="+ New Invitation" className="px-4 py-2.5" /> : null}
+        />
+      )}
+
+      {/* 5. Capability-Composed Sections (Bookings, Services, Orders/Menu, Products, Events, Fundraising, Reviews) */}
+      <CapabilityOverviewSections
+        organizerId={organizerId}
+        capabilities={augmentedCaps as readonly import("@/lib/business-taxonomy").Capability[]}
+        fromIso={periodRange.fromIso}
+        toIso={periodRange.toIso}
+        timezone={siteTimezone}
+        canManage={canManage}
+      />
+    </OverviewShell>
   );
 }
+
+

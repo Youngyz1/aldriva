@@ -546,7 +546,7 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Permit geolocation only for the app's own origin through `Permissions-Policy`; do not weaken the Content Security Policy or request browser notification access as a GPS workaround.
   - Request GPS after an explicit rider action, retain separate acquisition and upload states, and stop/resume watchers with the page lifecycle.
   - Publish only authenticated, assigned-rider coordinates; reject stale/non-monotonic timestamps and scope customer/business reads to the exact tracked order.
-  - Start durable courier offers on accepted delivery plus a saved preparation estimate. Assignment preserves the kitchen status. Do not imply road-route ETA or arrival/prep mismatch detection without real routing and restaurant coordinates.
+  - Superseded by DEC-0060 for dispatch timing: offers now start when an eligible delivery is accepted even without a preparation estimate. Assignment preserves the kitchen status. Do not imply road-route ETA or arrival/prep mismatch detection without real routing and restaurant coordinates.
   - Use the existing polled courier offer feed as the in-app delivery surface. No push provider or dependable scheduled worker exists; timeout fanout is feed-driven until a durable background dispatcher is configured.
 
 ### DEC-0058: Delivery maps use scoped OpenStreetMap tiles and verified stop coordinates
@@ -568,3 +568,103 @@ Scaling note: each Cook Performance panel fetches on mount (N calls for N kitche
   - Add only `https://api.tomtom.com` to CSP `img-src`, preserve unrelated CSP sources, and display TomTom/OpenStreetMap attribution.
   - Keep visible missing-key and tile-failure diagnostics. Do not change GPS, assignments, routing, geocoding, ETA, or stop-coordinate behavior as part of the provider integration.
   - [TomTom pricing](https://docs.tomtom.com/pricing) currently lists 200,000 monthly raster tile requests free; usage beyond the account's included amount is subject to usage-based pricing. Verify the account's actual allowance before broad production use.
+
+### DEC-0060: Courier offers start on acceptance and ASAP timing never expires
+
+- **Decision Date**: 2026-10-28
+- **Status**: Migration 201 is applied on staging per owner report and supported by live index/feed inspection. Migration 202 is a local, unapplied follow-up for READY orders after courier completion; authenticated QA remains pending.
+- **Key Tenets**:
+  - Create platform courier offers when a delivery is accepted, regardless of whether `estimated_ready_at` exists. Fan out to every eligible, active, available, invited courier. Keep the unique order/courier key as the duplicate guard.
+  - Store prep estimates as optional offer context. ASAP offers have `expires_at = NULL` until claim/decline/order ineligibility, so a slow kitchen cannot silently lose its courier cohort. Scheduled offers expire at the later of `scheduled_for + 2 hours` and the configured response timeout from now.
+  - When an order becomes READY, refresh existing offers and reopen expired/withdrawn offers without duplicating rows; preserve each courier's decline and never re-offer an already claimed order. The assigned courier sees READY in the active-order feed.
+  - Use the existing authenticated `/courier` polling feed as the in-app notification channel; do not describe this as push, SMS, or WhatsApp delivery.
+  - Use explicit `tenant_websites.metadata.timezone` first and `Africa/Abidjan` as the platform fallback. Business country is not used to infer timezone.
+
+### DEC-0061: Online courier deliveries dispatch only after payment
+
+- **Decision Date**: 2026-10-29
+- **Status**: Implemented locally in migration 203; owner application pending.
+- **Key Tenets**:
+  - Keep delivery offers unavailable for `payment_method = 'online'` until the authoritative order row has `payment_status = 'paid'`. Preserve existing dispatch for other payment methods.
+  - Enforce the same condition in offer creation, READY refresh, courier feed visibility, and the atomic claim RPC; feed filtering alone cannot prevent direct claims against an older open offer.
+  - Treat a payment-status change as a dispatch event so an already accepted/preparing/ready delivery can become eligible without another status transition.
+  - Apply migration 202 before 203 when staging still has the older completion fanout. Do not backfill order/courier data.
+  - Keep online currency support explicit. Stripe storefront order payment is USD-only; FCFA `pay_online_first` orders remain unavailable until that path supports XOF/XAF.
+
+## DEC-0062 — Scanner token v2 capability list and business scanning reuse
+
+Context: Event scanner tokens were single-purpose (ticket check-in only). Business scanning (orders, reservations) needs the same offline authorization model but with different capabilities.
+
+Decisions:
+1. Capability-list token envelope: v2 adds code_type and actions arrays, scoped to event/tenant/business/branch, with a capability check at resolution time.
+2. branch_id carried on orders and reservations (enforced later).
+3. Reuse business_workers with scanner roles rather than a new workforce table.
+
+Consequences: v1 tokens remain valid and normalize to ticket/check_in. Minting gated by SCANNER_TOKEN_V2_MINT. Phase 0 done on staging; Phase 1 this commit set. Typed code prefixes and the code registry arrive in Phase 2.
+
+Open items: typed code prefixes and code registry (Phase 2).
+
+## DEC-0063 — Scan code registry (Phase 2, issuance only)
+
+Context: DEC-0062 deferred typed code prefixes and a code registry to Phase 2, needed so a printed order/reservation receipt can carry a scannable barcode without exposing or reusing the customer-facing tracking/lookup token.
+
+Decisions:
+1. Random typed codes, not derived tokens: `scan_codes.code` is 16 bytes of `extensions.gen_random_bytes` output (80 bits), Crockford-base32-encoded (no I/L/O/U) and prefixed `O1-`/`R1-` by subject type. Codes are never derived from `order_number`, `tracking_token`, or `lookup_token`, so a leaked receipt barcode cannot be used to reconstruct, or be reconstructed from, the customer's own tracking link.
+2. Real foreign keys: `order_id`/`reservation_id` reference `public.orders`/`public.reservations` with `ON DELETE CASCADE`; a generated `subject_id` column and per-subject partial unique indexes keep exactly one code per subject. `branch_id` references `public.business_branches` and stays NULL until Phase 3 wires branch-scoped issuance.
+3. No scan action in this phase: `issue_scan_code` and `lookup_scan_code` only mint and resolve codes (identifiers/statuses only, never customer PII). Pick-up/deliver/seat/no-show actions, and wiring this into the live scanner, are later phases.
+4. Flag default off: `SCAN_CODES_ENABLED` gates the two issuance routes (404 when off); not enabled anywhere in this change.
+
+Consequences: `public.scan_codes` is service_role-only (RLS enabled, no policies, REVOKE ALL from PUBLIC/anon/authenticated). Both RPCs are SECURITY DEFINER with a fixed search_path and an explicit `auth.role() = 'service_role'` guard, matching the migration 196 precedent. The rollback refuses to run while any row exists, since a deleted code would make an already-printed barcode permanently unscannable.
+
+Open items: branch-scoped issuance/resolution (Phase 3), wiring `resolveScannedCode` into the live scanner routes so a scanned O1-/R1- code can drive pick-up/deliver/seat actions (Phase 3+).
+
+## DEC-0064 — Service categories for public.services
+
+Context: `db/migration_136_services_and_menus.sql:4` notes service categories were "intentionally omitted per DEC-0018." DEC-0018 (above) is about business category vs. website template family (`organizers.org_type` / `businesses.category` vs. `WebsiteCategory`) and does not forbid a taxonomy for individual services — it was never a decision against service categories specifically. The owner has since decided services should get their own category grouping, for the Fresh Home template and every business that uses the Services dashboard.
+
+Decisions:
+1. New table, not a reuse of the product-category design: `public.service_categories` is tenant-scoped to `organizers.id`, with the same scope column, ordering column (`position`), and visibility column (`is_active`) as `public.services`, and its own slug uniqueness scope (`UNIQUE (organizer_id, slug)`). It does not reuse or alter the product catalogue's category tables.
+2. `services.category_id` is a nullable FK with `ON DELETE SET NULL`: deleting a category never deletes or orphans a service, and every existing service with no category keeps working unchanged (`category_id` defaults to NULL).
+3. RLS on `service_categories` mirrors the existing `services` policies exactly (public read of active rows, tenant members view, tenant editors insert/update, tenant managers delete) — see `db/migration_220_service_categories.sql`.
+4. `services` also gains `summary`, `includes` (jsonb array, app-enforced max 12 items / 80 chars each, same convention as the bounded arrays in migration 136), and `hero_image_url` — all nullable/defaulted, additive only.
+
+Scope — what this does NOT change: products, menus, restaurants, or any booking table. `public.reservations.service_id` (migration 216) already exists and references `reservation_service_catalog`, an unrelated booking-assignment table; this migration does not touch `reservations`, `reservation_service_catalog`, or `lib/actions/general-booking.ts`/`lib/actions/reservations.ts` — booking's free-text `service_type` is unaffected.
+
+Consequences: `db/migration_220_service_categories.sql` is additive and idempotent; its rollback is fail-closed (refuses to run while any category exists or any service uses the new fields). Dashboard CRUD for categories and the richer service fields ships in the same change; public-site rendering of categories (services_embed card links, category grouping) is diagnosed but explicitly out of scope for this change.
+
+Open items: wiring the new category/summary/includes/hero_image_url fields into `services_embed` and a real service-detail route on public sites (see the separate Fresh Home gap audit).
+
+## DEC-0065 — Invitation builder preview column needs a vertical floor in single-column mode
+
+Context: On `/dashboard/events/<id>/invitation-page` (logged in), the live preview card rendered crushed (~100px tall, phone ~20px wide) at single-column widths between `lg` (1024px) and `xl` (1280px), e.g. 870px/1100px, and stayed crushed for several seconds. Root cause: the preview column (`invitation-builder-preview-column`, classes `w-full min-w-0 max-w-full …`) had no vertical floor in single-column mode, so `grid … items-start` sizing collapsed its height. `InvitationPreviewPanel` then measured a tiny `containerHeight`, `calculatePreviewFitScale` returned a tiny scale, and the `InvitationDevicePreviewFrame` crushed. A small positive measured value also bypassed the fallback (`containerDimensions.width || fallbackWidth`), letting the stale small value persist.
+
+Decision: give the preview column a `min-h-[500px]` floor at non-`xl` breakpoints so `containerHeight` never collapses below a readable device frame. At `xl`, the existing `xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]` already governs. Verified at 1100px post-fix: panel 744px, frame scale 0.762 (full size). Regression test: `e2e/invitation-preview-widths.spec.ts`.
+
+Scope — what this does NOT change: the `xl` split layout (already full size, unchanged); edit mode at widths <1024 (preview column correctly hidden via `hidden lg:block`); `InvitationPreviewPanel`/`InvitationDevicePreviewFrame`/`calculatePreviewFitScale` themselves (no JS/measurement change — the column floor is sufficient).
+
+## DEC-0066 — All invitation templates removed from codebase
+
+Context: The platform shipped 9 invitation page templates (gala-editorial, black-tie, wedding-romantic, romantic-envelope, botanical-reverie, evergreen-envelope, birthday-bold, cover, luxe-editorial) plus 8 invitation card templates, a unified card/page picker, template registries, sample data, template-specific JSX renderers, and template-specific branches throughout the builder, guest pages, card PNG route, actions, schema, layout, and type-fields modules.
+
+Decision: Remove every invitation template and template card from the codebase for a fresh start. New templates will be added later as a separate initiative.
+
+What was deleted:
+- 9 page template TSX components + CSS/module + Gate components under `components/invitation/templates/`
+- `InvitationCardRenderer.tsx`, `UnifiedTemplatePicker.tsx`, `InvitationTemplateSelect.tsx`, `InvitationPageComponentRegistry.tsx`, `LuxeEditorialInvitationCard.tsx`, `BotanicalStationeryCard.tsx`
+- `lib/unified-invitation-templates.ts`, `lib/invitation-templates.ts`, `lib/invitation-template-preview-data.ts`, `lib/actions/unified-invitation-template.ts`
+- All 12 template image JPG + 7 template SVG assets under `public/images/invitations/`
+- `app/invitation/preview/PreviewSandboxClient.tsx`; `app/api/invitation/[token]/card.png/route.tsx` (now returns clean 404)
+- 18 test files (unit + e2e) and their `test-files.json` entries
+
+What was simplified (kept, template-specific branches removed):
+- `lib/invitation-template-registry.ts` → empty minimal registry for new templates to plug into
+- `lib/invitation-page-schema.ts`, `lib/invitation-page-layout.ts`, `lib/page-composition.ts`, `lib/invitation-type-fields.ts`, `lib/actions/invitation-page.ts`, `lib/invitation-types.ts`
+- `InvitationPageBuilder.tsx`, `InvitationPageDashboardClient.tsx`, `app/dashboard/events/[id]/invitation-page/page.tsx`, `GallerySection.tsx`, `DesignSection.tsx`, `PublishSection.tsx`, `DetailsSection.tsx`, `ExtrasSection.tsx`, `InvitationBlocksLayoutClient.tsx`, `LivePreviewFrame.tsx`
+- `app/invitation/[token]/page.tsx` (neutral fallback), `app/invitation/[token]/InvitationClient.tsx`
+
+What was NOT changed (per owner decision):
+- No DB rows or migrations deleted or altered. `invitation_templates` table, `events.invitation_template_id`, `event_invitation_pages.template_id` all left as-is. Orphaned DB data (e.g. `boho-floral-brown`) remains.
+- Savannah/website templates untouched.
+- `tsconfig.json` not touched.
+
+Verification: changed-file ESLint clean; `tsc --noEmit` clean for changed files; full `npm test`: 2945 passed, 5 failed (all pre-existing, unrelated to this change).

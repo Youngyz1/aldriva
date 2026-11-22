@@ -35,14 +35,14 @@ export async function GET(request: Request) {
       .maybeSingle(),
     admin
       .from("business_courier_offer_feed")
-      .select("offer_id, order_id, business_id, courier_worker_id, offered_at, pickup_name, pickup_address, items, amount_to_collect, currency, estimated_ready_at")
+      .select("offer_id, order_id, business_id, courier_worker_id, offered_at, pickup_name, pickup_address, items, amount_to_collect, currency, estimated_ready_at, scheduled_for, order_status")
       .eq("courier_worker_id", session.workerId)
       .eq("business_id", session.businessId)
       .order("offered_at", { ascending: false })
       .limit(50),
     admin
       .from("orders")
-      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at, delivery_issue, estimated_ready_at")
+      .select("id, business_id, order_number, status, customer_name, customer_phone, delivery_address, items, payment_method, payment_status, total_amount, currency, updated_at, delivery_issue, estimated_ready_at, scheduled_for")
       .eq("courier_worker_id", session.workerId)
       .eq("business_id", session.businessId)
       .in("status", ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"])
@@ -112,6 +112,7 @@ export async function GET(request: Request) {
           orderNumber: assigned.order_number,
           status: assigned.status,
           estimatedReadyAt: assigned.estimated_ready_at,
+          scheduledFor: assigned.scheduled_for,
           customerName: assigned.customer_name,
           customerPhone: assigned.customer_phone,
           pickupName: businessResult.data?.name ?? null,

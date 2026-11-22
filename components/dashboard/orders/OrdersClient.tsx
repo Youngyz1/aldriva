@@ -52,6 +52,13 @@ const DELIVERY_STATUS_ORDER = [
   "cancelled",
 ] as const;
 
+function getOrderSortTime(order: DashboardOrderRow): number {
+  const estimated = order.estimated_ready_at ? new Date(order.estimated_ready_at).getTime() : Number.NaN;
+  if (Number.isFinite(estimated)) return estimated;
+  const created = new Date(order.created_at).getTime();
+  return Number.isFinite(created) ? created : 0;
+}
+
 function getDeliveryStatusLabel(status: string, t: (key: any) => string): string {
   switch (status) {
     case "pending": return t("statusPending");
@@ -227,26 +234,14 @@ export function OrdersClient({
         if (a.status === "pending" && b.status === "pending") {
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         }
-        const aTime = a.estimated_ready_at
-          ? new Date(a.estimated_ready_at).getTime()
-          : new Date(a.created_at).getTime();
-        const bTime = b.estimated_ready_at
-          ? new Date(b.estimated_ready_at).getTime()
-          : new Date(b.created_at).getTime();
-        return aTime - bTime;
+        return getOrderSortTime(a) - getOrderSortTime(b);
       });
     }
 
     if (activeTab === "active") {
       // Promised ready time ascending (soonest first)
       return list.sort((a, b) => {
-        const aTime = a.estimated_ready_at
-          ? new Date(a.estimated_ready_at).getTime()
-          : new Date(a.created_at).getTime();
-        const bTime = b.estimated_ready_at
-          ? new Date(b.estimated_ready_at).getTime()
-          : new Date(b.created_at).getTime();
-        return aTime - bTime;
+        return getOrderSortTime(a) - getOrderSortTime(b);
       });
     }
 

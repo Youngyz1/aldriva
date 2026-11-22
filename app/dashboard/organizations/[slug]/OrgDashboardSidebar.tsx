@@ -70,7 +70,7 @@ export default function OrgDashboardSidebar({ org }: { org: Org }) {
   return (
     // Pinned app chrome — see components/nav/AppSidebar for the rationale:
     // stick below the sticky global navbar (h-16), never under it.
-    <aside className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] w-64 shrink-0 self-start flex-col overflow-y-auto overscroll-contain bg-slate-950 text-white supports-[height:100dvh]:h-[calc(100dvh-4rem)] lg:flex">
+    <aside className="sticky top-16 z-30 hidden h-[calc(100vh-4rem)] w-64 shrink-0 self-start flex-col overflow-y-auto overscroll-contain bg-slate-950 text-white supports-[height:100dvh]:h-[calc(100dvh-4rem)] md:flex">
       {/* ← Back to account */}
       <div className="border-b border-white/10 px-4 py-3">
         <Link

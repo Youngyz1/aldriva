@@ -1,0 +1,219 @@
+CREATE FUNCTION public.advance_business_courier_dispatch() RETURNS integer
+CREATE FUNCTION public.append_migration_179_countdown(p_layout jsonb) RETURNS jsonb
+CREATE FUNCTION public.apply_promo_use(p_code_id uuid) RETURNS boolean
+CREATE FUNCTION public.check_menu_item_option_group_match() RETURNS trigger
+CREATE FUNCTION public.check_menu_option_group_variant_reassignment() RETURNS trigger
+CREATE FUNCTION public.check_menu_option_organizer_match() RETURNS trigger
+CREATE FUNCTION public.check_menu_option_variant_default() RETURNS trigger
+CREATE FUNCTION public.check_menu_promotion_organizer_match() RETURNS trigger
+CREATE FUNCTION public.claim_business_courier_offer(p_order_id uuid, p_worker_id uuid, p_history_entry jsonb) RETURNS TABLE(out_order_id uui
+CREATE FUNCTION public.cleanup_delivery_locations_on_terminal() RETURNS trigger
+CREATE FUNCTION public.consume_business_worker_invitation(p_invitation_token_hash text, p_phone_last4 text, p_session_token_hash text) RETUR
+CREATE FUNCTION public.courier_dispatch_offer_timeout() RETURNS interval
+CREATE FUNCTION public.decline_business_courier_offer(p_order_id uuid, p_worker_id uuid, p_message text DEFAULT NULL::text) RETURNS boolean
+CREATE FUNCTION public.dispatch_business_courier_order(p_order_id uuid, p_reoffer boolean DEFAULT false) RETURNS integer
+CREATE FUNCTION public.dispatch_pending_deliveries_after_courier_completion() RETURNS trigger
+CREATE FUNCTION public.ensure_romantic_envelope_layout(p_layout jsonb) RETURNS jsonb
+CREATE FUNCTION public.get_business_cook_performance(p_business_id uuid, p_organizer_id uuid, p_range_start timestamp with time zone, p_rang
+CREATE FUNCTION public.get_business_courier_performance(p_business_id uuid, p_organizer_id uuid, p_range_start timestamp with time zone, p_r
+CREATE FUNCTION public.get_user_id_by_email(p_email text) RETURNS uuid
+CREATE FUNCTION public.make_page_blocks_layout(p_blocks jsonb, p_global_theme jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+CREATE FUNCTION public.menu_option_groups_valid(og jsonb) RETURNS boolean
+CREATE FUNCTION public.offer_ready_delivery_couriers() RETURNS trigger
+CREATE FUNCTION public.prevent_menu_item_option_group_tenant_change() RETURNS trigger
+CREATE FUNCTION public.prevent_menu_option_group_tenant_change() RETURNS trigger
+CREATE FUNCTION public.prevent_menu_promotion_organizer_change() RETURNS trigger
+CREATE FUNCTION public.publish_content_draft(p_website_id uuid, p_expected_version integer DEFAULT NULL::integer, p_page_blocks jsonb DEFAUL
+CREATE FUNCTION public.remove_deleted_menu_option_from_assignments() RETURNS trigger
+CREATE FUNCTION public.reserve_public_media_upload(p_user_id uuid, p_bytes bigint) RETURNS TABLE(allowed boolean, remaining_count integer, r
+CREATE FUNCTION public.reserve_public_media_upload(p_user_id uuid, p_bytes bigint, p_max_count integer, p_max_bytes bigint) RETURNS TABLE(al
+CREATE FUNCTION public.resolve_courier_offers_on_order_status() RETURNS trigger
+CREATE FUNCTION public.revoke_business_worker_access_on_deactivation() RETURNS trigger
+CREATE FUNCTION public.set_menu_option_group_updated_at() RETURNS trigger
+CREATE FUNCTION public.set_menu_promotion_updated_at() RETURNS trigger
+CREATE FUNCTION public.set_unified_invitation_template(p_event_id uuid, p_card_template_id uuid, p_page_template_id text) RETURNS void
+CREATE FUNCTION public.set_website_content_draft_metadata() RETURNS trigger
+CREATE FUNCTION public.set_website_content_updated_at() RETURNS trigger
+CREATE FUNCTION public.sync_courier_availability_and_offer_ready_deliveries() RETURNS trigger
+CREATE FUNCTION public.sync_website_blocks_layout() RETURNS trigger
+CREATE FUNCTION public.update_event_invitation_pages_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_organizers_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_promo_codes_updated_at() RETURNS trigger
+CREATE FUNCTION public.upgrade_menu_item_option_groups(p_item_id uuid, p_organizer_id uuid, p_groups jsonb, p_options jsonb, p_assignments j
+CREATE FUNCTION public.validate_and_renew_business_worker_session(p_session_token_hash text) RETURNS TABLE(out_worker_id uuid, out_business_
+CREATE INDEX idx_business_courier_offers_business_status ON public.business_courier_offers USING btree (business_id, status, offered_at DESC
+CREATE INDEX idx_business_courier_offers_expiry ON public.business_courier_offers USING btree (status, expires_at) WHERE (status = 'offered'
+CREATE INDEX idx_business_courier_offers_worker_status ON public.business_courier_offers USING btree (courier_worker_id, status, offered_at 
+CREATE INDEX idx_business_worker_invitations_expiry ON public.business_worker_invitations USING btree (expires_at) WHERE ((revoked_at IS NUL
+CREATE INDEX idx_business_worker_sessions_worker ON public.business_worker_sessions USING btree (worker_id) WHERE (revoked_at IS NULL);
+CREATE INDEX idx_business_workers_active_scope ON public.business_workers USING btree (business_id, kitchen_id, role) WHERE ((is_active = tr
+CREATE INDEX idx_event_staff_checkins_device_time ON public.event_staff_checkins USING btree (device_id, scanned_at DESC) WHERE (device_id I
+CREATE INDEX idx_event_staff_checkins_event_id ON public.event_staff_checkins USING btree (event_id);
+CREATE INDEX idx_event_staff_checkins_event_time ON public.event_staff_checkins USING btree (event_id, scanned_at DESC);
+CREATE INDEX idx_event_staff_checkins_member_time ON public.event_staff_checkins USING btree (staff_member_id, scanned_at DESC);
+CREATE INDEX idx_event_staff_checkins_scanner ON public.event_staff_checkins USING btree (scanned_by_user_id, scanned_at DESC) WHERE (scanne
+CREATE INDEX idx_event_team_members_badge_status ON public.event_team_members USING btree (badge_status) WHERE (badge_status = 'revoked'::te
+CREATE INDEX idx_events_kind ON public.events USING btree (kind);
+CREATE INDEX idx_invitation_pages_event_id ON public.event_invitation_pages USING btree (event_id);
+CREATE INDEX idx_invitation_pages_status ON public.event_invitation_pages USING btree (page_status);
+CREATE INDEX idx_invitation_preview_tokens_token ON public.invitation_page_preview_tokens USING btree (token);
+CREATE INDEX idx_memories_delete_token ON public.event_memories USING btree (delete_token_hash) WHERE (delete_token_hash IS NOT NULL);
+CREATE INDEX idx_memories_event_status ON public.event_memories USING btree (event_id, status, created_at DESC);
+CREATE INDEX idx_memory_reports_memory_id ON public.event_memory_reports USING btree (memory_id);
+CREATE INDEX idx_memory_settings_event_id ON public.event_memory_settings USING btree (event_id);
+CREATE INDEX idx_memory_settings_token ON public.event_memory_settings USING btree (upload_token);
+CREATE INDEX idx_menu_item_option_groups_group_id ON public.menu_item_option_groups USING btree (group_id);
+CREATE INDEX idx_menu_item_option_groups_item_id ON public.menu_item_option_groups USING btree (item_id);
+CREATE INDEX idx_menu_item_option_groups_item_position ON public.menu_item_option_groups USING btree (item_id, "position");
+CREATE INDEX idx_menu_item_option_groups_organizer_id ON public.menu_item_option_groups USING btree (organizer_id);
+CREATE INDEX idx_menu_item_option_groups_organizer_position ON public.menu_item_option_groups USING btree (organizer_id, "position");
+CREATE INDEX idx_menu_option_groups_legacy_source ON public.menu_option_groups USING btree (legacy_source_item_id) WHERE (legacy_source_item
+CREATE INDEX idx_menu_option_groups_organizer_id ON public.menu_option_groups USING btree (organizer_id);
+CREATE INDEX idx_menu_option_groups_organizer_position ON public.menu_option_groups USING btree (organizer_id, "position");
+CREATE INDEX idx_menu_options_group_id ON public.menu_options USING btree (group_id);
+CREATE INDEX idx_menu_options_group_position ON public.menu_options USING btree (group_id, "position");
+CREATE INDEX idx_menu_options_organizer_id ON public.menu_options USING btree (organizer_id);
+CREATE INDEX idx_menu_options_organizer_position ON public.menu_options USING btree (organizer_id, "position");
+CREATE INDEX idx_order_delivery_locations_courier ON public.order_delivery_locations USING btree (courier_worker_id, recorded_at DESC);
+CREATE INDEX idx_order_delivery_locations_order_recorded ON public.order_delivery_locations USING btree (order_id, recorded_at DESC);
+CREATE INDEX idx_orders_courier_worker_active ON public.orders USING btree (courier_worker_id, status) WHERE (courier_worker_id IS NOT NULL)
+CREATE INDEX idx_orders_created_at ON public.orders USING btree (created_at DESC);
+CREATE INDEX idx_orders_org_status_created ON public.orders USING btree (organizer_id, status, created_at DESC);
+CREATE INDEX idx_orders_organizer_id ON public.orders USING btree (organizer_id);
+CREATE INDEX idx_orders_tracking_token ON public.orders USING btree (tracking_token);
+CREATE INDEX idx_orders_website_id ON public.orders USING btree (website_id);
+CREATE INDEX idx_promo_codes_tenant_active ON public.promo_codes USING btree (tenant_id) WHERE (is_active = true);
+CREATE INDEX idx_reservations_organizer_starts ON public.reservations USING btree (organizer_id, starts_at DESC);
+CREATE INDEX idx_reservations_organizer_status_starts ON public.reservations USING btree (organizer_id, status, starts_at DESC);
+CREATE INDEX idx_website_content_drafts_website_id ON public.website_content_drafts USING btree (website_id);
+CREATE INDEX idx_website_content_gin ON public.website_content USING gin (content);
+CREATE INDEX idx_website_content_website_id ON public.website_content USING btree (website_id);
+CREATE INDEX media_owner_created_idx ON public.media USING btree (owner_user_id, created_at DESC) WHERE (owner_user_id IS NOT NULL);
+CREATE INDEX media_purpose_idx ON public.media USING btree (purpose);
+CREATE INDEX media_target_created_idx ON public.media USING btree (target_id, created_at DESC) WHERE (target_id IS NOT NULL);
+CREATE INDEX media_tenant_created_idx ON public.media USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX promotion_targets_item_id_idx ON public.promotion_targets USING btree (item_id);
+CREATE INDEX promotion_targets_organizer_id_idx ON public.promotion_targets USING btree (organizer_id);
+CREATE INDEX promotion_targets_promotion_id_idx ON public.promotion_targets USING btree (promotion_id);
+CREATE INDEX promotion_targets_section_id_idx ON public.promotion_targets USING btree (section_id);
+CREATE INDEX promotions_destination_item_idx ON public.promotions USING btree (destination_item_id);
+CREATE INDEX promotions_destination_section_idx ON public.promotions USING btree (destination_section_id);
+CREATE INDEX promotions_organizer_id_idx ON public.promotions USING btree (organizer_id);
+CREATE INDEX promotions_organizer_starts_at_idx ON public.promotions USING btree (organizer_id, starts_at);
+CREATE INDEX promotions_organizer_status_idx ON public.promotions USING btree (organizer_id, status);
+CREATE POLICY "Organizers and event managers can manage invitation pages" ON public.event_invitation_pages TO authenticated USING (((EXISTS 
+CREATE POLICY "Organizers and event managers can manage memories" ON public.event_memories TO authenticated USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers and event managers can manage memory reports" ON public.event_memory_reports TO authenticated USING (((EXISTS ( SE
+CREATE POLICY "Organizers and event managers can manage memory settings" ON public.event_memory_settings TO authenticated USING (((EXISTS ( 
+CREATE POLICY "Organizers and event managers can manage preview tokens" ON public.invitation_page_preview_tokens TO authenticated USING (((E
+CREATE POLICY "Organizers and event managers can manage retention notices" ON public.event_memory_retention_notices TO authenticated USING (
+CREATE POLICY "Public can view assigned active menu option groups" ON public.menu_option_groups FOR SELECT USING (((is_active = true) AND (E
+CREATE POLICY "Public can view assignments for active menu items" ON public.menu_item_option_groups FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Public can view available assigned menu options" ON public.menu_options FOR SELECT USING (((is_available = true) AND (EXISTS 
+CREATE POLICY "Tenant editors can delete menu item option groups" ON public.menu_item_option_groups FOR DELETE USING ((public.is_entity_memb
+CREATE POLICY "Tenant editors can insert menu item option groups" ON public.menu_item_option_groups FOR INSERT WITH CHECK ((public.is_entity
+CREATE POLICY "Tenant editors can insert menu option groups" ON public.menu_option_groups FOR INSERT WITH CHECK ((public.is_entity_member(or
+CREATE POLICY "Tenant editors can insert menu options" ON public.menu_options FOR INSERT WITH CHECK ((public.is_entity_member(organizer_id, 
+CREATE POLICY "Tenant editors can insert website content drafts" ON public.website_content_drafts FOR INSERT TO authenticated WITH CHECK ((E
+CREATE POLICY "Tenant editors can update menu item option groups" ON public.menu_item_option_groups FOR UPDATE USING ((public.is_entity_memb
+CREATE POLICY "Tenant editors can update menu option groups" ON public.menu_option_groups FOR UPDATE USING ((public.is_entity_member(organiz
+CREATE POLICY "Tenant editors can update menu options" ON public.menu_options FOR UPDATE USING ((public.is_entity_member(organizer_id, ARRAY
+CREATE POLICY "Tenant editors can update website content drafts" ON public.website_content_drafts FOR UPDATE TO authenticated USING ((EXISTS
+CREATE POLICY "Tenant managers can delete menu option groups" ON public.menu_option_groups FOR DELETE USING ((public.is_entity_member(organi
+CREATE POLICY "Tenant managers can delete menu options" ON public.menu_options FOR DELETE USING ((public.is_entity_member(organizer_id, ARRA
+CREATE POLICY "Tenant managers can delete website content drafts" ON public.website_content_drafts FOR DELETE TO authenticated USING ((EXIST
+CREATE POLICY "Tenant managers can update orders" ON public.orders FOR UPDATE TO authenticated USING ((public.is_entity_member(organizer_id,
+CREATE POLICY "Tenant managers can update reservations" ON public.reservations FOR UPDATE TO authenticated USING ((public.is_entity_member(o
+CREATE POLICY "Tenant members can view menu item option groups" ON public.menu_item_option_groups FOR SELECT USING ((public.is_entity_member
+CREATE POLICY "Tenant members can view menu option groups" ON public.menu_option_groups FOR SELECT USING ((public.is_entity_member(organizer
+CREATE POLICY "Tenant members can view menu options" ON public.menu_options FOR SELECT USING ((public.is_entity_member(organizer_id, ARRAY['
+CREATE POLICY "Tenant team members can view orders" ON public.orders FOR SELECT TO authenticated USING ((public.is_entity_member(organizer_i
+CREATE POLICY "Tenant team members can view promo codes" ON public.promo_codes FOR SELECT USING (public.is_entity_member(tenant_id, ARRAY['o
+CREATE POLICY "Tenant team members can view reservations" ON public.reservations FOR SELECT TO authenticated USING ((public.is_entity_member
+CREATE POLICY "Tenant team members can view website content drafts" ON public.website_content_drafts FOR SELECT TO authenticated USING ((EXI
+CREATE POLICY "Tenant team members can view website content" ON public.website_content FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY "Users can view relevant staff checkins" ON public.event_staff_checkins FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY media_select_cms_active_admin ON public.media FOR SELECT TO authenticated USING (((purpose = 'cms'::text) AND (EXISTS ( SELECT
+CREATE POLICY media_select_personal_owner ON public.media FOR SELECT TO authenticated USING (((purpose = 'avatar'::text) AND (owner_user_id 
+CREATE POLICY media_select_tenant_members ON public.media FOR SELECT TO authenticated USING (((tenant_id IS NOT NULL) AND public.is_entity_m
+CREATE POLICY promotion_targets_public_read ON public.promotion_targets FOR SELECT TO authenticated, anon USING ((EXISTS ( SELECT 1
+CREATE POLICY promotion_targets_tenant_delete ON public.promotion_targets FOR DELETE TO authenticated USING ((public.is_entity_member(organi
+CREATE POLICY promotion_targets_tenant_insert ON public.promotion_targets FOR INSERT TO authenticated WITH CHECK ((public.is_entity_member(o
+CREATE POLICY promotion_targets_tenant_read ON public.promotion_targets FOR SELECT TO authenticated USING ((public.is_entity_member(organize
+CREATE POLICY promotion_targets_tenant_update ON public.promotion_targets FOR UPDATE TO authenticated USING ((public.is_entity_member(organi
+CREATE POLICY promotions_public_active_automatic_read ON public.promotions FOR SELECT TO authenticated, anon USING (((status = 'active'::tex
+CREATE POLICY promotions_tenant_delete ON public.promotions FOR DELETE TO authenticated USING ((public.is_entity_member(organizer_id, ARRAY[
+CREATE POLICY promotions_tenant_insert ON public.promotions FOR INSERT TO authenticated WITH CHECK ((public.is_entity_member(organizer_id, A
+CREATE POLICY promotions_tenant_read ON public.promotions FOR SELECT TO authenticated USING ((public.is_entity_member(organizer_id, ARRAY['o
+CREATE POLICY promotions_tenant_update ON public.promotions FOR UPDATE TO authenticated USING ((public.is_entity_member(organizer_id, ARRAY[
+CREATE TABLE public._migration_179_invitation_layout_backup (
+CREATE TABLE public.business_courier_offers (
+CREATE TABLE public.business_kitchen_display_links (
+CREATE TABLE public.business_kitchens (
+CREATE TABLE public.business_worker_invitations (
+CREATE TABLE public.business_worker_sessions (
+CREATE TABLE public.business_workers (
+CREATE TABLE public.courier_dispatch_settings (
+CREATE TABLE public.event_invitation_pages (
+CREATE TABLE public.event_memories (
+CREATE TABLE public.event_memory_reports (
+CREATE TABLE public.event_memory_retention_notices (
+CREATE TABLE public.event_memory_settings (
+CREATE TABLE public.event_staff_checkins (
+CREATE TABLE public.invitation_page_preview_tokens (
+CREATE TABLE public.media (
+CREATE TABLE public.menu_item_option_groups (
+CREATE TABLE public.menu_option_groups (
+CREATE TABLE public.menu_options (
+CREATE TABLE public.order_delivery_locations (
+CREATE TABLE public.orders (
+CREATE TABLE public.promo_codes (
+CREATE TABLE public.promotion_targets (
+CREATE TABLE public.promotions (
+CREATE TABLE public.public_media_upload_daily_quota (
+CREATE TABLE public.reservations (
+CREATE TABLE public.website_content (
+CREATE TABLE public.website_content_drafts (
+CREATE TRIGGER trg_cleanup_delivery_locations AFTER UPDATE OF status ON public.orders FOR EACH ROW WHEN ((new.status = ANY (ARRAY['delivered
+CREATE TRIGGER trg_dispatch_pending_deliveries_after_courier_completion AFTER UPDATE OF status ON public.orders FOR EACH ROW WHEN (((old.sta
+CREATE TRIGGER trg_event_invitation_pages_updated_at BEFORE UPDATE ON public.event_invitation_pages FOR EACH ROW EXECUTE FUNCTION public.upd
+CREATE TRIGGER trg_force_inactive_worker_offline BEFORE UPDATE OF is_active, deactivated_at ON public.business_workers FOR EACH ROW EXECUTE 
+CREATE TRIGGER trg_menu_item_option_groups_parent_organizer BEFORE UPDATE OF organizer_id ON public.menu_items FOR EACH ROW EXECUTE FUNCTION
+CREATE TRIGGER trg_menu_item_option_groups_tenant_limits BEFORE INSERT OR UPDATE ON public.menu_item_option_groups FOR EACH ROW EXECUTE FUNC
+CREATE TRIGGER trg_menu_item_option_groups_updated_at BEFORE UPDATE ON public.menu_item_option_groups FOR EACH ROW EXECUTE FUNCTION public.s
+CREATE TRIGGER trg_menu_option_groups_organizer_change BEFORE UPDATE OF organizer_id ON public.menu_option_groups FOR EACH ROW EXECUTE FUNCT
+CREATE TRIGGER trg_menu_option_groups_updated_at BEFORE UPDATE ON public.menu_option_groups FOR EACH ROW EXECUTE FUNCTION public.set_menu_op
+CREATE TRIGGER trg_menu_option_groups_variant_limit BEFORE UPDATE OF kind, min_select, max_select, is_required ON public.menu_option_groups 
+CREATE TRIGGER trg_menu_options_cleanup_assignments BEFORE DELETE ON public.menu_options FOR EACH ROW EXECUTE FUNCTION public.remove_deleted
+CREATE TRIGGER trg_menu_options_organizer_match BEFORE INSERT OR UPDATE ON public.menu_options FOR EACH ROW EXECUTE FUNCTION public.check_me
+CREATE TRIGGER trg_menu_options_updated_at BEFORE UPDATE ON public.menu_options FOR EACH ROW EXECUTE FUNCTION public.set_menu_option_group_u
+CREATE TRIGGER trg_menu_options_variant_default BEFORE INSERT OR UPDATE OF group_id, is_default ON public.menu_options FOR EACH ROW EXECUTE 
+CREATE TRIGGER trg_offer_ready_delivery_insert AFTER INSERT ON public.orders FOR EACH ROW EXECUTE FUNCTION public.offer_ready_delivery_couri
+CREATE TRIGGER trg_offer_ready_delivery_update AFTER UPDATE OF status, estimated_ready_at, fulfilment_type, courier_worker_id ON public.orde
+CREATE TRIGGER trg_organizers_updated_at BEFORE UPDATE ON public.organizers FOR EACH ROW EXECUTE FUNCTION public.update_organizers_updated_a
+CREATE TRIGGER trg_promo_codes_updated_at BEFORE INSERT OR UPDATE ON public.promo_codes FOR EACH ROW EXECUTE FUNCTION public.update_promo_co
+CREATE TRIGGER trg_promotion_targets_organizer_match BEFORE INSERT OR UPDATE ON public.promotion_targets FOR EACH ROW EXECUTE FUNCTION publi
+CREATE TRIGGER trg_promotion_targets_updated_at BEFORE UPDATE ON public.promotion_targets FOR EACH ROW EXECUTE FUNCTION public.set_menu_prom
+CREATE TRIGGER trg_promotions_organizer_change BEFORE UPDATE OF organizer_id ON public.promotions FOR EACH ROW EXECUTE FUNCTION public.preve
+CREATE TRIGGER trg_promotions_organizer_match BEFORE INSERT OR UPDATE ON public.promotions FOR EACH ROW EXECUTE FUNCTION public.check_menu_p
+CREATE TRIGGER trg_promotions_updated_at BEFORE UPDATE ON public.promotions FOR EACH ROW EXECUTE FUNCTION public.set_menu_promotion_updated_
+CREATE TRIGGER trg_resolve_courier_offers_on_order_status AFTER UPDATE OF status ON public.orders FOR EACH ROW WHEN (((old.status IS DISTINC
+CREATE TRIGGER trg_revoke_business_worker_access_on_deactivation AFTER UPDATE OF is_active, deactivated_at ON public.business_workers FOR EA
+CREATE TRIGGER trg_set_website_content_draft_metadata BEFORE INSERT OR UPDATE ON public.website_content_drafts FOR EACH ROW EXECUTE FUNCTION
+CREATE TRIGGER trg_set_website_content_updated_at BEFORE UPDATE ON public.website_content FOR EACH ROW EXECUTE FUNCTION public.set_website_c
+CREATE TRIGGER trg_sync_courier_offers_on_availability AFTER UPDATE OF is_available ON public.business_workers FOR EACH ROW WHEN ((old.is_av
+CREATE TRIGGER trg_sync_website_page_drafts_blocks_layout BEFORE INSERT OR UPDATE ON public.website_page_drafts FOR EACH ROW EXECUTE FUNCTIO
+CREATE TRIGGER trg_sync_website_pages_blocks_layout BEFORE INSERT OR UPDATE ON public.website_pages FOR EACH ROW EXECUTE FUNCTION public.syn
+CREATE UNIQUE INDEX idx_event_team_invitations_token_hash ON public.event_team_invitations USING btree (token_hash);
+CREATE UNIQUE INDEX idx_event_team_members_badge_display_code ON public.event_team_members USING btree (badge_display_code);
+CREATE UNIQUE INDEX idx_event_team_members_badge_token_hash ON public.event_team_members USING btree (badge_token_hash);
+CREATE UNIQUE INDEX idx_orders_one_active_order_per_courier ON public.orders USING btree (courier_worker_id) WHERE ((courier_worker_id IS NO
+CREATE UNIQUE INDEX idx_reservations_lookup_token ON public.reservations USING btree (lookup_token);
+CREATE UNIQUE INDEX promo_codes_tenant_code_unique ON public.promo_codes USING btree (tenant_id, lower(code));
+CREATE UNIQUE INDEX promotion_targets_promotion_item_unique ON public.promotion_targets USING btree (promotion_id, item_id) WHERE (item_id I
+CREATE UNIQUE INDEX promotion_targets_promotion_section_unique ON public.promotion_targets USING btree (promotion_id, section_id) WHERE (sec
+CREATE UNIQUE INDEX promotions_code_organizer_ci_unique ON public.promotions USING btree (organizer_id, lower(btrim(code))) WHERE (code IS N
+CREATE UNIQUE INDEX reservations_organizer_idempotency_key ON public.reservations USING btree (organizer_id, idempotency_key) WHERE (idempot
+CREATE UNIQUE INDEX uq_business_courier_offers_order_worker ON public.business_courier_offers USING btree (order_id, courier_worker_id);
+CREATE UNIQUE INDEX uq_orders_provider_reference ON public.orders USING btree (provider, provider_reference) WHERE ((provider IS NOT NULL) A
+CREATE VIEW public.business_courier_offer_feed WITH (security_barrier='true', security_invoker='true') AS

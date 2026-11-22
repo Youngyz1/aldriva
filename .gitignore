@@ -60,3 +60,6 @@ next-env.d.ts
 playwright-report/
 test-results/
 qa-results.json
+
+# local scratch, QA state and build checks
+work/

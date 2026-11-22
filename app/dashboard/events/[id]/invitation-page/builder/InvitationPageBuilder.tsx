@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 import { IconAlertCircle as AlertCircle, IconCircleCheck as CheckCircle2, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { IconPencil as Pencil, IconEye as Eye } from "@tabler/icons-react";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
-import type { InvitationTemplate } from "@/lib/invitation-types";
 import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
 import { saveInvitationPageDraft } from "@/lib/actions/invitation-page";
 import { hasDraftChanges, summarizeInvitationMusic } from "@/lib/invitation-page-helpers";
@@ -31,8 +30,7 @@ import {
   invitationTypeForTemplate,
   type InvitationType,
 } from "@/lib/invitation-type-fields";
-import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
-import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+
 import {
   isPreviewMessage,
   isSameOriginMessage,
@@ -45,8 +43,6 @@ import { HeroSection } from "./sections/HeroSection";
 import { StorySection } from "./sections/StorySection";
 import { DetailsSection } from "./sections/DetailsSection";
 import { GallerySection } from "./sections/GallerySection";
-import { EvergreenPhotosSection } from "./sections/EvergreenPhotosSection";
-import { EvergreenDetailsSection } from "./sections/EvergreenDetailsSection";
 import { MusicSection } from "./sections/MusicSection";
 import { ExtrasSection } from "./sections/ExtrasSection";
 import { DesignSection } from "./sections/DesignSection";
@@ -54,7 +50,6 @@ import { PublishSection } from "./sections/PublishSection";
 import { publishInvitationPage, unpublishInvitationPage } from "@/lib/actions/invitation-page";
 import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
-import { UnifiedTemplatePicker } from "@/components/invitation/UnifiedTemplatePicker";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
 import { cn } from "@/lib/utils";
 
@@ -65,11 +60,9 @@ export interface BuilderDraft extends InvitationPageDraftInput {
 export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
   const d = data.draft;
   return {
-    template_id: d.template_id ?? "gala-editorial",
+    template_id: d.template_id ?? "",
     locale: d.locale ?? "en",
-    blocks_layout: d.template_id === "evergreen-envelope" && d.blocks_layout
-      ? legacyInvitationTemplateToLayout(d.template_id, d.blocks_layout)
-      : d.blocks_layout ?? null,
+    blocks_layout: d.blocks_layout ?? null,
     display_title: d.display_title ?? null,
     eyebrow: d.eyebrow ?? null,
     host_names: d.host_names ?? null,
@@ -212,10 +205,6 @@ function SectionBody({
       return <StorySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "details":
       return <DetailsSection draft={draft} event={event} updateDraft={updateDraft} />;
-    case "evergreen":
-      return <EvergreenDetailsSection draft={draft} updateDraft={updateDraft} />;
-    case "photos":
-      return <EvergreenPhotosSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "gallery":
       return <GallerySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
     case "music":
@@ -242,10 +231,6 @@ interface Props {
    * template); fresh drafts start at "type" (template choice, then form).
    */
   initialSection?: SectionId;
-  /** Current card slug (server-resolved). Null when none selected. Round 5. */
-  cardSlug?: string | null;
-  /** Card catalog for the unified picker. Round 5. */
-  cardTemplates?: InvitationTemplate[];
 }
 
 function summaryFor(
@@ -274,22 +259,13 @@ function summaryFor(
       return draft.venue_name || draft.address || "No venue override";
     case "gallery":
       return `${draft.gallery?.length ?? 0} / 12 photos`;
-    case "evergreen":
-      return "Template-specific details";
-    case "photos": {
-      const photos = draft.blocks_layout?.template_data;
-      const count = [
-        photos?.envelope_photo_url, photos?.cover_photo_url, photos?.polaroid_photo_one_url,
-        photos?.polaroid_photo_two_url, photos?.story_photo_one_url, photos?.story_photo_two_url,
-        photos?.closing_photo_url, photos?.rsvp_photo_url,
-      ].filter(Boolean).length;
-      return `${count} / 8 photos`;
-    }
     case "music":
       return musicSummary;
     case "extras":
       return "Type-specific fields";
     case "publish":
+      return null;
+    default:
       return null;
   }
 }
@@ -298,16 +274,12 @@ export function InvitationPageBuilder({
   eventId,
   initialData,
   initialSection = "type",
-  cardSlug = null,
-  cardTemplates = [],
 }: Props) {
   const t = useTranslations("Events");
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(() =>
-    initialData.draft.id && initialData.draft.id !== ""
-      ? invitationTypeForTemplate(draftFromData(initialData).template_id)
-      : null
+    initialData.draft.id && initialData.draft.id !== "" ? invitationTypeForTemplate() : null
   );
   const [pendingTypeChange, setPendingTypeChange] = useState<{
     type: InvitationType;
@@ -317,8 +289,7 @@ export function InvitationPageBuilder({
   const [candidatePreviewTemplateId, setCandidatePreviewTemplateId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<SectionId | null>(initialSection);
   const typeSummary = invitationType ? t(TYPE_NAME_MESSAGE_KEYS[invitationType]) : null;
-  const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
-  const templateSummary = templateNameKey ? t(templateNameKey) : draft.template_id;
+  const templateSummary = draft.template_id || "";
   const musicSummary = summarizeInvitationMusic(
     draft.music_audio_url,
     draft.music_title,
@@ -419,15 +390,15 @@ export function InvitationPageBuilder({
     latestPayloadRef.current = {
       source: PREVIEW_MESSAGE_SOURCE,
       kind: "draft",
-      templateId: candidatePreviewTemplateId || draft.template_id || "gala-editorial",
+      templateId: candidatePreviewTemplateId || draft.template_id || "",
       locale: previewLocale,
       draft: {
         ...draft,
-        template_id: candidatePreviewTemplateId || draft.template_id || "gala-editorial",
+        template_id: candidatePreviewTemplateId || draft.template_id || "",
       },
       event: { ...(initialData.event as unknown as Record<string, unknown>) },
       candidatePreview: Boolean(candidatePreviewTemplateId && candidatePreviewTemplateId !== draft.template_id),
-      savedTemplateId: draft.template_id || "gala-editorial",
+      savedTemplateId: draft.template_id || "",
     };
     const timer = setTimeout(() => {
       if (latestPayloadRef.current) postToPreview(latestPayloadRef.current);
@@ -504,37 +475,13 @@ export function InvitationPageBuilder({
   const confirmTypeChange = useCallback(() => {
     if (!pendingTypeChange) return;
     setInvitationType(pendingTypeChange.type);
-    // Confirmation is the type save point; until now only the iframe used
-    // the candidate page. Values remain on the draft while visibility changes.
-    const evergreenData = draft.blocks_layout?.template_data;
-    const blocksLayout = evergreenData
-      ? { ...legacyInvitationTemplateToLayout(pendingTypeChange.pageId), template_data: evergreenData }
-      : null;
-    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: blocksLayout });
+    // No templates ship with the platform, so only the type is saved.
+    updateDraft({ template_id: pendingTypeChange.pageId });
     setCandidatePreviewTemplateId(null);
     setPendingTypeChange(null);
     setOpenSection(null);
     requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
-  }, [draft.blocks_layout, pendingTypeChange, updateDraft]);
-
-  const handleUnifiedTemplateApplied = useCallback((pageId: string) => {
-    setInvitationType(invitationTypeForTemplate(pageId));
-    if (pageId !== "romantic-envelope" && pageId !== "evergreen-envelope") {
-      if (draft.template_id === pageId) return;
-      skipTemplateAutosaveRef.current = pageId;
-      const evergreenData = draft.blocks_layout?.template_data;
-      const blocksLayout = evergreenData
-        ? { ...legacyInvitationTemplateToLayout(pageId), template_data: evergreenData }
-        : null;
-      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: blocksLayout }));
-      return;
-    }
-
-    const blocksLayout = legacyInvitationTemplateToLayout(pageId, draft.blocks_layout);
-    if (draft.template_id === pageId && JSON.stringify(draft.blocks_layout) === JSON.stringify(blocksLayout)) return;
-    if (draft.template_id !== pageId) skipTemplateAutosaveRef.current = pageId;
-    setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: blocksLayout }));
-  }, [draft.blocks_layout, draft.template_id]);
+  }, [pendingTypeChange, updateDraft]);
 
   const pendingTypeLabel = pendingTypeChange
     ? pendingTypeChange.type === "wedding"
@@ -740,37 +687,24 @@ export function InvitationPageBuilder({
             mobileView === "preview" && "hidden lg:block"
           )}
         >
-          {SECTION_IDS.filter((id) => (id !== "photos" && id !== "evergreen") || draft.template_id === "evergreen-envelope").map((id, i) => (
+          {SECTION_IDS.filter((id) => id !== "photos" && id !== "evergreen").map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
               index={i}
-              title={id === "photos" ? t("evergreenPhotosGroup") : id === "evergreen" ? t("evergreenDetailsGroup") : SECTION_TITLES[id]}
+              title={SECTION_TITLES[id]}
               summary={summaryFor(draft, id, typeSummary, templateSummary, musicSummary)}
               open={openSection === id}
               onToggle={toggleSection}
             >
               {id === "type" && <InvitationTypePicker value={invitationType} onChange={handleTypeChange} />}
               {id === "template" && (
-                <UnifiedTemplatePicker
-                  eventId={eventId}
-                  cardSlug={cardSlug}
-                  cardTemplates={cardTemplates}
-                  draft={draft as unknown as Record<string, unknown>}
-                  event={initialData.event as unknown as Record<string, unknown>}
-                  currentPageId={draft.template_id || "gala-editorial"}
-                  candidatePageId={candidatePreviewTemplateId}
-                  isPublished={pageStatus === "published"}
-                  invitationType={invitationType}
-                  disabled={actionBusy}
-                  onBeforeApply={async () => { await saveQueue.flush(); }}
-                  onApplied={handleUnifiedTemplateApplied}
-                  onCandidateTemplate={setCandidatePreviewTemplateId}
-                  onJumpToPublish={() => handleJumpToSection("publish")}
-                  getHiddenForPage={(pageId) =>
-                    hiddenContentOnTemplateSwitch(draft, draft.template_id, pageId)
-                  }
-                />
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-center">
+                  <p className="text-xs font-semibold text-zinc-900">No templates available</p>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Invitation templates will be available in a future update. Template selection is disabled for now.
+                  </p>
+                </div>
               )}
               {id !== "type" && id !== "template" && id !== "publish" && (
                 <SectionBody

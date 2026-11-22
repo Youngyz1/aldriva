@@ -44,9 +44,7 @@ export function OrgOverviewClient({
 
   return (
     <OverviewShell
-      title={orgName}
-      subtitle="Your operational dashboard at a glance"
-      badge="Organization"
+      workspaceName={orgName}
     >
       {/* 1. Attention Strip */}
       {attentionWidget && (

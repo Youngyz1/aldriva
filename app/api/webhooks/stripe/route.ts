@@ -77,7 +77,7 @@ async function alertReconciliationFailure(params: {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromAddress = `${BRAND.name} Alerts <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`;
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: fromAddress,
       to: BRAND.supportEmail,
       subject: `[URGENT] Payment succeeded but ${params.kind} record was not created`,
@@ -95,6 +95,13 @@ async function alertReconciliationFailure(params: {
         </div>
       `,
     });
+    if (sendErr) {
+      console.error("[webhook] Resend rejected reconciliation alert email:", {
+        paymentIntentId: params.stripePaymentIntentId,
+        name: sendErr.name,
+        message: sendErr.message,
+      });
+    }
   } catch (err) {
     console.error("[webhook] Failed to send reconciliation alert email:", err);
   }

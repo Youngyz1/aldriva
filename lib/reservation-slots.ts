@@ -165,6 +165,13 @@ export function ymdInTimeZone(date: Date, timeZone: string): string {
   }).format(date);
 }
 
+/** Calendar date `days` after `ymd`, computed in the site timezone. */
+export function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Whether any weekday row is configured (open hours or an explicit closed). */
 export function hasConfiguredHours(hoursValue: unknown): boolean {
   const hours = record(hoursValue);
@@ -252,7 +259,8 @@ export type StartsAtErrorCode =
   | "horizon_exceeded"
   | "closed_day"
   | "outside_opening_hours"
-  | "off_slot";
+  | "off_slot"
+  | "past_date";
 
 export type ValidateStartsAtResult =
   | { valid: true; startsAt: string }
@@ -345,3 +353,203 @@ export function validateReservationStartsAt(
 
   return { valid: true, startsAt: target.toISOString() };
 }
+
+/**
+ * Validates that starts_at is valid and that starts_at + duration_minutes
+ * does not extend beyond opening hours (including overnight closing spillover).
+ */
+export function validateReservationInterval(
+  requestedIso: unknown,
+  durationMinutes: number,
+  hoursValue: unknown,
+  settings: ReservationSettings,
+  timeZone: string,
+  now: Date = new Date()
+): ValidateStartsAtResult {
+  const startsCheck = validateReservationStartsAt(requestedIso, hoursValue, settings, timeZone, now);
+  if (!startsCheck.valid) return startsCheck;
+
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 15) {
+    return { valid: false, error: "invalid_format", message: "Duration must be at least 15 minutes." };
+  }
+
+  if (hasConfiguredHours(hoursValue)) {
+    const tz = safeTimeZone(timeZone);
+    const target = new Date(requestedIso as string);
+    const ymd = ymdInTimeZone(target, tz);
+    const dayKey = weekdayKeyOfDate(ymd, tz);
+    const hours = record(hoursValue);
+    if (dayKey && hours) {
+      const dayRow = record(hours[dayKey]);
+      if (dayRow && dayRow.closed !== true && isValidWebsiteTime(dayRow.open) && isValidWebsiteTime(dayRow.close)) {
+        const wallClockRaw = new Intl.DateTimeFormat("en-GB", {
+          timeZone: tz,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).format(target);
+        const wallClock = wallClockRaw.replace(/^24:/, "00:");
+        const startMins = toMinutes(wallClock);
+        const isOvernight = isOvernightWebsiteInterval(dayRow.open, dayRow.close);
+        const openMins = toMinutes(dayRow.open as string);
+        const closeMins = toMinutes(dayRow.close as string) + (isOvernight ? 1440 : 0);
+
+        let effectiveStart = startMins;
+        if (isOvernight && startMins < openMins) {
+          effectiveStart = startMins + 1440;
+        }
+
+        if (effectiveStart + durationMinutes > closeMins) {
+          return {
+            valid: false,
+            error: "outside_opening_hours",
+            message: "Reservation duration extends past closing time. Please choose an earlier time or shorter stay.",
+          };
+        }
+      }
+    }
+  }
+
+  return startsCheck;
+}
+
+/**
+ * Whether a calendar date is an "open day" by the owner's saved business
+ * hours: the date's own weekday row is configured with open + close and is
+ * not explicitly closed. No overnight-spill or slot-boundary consideration —
+ * used for the date_only booking mode, which offers no time grid at all.
+ */
+export function isDateOpen(dateYmd: string, hoursValue: unknown, timeZone: string): boolean {
+  const tz = safeTimeZone(timeZone);
+  const dayKey = weekdayKeyOfDate(dateYmd, tz);
+  if (!dayKey) return false;
+  const hours = record(hoursValue);
+  if (!hours) return false;
+  const row = record(hours[dayKey]);
+  return Boolean(row && row.closed !== true && isValidWebsiteTime(row.open as string) && isValidWebsiteTime(row.close as string));
+}
+
+/**
+ * Server-authoritative date-only validation for a service in date_only mode.
+ * Checks the date is today-or-later, inside the horizon, and on an open day
+ * by business hours. There is NO slot-grid / off_slot check: date_only
+ * bookings carry no chosen time.
+ */
+export function validateReservationDateOnly(
+  requestedIso: unknown,
+  hoursValue: unknown,
+  settings: ReservationSettings,
+  timeZone: string,
+  now: Date = new Date()
+): ValidateStartsAtResult {
+  const tz = safeTimeZone(timeZone);
+  if (typeof requestedIso !== "string" || !requestedIso.trim()) {
+    return { valid: false, error: "invalid_format", message: "Please choose a date for your request." };
+  }
+  const target = new Date(requestedIso);
+  if (isNaN(target.getTime())) {
+    return { valid: false, error: "invalid_format", message: "Please choose a valid date." };
+  }
+  const ymd = ymdInTimeZone(target, tz);
+  if (!ymd) {
+    return { valid: false, error: "invalid_format", message: "Please choose a valid date." };
+  }
+  const todayYmd = ymdInTimeZone(now, tz);
+  if (ymd < todayYmd) {
+    return { valid: false, error: "past_date", message: "Please choose today or a later date." };
+  }
+  const maxYmd = addDaysYmd(todayYmd, settings.max_days_ahead);
+  if (ymd > maxYmd) {
+    return { valid: false, error: "horizon_exceeded", message: `Requests cannot be made more than ${settings.max_days_ahead} days in advance.` };
+  }
+  if (!isDateOpen(ymd, hoursValue, tz)) {
+    return { valid: false, error: "closed_day", message: "The business is closed that day. Please choose another date." };
+  }
+  const startsAt = zonedTimeToUtc(ymd, "12:00", tz);
+  if (startsAt === null) {
+    return { valid: false, error: "invalid_format", message: "Please choose a valid date." };
+  }
+  return { valid: true, startsAt: new Date(startsAt).toISOString() };
+}
+
+/**
+ * Display helper: formats duration minutes as "1 h", "1 h 30", or "45 m".
+ */
+export function formatDurationOptionLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h} h ${m}`;
+  if (h > 0) return `${h} h`;
+  return `${m} m`;
+}
+
+export interface FormatReservationTimeRangeInput {
+  startsAt: string;
+  endsAt?: string | null;
+  durationMinutes?: number | null;
+  timeZone: string;
+  locale?: string;
+}
+
+/**
+ * Display helper: formats start and end time ("12:00 PM – 2:00 PM") plus duration ("2 h")
+ * using ends_at (or starts_at + duration_minutes fallback) and the exact same timezone
+ * formatter options used for starts_at.
+ */
+export function formatReservationTimeRange(input: FormatReservationTimeRangeInput): string {
+  const { startsAt, endsAt, durationMinutes, timeZone, locale } = input;
+  const loc = locale === "fr" ? "fr-FR" : "en-US";
+  const startDate = new Date(startsAt);
+
+  let endDate: Date;
+  let effectiveDuration = durationMinutes;
+
+  if (endsAt) {
+    endDate = new Date(endsAt);
+    if (!effectiveDuration || effectiveDuration <= 0) {
+      effectiveDuration = Math.round((endDate.getTime() - startDate.getTime()) / 60_000);
+    }
+  } else if (effectiveDuration && effectiveDuration > 0) {
+    endDate = new Date(startDate.getTime() + effectiveDuration * 60_000);
+  } else {
+    effectiveDuration = 90;
+    endDate = new Date(startDate.getTime() + effectiveDuration * 60_000);
+  }
+
+  const durationStr = formatDurationOptionLabel(effectiveDuration);
+
+  try {
+    const startFormatted = startDate.toLocaleString(loc, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone,
+    });
+    const endFormatted = endDate.toLocaleTimeString(loc, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone,
+    });
+    return `${startFormatted} – ${endFormatted} (${durationStr})`;
+  } catch {
+    try {
+      const startFormatted = startDate.toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const endFormatted = endDate.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `${startFormatted} – ${endFormatted} (${durationStr})`;
+    } catch {
+      return `${startsAt} (${durationStr})`;
+    }
+  }
+}
+

@@ -10,7 +10,7 @@
  * when their type/template returns.
  */
 
-import type { TemplateCategory } from "@/components/invitation/templates/registry";
+import type { InvitationTemplateCategory as TemplateCategory } from "@/lib/invitation-template-registry";
 
 /** First-screen choice of the builder (and of the future Create flow). */
 export type InvitationType = "wedding" | "birthday" | "gala" | "other";
@@ -22,35 +22,19 @@ export const INVITATION_TYPES: { id: InvitationType; label: string; hint: string
   { id: "other", label: "Other", hint: "Generic fields, any template" },
 ];
 
-/** Suggested template when a type is picked (host can still choose any). */
+/** No templates ship with the platform, so no default template per type. */
 export const DEFAULT_TEMPLATE_FOR_TYPE: Record<InvitationType, string> = {
-  wedding: "wedding-romantic",
-  birthday: "birthday-bold",
-  gala: "gala-editorial",
-  other: "gala-editorial",
+  wedding: "",
+  birthday: "",
+  gala: "",
+  other: "",
 };
 
-/** Recover the builder type from the saved page template when reopening. */
-export function invitationTypeForTemplate(templateId: string | null | undefined): InvitationType {
-  const category = templateId ? TEMPLATE_CATEGORY_BY_ID[templateId] : undefined;
-  if (category === "wedding") return "wedding";
-  if (category === "birthday") return "birthday";
-  if (category === "gala_corporate") return "gala";
+/** Recover the builder type from the saved page template when reopening.
+ * No templates exist, so any saved template_id resolves to "other". */
+export function invitationTypeForTemplate(): InvitationType {
   return "other";
 }
-
-/** Registry template category per template id (mirrors the registry). */
-export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
-  "gala-editorial": "gala_corporate",
-  "black-tie": "gala_corporate",
-  "wedding-romantic": "wedding",
-  "romantic-envelope": "wedding",
-  "botanical-reverie": "wedding",
-  "evergreen-envelope": "wedding",
-  "luxe-editorial": "wedding",
-  "birthday-bold": "birthday",
-  cover: "universal",
-};
 
 export type TypeFieldKey =
   | "partner1_name"
@@ -106,11 +90,8 @@ export function extrasForType(type: InvitationType | null | undefined): TypeFiel
   return [];
 }
 
-/** Type-specific extras visible for a template (by registry category). */
-export function extrasForTemplate(templateId: string | null | undefined): TypeFieldKey[] {
-  const category = (templateId && TEMPLATE_CATEGORY_BY_ID[templateId]) || null;
-  if (category === "wedding") return WEDDING_FIELDS;
-  if (category === "birthday") return BIRTHDAY_FIELDS;
+/** No templates exist, so no template-specific fields. */
+export function extrasForTemplate(): TypeFieldKey[] {
   return [];
 }
 
@@ -164,26 +145,12 @@ export function hiddenContentOnTemplateSwitch(
   toTemplateId: string | null | undefined
 ): string[] {
   if (!fromTemplateId || !toTemplateId || fromTemplateId === toTemplateId) return [];
-  const fromFields = new Set(extrasForTemplate(fromTemplateId));
-  const toFields = new Set(extrasForTemplate(toTemplateId));
+  const fromFields = new Set(extrasForTemplate());
+  const toFields = new Set(extrasForTemplate());
   const hidden: string[] = [];
   for (const key of fromFields) {
     if (!toFields.has(key) && hasContent(draft[key])) {
       hidden.push(TYPE_FIELD_LABELS[key]);
-    }
-  }
-  if (fromTemplateId === "evergreen-envelope" && toTemplateId !== "evergreen-envelope") {
-    const blocksLayout = draft.blocks_layout;
-    const templateData = typeof blocksLayout === "object" && blocksLayout !== null
-      ? (blocksLayout as Record<string, unknown>).template_data
-      : null;
-    if (typeof templateData === "object" && templateData !== null && !Array.isArray(templateData)) {
-      const hasEvergreenContent = Object.entries(templateData as Record<string, unknown>).some(([key, value]) =>
-        key === "show_wishing_well" || key === "show_adults_only"
-          ? value === true
-          : hasContent(value)
-      );
-      if (hasEvergreenContent) hidden.push("Evergreen details and photos");
     }
   }
   return hidden;

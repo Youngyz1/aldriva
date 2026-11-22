@@ -25,18 +25,18 @@
  * Orders/Reservations/Fleet/Bookings are reserved: defined with their
  * capabilities but `routeExists: false`, so they never render until the
  * pages exist under `app/dashboard/org/[id]/`. (Reservations shipped in
- * Phase 7; fleet/bookings remain reserved.)
+ * Phase 7; Bookings shipped in Run 2C; fleet remains reserved.)
  */
 
 import type { Capability } from "./business-taxonomy";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import type { OrganizerDashboardTypeFlags } from "./organizer-dashboard-classifier";
+import {
+  MODULE_REGISTRY,
+  type OrgNavVisibility,
+} from "./dashboard/modules";
 
-export type OrgNavVisibility =
-  | { kind: "always" }
-  | { kind: "count"; flag: "products" }
-  | { kind: "organizer-type"; flag: "events" | "fundraisers" | "business" | "any" }
-  | { kind: "capability"; capabilities: Capability[]; existence: "menuRows" | "serviceRows" | "reservationRows" };
+export type { OrgNavVisibility };
 
 export interface OrgNavModule {
   /** Stable id; also the `Organizer` i18n key and English fallback lowercased. */
@@ -49,29 +49,30 @@ export interface OrgNavModule {
   routeExists: boolean;
 }
 
-export const ORG_NAV_MODULES: readonly OrgNavModule[] = [
-  { key: "overview", label: "Overview", hrefSuffix: "overview", icon: "LayoutDashboard", visibility: { kind: "always" }, routeExists: true },
-  { key: "website", label: "Website", hrefSuffix: "website", icon: "Globe", visibility: { kind: "organizer-type", flag: "business" }, routeExists: true },
-  { key: "events", label: "Events", hrefSuffix: "events", icon: "Calendar", visibility: { kind: "organizer-type", flag: "events" }, routeExists: true },
-  { key: "fundraisers", label: "Fundraisers", hrefSuffix: "fundraisers", icon: "Heart", visibility: { kind: "organizer-type", flag: "fundraisers" }, routeExists: true },
-  { key: "shop", label: "Shop", hrefSuffix: "products", icon: "ShoppingBag", visibility: { kind: "count", flag: "products" }, routeExists: true },
-  { key: "services", label: "Services", hrefSuffix: "services", icon: "Briefcase", visibility: { kind: "capability", capabilities: ["SERVICES"], existence: "serviceRows" }, routeExists: true },
-  { key: "menu", label: "Menu", hrefSuffix: "menu", icon: "Utensils", visibility: { kind: "capability", capabilities: ["MENU"], existence: "menuRows" }, routeExists: true },
-  { key: "promotions", label: "Promotions", hrefSuffix: "promotions", icon: "Tag", visibility: { kind: "capability", capabilities: ["MENU"], existence: "menuRows" }, routeExists: true },
-  { key: "orders", label: "Orders", hrefSuffix: "orders", icon: "Store", visibility: { kind: "capability", capabilities: ["ORDERS", "ONLINE_ORDERING"], existence: "menuRows" }, routeExists: true },
-  { key: "reservations", label: "Reservations", hrefSuffix: "reservations", icon: "CalendarCheck", visibility: { kind: "capability", capabilities: ["RESERVATIONS", "TABLES"], existence: "reservationRows" }, routeExists: true },
-  { key: "fleet", label: "Fleet", hrefSuffix: "fleet", icon: "Car", visibility: { kind: "capability", capabilities: ["VEHICLES", "VEHICLE_RENTAL"], existence: "menuRows" }, routeExists: false },
-  { key: "bookings", label: "Bookings", hrefSuffix: "bookings", icon: "CalendarDays", visibility: { kind: "capability", capabilities: ["BOOKINGS", "APPOINTMENTS"], existence: "serviceRows" }, routeExists: false },
-  { key: "reviews", label: "Reviews", hrefSuffix: "reviews", icon: "Star", visibility: { kind: "always" }, routeExists: true },
-  { key: "analytics", label: "Analytics", hrefSuffix: "analytics", icon: "BarChart2", visibility: { kind: "organizer-type", flag: "any" }, routeExists: true },
-  { key: "settings", label: "Settings", hrefSuffix: "settings", icon: "Settings", visibility: { kind: "always" }, routeExists: true },
-];
+/**
+ * Adapter over MODULE_REGISTRY (docs/design/dashboard-overview/02-module-contract.md §1).
+ * Preserves byte-identical navigation structures and ordering.
+ * The bookings entry in MODULE_REGISTRY (routeExists: true, existence: "activeServiceRows")
+ * flows through automatically and gates on ≥1 active service or BOOKINGS/APPOINTMENTS capability.
+ */
+export const ORG_NAV_MODULES: readonly OrgNavModule[] = MODULE_REGISTRY
+  .filter((m): m is typeof m & { nav: { visibility: OrgNavVisibility } } => Boolean(m.nav?.visibility))
+  .map((m) => ({
+    key: m.id,
+    label: m.nav.label,
+    hrefSuffix: m.nav.hrefSuffix,
+    icon: m.nav.icon,
+    visibility: m.nav.visibility,
+    routeExists: m.routeExists ?? true,
+  }));
 
 export interface OrgNavSignalCounts {
   organizerTypes: OrganizerDashboardTypeFlags;
   hasProducts?: boolean;
   hasMenuRows?: boolean;
   hasServiceRows?: boolean;
+  /** True when at least one ACTIVE service row exists (gates Bookings only — "services" keeps the any-row rule above). */
+  hasActiveServiceRows?: boolean;
   /** True when at least one reservation row exists (never hide data entry UI). */
   hasReservationRows?: boolean;
   /** Union of owner-selected stable offering keys across linked businesses. */
@@ -117,6 +118,7 @@ function isModuleVisible(
   if (visibility.existence === "menuRows" && counts.hasMenuRows === true) return true;
   if (visibility.existence === "serviceRows" && counts.hasServiceRows === true) return true;
   if (visibility.existence === "reservationRows" && counts.hasReservationRows === true) return true;
+  if (visibility.existence === "activeServiceRows" && counts.hasActiveServiceRows === true) return true;
   return visibility.capabilities.some((capability) => capabilities.has(capability));
 }
 

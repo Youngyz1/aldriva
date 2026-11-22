@@ -16,41 +16,45 @@ import { calculatePromotionCartPricing, MAX_LINE_QUANTITY, resolveItemOptionGrou
 import { loadMenuPromotions } from "@/lib/menu-promotion-data";
 import { isMissingMenuOptionSchema, warnMissingMenuOptionSchemaOnce } from "@/lib/menu-option-schema";
 import { resolveStorefrontCurrency } from "@/lib/website-v2-theme";
+import { DEFAULT_SITE_TIMEZONE, resolveSiteTimezone } from "@/lib/date-timezone";
+import { resolveBusinessReadyTime } from "@/lib/orders/ready-time";
 import {
   executeOrderStatusTransitionCore,
   type OrderRowRecord,
-  type OrderStatus,
   type CancellationReasonCode,
   type UpdateOrderStatusInput,
   type UpdateOrderStatusResult,
 } from "@/lib/orders/transition-core";
+import {
+  PICKUP_TRANSITION_GRAPH,
+  DELIVERY_TRANSITION_GRAPH,
+  DINE_IN_TRANSITION_GRAPH,
+} from "@/lib/orders/transition-graphs";
+
 
 export type { OrderItemInput, SubmitOrderRequestInput, SubmitOrderResult };
 export type { OrderStatus, CancellationReasonCode, UpdateOrderStatusInput, UpdateOrderStatusResult } from "@/lib/orders/transition-core";
 
-const PICKUP_TRANSITION_GRAPH: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["accepted", "cancelled"],
-  accepted: ["preparing", "ready", "cancelled"],
-  preparing: ["ready", "cancelled"],
-  ready: ["completed", "cancelled"],
-  picked_up: [],
-  out_for_delivery: [],
-  delivered: [],
-  completed: [],
-  cancelled: [],
-};
+async function getOrderBusinessTimezone(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  order: OrderRowRecord
+): Promise<string> {
+  let metadataTimezone: unknown = null;
 
-const DELIVERY_TRANSITION_GRAPH: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["accepted", "cancelled"],
-  accepted: ["preparing", "ready", "cancelled"],
-  preparing: ["ready", "cancelled"],
-  ready: ["out_for_delivery", "cancelled"],
-  picked_up: ["out_for_delivery", "delivered", "cancelled"],
-  out_for_delivery: ["delivered", "cancelled"],
-  delivered: [],
-  completed: [],
-  cancelled: [],
-};
+  if (order.website_id) {
+    const { data: website } = await admin
+      .from("tenant_websites")
+      .select("metadata")
+      .eq("id", order.website_id)
+      .maybeSingle();
+    const metadata = website?.metadata && typeof website.metadata === "object" && !Array.isArray(website.metadata)
+      ? website.metadata as Record<string, unknown>
+      : null;
+    metadataTimezone = metadata?.timezone;
+  }
+
+  return resolveSiteTimezone(metadataTimezone, DEFAULT_SITE_TIMEZONE);
+}
 
 const CANCELLATION_REASONS: readonly CancellationReasonCode[] = [
   "out_of_stock",
@@ -299,7 +303,7 @@ export async function updateOrderStatusWithClient(
     const { data: order, error: fetchErr } = await admin
       .from("orders")
       .select(
-        "id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, status_history, estimated_ready_at, rider_name, rider_phone"
+        "id, business_id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, scheduled_for, status_history, estimated_ready_at, rider_name, rider_phone"
       )
       .eq("id", input.orderId)
       .eq("organizer_id", input.organizerId)
@@ -316,7 +320,7 @@ export async function updateOrderStatusWithClient(
       const { data: fallback174, error: err174 } = await admin
         .from("orders")
         .select(
-          "id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, status_history, estimated_ready_at"
+          "id, business_id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, scheduled_for, status_history, estimated_ready_at"
         )
         .eq("id", input.orderId)
         .eq("organizer_id", input.organizerId)
@@ -327,7 +331,7 @@ export async function updateOrderStatusWithClient(
         const { data: fallbackBase, error: errBase } = await admin
           .from("orders")
           .select(
-            "id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id"
+            "id, business_id, order_number, status, payment_method, payment_status, provider, provider_reference, customer_email, customer_name, fulfilment_type, currency, total_amount, tracking_token, website_id, scheduled_for"
           )
           .eq("id", input.orderId)
           .eq("organizer_id", input.organizerId)
@@ -354,7 +358,8 @@ export async function updateOrderStatusWithClient(
 
     // 2. Fulfilment-aware transition graph check
     const isDelivery = targetOrder.fulfilment_type === "delivery";
-    const graph = isDelivery ? DELIVERY_TRANSITION_GRAPH : PICKUP_TRANSITION_GRAPH;
+    const isDineIn = targetOrder.fulfilment_type === "dine_in";
+    const graph = isDelivery ? DELIVERY_TRANSITION_GRAPH : isDineIn ? DINE_IN_TRANSITION_GRAPH : PICKUP_TRANSITION_GRAPH;
     const allowed = graph[input.expectedCurrentStatus] || [];
 
     if (!allowed.includes(input.nextStatus)) {
@@ -365,13 +370,41 @@ export async function updateOrderStatusWithClient(
       };
     }
 
-    // 3. Accept requires estimated ready time
+    let estimatedReadyAt = input.estimatedReadyAt ?? null;
+    const hasLocalReadyTime = input.estimatedReadyDate !== undefined || input.estimatedReadyTime !== undefined;
+    if (input.nextStatus === "accepted" && hasLocalReadyTime) {
+      const timezone = await getOrderBusinessTimezone(admin, targetOrder);
+      const resolution = resolveBusinessReadyTime(
+        input.estimatedReadyDate,
+        input.estimatedReadyTime,
+        timezone
+      );
+      if (!resolution.success) {
+        return {
+          success: false,
+          error: "invalid_ready_time",
+          message: resolution.message,
+        };
+      }
+      estimatedReadyAt = resolution.estimatedReadyAt;
+    }
+
+    // Delivery offers are sent on acceptance even when the kitchen has no
+    // estimate. Keep the prior estimate requirement for pickup/dine-in orders.
     if (input.nextStatus === "accepted") {
-      if (!input.estimatedReadyAt || isNaN(new Date(input.estimatedReadyAt).getTime())) {
+      const readyAtMs = estimatedReadyAt ? new Date(estimatedReadyAt).getTime() : Number.NaN;
+      if (!isDelivery && !Number.isFinite(readyAtMs)) {
         return {
           success: false,
           error: "missing_ready_time",
-          message: "Estimated ready time is required to accept an order.",
+          message: "Estimated ready time is required to accept this order.",
+        };
+      }
+      if (estimatedReadyAt && (!Number.isFinite(readyAtMs) || (isDelivery && readyAtMs <= Date.now()))) {
+        return {
+          success: false,
+          error: "invalid_ready_time",
+          message: "Estimated ready time must be a valid future time.",
         };
       }
     }
@@ -409,7 +442,7 @@ export async function updateOrderStatusWithClient(
     }
 
     return executeOrderStatusTransitionCore(
-      { ...input, courierWorkerId: undefined },
+      { ...input, estimatedReadyAt, courierWorkerId: undefined },
       admin,
       userId,
       targetOrder,
@@ -424,7 +457,7 @@ export async function updateOrderStatusWithClient(
 
 export type AssignRegisteredCourierResult =
   | { success: true; offlineWarning: boolean }
-  | { success: false; error: "unauthorized" | "forbidden" | "not_found" | "invalid_status" | "courier_on_delivery" | "courier_already_on_delivery" | "db_error"; message: string };
+  | { success: false; error: "unauthorized" | "forbidden" | "not_found" | "invalid_status" | "courier_on_delivery" | "courier_already_on_delivery" | "online_payment_required" | "db_error"; message: string };
 
 /** Assign a registered courier from the owner picker using the shared transition core. */
 export async function assignRegisteredCourier(input: {
@@ -495,6 +528,13 @@ export async function assignRegisteredCourier(input: {
     order.business_id
   );
   if (!result.success) {
+    if (result.error === "online_payment_required") {
+      return {
+        success: false,
+        error: "online_payment_required",
+        message: "Complete online payment before assigning a courier.",
+      };
+    }
     if (result.error === "courier_already_on_delivery") {
       return { success: false, error: "courier_already_on_delivery", message: result.message ?? "This courier has just been assigned another delivery. Choose someone else." };
     }
@@ -803,4 +843,64 @@ export async function saveDeliverySettingsWithClient(
   } catch {
     return { success: false, error: "unexpected", message: "An unexpected error occurred." };
   }
+}
+
+/**
+ * Waiter action to confirm an incoming dine-in order.
+ * Sets dine_in_confirmation = 'confirmed' and advances status to 'accepted'.
+ */
+export async function confirmDineInOrder(input: {
+  orderId: string;
+  organizerId: string;
+  estimatedMinutes?: number;
+}): Promise<UpdateOrderStatusResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized", message: "Sign in required." };
+  const access = await checkTenantAccess(user.id, input.organizerId, ["owner", "admin", "manager", "editor"]);
+  if (!access.hasAccess) {
+    return { success: false, error: "forbidden", message: "Only managers and staff can confirm dine-in orders." };
+  }
+
+  const minutes = typeof input.estimatedMinutes === "number" && input.estimatedMinutes >= 1 && input.estimatedMinutes <= 180
+    ? input.estimatedMinutes
+    : 20;
+  const estimatedReadyAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+
+  return updateOrderStatus({
+    orderId: input.orderId,
+    organizerId: input.organizerId,
+    expectedCurrentStatus: "pending",
+    nextStatus: "accepted",
+    estimatedReadyAt,
+    historyNote: `Dine-in order confirmed by staff (est. ${minutes} min)`,
+  });
+}
+
+/**
+ * Waiter action to decline an incoming dine-in order.
+ * Sets dine_in_confirmation = 'declined' and cancels the order with a reason.
+ */
+export async function declineDineInOrder(input: {
+  orderId: string;
+  organizerId: string;
+  reason: string;
+}): Promise<UpdateOrderStatusResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized", message: "Sign in required." };
+  const access = await checkTenantAccess(user.id, input.organizerId, ["owner", "admin", "manager", "editor"]);
+  if (!access.hasAccess) {
+    return { success: false, error: "forbidden", message: "Only managers and staff can decline dine-in orders." };
+  }
+
+  const cleanReason = (input.reason || "Declined by staff").trim().slice(0, 300);
+
+  return updateOrderStatus({
+    orderId: input.orderId,
+    organizerId: input.organizerId,
+    expectedCurrentStatus: "pending",
+    nextStatus: "cancelled",
+    cancellationReason: "other",
+    cancellationNote: cleanReason,
+    historyNote: `Dine-in order declined: ${cleanReason}`,
+  });
 }

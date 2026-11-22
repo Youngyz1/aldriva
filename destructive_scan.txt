@@ -1,0 +1,5 @@
+]633;E;for n in $(seq 154 192)\x3b do   for f in db/migration_${n}_*.sql\x3b do     case "$f" in *rollback*|*cleanup*) continue\x3b\x3b esac\x3b     grep -H -n -i -E "drop column|drop table|truncate|delete from|alter column .* (type|set not null)" "$f"\x3b   done\x3b done > destructive_scan.txt;07eda60f-bc0f-458d-bfe2-caef6b8f7003]633;Cdb/migration_165_event_staff_badge_hardening.sql:104:ALTER TABLE public.event_team_members DROP COLUMN IF EXISTS badge_token;
+db/migration_165_event_staff_badge_hardening.sql:105:ALTER TABLE public.event_staff_checkins DROP COLUMN IF EXISTS badge_token;
+db/migration_166_invite_token_hash.sql:67:ALTER TABLE public.event_team_invitations DROP COLUMN IF EXISTS token;
+db/migration_168_website_content_store.sql:312:  DELETE FROM public.website_content_drafts
+db/migration_190_delivery_live_gps.sql:66:    DELETE FROM public.order_delivery_locations

@@ -1,0 +1,57 @@
+< CREATE SCHEMA supabase_migrations;
+< CREATE FUNCTION public.assign_seat_to_invitation_atomic(p_event_id uuid, p_invitation_id uuid, p_seat_id uuid) RETURNS jsonb
+< CREATE FUNCTION public.create_website_from_template(p_website_id uuid, p_tenant_id uuid, p_slug text, p_site_title text, p_site_tagline text, p_them
+< CREATE FUNCTION public.enforce_article_status_transition() RETURNS trigger
+< CREATE FUNCTION public.enforce_business_status_transition() RETURNS trigger
+< CREATE FUNCTION public.prevent_audit_log_modification() RETURNS trigger
+< CREATE FUNCTION public.publish_page_draft(p_page_id uuid, p_expected_version integer DEFAULT NULL::integer) RETURNS jsonb
+< CREATE FUNCTION public.reserve_seats_atomic(p_seat_ids uuid[], p_hold_duration_minutes integer DEFAULT 5) RETURNS jsonb
+< CREATE FUNCTION public.rls_auto_enable() RETURNS event_trigger
+< CREATE FUNCTION public.set_beneficiary_slug() RETURNS trigger
+< CREATE FUNCTION public.set_website_page_draft_metadata() RETURNS trigger
+< CREATE FUNCTION public.touch_conversation_last_message() RETURNS trigger
+< COMMENT ON TABLE public.articles IS 'Editorial articles published by Fund4Good users. Optional business ownership is deferred until the businesses t
+< COMMENT ON COLUMN public.articles.scheduled_for IS 'When status=''scheduled'', the article becomes publicly visible at this UTC timestamp. Access co
+< COMMENT ON COLUMN public.articles.reading_time IS 'Estimated reading time in minutes. Computed in the server action as Math.max(1, Math.round(word_c
+< COMMENT ON COLUMN public.articles.business_id IS 'Optional business owner, mirroring articles.organizer_id.';
+< COMMENT ON COLUMN public.product_orders.product_name IS 'Snapshot of products.name at order-creation time, written explicitly by the checkout route.
+< COMMENT ON COLUMN public.product_orders.unit_price IS 'Snapshot of the price actually charged per unit at order-creation time, written explicitly by
+< COMMENT ON COLUMN public.product_orders.buyer_id IS 'Nullable — guest checkout is allowed platform-wide, same as donations.user_id and ticket_orde
+< COMMENT ON COLUMN public.product_orders.status IS 'Flipped pending -> paid exclusively by the payment webhook. Stock decrement happens in the same w
+< COMMENT ON COLUMN public.products.stock_quantity IS 'NULL = unlimited/digital good. Decremented by the payment webhook on confirmed purchase, never 
+< CREATE TABLE realtime.messages_2026_10_19 (
+< CREATE TABLE realtime.messages_2026_10_20 (
+< CREATE TABLE realtime.messages_2026_10_21 (
+< CREATE TABLE realtime.messages_2026_10_22 (
+< CREATE TABLE realtime.messages_2026_10_23 (
+< CREATE TABLE realtime.messages_2026_10_24 (
+< CREATE TABLE realtime.messages_2026_10_25 (
+< CREATE TABLE supabase_migrations.schema_migrations (
+< ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_10_19 FOR VALUES FROM ('2026-10-19 00:00:00') TO ('2026-10-20 00:00:00');
+< ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_10_20 FOR VALUES FROM ('2026-10-20 00:00:00') TO ('2026-10-21 00:00:00');
+< ALTER TABLE ONLY public.event_team_invitations
+< ALTER TABLE ONLY realtime.messages_2026_10_19
+< ALTER TABLE ONLY realtime.messages_2026_10_20
+< ALTER TABLE ONLY supabase_migrations.schema_migrations
+< ALTER TABLE ONLY supabase_migrations.schema_migrations
+< CREATE UNIQUE INDEX idx_event_team_members_active_user ON public.event_team_members USING btree (event_id, user_id) WHERE ((status = 'active'::text)
+< CREATE INDEX messages_2026_10_19_inserted_at_topic_idx ON realtime.messages_2026_10_19 USING btree (inserted_at DESC, topic) WHERE ((extension = 'br
+< CREATE INDEX messages_2026_10_20_inserted_at_topic_idx ON realtime.messages_2026_10_20 USING btree (inserted_at DESC, topic) WHERE ((extension = 'br
+< CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+< CREATE POLICY "Auth upload event-videos" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'event-videos'::text) AND (auth.role() = 'authentic
+< CREATE POLICY "Auth upload organizer-banners" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'organizer-banners'::text) AND (auth.role() = 
+< CREATE POLICY "Auth upload organizer-images" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'organizer-images'::text) AND (auth.role() = 'a
+< CREATE POLICY "Auth upload videos" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'videos'::text) AND (auth.role() = 'authenticated'::text)
+< CREATE POLICY "Authenticated users can upload fundraiser media" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'fundraiser-media'::text) AN
+< CREATE POLICY "CMS media is public for SELECT" ON storage.objects FOR SELECT USING ((bucket_id = 'cms-media'::text));
+< CREATE POLICY "Event managers can upload event banners" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'event-banners'::text) AND (auth.rol
+< CREATE POLICY "Owners can delete fundraiser media" ON storage.objects FOR DELETE USING (((bucket_id = 'fundraiser-media'::text) AND ((auth.uid())::t
+< CREATE POLICY "Profile images are public" ON storage.objects FOR SELECT USING ((bucket_id = 'profile-images'::text));
+< CREATE POLICY "Public can view fundraiser media" ON storage.objects FOR SELECT USING ((bucket_id = 'fundraiser-media'::text));
+< CREATE POLICY "Public read event-videos" ON storage.objects FOR SELECT USING ((bucket_id = 'event-videos'::text));
+< CREATE POLICY "Public read organizer-banners" ON storage.objects FOR SELECT USING ((bucket_id = 'organizer-banners'::text));
+< CREATE POLICY "Public read organizer-images" ON storage.objects FOR SELECT USING ((bucket_id = 'organizer-images'::text));
+< CREATE POLICY "Public read videos" ON storage.objects FOR SELECT USING ((bucket_id = 'videos'::text));
+< CREATE POLICY "Users can update profile images" ON storage.objects FOR UPDATE USING (((bucket_id = 'profile-images'::text) AND ((auth.uid())::text =
+< CREATE POLICY "Users can upload profile images" ON storage.objects FOR INSERT WITH CHECK (((bucket_id = 'profile-images'::text) AND ((auth.uid())::t
+< CREATE EVENT TRIGGER ensure_rls ON ddl_command_end

@@ -40,6 +40,8 @@ export interface ResolvePrimaryActionInput {
   /** Store templates use a separate Shop page and CTA label. */
   catalogPageSlug?: string;
   catalogActionLabelKey?: "viewMenu" | "viewProducts" | "shopNow";
+  /** Templates whose booking page slug is not "booking" override this. */
+  bookingPageSlug?: string;
 }
 
 export interface ResolvedPrimaryActions {
@@ -95,6 +97,7 @@ export function resolvePrimaryAction({
   catalogAdapter,
   catalogPageSlug = "menu",
   catalogActionLabelKey,
+  bookingPageSlug = "booking",
 }: ResolvePrimaryActionInput): ResolvedPrimaryActions {
   const capabilities = getCapabilitiesForBusiness(industry ?? "", category ?? "", businessType ?? "");
   const storefront = resolveStorefrontFeatures({
@@ -111,14 +114,12 @@ export function resolvePrimaryAction({
     : undefined;
 
   const bookingsLive = Boolean(
-    features.bookings?.selected &&
-    features.bookings.built &&
-    (capabilities.includes("BOOKINGS") || capabilities.includes("RESERVATIONS"))
+    capabilities.includes("BOOKINGS") || capabilities.includes("APPOINTMENTS")
   );
   const candidates: Array<{ live: boolean; page: string; action: PrimaryActionLabelKey }> = [
     { live: catalogPageSlug === "menu" && storefront.ordering, page: pages.has("order") ? "order" : "menu", action: "orderNow" },
     { live: catalogPageSlug === "menu" && storefront.reservations, page: "reservations", action: "reserveTable" },
-    { live: catalogPageSlug === "menu" && bookingsLive, page: "booking", action: "bookNow" },
+    { live: catalogPageSlug === "menu" && bookingsLive, page: bookingPageSlug, action: "bookNow" },
   ];
   const liveCandidates = candidates.filter((candidate) => candidate.live);
 

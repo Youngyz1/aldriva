@@ -4,6 +4,7 @@ import { checkTenantAccess } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { ServiceForm } from "@/components/dashboard/services/ServiceForm";
 import { TierManager } from "@/components/dashboard/services/TierManager";
+import { listServiceCategories } from "@/lib/actions/service-categories";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +21,7 @@ export default async function ServiceEditPage({ params }: { params: Promise<{ id
   const { data: service } = await admin.from("services").select("*").eq("id", serviceId).eq("organizer_id", organizerId).maybeSingle();
   if (!service) return <div className="p-6">Service not found</div>;
   const { data: tiers } = await admin.from("service_tiers").select("*").eq("service_id", serviceId).order("position");
+  const categoriesResult = await listServiceCategories(organizerId);
 
   return (
     <div className="p-6 space-y-6">
@@ -27,7 +29,13 @@ export default async function ServiceEditPage({ params }: { params: Promise<{ id
         <h1 className="text-xl font-semibold">Edit Service</h1>
         <Link href={`/dashboard/org/${organizerId}/services`}><Button variant="outline">Back to Services</Button></Link>
       </div>
-      <ServiceForm organizerId={organizerId} service={service} tenantId={organizerId} />
+      <ServiceForm
+        key={service.id}
+        organizerId={organizerId}
+        service={service}
+        tenantId={organizerId}
+        categories={categoriesResult.data.map((c) => ({ id: c.id, title: c.title }))}
+      />
       <div className="pt-6 border-t">
         <TierManager serviceId={serviceId} organizerId={organizerId} tiers={tiers || []} canEdit={canEdit} canDelete={canDelete} />
       </div>

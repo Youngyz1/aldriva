@@ -15,9 +15,10 @@
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { buildInvitationTemplatePreviewData } from "@/lib/invitation-template-preview-data";
+import { assembleInvitationPageData, type InvitationPageSnapshot, type EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/InvitationBlocksLayoutClient";
+import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
 import {
   isPreviewMessage,
   isSameOriginMessage,
@@ -34,7 +35,7 @@ interface Props {
 }
 
 const EMPTY_DRAFT: Record<string, unknown> = {
-  template_id: "gala-editorial",
+  template_id: "",
   locale: "en",
 };
 
@@ -53,6 +54,8 @@ class CandidatePreviewErrorBoundary extends Component<
   }
 }
 
+import type { InvitationPageData } from "@/types/invitation-template";
+
 function TemplateRender({
   templateId,
   data,
@@ -60,19 +63,19 @@ function TemplateRender({
   blocksLayout,
 }: {
   templateId: string;
-  data: ReturnType<typeof buildInvitationTemplatePreviewData>;
+  data: InvitationPageData;
   sampleLabel: string;
   blocksLayout?: unknown;
 }) {
   const layout = legacyInvitationTemplateToLayout(templateId, blocksLayout);
   return (
     <>
-      {data.sampleFields.length > 0 && (
+      {(data.sampleFields?.length ?? 0) > 0 && (
         <span className="fixed right-2 top-12 z-30 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-950 shadow-xs">
           {sampleLabel}
         </span>
       )}
-      <InvitationBlocksLayoutClient layout={layout} data={data.data} templateId={templateId} mode="preview" isEditMode />
+      <InvitationBlocksLayoutClient layout={layout} data={data} templateId={templateId} mode="preview" isEditMode />
     </>
   );
 }
@@ -106,13 +109,38 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
   const pageData = useMemo(() => {
     const draft = { ...(payload?.draft ?? initialDraft ?? EMPTY_DRAFT) };
     const templateId =
-      (payload?.templateId as string) || (draft.template_id as string) || "gala-editorial";
+      (payload?.templateId as string) || (draft.template_id as string) || "";
     draft.locale = payload?.locale || (draft.locale as "en" | "fr") || "en";
-    const savedTemplateId = payload?.savedTemplateId || (draft.template_id as string) || "gala-editorial";
-    const active = buildInvitationTemplatePreviewData(templateId, draft, event);
+    const savedTemplateId = payload?.savedTemplateId || (draft.template_id as string) || "";
+    const snapshot = { ...draft, template_id: templateId, locale: draft.locale } as unknown as InvitationPageSnapshot;
+    const liveEvent: EventLiveFields = {
+      id: String(event.id ?? ""),
+      title: typeof event.title === "string" && event.title ? event.title : "Exclusive Event",
+      slug: typeof event.slug === "string" ? event.slug : "",
+      event_date: typeof event.event_date === "string" ? event.event_date : "",
+      end_date: typeof event.end_date === "string" ? event.end_date : null,
+      venue: typeof event.venue === "string" ? event.venue : null,
+      street_address: typeof event.street_address === "string" ? event.street_address : null,
+      city: typeof event.city === "string" ? event.city : null,
+      latitude: typeof event.latitude === "number" ? event.latitude : null,
+      longitude: typeof event.longitude === "number" ? event.longitude : null,
+    };
+    const active = assembleInvitationPageData(
+      snapshot,
+      liveEvent,
+      { ...SAMPLE_PREVIEW_GUEST },
+      { ...SAMPLE_PREVIEW_TICKET },
+      null
+    );
     const saved =
       payload?.candidatePreview && savedTemplateId !== templateId
-        ? buildInvitationTemplatePreviewData(savedTemplateId, draft, event)
+        ? assembleInvitationPageData(
+            { ...snapshot, template_id: savedTemplateId },
+            liveEvent,
+            { ...SAMPLE_PREVIEW_GUEST },
+            { ...SAMPLE_PREVIEW_TICKET },
+            null
+          )
         : active;
     return {
       templateId,

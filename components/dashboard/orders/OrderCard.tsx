@@ -69,6 +69,11 @@ export interface DashboardOrderRow {
   courier_worker_id?: string | null;
   rider_name?: string | null;
   rider_phone?: string | null;
+  table_id?: string | null;
+  table_session_id?: string | null;
+  table_label?: string | null;
+  dine_in_confirmation?: string | null;
+  dine_in_declined_reason?: string | null;
   status_history: Array<{
     status: string;
     at: string;
@@ -96,6 +101,17 @@ export interface DashboardOrderRow {
     reported_at?: string;
     worker_name?: string;
   } | null;
+}
+
+function formatOrderDateTime(
+  value: string | null | undefined,
+  locale: string,
+  options: Intl.DateTimeFormatOptions
+): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, options).format(date);
 }
 
 interface OrderCardProps {
@@ -131,6 +147,16 @@ export function OrderCard({
   registeredCouriers = [],
   onRefresh,
 }: OrderCardProps) {
+  const eligibleCouriers = registeredCouriers.filter((courier) => courier.businessId === order.business_id);
+  const normalizedRiderName = order.rider_name?.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  const registeredRiderMatches = normalizedRiderName
+    ? eligibleCouriers.filter(
+        (courier) => courier.fullName.trim().replace(/\s+/g, " ").toLocaleLowerCase() === normalizedRiderName
+      )
+    : [];
+  const riderPhone = order.rider_phone?.trim() ||
+    (registeredRiderMatches.length === 1 ? registeredRiderMatches[0].phone.trim() : "");
+
   const t = useTranslations("Orders");
   const locale = useLocale() as Locale;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -161,6 +187,11 @@ export function OrderCard({
   // Accept modal state
   const [prepMinutes, setPrepMinutes] = useState<number>(20);
   const [customTime, setCustomTime] = useState<string>("");
+  const [acceptPrepMinutes, setAcceptPrepMinutes] = useState<number | null>(
+    order.fulfilment_type === "delivery" ? null : 20
+  );
+  const [acceptDate, setAcceptDate] = useState("");
+  const [acceptTime, setAcceptTime] = useState("");
 
   // Cancel modal state
   const [cancelReason, setCancelReason] = useState<CancellationReasonCode>("out_of_stock");
@@ -168,11 +199,9 @@ export function OrderCard({
 
   // Rider modal state
   const [riderNameInput, setRiderNameInput] = useState<string>(order.rider_name || "");
-  const [riderPhoneInput, setRiderPhoneInput] = useState<string>(order.rider_phone || "");
+  const [riderPhoneInput, setRiderPhoneInput] = useState<string>(riderPhone);
   const [registeredCourierId, setRegisteredCourierId] = useState("");
   const [registeredCourierWarning, setRegisteredCourierWarning] = useState("");
-  const eligibleCouriers = registeredCouriers.filter((courier) => courier.businessId === order.business_id);
-
   const hasActiveRegisteredCourier =
     Boolean(order.courier_worker_id) &&
     order.fulfilment_type === "delivery" &&
@@ -263,12 +292,15 @@ export function OrderCard({
   const handleAdvanceStatus = async (nextStatus: OrderStatus) => {
     setActionError(null);
     if (nextStatus === "accepted") {
+      setAcceptPrepMinutes(order.fulfilment_type === "delivery" ? null : 20);
+      setAcceptDate("");
+      setAcceptTime("");
       setShowAcceptModal(true);
       return;
     }
     if (nextStatus === "out_for_delivery") {
       setRiderNameInput(order.rider_name || "");
-      setRiderPhoneInput(order.rider_phone || "");
+      setRiderPhoneInput(riderPhone);
       setRegisteredCourierId("");
       setRegisteredCourierWarning("");
       setRiderError(null);
@@ -302,16 +334,32 @@ export function OrderCard({
   };
 
   const handleConfirmAccept = async () => {
-    let targetDate: Date;
-    if (customTime) {
-      targetDate = new Date(customTime);
-    } else {
-      targetDate = new Date(Date.now() + prepMinutes * 60 * 1000);
-    }
+    const timing: {
+      estimatedReadyAt?: string;
+      estimatedReadyDate?: string;
+      estimatedReadyTime?: string;
+    } = {};
 
-    if (isNaN(targetDate.getTime())) {
-      setActionError("Please choose a valid estimated ready time.");
-      return;
+    if (order.fulfilment_type === "delivery") {
+      if (acceptDate && !acceptTime) {
+        setActionError("Enter a ready time for that date, or clear the date to leave the estimate empty.");
+        return;
+      }
+      if (acceptDate || acceptTime) {
+        if (acceptDate) timing.estimatedReadyDate = acceptDate;
+        if (acceptTime) timing.estimatedReadyTime = acceptTime;
+      } else if (acceptPrepMinutes !== null) {
+        timing.estimatedReadyAt = new Date(Date.now() + acceptPrepMinutes * 60 * 1000).toISOString();
+      }
+    } else {
+      const targetDate = customTime
+        ? new Date(customTime)
+        : new Date(Date.now() + prepMinutes * 60 * 1000);
+      if (isNaN(targetDate.getTime())) {
+        setActionError("Please choose a valid estimated ready time.");
+        return;
+      }
+      timing.estimatedReadyAt = targetDate.toISOString();
     }
 
     setIsSubmitting(true);
@@ -322,7 +370,7 @@ export function OrderCard({
         organizerId,
         expectedCurrentStatus: "pending",
         nextStatus: "accepted",
-        estimatedReadyAt: targetDate.toISOString(),
+        ...timing,
       });
       if (!res.success) {
         setActionError(res.message || "Failed to accept order.");
@@ -602,8 +650,22 @@ export function OrderCard({
             <div className="flex items-center gap-1.5 flex-wrap">
               <StatusBadge status={order.status} />
               <span className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-medium text-zinc-700 capitalize">
-                {order.fulfilment_type === "delivery" ? t("delivery") : t("pickup")}
+                {order.fulfilment_type === "delivery"
+                  ? t("delivery")
+                  : order.fulfilment_type === "dine_in"
+                  ? "Dine-In"
+                  : t("pickup")}
               </span>
+              {order.fulfilment_type === "dine_in" && order.table_label && (
+                <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-800">
+                  Table {order.table_label}
+                </span>
+              )}
+              {order.fulfilment_type === "dine_in" && order.dine_in_confirmation === "pending" && (
+                <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 animate-pulse">
+                  Awaiting Confirmation
+                </span>
+              )}
             </div>
           </div>
 
@@ -617,8 +679,8 @@ export function OrderCard({
                 <div className="inline-flex items-center gap-1 text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5">
                   <Bike className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                   <span className="font-semibold">{order.rider_name}</span>
-                  {order.rider_phone && (
-                    <span className="text-sky-600 font-mono text-[11px]">• {order.rider_phone}</span>
+                  {riderPhone && (
+                    <span className="text-sky-600 font-mono text-[11px]">• {riderPhone}</span>
                   )}
                 </div>
               )}
@@ -637,21 +699,36 @@ export function OrderCard({
             >
               {order.status === "pending" && (
                 <>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => handleAdvanceStatus("accepted")}
-                    className="min-h-[44px] flex-1 sm:flex-initial rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 transition active:scale-95 disabled:opacity-50"
-                  >
-                    {t("accept")}
-                  </button>
+                  {order.fulfilment_type === "dine_in" &&
+                  order.payment_method === "online" &&
+                  order.payment_status !== "paid" ? (
+                    <button
+                      type="button"
+                      disabled
+                      title="Customer must complete online card payment first"
+                      className="min-h-[44px] flex-1 sm:flex-initial rounded-xl bg-zinc-300 px-4 py-2 text-xs font-bold text-zinc-600 cursor-not-allowed opacity-75"
+                    >
+                      Awaiting Card Payment
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => handleAdvanceStatus("accepted")}
+                      className="min-h-[44px] flex-1 sm:flex-initial rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 transition active:scale-95 disabled:opacity-50"
+                    >
+                      {order.fulfilment_type === "dine_in"
+                        ? `Confirm Order (Table ${order.table_label || "Dine-In"})`
+                        : t("accept")}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => setShowCancelModal(true)}
                     className="min-h-[44px] rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition active:scale-95 disabled:opacity-50"
                   >
-                    {t("decline")}
+                    {order.fulfilment_type === "dine_in" ? "Decline Order" : t("decline")}
                   </button>
                 </>
               )}
@@ -796,7 +873,7 @@ export function OrderCard({
                     type="button"
                     onClick={() => {
                       setRiderNameInput(order.rider_name || "");
-                      setRiderPhoneInput(order.rider_phone || "");
+                      setRiderPhoneInput(riderPhone);
                       setRiderError(null);
                       setShowRiderModal(true);
                     }}
@@ -1008,7 +1085,7 @@ export function OrderCard({
                       type="button"
                       onClick={() => {
                         setRiderNameInput(order.rider_name || "");
-                        setRiderPhoneInput(order.rider_phone || "");
+                        setRiderPhoneInput(riderPhone);
                         setRiderError(null);
                         setShowRiderModal(true);
                       }}
@@ -1021,10 +1098,10 @@ export function OrderCard({
                 {order.rider_name ? (
                   <>
                     <p className="font-semibold text-zinc-900">{order.rider_name}</p>
-                    {order.rider_phone ? (
+                    {riderPhone ? (
                       <div className="pt-1">
                         <a
-                          href={`tel:${order.rider_phone.replace(/[^\d+]/g, "")}`}
+                          href={`tel:${riderPhone.replace(/[^\d+]/g, "")}`}
                           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition"
                         >
                           📞 {t("callRider")}
@@ -1047,7 +1124,7 @@ export function OrderCard({
                 <div>
                   <span className="text-xs text-zinc-500">{t("scheduledFor")}:</span>
                   <p className="font-semibold text-zinc-800 text-xs">
-                    {new Date(order.scheduled_for).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                    {formatOrderDateTime(order.scheduled_for, "en-US", { dateStyle: "medium", timeStyle: "short" }) || "Time to be confirmed"}
                   </p>
                 </div>
               ) : (
@@ -1057,9 +1134,12 @@ export function OrderCard({
                 <div className="pt-1">
                   <span className="text-xs text-zinc-500">{t("estimatedReadyTime")}:</span>
                   <p className="font-bold text-orange-700 text-xs">
-                    {new Date(order.estimated_ready_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                    {formatOrderDateTime(order.estimated_ready_at, "en-US", { hour: "2-digit", minute: "2-digit" }) || "Time to be confirmed"}
                   </p>
                 </div>
+              )}
+              {!order.scheduled_for && !order.estimated_ready_at && ["accepted", "preparing"].includes(order.status) && (
+                <p className="text-xs text-zinc-500">Ready time to be confirmed by the kitchen.</p>
               )}
             </div>
           </div>
@@ -1163,36 +1243,104 @@ export function OrderCard({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-4">
             <h3 className="text-base font-bold text-zinc-900">{t("acceptModalTitle")}</h3>
-            <p className="text-xs text-zinc-500">{t("readyIn")}</p>
-            <div className="grid grid-cols-5 gap-1.5">
-              {[10, 20, 30, 45, 60].map((min) => (
-                <button
-                  key={min}
-                  type="button"
-                  onClick={() => {
-                    setPrepMinutes(min);
-                    setCustomTime("");
-                  }}
-                  className={`min-h-[44px] rounded-lg border text-xs font-bold transition ${
-                    prepMinutes === min && !customTime
-                      ? "border-orange-600 bg-orange-50 text-orange-700"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
-                  }`}
-                >
-                  +{min}m
-                </button>
-              ))}
-            </div>
+            {order.fulfilment_type === "delivery" ? (
+              <>
+                <p className="text-xs text-zinc-600">
+                  {order.scheduled_for
+                  ? t("acceptScheduledDescription", { date: formatOrderDateTime(order.scheduled_for, locale, { dateStyle: "medium", timeStyle: "short" }) || "Time to be confirmed" })
+                    : t("acceptAsapDescription")}
+                </p>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-zinc-700">{t("optionalReadyEstimate")}</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[null, 10, 20, 30, 45, 60].map((min) => (
+                      <button
+                        key={min ?? "none"}
+                        type="button"
+                        onClick={() => {
+                          setAcceptPrepMinutes(min);
+                          setAcceptDate("");
+                          setAcceptTime("");
+                          setActionError(null);
+                        }}
+                        className={`min-h-[44px] rounded-lg border text-xs font-bold transition ${
+                          acceptPrepMinutes === min && !acceptDate && !acceptTime
+                            ? "border-orange-600 bg-orange-50 text-orange-700"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                        }`}
+                      >
+                        {min === null ? t("noReadyEstimate") : `+${min}m`}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-xs font-medium text-zinc-600">
+                      <span>{t("dateOptional")}</span>
+                      <input
+                        type="date"
+                        value={acceptDate}
+                        onChange={(event) => {
+                          setAcceptPrepMinutes(null);
+                          setAcceptDate(event.target.value);
+                          setActionError(null);
+                        }}
+                        className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs font-medium text-zinc-600">
+                      <span>{t("timeOptional")}</span>
+                      <input
+                        type="time"
+                        value={acceptTime}
+                        onChange={(event) => {
+                          setAcceptPrepMinutes(null);
+                          setAcceptTime(event.target.value);
+                          setActionError(null);
+                        }}
+                        className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    {t("businessTimezoneHint")}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-zinc-500">{t("readyIn")}</p>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[10, 20, 30, 45, 60].map((min) => (
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => {
+                        setPrepMinutes(min);
+                        setCustomTime("");
+                      }}
+                      className={`min-h-[44px] rounded-lg border text-xs font-bold transition ${
+                        prepMinutes === min && !customTime
+                          ? "border-orange-600 bg-orange-50 text-orange-700"
+                          : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                      }`}
+                    >
+                      +{min}m
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-500 font-medium">{t("customTime")}</label>
+                  <input
+                    type="datetime-local"
+                    value={customTime}
+                    onChange={(e) => setCustomTime(e.target.value)}
+                    className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs"
+                  />
+                </div>
+              </>
+            )}
 
-            <div className="space-y-1">
-              <label className="text-xs text-zinc-500 font-medium">{t("customTime")}</label>
-              <input
-                type="datetime-local"
-                value={customTime}
-                onChange={(e) => setCustomTime(e.target.value)}
-                className="w-full min-h-[44px] rounded-lg border border-zinc-200 px-3 text-xs"
-              />
-            </div>
+            {actionError && <p role="alert" className="text-xs text-red-700">{actionError}</p>}
 
             <div className="flex gap-2 pt-2">
               <button
@@ -1520,6 +1668,7 @@ function PaymentBadge({ badgeKey }: { badgeKey: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     paidOnline: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", label: t("paidOnline") },
     paid: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", label: t("paid") },
+    payAtTable: { cls: "bg-orange-50 text-orange-800 border-orange-200", label: "Pay at Table" },
     payOnPickup: { cls: "bg-zinc-100 text-zinc-700 border-zinc-200", label: t("payOnPickup") },
     payOnDelivery: { cls: "bg-zinc-100 text-zinc-700 border-zinc-200", label: t("payOnDelivery") },
     awaitingPayment: { cls: "bg-amber-50 text-amber-700 border-amber-200", label: t("awaitingPayment") },

@@ -23,9 +23,12 @@ import {
   IconFileSpreadsheet as FileSpreadsheet,
   IconDownload as Download,
   IconEye as Eye,
+  IconCopy as Copy,
+  IconBrandWhatsapp as WhatsappIcon,
 } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -128,6 +131,13 @@ export default function GuestsClient({
   const [viewingRsvpGuest, setViewingRsvpGuest] = useState<GuestItem | null>(null);
   const [assigningSeatGuest, setAssigningSeatGuest] = useState<GuestItem | null>(null);
   const [cancellingGuest, setCancellingGuest] = useState<GuestItem | null>(null);
+  const [inviteLinkBanner, setInviteLinkBanner] = useState<{
+    guestName: string;
+    url: string;
+    whatsappUrl: string | null;
+  } | null>(null);
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+  const [inviteLinkCopyFailed, setInviteLinkCopyFailed] = useState(false);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -135,6 +145,13 @@ export default function GuestsClient({
     setToast({ type, message });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }
+
+  async function copyInviteLink(url: string) {
+    const succeeded = await copyTextToClipboard(url);
+    setCopiedInviteLink(succeeded);
+    setInviteLinkCopyFailed(!succeeded);
+    if (succeeded) setTimeout(() => setCopiedInviteLink(false), 2000);
   }
 
   // ── Refresh Guests ────────────────────────────────────────────────────────
@@ -214,7 +231,19 @@ export default function GuestsClient({
         return;
       }
 
-      showToast("success", data.message || "Invitation email sent successfully.");
+      if (data.invitationUrl) {
+        setInviteLinkBanner({
+          guestName: guest.guest_name,
+          url: data.invitationUrl,
+          whatsappUrl: data.whatsappUrl || null,
+        });
+      }
+      showToast(
+        data.emailed ? "success" : "error",
+        data.emailed
+          ? data.message || "Invitation email sent successfully."
+          : `Email could not be sent: ${data.message || "unknown reason"}`
+      );
       await refreshGuests();
     } catch {
       showToast("error", "Network error. Please try again.");
@@ -312,6 +341,60 @@ export default function GuestsClient({
       {!guestColumnsAvailable && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {t("guestColumnsUnavailable")}
+        </div>
+      )}
+
+      {/* Shareable Invitation Link Banner — shown after creating/sending/resending
+          a guest invitation, regardless of whether the email also went out, so
+          the link is never only reachable through an inbox that may not have
+          received it. */}
+      {inviteLinkBanner && (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase text-violet-800">
+              Shareable Invitation Link for {inviteLinkBanner.guestName}
+            </p>
+            <button
+              type="button"
+              onClick={() => setInviteLinkBanner(null)}
+              className="text-violet-500 hover:text-violet-800"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              readOnly
+              value={inviteLinkBanner.url}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-mono text-zinc-800"
+            />
+            <button
+              type="button"
+              onClick={() => copyInviteLink(inviteLinkBanner.url)}
+              className="flex items-center gap-1 shrink-0 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
+            >
+              {copiedInviteLink ? <Check size={14} /> : <Copy size={14} />}
+              {copiedInviteLink ? "Copied!" : "Copy Link"}
+            </button>
+            {inviteLinkBanner.whatsappUrl && (
+              <a
+                href={inviteLinkBanner.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 shrink-0 rounded-xl bg-[#25D366] px-3 py-2 text-xs font-bold text-white hover:bg-[#1ebe57]"
+              >
+                <WhatsappIcon size={14} />
+                Send via WhatsApp
+              </a>
+            )}
+          </div>
+          {inviteLinkCopyFailed && (
+            <p className="text-xs font-semibold text-red-700">
+              Copy failed - select the link and copy it manually
+            </p>
+          )}
         </div>
       )}
 
@@ -636,9 +719,25 @@ export default function GuestsClient({
         <AddGuestModal
           eventId={eventId}
           availableSeats={availableSeats}
-          onSuccess={async () => {
+          onSuccess={async (emailResult) => {
             setAddModalOpen(false);
-            showToast("success", "Guest invitation created successfully.");
+            if (emailResult?.invitationUrl) {
+              setInviteLinkBanner({
+                guestName: "the guest",
+                url: emailResult.invitationUrl,
+                whatsappUrl: emailResult.whatsappUrl || null,
+              });
+            }
+            if (emailResult) {
+              showToast(
+                emailResult.emailed ? "success" : "error",
+                emailResult.emailed
+                  ? emailResult.message || "Invitation email sent successfully."
+                  : `Email could not be sent: ${emailResult.message || "unknown reason"}`
+              );
+            } else {
+              showToast("success", "Guest invitation created successfully.");
+            }
             await refreshGuests();
           }}
           onClose={() => setAddModalOpen(false)}
@@ -748,7 +847,7 @@ function AddGuestModal({
 }: {
   eventId: string;
   availableSeats: AvailableSeat[];
-  onSuccess: () => void;
+  onSuccess: (emailResult?: { emailed: boolean; message?: string; invitationUrl?: string; whatsappUrl?: string }) => void;
   onClose: () => void;
 }) {
   const t = useTranslations("Events");
@@ -802,7 +901,16 @@ function AddGuestModal({
         return;
       }
 
-      onSuccess();
+      onSuccess(
+        sendEmail && email.trim()
+          ? {
+              emailed: Boolean(data.emailSent),
+              message: data.emailMessage,
+              invitationUrl: data.invitationUrl,
+              whatsappUrl: data.whatsappUrl,
+            }
+          : undefined
+      );
     } catch {
       setError("Network error. Please try again.");
     } finally {

@@ -3,6 +3,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import type { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { dispatchCustomerOrderStatusEmail } from "@/lib/order-notifications";
+import { DEFAULT_SITE_TIMEZONE, resolveWebsiteTimezone } from "@/lib/date-timezone";
 
 export type OrderStatus =
   | "pending"
@@ -23,6 +24,8 @@ export interface UpdateOrderStatusInput {
   expectedCurrentStatus: OrderStatus;
   nextStatus: OrderStatus;
   estimatedReadyAt?: string | null;
+  estimatedReadyDate?: string | null;
+  estimatedReadyTime?: string | null;
   cancellationReason?: CancellationReasonCode | null;
   cancellationNote?: string | null;
   markPaymentCollected?: boolean;
@@ -53,6 +56,8 @@ export type UpdateOrderStatusResult =
         | "missing_rider_name"
         | "invalid_rider_phone"
         | "payment_collection_required"
+        | "invalid_ready_time"
+        | "online_payment_required"
         | "online_payment_cannot_be_manually_marked_paid"
         | "courier_already_on_delivery"
         | "db_error"
@@ -74,7 +79,9 @@ export interface OrderRowRecord {
   currency: string;
   total_amount: number;
   tracking_token: string;
+  business_id?: string | null;
   website_id?: string | null;
+  scheduled_for?: string | null;
   status_history?: unknown;
   estimated_ready_at?: string | null;
   rider_name?: string | null;
@@ -116,6 +123,39 @@ export async function executeOrderStatusTransitionCore(
     };
   }
 
+  const paymentGatedStatuses: OrderStatus[] = ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"];
+  if (paymentGatedStatuses.includes(input.nextStatus) && order.payment_status !== "paid") {
+    if (order.payment_method === "online") {
+      return {
+        success: false,
+        error: "online_payment_required",
+        message: "Complete online payment before this order can be accepted, prepared, handed to a courier, or sent for delivery.",
+      };
+    }
+
+    if (order.fulfilment_type === "dine_in" && order.business_id) {
+      const { data: business, error: businessError } = await admin
+        .from("businesses")
+        .select("table_ordering_mode")
+        .eq("id", order.business_id)
+        .maybeSingle();
+      if (businessError || !business) {
+        return {
+          success: false,
+          error: "db_error",
+          message: "The table payment requirement could not be verified. Please retry.",
+        };
+      }
+      if (business?.table_ordering_mode === "pay_online_first") {
+        return {
+          success: false,
+          error: "online_payment_required",
+          message: "This restaurant requires online payment before a table order can be accepted or prepared.",
+        };
+      }
+    }
+  }
+
   let nextPaymentStatus: string | undefined;
   const isTerminalSuccess = input.nextStatus === "completed" || input.nextStatus === "delivered";
   if (isTerminalSuccess && order.payment_status !== "paid") {
@@ -155,6 +195,15 @@ export async function executeOrderStatusTransitionCore(
     if (input.courierWorkerId) updatePayload.courier_worker_id = input.courierWorkerId;
   }
 
+  if (order.fulfilment_type === "dine_in") {
+    if (input.nextStatus === "accepted") {
+      updatePayload.dine_in_confirmation = "confirmed";
+    } else if (input.nextStatus === "cancelled") {
+      updatePayload.dine_in_confirmation = "declined";
+      updatePayload.dine_in_declined_reason = input.cancellationNote || input.cancellationReason || "Declined by staff";
+    }
+  }
+
   if (supports174Columns) {
     const existingHistory = Array.isArray(order.status_history) ? (order.status_history as unknown[]) : [];
     const newHistoryEvent: Record<string, unknown> = {
@@ -176,12 +225,16 @@ export async function executeOrderStatusTransitionCore(
     }
     updatePayload.status_history = [...existingHistory, newHistoryEvent];
 
-    if (input.nextStatus === "accepted" && input.estimatedReadyAt) {
-      updatePayload.estimated_ready_at = input.estimatedReadyAt;
-    }
     if (input.nextStatus === "cancelled") {
       updatePayload.cancellation_reason = input.cancellationReason;
     }
+  }
+
+  // Dispatch depends on the accepted order and its preparation estimate being
+  // persisted together. Keep the estimate even when the older history columns
+  // are unavailable in the PostgREST schema cache.
+  if (input.nextStatus === "accepted" && input.estimatedReadyAt) {
+    updatePayload.estimated_ready_at = input.estimatedReadyAt;
   }
 
   let updateQuery = admin
@@ -233,6 +286,9 @@ export async function executeOrderStatusTransitionCore(
           updated_at: nowIso,
         };
         if (nextPaymentStatus) fallbackPayload.payment_status = nextPaymentStatus;
+        if (input.nextStatus === "accepted" && input.estimatedReadyAt) {
+          fallbackPayload.estimated_ready_at = input.estimatedReadyAt;
+        }
         let fallbackQuery = admin
           .from("orders")
           .update(fallbackPayload)
@@ -292,7 +348,7 @@ export async function runOrderStatusPostPersistEffects(
     void (async () => {
       try {
         let slug = "";
-        let timeZone = "Africa/Abidjan";
+        let timeZone = DEFAULT_SITE_TIMEZONE;
         if (order.website_id) {
           const { data: ws } = await admin
             .from("tenant_websites")
@@ -300,8 +356,7 @@ export async function runOrderStatusPostPersistEffects(
             .eq("id", order.website_id)
             .maybeSingle();
           if (ws?.slug) slug = ws.slug;
-          const meta = ws?.metadata && typeof ws.metadata === "object" ? (ws.metadata as Record<string, unknown>) : {};
-          if (typeof meta.timezone === "string") timeZone = meta.timezone;
+          timeZone = resolveWebsiteTimezone(ws?.metadata);
         }
 
         if (slug) {
@@ -317,6 +372,7 @@ export async function runOrderStatusPostPersistEffects(
             trackingToken: order.tracking_token,
             websiteSlug: slug,
             estimatedReadyAt: input.estimatedReadyAt,
+            scheduledFor: order.scheduled_for,
             cancellationReason: input.cancellationReason,
             cancellationNote: input.cancellationNote,
             riderName: input.riderName ?? order.rider_name,

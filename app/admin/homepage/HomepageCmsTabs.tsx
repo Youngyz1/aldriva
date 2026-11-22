@@ -148,7 +148,6 @@ interface CmsImageFieldProps {
   value: string;
   onChange: (val: string) => void;
   folder: string;
-  placeholder?: string;
   helpText?: string;
   aspectRatioHint?: string;
   aspectRatioCheck?: boolean;
@@ -159,7 +158,6 @@ function CmsImageField({
   value,
   onChange,
   folder,
-  placeholder = "https://… or /…",
   helpText,
   aspectRatioHint,
   aspectRatioCheck = false,
@@ -225,21 +223,8 @@ function CmsImageField({
           )}
         </div>
 
-        {/* URL Input */}
-        <div className="flex-1 min-w-0">
-          <Input
-            type="text"
-            value={value}
-            onChange={(e) => {
-              setUploadError(null);
-              onChange(e.target.value);
-            }}
-            placeholder={placeholder}
-          />
-        </div>
-
         {/* Upload Button */}
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
           <button
             type="button"
             onClick={triggerUpload}
@@ -260,6 +245,15 @@ function CmsImageField({
               </>
             )}
           </button>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="inline-flex items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-sm font-black text-red-600 hover:text-red-700 transition"
+            >
+              Remove
+            </button>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -589,7 +583,6 @@ export default function HomepageCmsTabs({
               value={settings.imageUrl}
               onChange={val => setSettings({ ...settings, imageUrl: val })}
               folder="hero"
-              placeholder="https://… or /…"
               helpText="Background image for the main homepage hero banner."
             />
             <div>
@@ -663,7 +656,6 @@ export default function HomepageCmsTabs({
               value={settings.eventsHeroImageUrl}
               onChange={val => setSettings({ ...settings, eventsHeroImageUrl: val })}
               folder="events-landing"
-              placeholder="https://… or /…"
               helpText="Hero background for the /events landing page."
             />
             <div>
@@ -725,7 +717,6 @@ export default function HomepageCmsTabs({
               value={settings.fundraisersHeroImageUrl}
               onChange={val => setSettings({ ...settings, fundraisersHeroImageUrl: val })}
               folder="fundraisers-landing"
-              placeholder="https://… or /…"
               helpText="Hero background for the /fundraisers landing page."
             />
             <div>
@@ -788,7 +779,6 @@ export default function HomepageCmsTabs({
               value={settings.organizersHeroImageUrl}
               onChange={val => setSettings({ ...settings, organizersHeroImageUrl: val })}
               folder="organizers-landing"
-              placeholder="https://… or /…"
               helpText="Hero background for the /organizers directory landing page."
             />
             <div>
@@ -1007,7 +997,6 @@ export default function HomepageCmsTabs({
               value={settings.seoOgImageUrl}
               onChange={val => setSettings({ ...settings, seoOgImageUrl: val })}
               folder="seo"
-              placeholder="https://… or /…"
               aspectRatioHint="Recommended: 1200 × 630 px (1.91:1 aspect ratio) for social preview cards."
               aspectRatioCheck={true}
             />

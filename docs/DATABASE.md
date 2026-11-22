@@ -1,9 +1,9 @@
 # Aldriva — Database Architecture, Schema Reference & Migrations
 
 > **Status**: Verified Technical Reference  
-> **Canonical Migration Source**: `db/` (Migrations 1 to **192**)
+> **Canonical Migration Source**: `db/` (Migrations 1 to **203**)
 > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
-> **Last Updated**: 2026-10-24 (migration application status remains owner-reported and is not independently queried). Latest authored forward migration in the repository: **192** (early courier dispatch; the owner reports it was applied on staging and its read-only postchecks passed). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186, 187, 189, 190, 192** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but not applied; **188** is authored and not applied; **191** is authored for manual owner application. All other migration statuses are unknown unless stated in the register. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
+> **Last Updated**: 2026-10-29. Latest authored forward migration: **203** (online-payment gate for courier dispatch). Migrations 202 and 203 are local drafts and were not applied. Migration 203 preserves migration 201's no-ETA, uncapped dispatch and nullable ASAP expiry, and gates dispatch, feed, refresh, and claim on paid online orders. Read-only staging checks and owner reports recorded migration 200 as applied and migration 201 as applied; the project does not record manual SQL Editor applications in MCP migration history. **There is no `schema_migrations` table**, so application status is established from live definitions/logs or owner report. Migration-number reservations live in §5 below and `docs/HANDOFF.md` §6.
 
 ---
 
@@ -137,7 +137,7 @@ The following tables are planned for future phases (DO NOT create before respect
 
 ---
 
-## 5. Migration Register & Number Reservations (139 → 185)
+## 5. Migration Register & Number Reservations (139 → 201)
 
 **Rule:** before writing a migration, list `db/` and `supabase/migrations/` **in every worktree and on every branch** (`git worktree list`, `git ls-tree`), take the next free number, and add a row to this table and to `docs/HANDOFF.md` §6.
 
@@ -199,9 +199,25 @@ The following tables are planned for future phases (DO NOT create before respect
 | 190 | `migration_190_delivery_live_gps.sql` | yes | `20261022130000_migration_190_delivery_live_gps.sql` | Applied on staging per owner report |
 | 191 | `migration_191_courier_performance_and_rating.sql` | yes | `20261022140000_migration_191_courier_performance_and_rating.sql` | Authored forward + rollback; mirror exists; owner applies manually |
 | 192 | `migration_192_early_courier_dispatch.sql` | yes | `20261024000000_migration_192_early_courier_dispatch.sql` | Owner reports applied on staging and read-only postchecks passed; not independently queried in this session; guarded rollback exists |
-| 193+ | — | — | — | **free** as of 2026-10-24 |
+| 193 | `migration_193_event_team_members_active_user_index.sql` | yes | `20261024010000_migration_193_event_team_members_active_user_index.sql` | Staging status unknown |
+| 194 | `migration_194_staging_drift_sync.sql` | yes | `20261024020000_migration_194_staging_drift_sync.sql` | Staging status unknown |
+| 195 | `migration_195_event_team_invitations_phone.sql` | yes | `20261024020001_migration_195_event_team_invitations_phone.sql` | Staging status unknown |
+| 196 | `migration_196_event_staff_sessions.sql` | yes | `20261024020002_migration_196_event_staff_sessions.sql` | Staging status unknown |
+| 197 | `migration_197_event_ticket_scan_attempts.sql` | yes | `20261027010000_migration_197_event_ticket_scan_attempts.sql` | Staging status unknown |
+| 198 | `migration_198_table_and_menu_qr_codes.sql` | yes | `20261027180000_migration_198_table_and_menu_qr_codes.sql` | Schema verified read-only; application status not recorded in a migration table |
+| 199 | `migration_199_atomic_table_settlement_and_order_ledger.sql` | yes | `20261028120000_migration_199_atomic_table_settlement_and_order_ledger.sql` | Staging status unknown |
+| 200 | `migration_200_courier_offer_insert_fix.sql` | yes | `20261028200000_migration_200_courier_offer_insert_fix.sql` | **Applied on staging**; corrected five-column insert confirmed in the live dispatcher |
+| 201 | `migration_201_courier_dispatch_recovery.sql` | yes, guarded | `20261028210000_migration_201_courier_dispatch_recovery.sql` | Applied on staging per owner report; live index/feed checked read-only; no order-data backfill |
+| 202 | `migration_202_dispatch_ready_deliveries_after_courier_completion.sql` | yes, guarded | `20261028220000_migration_202_dispatch_ready_deliveries_after_courier_completion.sql` | Local draft; **not applied**; includes READY in completion fanout |
+| 203 | `migration_203_gate_courier_dispatch_on_online_payment.sql` | yes, blocked rollback | `20261029001705_migration_203_gate_courier_dispatch_on_online_payment.sql` | Local draft; **not applied**; gates dispatch/feed/refresh/claim and redispatches when paid |
+| 212 | `migration_212_scan_codes.sql` | yes | `20261102000000_migration_212_scan_codes.sql` | Local draft; **not applied**; scan code registry (issuance only), see DEC-0063 |
+| 216 | `migration_216_reservation_booking_schema.sql` | yes | `20261105000000_migration_216_reservation_booking_schema.sql` | Local draft; **not applied**; reservation booking schema (staff, resources, services, deposits, pending_hold, lock reconciliation), see `docs/HANDOFF.md` §6 |
+| 217 | `migration_217_reservation_booking_details.sql` | yes | `20261105000001_migration_217_reservation_booking_details.sql` | Applied by owner; status: applied by owner, pending verification. Independent of migration 216; only needs the public.reservations table; no index. Adds `reservations.booking_details` jsonb NOT NULL DEFAULT '{}'::jsonb with column comment; keys: service_type, alt_starts_at, terms_accepted_at, marketing_opt_in |
+| 219 | `migration_219_services_price_nullable.sql` | yes | `20261105000003_migration_219_services_price_nullable.sql` | Written; owner applies by hand. Makes `services.price` nullable (NULL = no listed price / "Price on request"). Independent of migration 216/218; only needs the public.services table. |
 
-**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP; 189 = courier pickup workflow; 190 = live GPS and transit tracking; 191 = courier performance & customer rating; 192 = early courier dispatch and location sharing reliability. Next free = **193**.
+Open item (capacity / v_current_covers): `confirm_reservation_with_capacity` (migration 204, applied) and `approve_reservation_change_with_capacity` (migration 206, applied) sum covers inline without filtering `booking_type`, so appointment rows are capacity-checked and consume table seats. The fix is migration 218. Unapplied migration 216 redefines both functions and must include the same fix before it is ever applied. The `general_booking_form` block must not be enabled for any live business until migration 218 is applied.
+
+**Number reservations by owner/workstream:** 182–184 = menu options & promotions; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP; 189 = courier pickup workflow; 190 = live GPS and transit tracking; 191 = courier performance and rating; 192 = early courier dispatch; 193–197 = event staff and scan tracking; 198–199 = table/menu QR and settlement; 200 = courier dispatch insert repair; 201 = courier dispatch timing redesign; 202 = READY dispatch after completion; 203 = online-payment gate; 204-206 = reservation capacity/notes/change-requests (see `docs/HANDOFF.md` §6); 212 = scan code registry; 216 = reservation booking schema; 217 = reservation booking details (booking_details jsonb). **Rows 207-211 and 213-215 are missing from this table** (207-211 authored on `feat/guest-scanner`/sibling branches; 213-214 not found; 215 taken by another agent) — flagged for the owner, not backfilled by this change. Next free = **218**.
 
 ### Read-only verification queries (no `schema_migrations` table)
 

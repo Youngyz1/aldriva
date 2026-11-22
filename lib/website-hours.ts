@@ -84,23 +84,48 @@ export interface OrderScheduleResult {
   nextOpenTime?: string;
   blocked?: boolean;
   message?: string;
+  /** Closed now, but the owner accepts orders for the next opening time. */
+  acceptsWhileClosed?: boolean;
+  /** Closed now and the owner turned "Accept orders when closed" off. */
+  closedRejected?: boolean;
+}
+
+/**
+ * A day is "configured" only when it has real opening times. Rows marked
+ * closed belong to the all-days-closed state, which the owner asked us to
+ * treat as ALWAYS OPEN for ordering (no hours configured yet).
+ */
+function dayHasOpeningTimes(row: Record<string, unknown> | undefined): boolean {
+  return Boolean(
+    row && row.closed !== true && isValidWebsiteTime(row.open) && isValidWebsiteTime(row.close)
+  );
+}
+
+export interface OrderScheduleOptions {
+  /**
+   * Owner setting (metadata.storefront.acceptOrdersWhenClosed). Default ON:
+   * a closed business accepts the order and prepares it at the next opening
+   * time. OFF: the order is rejected with a "closed, opens at" message.
+   */
+  acceptOrdersWhenClosed?: boolean;
 }
 
 export function resolveOrderSchedule(
   hoursValue: unknown,
   timeZone = DEFAULT_WEBSITE_TIME_ZONE,
-  now = new Date()
+  now = new Date(),
+  options: OrderScheduleOptions = {}
 ): OrderScheduleResult {
+  const acceptOrdersWhenClosed = options.acceptOrdersWhenClosed !== false;
   const hours = record(hoursValue);
   if (!hours) {
     return { isOpen: true, scheduledFor: null };
   }
 
-  const hasAnyDayConfigured = WEEKDAY_KEYS.some((day) => {
-    const row = record(hours[day]);
-    return row && (row.closed === true || (isValidWebsiteTime(row.open) && isValidWebsiteTime(row.close)));
-  });
+  const hasAnyDayConfigured = WEEKDAY_KEYS.some((day) => dayHasOpeningTimes(record(hours[day])));
   if (!hasAnyDayConfigured) {
+    // No real opening times (empty object or every day marked Closed): the
+    // business has not configured hours yet, so ordering is never rejected.
     return { isOpen: true, scheduledFor: null };
   }
 
@@ -136,12 +161,7 @@ export function resolveOrderSchedule(
 
     if (!isOvernight && currentTime < openTime) {
       const scheduledIso = formatTargetIso(now, 0, openTime, timeZone);
-      return {
-        isOpen: false,
-        scheduledFor: scheduledIso,
-        nextOpenDay: currentDayKey,
-        nextOpenTime: openTime,
-      };
+      return closedScheduleResult(openTime, scheduledIso, currentDayKey, acceptOrdersWhenClosed);
     }
   }
 
@@ -153,15 +173,10 @@ export function resolveOrderSchedule(
     if (!candDayKey) continue;
 
     const row = record(hours[candDayKey]);
-    if (row && row.closed !== true && isValidWebsiteTime(row.open) && isValidWebsiteTime(row.close)) {
-      const openTime = row.open as string;
+    if (dayHasOpeningTimes(row)) {
+      const openTime = row!.open as string;
       const scheduledIso = formatTargetIso(now, offset, openTime, timeZone);
-      return {
-        isOpen: false,
-        scheduledFor: scheduledIso,
-        nextOpenDay: candDayKey,
-        nextOpenTime: openTime,
-      };
+      return closedScheduleResult(openTime, scheduledIso, candDayKey, acceptOrdersWhenClosed);
     }
   }
 
@@ -170,6 +185,32 @@ export function resolveOrderSchedule(
     scheduledFor: null,
     blocked: true,
     message: "The restaurant has no upcoming opening hours scheduled within the next 7 days.",
+  };
+}
+
+function closedScheduleResult(
+  openTime: string,
+  scheduledIso: string,
+  nextOpenDay: WeekdayKey,
+  acceptOrdersWhenClosed: boolean
+): OrderScheduleResult {
+  if (!acceptOrdersWhenClosed) {
+    return {
+      isOpen: false,
+      scheduledFor: null,
+      nextOpenDay,
+      nextOpenTime: openTime,
+      blocked: true,
+      closedRejected: true,
+      message: `We're closed, opens at ${openTime}.`,
+    };
+  }
+  return {
+    isOpen: false,
+    scheduledFor: scheduledIso,
+    nextOpenDay,
+    nextOpenTime: openTime,
+    acceptsWhileClosed: true,
   };
 }
 
@@ -245,10 +286,7 @@ export function validateScheduledOrderTime(
     return { valid: true, scheduledFor: targetDate.toISOString() };
   }
 
-  const hasAnyDayConfigured = WEEKDAY_KEYS.some((day) => {
-    const row = record(hours[day]);
-    return row && (row.closed === true || (isValidWebsiteTime(row.open) && isValidWebsiteTime(row.close)));
-  });
+  const hasAnyDayConfigured = WEEKDAY_KEYS.some((day) => dayHasOpeningTimes(record(hours[day])));
   if (!hasAnyDayConfigured) {
     return { valid: true, scheduledFor: targetDate.toISOString() };
   }

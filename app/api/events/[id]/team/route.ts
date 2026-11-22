@@ -35,6 +35,7 @@ export async function GET(
         id,
         event_id,
         user_id,
+        invitation_id,
         role,
         role_label,
         position_label,
@@ -55,6 +56,7 @@ export async function GET(
 
     // Enrich member profile data
     const userIds = (rawMembers ?? []).map((m) => m.user_id).filter(Boolean) as string[];
+    const invitationIds = (rawMembers ?? []).map((m) => m.invitation_id).filter(Boolean) as string[];
     let profilesMap: Record<string, { full_name?: string; email?: string; avatar_url?: string }> = {};
 
     if (userIds.length > 0) {
@@ -68,10 +70,21 @@ export async function GET(
       }
     }
 
+    const invitationEmailMap: Record<string, string> = {};
+    if (invitationIds.length > 0) {
+      const { data: linkedInvitations } = await admin
+        .from("event_team_invitations")
+        .select("id, email")
+        .in("id", invitationIds);
+      for (const invite of linkedInvitations ?? []) {
+        invitationEmailMap[invite.id] = invite.email;
+      }
+    }
+
     const members = (rawMembers ?? []).map((m) => ({
       ...m,
       user_name: m.user_id ? profilesMap[m.user_id]?.full_name || "Team Member" : "Team Member",
-      user_email: m.user_id ? profilesMap[m.user_id]?.email || null : null,
+      user_email: m.user_id ? profilesMap[m.user_id]?.email || null : invitationEmailMap[m.invitation_id] || null,
       user_avatar: m.user_id ? profilesMap[m.user_id]?.avatar_url || null : null,
     }));
 
@@ -86,6 +99,7 @@ export async function GET(
         role_label,
         position_label,
         staff_name,
+        is_accountless,
         invited_by,
         status,
         expires_at,

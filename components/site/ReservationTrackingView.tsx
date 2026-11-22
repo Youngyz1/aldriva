@@ -12,8 +12,26 @@ import {
   IconRotateClockwise as RotateCw,
   IconArrowLeft as ArrowLeft,
   IconUsers as Users,
+  IconEdit as Edit,
+  IconAlertCircle as AlertCircle,
 } from "@tabler/icons-react";
-import { cancelReservationByToken } from "@/lib/actions/reservations";
+import {
+  cancelReservationByToken,
+  submitChangeRequest,
+  withdrawChangeRequest,
+} from "@/lib/actions/reservations";
+import { formatReservationTimeRange } from "@/lib/reservation-slots";
+
+export interface ReservationTrackingChangeRequest {
+  id: string;
+  requestedStartsAt: string | null;
+  requestedPartySize: number | null;
+  requestedDurationMinutes: number | null;
+  guestNote: string | null;
+  status: "pending" | "approved" | "declined" | "withdrawn" | "expired";
+  decisionNote: string | null;
+  createdAt: string;
+}
 
 export interface ReservationTrackingData {
   reservationNumber: string;
@@ -23,6 +41,8 @@ export interface ReservationTrackingData {
   status: string;
   partySize: number;
   startsAt: string;
+  durationMinutes?: number | null;
+  endsAt?: string | null;
   siteTimezone: string;
   customerNote: string | null;
   ownerNote: string | null;
@@ -30,6 +50,10 @@ export interface ReservationTrackingData {
   createdAt: string;
   maskedCustomerName: string;
   maskedCustomerPhone: string;
+  cancellationCutoffMinutes?: number | null;
+  changeRequest?: ReservationTrackingChangeRequest | null;
+  maxPartySize?: number;
+  allowedStayMinutes?: number[];
 }
 
 interface ReservationTrackingViewProps {
@@ -58,6 +82,16 @@ export function ReservationTrackingView({ order, slug, lookupToken }: Reservatio
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+
+  // Change request state
+  const [showChangeForm, setShowChangeForm] = useState(false);
+  const [changeStartsAt, setChangeStartsAt] = useState("");
+  const [changePartySize, setChangePartySize] = useState("");
+  const [changeDuration, setChangeDuration] = useState("");
+  const [changeGuestNote, setChangeGuestNote] = useState("");
+  const [isSubmittingChange, setIsSubmittingChange] = useState(false);
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const [isWithdrawingChange, setIsWithdrawingChange] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -101,6 +135,64 @@ export function ReservationTrackingView({ order, slug, lookupToken }: Reservatio
     }
   };
 
+  const handleSubmitChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangeError(null);
+    setIsSubmittingChange(true);
+    try {
+      const res = await submitChangeRequest({
+        slug,
+        lookupToken,
+        requestedStartsAt: changeStartsAt.trim() ? new Date(changeStartsAt).toISOString() : null,
+        requestedPartySize: changePartySize.trim() ? Number(changePartySize) : null,
+        requestedDurationMinutes: changeDuration.trim() ? Number(changeDuration) : null,
+        guestNote: changeGuestNote.trim() || null,
+      });
+      if (!res.success) {
+        setChangeError(res.message || "Failed to submit change request.");
+        setIsSubmittingChange(false);
+        return;
+      }
+      setShowChangeForm(false);
+      setChangeStartsAt("");
+      setChangePartySize("");
+      setChangeDuration("");
+      setChangeGuestNote("");
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setChangeError("An unexpected error occurred.");
+    } finally {
+      setIsSubmittingChange(false);
+    }
+  };
+
+  const handleWithdrawChange = async () => {
+    if (!order.changeRequest) return;
+    setChangeError(null);
+    setIsWithdrawingChange(true);
+    try {
+      const res = await withdrawChangeRequest({
+        slug,
+        lookupToken,
+        requestId: order.changeRequest.id,
+      });
+      if (!res.success) {
+        setChangeError(res.message || "Failed to withdraw request.");
+        setIsWithdrawingChange(false);
+        return;
+      }
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setChangeError("An unexpected error occurred.");
+    } finally {
+      setIsWithdrawingChange(false);
+    }
+  };
+
   const STATUS_LABEL_KEY: Record<string, string> = {
     pending: "pending",
     confirmed: "confirmed",
@@ -121,25 +213,32 @@ export function ReservationTrackingView({ order, slug, lookupToken }: Reservatio
     cancelled: "statusCancelled",
   };
   const badgeCls = STATUS_STYLES[order.status] ?? "bg-[var(--ps-neutral)] text-[var(--ps-muted)] border-[var(--ps-border)]";
+  const startsAtMs = new Date(order.startsAt).getTime();
+  const nowMs = Date.now();
+  const isCutoffPassed =
+    order.cancellationCutoffMinutes !== null &&
+    order.cancellationCutoffMinutes !== undefined &&
+    nowMs > startsAtMs - order.cancellationCutoffMinutes * 60 * 1000;
+
   const canCancel =
     (order.status === "pending" || order.status === "confirmed") &&
-    new Date(order.startsAt).getTime() > Date.now();
+    startsAtMs > nowMs &&
+    !isCutoffPassed;
+
+  const canRequestChange =
+    (order.status === "pending" || order.status === "confirmed") &&
+    startsAtMs > nowMs &&
+    !order.changeRequest;
 
   const cleanBusinessPhone = order.businessPhone ? order.businessPhone.replace(/[^\d+]/g, "") : null;
 
-  let whenFormatted = order.startsAt;
-  try {
-    whenFormatted = new Date(order.startsAt).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: order.siteTimezone,
-    });
-  } catch {
-    // Fall back to the raw value.
-  }
+  const whenFormatted = formatReservationTimeRange({
+    startsAt: order.startsAt,
+    endsAt: order.endsAt,
+    durationMinutes: order.durationMinutes,
+    timeZone: order.siteTimezone,
+    locale,
+  });
 
   const declineReasonLabel: Record<string, string> = {
     fully_booked: t("reasonFullyBooked"),
@@ -241,6 +340,199 @@ export function ReservationTrackingView({ order, slug, lookupToken }: Reservatio
               )}
             </div>
           </div>
+
+          {/* Open or Recent Change Request Display */}
+          {order.changeRequest && (
+            <div className="p-[var(--ps-space-6)] border-b border-[var(--ps-border)] bg-zinc-50/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[var(--ps-text)] flex items-center gap-1.5">
+                  <Edit className="w-3.5 h-3.5 text-orange-600" />
+                  {t("changeRequestTitle")}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider ${
+                    order.changeRequest.status === "pending"
+                      ? "bg-amber-100 text-amber-800"
+                      : order.changeRequest.status === "approved"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : order.changeRequest.status === "declined"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-zinc-100 text-zinc-700"
+                  }`}
+                >
+                  {td(`changeRequestStatus_${order.changeRequest.status}`)}
+                </span>
+              </div>
+
+              <div className="text-xs space-y-1 text-zinc-700">
+                {order.changeRequest.requestedStartsAt && (
+                  <p>
+                    <span className="text-[var(--ps-muted)]">{t("requestedStartsAt")}: </span>
+                    <span className="font-semibold">
+                      {new Date(order.changeRequest.requestedStartsAt).toLocaleString(locale, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                        timeZone: order.siteTimezone,
+                      })}
+                    </span>
+                  </p>
+                )}
+                {order.changeRequest.requestedPartySize && (
+                  <p>
+                    <span className="text-[var(--ps-muted)]">{t("requestedPartySize")}: </span>
+                    <span className="font-semibold">{td("partySizeLabel", { count: order.changeRequest.requestedPartySize })}</span>
+                  </p>
+                )}
+                {order.changeRequest.requestedDurationMinutes && (
+                  <p>
+                    <span className="text-[var(--ps-muted)]">{t("requestedDuration")}: </span>
+                    <span className="font-semibold">{order.changeRequest.requestedDurationMinutes} min</span>
+                  </p>
+                )}
+                {order.changeRequest.guestNote && (
+                  <p className="italic text-zinc-600">&ldquo;{order.changeRequest.guestNote}&rdquo;</p>
+                )}
+                {order.changeRequest.status === "declined" && order.changeRequest.decisionNote && (
+                  <p className="mt-2 text-red-700 bg-red-50 p-2 rounded-lg border border-red-200">
+                    <span className="font-semibold">{t("declineNote")}: </span>
+                    {order.changeRequest.decisionNote}
+                  </p>
+                )}
+              </div>
+
+              {order.changeRequest.status === "pending" && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isWithdrawingChange}
+                    onClick={handleWithdrawChange}
+                    className="text-xs font-semibold text-zinc-600 hover:text-red-600 transition"
+                  >
+                    {isWithdrawingChange ? t("withdrawing") : t("withdrawRequest")}
+                  </button>
+                  {changeError && <p className="text-xs text-red-600 mt-1">{changeError}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Request Change Section */}
+          {canRequestChange && !showChangeForm && (
+            <div className="p-[var(--ps-space-6)] border-b border-[var(--ps-border)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setChangeError(null);
+                  setShowChangeForm(true);
+                }}
+                className="ps-button w-full border border-zinc-200 bg-[var(--ps-surface)] text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition"
+              >
+                {t("requestChange")}
+              </button>
+            </div>
+          )}
+
+          {/* Change Request Form */}
+          {showChangeForm && (
+            <form onSubmit={handleSubmitChange} className="p-[var(--ps-space-6)] border-b border-[var(--ps-border)] bg-zinc-50/50 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-zinc-900">{t("requestChangeTitle")}</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowChangeForm(false)}
+                  className="text-xs text-zinc-500 hover:text-zinc-700"
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 block mb-1">{t("changeTimeLabel")}</label>
+                  <input
+                    type="datetime-local"
+                    value={changeStartsAt}
+                    onChange={(e) => setChangeStartsAt(e.target.value)}
+                    className="w-full min-h-[44px] rounded-xl border border-zinc-200 px-3 text-xs bg-white focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-700 block mb-1">{t("changePartyLabel")}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={order.maxPartySize ?? 50}
+                      step="1"
+                      placeholder={`1-${order.maxPartySize ?? 50}`}
+                      value={changePartySize}
+                      onChange={(e) => setChangePartySize(e.target.value)}
+                      className="w-full min-h-[44px] rounded-xl border border-zinc-200 px-3 text-xs bg-white focus:border-orange-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-700 block mb-1">{t("changeDurationLabel")}</label>
+                    <select
+                      value={changeDuration}
+                      onChange={(e) => setChangeDuration(e.target.value)}
+                      className="w-full min-h-[44px] rounded-xl border border-zinc-200 px-3 text-xs bg-white focus:border-orange-500 focus:outline-none"
+                    >
+                      <option value="">{t("keepCurrentDuration")}</option>
+                      {(order.allowedStayMinutes ?? [60, 90, 120]).map((m) => (
+                        <option key={m} value={m}>
+                          {m} min
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 block mb-1">{t("changeNoteLabel")}</label>
+                  <textarea
+                    rows={2}
+                    maxLength={300}
+                    value={changeGuestNote}
+                    onChange={(e) => setChangeGuestNote(e.target.value)}
+                    placeholder={t("changeNotePlaceholder")}
+                    className="w-full min-h-[44px] rounded-xl border border-zinc-200 px-3 py-2 text-xs bg-white focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {changeError && (
+                <p role="alert" className="text-xs font-medium text-red-600">
+                  {changeError}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangeForm(false)}
+                  className="ps-button ps-button-secondary flex-1 text-xs font-bold"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingChange || (!changeStartsAt && !changePartySize && !changeDuration)}
+                  className="ps-button ps-button-primary flex-1 text-xs font-bold disabled:opacity-50"
+                >
+                  {isSubmittingChange ? t("submitting") : t("submitChangeRequest")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Cancellation Cutoff Closed Notice */}
+          {isCutoffPassed && (order.status === "pending" || order.status === "confirmed") && (
+            <div className="p-[var(--ps-space-6)] border-b border-[var(--ps-border)] bg-amber-50/50 flex items-center gap-2 text-xs text-amber-900 font-medium">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>{t("cancellationWindowClosed")}</span>
+            </div>
+          )}
 
           {canCancel && (
             <div className="p-[var(--ps-space-6)] border-b border-[var(--ps-border)]">

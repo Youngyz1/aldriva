@@ -531,6 +531,9 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
             })}
             <OrderingPaymentsPanel
               business={panelBusiness}
+              organizerId={initialState.tenantId}
+              siteTimezone={initialState.storefront.timeZone}
+              acceptOrdersWhenClosed={initialState.storefront.acceptOrdersWhenClosed}
               template={template}
               canManage={canManageOfferings}
               hasActiveDish={currentMenuItems.length > 0}

@@ -1,0 +1,26 @@
+branch: chore/remove-all-invitation-templates
+
+=== git status --short ===
+?? .vscode/
+?? db/migration_215_atomic_scan_order_and_harden_reservation.sql
+?? db/migration_215_atomic_scan_order_and_harden_reservation_rollback.sql
+?? db/migration_216_reservation_booking_schema.sql
+?? db/migration_216_reservation_booking_schema_rollback.sql
+?? db/migration_220_service_categories.sql
+?? db/migration_220_service_categories_rollback.sql
+?? docs/investigation/
+?? docs/minimalism-dark-blue/
+?? supabase/migrations/20261105000000_migration_216_reservation_booking_schema.sql
+?? supabase/migrations/20261106000000_migration_220_service_categories.sql
+
+=== git log --oneline -10 ===
+303ed15ed chore(invitations): remove all invitation templates, cards and pickers; neutral guest fallback
+73786a362 fix(scan): export and import logRejection to restore type check and build
+2299c68c6 chore: checkpoint before removing all invitation templates
+b1e099621 wip: general booking, cleaning-fresh template, switch page reconcile
+8da7ec06a fix(reservations): close header-to-hero gap, balance hero title
+d816cc731 feat(reservations): redesign Reserve form (hero, sections, slot picker, themed background)
+e2506765d Refactor scan action authorization checks
+b4b408e63 Complete Phase 4 worker scan action support
+69e1970fd Complete Phase 4 worker scanner authorization
+ad02c4744 Complete Phase 3 scanner registry and offline sync

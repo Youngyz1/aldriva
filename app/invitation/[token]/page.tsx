@@ -3,13 +3,11 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { IconMailX as MailX } from "@tabler/icons-react";
-import { getInvitationByToken, getInvitationGuestAllowanceByToken } from "@/lib/invitations";
+import { getInvitationByToken } from "@/lib/invitations";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
-import { getSiteUrl } from "@/lib/site-url";
-import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
 import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
 import type { PageActionPayload, PageActionHandler } from "@/lib/page-actions";
 import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
@@ -39,31 +37,17 @@ export async function generateMetadata({
     const result = await getInvitationByToken(token);
     if (!result?.invitation) return baseMetadata;
 
-    const event = result.invitation.events as { id?: string; invitation_template_id?: string | null } | null;
-    const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
-    const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
-    const invitationTemplate = await getInvitationTemplateById(event?.invitation_template_id);
-    const cardSize = invitationTemplate.layout_config.design === "botanical-reverie" || invitationTemplate.layout_config.design === "luxe-editorial"
-      ? invitationTemplate.layout_config.canvas
-      : { width: 1200, height: 630 };
-    const cardImageUrl = buildInvitationCardImageUrl(
-      getSiteUrl(),
-      token,
-      event?.invitation_template_id,
-      publishedPage?.published_at
-    );
-
+    // No invitation templates ship with the platform, so the card.png route
+    // returns 404. Omit the card image from Open Graph metadata.
     return {
       ...baseMetadata,
       openGraph: {
         title,
         description,
         type: "website",
-        images: [{ url: cardImageUrl, width: cardSize.width, height: cardSize.height, alt: "Invitation card preview" }],
       },
       twitter: {
-        card: "summary_large_image",
-        images: [cardImageUrl],
+        card: "summary",
       },
     };
   } catch {
@@ -126,9 +110,6 @@ async function InvitationLoader({ token }: { token: string }) {
 
   if (publishedPage) {
     const templateId = publishedPage.published_snapshot.template_id;
-    const guestAllowance = templateId === "evergreen-envelope"
-      ? await getInvitationGuestAllowanceByToken(token)
-      : null;
     // Assemble live data layers into the InvitationPageData contract.
     const guestRecord = {
       guest_name: invitation.guest_name,
@@ -136,7 +117,6 @@ async function InvitationLoader({ token }: { token: string }) {
       organization: invitation.organization,
       rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
       rsvp_at: invitation.rsvp_at,
-      ...(templateId === "evergreen-envelope" ? { guest_allowance: guestAllowance } : {}),
       token: invitation.token,
       is_vip: seat?.is_vip ?? false,
     };
@@ -207,9 +187,9 @@ async function InvitationLoader({ token }: { token: string }) {
     );
   }
 
-  // ── Fallback: existing invitation card (unchanged) ────────────────────────
-  const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
-  const template = await getInvitationTemplateById(event?.invitation_template_id);
+  // ── Fallback: neutral invitation view ───────────────────────────────────────
+  // No invitation templates ship with the platform, so the card template is
+  // always null and the guest page renders the neutral RSVP card only.
 
   // Format seat label nicely if available
   let seatDisplay: {
@@ -241,7 +221,7 @@ async function InvitationLoader({ token }: { token: string }) {
   return (
     <InvitationClient
       token={token}
-      template={template}
+      template={null}
       guest={{
         name: invitation.guest_name,
         title: invitation.guest_title,

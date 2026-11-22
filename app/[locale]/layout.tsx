@@ -25,7 +25,6 @@ import { PlatformThemeProvider } from "@/components/PlatformThemeProvider";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: "#c2410c",
 };
 

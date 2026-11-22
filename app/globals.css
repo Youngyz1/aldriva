@@ -122,6 +122,26 @@
   --border-strong: #d4d4d8;
   --input: #e4e4e7;
   --ring: var(--brand-500);
+
+  /* Dashboard z-index scale — docs/design/dashboard-overview/06-mobile-navigation-spec.md §4 */
+  --z-content: 0;
+  --z-sticky: 10;
+  --z-bottom-bar: 20;
+  --z-cookie: 25;
+  --z-sheet-backdrop: 30;
+  --z-sheet: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+
+  /* Dashboard layout heights */
+  --app-navbar-h: 3.5rem;
+  --bottom-bar-h: 3.5rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --app-navbar-h: 4rem;
+  }
 }
 
 @theme inline {

@@ -30,6 +30,8 @@ interface Props {
   pendingCount?: number;
   onManualSync?: () => void;
   isSyncing?: boolean;
+  guestSession?: boolean;
+  onGuestAccessEnded?: () => void;
 }
 
 export default function ScannerPreparePanel({
@@ -41,6 +43,8 @@ export default function ScannerPreparePanel({
   pendingCount = 0,
   onManualSync,
   isSyncing = false,
+  guestSession = false,
+  onGuestAccessEnded,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -125,6 +129,10 @@ export default function ScannerPreparePanel({
       });
 
       if (!datasetRes.ok) {
+        if (guestSession && datasetRes.status === 401) {
+          onGuestAccessEnded?.();
+          return;
+        }
         const errJson = await datasetRes.json().catch(() => ({}));
         throw new Error(errJson.error || "Failed to download ticket dataset.");
       }

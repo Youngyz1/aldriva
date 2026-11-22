@@ -20,7 +20,6 @@
 
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import PreviewSandboxClient from "./PreviewSandboxClient";
 
 export const metadata: Metadata = {
   title: "Invitation Template Sandbox",
@@ -28,12 +27,7 @@ export const metadata: Metadata = {
 };
 
 export default async function InvitationPreviewGatePage() {
-  const isProduction = process.env.NODE_ENV === "production";
-  const sandboxEnabled = process.env.NEXT_PUBLIC_ENABLE_INVITATION_SANDBOX === "true";
-
-  if (isProduction && !sandboxEnabled) {
-    notFound();
-  }
-
-  return <PreviewSandboxClient />;
+  // No invitation templates ship with the platform, so the template sandbox
+  // has nothing to render. Return 404 instead of crashing.
+  notFound();
 }

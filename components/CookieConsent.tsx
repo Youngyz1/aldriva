@@ -7,13 +7,14 @@ import { useTranslations } from "next-intl";
 import { IconCookie as Cookie } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isKitchenPrivatePath } from "@/lib/kitchen/worker-validation";
+import { isGuestScannerPath } from "@/components/ChromeGate";
 
 const CONSENT_KEY = "Aldriva-cookie-consent";
 
 export default function CookieConsent() {
   const t = useTranslations("Common");
   const pathname = usePathname();
-  const isWorkerPath = pathname === null || isKitchenPrivatePath(pathname);
+  const isWorkerPath = pathname === null || isKitchenPrivatePath(pathname) || isGuestScannerPath(pathname);
   const [isVisible, setIsVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
   const isInvitation = pathname?.includes("/invitation");

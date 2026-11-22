@@ -8,15 +8,12 @@
  */
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
 import { IconCircleCheck as CheckCircle2, IconAlertCircle as AlertCircle, IconEye as Eye, IconGlobe as Globe, IconSparkles as Sparkles } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { validateForPublish } from "@/lib/invitation-page-schema";
 import { sectionForPublishField, type BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
-import { INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
-import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
 
 interface Props {
   eventId: string;
@@ -41,15 +38,9 @@ export function PublishSection({
   onJumpToSection,
   disabled,
 }: Props) {
-  const t = useTranslations("Events");
   const [previewLoading, setPreviewLoading] = useState(false);
   const isPublished = pageStatus === "published";
   const validation = validateForPublish(draft, event, draft.locale || "en");
-  const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
-  const templateDisplayName = templateNameKey
-    ? t(templateNameKey)
-    : INVITATION_TEMPLATES.find((template) => template.id === draft.template_id)?.name ?? draft.template_id;
-
   const handlePreview = async () => {
     setPreviewLoading(true);
     try {
@@ -129,7 +120,7 @@ export function PublishSection({
           <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Selected Template</span>
             <span className="font-semibold text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 size={13} /> {templateDisplayName}
+              <CheckCircle2 size={13} /> {draft.template_id || "—"}
             </span>
           </div>
 
@@ -168,67 +159,28 @@ export function PublishSection({
               </span>
             )}
           </div>
-
-          {/* Template Specific Checks */}
-          {(draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial") && (
-            <div className="flex items-center justify-between py-2 text-xs">
-              <span className="text-zinc-700">Couple Names</span>
-              {draft.partner1_name && draft.partner2_name ? (
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 size={13} /> {draft.partner1_name} & {draft.partner2_name}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onJumpToSection("extras")}
-                  className="font-semibold text-red-600 flex items-center gap-1 hover:underline"
-                >
-                  <AlertCircle size={13} /> Both partner names required — fix in Special fields
-                </button>
-              )}
-            </div>
-          )}
-
-          {draft.template_id === "birthday-bold" && (
-            <div className="flex items-center justify-between py-2 text-xs">
-              <span className="text-zinc-700">Celebrant Name</span>
-              {draft.celebrant_name ? (
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 size={13} /> {draft.celebrant_name}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onJumpToSection("extras")}
-                  className="font-semibold text-red-600 flex items-center gap-1 hover:underline"
-                >
-                  <AlertCircle size={13} /> Celebrant name required — fix in Special fields
-                </button>
-              )}
-            </div>
-          )}
         </div>
-
-        {/* Validation Errors List (each a jump link to its section) */}
-        {!validation.valid && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
-            <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
-            <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
-              {validation.errors.map((err, i) => (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => onJumpToSection(sectionForPublishField(err.field))}
-                    className="hover:underline"
-                  >
-                    {err.message}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
+
+      {/* Validation Errors List (each a jump link to its section) */}
+      {!validation.valid && (
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
+          <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
+          <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
+            {validation.errors.map((err, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => onJumpToSection(sectionForPublishField(err.field))}
+                  className="hover:underline"
+                >
+                  {err.message}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Publish / Unpublish Actions */}
       <div className="flex flex-col items-stretch gap-4 pt-2">

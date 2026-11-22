@@ -1,6 +1,47 @@
 # Kitchen & Delivery Workstream (under Phase 6: Unified Commerce)
 
-> **STATUS (2026-10-21):** Part 1, Stage B, and the Stage C courier dashboard are implemented in the working tree on `feat/phase-2-couriers`. The owner reports migrations 185 and 186 applied on staging; no database tools were used to independently verify them. Browser visual/integration QA remains.
+> **STATUS (2026-10-28):** Migration 201 is applied on staging per owner report; the live order/courier offer index and feed have been verified read-only. Migration 202 is drafted locally to include READY deliveries in post-completion dispatch and has not been applied. Authenticated staging behavior tests remain pending because local browser use is disabled.
+
+## Payment-gated courier dispatch — 2026-10-29 (local draft)
+
+- Migration 203 keeps online delivery orders out of dispatch, READY refresh, courier feed, and atomic claim until `payment_status = 'paid'`. Other payment methods keep their existing eligibility.
+- A change to `payment_status` invokes the existing idempotent dispatcher. When an accepted, preparing, or ready delivery becomes paid, it can receive courier offers without another order-status transition.
+- The claim RPC repeats the payment predicate so an open offer created before migration 203 cannot be claimed while unpaid. No order backfill is included. The rollback intentionally raises `MIGRATION_203_ROLLBACK_BLOCKED`.
+- Migration 203 retains migration 201's no-ETA dispatch, uncapped fanout, READY refresh, conflict dedupe, and `NULL` expiry for ASAP. Apply migration 202 before 203 to include READY orders in courier-completion fanout. Both drafts are unapplied; no SQL was run for this work.
+- Focused local regression suites passed 126/126; changed-file ESLint and `npx tsc --noEmit` passed. Full `npm test` ran 2,893 tests across 238 files: 2,889 passed and four known failures remain (two `event-scan-activity`, two `phase6-owner-managed-delivery`). USD-only online payment means `pay_online_first` cannot complete for FCFA businesses; this is a storefront currency limitation, not a courier-dispatch rule.
+
+## Staging recheck after migration 201 — 2026-10-28
+
+- The live unique index is `uq_business_courier_offers_order_worker` on `(order_id, courier_worker_id)`. It supports the dispatcher's and READY refresh's `ON CONFLICT` paths.
+- The live `dispatch_pending_deliveries_after_courier_completion()` body still limits pending orders to `accepted` and `preparing`; it omits `ready`. Migration 202 adds that status without changing the trigger or downstream dispatcher. Its fail-closed rollback and timestamped mirror are authored locally only.
+- Read-only feed inspection found two currently offered, unassigned delivery orders (`ORD-261028-9280`, `ORD-261028-9625`), each visible to Uche Ohia and Youngyz Digital; each offer has `expires_at = NULL`. This is a database feed query, not an authenticated `/courier` session.
+- The live expiry function returns `NULL` for ASAP offers, including those with a prep ETA. Scheduled offers expire at `GREATEST(scheduled_for + 2 hours, now + configured response timeout)`. READY refresh reuses the unique order/courier row and can reopen expired/withdrawn offers for eligible workers, while preserving declines and skipping assigned orders.
+- No staging write or QA order creation occurred in this recheck. The requested accepted-order, claim race, decline, cancellation, manual assignment, and courier-completion scenarios need authenticated app sessions; local browser use is disabled. The current feed and schema were inspected read-only instead.
+- Business country is stored as `Ukraine`; website timezone metadata is null. No business data was changed. The owner's requested corrections are Country `Côte d’Ivoire` in Edit Business and timezone `Africa/Abidjan` in Organizer Settings → Operational Settings → Time zone.
+- The live `orders` schema has no distinct `delivery_mode` column. QR/menu order code chooses `dine_in`; the platform dispatcher filters by `fulfilment_type = 'delivery'` and an unassigned courier only. No separate owner-managed mode gate is visible in these live definitions.
+- Postgres ERROR/FATAL/PANIC log query returned no rows for 2026-10-27 22:50:12 UTC through 2026-10-28 22:50:12 UTC. `supabase_migrations.schema_migrations` contains only `20260824210000 / migration_75_check_in_ticket_rpc` despite live courier dispatch changes; reconcile migration history before `supabase db push`.
+- Changed-file ESLint, `npx tsc --noEmit --pretty false`, and focused tests passed (34/34). Full `npm test` ran 2,884 tests: 2,880 passed, with four pre-existing failures (two event-scan and two Phase 6 payment mock assertions).
+
+## Earlier migration-192/200 verification — 2026-10-28 (historical)
+
+- Read-only staging inspection confirmed the migration 192 order triggers and active dispatch function. An authenticated QA merchant accepted `ORD-261028-4523` through the Orders dialog. The status became `accepted`, but the ETA and status history stayed null/empty and there were no offer rows.
+- **Root cause:** staging Postgres logged two `INSERT has more target columns than expressions` errors in `dispatch_business_courier_order()`. The migration 192 offer insert names `expires_at` but supplies only four SELECT values. The status-transition compatibility fallback then retried without the ETA/history and silently persisted only `status='accepted'`.
+- **Fix authored at that point:** migration 200 supplies the expiration expression and preserves the offer dedupe/reoffer rules. `executeOrderStatusTransitionCore` now carries the acceptance ETA through compatibility fallback and fails the accept action if that fallback still cannot persist it. The owner later applied migration 200.
+- Uche Ohia's worker row is active and available, has an accepted invitation, has phone/WhatsApp values, and has no active assignment. Platform offer addressing is by `courier_worker_id`, not the order's `rider_phone` snapshot.
+- The only notification path is the authenticated `/api/courier/orders` offer feed, polled by `/courier` every 15 seconds. There is no push, SMS, or automated WhatsApp sender. No courier session was available to verify the live page. The current table QR path creates dine-in orders and requires payment first for this business, so a delivery order cannot be created through that path; no table order was submitted.
+- The website mock order and merchant acceptance were exercised against staging at that point; the post-fix run was waiting for migration 200 application.
+- **Local verification:** targeted order/dispatch and migration-order tests pass. Full-suite and static-check results are recorded in the 2026-10-28 changelog entry after verification.
+
+## Courier timing redesign — 2026-10-28 (migration 201 applied on staging; 202 follow-up pending)
+
+- Live migration 200 is applied. `ORD-261028-9280` (Elodie Uche) was accepted with an ETA and received two offer rows; they had expired by the 21:24 UTC read. No post-200 delivery order without an ETA was present. `ORD-261028-4523` is READY with no ETA/offers and predates migration 200.
+- Migration 192 introduced the ETA eligibility gate and five-courier fanout cap. QR/menu commits for migration 198 changed the table/dine-in path and did not modify the accept action, transition code, or courier dispatch.
+- Migration 201 is applied on staging per owner report and live index/feed inspection: no ETA gate or fanout cap, scheduled expiry, READY re-alert, atomic claim and per-courier decline, and no order-data backfill. ASAP offers use null expiry whether or not a prep estimate exists. Scheduled expiry is `GREATEST(scheduled_for + 2 hours, now + configured response timeout)`. Migration 202 addresses READY orders omitted by the live courier-completion dispatcher and remains unapplied.
+- The Accept path allows delivery acceptance with no ETA and supports a prep duration or optional business-local date/time; time-only uses today's business date, date-only is rejected, and past values are rejected server-side.
+- Read-only staging query found `businesses.country = 'Ukraine'` and `tenant_websites.metadata.timezone = null` for business `ffdf0107-92fb-4f44-90e8-a364efae70d3`. Country is not used for timezone inference; the platform fallback is `Africa/Abidjan`, and explicit website metadata wins. No business data was changed. Owner correction: set the Country field in Edit Business to `Côte d’Ivoire` and Time zone in Organizer Settings → Operational Settings to `Africa/Abidjan`.
+- Null ETA now renders ASAP/to-be-confirmed text on customer tracking, kitchen, dashboard, courier, and accepted-order email surfaces; display and sorting code validates timestamps. No staging orders, migration, claim, decline, or courier session were used for this implementation. Targeted tests pass; static checks and full-suite results are recorded in `docs/CHANGELOG.md` after verification.
+- **Final local checks:** dispatch/timezone coverage passed 58/58; targeted ESLint and `npx tsc --noEmit --pretty false` passed. `npm test` ran 2,883 tests: 2,879 passed and four pre-existing unrelated assertions remain (two event-scan source-contract tests and two Phase 6 payment mocks); Stage 17 migration-order coverage passed. No staging writes were made for this follow-up. Browser visual review was unavailable because browser access is disabled in Work settings.
+- **Staging apply note:** the read-only migration tracker shows only version `20260824210000`, despite migration 200's live function. Reconcile versions already applied before pushing local migrations; otherwise the CLI could attempt to replay older migrations.
 
 ## Phase 3 — Cook performance records
 

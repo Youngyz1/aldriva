@@ -182,16 +182,6 @@ export function resolveStorefrontCurrency(
       if (explicit) return explicit;
     }
   }
-  if (typeof businessCountry === "string") {
-    const normalized = businessCountry
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toLowerCase();
-    if (normalized === "cote d'ivoire" || normalized === "ivory coast" || normalized === "ci") {
-      return "XOF";
-    }
-  }
   return "USD";
 }
 

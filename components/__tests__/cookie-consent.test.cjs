@@ -8,6 +8,7 @@ const ts = require("typescript");
 const ROOT = path.resolve(__dirname, "../..");
 const COOKIE_CONSENT_PATH = path.join(ROOT, "components/CookieConsent.tsx");
 const WORKER_VALIDATION_PATH = path.join(ROOT, "lib/kitchen/worker-validation.ts");
+const CHROME_GATE_PATH = path.join(ROOT, "components/ChromeGate.tsx");
 const CONSENT_KEY = "Aldriva-cookie-consent";
 const EN_MESSAGES = JSON.parse(fs.readFileSync(path.join(ROOT, "messages/en.json"), "utf8"));
 const FR_MESSAGES = JSON.parse(fs.readFileSync(path.join(ROOT, "messages/fr.json"), "utf8"));
@@ -44,6 +45,10 @@ function loadTypeScript(filePath, mocks = {}) {
 }
 
 const workerValidation = loadTypeScript(WORKER_VALIDATION_PATH);
+// isGuestScannerPath is a pure function; ChromeGate's default export (the
+// component) is never invoked here, so "next/navigation" only needs to
+// resolve, not do anything useful.
+const chromeGate = loadTypeScript(CHROME_GATE_PATH, { "next/navigation": { usePathname: () => null } });
 
 function createCookieConsentRuntime(initialPathname, locale = "en") {
   let pathname = initialPathname;
@@ -120,6 +125,7 @@ function createCookieConsentRuntime(initialPathname, locale = "en") {
     "@tabler/icons-react": { IconCookie: "CookieIcon" },
     "framer-motion": { motion: { div: "motion.div" }, AnimatePresence: "AnimatePresence" },
     "@/lib/kitchen/worker-validation": workerValidation,
+    "@/components/ChromeGate": chromeGate,
   };
   const CookieConsent = loadTypeScript(COOKIE_CONSENT_PATH, mocks).default;
 

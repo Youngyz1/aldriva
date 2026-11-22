@@ -231,6 +231,7 @@ export const TEMPLATE_REGISTRY: CanonicalTemplate[] = [
         blocks: normalizeBlocks([
           { type: "hero", heading: "Professional Services", subheading: "Trusted by hundreds of happy clients. Book today.", ctaLabel: "Book Now", ctaHref: "/contact", badge: "Licensed & Insured", variant: "center" },
           { type: "features", heading: "Our Services", columns: 3, items: [{ title: "Consultation", description: "Free assessment and quote.", icon: "📋" }, { title: "On-Time", description: "We respect your schedule.", icon: "⏱️" }, { title: "Guaranteed", description: "Satisfaction guaranteed.", icon: "✅" }] },
+          { type: "services_embed", heading: "Our Services", limit: 6, layout: "grid" },
           { type: "about", heading: "About Us", story: "We’ve served the community for over a decade with integrity and craftsmanship.", mission: "To deliver exceptional service with honesty and care.", founderName: "Jordan Smith", founderRole: "Lead Professional", highlights: [{ label: "Clients", value: "500+", icon: "👥" }, { label: "Years", value: "12", icon: "📅" }, { label: "Rating", value: "4.9/5", icon: "⭐" }] },
           { type: "contact", heading: "Book a Service", showMap: false },
           { type: "faq", heading: "FAQ", items: [{ question: "What areas do you cover?", answer: "Citywide and surrounding suburbs." }, { question: "How do I pay?", answer: "Cash, card, or bank transfer." }] },
