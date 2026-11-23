@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import StaffAvatar from "@/components/staff/StaffAvatar";
 import StaffRoleAssignmentPanel from "@/components/staff/StaffRoleAssignmentPanel";
+import StaffInvitePanel from "@/components/staff/StaffInvitePanel";
 import { deleteStaffMember, setStaffStatus, type StaffMemberRow, type StaffStatus } from "@/lib/actions/staff-members";
 import type { AssignableRoleRow, StaffRoleAssignmentRow } from "@/lib/actions/staff-role-assignments";
 import StaffFormDialog from "@/app/dashboard/businesses/[id]/staff/StaffFormDialog";
@@ -59,6 +60,8 @@ export default function StaffProfileClient({
   roleAssignments,
   assignableRoles,
   callerScope,
+  hasLogin,
+  siteUrl,
 }: {
   organizerId: string;
   businessId: string;
@@ -68,6 +71,8 @@ export default function StaffProfileClient({
   roleAssignments: StaffRoleAssignmentRow[];
   assignableRoles: AssignableRoleRow[];
   callerScope: "organizer" | "staff";
+  hasLogin: boolean;
+  siteUrl: string;
 }) {
   const t = useTranslations("Workforce");
   const router = useRouter();
@@ -146,6 +151,16 @@ export default function StaffProfileClient({
             assignableRoles={assignableRoles}
             callerScope={callerScope}
           />
+
+          {!hasLogin && staff.status !== "deactivated" && (
+            <StaffInvitePanel
+              businessId={businessId}
+              staffMemberId={staff.id}
+              defaultEmail={staff.email}
+              assignableRoles={assignableRoles}
+              siteUrl={siteUrl}
+            />
+          )}
 
           <dl className="grid gap-3 sm:grid-cols-2">
             <div className="min-w-0 space-y-0.5">

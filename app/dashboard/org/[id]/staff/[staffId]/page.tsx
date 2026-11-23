@@ -6,6 +6,7 @@ import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { getStaffMember } from "@/lib/actions/staff-members";
 import { listAssignableRoles, listStaffMemberRoleAssignments } from "@/lib/actions/staff-role-assignments";
 import StaffProfileClient from "./StaffProfileClient";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default async function StaffProfilePage({
   params,
@@ -26,7 +27,7 @@ export default async function StaffProfilePage({
   const supabase = await createSupabaseServer();
   const { data: staffRow } = await supabase
     .from("staff_members")
-    .select("business_id")
+    .select("business_id, auth_user_id")
     .eq("id", staffId)
     .maybeSingle();
   if (!staffRow) return notFound();
@@ -65,6 +66,8 @@ export default async function StaffProfilePage({
       roleAssignments={assignmentsResult.success ? assignmentsResult.data : []}
       assignableRoles={assignableRolesResult.success ? assignableRolesResult.data : []}
       callerScope={callerScope}
+      hasLogin={Boolean(staffRow.auth_user_id)}
+      siteUrl={getSiteUrl()}
     />
   );
 }
