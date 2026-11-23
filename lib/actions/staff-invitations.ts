@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
@@ -67,21 +68,58 @@ export async function createStaffInvitation(
   });
   if (!contact.ok) return { success: false, error: contact.error.message, code: contact.error.code };
 
-  const { data, error } = await supabase
-    .from("staff_invitations")
-    .insert({
-      business_id: businessId,
-      branch_id: staff.branch_id,
-      staff_member_id: staff.id,
-      email: contact.value.email,
-      phone: contact.value.phone,
-      delivery_channel: contact.value.channel,
-      role_id: input.role_id || null,
-      invited_by: auth.userId,
-      status: "pending",
-    })
-    .select("id, token, expires_at, delivery_channel, email, phone")
-    .single();
+  // The token is generated here and only its SHA-256 (hex of the lowercase uuid)
+  // is stored. The plaintext is returned to the caller once and never saved.
+  const token = randomUUID();
+  const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
+
+  const insertInvitation = () =>
+    supabase
+      .from("staff_invitations")
+      .insert({
+        business_id: businessId,
+        branch_id: staff.branch_id,
+        staff_member_id: staff.id,
+        email: contact.value.email,
+        phone: contact.value.phone,
+        delivery_channel: contact.value.channel,
+        role_id: input.role_id || null,
+        invited_by: auth.userId,
+        status: "pending",
+        token_hash: tokenHash,
+      })
+      .select("id, expires_at, delivery_channel, email, phone")
+      .single();
+
+  let result = await insertInvitation();
+
+  // 23505: this person already has a pending invitation (one-pending index).
+  // Revoke the older pending invitation(s) through the database function, then
+  // retry once. Any other failure (for example a refused role) revokes nothing.
+  if (result.error && result.error.code === "23505") {
+    const { data: older, error: olderError } = await supabase
+      .from("staff_invitations")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("staff_member_id", staff.id)
+      .eq("status", "pending");
+    if (olderError) {
+      const mapped = mapStaffError(olderError);
+      return { success: false, error: mapped.message, code: mapped.code };
+    }
+    for (const row of older ?? []) {
+      const { error: revokeError } = await supabase.rpc("revoke_staff_invitation", {
+        p_invitation_id: row.id as string,
+      });
+      if (revokeError) {
+        const mapped = mapStaffError(revokeError);
+        return { success: false, error: mapped.message, code: mapped.code };
+      }
+    }
+    result = await insertInvitation();
+  }
+
+  const { data, error } = result;
 
   if (error) {
     const mapped = mapStaffError(error);
@@ -93,7 +131,7 @@ export async function createStaffInvitation(
     success: true,
     data: {
       id: data.id as string,
-      token: data.token as string,
+      token,
       expires_at: data.expires_at as string,
       channel: (data.delivery_channel as string | null) ?? contact.value.channel,
       email: (data.email as string | null) ?? null,
