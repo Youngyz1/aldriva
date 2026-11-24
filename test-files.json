@@ -298,5 +298,6 @@
   "lib/staff/__tests__/invitation-contact.test.cjs",
   "lib/auth/__tests__/safe-redirect.test.cjs",
   "lib/staff/__tests__/invitation-link.test.cjs",
-  "lib/staff/__tests__/invitation-compose.test.cjs"
+  "lib/staff/__tests__/invitation-compose.test.cjs",
+  "lib/__tests__/promo-codes-actions.test.cjs"
 ]
