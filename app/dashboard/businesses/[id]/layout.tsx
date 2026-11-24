@@ -89,7 +89,11 @@ export default async function BusinessLayout({ children, params }: { children: R
   const navGroups = [
     {
       items: isStaffOnly
-        ? [{ label: "Staff", href: `${base}/staff`, icon: "UserCog" }, ...rolesItems]
+        ? [
+            { label: "Staff", href: `${base}/staff`, icon: "UserCog" },
+            { label: "My assignments", href: `${base}/my-assignments`, icon: "UserCog" },
+            ...rolesItems,
+          ]
         : [
             { label: "Overview", href: `${base}/overview`, icon: "LayoutDashboard" },
             ...dynamicItems,
