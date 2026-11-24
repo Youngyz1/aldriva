@@ -203,6 +203,14 @@ export interface InvitationTicketPassData {
   checkedInAt?: string | null;
 }
 
+export interface GuestbookWishItem {
+  id?: string;
+  name: string;
+  text: string;
+  date?: string;
+  createdAt?: string;
+}
+
 // ── Main Page Data Contract ──────────────────────────────────────────────────
 export interface InvitationPageData {
   // ── [REQUIRED] Core Event Identifiers ─────────────────────────────────────
@@ -377,6 +385,8 @@ export interface InvitationPageData {
   musicSample?: boolean;
 
   // ── [REQUIRED] Guest & Credential Context ─────────────────────────────────
+  /** Existing approved/visible guestbook wishes to render in feed */
+  initialWishes?: GuestbookWishItem[];
   /** Current viewer guest record */
   guest: InvitationGuestData;
   /** Optional seating assignment */

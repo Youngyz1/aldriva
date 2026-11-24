@@ -125,6 +125,10 @@ export default async function SharedInvitationPage({
   pageData.memoriesCount = memoriesCount;
   pageData.memoriesSample = false;
 
+  const { getVisibleGuestbookWishes } = await import("@/lib/invitations");
+  const visibleWishes = await getVisibleGuestbookWishes(ev.id as string, 20);
+  pageData.initialWishes = visibleWishes;
+
   // Placeholder titles can never publish (validateForPublish rejects them),
   // so they cannot reach this page — belt and suspenders.
   if (!pageData.title || pageData.title === "Untitled invitation") {

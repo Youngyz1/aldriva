@@ -281,7 +281,17 @@ export function BurgundyGoldSections({
   // ── Guestbook ───────────────────────────────────────────────────────────────
   const showGuestbook = burgundyShowGuestbook(sectionSettings);
   const canWriteGuestbook = mode !== "shared";
-  const [wishes, setWishes] = useState<{ name: string; text: string }[]>([]);
+  const initialLoadedWishes = useMemo(
+    () => (data.initialWishes || []).map((w) => ({ name: w.name, text: w.text })),
+    [data.initialWishes]
+  );
+  const [wishes, setWishes] = useState<{ name: string; text: string }[]>(initialLoadedWishes);
+  useEffect(() => {
+    if (data.initialWishes) {
+      setWishes(data.initialWishes.map((w) => ({ name: w.name, text: w.text })));
+    }
+  }, [data.initialWishes]);
+
   const initialWishName = data.guest?.name && !data.guest.isSample && !data.guest.isPlaceholder ? data.guest.name : "";
   const [wishName, setWishName] = useState(initialWishName);
   const [wishText, setWishText] = useState("");
@@ -300,7 +310,7 @@ export function BurgundyGoldSections({
     ],
     [t]
   );
-  const feed = [...wishes, ...(mode !== "shared" && !hasAction ? sampleWishes : [])];
+  const feed = [...wishes, ...(mode !== "shared" && !hasAction && !wishes.length ? sampleWishes : [])];
   const sendWish = async () => {
     const name = wishName.trim();
     const text = wishText.trim();
@@ -321,8 +331,8 @@ export function BurgundyGoldSections({
       setWishSuccess(true);
       if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
       wishTimerRef.current = setTimeout(() => setWishSuccess(false), 4000);
-    } catch {
-      setWishError(t("burgundyGuestbookError"));
+    } catch (err: any) {
+      setWishError(err?.message || t("burgundyGuestbookError"));
     } finally {
       setWishBusy(false);
     }

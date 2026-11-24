@@ -464,13 +464,46 @@ export function MinimalismDarkBluePageTemplate({
     },
     [data.memoriesToken]
   );
+  const initialLoadedWishes = useMemo(
+    () =>
+      (data.initialWishes || []).map((w) => ({
+        name: w.name,
+        text: w.text,
+        date:
+          w.date ||
+          (w.createdAt
+            ? new Intl.DateTimeFormat(localeCode, { month: "short", day: "numeric", year: "numeric" }).format(
+                new Date(w.createdAt)
+              )
+            : undefined),
+      })),
+    [data.initialWishes, localeCode]
+  );
+  const [wishes, setWishes] = useState<{ name: string; date?: string; text: string }[]>(initialLoadedWishes);
+  useEffect(() => {
+    if (data.initialWishes) {
+      setWishes(
+        data.initialWishes.map((w) => ({
+          name: w.name,
+          text: w.text,
+          date:
+            w.date ||
+            (w.createdAt
+              ? new Intl.DateTimeFormat(localeCode, { month: "short", day: "numeric", year: "numeric" }).format(
+                  new Date(w.createdAt)
+                )
+              : undefined),
+        }))
+      );
+    }
+  }, [data.initialWishes, localeCode]);
+
   // Fake guest messages only appear when there are no real wishes or on non-interactive showcases.
-  const showSampleWishes = !hasAction && mode !== "shared";
+  const showSampleWishes = !hasAction && mode !== "shared" && !wishes.length;
   const sampleWishes = showSampleWishes
     ? (data.locale === "fr" ? MINIMALISM_SAMPLE_WISHES_FR : MINIMALISM_SAMPLE_WISHES_EN)
     : [];
 
-  const [wishes, setWishes] = useState<{ name: string; date?: string; text: string }[]>([]);
   const initialWishName = data.guest?.name && !data.guest.isSample && !data.guest.isPlaceholder ? data.guest.name : "";
   const [wishName, setWishName] = useState(initialWishName);
   const [wishText, setWishText] = useState("");
@@ -510,8 +543,8 @@ export function MinimalismDarkBluePageTemplate({
       setWishSuccess(true);
       if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
       wishTimerRef.current = setTimeout(() => setWishSuccess(false), 4000);
-    } catch {
-      setWishError(data.locale === "fr" ? "Impossible d'envoyer votre message. Veuillez réessayer." : "Could not send your wish. Please try again.");
+    } catch (err: any) {
+      setWishError(err?.message || (data.locale === "fr" ? "Impossible d'envoyer votre message. Veuillez réessayer." : "Could not send your wish. Please try again."));
     } finally {
       setWishBusy(false);
     }

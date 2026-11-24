@@ -188,6 +188,10 @@ async function InvitationLoader({ token }: { token: string }) {
     pageData.memoriesCount = memoriesCount;
     pageData.memoriesSample = false;
 
+    const { getVisibleGuestbookWishes } = await import("@/lib/invitations");
+    const visibleWishes = await getVisibleGuestbookWishes(event.id, 20);
+    pageData.initialWishes = visibleWishes;
+
     async function handlePageAction(payload: PageActionPayload) {
       "use server";
       if (payload.actionType === "GUESTBOOK_WISH") {
