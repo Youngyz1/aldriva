@@ -96,6 +96,16 @@ const HINT_ERRORS: Record<string, StaffError> = {
   staff_identity_change_denied: { code: "staff_identity_change_denied", message: "Only an owner or admin can link or unlink a staff member's login." },
   role_identity_change_denied: { code: "role_identity_change_denied", message: "A role can't be moved to another business or changed to another type." },
 };
+// Migration 262 (staff_assignments_validate) hints. All are SQLSTATE 23514, which
+// would otherwise map to the generic role_tenant_mismatch message below.
+const ASSIGNMENT_HINT_ERRORS: Record<string, StaffError> = {
+  assignment_subject_invalid: { code: "assignment_subject_invalid", message: "That booking was not found for this business." },
+  assignment_subject_closed: { code: "assignment_subject_closed", message: "This booking is closed, so staff can no longer be assigned to it." },
+  assignment_staff_inactive: { code: "assignment_staff_inactive", message: "That staff member is not active in this business." },
+  assignment_role_invalid: { code: "assignment_role_invalid", message: "That role is not an active role of this business." },
+  assignment_role_not_held: { code: "assignment_role_not_held", message: "That staff member does not hold this role." },
+};
+const UQ_ASSIGNMENT = "uq_staff_assignments_member_subject";
 const UQ_ROLE_NAME = "uq_staff_roles_business_name";
 const UQ_MEMBER_ROLE = "uq_staff_member_roles_member_role";
 const UQ_LOGIN = "uq_staff_members_business_auth_user";
@@ -113,6 +123,9 @@ export function mapStaffError(error: StaffDbError): StaffError {
   // over matching the raw message text.
   const hint = (error.hint ?? "").trim();
   if (hint && Object.prototype.hasOwnProperty.call(HINT_ERRORS, hint)) return { ...HINT_ERRORS[hint] };
+  if (hint && Object.prototype.hasOwnProperty.call(ASSIGNMENT_HINT_ERRORS, hint)) {
+    return { ...ASSIGNMENT_HINT_ERRORS[hint] };
+  }
 
   if (message.includes(SELF_EDIT_MESSAGE)) {
     return { code: "self_edit_only", message: "You can only update your own phone, email and photo." };
@@ -129,6 +142,9 @@ export function mapStaffError(error: StaffDbError): StaffError {
     }
     if (message.includes(UQ_MEMBER_ROLE)) {
       return { code: "role_already_assigned", message: "This staff member already has that role." };
+    }
+    if (message.includes(UQ_ASSIGNMENT)) {
+      return { code: "assignment_already_exists", message: "This staff member is already on this booking." };
     }
     if (message.includes(UQ_LOGIN)) {
       return { code: "duplicate_login", message: "This login is already linked to another staff member in this business." };
