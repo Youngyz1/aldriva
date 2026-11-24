@@ -139,3 +139,61 @@ export async function createStaffInvitation(
     },
   };
 }
+
+export type PendingStaffInvitation = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  delivery_channel: string | null;
+  expires_at: string;
+  created_at: string;
+};
+
+// Lists the still-usable pending invitations for one staff member. The token
+// hash is never selected. Expired rows are hidden because nothing marks them expired.
+export async function listPendingStaffInvitations(
+  businessId: string,
+  staffMemberId: string
+): Promise<ActionResult<PendingStaffInvitation[]>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("staff_invitations")
+    .select("id, email, phone, delivery_channel, expires_at, created_at")
+    .eq("business_id", businessId)
+    .eq("staff_member_id", staffMemberId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (error) {
+    const mapped = mapStaffError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  const now = Date.now();
+  const rows = ((data ?? []) as PendingStaffInvitation[]).filter(
+    (r) => new Date(r.expires_at).getTime() > now
+  );
+  return { success: true, data: rows };
+}
+
+// Revokes one pending invitation through the database function, which does the
+// permission check (revoke_denied when the caller is not allowed).
+export async function revokeStaffInvitation(
+  businessId: string,
+  invitationId: string
+): Promise<ActionResult<{ id: string }>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  const supabase = await createSupabaseServer();
+  const { error } = await supabase.rpc("revoke_staff_invitation", {
+    p_invitation_id: invitationId,
+  });
+  if (error) {
+    const mapped = mapStaffError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  revalidatePath("/dashboard/org/[id]/staff", "page");
+  return { success: true, data: { id: invitationId } };
+}

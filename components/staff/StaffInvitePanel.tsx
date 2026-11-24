@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { createStaffInvitation } from "@/lib/actions/staff-invitations";
+import { useCallback, useEffect, useState } from "react";
+import {
+  createStaffInvitation,
+  listPendingStaffInvitations,
+  revokeStaffInvitation,
+  type PendingStaffInvitation,
+} from "@/lib/actions/staff-invitations";
 import type { AssignableRoleRow } from "@/lib/actions/staff-role-assignments";
 import { composeInviteLink } from "@/lib/staff/invitation-compose";
 
@@ -26,6 +31,29 @@ export default function StaffInvitePanel({
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pending, setPending] = useState<PendingStaffInvitation[]>([]);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  const loadPending = useCallback(async () => {
+    const res = await listPendingStaffInvitations(businessId, staffMemberId);
+    if (res.success) setPending(res.data);
+  }, [businessId, staffMemberId]);
+
+  useEffect(() => {
+    void loadPending();
+  }, [loadPending]);
+
+  async function handleRevoke(id: string) {
+    setError(null);
+    setRevokingId(id);
+    const res = await revokeStaffInvitation(businessId, id);
+    setRevokingId(null);
+    if (!res.success) {
+      setError(res.error);
+      return;
+    }
+    await loadPending();
+  }
 
   // accept_staff_invitation rejects owner and admin roles, so do not offer them.
   const roles = assignableRoles.filter((r) => r.platform_role !== "owner" && r.platform_role !== "admin");
@@ -50,6 +78,7 @@ export default function StaffInvitePanel({
       return;
     }
     setLink(composed);
+    void loadPending();
   }
 
   async function handleCopy() {
@@ -111,6 +140,30 @@ export default function StaffInvitePanel({
           >
             {busy ? "Creating..." : "Create invitation"}
           </button>
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="space-y-2 border-t border-zinc-200 pt-3">
+          <p className="text-xs font-semibold text-zinc-700">Pending invitations</p>
+          <ul className="space-y-2">
+            {pending.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 text-xs text-zinc-600">
+                <span>
+                  {p.email ?? p.phone ?? "No contact"} - sent {new Date(p.created_at).toLocaleDateString()}, expires{" "}
+                  {new Date(p.expires_at).toLocaleDateString()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRevoke(p.id)}
+                  disabled={revokingId === p.id}
+                  className="rounded-full border border-red-300 px-3 py-1 font-bold text-red-600 disabled:opacity-60"
+                >
+                  {revokingId === p.id ? "Revoking..." : "Revoke"}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
