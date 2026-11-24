@@ -45,7 +45,11 @@ export function applyImageUrls(
 ): Record<string, unknown> {
   let next = builderDraft;
   for (const [key, url] of Object.entries(urlMap)) {
-    next = setLocalDraftImageField(next, key, url);
+    if (key === "music_audio_url") {
+      next = { ...next, music_audio_url: url };
+    } else {
+      next = setLocalDraftImageField(next, key, url);
+    }
   }
   return next;
 }

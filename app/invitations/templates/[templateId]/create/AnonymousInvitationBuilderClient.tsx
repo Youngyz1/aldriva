@@ -21,8 +21,14 @@ import { InvitationPageBuilder } from "@/app/dashboard/events/[id]/invitation-pa
 import { useLocalInvitationBuilderAdapters } from "@/components/invitation/useLocalInvitationBuilderAdapters";
 import type { InvitationPageDraftData } from "@/lib/types/invitation-page-snapshot";
 
-export function AnonymousInvitationBuilderClient({ templateId }: { templateId: string }) {
-  const local = useLocalInvitationBuilderAdapters(templateId);
+export function AnonymousInvitationBuilderClient({
+  templateId,
+  initialUserId,
+}: {
+  templateId: string;
+  initialUserId?: string | null;
+}) {
+  const local = useLocalInvitationBuilderAdapters(templateId, initialUserId);
 
   if (local.status === "loading") {
     return (

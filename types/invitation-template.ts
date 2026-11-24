@@ -176,6 +176,10 @@ export interface InvitationGuestData {
   guestAllowance?: number | null;
   /** [HIDE-IF-EMPTY] Explicit VIP boolean flag. VIP status is NEVER inferred from title strings. */
   isVip?: boolean;
+  /** True when this guest object is a placeholder (preview, demo, gallery card) — not a real invited person. */
+  isPlaceholder?: boolean;
+  /** True when this guest object uses sample/demo data — same semantics as isPlaceholder. */
+  isSample?: boolean;
 }
 
 // ── Seating Assignment ───────────────────────────────────────────────────────

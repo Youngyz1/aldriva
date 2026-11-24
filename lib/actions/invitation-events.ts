@@ -19,7 +19,8 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkInvitationPageAccess, saveInvitationPageDraft } from "@/lib/actions/invitation-page";
-import type { InvitationPageDraftInput } from "@/lib/invitation-page-schema";
+import { InvitationPageDraftSchema, type InvitationPageDraftInput } from "@/lib/invitation-page-schema";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import {
   EVENT_KIND_INVITATION,
   EVENT_KIND_PUBLIC,
@@ -267,18 +268,40 @@ export async function promoteLocalInvitationDraftServer(
   if (!user) return { ok: false, step: "auth", error: "Sign in to publish your invitation." };
   if (!isValidDraftKey(input.draftId)) return { ok: false, step: "auth", error: "Invalid draft id." };
 
+  // 1. Sanitize and validate draft content BEFORE creating any event in the database.
+  // This guarantees that validation failures never leave a half-created or orphaned event.
+  const resolvedTemplateId = resolvePromotionTemplateId(input.templateId);
+  const sanitizedDraft = sanitizeDraftForTemplate(input.builderDraft, resolvedTemplateId);
+  const draftInput = {
+    ...sanitizedDraft,
+    template_id: resolvedTemplateId,
+  } as InvitationPageDraftInput;
+
+  const validation = InvitationPageDraftSchema.safeParse(draftInput);
+  if (!validation.success) {
+    const readableMessages = validation.error.issues.map((i) => {
+      if (i.path.includes("effects")) return "Selected template does not support one or more chosen animation effects.";
+      if (i.path.includes("layout_blocks")) return "Selected template does not support one or more content sections.";
+      if (i.path.includes("gallery")) return "All gallery photos must be uploaded before publishing.";
+      return i.message;
+    });
+    const uniqueError = Array.from(new Set(readableMessages)).join(" ");
+    return { ok: false, step: "draft", error: uniqueError || "Invitation draft validation failed." };
+  }
+
   const admin = createSupabaseAdmin();
   const slug = buildInvitationDraftSlug(input.draftId);
 
-  // Skip-guard: this user's event for this draftId (by deterministic slug)
-  // may already exist with real draft content from a prior, partially- or
-  // fully-successful promotion attempt (refresh, double-click, a race).
+  // 2. Idempotent check / reuse on retry: if an event was already created for this
+  // draftId by this user (e.g. earlier failed save attempt or double click), reuse it!
+  let eventId: string;
   const { data: existingEvent } = await admin
     .from("events")
     .select("id")
     .eq("slug", slug)
     .eq("user_id", user.id)
     .maybeSingle();
+
   if (existingEvent) {
     const { data: existingPage } = await admin
       .from("event_invitation_pages")
@@ -288,13 +311,15 @@ export async function promoteLocalInvitationDraftServer(
     if (shouldSkipPromotion(existingPage)) {
       return { ok: true, eventId: existingEvent.id, skipped: true };
     }
+    // Content save was incomplete from a prior attempt: reuse this event row idempotently.
+    eventId = existingEvent.id;
+  } else {
+    const created = await createInvitationDraft(input.draftId);
+    if (!created.ok || !created.eventId) {
+      return { ok: false, step: "event", error: created.error ?? "Could not create the invitation." };
+    }
+    eventId = created.eventId;
   }
-
-  const created = await createInvitationDraft(input.draftId);
-  if (!created.ok || !created.eventId) {
-    return { ok: false, step: "event", error: created.error ?? "Could not create the invitation." };
-  }
-  const eventId = created.eventId;
 
   let basicsSkipped = false;
   if (isPromotableTitle(input.title)) {
@@ -308,19 +333,8 @@ export async function promoteLocalInvitationDraftServer(
       return { ok: false, step: "basics", error: basics.error ?? "Could not save event details." };
     }
   } else {
-    // Not a failure — a fresh local draft's title starts blank/placeholder.
-    // Leave the event row's placeholder title in place rather than reject
-    // the whole promotion over a field the user never filled in.
     basicsSkipped = true;
   }
-
-  // Never trust input.templateId directly — re-resolve it server-side
-  // against the real registry (handoff-design.md v3 §3a step "d").
-  const resolvedTemplateId = resolvePromotionTemplateId(input.templateId);
-  const draftInput = {
-    ...input.builderDraft,
-    template_id: resolvedTemplateId,
-  } as InvitationPageDraftInput;
 
   const saved = await saveInvitationPageDraft(eventId, draftInput);
   if (!saved.ok) {

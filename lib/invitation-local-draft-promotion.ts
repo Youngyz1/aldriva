@@ -22,6 +22,7 @@ import {
   isBlobUrlValue,
 } from "@/lib/invitation-local-draft";
 import { promotedMarkerKey, promotedImagesCacheKey, applyImageUrls } from "@/lib/invitation-promotion-core";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import { uploadImage } from "@/lib/uploadImage";
 import {
   promoteLocalInvitationDraftServer,
@@ -103,6 +104,24 @@ async function resolveImageUrls(
     cacheChanged = true;
   }
 
+  const musicAudioUrl = builderDraft.music_audio_url;
+  if (typeof musicAudioUrl === "string" && isBlobUrlValue(musicAudioUrl)) {
+    const musicBlob = await getInvitationLocalDraftImageBlob(draftId, "music_audio_url");
+    if (musicBlob) {
+      const hash = await sha256OfBlob(musicBlob);
+      const cached = cache["music_audio_url"];
+      if (cached && cached.sha256 === hash) {
+        resolved["music_audio_url"] = cached.url;
+      } else {
+        const file = new File([musicBlob], "music.mp3", { type: musicBlob.type || "audio/mpeg" });
+        const url = await uploadImage(file, "cms-media", `invitation-promoted/${draftId}`);
+        resolved["music_audio_url"] = url;
+        cache["music_audio_url"] = { url, sha256: hash };
+        cacheChanged = true;
+      }
+    }
+  }
+
   if (cacheChanged) writeImageCache(userId, draftId, cache);
   return resolved;
 }
@@ -137,9 +156,15 @@ export async function promoteLocalDraft(draftId: string, userId: string): Promis
     return { ok: false, reason: "not-found" };
   }
 
+  // Sanitize the draft against the target template before resolving images and calling server
+  const sanitizedDraft = sanitizeDraftForTemplate(
+    envelope.payload.builderDraft,
+    envelope.payload.templateId
+  );
+
   // (c) Resolve every local image to a real URL (cached by content hash).
-  const imageUrls = await resolveImageUrls(draftId, userId, envelope.payload.builderDraft);
-  const builderDraftWithRealImages = applyImageUrls(envelope.payload.builderDraft, imageUrls);
+  const imageUrls = await resolveImageUrls(draftId, userId, sanitizedDraft);
+  const builderDraftWithRealImages = applyImageUrls(sanitizedDraft, imageUrls);
 
   // (d) Call the server action — the single source of truth for what
   // actually gets written; it never trusts this client's templateId.

@@ -277,9 +277,10 @@ export function legacyInvitationTemplateToLayout(
 
   const normalizedSavedLayout = normalizeInvitationBlocksLayout(savedLayout);
   if (!normalizedSavedLayout) {
+    const supported = new Set(templateDefinition?.supportedEffects ?? []);
     return InvitationBlocksLayoutSchema.parse({
       ...createPageBlocksLayout(layoutBlocks, themeForInvitationTemplate(resolvedTemplateId)),
-      effects: templateDefinition?.defaultEffects ?? [],
+      effects: (templateDefinition?.defaultEffects ?? []).filter((effect) => supported.has(effect.type)),
     });
   }
 
@@ -364,7 +365,11 @@ export function legacyInvitationTemplateToLayout(
       // not inherit a previous template's theme classes after a template
       // switch — fall back to this template's own default instead.
       : themeForInvitationTemplate(resolvedTemplateId),
-    effects: hasSavedEffects ? normalizedSavedLayout.effects ?? [] : templateDefinition.defaultEffects,
+    effects: (() => {
+      const supported = new Set(templateDefinition.supportedEffects ?? []);
+      const candidate = hasSavedEffects ? (normalizedSavedLayout.effects ?? []) : templateDefinition.defaultEffects;
+      return candidate.filter((effect) => supported.has(effect.type));
+    })(),
   });
 }
 

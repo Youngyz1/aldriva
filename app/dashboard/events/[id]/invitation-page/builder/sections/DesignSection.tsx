@@ -3,6 +3,7 @@
 import { COLOR_PALETTES, FONT_PACKS, legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import {
   defaultInvitationEffectConfig,
+  getInvitationTemplateDefinition,
   type InvitationEffectConfig,
   type InvitationEffectType,
 } from "@/lib/invitation-template-registry";
@@ -29,10 +30,9 @@ export function DesignSection({ draft, updateDraft }: Props) {
   const selectedFontPack = theme.font_pack_id ?? "";
   const textScale = theme.text_scale ?? 1.0;
 
-  // No templates ship with the platform, so all design customizations are
-  // available as general options (not gated behind a template definition).
-  const customizations = { palette: true, fontPack: true, textScale: true };
-  const supportedEffects: InvitationEffectType[] = ["envelope-reveal", "scroll-reveal", "falling-petals"];
+  const templateDef = getInvitationTemplateDefinition(draft.template_id);
+  const customizations = templateDef?.supportedCustomizations ?? { palette: true, fontPack: true, textScale: true };
+  const supportedEffects: readonly InvitationEffectType[] = templateDef?.supportedEffects ?? [];
   const paletteOptions = PALETTE_OPTIONS;
   const fontOptions = FONT_OPTIONS;
 

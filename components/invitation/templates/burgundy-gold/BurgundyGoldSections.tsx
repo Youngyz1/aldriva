@@ -49,6 +49,7 @@ import {
   burgundyVenue,
   burgundyWeekdayHeaders,
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
+import { formatInvitationTime, isMapUrlOrCoordinate } from "@/lib/invitation-text-format";
 
 const GOLD = "#cdb073";
 const GOLD_BRIGHT = "#e7cf98";
@@ -234,47 +235,25 @@ export function BurgundyGoldSections({
   const rsvpDialogRef = useRef<HTMLDialogElement>(null);
   const nestedDialogEscapeRef = useRef(false);
 
-  // Gift box: same dialog as "Confirm presence", with the box remembered as the
-  // focus-return target.
-  const [giftOpen, setGiftOpen] = useState(false);
-  const giftTimerRef = useRef<number | null>(null);
+  // The gift box (burgundy-gold-art) plays its own ~1s open animation, then
+  // calls this; tapping its "Confirm presence" CTA does the same. Both are
+  // the only RSVP trigger on this page, matching "Confirm presence" opening
+  // the same dialog as before. Closing the dialog eases the box back to
+  // idle via `revealed`, so it can be replayed.
   const returnFocusRef = useRef<HTMLElement | null>(null);
-
-  function prefersReducedMotion(): boolean {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
 
   function closeRsvp() {
     setRsvpOpen(false);
-    setGiftOpen(false);
     const target = returnFocusRef.current;
     if (target && typeof target.focus === "function") target.focus();
     returnFocusRef.current = null;
   }
 
-  /** Lid lift → ~700 ms → dialog. Reduced motion skips both the delay and the animation. */
-  function openGift() {
+  function activateGift() {
     if (!hasRsvp) return;
     returnFocusRef.current = rootRef.current?.querySelector<HTMLElement>("[data-burgundy-gift-open]") ?? null;
-    setGiftOpen(true);
-    if (giftTimerRef.current !== null) {
-      window.clearTimeout(giftTimerRef.current);
-      giftTimerRef.current = null;
-    }
-    if (prefersReducedMotion()) {
-      setRsvpOpen(true);
-      return;
-    }
-    giftTimerRef.current = window.setTimeout(() => {
-      giftTimerRef.current = null;
-      setRsvpOpen(true);
-    }, 700);
+    setRsvpOpen(true);
   }
-
-  useEffect(() => () => {
-    if (giftTimerRef.current !== null) window.clearTimeout(giftTimerRef.current);
-  }, []);
 
   useEffect(() => {
     if (!rsvpOpen) return;
@@ -426,10 +405,10 @@ export function BurgundyGoldSections({
                   ) : tile.remaining > 0 ? (
                     <span
                       data-burgundy-gallery-more={tile.remaining}
-                      className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-2xl"
-                      style={{ backgroundColor: `${BURGUNDY_DEEP}cc`, color: GOLD_BRIGHT }}
+                      aria-hidden="true"
+                      className="absolute inset-0 flex items-center justify-center text-2xl font-semibold"
+                      style={{ backgroundColor: `${BURGUNDY_DEEP}99`, color: GOLD_BRIGHT }}
                     >
-                      <IconPhoto size={22} stroke={1.5} aria-hidden="true" />
                       +{tile.remaining}
                     </span>
                   ) : null}
@@ -450,18 +429,22 @@ export function BurgundyGoldSections({
             <dl className="mt-6 grid grid-cols-2 gap-3 text-base sm:text-lg" data-burgundy-reception-times="true">
               {times.welcome ? (
                 <div className="pr-3">
-                  <dt className="text-xs uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
+                  <dt className="text-sm uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
                     {t("burgundyWelcomeLabel")}
                   </dt>
-                  <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>{times.welcome}</dd>
+                  <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>
+                    {formatInvitationTime(times.welcome, localeCode === "fr-FR" ? "fr" : "en") || times.welcome}
+                  </dd>
                 </div>
               ) : null}
               {times.reception ? (
                 <div className="pl-3">
-                  <dt className="text-xs uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
+                  <dt className="text-sm uppercase tracking-[0.16em]" style={{ color: `${CREAM}aa` }}>
                     {t("burgundyReceptionTimeLabel")}
                   </dt>
-                  <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>{times.reception}</dd>
+                  <dd className="mt-1 tracking-[0.12em]" style={{ color: GOLD_BRIGHT }}>
+                    {formatInvitationTime(times.reception, localeCode === "fr-FR" ? "fr" : "en") || times.reception}
+                  </dd>
                 </div>
               ) : null}
             </dl>
@@ -571,19 +554,40 @@ export function BurgundyGoldSections({
             {venue.name ? (
               <p className="mt-3 text-center text-lg" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>{venue.name}</p>
             ) : null}
-            {venue.address ? (
-              <p className="mt-1 text-center text-xs leading-5" style={{ color: `${CREAM}b8` }}>{venue.address}</p>
+            {data.city?.trim() && !isMapUrlOrCoordinate(data.city) && data.city.trim().toLowerCase() !== venue.name?.toLowerCase() ? (
+              <p className="mt-1 text-center text-sm leading-5" style={{ color: `${CREAM}b8` }}>{data.city.trim()}</p>
             ) : null}
-            <div className="mt-5 aspect-[4/3] w-full overflow-hidden rounded-sm" style={{ border: `1px solid ${GOLD}66` }}>
-              <iframe
-                title={t("burgundyMapTitle")}
-                src={venue.embedUrl ?? undefined}
-                className="h-full w-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
-            </div>
+            {venue.mapUrl ? (
+              <a
+                href={venue.mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-burgundy-venue-link="map-embed"
+                aria-label={t("burgundyViewOnMap")}
+                className="mt-5 block aspect-[4/3] w-full overflow-hidden rounded-sm cursor-pointer"
+                style={{ border: `1px solid ${GOLD}66` }}
+              >
+                <iframe
+                  title={t("burgundyMapTitle")}
+                  src={venue.embedUrl ?? undefined}
+                  className="h-full w-full border-0 pointer-events-none"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  tabIndex={-1}
+                />
+              </a>
+            ) : (
+              <div className="mt-5 aspect-[4/3] w-full overflow-hidden rounded-sm" style={{ border: `1px solid ${GOLD}66` }}>
+                <iframe
+                  title={t("burgundyMapTitle")}
+                  src={venue.embedUrl ?? undefined}
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs uppercase tracking-[0.1em]">
               <a
                 href={venue.mapUrl ?? undefined}
@@ -627,7 +631,7 @@ export function BurgundyGoldSections({
                       style={{ backgroundColor: swatch.hex, border: `1px solid ${GOLD}66` }}
                       aria-label={swatch.name ?? swatch.hex}
                     />
-                    <span className="mt-1 text-[13px] uppercase tracking-[0.08em]" style={{ color: `${CREAM}99`, whiteSpace: "nowrap" }}>
+                    <span className="mt-1 text-sm uppercase tracking-[0.08em]" style={{ color: `${CREAM}99`, whiteSpace: "nowrap" }}>
                       {swatch.name ?? swatch.hex}
                     </span>
                   </div>
@@ -638,42 +642,57 @@ export function BurgundyGoldSections({
         </section>
       ) : null}
 
-      {/* 8. Day programme — centred inline grid with line through dots. */}
+      {/* 8. Today's programme — full-width timeline, left gold spine with
+          dot markers; ceremony/reception read slightly stronger than the
+          rest, matching the other sections' gold/cream palette. */}
       {programme ? (
         <section id="inv-programme" data-burgundy-section="programme" className="px-4 pb-16 sm:px-6">
-          <SectionFrame>
+          <SectionFrame align="left">
             <SectionHeading>{t("burgundyProgramHeading")}</SectionHeading>
-            <ol className="relative mt-10 gap-y-7 max-w-[460px] margin-inline-auto">
-              <span
-                aria-hidden="true"
-                className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 -z-10 w-[1px]"
-                style={{ backgroundColor: `${GOLD}40` }}
-              />
+            <ol className="mt-8 flex flex-col">
               {programme.map((entry, index) => (
-                <li
-                  key={`prog-${index}`}
-                  className="grid grid-cols-[1fr_auto_1fr] gap-x-4 items-center"
-                >
-                  <time
-                    key={`time-${index}`}
-                    className="text-right shrink-0 text-sm uppercase tracking-normal font-medium"
-                    style={{ color: GOLD_BRIGHT }}
-                  >
-                    {entry.time}
-                  </time>
-                  <span
-                    key={`dot-${index}`}
-                    aria-hidden="true"
-                    className="size-3 rounded-full"
-                    style={{ backgroundColor: GOLD }}
-                  />
-                  <span
-                    key={`label-${index}`}
-                    className="text-left text-sm leading-6 max-w-[240px]"
-                    style={{ color: CREAM }}
-                  >
-                    {entry.title}
-                  </span>
+                <li key={`prog-${index}`} className="flex gap-4">
+                  <div aria-hidden="true" className="flex w-5 flex-none flex-col items-center">
+                    <span
+                      className="mt-2 flex-none rounded-full"
+                      style={
+                        entry.isKeyMoment
+                          ? { width: 14, height: 14, backgroundColor: GOLD_BRIGHT, border: `2px solid ${GOLD}80` }
+                          : { width: 9, height: 9, backgroundColor: `${GOLD}cc` }
+                      }
+                    />
+                    {index < programme.length - 1 ? (
+                      <span className="mt-1 w-px flex-1" style={{ backgroundColor: `${GOLD}40` }} />
+                    ) : null}
+                  </div>
+                  <div className={`min-w-0 flex-1 ${index < programme.length - 1 ? "pb-7" : ""}`}>
+                    <time
+                      className="block tracking-wide"
+                      style={{
+                        color: GOLD_BRIGHT,
+                        fontFamily: "var(--font-burgundy-display)",
+                        fontSize: entry.isKeyMoment ? 22 : 20,
+                        fontWeight: entry.isKeyMoment ? 700 : 600,
+                      }}
+                    >
+                      {entry.time}
+                    </time>
+                    <p
+                      className="mt-0.5 leading-6"
+                      style={{
+                        color: CREAM,
+                        fontSize: entry.isKeyMoment ? 18 : 17,
+                        fontWeight: entry.isKeyMoment ? 600 : 400,
+                      }}
+                    >
+                      {entry.title}
+                    </p>
+                    {entry.description ? (
+                      <p className="mt-1 text-sm leading-5" style={{ color: `${CREAM}b3` }}>
+                        {entry.description}
+                      </p>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ol>
@@ -726,8 +745,8 @@ export function BurgundyGoldSections({
               ) : null}
             </div>
             {feed.length ? (
-              <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain" data-burgundy-guestbook-feed="true">
-                <ul className="flex flex-col gap-3 p-2 text-base">
+              <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain scrollbar-hide" data-burgundy-guestbook-feed="true">
+                <ul className="flex flex-col gap-3 p-3 text-base">
                   {feed.map((wish, index) => (
                     <li key={`${wish.name}-${index}`} className="px-3 py-2">
                       <p className="font-semibold" style={{ color: GOLD_BRIGHT }}>{wish.name}</p>
@@ -873,24 +892,23 @@ export function BurgundyGoldSections({
         </dialog>
       ) : null}
 
-      {/* 11. Gift box — last section; opens the very same RSVP dialog. */}
+      {/* 11. Gift box — last section; opens the very same RSVP dialog.
+          Tapping the box or its "Confirm presence" CTA plays the same ~1s
+          open animation, then opens the dialog above; closing it eases the
+          box back to idle so it can be replayed. */}
       {hasRsvp ? (
         <section id="inv-gift" data-burgundy-section="gift" className="px-4 pb-16 sm:px-6">
           <SectionFrame>
             <SectionHeading>{t("burgundyGiftTitle")}</SectionHeading>
             <GiftBoxArt
-              open={giftOpen}
-              onOpen={openGift}
               label={t("burgundyGiftOpenLabel")}
+              actionLabel={t("burgundyConfirmPresence")}
+              message={t("burgundyGiftClosing")}
+              revealed={rsvpOpen}
+              onActivate={activateGift}
               size={240}
               className="mt-7"
             />
-            <p className="mt-5 text-xs uppercase tracking-[0.22em]" style={{ color: `${CREAM}aa` }}>
-              {t("burgundyGiftHint")}
-            </p>
-            <p className="mx-auto mt-6 max-w-xs text-base leading-6" style={{ color: `${CREAM}dd` }}>
-              {t("burgundyGiftClosing")}
-            </p>
           </SectionFrame>
         </section>
       ) : null}

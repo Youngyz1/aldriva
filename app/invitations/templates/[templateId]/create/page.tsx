@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getCurrentUser } from "@/lib/auth";
 import { getPublicTemplateSummary } from "@/lib/invitation-template-public-catalog";
 import { AnonymousInvitationBuilderClient } from "./AnonymousInvitationBuilderClient";
 
@@ -20,5 +21,7 @@ export default async function InvitationTemplateCreatePage({ params }: { params:
   const summary = getPublicTemplateSummary(templateId);
   if (!summary) notFound();
 
-  return <AnonymousInvitationBuilderClient templateId={summary.id} />;
+  const user = await getCurrentUser();
+
+  return <AnonymousInvitationBuilderClient templateId={summary.id} initialUserId={user?.id ?? null} />;
 }

@@ -40,7 +40,8 @@ function PromoteInner() {
 
   async function run() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const user = session?.user ?? (await supabase.auth.getUser()).data.user;
+    if (!user) {
       const here = `${window.location.pathname}${window.location.search}`;
       router.replace(`/login?redirect=${encodeURIComponent(here)}`);
       return;
@@ -51,7 +52,7 @@ function PromoteInner() {
       return;
     }
 
-    const result = await promoteLocalDraft(draftId, session.user.id);
+    const result = await promoteLocalDraft(draftId, user.id);
     if (result.ok) {
       router.replace(`/dashboard/events/${result.eventId}/invitation-page?edit=1`);
       return;

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { formatLocalizedEventDate, getInvitationDictionary, localizeInvitationSystemCopy } from "@/lib/invitation-i18n";
 import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
 import { buildVenueMapEmbedUrl, buildVenueMapSearchUrl } from "@/lib/evergreen-map";
+import { isMapUrlOrCoordinate } from "@/lib/invitation-text-format";
 import { invitationImageClassName } from "@/lib/invitation-image-presentation";
 import { InvitationImageAccordion } from "@/components/invitation/blocks/InvitationImageAccordion";
 import { InvitationGalleryGrid } from "@/components/invitation/InvitationGalleryGrid";
@@ -921,7 +922,7 @@ export function DetailsBlock({
                   {localizeInvitationSystemCopy("Venue Location", locale)}
                 </p>
                 {venueName ? <p className={cn("break-words", theme.classes.heading, styles.venueValue)}>{venueName}</p> : null}
-                {venueAddress ? <p className={cn("mt-2 break-words text-sm leading-6", theme.classes.body, styles.venueAddress)}>{venueAddress}</p> : null}
+                {venueAddress && !isMapUrlOrCoordinate(venueAddress) ? <p className={cn("mt-2 break-words text-sm leading-6", theme.classes.body, styles.venueAddress)}>{venueAddress}</p> : null}
               </div>
             ) : null}
           </div>
@@ -943,7 +944,7 @@ export function DetailsBlock({
                 <article key={`${venue.label}-${venue.name}-${index}`} className={cn("min-w-0", styles.venueCard)}>
                   {venue.label?.trim() ? <p className={cn("break-words text-[.62rem] font-semibold uppercase tracking-[.18em]", theme.classes.body, styles.dateLabel)}>{localizeInvitationSystemCopy(venue.label, locale)}</p> : null}
                   {venue.name?.trim() ? <h4 className={cn("mt-1 break-words", theme.classes.heading, styles.venueValue)}>{venue.name}</h4> : null}
-                  {venue.address?.trim() ? <p className={cn("mt-1 break-words text-sm", theme.classes.body, styles.venueAddress)}>{venue.address}</p> : null}
+                  {venue.address?.trim() && !isMapUrlOrCoordinate(venue.address) ? <p className={cn("mt-1 break-words text-sm", theme.classes.body, styles.venueAddress)}>{venue.address}</p> : null}
                 </article>
               ))}
             </div>
@@ -1036,14 +1037,33 @@ export function LocationMapBlock({
         <h2 className={`mb-4 text-2xl ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy("Venue Location", locale)}</h2>
         <div className="w-[calc(100%+3rem)] -mx-6 sm:w-full sm:mx-0 aspect-[4/3] min-h-[320px] md:aspect-auto md:h-[400px] rounded-2xl shadow-inner border border-stone-200 mt-4 overflow-hidden">
           {embedSrc ? (
-            <iframe
-              title={localizeInvitationSystemCopy("Venue map", locale)}
-              src={embedSrc}
-              className="h-full w-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
+            openUrl ? (
+              <a
+                href={openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block h-full w-full cursor-pointer"
+                aria-label={localizeInvitationSystemCopy("Open in Google Maps", locale)}
+              >
+                <iframe
+                  title={localizeInvitationSystemCopy("Venue map", locale)}
+                  src={embedSrc}
+                  className="h-full w-full border-0 pointer-events-none"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  tabIndex={-1}
+                />
+              </a>
+            ) : (
+              <iframe
+                title={localizeInvitationSystemCopy("Venue map", locale)}
+                src={embedSrc}
+                className="h-full w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            )
           ) : (
             <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm opacity-70">
               {location}

@@ -36,6 +36,7 @@ import { getUploadErrorMessage } from "@/lib/uploadImage";
 import type { DraftEnvelope } from "@/lib/local-draft-envelope";
 import { getInvitationTemplateCreateHref } from "@/lib/invitation-template-marketplace-routes";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import { supabase } from "@/lib/supabase";
 
 export interface LocalBuilderInitialData {
@@ -138,7 +139,10 @@ function resolveDraftId(templateId: string): string {
   return fresh;
 }
 
-export function useLocalInvitationBuilderAdapters(templateId: string): UseLocalInvitationBuilderAdaptersResult {
+export function useLocalInvitationBuilderAdapters(
+  templateId: string,
+  initialUserId?: string | null
+): UseLocalInvitationBuilderAdaptersResult {
   const router = useRouter();
   const [draftId] = useState<string>(() => resolveDraftId(templateId));
 
@@ -165,13 +169,64 @@ export function useLocalInvitationBuilderAdapters(templateId: string): UseLocalI
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let isAuthed = Boolean(initialUserId);
+      if (!isAuthed) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          isAuthed = true;
+        } else {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) isAuthed = true;
+        }
+      }
+
       const envelope = await loadInvitationLocalDraft(draftId);
       if (cancelled) return;
+
+      // A signed-in visitor must never be stuck in the anonymous builder
+      // ("You're editing anonymously" / music upload and Publish both demanding
+      // a sign-in they've already done). Adopt the draft into their account
+      // immediately via the same /invitations/promote flow the Publish button uses.
+      // If no envelope exists yet, initialize a fresh one and promote it so the
+      // server event is created and they land in their real server builder.
+      if (isAuthed) {
+        if (envelope) {
+          const sanitizedDraft = sanitizeDraftForTemplate(envelope.payload.builderDraft, templateId);
+          const sanitizedPayload: InvitationLocalDraftPayload = {
+            ...envelope.payload,
+            templateId,
+            builderDraft: sanitizedDraft,
+          };
+          const updatedEnvelope = updateInvitationLocalDraft(envelope, sanitizedPayload);
+          envelopeRef.current = updatedEnvelope;
+          await saveInvitationLocalDraft(updatedEnvelope);
+          if (cancelled) return;
+          const promoteTarget = `/invitations/promote?draftId=${encodeURIComponent(draftId)}&template=${encodeURIComponent(templateId)}`;
+          router.replace(promoteTarget);
+          return;
+        } else {
+          const freshEnvelope = createInvitationLocalDraft(draftId, {
+            templateId,
+            title: "",
+            eventDate: null,
+            venue: null,
+            address: null,
+            city: null,
+            builderDraft: emptyBuilderDraft(templateId),
+            images: {},
+          });
+          await saveInvitationLocalDraft(freshEnvelope);
+          if (cancelled) return;
+          const promoteTarget = `/invitations/promote?draftId=${encodeURIComponent(draftId)}&template=${encodeURIComponent(templateId)}`;
+          router.replace(promoteTarget);
+          return;
+        }
+      }
+
       if (!envelope) {
         setStatus("ready");
         return;
       }
-      envelopeRef.current = envelope;
       basicsRef.current = {
         title: envelope.payload.title,
         eventDate: envelope.payload.eventDate,
@@ -189,12 +244,7 @@ export function useLocalInvitationBuilderAdapters(templateId: string): UseLocalI
 
       if (storedTemplateId !== templateId) {
         // Route wins on entry if different: swap the template and keep user content fields
-        const currentBlocksLayout = (restoredDraft.blocks_layout || null) as Parameters<typeof legacyInvitationTemplateToLayout>[1];
-        const updatedBuilderDraft = {
-          ...restoredDraft,
-          template_id: templateId,
-          blocks_layout: legacyInvitationTemplateToLayout(templateId, currentBlocksLayout),
-        };
+        const updatedBuilderDraft = sanitizeDraftForTemplate(restoredDraft, templateId);
         const updatedPayload: InvitationLocalDraftPayload = {
           ...envelope.payload,
           templateId,
@@ -204,13 +254,12 @@ export function useLocalInvitationBuilderAdapters(templateId: string): UseLocalI
         void saveInvitationLocalDraft(envelopeRef.current);
       }
 
-      const activeBlocksLayout = (restoredDraft.blocks_layout || null) as Parameters<typeof legacyInvitationTemplateToLayout>[1];
+      const sanitizedFinalDraft = sanitizeDraftForTemplate(restoredDraft, effectiveTemplateId);
       setInitialData({
         draft: {
           ...emptyBuilderDraft(effectiveTemplateId),
-          ...restoredDraft,
+          ...sanitizedFinalDraft,
           template_id: effectiveTemplateId,
-          blocks_layout: legacyInvitationTemplateToLayout(effectiveTemplateId, activeBlocksLayout),
           id: draftId,
         },
         event: toEvent(envelope.payload, draftId),
@@ -364,13 +413,10 @@ export function useLocalInvitationBuilderAdapters(templateId: string): UseLocalI
 
   const handleLocalSignInToPublish = useCallback(async () => {
     const currentTemplateId = activeTemplateIdRef.current || templateId;
-    // One code path for both: /invitations/promote checks its own session
-    // (handoff-design.md v3 §0 item c), so an already-authenticated click
-    // can go straight there instead of round-tripping through /login for
-    // nothing.
     const promoteTarget = `/invitations/promote?draftId=${encodeURIComponent(draftId)}&template=${encodeURIComponent(currentTemplateId)}`;
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
+    const user = session?.user ?? (await supabase.auth.getUser()).data.user;
+    if (user) {
       router.push(promoteTarget);
       return;
     }

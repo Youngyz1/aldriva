@@ -11,7 +11,8 @@ import {
   PageBackdrop,
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import { BurgundyGoldSections } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldSections";
-import { burgundyHeroNames } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
+import { burgundyGuestGreetingName, burgundyHeroNames } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
+import { formatInvitationTime } from "@/lib/invitation-text-format";
 
 const BURGUNDY = "#4a0d1c";
 const BURGUNDY_DEEP = "#2b0710";
@@ -201,6 +202,9 @@ export function BurgundyGoldPageTemplate({
   const heroLongestLen = Math.max(...heroNames.map((n) => n.length));
 
   const eyebrow = data.eyebrow?.trim() || t("burgundyEyebrow");
+  // null for demo/preview/the public template card/shared links — see
+  // burgundyGuestGreetingName's own comment for why.
+  const guestGreetingName = burgundyGuestGreetingName(data.guest);
   const openingMessage = data.openingMessage?.trim() || data.invitationLine?.trim() || "";
   const invitationLine = data.invitationLine?.trim() || t("burgundyInvitationLine");
   const openingPhoto = data.openingPhoto?.trim() || "";
@@ -230,7 +234,6 @@ export function BurgundyGoldPageTemplate({
   const dateParts = formatBurgundyDateParts(data.eventDate, data.locale, data.timezone);
   const panelHeading = t("burgundyCeremonyHeading");
   const openLabel = t("burgundyOpenInvitation");
-  const skipLabel = t("burgundySkipOpening");
 
   const ceremonyParts = dateParts;
   const receptionParts = dateParts;
@@ -294,17 +297,6 @@ export function BurgundyGoldPageTemplate({
                 {openLabel}
               </button>
             </div>
-
-            {mode === "preview" ? (
-              <button
-                type="button"
-                onClick={() => setHasEntered(true)}
-                className="relative z-10 mt-6 text-xs underline underline-offset-4"
-                style={{ color: `${CREAM}cc` }}
-              >
-                {skipLabel}
-              </button>
-            ) : null}
           </section>
         ) : (
           <main className="relative z-10" data-burgundy-main="true">
@@ -320,6 +312,15 @@ export function BurgundyGoldPageTemplate({
                 {eyebrow}
               </p>
               <div className="flex-grow-1 flex flex-col items-center justify-center">
+                {guestGreetingName ? (
+                  <p
+                    data-burgundy-guest-greeting="true"
+                    className="mb-3 max-w-[19rem] break-words text-lg leading-snug sm:max-w-sm sm:text-xl"
+                    style={{ fontFamily: "var(--font-burgundy-script)", color: `${GOLD_BRIGHT}cc` }}
+                  >
+                    {t("burgundyGuestGreeting", { name: guestGreetingName })}
+                  </p>
+                ) : null}
                 <h1
                   data-burgundy-hero-names="true"
                   className="flex flex-col items-center"
@@ -431,7 +432,8 @@ export function BurgundyGoldPageTemplate({
                 {displayVenues.length ? (
                   <div className="mt-8 space-y-7">
                     {displayVenues.map((venue, index) => {
-                      const venueTime = venue.time?.trim() || eventDate?.timeDisplay || "";
+                      const rawTime = venue.time?.trim() || eventDate?.timeDisplay || "";
+                      const venueTime = formatInvitationTime(rawTime, data.locale === "fr" ? "fr" : "en") || rawTime;
                       const parts = index === 0 ? ceremonyParts : receptionParts;
                       const label = venue.label?.trim()
                         || (index === 0 ? t("burgundyCeremonyLabel") : t("burgundyReceptionLabel"));
@@ -440,9 +442,6 @@ export function BurgundyGoldPageTemplate({
                           <p className="uppercase tracking-[0.24em]" style={{ color: GOLD_BRIGHT, fontSize: 13 }}>{label}</p>
                           {venue.name?.trim() ? (
                             <p className="mt-2 text-base font-medium leading-6" style={{ color: CREAM }}>{venue.name}</p>
-                          ) : null}
-                          {venue.address?.trim() ? (
-                            <p className="mt-1 text-xs leading-5" style={{ color: `${CREAM}b8` }}>{venue.address}</p>
                           ) : null}
                           {venueTime ? (
                             <p className="mt-2 text-sm tracking-[0.14em]" style={{ color: `${GOLD_BRIGHT}dd` }}>{venueTime}</p>

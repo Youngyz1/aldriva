@@ -12,6 +12,7 @@ import type { MemoryGalleryPage } from "@/lib/memories/gallery-types";
 import { formatLocalizedEventDate, getInvitationDictionary } from "@/lib/invitation-i18n";
 import { downloadIcsFile, generateGoogleCalendarUrl, type CalendarEventPayload } from "@/lib/event-time";
 import { buildVenueMapSearchUrl } from "@/lib/evergreen-map";
+import { isMapUrlOrCoordinate } from "@/lib/invitation-text-format";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
 import { BohoCoverflowGallery } from "@/components/invitation/blocks/BohoCoverflowGallery";
 import { MinimalismHero } from "@/components/invitation/templates/minimalism-dark-blue/MinimalismHero";
@@ -570,16 +571,16 @@ export function MinimalismDarkBluePageTemplate({
                     return (
                       <div key={`${venue.label ?? "venue"}-${idx}`} className="border-t pt-5" style={{ borderColor: `${CREAM_TEXT}26` }}>
                         {venue.label?.trim() ? (
-                          <p className="text-xs uppercase tracking-[.2em] opacity-80">{venue.label}</p>
+                          <p className="text-sm uppercase tracking-[.2em] opacity-80">{venue.label}</p>
                         ) : null}
                         {venue.name?.trim() ? (
-                          <p className="mt-1 text-sm font-semibold">{venue.name}</p>
+                          <p className="mt-1 text-base font-semibold">{venue.name}</p>
                         ) : null}
-                        {venue.address?.trim() ? (
-                          <p className="mt-1 text-xs leading-5 opacity-80">{venue.address}</p>
+                        {data.city?.trim() && !isMapUrlOrCoordinate(data.city) && data.city.trim().toLowerCase() !== venue.name?.toLowerCase() ? (
+                          <p className="mt-1 text-sm leading-5 opacity-80">{data.city.trim()}</p>
                         ) : null}
                         {venue.time?.trim() ? (
-                          <p className="mt-1 text-[.65rem] uppercase tracking-[.15em] opacity-70">{venue.time}</p>
+                          <p className="mt-1 text-sm uppercase tracking-[.15em] opacity-70">{venue.time}</p>
                         ) : null}
                         {mapUrl ? (
                           <a
@@ -727,7 +728,24 @@ export function MinimalismDarkBluePageTemplate({
             {hasLocation ? (
               <>
                 <div className={`${CONTENT_WIDTH} mt-6`}>{blocks("location_map")}</div>
-                <p className={`${CONTENT_WIDTH} mt-4 underline underline-offset-2`} style={{ color: NAVY }}>{t("minimalismItinerary")}</p>
+                {(() => {
+                  const mapUrl = hasCoordinates
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${data.latitude},${data.longitude}`
+                    : buildVenueMapSearchUrl(displayVenues[0]?.name ?? data.venue ?? "", displayVenues[0]?.address ?? flatAddress ?? null);
+                  return mapUrl ? (
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${CONTENT_WIDTH} mt-4 inline-block underline underline-offset-2`}
+                      style={{ color: NAVY }}
+                    >
+                      {t("minimalismItinerary")}
+                    </a>
+                  ) : (
+                    <p className={`${CONTENT_WIDTH} mt-4 underline underline-offset-2`} style={{ color: NAVY }}>{t("minimalismItinerary")}</p>
+                  );
+                })()}
               </>
             ) : (
               <p className={`${CONTENT_WIDTH} mt-4 text-sm opacity-70`} style={{ color: NAVY }}>{t("minimalismNoVenueYet")}</p>
@@ -739,7 +757,7 @@ export function MinimalismDarkBluePageTemplate({
             <section className="px-5 py-14 text-center sm:px-8 sm:py-20">
               <div className={CONTENT_WIDTH}>
                 <h2 className="text-base font-bold uppercase tracking-[.2em] sm:text-lg" style={{ color: NAVY }}>{t("minimalismDressCodeHeading")}</h2>
-                {data.dressCode ? <p className="mt-4 text-sm" style={{ color: NAVY }}>{data.dressCode}</p> : null}
+                {data.dressCode ? <p className="mt-4 text-base" style={{ color: NAVY }}>{data.dressCode}</p> : null}
                 {data.dressCodeSwatches?.length ? (
                   <div className="mt-4 flex justify-center gap-3">
                     {data.dressCodeSwatches.map((swatch, index) => (
@@ -762,8 +780,8 @@ export function MinimalismDarkBluePageTemplate({
                 <h2 className="relative text-center text-base font-bold uppercase tracking-[.2em] sm:text-lg">{t("minimalismProgramHeading")}</h2>
                 <ol className="relative mt-6 space-y-4">
                   {data.schedule?.filter((item) => item.time && (item.title || item.label)).map((item, index) => (
-                    <li key={`${item.time}-${index}`} className="flex items-center gap-3 text-sm">
-                      <span className="lining-nums tabular-nums w-14 shrink-0 text-xs uppercase tracking-[.1em] opacity-80">{item.time}</span>
+                    <li key={`${item.time}-${index}`} className="flex items-center gap-3 text-base">
+                      <span className="lining-nums tabular-nums w-14 shrink-0 text-sm uppercase tracking-[.1em] opacity-80">{item.time}</span>
                       <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: CREAM_TEXT }} aria-hidden="true" />
                       <span>{item.title || item.label}</span>
                     </li>
@@ -777,19 +795,19 @@ export function MinimalismDarkBluePageTemplate({
           {showGuestbook ? (
             <section className="px-5 py-10 text-center sm:px-8 sm:py-14">
               <div className={`${CONTENT_WIDTH} rounded-xl border bg-white px-6 py-8 text-left`} style={{ borderColor: `${NAVY}1a` }}>
-                <h2 className="text-center text-sm font-bold uppercase tracking-[.25em]" style={{ color: NAVY }}>{t("minimalismGuestbookHeading")}</h2>
+                <h2 className="text-center text-base font-bold uppercase tracking-[.25em]" style={{ color: NAVY }}>{t("minimalismGuestbookHeading")}</h2>
                 <div className="mt-6 flex flex-col gap-3">
                   <input
                     type="text"
                     disabled={hasAction || mode === "shared"}
                     placeholder={t("minimalismGuestbookNamePlaceholder")}
-                    className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                    className="rounded border px-3 py-2 text-base disabled:opacity-50"
                     style={{ borderColor: `${NAVY}33`, color: NAVY }}
                   />
                   <textarea
                     disabled={hasAction || mode === "shared"}
                     placeholder={t("minimalismGuestbookWishPlaceholder")}
-                    className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                    className="rounded border px-3 py-2 text-base disabled:opacity-50"
                     style={{ borderColor: `${NAVY}33`, color: NAVY }}
                   />
                   <button
@@ -955,12 +973,6 @@ export function MinimalismDarkBluePageTemplate({
                   ))
                 : null}
             </div>
-
-            {mode === "preview" ? (
-              <button type="button" onClick={continueToPage} className="relative z-10 mt-1 text-xs text-white/70 underline underline-offset-2">
-                {t("minimalismSkipGate")}
-              </button>
-            ) : null}
 
             <style>{`
               @keyframes minimalism-sparkle-drift {

@@ -62,6 +62,8 @@ import { getInvitationTemplateManifest } from "@/lib/invitation-template-manifes
 import { getTemplateSummaryForBuilder } from "@/lib/invitation-template-public-catalog";
 import { getInvitationTemplateGalleryHref } from "@/lib/invitation-template-marketplace-routes";
 import { InvitationTemplatePreviewFrame } from "@/components/invitation/marketplace/InvitationTemplatePreviewFrame";
+import { InvitationTemplatePicker } from "@/components/invitation/InvitationTemplatePicker";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import { TemplateFieldsSection } from "./sections/TemplateFieldsSection";
 
 export interface BuilderDraft extends InvitationPageDraftInput {
@@ -518,13 +520,38 @@ export function InvitationPageBuilder({
   const confirmTypeChange = useCallback(() => {
     if (!pendingTypeChange) return;
     setInvitationType(pendingTypeChange.type);
-    // No templates ship with the platform, so only the type is saved.
-    updateDraft({ template_id: pendingTypeChange.pageId });
+    const sanitized = sanitizeDraftForTemplate(draft, pendingTypeChange.pageId);
+    updateDraft(sanitized);
     setCandidatePreviewTemplateId(null);
     setPendingTypeChange(null);
     setOpenSection(null);
     requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
-  }, [pendingTypeChange, updateDraft]);
+  }, [draft, pendingTypeChange, updateDraft]);
+
+  const handleTemplateSelect = useCallback(
+    (newTemplateId: string) => {
+      if (newTemplateId === draft.template_id) return;
+      const hiddenFields = hiddenContentOnTemplateSwitch(draft, draft.template_id, newTemplateId).map((label) => {
+        const messageKey = TYPE_FIELD_MESSAGE_KEYS[label as keyof typeof TYPE_FIELD_MESSAGE_KEYS];
+        return messageKey ? t(messageKey) : label;
+      });
+
+      if (hiddenFields.length > 0) {
+        const nextType = invitationTypeForTemplate(newTemplateId);
+        setCandidatePreviewTemplateId(newTemplateId);
+        setPendingTypeChange({
+          type: nextType,
+          pageId: newTemplateId,
+          hiddenFields,
+        });
+      } else {
+        const sanitized = sanitizeDraftForTemplate(draft, newTemplateId);
+        updateDraft(sanitized);
+        setCandidatePreviewTemplateId(null);
+      }
+    },
+    [draft, t, updateDraft]
+  );
 
   const pendingTypeLabel = pendingTypeChange
     ? pendingTypeChange.type === "wedding"
@@ -753,31 +780,22 @@ export function InvitationPageBuilder({
                   disabled={!!manifest}
                 />
               )}
-              {id === "template" && (() => {
-                const summary =
-                  getTemplateSummaryForBuilder(draft.template_id) ??
-                  getTemplateSummaryForBuilder("minimalism-dark-blue");
-                return (
-                  <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-                    <InvitationTemplatePreviewFrame
-                      templateId={summary?.id ?? "minimalism-dark-blue"}
-                      ariaLabel={summary?.name ?? "Template preview"}
-                      className="aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-200"
-                      eager
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-zinc-900">{summary?.name}</p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500">{summary?.description}</p>
-                      <Link
-                        href={getInvitationTemplateGalleryHref()}
-                        className="mt-1.5 inline-block text-xs font-bold text-orange-600 hover:text-orange-700"
-                      >
-                        Browse templates →
-                      </Link>
-                    </div>
+              {id === "template" && (
+                <div className="space-y-4">
+                  <InvitationTemplatePicker
+                    value={draft.template_id}
+                    onSelect={handleTemplateSelect}
+                  />
+                  <div className="pt-1">
+                    <Link
+                      href={getInvitationTemplateGalleryHref()}
+                      className="inline-block text-xs font-bold text-orange-600 hover:text-orange-700"
+                    >
+                      Browse full template gallery →
+                    </Link>
                   </div>
-                );
-              })()}
+                </div>
+              )}
               {id !== "type" && id !== "template" && id !== "publish" && (
                 <SectionBody
                   id={id}

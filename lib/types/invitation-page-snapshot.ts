@@ -216,6 +216,9 @@ export interface GuestLiveRecord {
   guest_allowance?: number | null;
   token?: string | null;
   is_vip?: boolean;
+  /** True when this record is a placeholder/sample — not a real invited person. */
+  is_placeholder?: boolean;
+  is_sample?: boolean;
 }
 
 export interface TicketInstanceLiveRecord {
@@ -260,16 +263,22 @@ function readManifestHeroPhotos(td: Record<string, unknown> | undefined): Array<
   return out;
 }
 
-function readManifestOpeningPhoto(td: Record<string, unknown> | undefined): string | undefined {
+function readManifestOpeningPhoto(td: Record<string, unknown> | undefined, snapshot?: { hero_image_url?: string | null }): string | undefined {
   if (!td) return undefined;
+  // Primary key: manifest-style mf_opening_photo (can be a string URL or an array of objects)
   const raw = td.mf_opening_photo;
-  if (typeof raw === "string") return raw.trim() || undefined;
-  if (!Array.isArray(raw)) return undefined;
-  for (const item of raw) {
-    if (!isRecord(item)) continue;
-    const url = typeof item.url === "string" ? item.url.trim() : "";
-    if (url) return url;
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!isRecord(item)) continue;
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      if (url) return url;
+    }
   }
+  // Fallback for switching from minimalism-dark-blue → burgundy-gold
+  if (typeof td.envelope_photo_url === "string" && td.envelope_photo_url.trim()) return td.envelope_photo_url.trim();
+  if (typeof td.cover_photo_url === "string" && td.cover_photo_url.trim()) return td.cover_photo_url.trim();
+  if (snapshot?.hero_image_url?.trim()) return snapshot.hero_image_url.trim();
   return undefined;
 }
 
@@ -315,11 +324,15 @@ export function assembleInvitationPageData(
         rsvpAt: guest.rsvp_at ?? undefined,
         guestAllowance: guest.guest_allowance ?? null,
         isVip: Boolean(guest.is_vip || seat?.is_vip),
+        isPlaceholder: guest.is_placeholder || undefined,
+        isSample: guest.is_sample || undefined,
       }
     : {
         name: "Honored Guest",
         rsvpStatus: "pending",
         isVip: false,
+        isPlaceholder: true,
+        isSample: true,
       };
 
   let seatData: InvitationSeatData | undefined;
@@ -382,7 +395,7 @@ export function assembleInvitationPageData(
     invitationLine: (isManifest && typeof mf?.mf_invitation_line === "string" && (mf.mf_invitation_line as string).trim())
       ? (mf.mf_invitation_line as string).trim()
       : undefined,
-    openingPhoto: isManifest ? readManifestOpeningPhoto(mf) : undefined,
+    openingPhoto: isManifest ? readManifestOpeningPhoto(mf, snapshot) : undefined,
     openingMessage: (isManifest && typeof mf?.mf_opening_message === "string" && (mf.mf_opening_message as string).trim())
       ? (mf.mf_opening_message as string).trim()
       : undefined,

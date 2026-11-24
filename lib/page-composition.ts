@@ -108,8 +108,12 @@ export const PAGE_THEME_PRESETS = {
     classes: {
       page: "min-h-screen bg-[#4a1020] text-[#f3d38a]",
       section: "bg-transparent",
-      heading: "font-serif text-[#f3d38a]",
-      body: "font-serif text-[#f7e7c2]/90",
+      // The action_portal block (RSVP) renders inside burgundy-gold's own
+      // white dialog card (BurgundyGoldSections.tsx), not on the dark page
+      // background — heading/body must stay dark here or they're unreadable
+      // on white, unlike every other preset's card.
+      heading: "font-serif text-[#3a0d18]",
+      body: "font-serif text-[#5a1830]/90",
       card: "rounded-lg border border-[#d4af37]/30 bg-[#5a1830] shadow-xs",
       button: "rounded-full bg-[#d4af37] text-[#4a1020] hover:bg-[#c29b2b]",
     },

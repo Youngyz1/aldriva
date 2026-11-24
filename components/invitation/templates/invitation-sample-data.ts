@@ -27,6 +27,8 @@ const MINIMALISM_SAMPLE_GUEST = {
   name: "Honored Guest",
   rsvpStatus: "pending" as const,
   isVip: false,
+  isPlaceholder: true,
+  isSample: true,
 };
 
 /** Sample-only English data for Minimalism Dark Blue. Never used for published guest data; see public/images/invitations/minimalism-dark-blue/demo/CREDITS.md. */
@@ -124,6 +126,8 @@ const BURGUNDY_GOLD_SAMPLE_GUEST = {
   name: "Honored Guest",
   rsvpStatus: "pending" as const,
   isVip: false,
+  isPlaceholder: true,
+  isSample: true,
 };
 
 export const BURGUNDY_GOLD_SAMPLE_DATA: InvitationPageData = {

@@ -51,7 +51,14 @@ export function burgundyGalleryTiles(
 export interface BurgundyScheduleEntry {
   time: string;
   title: string;
+  /** Optional context line (e.g. venue), null when absent. */
+  description: string | null;
+  /** True for ceremony/reception-type entries, highlighted more strongly in the timeline. */
+  isKeyMoment: boolean;
 }
+
+/** Ceremony/reception read as the key moments of the day, in either language. */
+const KEY_MOMENT_PATTERN = /ceremony|reception|c[ée]r[ée]monie|r[ée]ception/i;
 
 /** Valid programme entries (time + title/label), capped at 15. Null when the section must hide. */
 export function burgundyScheduleEntries(
@@ -61,9 +68,11 @@ export function burgundyScheduleEntries(
     .map((item) => ({
       time: item?.time?.trim() ?? "",
       title: (item?.title ?? item?.label ?? "").trim(),
+      description: item?.description?.trim() || null,
     }))
     .filter((item) => item.time.length > 0 && item.title.length > 0)
-    .slice(0, BURGUNDY_SCHEDULE_MAX);
+    .slice(0, BURGUNDY_SCHEDULE_MAX)
+    .map((item) => ({ ...item, isKeyMoment: KEY_MOMENT_PATTERN.test(item.title) }));
   return entries.length ? entries : null;
 }
 
@@ -202,7 +211,7 @@ export function burgundyReceptionTimes(
   const reception =
     receptionVenue?.time?.trim()
     || timed[1]?.time?.trim()
-    || (welcomeVenue ? null : timed[0]?.time?.trim() ?? null);
+    || (welcomeVenue || timed.length <= 1 ? null : timed[0]?.time?.trim() ?? null);
   if (!welcome && !reception) return null;
   return { welcome, reception };
 }
@@ -228,6 +237,33 @@ export function burgundyHeroNames(data: InvitationPageData): string[] {
   if (!hosts) return [];
   const parts = hosts.split(FIRST_NAME_SPLIT).map(firstWord).filter(Boolean);
   return parts.length > 1 ? parts : [firstWord(hosts)];
+}
+
+/**
+ * "No real, specific guest" sentinels, reused rather than invented: every
+ * current render path that isn't a live, token-resolved guest page already
+ * funnels through one of these two exact strings —
+ * "Honored Guest" is assembleInvitationPageData's own fallback when no guest
+ * record is passed at all (lib/types/invitation-page-snapshot.ts), and
+ * "Sample Guest" is SAMPLE_PREVIEW_GUEST (lib/invitation-preview-channel.ts),
+ * used by the demo route, the gallery-card preview, and the builder preview.
+ * Checking against these avoids adding a new field to the guest/seat/ticket
+ * contract just to say "this one isn't real".
+ */
+const NO_REAL_GUEST_NAMES = new Set(["Honored Guest", "Sample Guest", "Preview Guest"]);
+
+/**
+ * The guest's display name for a "Dear {name}," greeting, or null when there
+ * is no real, specific guest (demo, preview, public template card, or the
+ * read-only /invitation/shared/[token] route, which never carries a guest
+ * name) — so the caller renders nothing and the hero layout never shifts.
+ */
+export function burgundyGuestGreetingName(guest: { name?: string | null; isPlaceholder?: boolean; isSample?: boolean } | null | undefined): string | null {
+  if (!guest) return null;
+  if (guest.isPlaceholder || guest.isSample) return null;
+  const name = guest?.name?.trim();
+  if (!name || NO_REAL_GUEST_NAMES.has(name)) return null;
+  return name;
 }
 
 export interface BurgundySwatch {

@@ -58,6 +58,12 @@ export function PublishSection({
     }
   };
 
+  const publishErrors = isLocal
+    ? validation.errors.filter(
+        (err) => !(err.message === "Image URL must be from storage" && err.field.startsWith("gallery."))
+      )
+    : validation.errors;
+
   return (
     <div className="space-y-8">
       {/* Status banner */}
@@ -170,11 +176,11 @@ export function PublishSection({
       </div>
 
       {/* Validation Errors List (each a jump link to its section) */}
-      {!validation.valid && (
+      {publishErrors.length > 0 && (
         <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
           <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
           <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
-            {validation.errors.map((err, i) => (
+            {publishErrors.map((err, i) => (
               <li key={i}>
                 <button
                   type="button"

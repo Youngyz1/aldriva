@@ -119,7 +119,7 @@ export const INVITATION_TEMPLATE_REGISTRY: Record<string, InvitationTemplateDefi
   "burgundy-gold": {
     id: "burgundy-gold", version: "1.0.0", name: "Burgundy Gold", category: "wedding",
     categoryLabel: "Wedding", description: "Deep burgundy panels with gold ornaments and an animated gift box.",
-    publicationStatus: "unlisted", preview: { kind: "rendered-sample", sampleId: "burgundy-gold" },
+    publicationStatus: "published", preview: { kind: "rendered-sample", sampleId: "burgundy-gold" },
     defaultThemePreset: "burgundyGold", detailsPresentation: "editorial", galleryPresentation: "boho-coveflow",
     composition: "burgundy-gold",
     pageRenderer: { kind: "custom", componentId: "burgundy-gold" },
