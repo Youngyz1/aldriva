@@ -2,6 +2,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { HOMEPAGE_SETTING_KEYS, getHomepageSettings } from "@/lib/homepage-hero";
 import Link from "next/link";
 import { cacheLife } from "next/cache";
+import { getTranslations } from "next-intl/server";
 
 async function getEventsPageCmsAndStats() {
   "use cache";
@@ -36,6 +37,7 @@ async function getEventsPageCmsAndStats() {
  */
 export default async function EventsHero() {
   const { cms } = await getEventsPageCmsAndStats();
+  const t = await getTranslations("Events");
 
   return (
     <section className="bg-white px-3 pt-3 sm:px-6 sm:pt-6 lg:px-8">
@@ -71,6 +73,12 @@ export default async function EventsHero() {
               className="inline-flex rounded-full border border-white/80 bg-white/10 px-5 py-2.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/20 sm:px-7 sm:py-3 sm:text-base"
             >
               Create Event
+            </Link>
+            <Link
+              href="/invitations/templates"
+              className="inline-flex rounded-full border border-white/50 px-5 py-2.5 text-sm font-black text-white/90 transition hover:bg-white/10 sm:px-7 sm:py-3 sm:text-base"
+            >
+              {t("browseInvitationTemplates")}
             </Link>
           </div>
         </div>

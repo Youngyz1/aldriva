@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardApiContext } from '@/lib/dashboard-api';
 import { supabaseAdmin } from '@/lib/dashboard-context';
 import { deleteEventsWithoutPaymentRecords } from '@/lib/dashboard-delete';
+import { decideDashboardEventAccess } from '@/lib/dashboard-event-access';
 import { ENTITY_ROLES_CONTENT_WRITE, ENTITY_ROLES_MANAGE } from '@/lib/entity-auth';
 
 export async function POST(req: NextRequest) {
@@ -21,20 +22,30 @@ export async function POST(req: NextRequest) {
   // since the two tiers differ.
   const requiredRoles = action === 'delete' ? ENTITY_ROLES_MANAGE : ENTITY_ROLES_CONTENT_WRITE;
 
-  const { data: owned } = await supabaseAdmin
+  const { data: candidates } = await supabaseAdmin
     .from('events')
-    .select('id, organizer_id')
-    .in('id', ids)
-    .in('organizer_id', auth.ctx.organizerIds);
+    .select('id, organizer_id, user_id')
+    .in('id', ids);
 
-  const ownedIds = (owned ?? [])
-    .filter((e) => {
-      const role = auth.ctx.organizerRoles[e.organizer_id];
-      return role && requiredRoles.includes(role);
-    })
-    .map((e) => e.id);
+  const decisions = (candidates ?? []).map((event) => ({
+    id: event.id,
+    access: decideDashboardEventAccess(event, {
+      userId: auth.ctx.userId,
+      organizerIds: auth.ctx.organizerIds,
+      organizerRoles: auth.ctx.organizerRoles,
+      requiredRoles,
+      allowPersonalOwner: action === 'delete',
+    }),
+  }));
+  const ownedIds = decisions.filter((d) => d.access === 'allowed').map((d) => d.id);
 
   if (ownedIds.length === 0) {
+    if (decisions.some((d) => d.access === 'forbidden')) {
+      return NextResponse.json(
+        { error: 'You do not have permission to delete this event.' },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ error: 'No matching events.' }, { status: 404 });
   }
 

@@ -1,9 +1,18 @@
-# Aldriva — Platform Changelog & Evolution History
+# Aldriva - Platform Changelog & Evolution History
 
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-11-07] — Run UPLOAD-1: Direct upload only for every image upload control
+## [2026-11-12] - Rental receipt printer (branch `feat/rental-receipt-printer`)
+
+- **Receipt module imported** from `graceful-fold` (`components/receipt/**`) with `jsbarcode ^3.12.3`; the dependency allowlist test now includes it.
+- **One data source:** `lib/rental/receipt-data.ts` `getRentalReceiptData(lookupToken)` reads the booking and applied `rental_payments` with the service-role client and returns a small safe projection. `amountPaid` is Stripe credits minus Stripe refunds ("Paid online"); `balanceDue` nets every applied payment method. Receipt exists when `amountPaid > 0`, including advance-only `partially_paid` bookings.
+- **Lookup page:** shows `RentalReceiptPanel` (tap-to-open printer receipt) when receipt data exists; the PDF route now shares the helper. `?paid=true` stays presentational, and the processing banner/auto-refresh remain for the pre-webhook window.
+- **Printing:** `RentalReceipt` uses the existing `PrintedReceipt` (booking, customer, UTC pickup/return, rental charge, paid online, balance due, paid on, payment ref; no QR/barcode of the booking number). The panel injects 80mm `@page` + scoped print CSS only while open, hides page chrome, forces the full sheet, and keeps 58mm a one-line change.
+- **PDF and email:** the jsPDF receipt is 80mm, brand orange `#c2410c`, and uses the same data/rows. `sendRentalEmail("payment_received", …)` sends the receipt links, logs `email_sent`/`email_failed`, and is called from the Stripe webhook inside the applied/new branch. Instant offline bookings send the confirmation email from `rental-public.ts`; Stripe-bound instant bookings still get it from the webhook.
+- **Verification:** `npx tsc --noEmit` clean; changed-file ESLint clean; `npm run build` passed (403 pages). Rental suites 101/101 passed. Full `npm test` run before the dependency-allowlist update: 3140/3175 passed; remaining failures are pre-existing dirty-tree/rental-baseline issues (website/reservations/general-booking/security raw-error tests), not receipt paths. Manual Stripe/browser checks were not run here.
+
+## [2026-11-07] - Run UPLOAD-1: Direct upload only for every image upload control
 
 ## [2026-11-06] — All invitation templates removed (working tree, unverified deploy)
 

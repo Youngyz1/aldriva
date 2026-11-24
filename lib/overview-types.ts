@@ -161,6 +161,10 @@ export interface OverviewCounts {
   hasHours?: boolean;
   hasOfferings?: boolean;
   isOrderingReady?: boolean;
+  /** Rental setup checklist: at least one active vehicle in the fleet. */
+  hasFleetVehicle?: boolean;
+  /** Rental setup checklist: at least one vehicle category has a daily rate set. */
+  hasVehicleCategoryRates?: boolean;
   eventCount?: number;
   fundraiserCount?: number;
   followerCount?: number;

@@ -252,45 +252,88 @@ export function resolveOverviewModules(
   // ── 2. SETUP CHECKLIST ──────────────────────────────────────────────────────
   // Business setup belongs only to organizers that have a business row.
   if (hasBusiness) {
+    const isRentalOrg = capSet.has("can_have_vehicles");
     const totalCatalogItems = (counts.menuItemCount ?? 0) + (counts.serviceCount ?? 0);
-    const checklistItems: SetupChecklistItem[] = [
-    {
-      id: "logo",
-      label: "Upload business logo",
-      completed: Boolean(counts.hasLogo),
-      href: "/dashboard/org/SETTINGS_PATH",
-    },
-    {
-      id: "hours",
-      label: "Set opening hours",
-      completed: Boolean(counts.hasHours),
-      href: "/dashboard/org/SETTINGS_PATH#hours",
-    },
-    {
-      id: "catalog",
-      label: "Add at least 3 items to catalog",
-      completed: totalCatalogItems >= 3,
-      href: capSet.has("can_have_menu") ? "/dashboard/org/MENU_PATH" : "/dashboard/org/SERVICES_PATH",
-    },
-    {
-      id: "offerings",
-      label: "Choose business offerings",
-      completed: Boolean(counts.hasOfferings),
-      href: "/dashboard/org/BUILDER_PATH",
-    },
-    {
-      id: "publish",
-      label: "Publish website",
-      completed: Boolean(counts.isSitePublished),
-      href: "/dashboard/org/BUILDER_PATH",
-    },
-    {
-      id: "ordering_payments",
-      label: "Configure ordering & payments",
-      completed: Boolean(counts.isOrderingReady),
-      href: "/dashboard/org/BUILDER_PATH",
-    },
-    ];
+    const checklistItems: SetupChecklistItem[] = isRentalOrg
+      ? [
+          {
+            id: "logo",
+            label: "Upload business logo",
+            completed: Boolean(counts.hasLogo),
+            href: "/dashboard/org/SETTINGS_PATH",
+          },
+          {
+            id: "hours",
+            label: "Set opening hours",
+            completed: Boolean(counts.hasHours),
+            href: "/dashboard/org/SETTINGS_PATH#hours",
+          },
+          // Rental-specific replacements for the menu/services-oriented
+          // "catalog" and "offerings" slots, same ids so SetupChecklistItem's
+          // id union needs no change.
+          {
+            id: "catalog",
+            label: "Add a vehicle",
+            completed: Boolean(counts.hasFleetVehicle),
+            href: "/dashboard/org/FLEET_NEW_PATH",
+          },
+          {
+            id: "offerings",
+            label: "Set category rates",
+            completed: Boolean(counts.hasVehicleCategoryRates),
+            href: "/dashboard/org/FLEET_CATEGORIES_PATH",
+          },
+          {
+            id: "publish",
+            label: "Publish website",
+            completed: Boolean(counts.isSitePublished),
+            href: "/dashboard/org/BUILDER_PATH",
+          },
+          {
+            id: "ordering_payments",
+            label: "Set payment policy",
+            completed: Boolean(counts.isOrderingReady),
+            href: "/dashboard/org/RENTAL_SETTINGS_PATH",
+          },
+        ]
+      : [
+          {
+            id: "logo",
+            label: "Upload business logo",
+            completed: Boolean(counts.hasLogo),
+            href: "/dashboard/org/SETTINGS_PATH",
+          },
+          {
+            id: "hours",
+            label: "Set opening hours",
+            completed: Boolean(counts.hasHours),
+            href: "/dashboard/org/SETTINGS_PATH#hours",
+          },
+          {
+            id: "catalog",
+            label: "Add at least 3 items to catalog",
+            completed: totalCatalogItems >= 3,
+            href: capSet.has("can_have_menu") ? "/dashboard/org/MENU_PATH" : "/dashboard/org/SERVICES_PATH",
+          },
+          {
+            id: "offerings",
+            label: "Choose business offerings",
+            completed: Boolean(counts.hasOfferings),
+            href: "/dashboard/org/BUILDER_PATH",
+          },
+          {
+            id: "publish",
+            label: "Publish website",
+            completed: Boolean(counts.isSitePublished),
+            href: "/dashboard/org/BUILDER_PATH",
+          },
+          {
+            id: "ordering_payments",
+            label: "Configure ordering & payments",
+            completed: Boolean(counts.isOrderingReady),
+            href: "/dashboard/org/BUILDER_PATH",
+          },
+        ];
 
     const isSetupComplete = checklistItems.every((item) => item.completed);
     widgets.push({

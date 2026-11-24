@@ -4,7 +4,8 @@
  *
  * Mobile bottom navigation for event dashboard pages.
  * 4 tabs: Overview, Check-ins, Scanner, More.
- * More sheet lists: Operations, Memories, Ticket Design, Seating, Team & Staff, Edit Details.
+ * More sheet lists: Operations, Guests & Invites, Memories, Ticket Design,
+ * Invitation Page, Seating, Team & Staff, Edit Details.
  */
 import React, { useState } from "react";
 import Link from "next/link";
@@ -22,14 +23,20 @@ import {
   IconArmchair,
   IconUsers,
   IconEdit,
+  IconWorld,
 } from "@tabler/icons-react";
 
 export interface EventBottomBarProps {
   eventId: string;
   userRole?: "owner" | "event_manager" | "ticket_scanner" | null;
+  isInvitationKind?: boolean;
 }
 
-export function EventBottomBar({ eventId, userRole }: EventBottomBarProps) {
+export function EventBottomBar({
+  eventId,
+  userRole,
+  isInvitationKind = false,
+}: EventBottomBarProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const base = `/dashboard/events/${eventId}`;
@@ -44,8 +51,20 @@ export function EventBottomBar({ eventId, userRole }: EventBottomBarProps) {
 
   const moreItems = [
     { label: "Operations", href: `${base}/operations`, icon: IconActivity, show: canManage },
+    {
+      label: "Guests & Invites",
+      href: `${base}/guests`,
+      icon: IconUsers,
+      show: canManage && isInvitationKind,
+    },
     { label: "Memories", href: `${base}/memories`, icon: IconCamera, show: canManage },
     { label: "Ticket Design", href: `${base}/ticket-design`, icon: IconTicket, show: canManage },
+    {
+      label: "Invitation Page",
+      href: `${base}/invitation-page`,
+      icon: IconWorld,
+      show: canManage && isInvitationKind,
+    },
     { label: "Seating", href: `${base}/seating`, icon: IconArmchair, show: canManage },
     { label: "Team & Staff", href: `${base}/team`, icon: IconUsers, show: canManage },
     { label: "Edit Details", href: `/events/edit/${eventId}`, icon: IconEdit, show: userRole === "owner" },

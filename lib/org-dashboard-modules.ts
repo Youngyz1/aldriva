@@ -75,6 +75,8 @@ export interface OrgNavSignalCounts {
   hasActiveServiceRows?: boolean;
   /** True when at least one reservation row exists (never hide data entry UI). */
   hasReservationRows?: boolean;
+  /** True when at least one fleet/vehicle row exists (never hide data entry UI). */
+  hasFleetRows?: boolean;
   /** Union of owner-selected stable offering keys across linked businesses. */
   offerings?: readonly string[] | null;
 }
@@ -119,6 +121,7 @@ function isModuleVisible(
   if (visibility.existence === "serviceRows" && counts.hasServiceRows === true) return true;
   if (visibility.existence === "reservationRows" && counts.hasReservationRows === true) return true;
   if (visibility.existence === "activeServiceRows" && counts.hasActiveServiceRows === true) return true;
+  if (visibility.existence === "fleetRows" && counts.hasFleetRows === true) return true;
   return visibility.capabilities.some((capability) => capabilities.has(capability));
 }
 

@@ -82,8 +82,18 @@ export async function getOrCreateMemorySettings(eventId: string): Promise<Memory
     .maybeSingle();
   const row = existing as { upload_token?: string; is_active?: boolean; require_approval?: boolean } | null;
   if (row?.upload_token) {
-    const state = await getMemorySettingsState(eventId);
-    return state;
+    // Existing credential, but the organizer may have disabled uploads since:
+    // this action is wired to the "Enable photo uploads" button, so re-open it
+    // instead of returning the inactive state (which left the button a no-op).
+    if (row.is_active !== true) {
+      const { error } = await admin
+        .from("event_memory_settings")
+        .update({ is_active: true, revoked_at: null })
+        .eq("event_id", eventId);
+      if (error) return { ok: false, error: "Could not enable photo uploads." };
+      revalidatePath(`/dashboard/events/${eventId}/memories`);
+    }
+    return getMemorySettingsState(eventId);
   }
 
   const token = generateMemoryToken();

@@ -106,7 +106,7 @@ export default function Navbar() {
     normalizedPath?.startsWith("/dashboard") || normalizedPath?.startsWith("/profile");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
+    <header className="sticky top-0 z-[60] border-b border-border bg-background/95 backdrop-blur-md">
       {/*
         Layout: 3-column flex row.
         - Left (shrink-0):  BrandMark — always a fixed, small size.
@@ -134,9 +134,6 @@ export default function Navbar() {
 
           {/* Language — show current on right, switch on click */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <span className="hidden max-w-28 truncate text-sm font-bold text-zinc-800 sm:inline">
-              {accountName}
-            </span>
             <LanguageSwitcher variant="inline" />
           </div>
 

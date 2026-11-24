@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconLoader2 as Loader2 } from "@tabler/icons-react";
+import Link from "next/link";
+import { IconLoader2 as Loader2, IconClock as Clock, IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import {
   getOperationalSettings,
-  saveOperationalHours,
   saveSiteTimezone,
   type OperationalSettingsData,
 } from "@/lib/actions/website-content";
 import { SITE_TIMEZONE_OPTIONS } from "@/lib/date-timezone";
-import type { ContentHours, ContentDayHours } from "@/lib/website-content";
+import type { ContentDayHours } from "@/lib/website-content";
 import { shouldShowOperationalSettings } from "@/lib/website-content";
 
 const DAYS = [
@@ -24,38 +24,33 @@ const DAYS = [
 
 type DayKey = (typeof DAYS)[number]["key"];
 
-const inputCls =
-  "rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white disabled:opacity-40";
-
-function emptyWeek(): Record<DayKey, ContentDayHours> {
-  return {
-    mon: {},
-    tue: {},
-    wed: {},
-    thu: {},
-    fri: {},
-    sat: {},
-    sun: {},
-  };
+function formatDaySummary(slot: ContentDayHours | undefined): string {
+  if (!slot) return "Not set";
+  if (slot.closed) return "Closed";
+  if (slot.open && slot.close) return `${slot.open} – ${slot.close}`;
+  return "Not set";
 }
 
 /**
- * "Opening hours" + "Time zone" section for organizer Settings.
- * Rendered only when the org has a business or website. Reads and writes the
- * SAME canonical value the website builder uses
- * (website_content.content.hours, draft-first), so a change here appears in
- * the builder, the website footer, order scheduling, and reservations — and
- * vice versa.
+ * "Opening hours" (read-only) + "Time zone" (editable) section for
+ * organizer Settings. The website builder is now the single place hours
+ * are edited — content.hours (website_content, draft-first) — so this
+ * section only displays the current value and links there, instead of
+ * duplicating an editable copy that could drift from the builder's own.
+ * Rendered only when the org has a business or website.
  */
 export function OperationalSettingsSection({ organizerId }: { organizerId: string }) {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(false);
-  const [week, setWeek] = useState<Record<DayKey, ContentDayHours>>(emptyWeek());
+  const [hoursByDay, setHoursByDay] = useState<Record<DayKey, ContentDayHours | undefined>>({
+    mon: undefined, tue: undefined, wed: undefined, thu: undefined, fri: undefined, sat: undefined, sun: undefined,
+  });
   const [todayTag, setTodayTag] = useState("");
+  const [hasHours, setHasHours] = useState(false);
+  const [websiteId, setWebsiteId] = useState<string | null>(null);
   const [timezone, setTimezone] = useState("");
   const [timezoneDefault, setTimezoneDefault] = useState("Africa/Abidjan");
   const [hoursSource, setHoursSource] = useState<OperationalSettingsData["hoursSource"]>(null);
-  const [savingHours, setSavingHours] = useState(false);
   const [savingTz, setSavingTz] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -71,17 +66,23 @@ export function OperationalSettingsSection({ organizerId }: { organizerId: strin
       }
       const data = res.data;
       setVisible(shouldShowOperationalSettings({ hasBusiness: data.hasBusiness, hasWebsite: data.hasWebsite }));
-      const base = emptyWeek();
       if (data.hours) {
+        const next: Record<DayKey, ContentDayHours | undefined> = {
+          mon: undefined, tue: undefined, wed: undefined, thu: undefined, fri: undefined, sat: undefined, sun: undefined,
+        };
         for (const { key } of DAYS) {
           const slot = (data.hours as Record<string, ContentDayHours | undefined>)[key];
-          if (slot && typeof slot === "object") base[key] = { ...slot };
+          if (slot && typeof slot === "object") next[key] = slot;
         }
+        setHoursByDay(next);
+        setHasHours(true);
         if (typeof (data.hours as { today_tag?: unknown }).today_tag === "string") {
           setTodayTag((data.hours as { today_tag: string }).today_tag);
         }
+      } else {
+        setHasHours(false);
       }
-      setWeek(base);
+      setWebsiteId(data.websiteId ?? null);
       setTimezone(data.timezone ?? "");
       setTimezoneDefault(data.timezoneDefault);
       setHoursSource(data.hoursSource);
@@ -94,34 +95,6 @@ export function OperationalSettingsSection({ organizerId }: { organizerId: strin
   }, [organizerId]);
 
   if (loading || !visible) return null;
-
-  function setDay(key: DayKey, slot: ContentDayHours) {
-    setWeek((w) => ({ ...w, [key]: slot }));
-  }
-
-  async function handleSaveHours() {
-    setSavingHours(true);
-    setError("");
-    setNotice("");
-    const payload: ContentHours = {};
-    for (const { key } of DAYS) {
-      const slot = week[key];
-      if (slot.closed) {
-        payload[key] = { closed: true };
-      } else if (slot.open || slot.close) {
-        payload[key] = { closed: false, open: slot.open ?? "", close: slot.close ?? "" };
-      }
-    }
-    if (todayTag.trim()) payload.today_tag = todayTag.trim();
-    const res = await saveOperationalHours({ organizerId, hours: payload });
-    setSavingHours(false);
-    if (!res.success) {
-      setError(res.error || "Could not save opening hours.");
-      return;
-    }
-    setHoursSource("live");
-    setNotice("Opening hours saved — live on your website and dashboard.");
-  }
 
   async function handleSaveTimezone() {
     if (!timezone) return;
@@ -137,76 +110,63 @@ export function OperationalSettingsSection({ organizerId }: { organizerId: strin
     setNotice(`Time zone set to ${res.data?.timezone ?? timezone}.`);
   }
 
+  const builderHref = websiteId
+    ? `/dashboard/org/${organizerId}/website/builder`
+    : `/dashboard/org/${organizerId}/website`;
+
   return (
     <section id="hours" className="space-y-4 border-t border-zinc-200 pt-6 scroll-mt-6">
       <div>
         <h2 className="text-lg font-black text-zinc-950">Opening hours</h2>
         <p className="mt-1 text-xs font-medium text-zinc-500">
-          Same hours your website builder uses — saved live to your website and dashboard.
-          {hoursSource === "draft" ? " Currently showing unpublished builder changes." : ""}
+          Set in the website builder — the single source for your hours. This is a read-only summary.
         </p>
       </div>
+
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <Clock className="h-3.5 w-3.5 text-zinc-400" />
+            Current hours
+            {hoursSource === "draft" ? " (unpublished draft)" : ""}
+          </p>
+          <Link
+            href={builderHref}
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50"
+          >
+            Edit in website builder
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {hasHours ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
+            {DAYS.map(({ key, label }) => (
+              <div key={key} className="min-w-0">
+                <dt className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  {label.slice(0, 3)}
+                </dt>
+                <dd className="text-xs font-semibold text-zinc-800">{formatDaySummary(hoursByDay[key])}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-xs text-zinc-400 italic">No opening hours set yet.</p>
+        )}
+
+        {todayTag && (
+          <p className="text-xs text-zinc-500">
+            <span className="font-semibold text-zinc-600">Today highlight:</span> {todayTag}
+          </p>
+        )}
+      </div>
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</div>
       )}
       {notice && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{notice}</div>
       )}
-      <div className="space-y-2">
-        {DAYS.map(({ key, label }) => {
-          const slot = week[key];
-          const closed = slot.closed === true;
-          return (
-            <div key={key} className="grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 rounded-lg border border-zinc-200 p-2">
-              <span className="text-xs font-bold text-zinc-700">{label}</span>
-              <label className="flex items-center gap-1 text-[11px] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={closed}
-                  onChange={(e) => setDay(key, e.target.checked ? { closed: true } : {})}
-                />
-                Closed
-              </label>
-              <input
-                aria-label={`${label} opens`}
-                className={inputCls}
-                type="time"
-                step={900}
-                disabled={closed}
-                value={typeof slot.open === "string" ? slot.open : ""}
-                onChange={(e) => setDay(key, { ...slot, closed: false, open: e.target.value })}
-              />
-              <input
-                aria-label={`${label} closes`}
-                className={inputCls}
-                type="time"
-                step={900}
-                disabled={closed}
-                value={typeof slot.close === "string" ? slot.close : ""}
-                onChange={(e) => setDay(key, { ...slot, closed: false, close: e.target.value })}
-              />
-            </div>
-          );
-        })}
-        <label className="block text-xs font-medium text-zinc-600">
-          Today highlight (optional)
-          <input
-            className={`${inputCls} mt-1 w-full`}
-            maxLength={80}
-            value={todayTag}
-            onChange={(e) => setTodayTag(e.target.value)}
-            placeholder="e.g. Open late tonight"
-          />
-        </label>
-      </div>
-      <button
-        type="button"
-        onClick={handleSaveHours}
-        disabled={savingHours}
-        className="inline-flex min-h-[44px] items-center rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-      >
-        {savingHours ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save opening hours"}
-      </button>
 
       <div className="space-y-2 border-t border-zinc-100 pt-4">
         <h3 className="text-sm font-black text-zinc-900">Time zone</h3>

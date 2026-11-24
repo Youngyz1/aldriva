@@ -329,7 +329,11 @@ export type Block =
   | CtaBannerBlock
   | MenuOrderBlock
   | ReservationFormBlock
-  | GeneralBookingFormBlock;
+  | GeneralBookingFormBlock
+  | BookingBarBlock
+  | FleetCardsBlock
+  | FleetGridBlock
+  | BookingFormBlock;
 
 export interface MenuOrderBlock extends BaseBlock {
   type: "menu_order";
@@ -341,6 +345,26 @@ export interface ReservationFormBlock extends BaseBlock {
 
 export interface GeneralBookingFormBlock extends BaseBlock {
   type: "general_booking_form";
+}
+
+export interface BookingBarBlock extends BaseBlock {
+  type: "booking_bar";
+  heading?: string;
+}
+
+export interface FleetCardsBlock extends BaseBlock {
+  type: "fleet_cards";
+  heading?: string;
+}
+
+export interface FleetGridBlock extends BaseBlock {
+  type: "fleet_grid";
+  heading?: string;
+}
+
+export interface BookingFormBlock extends BaseBlock {
+  type: "booking_form";
+  heading?: string;
 }
 
 export const KNOWN_BLOCK_TYPES = [
@@ -362,6 +386,10 @@ export const KNOWN_BLOCK_TYPES = [
   "menu_order",
   "reservation_form",
   "general_booking_form",
+  "booking_bar",
+  "fleet_cards",
+  "fleet_grid",
+  "booking_form",
 ] as const;
 
 export type BlockType = (typeof KNOWN_BLOCK_TYPES)[number];
@@ -1826,6 +1854,23 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       };
     }
 
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form": {
+      const heading = typeof (obj as { heading?: unknown }).heading === "string"
+        ? (obj as { heading: string }).heading.trim()
+        : undefined;
+      return {
+        success: true,
+        data: {
+          type,
+          ...(heading ? { heading } : {}),
+          ...envelope,
+        },
+      };
+    }
+
     default:
       return {
         success: false,
@@ -2210,6 +2255,16 @@ export function parseBlock(raw: unknown): Block | null {
     case "general_booking_form":
       return {
         type: "general_booking_form",
+        ...envelope,
+      };
+
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form":
+      return {
+        type,
+        ...(typeof (obj as { heading?: unknown }).heading === "string" ? { heading: (obj as { heading: string }).heading.trim() } : {}),
         ...envelope,
       };
 

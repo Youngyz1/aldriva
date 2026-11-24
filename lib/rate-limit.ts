@@ -149,6 +149,12 @@ export const RATE_LIMITS = {
   invitationShareView: { limit: 60, windowSeconds: 60 },
 
   /**
+   * Stage 7b: guest Memories gallery reads (approved, non-reported photos).
+   * Anonymous per-IP bucket, same posture as invitationShareView. Fail-open.
+   */
+  invitationMemoriesView: { limit: 60, windowSeconds: 60 },
+
+  /**
    * Round 4: guest RSVP writes. Keyed per-IP AND per-token by callers
    * (two buckets per request): the token bucket bounds targeted RSVP
    * spam on a single invitation, the IP bucket bounds spray. Fail-open.
@@ -284,6 +290,23 @@ export const RATE_LIMITS = {
    * General booking form submissions per phone number.
    */
   generalBookingRequestPhone: { limit: 10, windowSeconds: 3600 },
+
+  /**
+   * Vehicle rental public booking requests per IP.
+   */
+  rentalRequestIp: { limit: 15, windowSeconds: 3600 },
+
+  /**
+   * Public rental availability checks per IP (live date-picker polling).
+   * Generous limit — these are lightweight read-only queries.
+   */
+  rentalAvailabilityIp: { limit: 120, windowSeconds: 60 },
+
+  /**
+   * Public rental price quote requests per IP.
+   * Slightly lower limit than availability — a quote also fetches billing boundary.
+   */
+  rentalQuoteIp: { limit: 60, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

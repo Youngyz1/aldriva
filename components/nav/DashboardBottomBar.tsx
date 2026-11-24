@@ -16,6 +16,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   IconLayoutDashboard as LayoutDashboard,
   IconCalendar as Calendar,
@@ -23,15 +24,21 @@ import {
   IconActivity as Activity,
   IconWorld as World,
   IconBriefcase as Briefcase,
+  IconCar as Car,
+  IconCalendarClock as CalendarClock,
   IconDots as Dots,
 } from "@tabler/icons-react";
 import { DashboardMoreSheet } from "./DashboardMoreSheet";
+import type { NavItem } from "./nav-active";
 
 export interface DashboardBottomBarProps {
   orgId: string;
   hasLiveDomain?: boolean;
   capabilities?: readonly string[];
   attentionCount?: number;
+  pendingRentalsCount?: number;
+  /** Same NavItem[] the desktop sidebar renders (getFullOrgNavItems). */
+  navItems?: NavItem[];
 }
 
 export function DashboardBottomBar({
@@ -39,9 +46,12 @@ export function DashboardBottomBar({
   hasLiveDomain = true,
   capabilities = [],
   attentionCount = 0,
+  pendingRentalsCount = 0,
+  navItems = [],
 }: DashboardBottomBarProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const t = useTranslations("Organizer");
 
   const caps = new Set(capabilities);
   const hasEvents = caps.has("EVENTS");
@@ -51,11 +61,12 @@ export function DashboardBottomBar({
   const hasServices = caps.has("SERVICES");
   const hasMenu = caps.has("MENU");
   const hasProducts = caps.has("PRODUCTS");
-  const hasBusiness = caps.has("ORDERS") || caps.has("ONLINE_ORDERING") || caps.has("MENU") || caps.has("SERVICES") || caps.has("BOOKINGS") || caps.has("APPOINTMENTS") || caps.has("TABLES") || caps.has("RESERVATIONS") || caps.has("PRODUCTS");
+  const hasFleet = caps.has("VEHICLES") || caps.has("VEHICLE_RENTAL");
+  const hasBusiness = caps.has("ORDERS") || caps.has("ONLINE_ORDERING") || caps.has("MENU") || caps.has("SERVICES") || caps.has("BOOKINGS") || caps.has("APPOINTMENTS") || caps.has("TABLES") || caps.has("RESERVATIONS") || caps.has("PRODUCTS") || hasFleet;
 
   // ── Tab 2 ──────────────────────────────────────────────────────────────────
   // Priority: Events > Live ops (commerce) > Fundraisers (if no Tab 3 needed) > Website
-  const isLiveOps = hasLiveDomain && (hasOrders || hasBookings);
+  const isLiveOps = hasLiveDomain && (hasOrders || hasBookings || hasFleet);
   let tab2Href: string;
   let tab2Label: string;
   let Tab2Icon: React.ComponentType<{ className?: string }>;
@@ -70,6 +81,10 @@ export function DashboardBottomBar({
     Tab2Icon = Activity;
     if (hasOrders) {
       tab2Href = `/dashboard/org/${orgId}/orders`;
+    } else if (hasFleet) {
+      tab2Href = `/dashboard/org/${orgId}/rentals`;
+      tab2Label = t("rentals");
+      Tab2Icon = CalendarClock;
     } else {
       tab2Href = `/dashboard/org/${orgId}/reservations`;
     }
@@ -99,17 +114,27 @@ export function DashboardBottomBar({
     Tab3Icon = Heart;
   } else if (hasBusiness) {
     // Commerce manage tab
-    if (hasServices) {
+    if (hasFleet) {
+      tab3Href = `/dashboard/org/${orgId}/fleet`;
+      tab3Label = t("fleet");
+      Tab3Icon = Car;
+    } else if (hasServices) {
       tab3Href = `/dashboard/org/${orgId}/services`;
+      tab3Label = "Manage";
+      Tab3Icon = Briefcase;
     } else if (hasMenu) {
       tab3Href = `/dashboard/org/${orgId}/menu`;
+      tab3Label = "Manage";
+      Tab3Icon = Briefcase;
     } else if (hasProducts) {
       tab3Href = `/dashboard/org/${orgId}/products`;
+      tab3Label = "Manage";
+      Tab3Icon = Briefcase;
     } else {
       tab3Href = `/dashboard/org/${orgId}/website`;
+      tab3Label = "Manage";
+      Tab3Icon = Briefcase;
     }
-    tab3Label = "Manage";
-    Tab3Icon = Briefcase;
   }
   // else: collapse to 3-tab (Tab 3 hidden)
 
@@ -121,7 +146,7 @@ export function DashboardBottomBar({
 
   const isTab2Active = (() => {
     if (hasEvents) return pathname.startsWith(`/dashboard/org/${orgId}/events`);
-    if (hasOrders || hasBookings) return pathname.includes("/orders") || pathname.includes("/reservations") || pathname.includes("/live");
+    if (hasOrders || hasBookings || hasFleet) return pathname.includes("/orders") || pathname.includes("/reservations") || pathname.includes("/rentals") || pathname.includes("/live");
     if (hasFundraisers) return pathname.startsWith(`/dashboard/org/${orgId}/fundraisers`);
     return pathname.includes("/website");
   })();
@@ -132,6 +157,7 @@ export function DashboardBottomBar({
     (() => {
       if (hasEvents && hasFundraisers) return pathname.startsWith(`/dashboard/org/${orgId}/fundraisers`);
       return (
+        pathname.includes("/fleet") ||
         pathname.includes("/services") ||
         pathname.includes("/menu") ||
         pathname.includes("/products") ||
@@ -176,7 +202,15 @@ export function DashboardBottomBar({
             aria-current={isTab2Active ? "page" : undefined}
             className={tabCls(isTab2Active)}
           >
-            <Tab2Icon className="h-5 w-5" />
+            <div className="relative">
+              <Tab2Icon className="h-5 w-5" />
+              {tab2Href.includes("/rentals") && pendingRentalsCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
             <span className="text-[11px] leading-none">{tab2Label}</span>
           </Link>
 
@@ -211,6 +245,7 @@ export function DashboardBottomBar({
         onClose={() => setMoreOpen(false)}
         orgId={orgId}
         capabilities={capabilities}
+        navItems={navItems}
       />
     </>
   );

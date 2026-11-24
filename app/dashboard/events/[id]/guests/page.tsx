@@ -113,6 +113,36 @@ export default async function EventGuestsPage({
     .order("row_label")
     .order("seat_number");
 
+  let initialWishes: Array<{
+    id: string;
+    eventId: string;
+    invitationId: string | null;
+    guestName: string;
+    message: string;
+    isVisible: boolean;
+    createdAt: string;
+  }> = [];
+
+  try {
+    const { data: wishesData } = await (admin as any)
+      .from("event_guestbook_entries")
+      .select("id, event_id, invitation_id, guest_name, message, is_visible, created_at")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: false });
+
+    if (wishesData) {
+      initialWishes = wishesData.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        invitationId: row.invitation_id,
+        guestName: row.guest_name,
+        message: row.message,
+        isVisible: row.is_visible,
+        createdAt: row.created_at,
+      }));
+    }
+  } catch {}
+
   const initialGuests: any[] = (invitations || []).map((inv) => {
     const ticket = ticketMap.get(inv.id) || null;
     const seat = seatMap.get(inv.id) || null;
@@ -149,6 +179,7 @@ export default async function EventGuestsPage({
       initialGuests={initialGuests}
       initialAvailableSeats={availableSeats || []}
       guestColumnsAvailable={guestColumnsAvailable}
+      initialWishes={initialWishes}
     />
   );
 }

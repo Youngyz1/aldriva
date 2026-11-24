@@ -18,6 +18,7 @@ import { ProductsSection } from "./modules/ProductsSection";
 import { EventsSection } from "./modules/EventsSection";
 import { FundraisingSection } from "./modules/FundraisingSection";
 import { ReviewsSection } from "./modules/ReviewsSection";
+import { RentalFleetSection } from "./modules/RentalFleetSection";
 
 export interface CapabilityOverviewSectionsProps {
   organizerId: string;
@@ -46,6 +47,7 @@ export function CapabilityOverviewSections({
   const hasProducts = caps.has("PRODUCTS");
   const hasEvents = caps.has("EVENTS");
   const hasFundraising = caps.has("DONATIONS") || (caps as Set<string>).has("FUNDRAISING");
+  const hasFleet = caps.has("VEHICLES") || caps.has("VEHICLE_RENTAL");
 
   const hasAnyOperationalModule =
     hasOrdersOrMenu ||
@@ -54,7 +56,8 @@ export function CapabilityOverviewSections({
     hasServices ||
     hasProducts ||
     hasEvents ||
-    hasFundraising;
+    hasFundraising ||
+    hasFleet;
 
   // Generic businesses always have access to reviews/social proof
   const hasReviews = caps.has("REVIEWS") || caps.has("CUSTOMERS") || !hasAnyOperationalModule;
@@ -91,8 +94,8 @@ export function CapabilityOverviewSections({
         </ModuleSection>
       )}
 
-      {/* 2. Bookings & Appointments */}
-      {hasBookings && (
+      {/* 2. Bookings & Appointments (hidden for Vehicle Rental to avoid duplicating rental bookings) */}
+      {hasBookings && !hasFleet && (
         <ModuleSection
           key="bookings"
           errorTitle="Could not load Bookings section"
@@ -154,6 +157,22 @@ export function CapabilityOverviewSections({
         >
           <FundraisingSection
             organizerId={organizerId}
+            canManage={canManage}
+          />
+        </ModuleSection>
+      )}
+
+      {/* 6b. Fleet & Vehicle Rental Operations */}
+      {hasFleet && (
+        <ModuleSection
+          key="rental_fleet"
+          errorTitle="Could not load Rental Fleet section"
+        >
+          <RentalFleetSection
+            organizerId={organizerId}
+            fromIso={fromIso}
+            toIso={toIso}
+            timezone={timezone}
             canManage={canManage}
           />
         </ModuleSection>

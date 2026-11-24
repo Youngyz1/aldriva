@@ -16,6 +16,7 @@ import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { assembleInvitationPageData, type InvitationPageSnapshot, type EventLiveFields } from "@/lib/types/invitation-page-snapshot";
+import { mergeInvitationTemplatePreviewData, applyEventMemories } from "@/lib/invitation-template-preview-data";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import { InvitationBlocksLayoutClient } from "@/components/invitation/blocks/InvitationBlocksLayoutClient";
 import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
@@ -35,7 +36,7 @@ interface Props {
 }
 
 const EMPTY_DRAFT: Record<string, unknown> = {
-  template_id: "",
+  template_id: "minimalism-dark-blue",
   locale: "en",
 };
 
@@ -109,9 +110,9 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
   const pageData = useMemo(() => {
     const draft = { ...(payload?.draft ?? initialDraft ?? EMPTY_DRAFT) };
     const templateId =
-      (payload?.templateId as string) || (draft.template_id as string) || "";
+      (payload?.templateId as string) || (draft.template_id as string) || "minimalism-dark-blue";
     draft.locale = payload?.locale || (draft.locale as "en" | "fr") || "en";
-    const savedTemplateId = payload?.savedTemplateId || (draft.template_id as string) || "";
+    const savedTemplateId = payload?.savedTemplateId || (draft.template_id as string) || "minimalism-dark-blue";
     const snapshot = { ...draft, template_id: templateId, locale: draft.locale } as unknown as InvitationPageSnapshot;
     const liveEvent: EventLiveFields = {
       id: String(event.id ?? ""),
@@ -125,21 +126,33 @@ export function LivePreviewFrame({ event, eventId, embedded, initialDraft }: Pro
       latitude: typeof event.latitude === "number" ? event.latitude : null,
       longitude: typeof event.longitude === "number" ? event.longitude : null,
     };
-    const active = assembleInvitationPageData(
-      snapshot,
-      liveEvent,
-      { ...SAMPLE_PREVIEW_GUEST },
-      { ...SAMPLE_PREVIEW_TICKET },
-      null
+    const active = mergeInvitationTemplatePreviewData(
+      templateId,
+      applyEventMemories(
+        assembleInvitationPageData(
+          snapshot,
+          liveEvent,
+          { ...SAMPLE_PREVIEW_GUEST },
+          { ...SAMPLE_PREVIEW_TICKET },
+          null
+        ),
+        event
+      )
     );
     const saved =
       payload?.candidatePreview && savedTemplateId !== templateId
-        ? assembleInvitationPageData(
-            { ...snapshot, template_id: savedTemplateId },
-            liveEvent,
-            { ...SAMPLE_PREVIEW_GUEST },
-            { ...SAMPLE_PREVIEW_TICKET },
-            null
+        ? mergeInvitationTemplatePreviewData(
+            savedTemplateId,
+            applyEventMemories(
+              assembleInvitationPageData(
+                { ...snapshot, template_id: savedTemplateId },
+                liveEvent,
+                { ...SAMPLE_PREVIEW_GUEST },
+                { ...SAMPLE_PREVIEW_TICKET },
+                null
+              ),
+              event
+            )
           )
         : active;
     return {

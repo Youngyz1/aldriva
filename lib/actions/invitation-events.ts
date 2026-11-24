@@ -18,7 +18,9 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkInvitationPageAccess } from "@/lib/actions/invitation-page";
+import { checkInvitationPageAccess, saveInvitationPageDraft } from "@/lib/actions/invitation-page";
+import { InvitationPageDraftSchema, type InvitationPageDraftInput } from "@/lib/invitation-page-schema";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import {
   EVENT_KIND_INVITATION,
   EVENT_KIND_PUBLIC,
@@ -26,6 +28,7 @@ import {
   buildInvitationDraftSlug,
 } from "@/lib/invitation-events";
 import { isUniqueViolation } from "@/lib/event-slug";
+import { shouldSkipPromotion, resolvePromotionTemplateId, isPromotableTitle } from "@/lib/invitation-promotion-core";
 
 export interface InvitationDraftResult {
   ok: boolean;
@@ -204,4 +207,139 @@ export async function convertToInvitationEvent(eventId: string): Promise<Convert
     .eq("kind", EVENT_KIND_PUBLIC);
   if (error) return { ok: false, error: "Could not convert this event." };
   return { ok: true };
+}
+
+/**
+ * Phase 6: owner + kind check for an eventId, independent of the richer
+ * manager/organizer-role check in checkInvitationPageAccess — used by the
+ * client promotion orchestrator to verify a cached "already promoted"
+ * localStorage marker still points at a real row this user actually owns
+ * before trusting it (handoff-design.md v3 §3 step "a").
+ */
+export async function confirmOwnedInvitationEvent(eventId: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user || !eventId) return false;
+  const admin = createSupabaseAdmin();
+  const { data } = await admin
+    .from("events")
+    .select("user_id, kind")
+    .eq("id", eventId)
+    .maybeSingle();
+  return Boolean(data && data.user_id === user.id && data.kind === EVENT_KIND_INVITATION);
+}
+
+export interface PromoteLocalDraftInput {
+  draftId: string;
+  templateId: string;
+  title: string;
+  eventDate: string | null;
+  venue: string | null;
+  address: string | null;
+  city: string | null;
+  builderDraft: Record<string, unknown>;
+}
+
+export interface PromoteLocalDraftResult {
+  ok: boolean;
+  eventId?: string;
+  skipped?: boolean;
+  /** True when the basics step was intentionally skipped (blank/placeholder title) rather than failed. */
+  basicsSkipped?: boolean;
+  step?: "auth" | "event" | "basics" | "draft";
+  error?: string;
+}
+
+/**
+ * Phase 6: promotes a local (anonymous) invitation draft into a real event,
+ * owned by the now-authenticated caller. Owner is always this server's own
+ * supabase.auth.getUser() result (via getCurrentUser(), the same
+ * React-cache()-memoized server call every other action in this file
+ * already uses) — any client-supplied user id is ignored, there isn't even
+ * a parameter for one.
+ *
+ * Reuses createInvitationDraft / updateInvitationEventFields /
+ * saveInvitationPageDraft unchanged — this function only orchestrates them
+ * and adds the skip-guard + server-side template_id re-resolution.
+ */
+export async function promoteLocalInvitationDraftServer(
+  input: PromoteLocalDraftInput
+): Promise<PromoteLocalDraftResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, step: "auth", error: "Sign in to publish your invitation." };
+  if (!isValidDraftKey(input.draftId)) return { ok: false, step: "auth", error: "Invalid draft id." };
+
+  // 1. Sanitize and validate draft content BEFORE creating any event in the database.
+  // This guarantees that validation failures never leave a half-created or orphaned event.
+  const resolvedTemplateId = resolvePromotionTemplateId(input.templateId);
+  const sanitizedDraft = sanitizeDraftForTemplate(input.builderDraft, resolvedTemplateId);
+  const draftInput = {
+    ...sanitizedDraft,
+    template_id: resolvedTemplateId,
+  } as InvitationPageDraftInput;
+
+  const validation = InvitationPageDraftSchema.safeParse(draftInput);
+  if (!validation.success) {
+    const readableMessages = validation.error.issues.map((i) => {
+      if (i.path.includes("effects")) return "Selected template does not support one or more chosen animation effects.";
+      if (i.path.includes("layout_blocks")) return "Selected template does not support one or more content sections.";
+      if (i.path.includes("gallery")) return "All gallery photos must be uploaded before publishing.";
+      return i.message;
+    });
+    const uniqueError = Array.from(new Set(readableMessages)).join(" ");
+    return { ok: false, step: "draft", error: uniqueError || "Invitation draft validation failed." };
+  }
+
+  const admin = createSupabaseAdmin();
+  const slug = buildInvitationDraftSlug(input.draftId);
+
+  // 2. Idempotent check / reuse on retry: if an event was already created for this
+  // draftId by this user (e.g. earlier failed save attempt or double click), reuse it!
+  let eventId: string;
+  const { data: existingEvent } = await admin
+    .from("events")
+    .select("id")
+    .eq("slug", slug)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingEvent) {
+    const { data: existingPage } = await admin
+      .from("event_invitation_pages")
+      .select("template_id")
+      .eq("event_id", existingEvent.id)
+      .maybeSingle();
+    if (shouldSkipPromotion(existingPage)) {
+      return { ok: true, eventId: existingEvent.id, skipped: true };
+    }
+    // Content save was incomplete from a prior attempt: reuse this event row idempotently.
+    eventId = existingEvent.id;
+  } else {
+    const created = await createInvitationDraft(input.draftId);
+    if (!created.ok || !created.eventId) {
+      return { ok: false, step: "event", error: created.error ?? "Could not create the invitation." };
+    }
+    eventId = created.eventId;
+  }
+
+  let basicsSkipped = false;
+  if (isPromotableTitle(input.title)) {
+    const basics = await updateInvitationEventFields(eventId, {
+      title: input.title,
+      event_date: input.eventDate,
+      venue: input.venue,
+      city: input.city,
+    });
+    if (!basics.ok) {
+      return { ok: false, step: "basics", error: basics.error ?? "Could not save event details." };
+    }
+  } else {
+    basicsSkipped = true;
+  }
+
+  const saved = await saveInvitationPageDraft(eventId, draftInput);
+  if (!saved.ok) {
+    return { ok: false, step: "draft", error: saved.error ?? "Could not save invitation content." };
+  }
+
+  return { ok: true, eventId, skipped: false, basicsSkipped };
 }

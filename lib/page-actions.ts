@@ -6,7 +6,8 @@ export type PageActionPayload =
       guestNames?: string;
       message?: string;
     }
-  | { actionType: "BUSINESS_LEAD"; name: string; email: string; message: string };
+  | { actionType: "BUSINESS_LEAD"; name: string; email: string; message: string }
+  | { actionType: "GUESTBOOK_WISH"; name: string; message: string };
 
 export function buildRsvpSubmissionPayload(
   response: "accepted" | "declined",

@@ -169,6 +169,9 @@ const EvergreenEnvelopeTemplateDataSchema = z.object({
   story_photo_two_url: CmsMediaPhotoSchema,
   closing_photo_url: CmsMediaPhotoSchema,
   rsvp_photo_url: CmsMediaPhotoSchema,
+  show_gift_box: z.boolean().optional(),
+  show_guestbook: z.boolean().optional(),
+  mf_show_memories: z.boolean().optional(),
   photo_focal_points: z.object({
     envelope_photo_url: FocalPointSchema.optional(),
     envelope_photo_two_url: FocalPointSchema.optional(),
@@ -180,7 +183,11 @@ const EvergreenEnvelopeTemplateDataSchema = z.object({
     closing_photo_url: FocalPointSchema.optional(),
     rsvp_photo_url: FocalPointSchema.optional(),
   }).strict().nullable().optional(),
-}).strict();
+  // Manifest-driven templates (e.g. minimalism-dark-blue) store their own
+  // namespaced fields in template_data via the manifest system. Passthrough
+  // preserves those keys while keeping known evergreen fields validated.
+  // Non-evergreen manifests should namespace keys (mf_*).
+}).passthrough();
 
 /**
  * Versioned JSON configuration accepted for invitation pages. The generic
