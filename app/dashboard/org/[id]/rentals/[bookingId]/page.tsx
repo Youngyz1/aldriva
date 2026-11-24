@@ -32,6 +32,7 @@ import { StaffRentalReceiptPanel } from "@/components/rental/StaffRentalReceiptP
 import { FinancialsCard, type FinancialsPaymentRow, type FinancialsPaymentStatus } from "@/components/dashboard/rentals/FinancialsCard";
 import { CustomerCard } from "@/components/dashboard/rentals/CustomerCard";
 import { HandoverPanel } from "@/components/dashboard/rentals/HandoverPanel";
+import BookingStaffPanel from "@/components/dashboard/rentals/BookingStaffPanel";
 import { getRentalInspections } from "@/lib/actions/rental-handover";
 
 const ALLOWED_ROLES: EntityRole[] = [
@@ -338,6 +339,16 @@ export default async function BookingDetailPage({
             />
           </div>
         </section>
+
+        {/* Staff on this booking */}
+        {canManage && (
+          <section className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" /> Staff on this booking
+            </h2>
+            <BookingStaffPanel organizerId={organizerId} bookingId={bookingId} />
+          </section>
+        )}
 
         {/* Locations */}
         {(pickupBranch || returnBranch) && (
