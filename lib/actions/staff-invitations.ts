@@ -6,6 +6,11 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { mapStaffError, NOT_FOUND_OR_DENIED } from "@/lib/staff/errors";
 import { validateInviteContact } from "@/lib/staff/invitation-contact";
+import { Resend } from "resend";
+import { BRAND } from "@/config/branding";
+import { getSiteUrl } from "@/lib/site-url";
+import { composeInviteLink } from "@/lib/staff/invitation-compose";
+import { buildStaffInvitationEmail } from "@/lib/staff/invitation-email";
 
 export type ActionResult<T> = { success: true; data: T } | { success: false; error: string; code: string };
 
@@ -14,6 +19,7 @@ export type CreateStaffInvitationInput = {
   phone?: string | null;
   channel?: string | null;
   role_id?: string | null;
+  sendEmail?: boolean | null;
 };
 
 export type StaffInvitationCreated = {
@@ -23,6 +29,8 @@ export type StaffInvitationCreated = {
   channel: string;
   email: string | null;
   phone: string | null;
+  emailed?: boolean;
+  emailError?: string | null;
 };
 
 // Creates a pending invitation for an EXISTING staff member who has no login yet.
@@ -64,7 +72,7 @@ export async function createStaffInvitation(
   const contact = validateInviteContact({
     email: input.email || staff.email,
     phone: input.phone || staff.phone,
-    channel: input.channel,
+    channel: input.sendEmail ? "email" : input.channel,
   });
   if (!contact.ok) return { success: false, error: contact.error.message, code: contact.error.code };
 
@@ -126,6 +134,39 @@ export async function createStaffInvitation(
     return { success: false, error: mapped.message, code: mapped.code };
   }
 
+  // Optional email. A failed send never revokes the invitation: the caller
+  // always gets the link back and can share it by hand.
+  let emailed = false;
+  let emailError: string | null = null;
+  if (input.sendEmail) {
+    const to = contact.value.email;
+    const link = composeInviteLink(getSiteUrl(), token);
+    if (!process.env.RESEND_API_KEY) {
+      emailError = "not_configured";
+    } else if (!to || !link) {
+      emailError = "invalid_recipient";
+    } else {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const built = buildStaffInvitationEmail({ brandName: BRAND.name, link });
+        const { error: sendErr } = await resend.emails.send({
+          from: `${BRAND.name} <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`,
+          to,
+          subject: built.subject,
+          html: built.html,
+        });
+        if (sendErr) {
+          emailError = sendErr.name === "validation_error" ? "invalid_recipient" : "provider_error";
+          console.warn("[staff-invitations] Resend error:", { name: sendErr.name });
+        } else {
+          emailed = true;
+        }
+      } catch {
+        emailError = "provider_error";
+      }
+    }
+  }
+
   revalidatePath("/dashboard/org/[id]/staff", "page");
   return {
     success: true,
@@ -136,6 +177,8 @@ export async function createStaffInvitation(
       channel: (data.delivery_channel as string | null) ?? contact.value.channel,
       email: (data.email as string | null) ?? null,
       phone: (data.phone as string | null) ?? null,
+      emailed,
+      emailError,
     },
   };
 }

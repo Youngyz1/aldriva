@@ -31,6 +31,8 @@ export default function StaffInvitePanel({
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);
+  const [emailNote, setEmailNote] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingStaffInvitation[]>([]);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -61,10 +63,12 @@ export default function StaffInvitePanel({
   async function handleCreate() {
     setError(null);
     setCopied(false);
+    setEmailNote(null);
     setBusy(true);
     const res = await createStaffInvitation(businessId, staffMemberId, {
       email,
       channel: "link",
+      sendEmail,
       role_id: roleId || null,
     });
     setBusy(false);
@@ -78,6 +82,15 @@ export default function StaffInvitePanel({
       return;
     }
     setLink(composed);
+    if (sendEmail) {
+      if (res.data.emailed) {
+        setEmailNote("Email sent to " + email.trim() + ".");
+      } else if (res.data.emailError) {
+        setEmailNote(
+          "The email could not be sent (" + res.data.emailError + "). Copy the link below and send it yourself."
+        );
+      }
+    }
     void loadPending();
   }
 
@@ -100,6 +113,7 @@ export default function StaffInvitePanel({
 
       {link ? (
         <div className="space-y-2">
+          {emailNote && <p className="text-xs font-semibold text-zinc-700">{emailNote}</p>}
           <p className="text-xs font-semibold text-zinc-700">Copy this link now. It is shown only once.</p>
           <input readOnly value={link} className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs" />
           <div className="flex gap-2">
@@ -132,6 +146,15 @@ export default function StaffInvitePanel({
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-2 text-xs text-zinc-600">
+            <input
+              type="checkbox"
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.target.checked)}
+              disabled={!email.trim()}
+            />
+            Also email this link to the person
+          </label>
           <button
             type="button"
             onClick={handleCreate}
