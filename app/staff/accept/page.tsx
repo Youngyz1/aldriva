@@ -11,7 +11,15 @@ import {
   parseInviteFragment,
 } from "@/lib/staff/invitation-link";
 
-type ScreenState = "checking" | "ready" | "accepting" | "invalid" | "failed" | "network" | "accepted";
+type ScreenState =
+  | "checking"
+  | "ready"
+  | "accepting"
+  | "unconfirmed"
+  | "invalid"
+  | "failed"
+  | "network"
+  | "accepted";
 
 // The token is read from the URL fragment, kept in sessionStorage across the
 // login round trip, and never logged or shown. Any failure shows ONE message:
@@ -20,6 +28,7 @@ export default function StaffAcceptPage() {
   const router = useRouter();
   const [state, setState] = useState<ScreenState>("checking");
   const tokenRef = useRef<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const started = useRef(false);
 
   function clearStoredToken() {
@@ -64,10 +73,36 @@ export default function StaffAcceptPage() {
           router.replace(buildInviteLoginPath());
           return;
         }
-        setState("ready");
+        setAccountEmail(user.email ?? null);
+        setState(user.email_confirmed_at || user.phone_confirmed_at ? "ready" : "unconfirmed");
       })
       .catch(() => setState("network"));
   }, [router]);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      if (!user) return;
+      setAccountEmail(user.email ?? null);
+      setState((cur) =>
+        cur === "ready" || cur === "unconfirmed"
+          ? user.email_confirmed_at || user.phone_confirmed_at
+            ? "ready"
+            : "unconfirmed"
+          : cur
+      );
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  async function handleSwitchAccount() {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore: the login page handles a lingering session */
+    }
+    router.replace(buildInviteLoginPath());
+  }
 
   async function handleAccept() {
     const token = tokenRef.current;
@@ -107,6 +142,7 @@ export default function StaffAcceptPage() {
           <>
             <p className="text-sm text-zinc-600">
               You have been invited to join a team. Accept to link this account to your staff profile.
+              {accountEmail ? " You are signed in as " + accountEmail + "." : ""}
             </p>
             <button
               type="button"
@@ -115,6 +151,32 @@ export default function StaffAcceptPage() {
               className="rounded-full bg-orange-600 px-6 py-3 text-sm font-bold text-white disabled:opacity-60"
             >
               {state === "accepting" ? "Accepting..." : "Accept invitation"}
+            </button>
+            <div>
+              <button
+                type="button"
+                onClick={handleSwitchAccount}
+                disabled={state === "accepting"}
+                className="text-sm font-bold text-orange-600 underline disabled:opacity-60"
+              >
+                Use a different account
+              </button>
+            </div>
+          </>
+        )}
+
+        {state === "unconfirmed" && (
+          <>
+            <p className="text-sm text-zinc-600">
+              Confirm your email address first. Open the confirmation email sent to{" "}
+              {accountEmail ?? "your address"}, then open your invitation link again.
+            </p>
+            <button
+              type="button"
+              onClick={handleSwitchAccount}
+              className="text-sm font-bold text-orange-600 underline"
+            >
+              Use a different account
             </button>
           </>
         )}
@@ -127,8 +189,11 @@ export default function StaffAcceptPage() {
 
         {state === "failed" && (
           <p className="text-sm text-red-600">
-            This invitation isn't valid for this account, or it has expired. Sign in with the account the
-            invitation was sent to, or ask for a new invitation.
+            This invitation could not be accepted. It may have expired or already been used, you may be
+            signed in with a different account than the one invited, your email address may not be
+            confirmed yet, or this account may already be linked to a staff profile in this business.
+            Open your invitation link again while signed in with the invited account, or ask for a new
+            invitation.
           </p>
         )}
 
