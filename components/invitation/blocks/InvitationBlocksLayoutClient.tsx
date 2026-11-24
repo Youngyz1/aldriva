@@ -96,7 +96,7 @@ export function InvitationBlocksLayoutClient({
           );
         }}
       >
-        {resolvedTemplateId === "evergreen-envelope" && block.type === "music"
+        {block.type === "action_portal" || (resolvedTemplateId === "evergreen-envelope" && block.type === "music")
           ? content
           : <InvitationScrollReveal enabled={scrollRevealEnabled} durationMs={scrollRevealDurationMs}>{content}</InvitationScrollReveal>}
       </div>
@@ -123,6 +123,7 @@ export function InvitationBlocksLayoutClient({
           isEditMode={isEditMode}
           wrapperClassName={wrapperClassName}
           hasAction={Boolean(onAction)}
+          onAction={onAction}
         >
           {renderedBlocks}
         </MinimalismDarkBluePageTemplate>
@@ -139,6 +140,7 @@ export function InvitationBlocksLayoutClient({
           isEditMode={isEditMode}
           wrapperClassName={wrapperClassName}
           hasAction={Boolean(onAction)}
+          onAction={onAction}
         >
           {renderedBlocks}
         </BurgundyGoldPageTemplate>

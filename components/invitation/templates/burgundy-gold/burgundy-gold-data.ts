@@ -307,7 +307,9 @@ export function burgundyVenue(data: InvitationPageData): BurgundyVenue | null {
   const address = [data.address, data.city]
     .map((part) => part?.trim())
     .filter(Boolean)
-    .join(", ") || null;
+    .join(", ")
+    || data.venues?.find((venue) => venue.address?.trim())?.address?.trim()
+    || null;
   const query = [name, address].filter(Boolean).join(", ");
   const hasCoordinates = lat !== null && lng !== null;
   if (!hasCoordinates && !query) return null;

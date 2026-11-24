@@ -178,7 +178,10 @@ export async function getInvitationByToken(token: string) {
         event_date,
         end_date,
         venue,
+        street_address,
         city,
+        latitude,
+        longitude,
         banner,
         invitation_template_id
       )
@@ -890,4 +893,54 @@ export async function restoreInvitation(params: RestoreInvitationParams) {
     .eq("invitation_id", params.invitationId);
 
   return { success: true, restored_status: restoredStatus };
+}
+
+export interface SubmitGuestbookWishParams {
+  token: string;
+  name: string;
+  message: string;
+}
+
+export async function submitGuestbookWish(params: SubmitGuestbookWishParams) {
+  const { token, name, message } = params;
+  if (!token || typeof token !== "string" || token.length !== 64) {
+    throw new Error("Invalid invitation token.");
+  }
+
+  const trimmedName = name?.trim();
+  const trimmedMessage = message?.trim();
+  if (!trimmedName) throw new Error("Name is required.");
+  if (!trimmedMessage) throw new Error("Message is required.");
+  if (trimmedMessage.length > 500) throw new Error("Message cannot exceed 500 characters.");
+
+  const admin = createSupabaseAdmin();
+  const { data: invitation, error: invErr } = await admin
+    .from("event_invitations")
+    .select("id, guest_name, rsvp_message")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (invErr || !invitation) {
+    throw new InvitationNotFoundError();
+  }
+
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    rsvp_message: trimmedMessage,
+    updated_at: now,
+  };
+  if (!invitation.guest_name && trimmedName) {
+    updatePayload.guest_name = trimmedName;
+  }
+
+  const { error: updateErr } = await admin
+    .from("event_invitations")
+    .update(updatePayload)
+    .eq("id", invitation.id);
+
+  if (updateErr) {
+    throw new Error(`Failed to save guestbook wish: ${updateErr.message}`);
+  }
+
+  return { success: true, timestamp: now };
 }

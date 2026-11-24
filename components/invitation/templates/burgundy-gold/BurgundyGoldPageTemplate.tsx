@@ -3,6 +3,7 @@
 import { Children, Fragment, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Alex_Brush, Cormorant_Garamond, EB_Garamond } from "next/font/google";
+import type { PageActionHandler } from "@/lib/page-actions";
 import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import type { InvitationPageData } from "@/types/invitation-template";
 import { formatLocalizedEventDate } from "@/lib/invitation-i18n";
@@ -12,7 +13,7 @@ import {
 } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-art";
 import { BurgundyGoldSections } from "@/components/invitation/templates/burgundy-gold/BurgundyGoldSections";
 import { burgundyGuestGreetingName, burgundyHeroNames } from "@/components/invitation/templates/burgundy-gold/burgundy-gold-data";
-import { formatInvitationTime } from "@/lib/invitation-text-format";
+import { formatInvitationTime, buildVenueMapUrl } from "@/lib/invitation-text-format";
 
 const BURGUNDY = "#4a0d1c";
 const BURGUNDY_DEEP = "#2b0710";
@@ -47,6 +48,7 @@ interface BurgundyGoldPageProps {
   isEditMode: boolean;
   wrapperClassName?: string;
   hasAction?: boolean;
+  onAction?: PageActionHandler;
 }
 
 export interface BurgundyDateParts {
@@ -160,6 +162,7 @@ export function BurgundyGoldPageTemplate({
   isEditMode,
   wrapperClassName,
   hasAction,
+  onAction,
 }: BurgundyGoldPageProps) {
   const t = useTranslations("Events");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -257,6 +260,7 @@ export function BurgundyGoldPageTemplate({
             className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center overflow-hidden px-5 py-12"
           >
             {openingPhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={openingPhoto}
                 alt=""
@@ -437,11 +441,25 @@ export function BurgundyGoldPageTemplate({
                       const parts = index === 0 ? ceremonyParts : receptionParts;
                       const label = venue.label?.trim()
                         || (index === 0 ? t("burgundyCeremonyLabel") : t("burgundyReceptionLabel"));
+                      const venueAddress = venue.address?.trim() || flatAddress;
+                      const mapUrl = buildVenueMapUrl(venueAddress, venue.name, { lat: data.latitude, lng: data.longitude });
                       return (
                         <div key={`${venue.label ?? "venue"}-${index}`} className="border-t pt-6" style={{ borderColor: `${GOLD}40` }}>
                           <p className="uppercase tracking-[0.24em]" style={{ color: GOLD_BRIGHT, fontSize: 13 }}>{label}</p>
                           {venue.name?.trim() ? (
-                            <p className="mt-2 text-base font-medium leading-6" style={{ color: CREAM }}>{venue.name}</p>
+                            mapUrl ? (
+                              <a
+                                href={mapUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex min-h-[44px] items-center text-base font-medium leading-6 underline underline-offset-4 decoration-[1px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                                style={{ color: CREAM, textDecorationColor: `${GOLD_BRIGHT}88`, outlineColor: GOLD_BRIGHT }}
+                              >
+                                {venue.name}
+                              </a>
+                            ) : (
+                              <p className="mt-2 text-base font-medium leading-6" style={{ color: CREAM }}>{venue.name}</p>
+                            )
                           ) : null}
                           {venueTime ? (
                             <p className="mt-2 text-sm tracking-[0.14em]" style={{ color: `${GOLD_BRIGHT}dd` }}>{venueTime}</p>
@@ -462,6 +480,7 @@ export function BurgundyGoldPageTemplate({
               sectionSettings={sectionSettings}
               mode={mode}
               hasAction={hasAction}
+              onAction={onAction}
               actionPortal={actionPortal.length ? <>{actionPortal}</> : null}
             />
           </main>

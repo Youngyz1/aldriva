@@ -9,6 +9,7 @@ import { IconPhoto, IconVolume2, IconVolumeOff } from "@tabler/icons-react";
 import type { InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import type { InvitationPageData } from "@/types/invitation-template";
 import type { MemoryGalleryPage } from "@/lib/memories/gallery-types";
+import type { PageActionHandler } from "@/lib/page-actions";
 import { formatLocalizedEventDate, getInvitationDictionary } from "@/lib/invitation-i18n";
 import { downloadIcsFile, generateGoogleCalendarUrl, type CalendarEventPayload } from "@/lib/event-time";
 import { buildVenueMapSearchUrl } from "@/lib/evergreen-map";
@@ -43,6 +44,7 @@ interface MinimalismDarkBluePageProps {
   isEditMode: boolean;
   wrapperClassName?: string;
   hasAction?: boolean;
+  onAction?: PageActionHandler;
 }
 
 const ASSET_BASE = "/images/invitations/minimalism-dark-blue";
@@ -252,6 +254,7 @@ export function MinimalismDarkBluePageTemplate({
   isEditMode,
   wrapperClassName,
   hasAction,
+  onAction,
 }: MinimalismDarkBluePageProps) {
   const t = useTranslations("Events");
   const groups = useMemo(() => groupRenderedBlocks(children), [children]);
@@ -461,13 +464,58 @@ export function MinimalismDarkBluePageTemplate({
     },
     [data.memoriesToken]
   );
-  // Fake guest messages must never appear on a real guest's own invitation (hasAction)
-  // or a read-only shared link tied to a real event — only on non-interactive showcases
-  // (template demo, builder preview) where there is no real guest data to show instead.
+  // Fake guest messages only appear when there are no real wishes or on non-interactive showcases.
   const showSampleWishes = !hasAction && mode !== "shared";
   const sampleWishes = showSampleWishes
     ? (data.locale === "fr" ? MINIMALISM_SAMPLE_WISHES_FR : MINIMALISM_SAMPLE_WISHES_EN)
     : [];
+
+  const [wishes, setWishes] = useState<{ name: string; date?: string; text: string }[]>([]);
+  const initialWishName = data.guest?.name && !data.guest.isSample && !data.guest.isPlaceholder ? data.guest.name : "";
+  const [wishName, setWishName] = useState(initialWishName);
+  const [wishText, setWishText] = useState("");
+  const [wishBusy, setWishBusy] = useState(false);
+  const [wishError, setWishError] = useState("");
+  const [wishSuccess, setWishSuccess] = useState(false);
+  const wishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
+  }, []);
+
+  const canWriteGuestbook = mode !== "shared";
+  const feed = [...wishes, ...sampleWishes];
+
+  const handleSendWish = async () => {
+    const trimmedName = wishName.trim();
+    const trimmedText = wishText.trim();
+    if (!trimmedName || !trimmedText) {
+      setWishError(data.locale === "fr" ? "Veuillez entrer votre nom et un message." : "Please enter your name and a wish.");
+      return;
+    }
+    if (trimmedText.length > 500) {
+      setWishError(data.locale === "fr" ? "Le message ne doit pas dépasser 500 caractères." : "Message cannot exceed 500 characters.");
+      return;
+    }
+
+    setWishBusy(true);
+    setWishError("");
+
+    try {
+      if (onAction) {
+        await onAction({ actionType: "GUESTBOOK_WISH", name: trimmedName, message: trimmedText });
+      }
+      const formattedDate = new Intl.DateTimeFormat(localeCode, { month: "short", day: "numeric", year: "numeric" }).format(new Date());
+      setWishes((prev) => [{ name: trimmedName, date: formattedDate, text: trimmedText }, ...prev]);
+      setWishText("");
+      setWishSuccess(true);
+      if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
+      wishTimerRef.current = setTimeout(() => setWishSuccess(false), 4000);
+    } catch {
+      setWishError(data.locale === "fr" ? "Impossible d'envoyer votre message. Veuillez réessayer." : "Could not send your wish. Please try again.");
+    } finally {
+      setWishBusy(false);
+    }
+  };
 
   return (
     <InvitationPageCanvas layout={layout} mode={mode} isEditMode={isEditMode} wrapperClassName={wrapperClassName}>
@@ -574,7 +622,19 @@ export function MinimalismDarkBluePageTemplate({
                           <p className="text-sm uppercase tracking-[.2em] opacity-80">{venue.label}</p>
                         ) : null}
                         {venue.name?.trim() ? (
-                          <p className="mt-1 text-base font-semibold">{venue.name}</p>
+                          mapUrl ? (
+                            <a
+                              href={mapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 inline-flex min-h-[44px] items-center text-base font-semibold underline underline-offset-4 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                              style={{ color: CREAM_TEXT, outlineColor: CREAM_TEXT }}
+                            >
+                              {venue.name}
+                            </a>
+                          ) : (
+                            <p className="mt-1 text-base font-semibold">{venue.name}</p>
+                          )
                         ) : null}
                         {data.city?.trim() && !isMapUrlOrCoordinate(data.city) && data.city.trim().toLowerCase() !== venue.name?.toLowerCase() ? (
                           <p className="mt-1 text-sm leading-5 opacity-80">{data.city.trim()}</p>
@@ -791,29 +851,52 @@ export function MinimalismDarkBluePageTemplate({
             </section>
           ) : null}
 
-          {/* 9. Guestbook — persistence needs a future migration (spec §4); fake wishes only on non-interactive showcases (demo/builder preview), never on a real guest's page or a shared link, disabled form, no pencil/magic button (spec §3.9) */}
+          {/* 9. Guestbook */}
           {showGuestbook ? (
-            <section className="px-5 py-10 text-center sm:px-8 sm:py-14">
+            <section className="px-5 py-10 text-center sm:px-8 sm:py-14" data-guestbook-section="true">
               <div className={`${CONTENT_WIDTH} rounded-xl border bg-white px-6 py-8 text-left`} style={{ borderColor: `${NAVY}1a` }}>
                 <h2 className="text-center text-base font-bold uppercase tracking-[.25em]" style={{ color: NAVY }}>{t("minimalismGuestbookHeading")}</h2>
                 <div className="mt-6 flex flex-col gap-3">
+                  <label className="sr-only" htmlFor="minimalism-guestbook-name">{t("minimalismGuestbookNamePlaceholder")}</label>
                   <input
+                    id="minimalism-guestbook-name"
                     type="text"
-                    disabled={hasAction || mode === "shared"}
+                    value={wishName}
+                    onChange={(e) => { setWishName(e.target.value); if (wishError) setWishError(""); }}
+                    disabled={!canWriteGuestbook || wishBusy}
                     placeholder={t("minimalismGuestbookNamePlaceholder")}
+                    data-guestbook-field="name"
+                    maxLength={100}
                     className="rounded border px-3 py-2 text-base disabled:opacity-50"
                     style={{ borderColor: `${NAVY}33`, color: NAVY }}
                   />
+                  <label className="sr-only" htmlFor="minimalism-guestbook-wish">{t("minimalismGuestbookWishPlaceholder")}</label>
                   <textarea
-                    disabled={hasAction || mode === "shared"}
+                    id="minimalism-guestbook-wish"
+                    rows={4}
+                    value={wishText}
+                    onChange={(e) => { setWishText(e.target.value); if (wishError) setWishError(""); }}
+                    disabled={!canWriteGuestbook || wishBusy}
                     placeholder={t("minimalismGuestbookWishPlaceholder")}
+                    data-guestbook-field="message"
+                    maxLength={500}
                     className="rounded border px-3 py-2 text-base disabled:opacity-50"
                     style={{ borderColor: `${NAVY}33`, color: NAVY }}
                   />
+                  {wishError ? (
+                    <p className="text-xs text-red-600" role="alert">{wishError}</p>
+                  ) : null}
+                  {wishSuccess ? (
+                    <p className="text-xs text-emerald-600 font-medium" role="status">
+                      {data.locale === "fr" ? "Merci pour votre message !" : "Thank you for your wish!"}
+                    </p>
+                  ) : null}
                   <button
                     type="button"
-                    disabled
-                    className="self-end rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[.1em] text-white disabled:opacity-50"
+                    onClick={handleSendWish}
+                    disabled={!canWriteGuestbook || wishBusy || !wishName.trim() || !wishText.trim()}
+                    data-guestbook-submit="true"
+                    className="self-end min-h-[44px] rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[.1em] text-white disabled:opacity-50 transition-opacity hover:opacity-90"
                     style={{ backgroundColor: NAVY }}
                   >
                     {t("minimalismGuestbookSubmit")}
@@ -822,14 +905,14 @@ export function MinimalismDarkBluePageTemplate({
                     <p className="text-xs opacity-60" style={{ color: NAVY }}>{t("minimalismGuestbookPreviewNote")}</p>
                   ) : null}
                 </div>
-                {sampleWishes.length ? (
-                  <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain rounded border" style={{ borderColor: `${NAVY}1a` }}>
+                {feed.length ? (
+                  <div className="mt-6 max-h-[13rem] overflow-y-auto overscroll-contain rounded border" style={{ borderColor: `${NAVY}1a` }} data-guestbook-feed="true">
                     <ul className="flex flex-col gap-3 p-2 text-sm">
-                      {sampleWishes.map((wish) => (
-                        <li key={wish.name} className="rounded border px-3 py-2" style={{ borderColor: `${NAVY}1a` }}>
+                      {feed.map((wish, index) => (
+                        <li key={`${wish.name}-${index}`} className="rounded border px-3 py-2" style={{ borderColor: `${NAVY}1a` }}>
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="font-semibold" style={{ color: NAVY }}>{wish.name}</p>
-                            <p className="shrink-0 text-xs opacity-60" style={{ color: NAVY }}>{wish.date}</p>
+                            {wish.date ? <p className="shrink-0 text-xs opacity-60" style={{ color: NAVY }}>{wish.date}</p> : null}
                           </div>
                           <p className="mt-1" style={{ color: NAVY }}>{wish.text}</p>
                         </li>
@@ -837,7 +920,9 @@ export function MinimalismDarkBluePageTemplate({
                     </ul>
                   </div>
                 ) : (
-                  <p className="mt-4 text-center text-sm opacity-70" style={{ color: NAVY }}>{t("minimalismGuestbookUnavailable")}</p>
+                  <p className="mt-4 text-center text-sm opacity-70" style={{ color: NAVY }}>
+                    {data.locale === "fr" ? "Soyez le premier à laisser un message aux mariés !" : "Be the first to leave a wish for the couple!"}
+                  </p>
                 )}
               </div>
             </section>

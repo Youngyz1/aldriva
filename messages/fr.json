@@ -733,6 +733,8 @@
     "burgundyGuestbookSend": "Envoyer",
     "burgundyGuestbookNote": "Dans la démo, les messages restent sur cette page.",
     "burgundyGuestbookEmpty": "Soyez le premier à laisser un message.",
+    "burgundyGuestbookError": "Veuillez entrer votre nom et un message.",
+    "burgundyGuestbookSuccess": "Merci pour votre message !",
     "burgundyWishName0": "La famille Ndiaye",
     "burgundyWishText0": "Que ce soit le premier de nombreux jours magnifiques ensemble.",
     "burgundyWishName1": "Aïssatou",

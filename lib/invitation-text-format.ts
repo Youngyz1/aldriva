@@ -111,3 +111,40 @@ export function isMapUrlOrCoordinate(value: unknown): boolean {
     /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(trimmed)
   );
 }
+
+/**
+ * Builds a Google Maps search URL from a venue address, name, or coordinates.
+ * Returns null if no address or coordinates exist, so the venue name is rendered
+ * as plain text without a dead link.
+ */
+export function buildVenueMapUrl(
+  address: string | null | undefined,
+  name?: string | null | undefined,
+  coords?: { lat?: number | null; lng?: number | null } | null
+): string | null {
+  const trimmedAddress = address?.trim() || "";
+  const trimmedName = name?.trim() || "";
+  const lat = coords?.lat;
+  const lng = coords?.lng;
+
+  // 1. If address is already a map or http(s) URL
+  if (/^https?:\/\//i.test(trimmedAddress)) {
+    return trimmedAddress;
+  }
+
+  // 2. If valid coordinates are provided
+  if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
+  // 3. If plain text address exists
+  if (trimmedAddress) {
+    const query = trimmedName && !trimmedAddress.toLowerCase().includes(trimmedName.toLowerCase())
+      ? `${trimmedName}, ${trimmedAddress}`
+      : trimmedAddress;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  return null;
+}
+

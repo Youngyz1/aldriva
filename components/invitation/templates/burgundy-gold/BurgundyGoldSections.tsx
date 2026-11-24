@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslations } from "next-intl";
 import { IconPhoto } from "@tabler/icons-react";
 import type { InvitationPageData } from "@/types/invitation-template";
+import type { PageActionHandler } from "@/lib/page-actions";
 import { getInvitationDictionary } from "@/lib/invitation-i18n";
 import { downloadIcsFile, generateGoogleCalendarUrl, type CalendarEventPayload } from "@/lib/event-time";
 import { MusicBlock } from "@/components/invitation/blocks/InvitationPresentationBlocks";
@@ -176,6 +177,7 @@ export interface BurgundyGoldSectionsProps {
   sectionSettings: Record<string, unknown>;
   mode: "preview" | "live" | "shared";
   hasAction?: boolean;
+  onAction?: PageActionHandler;
   /** Rendered action_portal block; the RSVP dialog body. */
   actionPortal: ReactNode;
 };
@@ -185,6 +187,7 @@ export function BurgundyGoldSections({
   sectionSettings,
   mode,
   hasAction,
+  onAction,
   actionPortal,
 }: BurgundyGoldSectionsProps) {
   const t = useTranslations("Events");
@@ -277,10 +280,18 @@ export function BurgundyGoldSections({
 
   // ── Guestbook ───────────────────────────────────────────────────────────────
   const showGuestbook = burgundyShowGuestbook(sectionSettings);
-  const canWriteGuestbook = !hasAction && mode !== "shared";
+  const canWriteGuestbook = mode !== "shared";
   const [wishes, setWishes] = useState<{ name: string; text: string }[]>([]);
-  const [wishName, setWishName] = useState("");
+  const initialWishName = data.guest?.name && !data.guest.isSample && !data.guest.isPlaceholder ? data.guest.name : "";
+  const [wishName, setWishName] = useState(initialWishName);
   const [wishText, setWishText] = useState("");
+  const [wishBusy, setWishBusy] = useState(false);
+  const [wishError, setWishError] = useState("");
+  const [wishSuccess, setWishSuccess] = useState(false);
+  const wishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
+  }, []);
   const sampleWishes = useMemo(
     () => [
       { name: t("burgundyWishName0"), text: t("burgundyWishText0") },
@@ -289,14 +300,32 @@ export function BurgundyGoldSections({
     ],
     [t]
   );
-  const feed = [...wishes, ...(canWriteGuestbook ? sampleWishes : [])];
-  const sendWish = () => {
+  const feed = [...wishes, ...(mode !== "shared" && !hasAction ? sampleWishes : [])];
+  const sendWish = async () => {
     const name = wishName.trim();
     const text = wishText.trim();
-    if (!name || !text) return;
-    setWishes((current) => [{ name, text }, ...current]);
-    setWishName("");
-    setWishText("");
+    if (!name || !text || text.length > 500) {
+      setWishError(t("burgundyGuestbookError"));
+      return;
+    }
+
+    setWishBusy(true);
+    setWishError("");
+
+    try {
+      if (onAction) {
+        await onAction({ actionType: "GUESTBOOK_WISH", name, message: text });
+      }
+      setWishes((current) => [{ name, text }, ...current]);
+      setWishText("");
+      setWishSuccess(true);
+      if (wishTimerRef.current) clearTimeout(wishTimerRef.current);
+      wishTimerRef.current = setTimeout(() => setWishSuccess(false), 4000);
+    } catch {
+      setWishError(t("burgundyGuestbookError"));
+    } finally {
+      setWishBusy(false);
+    }
   };
 
   // ── Memories ────────────────────────────────────────────────────────────────
@@ -552,7 +581,19 @@ export function BurgundyGoldSections({
           <div className={SECTION_WIDTH}>
             <SectionHeading>{t("burgundyVenueHeading")}</SectionHeading>
             {venue.name ? (
-              <p className="mt-3 text-center text-lg" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>{venue.name}</p>
+              venue.mapUrl ? (
+                <a
+                  href={venue.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex min-h-[44px] items-center justify-center text-center text-lg underline underline-offset-4 decoration-[1px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT, textDecorationColor: `${GOLD_BRIGHT}88`, outlineColor: GOLD_BRIGHT }}
+                >
+                  {venue.name}
+                </a>
+              ) : (
+                <p className="mt-3 text-center text-lg" style={{ fontFamily: "var(--font-burgundy-display)", color: GOLD_BRIGHT }}>{venue.name}</p>
+              )
             ) : null}
             {data.city?.trim() && !isMapUrlOrCoordinate(data.city) && data.city.trim().toLowerCase() !== venue.name?.toLowerCase() ? (
               <p className="mt-1 text-center text-sm leading-5" style={{ color: `${CREAM}b8` }}>{data.city.trim()}</p>
@@ -711,10 +752,11 @@ export function BurgundyGoldSections({
                 id="burgundy-guestbook-name"
                 type="text"
                 value={wishName}
-                onChange={(event) => setWishName(event.target.value)}
-                disabled={!canWriteGuestbook}
+                onChange={(event) => { setWishName(event.target.value); if (wishError) setWishError(""); }}
+                disabled={!canWriteGuestbook || wishBusy}
                 placeholder={t("burgundyGuestbookName")}
                 data-burgundy-guestbook-field="name"
+                maxLength={100}
                 className="rounded-sm w-full max-w-md px-3 py-2 text-base disabled:opacity-50"
                 style={{ backgroundColor: `${BURGUNDY_DEEP}b3`, border: `1px solid ${GOLD}4d`, color: CREAM }}
               />
@@ -723,17 +765,26 @@ export function BurgundyGoldSections({
                 id="burgundy-guestbook-message"
                 rows={6}
                 value={wishText}
-                onChange={(event) => setWishText(event.target.value)}
-                disabled={!canWriteGuestbook}
+                onChange={(event) => { setWishText(event.target.value); if (wishError) setWishError(""); }}
+                disabled={!canWriteGuestbook || wishBusy}
                 placeholder={t("burgundyGuestbookMessage")}
                 data-burgundy-guestbook-field="message"
+                maxLength={500}
                 className="rounded-sm w-full max-w-md px-3 py-2 text-base disabled:opacity-50"
                 style={{ backgroundColor: `${BURGUNDY_DEEP}b3`, border: `1px solid ${GOLD}4d`, minHeight: 140, color: CREAM }}
               />
+              {wishError ? (
+                <p className="text-xs text-rose-300" role="alert">{wishError}</p>
+              ) : null}
+              {wishSuccess ? (
+                <p className="text-xs font-medium" style={{ color: GOLD_BRIGHT }} role="status">
+                  {t("burgundyGuestbookSuccess")}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={sendWish}
-                disabled={!canWriteGuestbook || !wishName.trim() || !wishText.trim()}
+                disabled={!canWriteGuestbook || wishBusy || !wishName.trim() || !wishText.trim()}
                 data-burgundy-guestbook-send="true"
                 className="rounded-full mx-auto px-5 min-h-[48px] py-3 text-base font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
                 style={{ backgroundColor: GOLD, color: BURGUNDY_DEEP }}
@@ -879,7 +930,6 @@ export function BurgundyGoldSections({
               <button
                 type="button"
                 aria-label={t("burgundyRsvpClose")}
-                autoFocus
                 onClick={() => setRsvpOpen(false)}
                 className="grid size-10 place-items-center rounded-full text-2xl leading-none hover:bg-black/5"
                 style={{ color: BURGUNDY_DEEP }}

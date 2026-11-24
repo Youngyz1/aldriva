@@ -150,10 +150,10 @@ async function InvitationLoader({ token }: { token: string }) {
       event_date: event.event_date || "",
       end_date: event.end_date || null,
       venue: event.venue || null,
-      street_address: null as string | null, // not selected in getInvitationByToken
+      street_address: (event.street_address as string | null) || null,
       city: event.city || null,
-      latitude: null as number | null,
-      longitude: null as number | null,
+      latitude: typeof event.latitude === "number" ? event.latitude : null,
+      longitude: typeof event.longitude === "number" ? event.longitude : null,
     };
 
     const layout = legacyInvitationSnapshotToLayout(publishedPage.published_snapshot);
@@ -190,6 +190,14 @@ async function InvitationLoader({ token }: { token: string }) {
 
     async function handlePageAction(payload: PageActionPayload) {
       "use server";
+      if (payload.actionType === "GUESTBOOK_WISH") {
+        const { submitGuestbookWish } = await import("@/lib/invitations");
+        return await submitGuestbookWish({
+          token,
+          name: payload.name,
+          message: payload.message,
+        });
+      }
       if (payload.actionType !== "RSVP_SUBMISSION") throw new Error("Unsupported invitation action.");
       const { rsvpInvitation } = await import("@/lib/invitations");
       await rsvpInvitation({
