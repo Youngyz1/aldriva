@@ -283,7 +283,7 @@ export default function StaffProfileClient({
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={t("stDeleteConfirmTitle", { name: staff.full_name })}
-        description={t("stDeleteConfirmBody")}
+        description={links.length > 0 ? `${t("stDeleteConfirmBody")} ${t("wlDeleteLinkedNote", { count: links.length })}` : t("stDeleteConfirmBody")}
         confirmLabel={t("stDelete")}
         variant="destructive"
         onConfirm={handleDelete}
