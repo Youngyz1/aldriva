@@ -5,6 +5,7 @@ import { getStaffUiCapabilities } from "@/lib/staff/staff-capabilities-server";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { getStaffMember } from "@/lib/actions/staff-members";
 import { listAssignableRoles, listStaffMemberRoleAssignments } from "@/lib/actions/staff-role-assignments";
+import { canCurrentUserLinkWorkers, listStaffWorkerLinks } from "@/lib/actions/staff-worker-links";
 import StaffProfileClient from "./StaffProfileClient";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -51,9 +52,11 @@ export default async function StaffProfilePage({
   const staffAreaAuth = await assertCanAccessBusinessStaffArea(staffRow.business_id);
   const callerScope = staffAreaAuth.ok ? (staffAreaAuth.scope ?? "staff") : "staff";
 
-  const [assignmentsResult, assignableRolesResult] = await Promise.all([
+  const [assignmentsResult, assignableRolesResult, workerLinksResult, canLinkWorkers] = await Promise.all([
     listStaffMemberRoleAssignments(staffId, staffRow.business_id),
     listAssignableRoles(staffRow.business_id),
+    listStaffWorkerLinks(staffRow.business_id, staffId),
+    canCurrentUserLinkWorkers(staffRow.business_id),
   ]);
 
   return (
@@ -67,6 +70,8 @@ export default async function StaffProfilePage({
       assignableRoles={assignableRolesResult.success ? assignableRolesResult.data : []}
       callerScope={callerScope}
       hasLogin={Boolean(staffRow.auth_user_id)}
+      workerLinks={workerLinksResult.success ? workerLinksResult.data : []}
+      canLinkWorkers={canLinkWorkers}
       siteUrl={getSiteUrl()}
     />
   );

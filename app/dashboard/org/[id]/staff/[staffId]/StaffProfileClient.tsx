@@ -12,6 +12,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import StaffAvatar from "@/components/staff/StaffAvatar";
 import StaffRoleAssignmentPanel from "@/components/staff/StaffRoleAssignmentPanel";
 import StaffInvitePanel from "@/components/staff/StaffInvitePanel";
+import StaffWorkerLinksPanel from "@/components/staff/StaffWorkerLinksPanel";
+import type { LinkedWorkerRow } from "@/lib/actions/staff-worker-links";
 import { deleteStaffMember, setStaffStatus, type StaffMemberRow, type StaffStatus } from "@/lib/actions/staff-members";
 import type { AssignableRoleRow, StaffRoleAssignmentRow } from "@/lib/actions/staff-role-assignments";
 import StaffFormDialog from "@/app/dashboard/businesses/[id]/staff/StaffFormDialog";
@@ -62,6 +64,8 @@ export default function StaffProfileClient({
   callerScope,
   hasLogin,
   siteUrl,
+  workerLinks,
+  canLinkWorkers,
 }: {
   organizerId: string;
   businessId: string;
@@ -73,6 +77,8 @@ export default function StaffProfileClient({
   callerScope: "organizer" | "staff";
   hasLogin: boolean;
   siteUrl: string;
+  workerLinks: LinkedWorkerRow[];
+  canLinkWorkers: boolean;
 }) {
   const t = useTranslations("Workforce");
   const router = useRouter();
@@ -82,6 +88,11 @@ export default function StaffProfileClient({
   const [statusBusy, setStatusBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [links, setLinks] = useState<LinkedWorkerRow[]>(workerLinks);
+  const [panelKey, setPanelKey] = useState(0);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [showReactivateNote, setShowReactivateNote] = useState(false);
+  const activeLinkedCount = links.filter((l) => l.is_active).length;
 
   const staffListHref = `/dashboard/org/${organizerId}/staff`;
   const branchLabel = staff.branch_label ?? t("stNoBranchOption");
@@ -97,6 +108,22 @@ export default function StaffProfileClient({
       return;
     }
     setStaff(res.data);
+    if (nextStatus === "active") {
+      setShowReactivateNote(links.length > 0);
+    } else {
+      setShowReactivateNote(false);
+      // The database trigger switched every linked worker off; mirror it on screen.
+      setLinks((prev) => prev.map((l) => ({ ...l, is_active: false })));
+      setPanelKey((k) => k + 1);
+    }
+  }
+
+  function handleStatusClick() {
+    if (staff.status === "active" && activeLinkedCount > 0) {
+      setConfirmDeactivate(true);
+      return;
+    }
+    void handleToggleStatus();
   }
 
   async function handleDelete() {
@@ -122,6 +149,10 @@ export default function StaffProfileClient({
       </Link>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
+
+      {showReactivateNote && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{t("wlReactivateNote")}</div>
+      )}
 
       <Card>
         <CardContent className="space-y-5 p-5 sm:p-6">
@@ -150,6 +181,16 @@ export default function StaffProfileClient({
             initialAssignments={roleAssignments}
             assignableRoles={assignableRoles}
             callerScope={callerScope}
+          />
+
+          <StaffWorkerLinksPanel
+            key={panelKey}
+            businessId={businessId}
+            staffMemberId={staff.id}
+            staffStatus={staff.status}
+            initialLinks={links}
+            onLinksChange={setLinks}
+            canLink={canLinkWorkers}
           />
 
           {!hasLogin && staff.status !== "deactivated" && (
@@ -204,7 +245,7 @@ export default function StaffProfileClient({
               <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>{t("stEdit")}</Button>
             )}
             {canDeactivateRow(capabilities, staff) && (
-              <Button variant="ghost" size="sm" disabled={statusBusy} onClick={handleToggleStatus}>
+              <Button variant="ghost" size="sm" disabled={statusBusy} onClick={handleStatusClick}>
                 {staff.status === "active" ? t("stDeactivate") : t("stReactivate")}
               </Button>
             )}
@@ -222,6 +263,20 @@ export default function StaffProfileClient({
         branches={branches}
         editing={staff}
         onSaved={setStaff}
+      />
+
+      <ConfirmDialog
+        open={confirmDeactivate}
+        onOpenChange={setConfirmDeactivate}
+        title={t("wlDeactivateConfirmTitle", { name: staff.full_name })}
+        description={t("wlDeactivateConfirmBody", { count: activeLinkedCount })}
+        confirmLabel={t("stDeactivate")}
+        variant="destructive"
+        onConfirm={async () => {
+          await handleToggleStatus();
+          setConfirmDeactivate(false);
+        }}
+        loading={statusBusy}
       />
 
       <ConfirmDialog
