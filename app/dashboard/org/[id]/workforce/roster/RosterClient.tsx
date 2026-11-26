@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { IconArrowLeft as ArrowLeft, IconPlus as Plus } from "@tabler/icons-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,10 @@ import ShiftDialog, { type RosterBranch, type RosterStaff } from "./ShiftDialog"
 
 type Target = { kind: "edit"; shift: ShiftRow } | { kind: "add"; staffId: string; date: string };
 
-function dayLabel(date: string): string {
+function formatDay(date: string, locale: string): string {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
-  return dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  return dt.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 export default function RosterClient({
@@ -49,6 +49,8 @@ export default function RosterClient({
   writableBranchIds: string[];
 }) {
   const t = useTranslations("Workforce");
+  const locale = useLocale();
+  const dayLabel = (date: string) => formatDay(date, locale);
   const [shifts, setShifts] = useState<ShiftRow[]>(initialShifts);
   const [target, setTarget] = useState<Target | null>(null);
   const canWrite = canWriteAll || writableBranchIds.length > 0;
