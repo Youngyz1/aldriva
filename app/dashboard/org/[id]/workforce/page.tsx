@@ -188,6 +188,9 @@ export default async function OrgWorkforcePage({
           <p className="text-sm text-zinc-500">{t("wfSubtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/org/${organizerId}/workforce/roster?business=${activeBusiness.id}`}>{t("rsOpenRoster")}</Link>
+          </Button>
           <Button asChild size="sm">
             <Link href={staffBase}>{t("wfAddStaff")}</Link>
           </Button>
