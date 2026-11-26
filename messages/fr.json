@@ -1843,6 +1843,7 @@
     "rsNoBranch": "No branch",
     "rsNotesPlaceholder": "Notes (optional)",
     "rsCancelShift": "Cancel shift",
+    "rsApplyFilter": "Appliquer",
     "rsCancelledBadge": "Cancelled",
     "shift_overlap": "This person already has a shift that overlaps these hours.",
     "shift_staff_inactive": "Only an active staff member can be scheduled.",

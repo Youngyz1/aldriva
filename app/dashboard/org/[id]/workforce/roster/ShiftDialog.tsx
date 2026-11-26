@@ -41,6 +41,7 @@ export default function ShiftDialog({
   defaultStaffId,
   defaultDate,
   defaultBranchId,
+  writableBranchIds,
   onSaved,
 }: {
   open: boolean;
@@ -52,6 +53,8 @@ export default function ShiftDialog({
   defaultStaffId?: string | null;
   defaultDate?: string | null;
   defaultBranchId?: string | null;
+  /** null = may use any branch (or none); an array limits the choices. */
+  writableBranchIds?: string[] | null;
   onSaved: (row: ShiftRow) => void;
 }) {
   const t = useTranslations("Workforce");
@@ -79,7 +82,9 @@ export default function ShiftDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const activeBranches = branches.filter((b) => b.status === "active");
+  const activeBranches = branches.filter(
+    (b) => b.status === "active" && (!writableBranchIds || writableBranchIds.includes(b.id))
+  );
   const currentBranch = form.branch_id ? branches.find((b) => b.id === form.branch_id) : null;
   const showCurrentInactive = currentBranch && currentBranch.status !== "active";
 
@@ -186,7 +191,7 @@ export default function ShiftDialog({
             onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
             aria-label={t("rsBranchLabel")}
           >
-            <option value="">{t("rsNoBranch")}</option>
+            {!writableBranchIds && <option value="">{t("rsNoBranch")}</option>}
             {activeBranches.map((b) => (
               <option key={b.id} value={b.id}>{b.label}</option>
             ))}

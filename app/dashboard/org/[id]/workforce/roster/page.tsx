@@ -81,9 +81,32 @@ export default async function RosterPage({
       p_branch_id: null,
     }),
   ]);
-  const canWrite = !canWriteRes.error && canWriteRes.data === true;
+  const canWriteAll = !canWriteRes.error && canWriteRes.data === true;
 
   const branches = (branchRows ?? []) as { id: string; label: string; status: "active" | "archived" }[];
+
+  // Without the business-wide key, ask the database the same two questions the
+  // staff_shifts policies ask, once per active branch: branch manager of it, or
+  // workforce.schedules.manage at it. Any error counts as "no" (fewer buttons).
+  let writableBranchIds: string[] = [];
+  if (!canWriteAll) {
+    const checks = await Promise.all(
+      branches
+        .filter((b) => b.status === "active")
+        .map(async (b) => {
+          const [mgr, perm] = await Promise.all([
+            supabase.rpc("is_staff_branch_manager", { p_business_id: activeBusiness.id, p_branch_id: b.id }),
+            supabase.rpc("staff_has_permission", {
+              p_business_id: activeBusiness.id,
+              p_permission_key: "workforce.schedules.manage",
+              p_branch_id: b.id,
+            }),
+          ]);
+          return mgr.data === true || perm.data === true ? b.id : null;
+        })
+    );
+    writableBranchIds = checks.filter((id): id is string => id !== null);
+  }
   const rawBranch = first(sp.branch);
   const branchFilter = rawBranch && branches.some((b) => b.id === rawBranch) ? rawBranch : "";
 
@@ -102,7 +125,8 @@ export default async function RosterPage({
       branches={branches}
       branchFilter={branchFilter}
       initialShifts={shiftsRes.success ? shiftsRes.data : []}
-      canWrite={canWrite}
+      canWriteAll={canWriteAll}
+      writableBranchIds={writableBranchIds}
     />
   );
 }

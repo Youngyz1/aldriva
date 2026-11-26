@@ -31,7 +31,8 @@ export default function RosterClient({
   branches,
   branchFilter,
   initialShifts,
-  canWrite,
+  canWriteAll,
+  writableBranchIds,
 }: {
   organizerId: string;
   businessId: string;
@@ -44,11 +45,14 @@ export default function RosterClient({
   branches: RosterBranch[];
   branchFilter: string;
   initialShifts: ShiftRow[];
-  canWrite: boolean;
+  canWriteAll: boolean;
+  writableBranchIds: string[];
 }) {
   const t = useTranslations("Workforce");
   const [shifts, setShifts] = useState<ShiftRow[]>(initialShifts);
   const [target, setTarget] = useState<Target | null>(null);
+  const canWrite = canWriteAll || writableBranchIds.length > 0;
+  const canEditShift = (s: ShiftRow) => canWriteAll || (s.branch_id !== null && writableBranchIds.includes(s.branch_id));
 
   const base = `/dashboard/org/${organizerId}/workforce/roster`;
   const href = (week: string, branch: string) => {
@@ -94,7 +98,7 @@ export default function RosterClient({
             <option key={b.id} value={b.id}>{b.label}</option>
           ))}
         </Select>
-        <Button type="submit" variant="outline" size="sm">OK</Button>
+        <Button type="submit" variant="outline" size="sm">{t("rsApplyFilter")}</Button>
       </form>
 
       {staff.length === 0 ? (
@@ -123,7 +127,7 @@ export default function RosterClient({
                             <button
                               key={s.id}
                               type="button"
-                              disabled={!canWrite}
+                              disabled={!canEditShift(s)}
                               onClick={() => setTarget({ kind: "edit", shift: s })}
                               className={`block w-full rounded-lg border px-2 py-1 text-left ${
                                 s.status === "cancelled"
@@ -170,6 +174,7 @@ export default function RosterClient({
           defaultStaffId={target.kind === "add" ? target.staffId : null}
           defaultDate={target.kind === "add" ? target.date : null}
           defaultBranchId={branchFilter || null}
+          writableBranchIds={canWriteAll ? null : writableBranchIds}
           onSaved={handleSaved}
         />
       )}
