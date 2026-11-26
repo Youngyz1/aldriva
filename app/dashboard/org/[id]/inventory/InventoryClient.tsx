@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +130,7 @@ function AddItemDialog({
   );
 }
 
-function AdjustDialog({
+export function AdjustDialog({
   businessId,
   item,
   locations,
@@ -228,6 +229,7 @@ function AdjustDialog({
 }
 
 export default function InventoryClient({
+  organizerId,
   businessId,
   businessName,
   items,
@@ -236,6 +238,7 @@ export default function InventoryClient({
   canManageCatalog,
   manageableLocationIds,
 }: {
+  organizerId: string;
   businessId: string;
   businessName: string;
   items: InventoryItemRow[];
@@ -381,7 +384,7 @@ export default function InventoryClient({
                       return (
                         <tr key={item.id} className="border-b border-zinc-50 last:border-0">
                           <td className="px-4 py-3">
-                            <p className="font-semibold text-zinc-900">{item.name}</p>
+                            <Link href={`/dashboard/org/${organizerId}/inventory/${item.id}?business=${businessId}`} className="font-semibold text-zinc-900 hover:text-orange-700 hover:underline">{item.name}</Link>
                             {item.sku && <p className="text-xs text-zinc-500">{item.sku}</p>}
                           </td>
                           <td className="px-4 py-3 text-zinc-600">{item.category ?? "-"}</td>

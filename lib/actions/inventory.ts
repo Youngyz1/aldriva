@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
 import { mapInventoryError, INVENTORY_NOT_FOUND_OR_DENIED } from "@/lib/inventory/errors";
 import type { ActionResult } from "@/lib/actions/staff-members";
@@ -311,4 +312,113 @@ export async function adjustStock(
   }
   revalidateInventory();
   return { success: true, data: { movement_id: String(data) } };
+}
+
+export type InventoryMovementRow = {
+  id: string;
+  location_id: string;
+  movement_type: MovementType;
+  quantity: number;
+  balance_after: number;
+  unit_cost: number | null;
+  reason: string | null;
+  created_at: string;
+  created_by_name: string | null;
+  by_me: boolean;
+};
+
+export type InventoryItemDetail = {
+  item: InventoryItemRow;
+  locations: InventoryLocationRow[];
+  balances: InventoryBalanceRow[];
+  movements: InventoryMovementRow[];
+};
+
+const MOVEMENT_LIMIT = 200;
+
+// One item with its balances and its newest movements. Reads use the caller's
+// session, so RLS decides what is visible (a branch manager sees only their
+// branch). Names come from profiles via the admin client, only for user ids
+// found on movements the caller was already allowed to read.
+export async function getInventoryItemDetail(
+  businessId: string,
+  itemId: string
+): Promise<ActionResult<InventoryItemDetail>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  const supabase = await createSupabaseServer();
+  const itemRes = await supabase
+    .from("inventory_items")
+    .select(ITEM_SELECT)
+    .eq("id", itemId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (itemRes.error) {
+    console.error("[getInventoryItemDetail]", itemRes.error.message);
+    return { success: false, error: "Could not load inventory. Please try again.", code: "generic_error" };
+  }
+  if (!itemRes.data) {
+    return { success: false, error: INVENTORY_NOT_FOUND_OR_DENIED.message, code: INVENTORY_NOT_FOUND_OR_DENIED.code };
+  }
+
+  const [locations, balances, movements] = await Promise.all([
+    supabase.from("inventory_locations").select(LOCATION_SELECT).eq("business_id", businessId).order("name", { ascending: true }).limit(ROW_LIMIT),
+    supabase.from("inventory_balances").select(BALANCE_SELECT).eq("business_id", businessId).eq("item_id", itemId),
+    supabase
+      .from("inventory_movements")
+      .select("id, location_id, movement_type, quantity, balance_after, unit_cost, reason, created_by, created_at")
+      .eq("business_id", businessId)
+      .eq("item_id", itemId)
+      .order("created_at", { ascending: false })
+      .limit(MOVEMENT_LIMIT),
+  ]);
+  const failed = locations.error ?? balances.error ?? movements.error;
+  if (failed) {
+    console.error("[getInventoryItemDetail]", failed.message);
+    return { success: false, error: "Could not load inventory. Please try again.", code: "generic_error" };
+  }
+
+  const moveRows = (movements.data ?? []) as unknown as Record<string, unknown>[];
+  const ids = Array.from(new Set(moveRows.map((m) => m.created_by).filter((v): v is string => typeof v === "string")));
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    try {
+      const { data: profiles } = await createSupabaseAdmin().from("profiles").select("id, display_name").in("id", ids);
+      for (const p of (profiles ?? []) as { id: string; display_name: string | null }[]) {
+        if (p.display_name && p.display_name.trim()) names.set(p.id, p.display_name.trim());
+      }
+    } catch (err) {
+      console.error("[getInventoryItemDetail] name lookup failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      item: mapItem(itemRes.data as unknown as Record<string, unknown>),
+      locations: (locations.data ?? []) as unknown as InventoryLocationRow[],
+      balances: ((balances.data ?? []) as unknown as Record<string, unknown>[]).map((b) => ({
+        item_id: String(b.item_id),
+        location_id: String(b.location_id),
+        on_hand: num(b.on_hand),
+        reserved: num(b.reserved),
+      })),
+      movements: moveRows.map((m) => {
+        const by = typeof m.created_by === "string" ? m.created_by : null;
+        return {
+          id: String(m.id),
+          location_id: String(m.location_id),
+          movement_type: m.movement_type as MovementType,
+          quantity: num(m.quantity),
+          balance_after: num(m.balance_after),
+          unit_cost: m.unit_cost == null ? null : num(m.unit_cost),
+          reason: (m.reason as string | null) ?? null,
+          created_at: String(m.created_at),
+          created_by_name: by ? names.get(by) ?? null : null,
+          by_me: by !== null && by === auth.userId,
+        };
+      }),
+    },
+  };
 }

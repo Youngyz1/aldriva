@@ -84,6 +84,7 @@ export default async function OrgInventoryPage({
 
   return (
     <InventoryClient
+      organizerId={organizerId}
       businessId={activeBusiness.id}
       businessName={activeBusiness.name}
       items={items}
