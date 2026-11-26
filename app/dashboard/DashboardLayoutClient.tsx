@@ -15,7 +15,9 @@ export default function DashboardLayoutClient({
   sidebar: ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  // usePathname keeps the /en or /fr prefix; the checks below expect /dashboard/...
+  const pathname = (rawPathname ?? "").replace(/^\/(?:en|fr)(?=\/|$)/, "");
   const isBuilder = pathname?.includes("/website/builder");
   const isOrgWorkspace = pathname?.startsWith("/dashboard/org/");
   const isFundraiserManagement = !!pathname?.match(/^\/dashboard\/fundraisers\/[^/]+(\/.*)?$/);

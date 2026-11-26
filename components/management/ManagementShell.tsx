@@ -35,7 +35,9 @@ export function ManagementShell({
   hideBackLink?: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  // usePathname keeps the /en or /fr prefix; the checks below expect /dashboard/...
+  const pathname = (rawPathname ?? "").replace(/^\/(?:en|fr)(?=\/|$)/, "");
   const isInvitationBuilderRoute = /^\/dashboard\/events\/[^/]+\/invitation-page\/?$/.test(pathname);
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
