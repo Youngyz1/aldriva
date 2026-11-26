@@ -7,6 +7,11 @@ import { createSupabaseServer } from "@/lib/supabase-server";
 import { isOrganizerDashboardBusiness } from "@/lib/organizer-dashboard-classifier";
 import { resolveActiveBusiness, getActiveBusinessCookieName } from "@/lib/active-business";
 import { assertCanAccessBusinessStaffArea } from "@/lib/entity-authz";
+import { checkTenantAccess, type EntityRole } from "@/lib/entity-auth";
+import { getCapabilitiesForBusiness } from "@/lib/business-taxonomy";
+import { resolvePeriodRange } from "@/lib/dashboard/date-range";
+import { resolveSiteTimezone, DEFAULT_SITE_TIMEZONE } from "@/lib/date-timezone";
+import { StatCard } from "@/components/dashboard/overview/StatCard";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SHIFT_LIMIT = 5000;
@@ -83,8 +88,27 @@ export default async function OrgAnalyticsPage({
   const t = await getTranslations("Workforce");
   const locale = await getLocale();
 
+  // ---- Site timezone (same source as the Overview) ----
+  const { data: siteRows } = await admin
+    .from("tenant_websites")
+    .select("metadata, created_at")
+    .eq("tenant_id", organizerId);
+  const firstSite = [...(siteRows ?? [])].sort((a, b) =>
+    String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""))
+  )[0];
+  const siteMeta =
+    firstSite?.metadata && typeof firstSite.metadata === "object"
+      ? (firstSite.metadata as Record<string, unknown>)
+      : {};
+  const tz = resolveSiteTimezone(siteMeta.timezone, DEFAULT_SITE_TIMEZONE);
+
   // ---- Period ----
-  const todayIso = toIso(new Date());
+  const todayIso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const rawKind = first(sp.period);
   let kind: Kind = rawKind === "30d" || rawKind === "month" || rawKind === "custom" ? rawKind : "7d";
   let from = addDays(todayIso, -6);
@@ -137,6 +161,93 @@ export default async function OrgAnalyticsPage({
   const shifts = (shiftRes.data ?? []) as ShiftRow[];
   const staff = (staffRes.data ?? []) as { id: string; full_name: string; branch_id: string | null }[];
   const truncated = shifts.length >= SHIFT_LIMIT;
+
+  // ---- Business numbers (admin client, same rules as the Overview) ----
+  const tenantAccess = await checkTenantAccess(
+    user.id,
+    organizerId,
+    ["owner", "admin", "manager", "editor"] as EntityRole[]
+  );
+  const caps = getCapabilitiesForBusiness(
+    activeBusiness.industry || "",
+    activeBusiness.category || "",
+    activeBusiness.business_type || ""
+  ) as readonly string[];
+  const showOrders =
+    tenantAccess.hasAccess && caps.some((c) => ["ORDERS", "ONLINE_ORDERING", "MENU"].includes(c));
+  const showRental =
+    tenantAccess.hasAccess && caps.some((c) => ["VEHICLES", "VEHICLE_RENTAL"].includes(c));
+  const range = resolvePeriodRange(kind, tz, from, to);
+
+  let orderCount = 0;
+  let grossSales = 0;
+  let orderCurrency = "USD";
+  let rentalRevenue = 0;
+  let bookingsCreated = 0;
+  let pickups = 0;
+  let returns = 0;
+  let businessTruncated = false;
+
+  if (showOrders) {
+    const { data } = await admin
+      .from("orders")
+      .select("total_amount, currency, status, payment_status")
+      .eq("organizer_id", organizerId)
+      .gte("created_at", range.fromIso)
+      .lte("created_at", range.toIso)
+      .neq("status", "cancelled")
+      .limit(SHIFT_LIMIT);
+    const rows = (data ?? []) as { total_amount: number | string | null; currency: string | null; payment_status: string | null }[];
+    if (rows.length >= SHIFT_LIMIT) businessTruncated = true;
+    const valid = rows.filter((o) => o.payment_status !== "refunded");
+    orderCount = valid.length;
+    grossSales = valid.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    if (valid[0]?.currency) orderCurrency = valid[0].currency;
+  }
+
+  if (showRental) {
+    const [payRes, createdRes, pickRes, retRes] = await Promise.all([
+      admin
+        .from("rental_payments")
+        .select("amount, kind, direction")
+        .eq("organizer_id", organizerId)
+        .eq("applied", true)
+        .gte("created_at", range.fromIso)
+        .lte("created_at", range.toIso)
+        .limit(SHIFT_LIMIT),
+      admin
+        .from("rental_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("organizer_id", organizerId)
+        .gte("created_at", range.fromIso)
+        .lte("created_at", range.toIso),
+      admin
+        .from("rental_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("organizer_id", organizerId)
+        .gte("starts_at", range.fromIso)
+        .lte("starts_at", range.toIso),
+      admin
+        .from("rental_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("organizer_id", organizerId)
+        .gte("ends_at", range.fromIso)
+        .lte("ends_at", range.toIso),
+    ]);
+    const pays = (payRes.data ?? []) as { amount: number | string | null; kind: string; direction: string }[];
+    if (pays.length >= SHIFT_LIMIT) businessTruncated = true;
+    for (const p of pays) {
+      const amount = Number(p.amount) || 0;
+      if (p.direction === "credit" && (p.kind === "rental_charge" || p.kind === "advance" || p.kind === "balance")) {
+        rentalRevenue += amount;
+      } else if (p.direction === "debit" && p.kind === "refund") {
+        rentalRevenue -= amount;
+      }
+    }
+    bookingsCreated = createdRes.count ?? 0;
+    pickups = pickRes.count ?? 0;
+    returns = retRes.count ?? 0;
+  }
 
   // ---- Aggregation ----
   const total: Agg = { minutes: 0, shifts: 0, cancelled: 0 };
@@ -248,6 +359,34 @@ export default async function OrgAnalyticsPage({
           </div>
         ))}
       </div>
+
+      {(showOrders || showRental) && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-black">{t("anBusinessTitle")}</h2>
+            <p className="text-xs font-medium text-zinc-500">{t("anBranchNote")}</p>
+          </div>
+          {businessTruncated && (
+            <p className="text-sm font-medium text-amber-700">{t("anBusinessTruncated", { count: SHIFT_LIMIT })}</p>
+          )}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {showOrders && (
+              <>
+                <StatCard label={t("anOrders")} value={orderCount} format="count" />
+                <StatCard label={t("anGrossSales")} value={grossSales} format="money" currency={orderCurrency} />
+              </>
+            )}
+            {showRental && (
+              <>
+                <StatCard label={t("anRentalRevenue")} value={rentalRevenue} format="money" currency="USD" />
+                <StatCard label={t("anBookingsCreated")} value={bookingsCreated} format="count" />
+                <StatCard label={t("anPickups")} value={pickups} format="count" />
+                <StatCard label={t("anReturns")} value={returns} format="count" />
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       {shifts.length === 0 ? (
         <p className="text-sm font-medium text-zinc-500">{t("anNoData")}</p>
