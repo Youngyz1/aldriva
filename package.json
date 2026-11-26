@@ -28,7 +28,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1147.0",
     "@aws-sdk/s3-request-presigner": "^3.1147.0",
-    "@next/third-parties": "^16.2.9",
+    "@next/third-parties": "16.4.6",
     "@radix-ui/react-avatar": "^1.2.2",
     "@radix-ui/react-collapsible": "^1.1.16",
     "@radix-ui/react-dialog": "^1.1.16",
@@ -97,7 +97,7 @@
     "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "jsdom": "26.1.0",
     "pg": "^8.23.0",
     "playwright": "^1.60.0",
