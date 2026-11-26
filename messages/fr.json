@@ -1897,7 +1897,9 @@
     "deactivate": "Désactiver",
     "activate": "Réactiver",
     "mv_transfer_in": "Transfert entrant",
-    "mv_transfer_out": "Transfert sortant"
+    "mv_transfer_out": "Transfert sortant",
+    "editItem": "Modifier l’article",
+    "colReason": "Motif"
   },
   "Workforce": {
     "wfTitle": "Effectifs",

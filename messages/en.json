@@ -1897,7 +1897,9 @@
     "deactivate": "Deactivate",
     "activate": "Reactivate",
     "mv_transfer_in": "Transfer in",
-    "mv_transfer_out": "Transfer out"
+    "mv_transfer_out": "Transfer out",
+    "editItem": "Edit item",
+    "colReason": "Reason"
   },
   "Workforce": {
     "wfTitle": "Workforce",

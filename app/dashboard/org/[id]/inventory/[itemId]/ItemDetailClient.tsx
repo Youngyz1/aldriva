@@ -8,14 +8,152 @@ import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   setInventoryItemActive,
+  updateInventoryItem,
+  type InventoryItemType,
   type InventoryBalanceRow,
   type InventoryItemRow,
   type InventoryLocationRow,
   type InventoryMovementRow,
 } from "@/lib/actions/inventory";
 import { AdjustDialog } from "../InventoryClient";
+
+const EDIT_ITEM_TYPES: InventoryItemType[] = ["supply", "product", "raw_material", "packaging", "asset", "spare_part", "internal"];
+
+function EditItemDialog({
+  businessId,
+  item,
+  onClose,
+  onDone,
+}: {
+  businessId: string;
+  item: InventoryItemRow;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const t = useTranslations("Inventory");
+  const tr = (key: string, fallback: string) => {
+    try {
+      return (t as unknown as (k: any) => string)(key);
+    } catch {
+      return fallback;
+    }
+  };
+  const [form, setForm] = useState({
+    name: item.name,
+    sku: item.sku ?? "",
+    category: item.category ?? "",
+    unit: item.unit,
+    item_type: item.item_type,
+    min_stock: String(item.min_stock),
+    reorder: item.reorder_quantity === null ? "" : String(item.reorder_quantity),
+    cost: item.cost_price === null ? "" : String(item.cost_price),
+    price: item.selling_price === null ? "" : String(item.selling_price),
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const toNum = (s: string): number | null => (s.trim() === "" ? null : Number(s));
+
+  async function handleSave() {
+    setError(null);
+    const min = toNum(form.min_stock) ?? 0;
+    const reorder = toNum(form.reorder);
+    const cost = toNum(form.cost);
+    const price = toNum(form.price);
+    if ([min, reorder, cost, price].some((v) => v !== null && !Number.isFinite(v))) {
+      setError(tr("err_item_price_invalid", ""));
+      return;
+    }
+    setSaving(true);
+    const res = await updateInventoryItem(businessId, item.id, {
+      name: form.name,
+      sku: form.sku || null,
+      category: form.category || null,
+      unit: form.unit,
+      item_type: form.item_type,
+      min_stock: min,
+      reorder_quantity: reorder,
+      cost_price: cost,
+      selling_price: price,
+    });
+    setSaving(false);
+    if (!res.success) {
+      setError(tr("err_" + res.code, res.error));
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-[32rem]">
+        <DialogHeader>
+          <DialogTitle>{t("editItem")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-500">{t("fName")}</label>
+            <Input className="min-w-0 w-full" maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fSku")}</label>
+              <Input className="min-w-0 w-full" maxLength={64} value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fCategory")}</label>
+              <Input className="min-w-0 w-full" maxLength={100} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fType")}</label>
+              <Select className="min-w-0 w-full pr-8" value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value as InventoryItemType })}>
+                {EDIT_ITEM_TYPES.map((ty) => (
+                  <option key={ty} value={ty}>{tr("type_" + ty, ty)}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fUnit")}</label>
+              <Input className="min-w-0 w-full" maxLength={30} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fMinStock")}</label>
+              <Input className="min-w-0 w-full" type="number" min="0" step="0.001" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fReorder")}</label>
+              <Input className="min-w-0 w-full" type="number" min="0" step="0.001" value={form.reorder} onChange={(e) => setForm({ ...form, reorder: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fCost")}</label>
+              <Input className="min-w-0 w-full" type="number" min="0" step="0.0001" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500">{t("fPrice")}</label>
+              <Input className="min-w-0 w-full" type="number" min="0" step="0.0001" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t("cancel")}</Button>
+          <Button onClick={handleSave} disabled={saving || form.name.trim() === ""}>{saving ? t("saving") : t("save")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ItemDetailClient({
   organizerId,
@@ -42,6 +180,7 @@ export default function ItemDetailClient({
   const locale = useLocale();
   const router = useRouter();
   const [adjusting, setAdjusting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -105,6 +244,9 @@ export default function ItemDetailClient({
         <div className="flex flex-wrap items-center gap-2">
           {item.is_active && manageable.length > 0 && (
             <Button size="sm" onClick={() => setAdjusting(true)}>{t("adjust")}</Button>
+          )}
+          {canManageCatalog && (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>{t("editItem")}</Button>
           )}
           {canManageCatalog && (
             <Button size="sm" variant="outline" onClick={toggleActive} disabled={busy}>
@@ -181,7 +323,7 @@ export default function ItemDetailClient({
                     <th className="px-4 py-3">{t("colLocation")}</th>
                     <th className="px-4 py-3 text-right">{t("fQuantity")}</th>
                     <th className="px-4 py-3 text-right">{t("colBalanceAfter")}</th>
-                    <th className="px-4 py-3">{t("fReason")}</th>
+                    <th className="px-4 py-3">{t("colReason")}</th>
                     <th className="px-4 py-3">{t("colBy")}</th>
                   </tr>
                 </thead>
@@ -208,6 +350,16 @@ export default function ItemDetailClient({
         )}
         {movements.length >= 200 && <p className="text-xs text-zinc-500">{t("movementsLimit")}</p>}
       </section>
+
+      {editing && (
+        <EditItemDialog
+          key={item.id}
+          businessId={businessId}
+          item={item}
+          onClose={() => setEditing(false)}
+          onDone={() => { setEditing(false); router.refresh(); }}
+        />
+      )}
 
       {adjusting && (
         <AdjustDialog

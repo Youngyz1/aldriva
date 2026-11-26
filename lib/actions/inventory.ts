@@ -238,6 +238,51 @@ export async function createInventoryItem(
   return { success: true, data: mapItem(data as unknown as Record<string, unknown>) };
 }
 
+// Edits an item's details. Stock is never changed here; that only happens
+// through adjustStock. The UPDATE policy decides who may do this.
+export type UpdateInventoryItemInput = CreateInventoryItemInput;
+
+export async function updateInventoryItem(
+  businessId: string,
+  itemId: string,
+  input: UpdateInventoryItemInput
+): Promise<ActionResult<InventoryItemRow>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  const invalid = validateItem(input);
+  if (invalid) return { success: false, error: invalid.message, code: invalid.code };
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .update({
+      name: input.name.trim(),
+      sku: cleanText(input.sku),
+      category: cleanText(input.category),
+      item_type: input.item_type ?? "supply",
+      unit: (input.unit ?? "piece").trim(),
+      cost_price: input.cost_price ?? null,
+      selling_price: input.selling_price ?? null,
+      min_stock: input.min_stock ?? 0,
+      reorder_quantity: input.reorder_quantity ?? null,
+    })
+    .eq("id", itemId)
+    .eq("business_id", businessId)
+    .select(ITEM_SELECT);
+
+  if (error) {
+    const mapped = mapInventoryError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+  if (rows.length === 0) {
+    return { success: false, error: INVENTORY_NOT_FOUND_OR_DENIED.message, code: INVENTORY_NOT_FOUND_OR_DENIED.code };
+  }
+  revalidateInventory();
+  return { success: true, data: mapItem(rows[0]) };
+}
+
 // Turns an item off (or back on). Items are never deleted.
 export async function setInventoryItemActive(
   businessId: string,
