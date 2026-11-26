@@ -13,8 +13,8 @@ import {
   type PromoCodeRow,
 } from "@/lib/promo-codes";
 
-export const PROMO_READ_ROLES: EntityRole[] = ["owner", "admin", "manager", "editor", "finance"];
-export const PROMO_MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
+const PROMO_READ_ROLES: EntityRole[] = ["owner", "admin", "manager", "editor", "finance"];
+const PROMO_MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
 
 export interface CreateStorePromoInput {
   code: string;
