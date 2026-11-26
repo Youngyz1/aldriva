@@ -384,6 +384,29 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     routeExists: true,
   },
   {
+    id: "inventory",
+    // Industry-independent stock module (migration 268). Same organizer-type
+    // visibility as Workforce, so every business sees it. routeExists is
+    // false on purpose: the nav adapter treats an unset value as true, so this
+    // stays false until the page ships.
+    capabilities: [],
+    permission: "view",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "inventory",
+      icon: "Package",
+      group: "manage",
+      label: "Inventory",
+      visibility: { kind: "organizer-type", flag: "business" },
+    },
+    i18n: { title: "Organizer.inventory", empty: "Inventory.empty", error: "Inventory.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/inventory`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: false,
+  },
+  {
     id: "bookings",
     capabilities: ["BOOKINGS", "APPOINTMENTS"],
     permission: "manage",

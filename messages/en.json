@@ -220,6 +220,7 @@
     "reservations": "Reservations",
     "fleet": "Fleet",
     "workforce": "Workforce",
+    "inventory": "Inventory",
     "branches": "Branches",
     "staff": "Staff",
     "roles": "Roles & Permissions",
@@ -1791,6 +1792,10 @@
     "drafts": "Drafts",
     "upcomingEvents": "Upcoming events",
     "showMore": "Show {count} more"
+  },
+  "Inventory": {
+    "empty": "No inventory yet.",
+    "error": "Could not load inventory."
   },
   "Workforce": {
     "wfTitle": "Workforce",

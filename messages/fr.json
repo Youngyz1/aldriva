@@ -221,6 +221,7 @@
     "rentals": "Locations",
     "fleet": "Véhicules",
     "workforce": "Effectifs",
+    "inventory": "Inventaire",
     "branches": "Succursales",
     "staff": "Personnel",
     "roles": "Rôles et permissions",
@@ -1791,6 +1792,10 @@
     "drafts": "Brouillons",
     "upcomingEvents": "Événements à venir",
     "showMore": "Afficher {count} de plus"
+  },
+  "Inventory": {
+    "empty": "Aucun article en stock pour le moment.",
+    "error": "Impossible de charger l\u2019inventaire."
   },
   "Workforce": {
     "wfTitle": "Effectifs",
