@@ -329,5 +329,8 @@
   "lib/__tests__/invitation-template-public-catalog.test.cjs",
   "lib/__tests__/burgundy-gold-builder-auth-effects.test.cjs",
   "lib/__tests__/burgundy-gold-promotion-and-picker.test.cjs",
-  "lib/__tests__/invitation-fidelity-tasks.test.cjs"
+  "lib/__tests__/invitation-fidelity-tasks.test.cjs",
+  "lib/inventory/__tests__/errors-phase2.test.cjs",
+  "lib/inventory/__tests__/errors.test.cjs",
+  "lib/staff/__tests__/staff-capabilities.test.cjs"
 ]
