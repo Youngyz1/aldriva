@@ -124,6 +124,8 @@ export const SAMPLE_PREVIEW_GUEST = {
   rsvp_at: null,
   token: null,
   is_vip: false,
+  is_placeholder: true,
+  is_sample: true,
 } as const;
 
 /**

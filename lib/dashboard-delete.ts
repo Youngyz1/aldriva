@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/dashboard-context";
+import { getEventDeleteBlockMessage } from "@/lib/dashboard-event-delete-guard";
 
 const BLOCKING_DONATION_STATUSES = new Set(["pending", "succeeded", "completed", "refunded"]);
 
@@ -6,11 +7,6 @@ type BlockingCheck = {
   blocked: boolean;
   message?: string;
 };
-
-function moneyValue(value: unknown) {
-  const amount = Number(value ?? 0);
-  return Number.isFinite(amount) ? amount : 0;
-}
 
 export async function checkEventDeleteBlocked(eventIds: string[]): Promise<BlockingCheck> {
   if (eventIds.length === 0) return { blocked: false };
@@ -24,26 +20,8 @@ export async function checkEventDeleteBlocked(eventIds: string[]): Promise<Block
     throw new Error(error.message);
   }
 
-  const blockingOrders = (orders ?? []).filter((order) => {
-    const totalAmount = moneyValue(order.total_amount);
-    return (
-      totalAmount > 0 ||
-      order.status === "pending" ||
-      order.status === "refunded" ||
-      Boolean(order.stripe_session_id) ||
-      Boolean(order.stripe_payment_intent_id)
-    );
-  });
-
-  if (blockingOrders.length > 0) {
-    return {
-      blocked: true,
-      message:
-        "This event has paid, pending, or refunded ticket orders. Archive or unpublish it instead of deleting payment history.",
-    };
-  }
-
-  return { blocked: false };
+  const message = getEventDeleteBlockMessage(orders ?? []);
+  return message ? { blocked: true, message } : { blocked: false };
 }
 
 export async function checkFundraiserDeleteBlocked(fundraiserIds: string[]): Promise<BlockingCheck> {

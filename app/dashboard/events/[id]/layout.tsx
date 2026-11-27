@@ -123,7 +123,11 @@ export default async function EventDashboardLayout({
       >
         {children}
       </ManagementShell>
-      <EventBottomBar eventId={eventId} userRole={bottomBarRole} />
+      <EventBottomBar
+        eventId={eventId}
+        userRole={bottomBarRole}
+        isInvitationKind={event.kind === "invitation"}
+      />
     </>
   );
 }

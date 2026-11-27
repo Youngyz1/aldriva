@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" fill="none" aria-hidden="true" stroke="#14305a" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Original artwork for this project; not traced from any third-party source. Simplified line-art civic/cathedral facade. -->
+
+  <!-- side towers -->
+  <rect x="48" y="150" width="76" height="370" />
+  <rect x="276" y="150" width="76" height="370" />
+  <path d="M48 150 L86 96 L124 150" />
+  <path d="M276 150 L314 96 L352 150" />
+  <circle cx="86" cy="76" r="9" />
+  <circle cx="314" cy="76" r="9" />
+  <path d="M86 67 V58" />
+  <path d="M314 67 V58" />
+  <!-- tower cornice lines -->
+  <path d="M48 170 H124" /><path d="M276 170 H352" />
+  <path d="M48 460 H124" /><path d="M276 460 H352" />
+
+  <!-- central nave -->
+  <rect x="138" y="54" width="124" height="466" />
+  <path d="M138 54 L200 -10 L262 54" />
+  <circle cx="200" cy="-24" r="10" />
+  <path d="M200 -34 V-44" />
+  <!-- rose window -->
+  <circle cx="200" cy="100" r="34" />
+  <circle cx="200" cy="100" r="22" />
+  <path d="M200 66 V134 M166 100 H234 M177 77 L223 123 M223 77 L177 123" />
+  <!-- central cornice lines -->
+  <path d="M138 150 H262" /><path d="M138 180 H262" />
+
+  <!-- main portal -->
+  <path d="M170 220 a30 30 0 0 1 60 0 Z" />
+  <rect x="170" y="220" width="60" height="100" />
+  <path d="M170 220 V320 M230 220 V320" />
+  <path d="M190 320 V260 a10 10 0 0 1 20 0 V320" />
+
+  <!-- balustrade at the base of the nave roofline -->
+  <g>
+    <path d="M138 190 H262" />
+    <path d="M144 190 V200 M156 190 V200 M168 190 V200 M180 190 V200 M192 190 V200 M204 190 V200 M216 190 V200 M228 190 V200 M240 190 V200 M252 190 V200" />
+    <path d="M138 200 H262" />
+  </g>
+
+  <!-- rows of arched windows, towers -->
+  <g>
+    <path d="M64 230 a10 10 0 0 1 20 0 Z" /><rect x="64" y="230" width="20" height="42" />
+    <path d="M100 230 a10 10 0 0 1 20 0 Z" /><rect x="100" y="230" width="20" height="42" />
+    <path d="M292 230 a10 10 0 0 1 20 0 Z" /><rect x="292" y="230" width="20" height="42" />
+    <path d="M328 230 a10 10 0 0 1 20 0 Z" /><rect x="328" y="230" width="20" height="42" />
+  </g>
+  <g>
+    <path d="M64 300 a10 10 0 0 1 20 0 Z" /><rect x="64" y="300" width="20" height="42" />
+    <path d="M100 300 a10 10 0 0 1 20 0 Z" /><rect x="100" y="300" width="20" height="42" />
+    <path d="M292 300 a10 10 0 0 1 20 0 Z" /><rect x="292" y="300" width="20" height="42" />
+    <path d="M328 300 a10 10 0 0 1 20 0 Z" /><rect x="328" y="300" width="20" height="42" />
+  </g>
+  <g>
+    <path d="M64 370 a10 10 0 0 1 20 0 Z" /><rect x="64" y="370" width="20" height="42" />
+    <path d="M100 370 a10 10 0 0 1 20 0 Z" /><rect x="100" y="370" width="20" height="42" />
+    <path d="M292 370 a10 10 0 0 1 20 0 Z" /><rect x="292" y="370" width="20" height="42" />
+    <path d="M328 370 a10 10 0 0 1 20 0 Z" /><rect x="328" y="370" width="20" height="42" />
+  </g>
+  <g>
+    <path d="M58 430 a13 13 0 0 1 26 0 Z" /><rect x="58" y="430" width="26" height="60" />
+    <path d="M104 430 a13 13 0 0 1 26 0 Z" /><rect x="104" y="430" width="26" height="60" />
+    <path d="M286 430 a13 13 0 0 1 26 0 Z" /><rect x="286" y="430" width="26" height="60" />
+    <path d="M332 430 a13 13 0 0 1 26 0 Z" /><rect x="332" y="430" width="26" height="60" />
+  </g>
+
+  <!-- main facade balustrade / roofline railing -->
+  <g>
+    <path d="M30 520 H370" />
+    <path d="M38 520 V532 M50 520 V532 M62 520 V532 M74 520 V532 M86 520 V532 M98 520 V532 M110 520 V532 M122 520 V532 M134 520 V532 M146 520 V532 M158 520 V532 M170 520 V532 M182 520 V532 M194 520 V532 M206 520 V532 M218 520 V532 M230 520 V532 M242 520 V532 M254 520 V532 M266 520 V532 M278 520 V532 M290 520 V532 M302 520 V532 M314 520 V532 M326 520 V532 M338 520 V532 M350 520 V532 M362 520 V532" />
+    <path d="M30 532 H370" />
+  </g>
+
+  <path d="M24 548 H376" />
+</svg>

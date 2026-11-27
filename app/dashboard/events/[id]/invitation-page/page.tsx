@@ -94,8 +94,10 @@ export default async function EventInvitationPageDashboardRoute({
     );
   }
 
-  // No invitation templates ship with the platform. The builder renders a
-  // neutral state; template selection is disabled until new templates are added.
+  // The builder's template section is currently a read-only card
+  // (see InvitationPageBuilder.tsx), not a picker. A new event defaults to
+  // the default invitation template; other registered templates may still be
+  // opened when their id is already saved (including unlisted templates).
   return (
     <InvitationPageDashboardClient
       eventId={eventId}

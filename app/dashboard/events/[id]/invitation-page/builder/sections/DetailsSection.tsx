@@ -7,10 +7,12 @@
  */
 
 import { IconPlus as Plus, IconTrash as Trash2 } from "@tabler/icons-react";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import type { InvitationScheduleItem, InvitationVenueItem } from "@/types/invitation-template";
+import { getInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
 
 interface Props {
   draft: BuilderDraft;
@@ -21,16 +23,31 @@ interface Props {
 
 export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
   const t = useTranslations("Events");
+  const isEvergreen = draft.template_id === "evergreen-envelope";
+  const manifest = getInvitationTemplateManifest(draft.template_id);
+  const isManifestTemplate = !!manifest;
   const schedule = draft.schedule || [];
   const venues = draft.venues ?? [];
-  const maxVenues = 3;
+  const maxVenues = manifest?.venues?.max ?? (isEvergreen ? 8 : 3);
+  const prefilledRef = useRef(false);
+
+  useEffect(() => {
+    if (prefilledRef.current || disabled) return;
+    if (!isManifestTemplate || isEvergreen) return;
+    if ((draft.venues?.length ?? 0) > 0) { prefilledRef.current = true; return; }
+    const name = event.venue?.trim() ?? "";
+    const address = event.street_address?.trim() ?? "";
+    if (!name && !address) { prefilledRef.current = true; return; }
+    prefilledRef.current = true;
+    updateDraft({ venues: [{ label: "Ceremony", name, address }] });
+  }, [isManifestTemplate, isEvergreen, disabled, draft.venues?.length, event.venue, event.street_address, updateDraft]);
 
   const handleAddScheduleItem = () => {
     if (schedule.length >= 15) return;
     const newItem: InvitationScheduleItem = {
-      time: "6:00 PM",
-      title: "Reception & Cocktails",
-      label: "Reception & Cocktails",
+      time: "",
+      title: "",
+      label: "",
       day: "",
       dayLabel: "",
       description: "",
@@ -51,8 +68,10 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
   const handleAddVenueItem = () => {
     if (venues.length >= maxVenues) return;
     const newItem: InvitationVenueItem = {
-      label: "Ceremony",
-      name: "Grand Ballroom",
+      label: isEvergreen
+        ? venues.length === 0 ? t("evergreenCeremony") : venues.length === 1 ? t("evergreenReception") : t("evergreenVenueNumber", { number: venues.length + 1 })
+        : venues.length === 0 ? "Ceremony" : venues.length === 1 ? "Reception" : "Venue",
+      name: "",
       address: "",
     };
     updateDraft({ venues: [...venues, newItem] });
@@ -74,6 +93,8 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
       <div className="space-y-4">
         <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Venue & Parking</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {!isManifestTemplate ? (
+            <>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="venue_name" className="text-xs font-bold text-zinc-700">
@@ -112,6 +133,8 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
             />
           </div>
 
+            </>
+          ) : null}
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center justify-between">
               <label htmlFor="parking_notes" className="text-xs font-bold text-zinc-700">
@@ -181,11 +204,11 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
               onChange={(e) => handleUpdateVenueItem(i, { address: e.target.value })}
               className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
             />
-            {false ? (
+            {draft.template_id === "evergreen-envelope" || isManifestTemplate ? (
               <>
-                <label className="sr-only" htmlFor={`evergreen-venue-time-${i}`}>{t("evergreenVenueTime")}</label>
+                <label className="sr-only" htmlFor={`venue-time-${i}`}>{t("evergreenVenueTime")}</label>
                 <input
-                  id={`evergreen-venue-time-${i}`}
+                  id={`venue-time-${i}`}
                   type="text"
                   maxLength={40}
                   disabled={disabled}
@@ -194,19 +217,23 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
                   onChange={(e) => handleUpdateVenueItem(i, { time: e.target.value || null })}
                   className="w-full sm:w-28 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
                 />
-                <label className="sr-only" htmlFor={`evergreen-venue-map-${i}`}>{t("evergreenVenueMapUrl")}</label>
-                <input
-                  id={`evergreen-venue-map-${i}`}
-                  type="url"
-                  maxLength={500}
-                  disabled={disabled}
-                  placeholder={t("evergreenVenueMapUrl")}
-                  title={t("evergreenMapUrlError")}
-                  pattern="https://.*"
-                  value={v.mapUrl ?? ""}
-                  onChange={(e) => handleUpdateVenueItem(i, { mapUrl: e.target.value || null })}
-                  className="w-full sm:w-44 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
-                />
+                {draft.template_id === "evergreen-envelope" ? (
+                  <>
+                    <label className="sr-only" htmlFor={`evergreen-venue-map-${i}`}>{t("evergreenVenueMapUrl")}</label>
+                    <input
+                      id={`evergreen-venue-map-${i}`}
+                      type="url"
+                      maxLength={500}
+                      disabled={disabled}
+                      placeholder={t("evergreenVenueMapUrl")}
+                      title={t("evergreenMapUrlError")}
+                      pattern="https://.*"
+                      value={v.mapUrl ?? ""}
+                      onChange={(e) => handleUpdateVenueItem(i, { mapUrl: e.target.value || null })}
+                      className="w-full sm:w-44 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+                    />
+                  </>
+                ) : null}
               </>
             ) : null}
             <button

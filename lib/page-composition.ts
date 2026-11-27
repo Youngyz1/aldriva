@@ -94,6 +94,30 @@ export const PAGE_THEME_PRESETS = {
       button: "rounded-xl bg-white text-slate-950 hover:bg-slate-100",
     },
   },
+  minimalismDarkBlue: {
+    classes: {
+      page: "min-h-screen bg-[#efece5] text-[#00214a]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#00214a]",
+      body: "font-serif text-[#00214a]/80",
+      card: "rounded-lg border border-[#00214a]/15 bg-white shadow-xs",
+      button: "rounded-full bg-[#00214a] text-white hover:bg-[#001534]",
+    },
+  },
+  burgundyGold: {
+    classes: {
+      page: "min-h-screen bg-[#4a1020] text-[#f3d38a]",
+      section: "bg-transparent",
+      // The action_portal block (RSVP) renders inside burgundy-gold's own
+      // white dialog card (BurgundyGoldSections.tsx), not on the dark page
+      // background — heading/body must stay dark here or they're unreadable
+      // on white, unlike every other preset's card.
+      heading: "font-serif text-[#3a0d18]",
+      body: "font-serif text-[#5a1830]/90",
+      card: "rounded-lg border border-[#d4af37]/30 bg-[#5a1830] shadow-xs",
+      button: "rounded-full bg-[#d4af37] text-[#4a1020] hover:bg-[#c29b2b]",
+    },
+  },
 } as const;
 
 export type PageThemePreset = keyof typeof PAGE_THEME_PRESETS;

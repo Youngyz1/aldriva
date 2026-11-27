@@ -8,12 +8,14 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { IconCircleCheck as CheckCircle2, IconAlertCircle as AlertCircle, IconEye as Eye, IconGlobe as Globe, IconSparkles as Sparkles } from "@tabler/icons-react";
 import type { BuilderDraft } from "../InvitationPageBuilder";
 import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { validateForPublish } from "@/lib/invitation-page-schema";
 import { sectionForPublishField, type BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
+import { useInvitationBuilderPersistence } from "@/components/invitation/InvitationBuilderPersistenceContext";
 
 interface Props {
   eventId: string;
@@ -38,6 +40,9 @@ export function PublishSection({
   onJumpToSection,
   disabled,
 }: Props) {
+  const t = useTranslations("Events");
+  const persistence = useInvitationBuilderPersistence();
+  const isLocal = persistence.mode === "local";
   const [previewLoading, setPreviewLoading] = useState(false);
   const isPublished = pageStatus === "published";
   const validation = validateForPublish(draft, event, draft.locale || "en");
@@ -52,6 +57,12 @@ export function PublishSection({
       setPreviewLoading(false);
     }
   };
+
+  const publishErrors = isLocal
+    ? validation.errors.filter(
+        (err) => !(err.message === "Image URL must be from storage" && err.field.startsWith("gallery."))
+      )
+    : validation.errors;
 
   return (
     <div className="space-y-8">
@@ -92,15 +103,17 @@ export function PublishSection({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handlePreview}
-          disabled={disabled || previewLoading}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-800 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
-        >
-          <Eye size={14} className="text-zinc-500" />
-          {previewLoading ? "Opening..." : "Preview Draft"}
-        </button>
+        {!isLocal && (
+          <button
+            type="button"
+            onClick={handlePreview}
+            disabled={disabled || previewLoading}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-800 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
+          >
+            <Eye size={14} className="text-zinc-500" />
+            {previewLoading ? "Opening..." : "Preview Draft"}
+          </button>
+        )}
       </div>
 
       {/* Validation Checklist (failures are jump links) */}
@@ -163,11 +176,11 @@ export function PublishSection({
       </div>
 
       {/* Validation Errors List (each a jump link to its section) */}
-      {!validation.valid && (
+      {publishErrors.length > 0 && (
         <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
           <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
           <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
-            {validation.errors.map((err, i) => (
+            {publishErrors.map((err, i) => (
               <li key={i}>
                 <button
                   type="button"
@@ -183,39 +196,57 @@ export function PublishSection({
       )}
 
       {/* Publish / Unpublish Actions */}
-      <div className="flex flex-col items-stretch gap-4 pt-2">
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-zinc-900">
-            {isPublished ? "Republish or Unpublish" : "Ready to launch?"}
-          </p>
-          <p className="text-[11px] text-zinc-500">
-            Publishing captures a new frozen snapshot of your draft. Guests with existing links will immediately see the updated template.
-          </p>
-        </div>
-
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
-          {isPublished && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onUnpublish}
-              className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50 sm:w-auto"
-            >
-              Unpublish Page
-            </button>
-          )}
-
+      {isLocal ? (
+        <div className="flex flex-col items-stretch gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4 pt-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-zinc-900">{t("localSignInToPublishTitle")}</p>
+            <p className="text-[11px] text-zinc-600">{t("localSignInToPublishBody")}</p>
+          </div>
           <button
             type="button"
-            disabled={disabled || !validation.valid}
-            onClick={() => onPublish(draft.locale || "en")}
+            disabled={disabled}
+            onClick={() => persistence.handleLocalSignInToPublish?.()}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40 sm:w-auto"
           >
             <Sparkles size={14} />
-            {isPublished ? "Update Published Snapshot" : "Publish Invitation Page"}
+            {t("localSignInToPublishButton")}
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col items-stretch gap-4 pt-2">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-zinc-900">
+              {isPublished ? "Republish or Unpublish" : "Ready to launch?"}
+            </p>
+            <p className="text-[11px] text-zinc-500">
+              Publishing captures a new frozen snapshot of your draft. Guests with existing links will immediately see the updated template.
+            </p>
+          </div>
+
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
+            {isPublished && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={onUnpublish}
+                className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50 sm:w-auto"
+              >
+                Unpublish Page
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={disabled || !validation.valid}
+              onClick={() => onPublish(draft.locale || "en")}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40 sm:w-auto"
+            >
+              <Sparkles size={14} />
+              {isPublished ? "Update Published Snapshot" : "Publish Invitation Page"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

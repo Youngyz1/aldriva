@@ -7,6 +7,8 @@ import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
 import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
 import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
+import { readShowMemories } from "@/lib/memories/public-gallery";
+import { resolveMemoriesProps } from "@/lib/memories/resolve-memories-props";
 import { SharedUnavailable } from "./SharedUnavailable";
 
 export const metadata: Metadata = {
@@ -91,6 +93,16 @@ export default async function SharedInvitationPage({
   const publishedPage = await getPublishedInvitationPage(ev.id as string);
   if (!publishedPage) return <SharedUnavailable />;
 
+  const layout = legacyInvitationSnapshotToLayout(publishedPage.published_snapshot);
+  const showMemories = readShowMemories(layout.template_data);
+  const { memoriesToken, memoriesCount } = await resolveMemoriesProps(
+    row.share_enabled === true,
+    token,
+    ev.id as string,
+    showMemories,
+    row.page_status
+  );
+
   const pageData = assembleInvitationPageData(
     publishedPage.published_snapshot,
     {
@@ -109,6 +121,13 @@ export default async function SharedInvitationPage({
     null,
     null
   );
+  pageData.memoriesToken = memoriesToken;
+  pageData.memoriesCount = memoriesCount;
+  pageData.memoriesSample = false;
+
+  const { getVisibleGuestbookWishes } = await import("@/lib/invitations");
+  const visibleWishes = await getVisibleGuestbookWishes(ev.id as string, 20);
+  pageData.initialWishes = visibleWishes;
 
   // Placeholder titles can never publish (validateForPublish rejects them),
   // so they cannot reach this page — belt and suspenders.
@@ -120,10 +139,11 @@ export default async function SharedInvitationPage({
     <UniversalPageRenderer
       kind="invitation"
       templateId={publishedPage.published_snapshot.template_id}
-      layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+      layout={layout}
       data={pageData}
       shared
       mode="shared"
     />
   );
+
 }

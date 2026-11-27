@@ -52,6 +52,19 @@ import type { BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { InvitationTypePicker } from "@/components/invitation/InvitationTypePicker";
 import { InvitationSection } from "@/components/invitation/InvitationSection";
 import { cn } from "@/lib/utils";
+import {
+  InvitationBuilderPersistenceProvider,
+  type InvitationBuilderPersistence,
+} from "@/components/invitation/InvitationBuilderPersistenceContext";
+import { InvitationBuilderLocalPreview } from "./InvitationBuilderLocalPreview";
+import { getBuilderSectionIds } from "@/lib/invitation-builder-section-ids";
+import { getInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
+import { getTemplateSummaryForBuilder } from "@/lib/invitation-template-public-catalog";
+import { getInvitationTemplateGalleryHref } from "@/lib/invitation-template-marketplace-routes";
+import { InvitationTemplatePreviewFrame } from "@/components/invitation/marketplace/InvitationTemplatePreviewFrame";
+import { InvitationTemplatePicker } from "@/components/invitation/InvitationTemplatePicker";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
+import { TemplateFieldsSection } from "./sections/TemplateFieldsSection";
 
 export interface BuilderDraft extends InvitationPageDraftInput {
   // all fields come from InvitationPageDraftInput — no extras needed
@@ -60,7 +73,7 @@ export interface BuilderDraft extends InvitationPageDraftInput {
 export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
   const d = data.draft;
   return {
-    template_id: d.template_id ?? "",
+    template_id: d.template_id ?? "minimalism-dark-blue",
     locale: d.locale ?? "en",
     blocks_layout: d.blocks_layout ?? null,
     display_title: d.display_title ?? null,
@@ -127,10 +140,12 @@ const SECTION_IDS = [
   "gallery",
   "music",
   "extras",
+  "template-fields",
   "publish",
 ] as const;
 
 type SectionId = (typeof SECTION_IDS)[number];
+void SECTION_IDS; // value retained for type; runtime iteration uses getBuilderSectionIds
 
 const SECTION_TITLES: Record<SectionId, string> = {
   type: "Type of invitation",
@@ -145,6 +160,7 @@ const SECTION_TITLES: Record<SectionId, string> = {
   gallery: "Gallery",
   music: "Music",
   extras: "Special fields",
+  "template-fields": "Template fields",
   publish: "Publish",
 };
 
@@ -219,6 +235,8 @@ function SectionBody({
       );
     case "extras":
       return <ExtrasSection draft={draft} invitationType={invitationType} updateDraft={updateDraft} />;
+    case "template-fields":
+      return <TemplateFieldsSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
   }
 }
 
@@ -231,6 +249,17 @@ interface Props {
    * template); fresh drafts start at "type" (template choice, then form).
    */
   initialSection?: SectionId;
+  /**
+   * Phase 5. Default "server" — every existing call site that omits this
+   * prop gets the exact unchanged behavior below. "local" swaps autosave
+   * persistence and the live-preview mechanism (see onLocalSave /
+   * localPersistence); no eventId-based server action is ever called.
+   */
+  persistenceMode?: "server" | "local";
+  /** Required when persistenceMode is "local": writes to the anonymous local draft store instead of saveInvitationPageDraft. */
+  onLocalSave?: (payload: BuilderDraft) => Promise<{ ok: boolean; error?: string; code?: string }>;
+  /** Required when persistenceMode is "local": the local-mode handlers provided to every section via context. */
+  localPersistence?: InvitationBuilderPersistence;
 }
 
 function summaryFor(
@@ -263,6 +292,8 @@ function summaryFor(
       return musicSummary;
     case "extras":
       return "Type-specific fields";
+    case "template-fields":
+      return "Template-specific fields";
     case "publish":
       return null;
     default:
@@ -274,12 +305,17 @@ export function InvitationPageBuilder({
   eventId,
   initialData,
   initialSection = "type",
+  persistenceMode = "server",
+  onLocalSave,
+  localPersistence,
 }: Props) {
   const t = useTranslations("Events");
   const router = useRouter();
   const [draft, setDraft] = useState<BuilderDraft>(() => draftFromData(initialData));
   const [invitationType, setInvitationType] = useState<InvitationType | null>(() =>
-    initialData.draft.id && initialData.draft.id !== "" ? invitationTypeForTemplate() : null
+    initialData.draft.id && initialData.draft.id !== ""
+      ? invitationTypeForTemplate(draftFromData(initialData).template_id)
+      : null
   );
   const [pendingTypeChange, setPendingTypeChange] = useState<{
     type: InvitationType;
@@ -288,6 +324,8 @@ export function InvitationPageBuilder({
   } | null>(null);
   const [candidatePreviewTemplateId, setCandidatePreviewTemplateId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<SectionId | null>(initialSection);
+  const manifest = getInvitationTemplateManifest(draft.template_id);
+  const sectionIds = getBuilderSectionIds(draft.template_id);
   const typeSummary = invitationType ? t(TYPE_NAME_MESSAGE_KEYS[invitationType]) : null;
   const templateSummary = draft.template_id || "";
   const musicSummary = summarizeInvitationMusic(
@@ -323,7 +361,11 @@ export function InvitationPageBuilder({
   const previousAutosaveDraftRef = useRef<BuilderDraft | null>(null);
   const skipTemplateAutosaveRef = useRef<string | null>(null);
   const [saveQueue] = useState(() =>
-    createDraftSaveQueue<BuilderDraft>((payload) => saveInvitationPageDraft(eventId, payload))
+    createDraftSaveQueue<BuilderDraft>(
+      persistenceMode === "local" && onLocalSave
+        ? onLocalSave
+        : (payload) => saveInvitationPageDraft(eventId, payload)
+    )
   );
   const firstDraftRef = useRef(true);
   const typePickerFocusReturnRef = useRef<HTMLElement | null>(null);
@@ -390,15 +432,15 @@ export function InvitationPageBuilder({
     latestPayloadRef.current = {
       source: PREVIEW_MESSAGE_SOURCE,
       kind: "draft",
-      templateId: candidatePreviewTemplateId || draft.template_id || "",
+      templateId: candidatePreviewTemplateId || draft.template_id || "minimalism-dark-blue",
       locale: previewLocale,
       draft: {
         ...draft,
-        template_id: candidatePreviewTemplateId || draft.template_id || "",
+        template_id: candidatePreviewTemplateId || draft.template_id || "minimalism-dark-blue",
       },
       event: { ...(initialData.event as unknown as Record<string, unknown>) },
       candidatePreview: Boolean(candidatePreviewTemplateId && candidatePreviewTemplateId !== draft.template_id),
-      savedTemplateId: draft.template_id || "",
+      savedTemplateId: draft.template_id || "minimalism-dark-blue",
     };
     const timer = setTimeout(() => {
       if (latestPayloadRef.current) postToPreview(latestPayloadRef.current);
@@ -445,6 +487,9 @@ export function InvitationPageBuilder({
   const handleTypeChange = useCallback(
     (type: InvitationType) => {
       if (type === invitationType) return;
+      // Manifest templates declare a fixed type/structure; do not switch to a
+      // different type default template (which would replace this template).
+      if (getInvitationTemplateManifest(draft.template_id)) return;
       const pageId = DEFAULT_TEMPLATE_FOR_TYPE[type];
       const activeElement = document.activeElement;
       typePickerFocusReturnRef.current = activeElement instanceof HTMLElement ? activeElement : null;
@@ -475,13 +520,38 @@ export function InvitationPageBuilder({
   const confirmTypeChange = useCallback(() => {
     if (!pendingTypeChange) return;
     setInvitationType(pendingTypeChange.type);
-    // No templates ship with the platform, so only the type is saved.
-    updateDraft({ template_id: pendingTypeChange.pageId });
+    const sanitized = sanitizeDraftForTemplate(draft, pendingTypeChange.pageId);
+    updateDraft(sanitized);
     setCandidatePreviewTemplateId(null);
     setPendingTypeChange(null);
     setOpenSection(null);
     requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
-  }, [pendingTypeChange, updateDraft]);
+  }, [draft, pendingTypeChange, updateDraft]);
+
+  const handleTemplateSelect = useCallback(
+    (newTemplateId: string) => {
+      if (newTemplateId === draft.template_id) return;
+      const hiddenFields = hiddenContentOnTemplateSwitch(draft, draft.template_id, newTemplateId).map((label) => {
+        const messageKey = TYPE_FIELD_MESSAGE_KEYS[label as keyof typeof TYPE_FIELD_MESSAGE_KEYS];
+        return messageKey ? t(messageKey) : label;
+      });
+
+      if (hiddenFields.length > 0) {
+        const nextType = invitationTypeForTemplate(newTemplateId);
+        setCandidatePreviewTemplateId(newTemplateId);
+        setPendingTypeChange({
+          type: nextType,
+          pageId: newTemplateId,
+          hiddenFields,
+        });
+      } else {
+        const sanitized = sanitizeDraftForTemplate(draft, newTemplateId);
+        updateDraft(sanitized);
+        setCandidatePreviewTemplateId(null);
+      }
+    },
+    [draft, t, updateDraft]
+  );
 
   const pendingTypeLabel = pendingTypeChange
     ? pendingTypeChange.type === "wedding"
@@ -529,6 +599,10 @@ export function InvitationPageBuilder({
 
   const handlePublish = useCallback(
     async (locale: "en" | "fr") => {
+      // Defense in depth: PublishSection renders a "sign in to publish"
+      // prompt in local mode and must never call this — but never call a
+      // server action keyed by a local draft id either way.
+      if (persistenceMode === "local") return;
       setActionError(null);
       setActionBusy(true);
       try {
@@ -548,10 +622,11 @@ export function InvitationPageBuilder({
         setActionBusy(false);
       }
     },
-    [eventId, router, saveQueue]
+    [eventId, router, saveQueue, persistenceMode]
   );
 
   const handleUnpublish = useCallback(async () => {
+    if (persistenceMode === "local") return;
     setActionError(null);
     setActionBusy(true);
     try {
@@ -564,7 +639,7 @@ export function InvitationPageBuilder({
     } finally {
       setActionBusy(false);
     }
-  }, [eventId]);
+  }, [eventId, persistenceMode]);
 
   const isPublished = pageStatus === "published";
   const hasUnpublished = hasDraftChanges(
@@ -574,6 +649,7 @@ export function InvitationPageBuilder({
   );
 
   return (
+    <InvitationBuilderPersistenceProvider value={localPersistence ?? { mode: "server" }}>
     <div className="space-y-4">
       {!initialData.draft.id && (
         <section
@@ -687,23 +763,37 @@ export function InvitationPageBuilder({
             mobileView === "preview" && "hidden lg:block"
           )}
         >
-          {SECTION_IDS.filter((id) => id !== "photos" && id !== "evergreen").map((id, i) => (
+          {sectionIds.map((id, i) => (
             <InvitationSection
               key={id}
               id={id}
               index={i}
-              title={SECTION_TITLES[id]}
+              title={id === "template-fields" ? t("invitationSectionTemplateFields") : SECTION_TITLES[id]}
               summary={summaryFor(draft, id, typeSummary, templateSummary, musicSummary)}
               open={openSection === id}
               onToggle={toggleSection}
             >
-              {id === "type" && <InvitationTypePicker value={invitationType} onChange={handleTypeChange} />}
+              {id === "type" && (
+                <InvitationTypePicker
+                  value={manifest?.invitationType ?? invitationType}
+                  onChange={handleTypeChange}
+                  disabled={!!manifest}
+                />
+              )}
               {id === "template" && (
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-center">
-                  <p className="text-xs font-semibold text-zinc-900">No templates available</p>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    Invitation templates will be available in a future update. Template selection is disabled for now.
-                  </p>
+                <div className="space-y-4">
+                  <InvitationTemplatePicker
+                    value={draft.template_id}
+                    onSelect={handleTemplateSelect}
+                  />
+                  <div className="pt-1">
+                    <Link
+                      href={getInvitationTemplateGalleryHref()}
+                      className="inline-block text-xs font-bold text-orange-600 hover:text-orange-700"
+                    >
+                      Browse full template gallery →
+                    </Link>
+                  </div>
                 </div>
               )}
               {id !== "type" && id !== "template" && id !== "publish" && (
@@ -744,23 +834,34 @@ export function InvitationPageBuilder({
         <div
           data-testid="invitation-builder-preview-column"
           className={cn(
-            "w-full min-w-0 max-w-full xl:sticky xl:top-4 xl:w-full xl:max-w-[640px] xl:self-start xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]",
+            "h-[calc(100dvh-14rem)] min-h-[480px] w-full min-w-0 max-w-full xl:sticky xl:top-4 xl:w-full xl:max-w-[640px] xl:self-start xl:h-full xl:min-h-0 xl:max-h-[calc(100dvh-2rem)]",
             mobileView === "edit" && "hidden lg:block"
           )}
         >
-          <InvitationPreviewPanel
-            iframeSrc={`/invitation/builder-preview/${eventId}?embed=1`}
-            iframeRef={iframeRef}
-            title="Live invitation preview"
-            className="h-full min-h-0"
-            containerClassName="min-h-0 flex-1"
-            caption="Preview language only — your editing language is unchanged."
-            showLocaleToggle
-            locale={previewLocale}
-            onLocaleChange={setPreviewLocale}
-            viewport={previewViewport}
-            onViewportChange={setPreviewViewport}
-          />
+          {persistenceMode === "local" ? (
+            <InvitationBuilderLocalPreview
+              draft={draft}
+              event={initialData.event as unknown as Record<string, unknown>}
+              locale={previewLocale}
+              onLocaleChange={setPreviewLocale}
+              viewport={previewViewport}
+              onViewportChange={setPreviewViewport}
+            />
+          ) : (
+            <InvitationPreviewPanel
+              iframeSrc={`/invitation/builder-preview/${eventId}?embed=1`}
+              iframeRef={iframeRef}
+              title="Live invitation preview"
+              className="h-full min-h-0"
+              containerClassName="min-h-0 flex-1"
+              caption="Preview language only — your editing language is unchanged."
+              showLocaleToggle
+              locale={previewLocale}
+              onLocaleChange={setPreviewLocale}
+              viewport={previewViewport}
+              onViewportChange={setPreviewViewport}
+            />
+          )}
         </div>
       </div>
 
@@ -830,5 +931,6 @@ export function InvitationPageBuilder({
         </div>
       )}
     </div>
+    </InvitationBuilderPersistenceProvider>
   );
 }

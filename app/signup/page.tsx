@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { passwordRules, validatePassword } from "@/lib/password-policy";
+import { resolveSafeNextPath } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
@@ -50,10 +52,15 @@ export default function SignupPage() {
   async function handleGoogleLogin() {
     setGoogleLoading(true);
     setError("");
+    // Same callback/next flow as login (app/login/page.tsx:handleGoogleLogin)
+    // instead of a hardcoded /dashboard, so a signup started from
+    // "Sign up free" on /login?redirect=... carries that destination
+    // through Google too.
+    const redirect = resolveSafeNextPath(searchParams.get("redirect"), window.location.origin);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
       },
     });
     if (error) {
@@ -113,7 +120,9 @@ export default function SignupPage() {
 
     const emailRedirectTo =
       typeof window !== "undefined"
-        ? `${window.location.origin}/login`
+        ? `${window.location.origin}/login?redirect=${encodeURIComponent(
+            resolveSafeNextPath(searchParams.get("redirect"), window.location.origin)
+          )}`
         : undefined;
 
     const { data, error: signupError } = await supabase.auth.signUp({
@@ -443,5 +452,14 @@ export default function SignupPage() {
           )}
       </div>
     </div>
+  );
+}
+
+// ── Default export wraps SignupForm in Suspense (useSearchParams) ───────
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

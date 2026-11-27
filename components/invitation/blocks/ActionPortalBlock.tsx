@@ -85,7 +85,10 @@ export function ActionPortalBlock({
     try {
       await onAction(buildRsvpSubmissionPayload(nextResponse));
       setResponse(nextResponse);
-      setMessage(nextResponse === "accepted" ? dictionary.attendanceConfirmed : dictionary.responseNoted);
+      const confirmText = nextResponse === "accepted"
+        ? (locale === "fr" ? "Merci, votre réponse a été enregistrée." : "Thank you, your response was recorded.")
+        : (locale === "fr" ? "Votre réponse a été enregistrée." : "Your response was recorded.");
+      setMessage(confirmText);
     } catch {
       setMessage(dictionary.rsvpFailed);
     } finally {
@@ -157,7 +160,7 @@ export function ActionPortalBlock({
             <>
               {invitationData ? (
                 <div className="mt-6 text-center">
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${theme.classes.body ?? ""}`}>
+                  <p className={`text-sm font-semibold uppercase tracking-wide ${theme.classes.body ?? ""}`}>
                     {invitationData.guest.isVip ? dictionary.vipGuestPass : dictionary.officialGuestPass}
                   </p>
                   <p className={`mt-2 break-words text-lg ${theme.classes.heading ?? ""}`}>{localizeInvitationSystemCopy(invitationData.guest.name, locale)}</p>
@@ -258,6 +261,31 @@ export function ActionPortalBlock({
                   </button>
                 </div>
               )}
+              {message ? (
+                <div
+                  className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-center text-sm font-medium text-emerald-900"
+                  role="status"
+                  data-rsvp-confirmation="true"
+                >
+                  {message}
+                </div>
+              ) : response === "accepted" ? (
+                <div
+                  className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-center text-sm font-medium text-emerald-900"
+                  role="status"
+                  data-rsvp-confirmation="true"
+                >
+                  {locale === "fr" ? "Merci, votre réponse a été enregistrée." : "Thank you, your response was recorded."}
+                </div>
+              ) : response === "declined" ? (
+                <div
+                  className="mt-4 rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-center text-sm font-medium text-zinc-800"
+                  role="status"
+                  data-rsvp-confirmation="true"
+                >
+                  {locale === "fr" ? "Votre réponse a été enregistrée." : "Your response was recorded."}
+                </div>
+              ) : null}
               {invitationData?.ticketInstance?.qrCode && response !== "declined" ? (
                 <div className="mt-6 flex flex-col items-center">
                   <ExpandableSvgQr
@@ -269,7 +297,7 @@ export function ActionPortalBlock({
                     context={showQrContext ? [invitationData.guest.name, invitationData.title].filter((item): item is string => Boolean(item?.trim())) : undefined}
                     portalIntoNearestDialog={showQrContext}
                   />
-                  <p className={`mt-2 text-xs ${theme.classes.body ?? ""}`}>{dictionary.presentForAdmission}</p>
+                  <p className={`mt-2 text-sm ${theme.classes.body ?? ""}`}>{dictionary.presentForAdmission}</p>
                 </div>
               ) : null}
               {calendar ? (
@@ -304,11 +332,11 @@ export function ActionPortalBlock({
           )}
 
           {!onAction && !shared ? (
-            <p className={`mt-4 text-center text-xs ${theme.classes.body ?? ""}`}>
+            <p className={`mt-4 text-center text-sm ${theme.classes.body ?? ""}`}>
               {localizeInvitationSystemCopy(actionType === "RSVP_SUBMISSION" ? "Responses are disabled in preview." : "This form is shown in preview.", locale)}
             </p>
           ) : null}
-          {message ? <p className={`mt-4 text-center text-sm ${theme.classes.body ?? ""}`} role="status">{message}</p> : null}
+          {message && actionType !== "RSVP_SUBMISSION" ? <p className={`mt-4 text-center text-sm ${theme.classes.body ?? ""}`} role="status">{message}</p> : null}
         </div>
       </div>
     </section>

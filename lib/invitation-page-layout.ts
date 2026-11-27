@@ -11,7 +11,11 @@ import {
   type PageBlocksLayout,
   type PageLayoutBlock,
 } from "@/lib/page-composition";
-import { getInvitationTemplateDefinition, type InvitationBindingPath } from "@/lib/invitation-template-registry";
+import {
+  getInvitationTemplateDefinition,
+  resolveInvitationTemplateId,
+  type InvitationBindingPath,
+} from "@/lib/invitation-template-registry";
 import {
   InvitationBlocksLayoutSchema,
   normalizeInvitationBlocksLayout,
@@ -199,12 +203,17 @@ export function legacyInvitationTemplateToLayout(
   templateId: string,
   savedLayout?: unknown
 ): InvitationBlocksLayout {
-  const templateDefinition = getInvitationTemplateDefinition(templateId);
+  // A saved invitation may still store an id whose template was removed from
+  // the code. Render it as the default page template instead of a blank page.
+  const resolvedTemplateId = resolveInvitationTemplateId(templateId);
+  const templateDefinition = getInvitationTemplateDefinition(resolvedTemplateId);
   const hasSavedEffects = isRecord(savedLayout) && Array.isArray(savedLayout.effects);
   const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope"
     || templateDefinition?.composition === "botanical-reverie"
-    || templateDefinition?.composition === "evergreen-envelope";
+    || templateDefinition?.composition === "evergreen-envelope"
+    || templateDefinition?.composition === "minimalism-dark-blue";
   const isEvergreen = templateDefinition?.composition === "evergreen-envelope";
+  const isBurgundyGold = templateDefinition?.composition === "burgundy-gold";
   const blockCatalog: PageLayoutBlock[] = [
     { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },
     {
@@ -268,21 +277,28 @@ export function legacyInvitationTemplateToLayout(
 
   const normalizedSavedLayout = normalizeInvitationBlocksLayout(savedLayout);
   if (!normalizedSavedLayout) {
+    const supported = new Set(templateDefinition?.supportedEffects ?? []);
     return InvitationBlocksLayoutSchema.parse({
-      ...createPageBlocksLayout(layoutBlocks, themeForInvitationTemplate(templateId)),
-      effects: templateDefinition?.defaultEffects ?? [],
+      ...createPageBlocksLayout(layoutBlocks, themeForInvitationTemplate(resolvedTemplateId)),
+      effects: (templateDefinition?.defaultEffects ?? []).filter((effect) => supported.has(effect.type)),
     });
   }
 
-  const legacyTheme = LEGACY_INVITATION_THEME_CLASSES[templateId];
+  const legacyTheme = LEGACY_INVITATION_THEME_CLASSES[resolvedTemplateId];
   if (!templateDefinition) return normalizedSavedLayout;
 
   const envelopeGate = layoutBlocks.find((block) => block.type === "interactive_envelope");
   const savedBlocks = normalizedSavedLayout.layout_blocks.map((block) => {
     if (block.type === "romantic_envelope_gate") return { ...block, type: "interactive_envelope" };
     if (isRomanticEnvelope && block.type === "hero") return { ...block, type: "romantic_hero" };
+    // A saved snapshot from a previous romantic/botanical/evergreen template
+    // switch must not keep rendering the full-bleed romantic hero once the
+    // user switches to a template with the standard two-column hero.
+    if (!isRomanticEnvelope && block.type === "romantic_hero") return { ...block, type: "hero" };
     return block;
-  });
+  }).filter((block) => !(isBurgundyGold && (
+    block.type === "interactive_envelope" || block.type === "romantic_envelope_gate"
+  )));
   const savedEnvelopeGate = savedBlocks.find((block) => block.type === "interactive_envelope");
   const countdownBlock = layoutBlocks.find((block) => block.type === "countdown");
   const locationMapBlock = layoutBlocks.find((block) => block.type === "location_map");
@@ -343,8 +359,17 @@ export function legacyInvitationTemplateToLayout(
             ...legacyTheme,
           },
         }
-      : normalizedSavedLayout.global_theme,
-    effects: hasSavedEffects ? normalizedSavedLayout.effects ?? [] : templateDefinition.defaultEffects,
+      // A saved snapshot's theme belongs to whichever template it was last
+      // authored under. Templates with no legacy override (e.g.
+      // boho-floral-brown, luxe-editorial, cover, evergreen-envelope) must
+      // not inherit a previous template's theme classes after a template
+      // switch — fall back to this template's own default instead.
+      : themeForInvitationTemplate(resolvedTemplateId),
+    effects: (() => {
+      const supported = new Set(templateDefinition.supportedEffects ?? []);
+      const candidate = hasSavedEffects ? (normalizedSavedLayout.effects ?? []) : templateDefinition.defaultEffects;
+      return candidate.filter((effect) => supported.has(effect.type));
+    })(),
   });
 }
 
