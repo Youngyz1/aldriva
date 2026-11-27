@@ -1,7 +1,7 @@
 -- migration_280_function_grant_hardening.sql
 --
 -- Closes four live grant gaps found by a direct pg_proc/pg_catalog.proacl
--- audit of the production database (not inferred from migration files,
+-- audit of the STAGING database (not inferred from migration files,
 -- which do not all show their current effective grants):
 --
 --   1. check_email_pending_deletion(text) -- migration_104 revoked EXECUTE
