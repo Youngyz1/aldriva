@@ -1917,7 +1917,12 @@
     "locShowArchived": "Show archived",
     "err_default_location_archive": "The default location can't be archived.",
     "err_location_has_stock": "This location still holds stock. Move or remove it first.",
-    "err_transfer_same_location": "Choose two different locations."
+    "err_transfer_same_location": "Choose two different locations.",
+    "transferStock": "Transfer stock",
+    "trFrom": "From",
+    "trTo": "To",
+    "trAvailable": "Available",
+    "filterTransfersOnly": "Transfers only"
   },
   "Workforce": {
     "wfTitle": "Workforce",

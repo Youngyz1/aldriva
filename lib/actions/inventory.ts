@@ -362,6 +362,7 @@ export async function adjustStock(
 export type InventoryMovementRow = {
   id: string;
   location_id: string;
+  reference_id: string | null;
   movement_type: MovementType;
   quantity: number;
   balance_after: number;
@@ -412,7 +413,7 @@ export async function getInventoryItemDetail(
     supabase.from("inventory_balances").select(BALANCE_SELECT).eq("business_id", businessId).eq("item_id", itemId),
     supabase
       .from("inventory_movements")
-      .select("id, location_id, movement_type, quantity, balance_after, unit_cost, reason, created_by, created_at")
+      .select("id, location_id, movement_type, quantity, balance_after, unit_cost, reason, reference_id, created_by, created_at")
       .eq("business_id", businessId)
       .eq("item_id", itemId)
       .order("created_at", { ascending: false })
@@ -460,12 +461,60 @@ export async function getInventoryItemDetail(
           unit_cost: m.unit_cost == null ? null : num(m.unit_cost),
           reason: (m.reason as string | null) ?? null,
           created_at: String(m.created_at),
+          reference_id: (m.reference_id as string | null) ?? null,
           created_by_name: by ? names.get(by) ?? null : null,
           by_me: by !== null && by === auth.userId,
         };
       }),
     },
   };
+}
+
+// Moves stock between two locations in one atomic database call. Permission is
+// needed at BOTH locations (checked in the function); two ledger rows share
+// the returned reference id.
+export type TransferStockInput = {
+  item_id: string;
+  from_location_id: string;
+  to_location_id: string;
+  quantity: number;
+  reason?: string | null;
+};
+
+export async function transferStock(
+  businessId: string,
+  input: TransferStockInput
+): Promise<ActionResult<{ reference_id: string }>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  if (input.from_location_id === input.to_location_id) {
+    return { success: false, error: "Choose two different locations.", code: "transfer_same_location" };
+  }
+  const q = input.quantity;
+  if (typeof q !== "number" || !Number.isFinite(q) || q <= 0 || q > MAX_QUANTITY || !hasAtMostDecimals(q, 3)) {
+    return { success: false, error: "Enter a quantity above zero with at most 3 decimals.", code: "bad_quantity" };
+  }
+  const reason = cleanText(input.reason);
+  if (reason && reason.length > 500) {
+    return { success: false, error: "The reason can be at most 500 characters.", code: "reason_too_long" };
+  }
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase.rpc("inventory_transfer_stock", {
+    p_business_id: businessId,
+    p_item_id: input.item_id,
+    p_from_location_id: input.from_location_id,
+    p_to_location_id: input.to_location_id,
+    p_quantity: q,
+    p_reason: reason,
+  });
+  if (error) {
+    const mapped = mapInventoryError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  revalidateInventory();
+  return { success: true, data: { reference_id: String(data) } };
 }
 
 // ---- Locations (Phase 2). The database decides who may write (RLS and the

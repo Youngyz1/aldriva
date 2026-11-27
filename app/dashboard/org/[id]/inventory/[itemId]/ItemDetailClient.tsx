@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   setInventoryItemActive,
   updateInventoryItem,
+  transferStock,
   type InventoryItemType,
   type InventoryBalanceRow,
   type InventoryItemRow,
@@ -155,6 +156,105 @@ function EditItemDialog({
   );
 }
 
+function TransferDialog({
+  businessId,
+  item,
+  locations,
+  balances,
+  onClose,
+  onDone,
+}: {
+  businessId: string;
+  item: InventoryItemRow;
+  locations: InventoryLocationRow[];
+  balances: InventoryBalanceRow[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const t = useTranslations("Inventory");
+  const tr = (key: string, fallback: string) => {
+    try {
+      return (t as unknown as (k: any) => string)(key);
+    } catch {
+      return fallback;
+    }
+  };
+  const onHandAt = (id: string) => balances.find((b) => b.location_id === id)?.on_hand ?? 0;
+  const firstWithStock = locations.find((l) => onHandAt(l.id) > 0) ?? locations[0];
+  const firstOther = locations.find((l) => l.id !== firstWithStock.id);
+  const [from, setFrom] = useState(firstWithStock.id);
+  const [to, setTo] = useState(firstOther ? firstOther.id : "");
+  const [qty, setQty] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setError(null);
+    const q = Number(qty);
+    if (qty.trim() === "" || !Number.isFinite(q) || q <= 0) {
+      setError(tr("err_bad_quantity", ""));
+      return;
+    }
+    setSaving(true);
+    const res = await transferStock(businessId, {
+      item_id: item.id,
+      from_location_id: from,
+      to_location_id: to,
+      quantity: q,
+      reason: reason || null,
+    });
+    setSaving(false);
+    if (!res.success) {
+      setError(tr("err_" + res.code, res.error));
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-[28rem]">
+        <DialogHeader>
+          <DialogTitle>{t("transferStock")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-500">{t("trFrom")}</label>
+            <Select className="min-w-0 w-full pr-8" value={from} onChange={(e) => setFrom(e.target.value)}>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </Select>
+            <p className="text-xs text-zinc-500">{t("trAvailable")}: {onHandAt(from)} {item.unit}</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-500">{t("trTo")}</label>
+            <Select className="min-w-0 w-full pr-8" value={to} onChange={(e) => setTo(e.target.value)}>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-500">{t("fQuantity")}</label>
+            <Input className="min-w-0 w-full" type="number" min="0" step="0.001" value={qty} onChange={(e) => setQty(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-zinc-500">{t("fReason")}</label>
+            <Input className="min-w-0 w-full" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t("cancel")}</Button>
+          <Button onClick={handleSave} disabled={saving || to === "" || from === to}>{saving ? t("saving") : t("transferStock")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ItemDetailClient({
   organizerId,
   businessId,
@@ -181,6 +281,8 @@ export default function ItemDetailClient({
   const router = useRouter();
   const [adjusting, setAdjusting] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transfersOnly, setTransfersOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -194,8 +296,20 @@ export default function ItemDetailClient({
   const fmt = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 3 });
   const money = (n: number | null) => (n === null ? "-" : n.toLocaleString(locale, { maximumFractionDigits: 4 }));
   const locName = (id: string) => locations.find((l) => l.id === id)?.name ?? "-";
+  const locCell = (m: InventoryMovementRow) => {
+    if (m.reference_id && (m.movement_type === "transfer_out" || m.movement_type === "transfer_in")) {
+      const other = movements.find((o) => o.reference_id === m.reference_id && o.id !== m.id);
+      if (other) {
+        const out = m.movement_type === "transfer_out" ? m : other;
+        const inn = m.movement_type === "transfer_out" ? other : m;
+        return locName(out.location_id) + " \u2192 " + locName(inn.location_id);
+      }
+    }
+    return locName(m.location_id);
+  };
 
   const total = balances.reduce((sum, b) => sum + b.on_hand, 0);
+  const shownMovements = transfersOnly ? movements.filter((m) => m.movement_type === "transfer_out" || m.movement_type === "transfer_in") : movements;
   const manageable = locations.filter((l) => l.status === "active" && manageableLocationIds.includes(l.id));
   const status: "inactive" | "out" | "low" | "ok" = !item.is_active
     ? "inactive"
@@ -244,6 +358,9 @@ export default function ItemDetailClient({
         <div className="flex flex-wrap items-center gap-2">
           {item.is_active && manageable.length > 0 && (
             <Button size="sm" onClick={() => setAdjusting(true)}>{t("adjust")}</Button>
+          )}
+          {item.is_active && manageable.length >= 2 && (
+            <Button size="sm" variant="outline" onClick={() => setTransferring(true)}>{t("transferStock")}</Button>
           )}
           {canManageCatalog && (
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>{t("editItem")}</Button>
@@ -309,7 +426,13 @@ export default function ItemDetailClient({
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-black">{t("detailMovements")}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-black">{t("detailMovements")}</h2>
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600">
+            <input type="checkbox" checked={transfersOnly} onChange={(e) => setTransfersOnly(e.target.checked)} />
+            {t("filterTransfersOnly")}
+          </label>
+        </div>
         {movements.length === 0 ? (
           <p className="text-sm text-zinc-500">{t("noMovements")}</p>
         ) : (
@@ -328,13 +451,13 @@ export default function ItemDetailClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {movements.map((m) => (
+                  {shownMovements.map((m) => (
                     <tr key={m.id} className="border-b border-zinc-50 last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 text-zinc-600">
                         {new Date(m.created_at).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}
                       </td>
                       <td className="px-4 py-3 font-semibold text-zinc-900">{tr(`mv_${m.movement_type}`, m.movement_type)}</td>
-                      <td className="px-4 py-3 text-zinc-600">{locName(m.location_id)}</td>
+                      <td className="px-4 py-3 text-zinc-600">{locCell(m)}</td>
                       <td className={`px-4 py-3 text-right font-bold ${m.quantity > 0 ? "text-emerald-700" : "text-rose-700"}`}>
                         {m.quantity > 0 ? "+" : ""}{fmt(m.quantity)}
                       </td>
@@ -350,6 +473,18 @@ export default function ItemDetailClient({
         )}
         {movements.length >= 200 && <p className="text-xs text-zinc-500">{t("movementsLimit")}</p>}
       </section>
+
+      {transferring && (
+        <TransferDialog
+          key={item.id}
+          businessId={businessId}
+          item={item}
+          locations={manageable}
+          balances={balances}
+          onClose={() => setTransferring(false)}
+          onDone={() => { setTransferring(false); router.refresh(); }}
+        />
+      )}
 
       {editing && (
         <EditItemDialog

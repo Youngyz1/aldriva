@@ -1917,7 +1917,12 @@
     "locShowArchived": "Afficher les archivés",
     "err_default_location_archive": "L’emplacement par défaut ne peut pas être archivé.",
     "err_location_has_stock": "Cet emplacement contient encore du stock. Déplacez-le ou retirez-le d’abord.",
-    "err_transfer_same_location": "Choisissez deux emplacements différents."
+    "err_transfer_same_location": "Choisissez deux emplacements différents.",
+    "transferStock": "Transférer du stock",
+    "trFrom": "De",
+    "trTo": "Vers",
+    "trAvailable": "Disponible",
+    "filterTransfersOnly": "Transferts uniquement"
   },
   "Workforce": {
     "wfTitle": "Effectifs",
