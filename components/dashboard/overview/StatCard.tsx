@@ -44,7 +44,7 @@ export function StatCard({
   let formattedValue: string;
   switch (format) {
     case "money":
-      formattedValue = formatMoney(Math.round(value), currency);
+      formattedValue = formatMoney(value, currency);
       break;
     case "percent":
       formattedValue = `${Math.round(value)}%`;

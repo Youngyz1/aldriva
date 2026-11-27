@@ -27,6 +27,11 @@ export interface ModuleNavConfig {
   group: "primary" | "manage" | "more";
   label: string;
   visibility?: OrgNavVisibility;
+  /** When set, this module renders as a child in another module's
+   *  collapsible nav submenu (matched by that module's `id`) instead of
+   *  as its own top-level sidebar item. Adding a new child later is one
+   *  line: a new module entry with this field set to the same parent id. */
+  parent?: ModuleId;
 }
 
 export interface ModuleDefinition {
@@ -275,6 +280,127 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     },
     i18n: { title: "Organizer.fleet", empty: "Fleet.empty", error: "Fleet.error" },
     href: (ctx) => `/dashboard/org/${ctx.organizerId}/fleet`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
+    id: "workforce",
+    // Parent group for Branches/Staff (and whatever a later slice adds --
+    // Roles, Schedules, Assignments, Skills -- each just needs nav.parent:
+    // "workforce" set, no renderer changes). Same organizer-type visibility
+    // Branches/Staff already used individually: confirmed with the owner
+    // that there's no reliable "single-person business" signal anywhere in
+    // the taxonomy data (only 25 of ~130 business types have ANY explicit
+    // capability list, and only 6 of those include STAFF), so this stays
+    // unconditional on business type, same as before.
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "workforce",
+      icon: "Briefcase",
+      group: "manage",
+      label: "Workforce",
+      visibility: { kind: "organizer-type", flag: "business" },
+    },
+    i18n: { title: "Organizer.workforce", empty: "Workforce.empty", error: "Workforce.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/workforce`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
+    id: "branches",
+    // Same reasoning as "staff" below: organizer-type visibility, not
+    // capability-gated, so it shows for any business regardless of
+    // capabilities (branches/business_branches is not itself a capability).
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "branches",
+      icon: "MapPin",
+      group: "manage",
+      label: "Branches",
+      visibility: { kind: "organizer-type", flag: "business" },
+      parent: "workforce",
+    },
+    i18n: { title: "Organizer.branches", empty: "Branches.empty", error: "Branches.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/branches`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
+    id: "staff",
+    // Visibility below is organizer-type ("business"), not capability-gated --
+    // shown to every organizer-level user with at least one business row,
+    // regardless of that business's capabilities (e.g. Apex Car Rental has
+    // no STAFF capability). capabilities: [] matches the same choice made
+    // for "website" above, which uses the same visibility kind.
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "staff",
+      icon: "UserCog",
+      group: "manage",
+      label: "Staff",
+      visibility: { kind: "organizer-type", flag: "business" },
+      parent: "workforce",
+    },
+    i18n: { title: "Organizer.staff", empty: "Staff.empty", error: "Staff.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/staff`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
+    id: "roles",
+    // Same organizer-type visibility as Branches/Staff above -- this is the
+    // "whatever a later slice adds" case the "workforce" entry's own comment
+    // already anticipated (nav.parent: "workforce", no renderer changes).
+    // Org-workspace only, per the owner's call: no businesses/[id] mirror.
+    capabilities: [],
+    permission: "manage",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "roles",
+      icon: "ShieldLock",
+      group: "manage",
+      label: "Roles & Permissions",
+      visibility: { kind: "organizer-type", flag: "business" },
+      parent: "workforce",
+    },
+    i18n: { title: "Organizer.roles", empty: "Roles.empty", error: "Roles.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/roles`,
+    load: stubLoad,
+    emptyWhen: () => false,
+    routeExists: true,
+  },
+  {
+    id: "inventory",
+    // Industry-independent stock module (migration 268). Same organizer-type
+    // visibility as Workforce, so every business sees it. The page ships at
+    // app/dashboard/org/[id]/inventory.
+    capabilities: [],
+    permission: "view",
+    surfaces: ["nav"],
+    period: "none",
+    nav: {
+      hrefSuffix: "inventory",
+      icon: "Package",
+      group: "manage",
+      label: "Inventory",
+      visibility: { kind: "organizer-type", flag: "business" },
+    },
+    i18n: { title: "Organizer.inventory", empty: "Inventory.empty", error: "Inventory.error" },
+    href: (ctx) => `/dashboard/org/${ctx.organizerId}/inventory`,
     load: stubLoad,
     emptyWhen: () => false,
     routeExists: true,

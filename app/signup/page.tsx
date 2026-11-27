@@ -7,6 +7,7 @@ import { passwordRules, validatePassword } from "@/lib/password-policy";
 import { resolveSafeNextPath } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 function SignupForm() {
   const router = useRouter();
@@ -18,6 +19,7 @@ function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [loginHref, setLoginHref] = useState("/login");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -36,6 +38,12 @@ function SignupForm() {
       }
     });
   }, [router]);
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("redirect");
+    const safe = raw ? safeRedirectPath(raw, "/") : "/";
+    if (safe !== "/") setLoginHref(`/login?redirect=${encodeURIComponent(safe)}`);
+  }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -175,7 +183,7 @@ function SignupForm() {
           <p className="text-zinc-500 mb-8">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={loginHref}
               className="text-orange-500 font-semibold hover:text-orange-600"
             >
               Log in
@@ -190,7 +198,7 @@ function SignupForm() {
                 <span>
                   {" "}
                   <Link
-                    href="/login"
+                    href={loginHref}
                     className="font-bold underline text-red-700"
                   >
                     Log in here
@@ -206,9 +214,12 @@ function SignupForm() {
               <p className="text-lg font-black mb-1">✓ Account created!</p>
               <p>
                 Check your email and confirm your account before logging in.
+                {loginHref !== "/login"
+                  ? " After you confirm, log in and open your invitation link again."
+                  : ""}
               </p>
               <Link
-                href="/login"
+                href={loginHref}
                 className="mt-4 inline-block font-bold text-green-700 underline"
               >
                 Go to login →

@@ -3,6 +3,16 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
+## [2026-11-27] - Staff management + inventory merged into staging (branch `merge/staff-management-into-staging`)
+
+- **Merge:** `feat/staff-management` (`df454422b`) merged with `origin/staging` (`3f957528b`) in a sibling worktree; merge commit `9d2073f0b`. Exactly four conflicts: `app/login/page.tsx` resolved to the branch's `signupHref`, and `messages/en.json`, `messages/fr.json`, `test-files.json` resolved as unions. All 331 registered test paths existed afterwards.
+- **Landed:** the generic staff-management layer (roles, token-hashed invitations, branch scopes, permission-key RLS on every staff table, rank and escalation guards, audit and denial logs, planned shifts, worker-to-staff links), the dotted 62-key permission catalogue (235) and the inventory foundation (items, locations, balances, movement ledger, transfers — 268/269, where balances change only through `inventory_apply_movement()`). Rentals gained a per-vehicle photo (232) and staff assignment for bookings (262); `rental_bookings` privileges were tightened (263).
+- **Tests registered:** `test-files.json` gained the staff and inventory suites (`88993864f`), ending at 334 entries with no duplicates. Six unrelated tracked test files remain unregistered and are recorded as a known gap.
+- **Supabase mirrors:** 32 new byte-identical mirrors for migrations 231-269 (`c106053c9`, 5263 insertions), sha256-verified pairwise. 234 and 265 were already staging's; 245 is unused. Timestamps follow migration-number order rather than commit time, so 232 sorts after 231's mirror and 263/264 sort before the existing 265 mirror (DEC-0067). Rollback and verification scripts stay in `db/` only.
+- **Register:** `docs/HANDOFF.md` section 6 rows for 231-269, recording 260/261 (showcase), 270/271 and 272 (organizer-ai, **NOT applied**) and 273 (customer comms) as held elsewhere. Next free number is **274**. Stale "next free is 234" notes in `docs/phases/phase-07-bookings.md` corrected.
+- **Verification:** ESLint on 116 changed code files = 0 errors (2 pre-existing `<img>` warnings); `tsc --noEmit` clean after `npx next typegen`; `"use server"` export audit = 42 modules / 239 async exports / 0 violations; `npm run build` exit 0 on Next 16.4.6 (425/425 pages); en/fr 2369 keys each, 0 duplicates, 0 parity gaps; `npm test` 3684/3717, and the 33 failures are **inherited from staging** — a clean `origin/staging` tree fails the identical 33 tests, so this merge adds none.
+- **Not done:** nothing pushed, no migration applied, no browser QA for the staff/inventory UI, and `docs/DATABASE.md` section 5 still ends at 219.
+
 ## [2026-11-12] - Rental receipt printer (branch `feat/rental-receipt-printer`)
 
 - **Receipt module imported** from `graceful-fold` (`components/receipt/**`) with `jsbarcode ^3.12.3`; the dependency allowlist test now includes it.

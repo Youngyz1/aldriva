@@ -1,0 +1,12 @@
+-- Verify migration 268 (read-only). Every row should have ok = true.
+SELECT 'four tables exist' AS check_name, (SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename IN ('inventory_items','inventory_locations','inventory_balances','inventory_movements')) = 4 AS ok
+UNION ALL SELECT 'RLS enabled on all four', (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('inventory_items','inventory_locations','inventory_balances','inventory_movements') AND c.relrowsecurity) = 4
+UNION ALL SELECT 'anon and PUBLIC hold nothing on the tables', NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name LIKE 'inventory\_%' AND grantee IN ('anon','PUBLIC'))
+UNION ALL SELECT 'authenticated is SELECT-only on balances and movements', NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('inventory_balances','inventory_movements') AND grantee='authenticated' AND privilege_type <> 'SELECT')
+UNION ALL SELECT 'authenticated has no DELETE/TRUNCATE/TRIGGER/REFERENCES on any table', NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name LIKE 'inventory\_%' AND grantee='authenticated' AND privilege_type IN ('DELETE','TRUNCATE','TRIGGER','REFERENCES'))
+UNION ALL SELECT 'stock functions are SECURITY DEFINER', (SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('inventory_apply_movement','inventory_ensure_default_location') AND prosecdef) = 2
+UNION ALL SELECT 'anon cannot execute inventory_apply_movement', NOT has_function_privilege('anon','public.inventory_apply_movement(uuid,uuid,uuid,text,numeric,text,numeric)','EXECUTE')
+UNION ALL SELECT 'authenticated can execute inventory_apply_movement', has_function_privilege('authenticated','public.inventory_apply_movement(uuid,uuid,uuid,text,numeric,text,numeric)','EXECUTE')
+UNION ALL SELECT 'policy count = 8', (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename LIKE 'inventory\_%') = 8
+UNION ALL SELECT 'type/sign check exists', EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.inventory_movements'::regclass AND conname='inventory_movements_type_sign_check')
+UNION ALL SELECT 'one-default-location index exists', EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='inventory_locations_one_default_uidx');

@@ -17,14 +17,14 @@ Store commerce path (cart → checkout → delivery) is **built**; tax, a unifie
 ### Built
 - **Store cart & checkout:** `lib/store-cart.ts` (localStorage cart, bounds), `components/site/v2/StoreCartDrawer.tsx`, `POST /api/checkout/cart` (multi-line Stripe session) and `POST /api/checkout/cart/validate` (priced review, no writes), shared `lib/store-cart-checkout.ts`. (VERIFIED — files exist; §5 Tasks 6.2–6.4.)
 - **Store promo codes:** `db/migration_177_store_promo_codes.sql` (+ rollback + Supabase mirror), `lib/promo-codes.ts`, `apply_promo_use()` RPC; **applied on staging** (owner statement). (VERIFIED)
+- **Store promo owner UI & management actions:** `lib/actions/promo-codes.ts` (`listStorePromoCodes`, `createStorePromoCode`, `updateStorePromoCode`, `toggleStorePromoCodeActive`, `deleteStorePromoCode`), `components/dashboard/store/PromoCodesManager.tsx`, integrated into `app/dashboard/org/[id]/products/page.tsx` under the Promo Codes tab. Tested via `lib/__tests__/promo-codes-actions.test.cjs` (PASS). (VERIFIED — built and tested.)
 - **Orders & payments:** `db/migration_171_orders.sql` (orders + delivery-ready status set), `db/migration_173_order_online_payment.sql`, `db/migration_174_order_timing.sql`, `lib/actions/orders.ts`, `app/dashboard/org/[id]/orders/`. (VERIFIED — files exist.)
 - **Owner-managed delivery:** `db/migration_175_owner_managed_delivery.sql` (delivery fee/threshold, rider name+phone, `out_for_delivery`/`delivered` statuses), `lib/courier/whatsapp-message.ts`. (VERIFIED.)
 - **Menu order path:** menu ordering + option snapshots (Phase 5 workstream) submit through `lib/order-submit.ts`. (VERIFIED.)
-- Tests: `lib/__tests__/store-cart-checkout.test.cjs`, `phase6-owner-managed-delivery.test.cjs` (38/38 PASS 2026-10-20). (VERIFIED.)
+- Tests: `lib/__tests__/store-cart-checkout.test.cjs`, `phase6-owner-managed-delivery.test.cjs` (38/38 PASS 2026-10-20), `lib/__tests__/promo-codes-actions.test.cjs` (PASS). (VERIFIED.)
 
 ### Partly built
-- **Promo owner UI:** backend + validation + usage burn exist, but no dashboard UI creates promo codes; the checkout field only accepts codes provisioned out-of-band. (VERIFIED — §13.)
-- **Kitchen & Delivery workstream:** cook worker access, invitations, sessions, kitchen dashboard and `/kitchen/accept` built **but uncommitted** (migration 185). Order state flow, kitchen display page, courier registration UI, and driver dashboard **not built**. Full detail: `docs/phases/phase-kitchen-delivery.md`. (VERIFIED — files exist uncommitted; no kitchen commit anywhere.)
+- **Kitchen & Delivery workstream:** cook worker access, invitations, sessions, kitchen dashboard and `/kitchen/accept` built (migrations 185-201). Full detail: `docs/phases/phase-kitchen-delivery.md`.
 - **Owner-managed delivery migration 175** has uncommitted edits making the forward idempotent and the rollback a hard guard — pending owner decision. (VERIFIED — `git diff`.)
 - Diagnostics/repair paths: `lib/__tests__/phase5-overview.test.cjs`, `lib/__tests__/data-consistency.test.cjs`, `lib/__tests__/operational-settings.test.cjs` cover store/website ops. (VERIFIED — registered.)
 

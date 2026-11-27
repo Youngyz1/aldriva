@@ -23,16 +23,35 @@ export interface OrgNavOpts extends OrgNavSignalCounts {
 }
 
 export function getOrgNavItems(base: string, opts: OrgNavOpts): NavItem[] {
-  const items: NavItem[] = getOrgNavModules(opts.capabilities, opts).map((module) => {
-    const isRentals = module.key === "rentals";
-    return {
-      label: module.label,
-      href: `${base}/${module.hrefSuffix}`,
-      icon: module.icon,
-      badge: isRentals && opts.pendingRentalsCount && opts.pendingRentalsCount > 0 ? opts.pendingRentalsCount : undefined,
-      settingsHref: isRentals ? `${base}/rentals/settings` : undefined,
-    };
-  });
+  const modules = getOrgNavModules(opts.capabilities, opts);
+
+  // Modules with `nav.parent` set (e.g. Branches/Staff under Workforce)
+  // become children of the matching parent module's NavItem instead of
+  // their own top-level item. A module whose parent isn't itself visible
+  // (shouldn't happen today -- same visibility rule on both) is simply
+  // dropped rather than rendered orphaned at the top level.
+  const childrenByParent = new Map<string, NavItem[]>();
+  for (const mod of modules) {
+    if (!mod.parent) continue;
+    const list = childrenByParent.get(mod.parent) ?? [];
+    list.push({ label: mod.label, href: `${base}/${mod.hrefSuffix}`, icon: mod.icon });
+    childrenByParent.set(mod.parent, list);
+  }
+
+  const items: NavItem[] = modules
+    .filter((mod) => !mod.parent)
+    .map((mod) => {
+      const isRentals = mod.key === "rentals";
+      const children = childrenByParent.get(mod.key);
+      return {
+        label: mod.label,
+        href: `${base}/${mod.hrefSuffix}`,
+        icon: mod.icon,
+        badge: isRentals && opts.pendingRentalsCount && opts.pendingRentalsCount > 0 ? opts.pendingRentalsCount : undefined,
+        settingsHref: isRentals ? `${base}/rentals/settings` : undefined,
+        ...(children ? { children } : {}),
+      };
+    });
   if (opts.hasMenuRows || opts.capabilities.includes("MENU")) {
     items.push({ label: "Kitchen", href: `${base}/kitchen`, icon: "ChefHat" });
   }
