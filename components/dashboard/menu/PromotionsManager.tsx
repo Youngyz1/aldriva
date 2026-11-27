@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { MediaUploadField } from "@/components/dashboard/website/builder/inspectors/common/MediaUploadField";
 import {
   createPromotion,
@@ -23,7 +24,7 @@ type PromotionRecord = {
   headline: string | null;
   description: string | null;
   image_url: string | null;
-  offer_type: "percent_off" | "special_price" | "free_delivery";
+  offer_type: "percent_off" | "special_price" | "free_delivery" | "highlight";
   percent_off: number | null;
   special_price: number | null;
   apply_to_variants: boolean;
@@ -120,6 +121,10 @@ export function PromotionsManager({
   loadError: string | null;
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const promoImageHint = locale === "fr"
+    ? "Toutes les proportions fonctionnent et la photo est affichée en entier. Les photos larges (16:9, au moins 1600 x 900 px) remplissent le mieux le cadre."
+    : "Any shape works and is shown whole. Wide photos (16:9, at least 1600x900) fill the frame best.";
   const canEdit = ["owner", "admin", "manager", "editor"].includes(role);
   const canDelete = ["owner", "admin", "manager"].includes(role);
   const [editing, setEditing] = useState<PromotionRecord | null | "new">(null);
@@ -348,7 +353,7 @@ export function PromotionsManager({
                 {form.destination_type === "section" && <Field id="promo-destination-section" label="Menu section destination"><select id="promo-destination-section" className={inputClass} value={form.destination_section_id || ""} onChange={(event) => set("destination_section_id", event.currentTarget.value || null)}><option value="">Choose section</option>{sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></Field>}
                 {form.destination_type === "external" && <Field id="promo-destination-url" label="External HTTPS URL"><input id="promo-destination-url" className={inputClass} type="url" placeholder="https://example.com" value={form.destination_url || ""} onChange={(event) => set("destination_url", event.currentTarget.value)} /></Field>}
               </div>
-              <div className="mt-4"><MediaUploadField label="Promotion image" value={form.image_url || ""} onChange={(url) => set("image_url", url)} tenantId={tenantId} folderSubpath="promotions" /></div>
+              <div className="mt-4"><MediaUploadField label="Promotion image" description={promoImageHint} value={form.image_url || ""} onChange={(url) => set("image_url", url)} tenantId={tenantId} folderSubpath="promotions" /></div>
             </section>
           </div>
           <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
@@ -423,7 +428,7 @@ export function PromotionsManager({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2"><h3 className="truncate font-semibold text-zinc-900">{promotion.name}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLE[status]}`}>{status}</span><span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">{promotion.layout.replace("_", " ")}</span></div>
-                  <p className="mt-1 text-sm text-zinc-600">{promotion.headline || (promotion.offer_type === "percent_off" ? `${promotion.percent_off}% off` : promotion.offer_type === "special_price" ? `Special price ${formatMoney(promotion.special_price, currency)}` : "Free delivery")}</p>
+                  <p className="mt-1 text-sm text-zinc-600">{promotion.headline || (promotion.offer_type === "percent_off" ? `${promotion.percent_off}% off` : promotion.offer_type === "special_price" ? `Special price ${formatMoney(promotion.special_price, currency)}` : promotion.offer_type === "highlight" ? "Featured" : "Free delivery")}</p>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500"><span>{targetCount} target{targetCount === 1 ? "" : "s"}</span>{promotion.code && <span>Code <strong className="font-mono text-zinc-700">{promotion.code}</strong></span>}{promotion.ends_at && <span>Ends {new Date(promotion.ends_at).toLocaleDateString()}</span>}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">

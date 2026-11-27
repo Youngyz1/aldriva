@@ -22,18 +22,28 @@ export function WebsiteDevicePreviewFrame({
   siteTitle,
 }: WebsiteDevicePreviewFrameProps) {
   const mobile = mode === "mobile";
-  const viewportWidth = mobile ? 390 : 1440;
-  const viewportHeight = mobile ? 844 : 820;
-  const frameWidth = mobile ? 414 : 1440;
-  const frameHeight = mobile ? 868 : 860;
-  const scale = calculatePreviewFitScale({
-    containerWidth,
-    containerHeight,
-    frameWidth,
-    frameHeight,
-    paddingX: 16,
-    paddingY: 16,
-  });
+  // Desktop fills the panel instead of simulating a fixed 1440-wide window:
+  // a narrower dashboard panel was shrinking that fixed frame down to a tiny,
+  // hard-to-read rectangle with a lot of unused space around it. The iframe's
+  // own viewport now matches the panel, so content taller than the panel
+  // scrolls natively inside the iframe instead of needing a bigger frame.
+  const desktopChromeBarHeight = 40; // matches the h-10 fake-browser-bar below
+  const viewportWidth = mobile ? 390 : Math.max(320, Math.round((containerWidth || 1200) - 32));
+  const viewportHeight = mobile
+    ? 844
+    : Math.max(480, Math.round((containerHeight || 800) - 32 - desktopChromeBarHeight));
+  const frameWidth = mobile ? 414 : viewportWidth;
+  const frameHeight = mobile ? 868 : viewportHeight + desktopChromeBarHeight;
+  const scale = mobile
+    ? calculatePreviewFitScale({
+        containerWidth,
+        containerHeight,
+        frameWidth,
+        frameHeight,
+        paddingX: 16,
+        paddingY: 16,
+      })
+    : 1;
 
   return (
     <div className="relative mx-auto shrink-0" style={{ width: Math.round(frameWidth * scale), height: Math.round(frameHeight * scale) }}>

@@ -6,7 +6,7 @@
 
 import { isZeroDecimalCurrency, normalizeMoneyCurrency } from "./money";
 
-export type MenuPromotionOfferType = "percent_off" | "special_price" | "free_delivery";
+export type MenuPromotionOfferType = "percent_off" | "special_price" | "free_delivery" | "highlight";
 export type MenuPromotionSource = "promo_price" | "promotion" | "none";
 
 export interface MenuPromotionTarget {
@@ -171,6 +171,7 @@ export function eligiblePromotionsForItem(
 
   return promotions.filter((promo) => {
     if (!isPromotionActive(promo, now)) return false;
+    if (promo.offer_type === "highlight") return false;
     if (!organizerId || promo.organizer_id !== organizerId) return false;
     if (!hasTarget(promo, item)) return false;
     const promoCode = promo.code?.trim().toLocaleUpperCase("en-US") ?? "";

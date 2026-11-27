@@ -72,6 +72,10 @@ export interface BrowseItem {
   originalPriceLabel?: string | null;
   /** Sold-out flag for dishes/items. */
   isSoldOut?: boolean;
+  /** Server-computed: true when created within 14 days. */
+  isNew?: boolean;
+  /** Server-computed: true when item has "popular" tag or is featured. */
+  isPopular?: boolean;
   /**
    * Pre-computed availability badge text (e.g. low/sold-out), derived
    * server-side from real stock. Absent hides the badge.

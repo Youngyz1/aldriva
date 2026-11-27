@@ -58,6 +58,7 @@ import {
   getWebsiteBackgroundPattern,
   getWebsitePaletteId,
   resolveStorefrontCurrency,
+  resolveStoredWebsiteAppearance,
   WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY,
 } from "@/lib/website-v2-theme";
 import { resolveWebsiteTimezone } from "@/lib/date-timezone";
@@ -105,21 +106,21 @@ export async function saveV2WebsiteAppearanceDraft(
   const normalized = normalizeContent(content);
   const extras = normalized.template_extras ?? {};
   const appearance = extras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
+  let contentToSave = normalized;
   if (appearance !== undefined) {
-    if (!template.palettes?.length || !appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
-      return { success: false, error: "This template does not support appearance choices." };
-    }
-    const value = appearance as Record<string, unknown>;
-    const validPalette = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId);
-    const validPattern = template.patterns?.length
-      ? typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern)
-      : value.backgroundPattern === undefined || value.backgroundPattern === "none";
-    if (!validPalette || !validPattern) {
-      return { success: false, error: "Choose a palette and any background pattern declared by this template." };
-    }
+    // An unsupported/stale stored value (e.g. a palette the template no
+    // longer declares) falls back to the template default here instead of
+    // blocking the save — this self-heals the next time it's resolved for
+    // publish, rather than leaving the website permanently unpublishable.
+    const resolved = resolveStoredWebsiteAppearance(template, appearance);
+    const { [WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]: _droppedAppearance, ...restExtras } = extras;
+    contentToSave = {
+      ...normalized,
+      template_extras: resolved ? { ...restExtras, [WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]: resolved } : restExtras,
+    };
   }
 
-  return saveContentDraft(websiteId, normalized, expectedVersion);
+  return saveContentDraft(websiteId, contentToSave, expectedVersion);
 }
 
 interface OrganizerRow {

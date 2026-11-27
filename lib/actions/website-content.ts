@@ -48,7 +48,7 @@ import { revalidatePath } from "next/cache";
 import { getOrgApproval } from "@/lib/server-approval";
 import { canPublish as canPublishApproval } from "@/lib/business-approval";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
-import { mergeWebsiteAppearanceMetadata, resolveStorefrontCurrency, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
+import { mergeWebsiteAppearanceMetadata, resolveStorefrontCurrency, resolveStoredWebsiteAppearance, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import { getTranslations } from "next-intl/server";
 
@@ -424,23 +424,13 @@ export async function publishContentDraft(
     const normalizedGateContent = normalizeContent(gateDraft?.content ?? {});
     const gateExtras = normalizedGateContent.template_extras ?? {};
     const appearanceValue = gateExtras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
-    let appearanceToPublish: { paletteId: string; backgroundPattern: "none" | "dots" } | null = null;
-    if (appearanceValue !== undefined) {
-      if (!flagship.palettes?.length || !flagship.patterns?.length || !appearanceValue || typeof appearanceValue !== "object" || Array.isArray(appearanceValue)) {
-        return { success: false, error: "The saved appearance is not supported by this template." };
-      }
-      const appearance = appearanceValue as Record<string, unknown>;
-      const paletteId = typeof appearance.paletteId === "string" && flagship.palettes.some((palette) => palette.id === appearance.paletteId)
-        ? appearance.paletteId
-        : undefined;
-      const backgroundPattern = typeof appearance.backgroundPattern === "string" && flagship.patterns.some((pattern) => pattern.id === appearance.backgroundPattern)
-        ? appearance.backgroundPattern as "none" | "dots"
-        : undefined;
-      if (!paletteId || !backgroundPattern) {
-        return { success: false, error: "The saved appearance contains an unknown palette or background pattern." };
-      }
-      appearanceToPublish = { paletteId, backgroundPattern };
-    }
+    // An unsupported/stale stored value (e.g. a palette the template no
+    // longer declares) falls back to the template default here rather than
+    // blocking publish — see resolveStoredWebsiteAppearance for the one
+    // source this and saveV2WebsiteAppearanceDraft both validate against.
+    const appearanceToPublish = appearanceValue !== undefined
+      ? resolveStoredWebsiteAppearance(flagship, appearanceValue)
+      : null;
     // Stale writes are rejected BEFORE any page materialization, so a
     // version-mismatched publish never creates or touches page rows. The RPC
     // stays the atomic authority (a race between this check and the RPC still

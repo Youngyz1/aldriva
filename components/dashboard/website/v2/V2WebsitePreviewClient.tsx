@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- preview media is already sanitized and this iframe uses direct browser rendering. */
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
@@ -44,6 +44,8 @@ interface V2WebsitePreviewClientProps {
   currency?: string;
   currencyLocale?: Locale;
   business: V2BuilderState["storefront"];
+  /** Server-rendered real-data blocks (promotions, Showcase Popular/Offers), keyed by block.id, that take priority over the hand-rolled PreviewBlock JSX for that block. */
+  blockOverrides?: Record<string, ReactNode>;
 }
 
 function text(value: unknown): string {
@@ -319,6 +321,7 @@ export function V2WebsitePreviewClient({
   currency,
   currencyLocale,
   business,
+  blockOverrides,
 }: V2WebsitePreviewClientProps) {
   const storeT = useTranslations("Storefront");
   const offeringT = useTranslations("BusinessOfferings");
@@ -431,9 +434,10 @@ export function V2WebsitePreviewClient({
       <main>{page?.blocks.map((block, index) => {
         const blockMap = resolved.sourceMap[block.id ?? ""] ?? {};
         const hasSample = Object.values(blockMap).some((entry) => entry.sampled);
+        const override = block.id ? blockOverrides?.[block.id] : undefined;
         return <div key={block.id ?? index} className="relative" data-sample-content={hasSample ? "true" : undefined}>
           {hasSample ? <span className="absolute right-4 top-3 z-10 rounded-full bg-amber-100 px-[var(--ps-space-2)] py-[var(--ps-space-1)] text-xs font-semibold text-amber-900">Sample content</span> : null}
-          <PreviewBlock block={block} menuItems={currentMenuItems} currency={displayCurrency} currencyLocale={locale} nextDayLabel={storeT("nextDay")} closedLabel={storeT("closed")} addFirstDishLabel={storeT("addFirstDish")} manageMenuLabel={storeT("manageMenu")} siteSlug={siteSlug} onPageNavigate={navigateToPreviewPage} tableFlame={template.id === "restaurant-table-flame"} savannah={template.id === "restaurant-savannah"} businessName={siteTitle} />
+          {override ?? <PreviewBlock block={block} menuItems={currentMenuItems} currency={displayCurrency} currencyLocale={locale} nextDayLabel={storeT("nextDay")} closedLabel={storeT("closed")} addFirstDishLabel={storeT("addFirstDish")} manageMenuLabel={storeT("manageMenu")} siteSlug={siteSlug} onPageNavigate={navigateToPreviewPage} tableFlame={template.id === "restaurant-table-flame"} savannah={template.id === "restaurant-savannah"} businessName={siteTitle} />}
         </div>;
       })}</main>
       <V2SiteFooter template={templateForPage} content={content} sampleContent={sampleContent} navigation={navigation} siteTitle={siteTitle} siteSlug={siteSlug} previewMode editMode sourceMap={resolved.chromeSourceMap.footer} storefrontFeatures={resolved.storefrontFeatures} availablePageSlugs={resolved.pages.map((candidate) => candidate.slug)} todayHours={resolved.todayHours} onPageNavigate={navigateToPreviewPage} />

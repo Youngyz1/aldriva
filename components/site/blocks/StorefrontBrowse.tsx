@@ -35,7 +35,7 @@ import {
   ProductCarousel,
   type ProductCarouselItem,
 } from "./ProductCarousel";
-import { CatalogCarousel } from "./CatalogCard";
+import { CatalogCard, CatalogCarousel } from "./CatalogCard";
 import type { Locale } from "@/i18n/routing";
 import {
   StoreCartWidget,
@@ -58,14 +58,16 @@ import type { MenuPromotion } from "@/lib/menu-promotions";
 import {
   createStorefrontCartLineId,
   createStorefrontPriceVersion,
-  migrateStorefrontCart,
+  loadStorefrontCart,
   reconcileStorefrontCart,
-  STOREFRONT_CART_VERSION,
+  saveStorefrontCart,
   upsertStorefrontCartLine,
+  writeStorefrontCartSummary,
   type StorefrontCartLine,
 } from "@/lib/storefront-cart";
 import StripeProvider from "@/components/payments/StripeProvider";
 import PaymentForm from "@/components/payments/PaymentForm";
+import { CartAddedToast, useCartAddedToast } from "./CartAddedToast";
 import { getTableRunningBill, requestTableBill } from "@/lib/actions/table-management";
 import type { TableRunningBill } from "@/lib/table-bill";
 import { ONLINE_PAYMENT_CURRENCIES, resolveStorefrontCheckoutPaymentState } from "@/lib/storefront-features";
@@ -115,6 +117,8 @@ export interface StorefrontBrowseLabels {
   optional?: string;
   options?: string;
   addToOrder?: string;
+  yourCart?: string;
+  viewCart?: string;
   updateOrder?: string;
   quantityLimit?: string;
   viewOrder?: string;
@@ -166,6 +170,7 @@ export interface StorefrontBrowseLabels {
   copyTrackingLink?: string;
   trackingLinkCopied?: string;
   loadMore?: string;
+  relatedItemsTitle?: string;
 }
 
 export type CartItem = StorefrontCartLine;
@@ -200,6 +205,17 @@ interface StorefrontBrowseProps {
     imageFit?: "cover" | "contain";
   };
   /**
+   * Opt-in visual style for the variant="cards" grid. When "showcase", each
+   * item is rendered through CatalogCard appearance="showcase" using the same
+   * onSelect/onQuickAdd/openSheet/handleQuickMenuAdd callbacks as catalog-carousel.
+   * Absent (default) keeps the existing card markup byte-for-byte identical.
+   */
+  appearance?: "default" | "showcase";
+  /** Badge labels forwarded to CatalogCard when appearance="showcase". */
+  showcaseLabels?: { soldOut?: string; popular?: string; new?: string };
+  /** Builder "Show suggestions" switch (Task 3). Default on; false hides the row entirely. */
+  relatedItemsEnabled?: boolean;
+  /**
    * Opt-in Shop sorting (Store template only): featured / newest /
    * price low-high / price high-low. Absent everywhere else, so existing
    * sites keep their current order.
@@ -221,6 +237,8 @@ interface StorefrontBrowseProps {
     addLabel: string;
     labels: StoreCartLabels;
   };
+  siteSlug?: string;
+  initialQuery?: string;
   children: React.ReactNode;
 }
 
@@ -268,25 +286,10 @@ export function TableFlameMenuRows({
   </>;
 }
 
-function loadCart(slug: string): { lines: CartItem[]; needsSave: boolean } {
-  if (typeof window === "undefined" || !slug) return { lines: [], needsSave: false };
-  try {
-    const raw = localStorage.getItem(`aldriva_cart_${slug}`);
-    if (!raw) return { lines: [], needsSave: false };
-    return migrateStorefrontCart(JSON.parse(raw), createStorefrontCartLineId);
-  } catch {
-    return { lines: [], needsSave: false };
-  }
-}
-
-function saveCart(slug: string, cart: CartItem[]): void {
-  if (typeof window === "undefined" || !slug) return;
-  try {
-    localStorage.setItem(`aldriva_cart_${slug}`, JSON.stringify({ version: STOREFRONT_CART_VERSION, items: cart }));
-  } catch {
-    // quota exceeded or private mode, silently ignore
-  }
-}
+// Cart storage lives in lib/storefront-cart.ts (loadStorefrontCart/saveStorefrontCart)
+// so Home's Popular "+" button can read and write the same slug-keyed cart.
+const loadCart = loadStorefrontCart;
+const saveCart = saveStorefrontCart;
 
 function optionQuantityKey(groupId: string, optionId: string): string {
   return `${groupId}:${optionId}`;
@@ -382,11 +385,18 @@ export function StorefrontBrowse({
   variant = "cards",
   currency,
   currencyLocale,
+  appearance,
+  showcaseLabels,
+  relatedItemsEnabled,
+  siteSlug,
+  initialQuery,
 }: StorefrontBrowseProps) {
   const isTableFlame = variant === "rows";
   const isEditorial = variant === "editorial";
+  const isShowcaseCards = appearance === "showcase" && variant === "cards";
+  const effectiveSiteSlug = siteSlug || orderConfig?.slug || storeCart?.slug;
   const [mounted, setMounted] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [activeGroup, setActiveGroup] = useState<string>(() => groups[0]?.id ?? BROWSE_ALL_GROUP);
   const activeGroupRef = useRef(groups[0]?.id ?? BROWSE_ALL_GROUP);
   const [sortKey, setSortKey] = useState<BrowseSortKey>("featured");
@@ -397,6 +407,7 @@ export function StorefrontBrowse({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isBillOpen, setIsBillOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const cartAddedToast = useCartAddedToast();
   const [renderedGroupIds, setRenderedGroupIds] = useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.id)));
   const [orderSuccess, setOrderSuccess] = useState<{
     orderNumber: string;
@@ -433,7 +444,7 @@ export function StorefrontBrowse({
     feedbackTimeoutRef.current = setTimeout(() => {
       setFeedbackMessage(null);
       feedbackTimeoutRef.current = null;
-    }, 2500);
+    }, 2000);
   }, []);
 
   useEffect(() => {
@@ -507,8 +518,14 @@ export function StorefrontBrowse({
     setCart(nextCart);
     if (orderConfig?.slug) {
       saveCart(orderConfig.slug, nextCart);
+      const count = nextCart.reduce((sum, it) => sum + it.quantity, 0);
+      const pricing = browseCartPricing(nextCart, allItems, orderConfig.currency || currency || "USD");
+      const subtotal = Math.round(pricing.subtotal * 100);
+      writeStorefrontCartSummary(orderConfig.slug, count, subtotal, orderConfig.currency || currency || "USD");
     }
   };
+
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     return () => {
@@ -517,6 +534,28 @@ export function StorefrontBrowse({
       }
     };
   }, []);
+
+  // Listen for ?cart=1 deep-link and aldriva:open-cart-drawer event
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("cart") === "1" && orderConfig?.enabled && totalCartCount > 0) {
+      setIsCartOpen(true);
+      searchParams.delete("cart");
+      const cleanQuery = searchParams.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`);
+    }
+
+    const handleOpenCart = () => {
+      if (orderConfig?.enabled && totalCartCount > 0) {
+        setIsCartOpen(true);
+      }
+    };
+    window.addEventListener("aldriva:open-cart-drawer", handleOpenCart);
+    return () => {
+      window.removeEventListener("aldriva:open-cart-drawer", handleOpenCart);
+    };
+  }, [mounted, orderConfig?.enabled, totalCartCount]);
 
   const openSheet = (id: string, trigger: HTMLElement | null, line?: CartItem) => {
     triggerRef.current = trigger;
@@ -527,6 +566,14 @@ export function StorefrontBrowse({
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const qParam = params.get("q");
+    if (qParam && !initialQuery) {
+      setQuery(qParam);
+    }
+    const sortParam = params.get("sort");
+    if (sort && sortParam && (["featured", "newest", "priceAsc", "priceDesc"] as const).includes(sortParam as BrowseSortKey)) {
+      setSortKey(sortParam as BrowseSortKey);
+    }
     const itemId = params.get("item");
     const sectionId = params.get("section");
     const key = `${itemId ?? ""}|${sectionId ?? ""}`;
@@ -551,7 +598,7 @@ export function StorefrontBrowse({
         sectionRefs.current.get(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
     }
-  }, [mounted, allItems, groups]);
+  }, [mounted, allItems, groups, initialQuery, sort]);
 
   const closeSheet = () => {
     const editedLineId = editingLineId;
@@ -570,7 +617,30 @@ export function StorefrontBrowse({
     ? allItems.find((item) => item.id === selectedId) ?? null
     : null;
 
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  // "You might also like" (Task 3): same category first, then Popular;
+  // excludes the current item and sold-out items; up to 4. No owner-picked
+  // field exists yet (Discovery 0d — see db/migration_261, proposed/not
+  // applied), so this is always the automatic fallback today.
+  const suggestions = useMemo(() => {
+    if (!selected || appearance !== "showcase" || relatedItemsEnabled === false) return [];
+    const candidates = allItems.filter((it) => it.id !== selected.id && !it.isSoldOut);
+    const sameCategory = candidates.filter((it) => it.sectionId && it.sectionId === selected.sectionId);
+    const popularRest = candidates.filter((it) => it.isPopular && it.sectionId !== selected.sectionId);
+    const seen = new Set<string>();
+    const picked: BrowseItem[] = [];
+    for (const it of [...sameCategory, ...popularRest]) {
+      if (seen.has(it.id) || picked.length >= 4) continue;
+      seen.add(it.id);
+      picked.push(it);
+    }
+    return picked.map((it) => ({
+      id: it.id,
+      name: it.name,
+      image: it.image ?? null,
+      priceLabel: it.priceLabel,
+      canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !hasAvailableBrowseOptionGroups(it.optionGroups)),
+    }));
+  }, [selected, allItems, appearance, relatedItemsEnabled, orderConfig]);
 
   // Compute cart subtotal from items
   const cartPricing = useMemo(() => browseCartPricing(cart, allItems, orderConfig?.currency || currency || "USD"), [cart, allItems, orderConfig?.currency, currency]);
@@ -581,7 +651,8 @@ export function StorefrontBrowse({
     itemId: string,
     selectedOptionIds: string[],
     quantity: number,
-    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>
+    selectedOptions: Array<{ groupId: string; optionId: string; qty: number }>,
+    keepOpen = false
   ) => {
     const candidate: CartItem = {
       lineId: editingLineId ?? createStorefrontCartLineId(),
@@ -589,6 +660,7 @@ export function StorefrontBrowse({
       selectedOptionIds,
       selectedOptions,
       quantity,
+      image: allItems.find((candidateItem) => candidateItem.id === itemId)?.image ?? null,
     };
     const result = upsertStorefrontCartLine(cart, candidate, editingLineId);
     const pricedCart = browseCartPricing(result.lines, allItems, orderConfig?.currency || currency || "USD");
@@ -599,14 +671,52 @@ export function StorefrontBrowse({
       return calculated ? { ...line, priceVersion: createStorefrontPriceVersion(calculated.unitPrice + calculated.optionsDelta) } : line;
     });
     updateCart(nextCart);
-    closeSheet();
-    announce(result.capped ? `Maximum ${MAX_LINE_QUANTITY} per item` : editingLineId ? "Order updated" : "Added to order");
+    // A suggestion quick-add keeps the current item's sheet open — only the
+    // regular sheet footer "Add to cart"/"Update order" flow closes it.
+    if (!keepOpen) closeSheet();
+    const addedLabel = appearance === "showcase"
+      ? (locale === "fr" ? "Ajouté au panier" : "Added to cart")
+      : "Added to order";
+    const updatedLabel = appearance === "showcase"
+      ? (locale === "fr" ? "Commande mise à jour" : "Order updated")
+      : "Order updated";
+    if (result.capped) {
+      announce(`Maximum ${MAX_LINE_QUANTITY} per item`);
+    } else if (editingLineId) {
+      announce(updatedLabel);
+    } else if (appearance === "showcase") {
+      // The toast (bottom-centre mobile / bottom-right desktop) is the add
+      // confirmation for Showcase, replacing the old persistent order bar.
+      // It carries its own aria-live region, so it isn't also routed
+      // through the plain sr-only/visible-pill `announce()` below.
+      cartAddedToast.show();
+    } else {
+      announce(addedLabel);
+    }
   };
 
   const handleQuickMenuAdd = (item: BrowseItem, trigger: HTMLButtonElement) => {
     if (item.isSoldOut || hasAvailableBrowseOptionGroups(item.optionGroups)) return;
     triggerRef.current = trigger;
     handleAddToOrder(item.id, [], 1, []);
+  };
+
+  // "You might also like" (Task 3, Showcase only): "+" adds directly and
+  // keeps the current item's sheet open; an item that needs its own option
+  // sheet opens that item instead (same as a quick-add that hits options).
+  const handleSuggestionOpen = (suggestedItemId: string) => {
+    setEditingLineId(null);
+    setSelectedId(suggestedItemId);
+  };
+
+  const handleSuggestionQuickAdd = (suggestedItemId: string) => {
+    const item = allItems.find((candidate) => candidate.id === suggestedItemId);
+    if (!item || item.isSoldOut) return;
+    if (hasAvailableBrowseOptionGroups(item.optionGroups)) {
+      handleSuggestionOpen(suggestedItemId);
+      return;
+    }
+    handleAddToOrder(suggestedItemId, [], 1, [], true);
   };
 
   // Catalog carousel (Savannah): render per-category scrollable carousels
@@ -687,6 +797,8 @@ export function StorefrontBrowse({
                 promotionEndsAt: item.promotionEndsAt,
                 freeDeliveryLabel: item.freeDeliveryLabel,
                 isSoldOut: item.isSoldOut,
+                isNew: item.isNew,
+                isPopular: item.isPopular,
                 canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
               }))}
               prevLabel={carousel?.prevLabel ?? labels.all}
@@ -694,6 +806,9 @@ export function StorefrontBrowse({
               currency={currency}
               locale={locale}
               imageFit={carousel?.imageFit}
+              appearance={appearance}
+              showcaseLabels={showcaseLabels}
+              siteSlug={effectiveSiteSlug}
               onSelect={(id, trigger) => openSheet(id, trigger ?? null)}
               onQuickAdd={(id, trigger) => {
                 const item = allItems.find((candidate) => candidate.id === id);
@@ -721,20 +836,36 @@ export function StorefrontBrowse({
             action={selected.action}
             tableFlame={false}
             savannah={true}
+            appearance={appearance}
             closeLabel={labels.close}
             labels={labels}
             orderConfig={orderConfig}
             locale={locale}
             initialCartLine={cart.find((line) => line.lineId === editingLineId)}
             isEditing={Boolean(editingLineId)}
+            suggestions={suggestions}
+            relatedItemsTitle={labels.relatedItemsTitle}
+            onSuggestionQuickAdd={handleSuggestionQuickAdd}
+            onSuggestionOpen={handleSuggestionOpen}
             onAddToOrder={handleAddToOrder}
             onClose={closeSheet}
           />
         ) : null}
 
-        {/* Floating cart bar */}
-        {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-          <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+        {appearance === "showcase" ? (
+          <CartAddedToast
+            visible={cartAddedToast.visible}
+            locale={locale}
+            onViewCart={() => { cartAddedToast.dismiss(); setIsCartOpen(true); }}
+            onDismiss={cartAddedToast.dismiss}
+            onPause={cartAddedToast.pause}
+            onResume={cartAddedToast.resume}
+          />
+        ) : null}
+
+        {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
+        {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+          <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
             <div className="flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none rounded-none">
               <div className="flex items-center gap-[var(--ps-space-3)]">
                 <span className="flex h-7 w-7 items-center justify-center rounded-none bg-[var(--ps-accent)] text-xs font-bold text-[var(--tf-on-accent)]">
@@ -754,7 +885,6 @@ export function StorefrontBrowse({
             </div>
           </div>
         ) : null}
-
         {/* Order Drawer */}
         {isCartOpen && orderConfig ? (
           <OrderDrawer
@@ -764,6 +894,7 @@ export function StorefrontBrowse({
             labels={labels}
             accentColor={accentColor}
             savannah={true}
+            showcase={appearance === "showcase"}
             locale={locale}
             onClose={() => setIsCartOpen(false)}
             onUpdateQuantity={(index, qty) => {
@@ -942,7 +1073,7 @@ export function StorefrontBrowse({
     scrollToGroup(next.id);
   };
 
-  return (
+  const browseChrome = (
     <>
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
       {/* Active order persistent banner */}
@@ -1020,12 +1151,20 @@ export function StorefrontBrowse({
 
       {showGroups && categoryGroups.length > 1 ? (
         <div
-          className={`sticky top-[var(--site-header-h)] z-30 -mx-[var(--ps-space-1)] py-[var(--ps-space-2)] backdrop-blur ${variant === "rows" ? "bg-[var(--ps-cream)]" : isEditorial ? "bg-[var(--tf-base)]" : "bg-[var(--ps-surface)]/95"}`}
+          className={`sticky top-[var(--site-header-h)] z-30 ${appearance === "showcase" ? "" : "-mx-[var(--ps-space-1)]"} py-[var(--ps-space-2)] backdrop-blur ${
+            variant === "rows"
+              ? "bg-[var(--ps-cream)]"
+              : isEditorial
+                ? "bg-[var(--tf-base)]"
+                : appearance === "showcase"
+                  ? "bg-[var(--tf-base)]/95"
+                  : "bg-[var(--ps-surface)]/95"
+          }`}
           role="tablist"
           aria-label={labels.categories}
           id={chipsId}
         >
-          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)]">
+          <div className="flex gap-[var(--ps-space-2)] overflow-x-auto px-[var(--ps-space-1)] pb-[var(--ps-space-1)] scrollbar-none">
             {categoryGroups.map((group) => {
               const groupId = group.id;
               const active = selectedTabGroup === groupId;
@@ -1041,13 +1180,21 @@ export function StorefrontBrowse({
                   tabIndex={active ? 0 : -1}
                   onClick={() => scrollToGroup(groupId)}
                   onKeyDown={(event) => moveCategoryTab(event, groupId)}
-                  className={isEditorial
-                    ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
-                    : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
-                    active
-                      ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
-                      : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
-                  }`}
+                  className={
+                    appearance === "showcase"
+                      ? `shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] ${
+                          active
+                            ? "border-[var(--tf-accent)] bg-[var(--tf-accent)] text-[var(--tf-on-accent)]"
+                            : "border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:border-[var(--tf-accent)] hover:text-[var(--tf-accent)]"
+                        }`
+                      : isEditorial
+                        ? `shrink-0 whitespace-nowrap rounded-none border-0 border-b-2 px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${active ? "border-[var(--ps-accent)] text-[var(--ps-accent-hover)]" : "border-transparent text-[var(--ps-muted)] hover:text-[var(--ps-text)]"}`
+                        : `shrink-0 whitespace-nowrap rounded-full border px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)] ${
+                        active
+                          ? "border-[var(--ps-accent-hover)] bg-[var(--ps-accent)] text-[var(--ps-accent-foreground)] shadow-xs"
+                          : "border-[var(--ps-border)] bg-[var(--ps-surface)] text-[var(--ps-muted)] hover:border-[var(--ps-border)] hover:bg-[var(--ps-neutral)]"
+                      }`
+                  }
                 >
                   {title}
                 </button>
@@ -1068,14 +1215,20 @@ export function StorefrontBrowse({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={labels.searchPlaceholder}
-            className="w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
+            className={
+              appearance === "showcase"
+                ? "w-full rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-[var(--ps-space-4)] py-2.5 text-sm text-[var(--tf-ink)] placeholder:text-[var(--tf-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--tf-accent)]"
+                : "w-full rounded-xl border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-4)] py-[var(--ps-space-2)] text-sm text-[var(--ps-text)] shadow-xs placeholder:text-[var(--ps-muted)] focus:border-[var(--ps-accent-hover)] focus:outline-none focus:ring-2 ring-[var(--ps-accent-hover)]/20"
+            }
           />
           {query ? (
             <button
               type="button"
               onClick={() => setQuery("")}
               aria-label={labels.clearFilters}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
+              className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-[var(--ps-space-1)] ${
+                appearance === "showcase" ? "text-[var(--tf-muted)] hover:text-[var(--tf-ink)]" : "text-[var(--ps-muted)] hover:text-[var(--ps-muted)]"
+              }`}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1087,20 +1240,39 @@ export function StorefrontBrowse({
 
       {sort && totalVisibleItems > 0 ? (
         <div className="mb-[var(--ps-space-4)] flex items-center justify-end gap-[var(--ps-space-2)]">
-          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)]">
+          <label htmlFor={`${searchId}-sort`} className="text-xs font-semibold text-[var(--ps-muted)] sr-only">
             {sort.label}
           </label>
-          <select
-            id={`${searchId}-sort`}
-            value={sortKey}
-            onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
-            className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
-          >
-            <option value="featured">{sort.featured}</option>
-            <option value="newest">{sort.newest}</option>
-            <option value="priceAsc">{sort.priceAsc}</option>
-            <option value="priceDesc">{sort.priceDesc}</option>
-          </select>
+          {appearance === "showcase" ? (
+            <div className="relative inline-flex items-center">
+              <select
+                id={`${searchId}-sort`}
+                value={sortKey}
+                onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+                className="appearance-none cursor-pointer rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] pl-3.5 pr-7 py-1 text-xs font-medium text-[var(--tf-ink)] focus:border-[var(--tf-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--tf-accent)]"
+              >
+                <option value="featured">{sort.featured}</option>
+                <option value="newest">{sort.newest}</option>
+                <option value="priceAsc">{sort.priceAsc}</option>
+                <option value="priceDesc">{sort.priceDesc}</option>
+              </select>
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--tf-muted)] text-[9px]" aria-hidden="true">
+                ▼
+              </span>
+            </div>
+          ) : (
+            <select
+              id={`${searchId}-sort`}
+              value={sortKey}
+              onChange={(event) => handleSortChange(event.target.value as BrowseSortKey)}
+              className="rounded-lg border border-[var(--ps-border)] bg-[var(--ps-surface)] px-[var(--ps-space-3)] py-[var(--ps-space-2)] text-xs font-semibold text-[var(--ps-text)] shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]"
+            >
+              <option value="featured">{sort.featured}</option>
+              <option value="newest">{sort.newest}</option>
+              <option value="priceAsc">{sort.priceAsc}</option>
+              <option value="priceDesc">{sort.priceDesc}</option>
+            </select>
+          )}
         </div>
       ) : null}
 
@@ -1140,7 +1312,7 @@ export function StorefrontBrowse({
                   {group.title}
                 </h3>
               )}
-              {renderedGroupIds.has(group.id) || group.id === selectedTabGroup ? <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
+              {renderedGroupIds.has(group.id) || group.id === selectedTabGroup ? <div className={variant === "rows" ? "divide-y divide-[var(--tf-border)] border-y border-[var(--tf-border)]" : isEditorial ? "grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10" : isShowcaseCards ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : "grid gap-[var(--ps-space-3)] sm:grid-cols-2 lg:grid-cols-3"}>
                 {group.items.map((item) => itemMode === "links" ? (
                   item.action ? (
                     <Link
@@ -1203,6 +1375,36 @@ export function StorefrontBrowse({
                       ? { onQuickAdd: (selectedItem: BrowseItem, trigger: HTMLButtonElement) => handleQuickMenuAdd(selectedItem, trigger) }
                       : {})}
                   />
+                ) : isShowcaseCards ? (
+                  <CatalogCard
+                    key={item.id}
+                    item={{
+                      id: item.id,
+                      name: item.name,
+                      description: item.description,
+                      image: item.image,
+                      priceLabel: item.priceLabel,
+                      numericPrice: item.numericPrice,
+                      originalPriceLabel: item.originalPriceLabel,
+                      discountLabel: item.discountLabel,
+                      promotionEndsAt: item.promotionEndsAt,
+                      freeDeliveryLabel: item.freeDeliveryLabel,
+                      isSoldOut: item.isSoldOut,
+                      isNew: item.isNew,
+                      isPopular: item.isPopular,
+                      canQuickAdd: Boolean(orderConfig?.enabled && !orderConfig.blocked && !item.isSoldOut && !hasAvailableBrowseOptionGroups(item.optionGroups)),
+                    }}
+                    onSelect={(id, trigger) => openSheet(id, trigger ?? null)}
+                    onQuickAdd={(id, trigger) => {
+                      const candidate = allItems.find((it) => it.id === id);
+                      if (candidate) handleQuickMenuAdd(candidate, trigger);
+                    }}
+                    appearance="showcase"
+                    showcaseLabels={showcaseLabels}
+                    siteSlug={effectiveSiteSlug}
+                    currency={currency}
+                    locale={currencyLocale}
+                  />
                 ) : (
                   <div key={item.id} className="flex items-stretch gap-2">
                   <button
@@ -1259,7 +1461,67 @@ export function StorefrontBrowse({
             {labels.loadMore || "Load more"}
           </button>
         </div>
+          ) : null}
+
+    </>
+  );
+
+  return (
+    <>
+      {appearance === "showcase" ? (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={`pointer-events-none fixed inset-x-0 top-4 z-[90] flex justify-center px-4 transition-opacity duration-200 ${feedbackMessage ? "opacity-100" : "opacity-0"}`}
+        >
+          <span className="rounded-full bg-[var(--tf-ink)] px-4 py-2 text-sm font-semibold text-[var(--tf-on-ink)] shadow-lg">
+            {feedbackMessage || ""}
+          </span>
+        </div>
+      ) : (
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{feedbackMessage || ""}</div>
+      )}
+      {/* Active order persistent banner */}
+      {activeOrder && !orderSuccess && orderConfig?.slug ? (
+        <div className="mb-[var(--ps-space-4)] flex items-center justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-accent-light)] bg-[var(--ps-accent-light)]/90 px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-xs text-[var(--ps-accent-hover)] shadow-xs">
+          <div className="flex items-center gap-[var(--ps-space-2)] min-w-0">
+            <span className="h-2 w-2 rounded-full bg-[var(--ps-accent)] shrink-0 animate-pulse" />
+            <span className="truncate">
+              Active order <strong className="font-bold">{activeOrder.orderNumber}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-[var(--ps-space-3)] shrink-0">
+            <a
+              href={`/site/${orderConfig.slug}/orders/${activeOrder.token}`}
+              className="font-bold text-[var(--ps-accent-hover)] underline hover:text-[var(--ps-accent-hover)] transition-colors"
+            >
+              {labels.trackOrder || "Track order"} →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveOrder(null);
+                try {
+                  localStorage.removeItem(`aldriva_active_order_${orderConfig.slug}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="text-[var(--ps-muted)] hover:text-[var(--ps-muted)] text-xs px-[var(--ps-space-1)]"
+              aria-label="Dismiss active order banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       ) : null}
+
+      {appearance === "showcase" ? (
+        <div className={`mx-auto max-w-[1280px] ${orderConfig?.enabled ? "pb-[6rem]" : ""}`}>{browseChrome}</div>
+      ) : (
+        <>{browseChrome}</>
+      )}
 
       {selected ? (
         <ItemDetailSheet
@@ -1280,20 +1542,36 @@ export function StorefrontBrowse({
           action={selected.action}
           tableFlame={isTableFlame}
           savannah={isEditorial}
+          appearance={appearance}
           closeLabel={labels.close}
           labels={labels}
           orderConfig={orderConfig}
           locale={locale}
           initialCartLine={cart.find((line) => line.lineId === editingLineId)}
           isEditing={Boolean(editingLineId)}
+          suggestions={suggestions}
+          relatedItemsTitle={labels.relatedItemsTitle}
+          onSuggestionQuickAdd={handleSuggestionQuickAdd}
+          onSuggestionOpen={handleSuggestionOpen}
           onAddToOrder={handleAddToOrder}
           onClose={closeSheet}
         />
       ) : null}
 
-      {/* Floating cart bar */}
-      {orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
-        <div className="fixed bottom-4 inset-x-4 z-40 max-w-lg mx-auto">
+      {appearance === "showcase" ? (
+        <CartAddedToast
+          visible={cartAddedToast.visible}
+          locale={locale}
+          onViewCart={() => { cartAddedToast.dismiss(); setIsCartOpen(true); }}
+          onDismiss={cartAddedToast.dismiss}
+          onPause={cartAddedToast.pause}
+          onResume={cartAddedToast.resume}
+        />
+      ) : null}
+
+      {/* Order bar (Savannah / Store / Table & Flame: unchanged) */}
+      {appearance !== "showcase" && orderConfig?.enabled && totalCartCount > 0 && !isCartOpen && !orderSuccess ? (
+        <div data-storefront-order-bar="true" className="fixed bottom-[var(--mobile-cart-bar-offset,1rem)] z-40 w-[min(100%-32px,560px)] mx-auto">
           <div className={isEditorial
             ? "flex items-center justify-between gap-[var(--ps-space-3)] bg-[var(--tf-band)] p-[var(--ps-space-4)] text-[var(--tf-on-band)] shadow-none"
             : `flex items-center justify-between gap-[var(--ps-space-3)] rounded-2xl bg-[var(--ps-text)] p-[var(--ps-space-4)] ${isTableFlame ? "text-[var(--tf-on-ink)]" : "text-white"} shadow-xl`}>
@@ -1325,6 +1603,7 @@ export function StorefrontBrowse({
           labels={labels}
           accentColor={accentColor}
           savannah={isEditorial}
+          showcase={appearance === "showcase"}
           locale={locale}
           onClose={() => setIsCartOpen(false)}
           onUpdateQuantity={(index, qty) => {
@@ -1413,7 +1692,7 @@ export function StorefrontBrowse({
   );
 }
 
-function ItemDetailSheet({
+export function ItemDetailSheet({
   itemId,
   title,
   image,
@@ -1429,12 +1708,17 @@ function ItemDetailSheet({
   action,
   tableFlame: _tableFlame,
   savannah,
+  appearance,
   closeLabel,
   labels,
   orderConfig,
   locale = "en",
   initialCartLine,
   isEditing = false,
+  suggestions,
+  relatedItemsTitle,
+  onSuggestionQuickAdd,
+  onSuggestionOpen,
   onAddToOrder,
   onClose,
 }: {
@@ -1454,12 +1738,18 @@ function ItemDetailSheet({
   action?: { label: string; href: string };
   tableFlame: boolean;
   savannah: boolean;
+  appearance?: "default" | "showcase";
   closeLabel: string;
   labels: StorefrontBrowseLabels;
   orderConfig?: StorefrontOrderConfig;
   locale?: Locale;
   initialCartLine?: CartItem;
   isEditing?: boolean;
+  /** "You might also like" — Showcase only, hidden when empty (Task 3). */
+  suggestions?: Array<{ id: string; name: string; image: string | null; priceLabel: string | null; canQuickAdd: boolean }>;
+  relatedItemsTitle?: string;
+  onSuggestionQuickAdd?: (itemId: string) => void;
+  onSuggestionOpen?: (itemId: string) => void;
   onAddToOrder?: (
     itemId: string,
     selectedOptionIds: string[],
@@ -1469,6 +1759,7 @@ function ItemDetailSheet({
   onClose: () => void;
 }) {
   void _tableFlame;
+  const isShowcase = appearance === "showcase";
   const availableOptionGroups = availableBrowseOptionGroups(optionGroups || []);
   const orderedOptionGroups = availableOptionGroups.map((group, index) => ({ group, index }))
     .sort((left, right) => Number(right.group.required || right.group.kind === "variant") - Number(left.group.required || left.group.kind === "variant") || left.index - right.index)
@@ -1654,7 +1945,13 @@ function ItemDetailSheet({
 
   return (
     <div
-      className={`fixed inset-0 z-[80] flex items-end justify-center ${savannah ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center" : "bg-black/50 p-0 sm:p-[var(--ps-space-6)] sm:items-center"}`}
+      className={`fixed inset-0 z-[80] flex items-end justify-center ${
+        isShowcase
+          ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center"
+          : savannah
+            ? "bg-[var(--tf-scrim)]/70 p-0 sm:p-4 sm:items-center"
+            : "bg-black/50 p-0 sm:p-[var(--ps-space-6)] sm:items-center"
+      }`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -1665,11 +1962,36 @@ function ItemDetailSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={savannah
-          ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none motion-reduce:transition-none"
-          : "relative flex max-h-[90dvh] w-full max-w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl outline-none motion-reduce:transition-none sm:max-w-[520px] sm:rounded-xl"}
+        className={
+          isShowcase
+            ? "relative max-w-full sm:max-w-[480px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-[20px] sm:rounded-[20px] shadow-2xl bg-[var(--tf-card)] outline-none motion-reduce:transition-none"
+            : savannah
+              ? "relative max-w-full sm:max-w-[520px] max-h-[90dvh] w-full flex flex-col overflow-hidden rounded-t-xl sm:rounded-xl shadow-2xl bg-[var(--tf-base)] outline-none motion-reduce:transition-none"
+              : "relative flex max-h-[90dvh] w-full max-w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--ps-border)] bg-[var(--ps-surface)] shadow-xl outline-none motion-reduce:transition-none sm:max-w-[520px] sm:rounded-xl"
+        }
       >
-        {savannah ? (
+        {isShowcase ? (
+          /* Showcase Header: drag handle on mobile, title 20px/600 (max 2 lines, lh 1.3), 36px circle close button top right */
+          <div className="relative pt-3 px-4 pb-2">
+            <div className="sm:hidden mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--tf-border)]" aria-hidden="true" />
+            <div className="flex items-start justify-between gap-3 pr-10">
+              <h2
+                id={titleId}
+                className="showcase-sheet-title font-[var(--v2-heading-font)] text-[20px] font-semibold leading-[1.3] text-[var(--tf-ink)] line-clamp-2"
+              >
+                {title}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={closeLabel}
+              className="absolute right-3 top-3 z-20 flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-[var(--tf-soft)] text-[var(--tf-ink)] hover:bg-[var(--tf-border)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : savannah ? (
           /* Savannah: Close button overlaid on top-right, no separate header bar */
           <button
             type="button"
@@ -1706,8 +2028,207 @@ function ItemDetailSheet({
         )}
 
         {/* Body - single scrollable container */}
-        <div className={`min-h-0 flex-1 overflow-y-auto ${savannah ? "p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
-          {savannah ? (
+        <div className={`min-h-0 flex-1 overflow-y-auto ${isShowcase ? "p-4 space-y-4" : savannah ? "p-0" : "p-[var(--ps-space-6)] sm:p-[var(--ps-space-6)]"}`}>
+          {isShowcase ? (
+            /* Showcase Stacked Layout per section 10c */
+            <div className="flex flex-col space-y-4">
+              {image ? (
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[12px] bg-[var(--tf-soft)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image}
+                    alt={title}
+                    width={1200}
+                    height={900}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ) : null}
+
+              {/* Price: 18px/700 */}
+              {priceLabel || typeof numericPrice === "number" ? (
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-[18px] font-bold text-[var(--tf-ink)] [font-variant-numeric:lining-nums_tabular-nums]">
+                    {formattedBasePrice}
+                  </span>
+                  {formattedOriginalBasePrice ? (
+                    <span className="text-[14px] font-normal text-[var(--tf-muted)] line-through [font-variant-numeric:lining-nums_tabular-nums]">
+                      {formattedOriginalBasePrice}
+                    </span>
+                  ) : null}
+                  {discountPercent > 0 ? (
+                    <span className="rounded-full bg-[var(--tf-accent)] px-2 py-0.5 text-[11px] font-bold leading-none text-[var(--tf-on-accent)]">
+                      -{discountPercent}%
+                    </span>
+                  ) : null}
+                  {isSoldOut && labels.soldOut ? (
+                    <span className="rounded-full bg-[var(--tf-soft)] border border-[var(--tf-border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--tf-muted)]">
+                      {labels.soldOut}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Description: 14px, --tf-muted */}
+              {description ? (
+                <p className="text-[14px] leading-relaxed text-[var(--tf-muted)]">
+                  {description}
+                </p>
+              ) : null}
+
+              {/* Tags: small pills, 12px */}
+              {tags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-[var(--tf-soft)] px-2.5 py-1 text-[12px] font-medium capitalize text-[var(--tf-ink)]"
+                    >
+                      {tag.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Allergens: compact row, 14px, on --tf-soft background with 12px radius */}
+              {(() => {
+                const allergenRow = detailRows.find((r) => r.label.toLowerCase().includes("allergen"));
+                if (!allergenRow || !allergenRow.value) return null;
+                return (
+                  <div className="rounded-[12px] bg-[var(--tf-soft)] p-3 text-[14px] text-[var(--tf-ink)]">
+                    <span className="font-semibold">{allergenRow.label}: </span>
+                    <span className="text-[var(--tf-muted)]">{allergenRow.value}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Other detail rows (excluding allergens) */}
+              {(() => {
+                const nonAllergenRows = detailRows.filter((r) => !r.label.toLowerCase().includes("allergen"));
+                if (nonAllergenRows.length === 0) return null;
+                return (
+                  <dl className="divide-y divide-[var(--tf-border)] rounded-[12px] border border-[var(--tf-border)]">
+                    {nonAllergenRows.map((row, index) => (
+                      <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-3 px-3 py-2 text-[14px]">
+                        <dt className="font-medium text-[var(--tf-muted)]">{row.label}</dt>
+                        <dd className="text-right font-medium text-[var(--tf-ink)]">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                );
+              })()}
+
+              {/* Option groups */}
+              {orderedOptionGroups.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--tf-muted)]">
+                    {labels.options || "Options"}
+                  </h3>
+                  <div className="space-y-3">
+                    {orderedOptionGroups.map((group) => {
+                      const currentSelected = selectedOptions[group.id] || [];
+                      const isSingle = group.kind === "variant" || group.max === 1;
+
+                      return (
+                        <div key={group.id} ref={(node) => { if (node) groupRefs.current.set(group.id, node); else groupRefs.current.delete(group.id); }} className={`rounded-[12px] border bg-[var(--tf-soft)] p-3 ${missingGroupId === group.id ? "border-2 border-[var(--tf-accent)] ring-2 ring-[var(--tf-accent)]" : "border-[var(--tf-border)]"}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[var(--tf-ink)]">{group.name}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${group.required ? "bg-[var(--tf-accent)] text-[var(--tf-on-accent)]" : "bg-[var(--tf-card)] text-[var(--tf-muted)]"}`}
+                            >
+                              {describeBrowseOptionGroupRules(group, labels)}
+                            </span>
+                          </div>
+                          {missingGroupId === group.id ? <p id={`group-error-${group.id}`} role="alert" className="mt-2 border-l-4 border-[var(--tf-accent)] pl-2 text-xs font-semibold text-[var(--tf-ink)]">Choose {Math.max(1, group.min)} to continue</p> : null}
+                          <div className="mt-2.5 space-y-2">
+                            {group.options.map((opt) => {
+                              const isChecked = currentSelected.includes(opt.id);
+                              const optionQty = selectedOptionQtys[optionQuantityKey(group.id, opt.id)] || 1;
+
+                              return (
+                                <div key={opt.id} className="flex items-center gap-2">
+                                  <label
+                                    className={`flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 text-xs p-2 rounded-[8px] border transition cursor-pointer motion-reduce:transition-none ${
+                                      isChecked
+                                        ? "border-[var(--tf-accent)] bg-[var(--tf-card)] text-[var(--tf-ink)]"
+                                        : "border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:border-[var(--tf-accent)]"
+                                    }`}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <input type={isSingle ? "radio" : "checkbox"} name={`group-${group.id}`} checked={isChecked} onChange={() => handleOptionToggle(group, opt.id)} aria-describedby={missingGroupId === group.id ? `group-error-${group.id}` : undefined} className="text-[var(--tf-accent)] focus:ring-[var(--tf-accent)]" />
+                                      {opt.imageUrl ? (
+                                        <>
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={opt.imageUrl} alt={opt.name} width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                                        </>
+                                      ) : null}
+                                      <span className="min-w-0"><span className="block font-medium">{opt.name}</span>{opt.description ? <span className="mt-0.5 block text-[11px] font-normal text-[var(--tf-muted)]">{opt.description}</span> : null}</span>
+                                    </div>
+                                    {opt.priceDeltaLabel ? (
+                                      <span className="ml-2 shrink-0 font-medium text-[var(--tf-ink)]">{opt.priceDeltaLabel}</span>
+                                    ) : null}
+                                  </label>
+                                  {isChecked && (opt.maxQty ?? 1) > 1 ? (
+                                    <div className="flex items-center gap-1">
+                                      <button type="button" aria-label={`Decrease ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty - 1)} disabled={optionQty <= 1} className="h-9 w-9 rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] disabled:opacity-40">−</button>
+                                      <span className="min-w-5 text-center text-xs tabular-nums text-[var(--tf-ink)]">{optionQty}</span>
+                                      <button type="button" aria-label={`Increase ${opt.name} quantity`} onClick={() => handleOptionQuantityChange(group, opt, optionQty + 1)} disabled={optionQty >= (opt.maxQty ?? 1)} className="h-9 w-9 rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] disabled:opacity-40">+</button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* "You might also like" — below options/allergens, above the footer (Task 3). */}
+              {suggestions && suggestions.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--tf-muted)]">
+                    {relatedItemsTitle || (locale === "fr" ? "Vous aimerez peut-être aussi" : "You might also like")}
+                  </h3>
+                  <div className="space-y-2">
+                    {suggestions.map((sug) => (
+                      <div key={sug.id} className="flex items-center gap-3 rounded-[12px] border border-[var(--tf-border)] bg-[var(--tf-card)] p-2">
+                        <button
+                          type="button"
+                          onClick={() => onSuggestionOpen?.(sug.id)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          {sug.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={sug.image} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-[12px] object-cover" loading="lazy" />
+                          ) : (
+                            <div className="h-16 w-16 shrink-0 rounded-[12px] bg-[var(--tf-soft)]" aria-hidden="true" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-[14px] font-semibold text-[var(--tf-ink)]">{sug.name}</span>
+                            {sug.priceLabel ? <span className="mt-0.5 block text-[13px] font-medium text-[var(--tf-muted)]">{sug.priceLabel}</span> : null}
+                          </span>
+                        </button>
+                        {sug.canQuickAdd ? (
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); onSuggestionQuickAdd?.(sug.id); }}
+                            aria-label={`${labels.addToOrder || "Add"} ${sug.name}`}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--tf-border)] text-lg font-semibold text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+                          >
+                            +
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : savannah ? (
             /* Savannah Stacked Layout: edge-to-edge image on top, clean text below */
             <div className="flex flex-col">
               {image ? (
@@ -1951,46 +2472,112 @@ function ItemDetailSheet({
         </div>
 
         {/* Footer - pinned */}
-        <div className={`border-t border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-4)] ${savannah ? "pb-[env(safe-area-inset-bottom)]" : ""}`}>
+        <div
+          className={`border-t border-[var(--tf-border)] bg-[var(--tf-card)] p-4 ${
+            isShowcase || savannah ? "pb-[calc(1rem+env(safe-area-inset-bottom))]" : ""
+          }`}
+        >
           {orderConfig?.enabled ? (
-            <div className="space-y-[var(--ps-space-3)]">
-              {!isSoldOut ? (
-                <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
-                  <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
-                  <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
+            isShowcase ? (
+              /* Showcase Sticky Footer per section 10c & 10d */
+              <div>
+                {orderConfig?.blocked ? (
+                  <p role="status" className="mb-3 text-[13px] leading-snug text-[var(--tf-muted)]">
+                    {locale === "fr"
+                      ? "La commande en ligne n'est pas disponible pour le moment."
+                      : "Online ordering isn't available right now."}
+                  </p>
+                ) : orderConfig?.isClosed ? (
+                  <p role="status" className="mb-3 text-[13px] leading-snug text-[var(--tf-muted)]">
+                    {locale === "fr"
+                      ? `Nous sommes fermés en ce moment.${orderConfig.scheduledFor ? ` Votre commande sera préparée à la réouverture (${new Date(orderConfig.scheduledFor).toLocaleString("fr-FR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}).` : ""}`
+                      : `We're closed right now.${orderConfig.scheduledFor ? ` Your order will be ready when we reopen (${new Date(orderConfig.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}).` : ""}`}
+                  </p>
+                ) : null}
+                <div className="flex items-center gap-3">
+                {!isSoldOut ? (
+                  <div className="flex h-10 items-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-soft)] px-1 shrink-0">
                     <button
                       type="button"
                       aria-label="Decrease quantity"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-sm font-semibold text-[var(--tf-ink)] shadow-xs hover:bg-[var(--tf-border)] disabled:opacity-40"
                     >
-                      -
+                      −
                     </button>
-                    <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
+                    <span className="w-7 text-center text-xs font-bold text-[var(--tf-ink)] tabular-nums">{quantity}</span>
                     <button
                       type="button"
                       aria-label="Increase quantity"
                       onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
                       disabled={quantity >= MAX_LINE_QUANTITY}
-                      className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tf-card)] text-sm font-semibold text-[var(--tf-ink)] shadow-xs hover:bg-[var(--tf-border)] disabled:opacity-40"
                     >
                       +
                     </button>
                   </div>
-                </div>
-              ) : null}
-              {!isSoldOut && quantity >= MAX_LINE_QUANTITY ? (
-                <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
-              ) : null}
+                ) : null}
 
-              <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
-              <button type="button" disabled={!canAddToOrder} onClick={addOrUpdateOrderLine} className={`ps-button ps-button-primary min-h-11 w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${isSoldOut ? "opacity-60" : ""}`}>
-                {isSoldOut ? labels.soldOut || "Sold out" : `${isEditing ? labels.updateOrder || "Update order" : labels.addToOrder || "Add to order"} · ${lineTotalFormatted}`}
-              </button>
-            </div>
+                <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
+                <button
+                  type="button"
+                  disabled={!canAddToOrder}
+                  onClick={addOrUpdateOrderLine}
+                  className={`h-12 min-h-[48px] rounded-full bg-[var(--tf-accent)] px-4 text-center text-sm font-semibold text-[var(--tf-on-accent)] shadow-xs hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)] disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${
+                    isSoldOut ? "opacity-60" : ""
+                  }`}
+                >
+                  {isSoldOut
+                    ? labels.soldOut || "Sold out"
+                    : isEditing
+                      ? `${labels.updateOrder || "Update order"} · ${lineTotalFormatted}`
+                      : locale === "fr"
+                        ? `Ajouter au panier · ${lineTotalFormatted}`
+                        : `Add to cart · ${lineTotalFormatted}`}
+                </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-[var(--ps-space-3)]">
+                {!isSoldOut ? (
+                  <div className="flex items-center justify-between gap-[var(--ps-space-3)]">
+                    <span className="text-xs font-semibold text-[var(--tf-muted)]">Quantity</span>
+                    <div className="flex items-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] p-[var(--ps-space-1)]">
+                      <button
+                        type="button"
+                        aria-label="Decrease quantity"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        disabled={quantity <= 1}
+                        className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center text-xs font-bold text-[var(--tf-on-base)]">{quantity}</span>
+                      <button
+                        type="button"
+                        aria-label="Increase quantity"
+                        onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
+                        disabled={quantity >= MAX_LINE_QUANTITY}
+                        className="flex h-11 w-11 items-center justify-center rounded-none border border-[var(--ps-border)] bg-[var(--tf-base)] text-[var(--tf-on-base)] shadow-xs hover:bg-[var(--tf-subtle)] disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {!isSoldOut && quantity >= MAX_LINE_QUANTITY ? (
+                  <p className="text-right text-xs text-[var(--tf-muted)]">{labels.quantityLimit || `Maximum ${MAX_LINE_QUANTITY} per item`}</p>
+                ) : null}
+
+                <span className="sr-only" aria-live="polite" aria-atomic="true">Total {lineTotalFormatted}</span>
+                <button type="button" disabled={!canAddToOrder} onClick={addOrUpdateOrderLine} className={`ps-button ps-button-primary min-h-11 w-full text-center text-sm font-bold shadow-xs disabled:opacity-40 disabled:cursor-not-allowed transition motion-reduce:transition-none ${isSoldOut ? "opacity-60" : ""}`}>
+                  {isSoldOut ? labels.soldOut || "Sold out" : `${isEditing ? labels.updateOrder || "Update order" : labels.addToOrder || "Add to order"} · ${lineTotalFormatted}`}
+                </button>
+              </div>
+            )
           ) : action ? (
-            <a href={action.href} className={`block rounded-none bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-[var(--ps-space-3)] text-center text-sm font-bold text-[var(--tf-on-accent)] hover:bg-[var(--tf-accent-deep)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ps-accent-hover)]`}>{action.label}</a>
+            <a href={action.href} className={`block rounded-full bg-[var(--tf-accent)] px-[var(--ps-space-4)] py-3 text-center text-sm font-semibold text-[var(--tf-on-accent)] hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]`}>{action.label}</a>
           ) : null}
         </div>
       </div>
@@ -1999,6 +2586,29 @@ function ItemDetailSheet({
 }
 
 
+/** 56px square cart-line thumbnail (Showcase only): photo, or a lettered
+ * --tf-soft tile when no image is available for the line. */
+function CartLineThumbnail({ src, name }: { src?: string | null; name: string }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        width={56}
+        height={56}
+        className="h-14 w-14 shrink-0 rounded-[12px] object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] bg-[var(--tf-soft)] text-base font-semibold text-[var(--tf-muted)]" aria-hidden="true">
+      {(name || "?").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 function OrderDrawer({
   cart,
   orderConfig,
@@ -2006,6 +2616,7 @@ function OrderDrawer({
   labels,
   accentColor,
   savannah,
+  showcase = false,
   locale = "en",
   onClose,
   onUpdateQuantity,
@@ -2019,6 +2630,8 @@ function OrderDrawer({
   labels: StorefrontBrowseLabels;
   accentColor?: string;
   savannah: boolean;
+  /** Showcase: adds a visible top border between checkout form sections. */
+  showcase?: boolean;
   locale?: Locale;
   onClose: () => void;
   onUpdateQuantity: (index: number, quantity: number) => void;
@@ -2087,6 +2700,7 @@ function OrderDrawer({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [promoExpanded, setPromoExpanded] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoValidation, setPromoValidation] = useState<Extract<ValidatePromoCodeResult, { success: true; valid: true }> | null>(null);
@@ -2193,6 +2807,12 @@ function OrderDrawer({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage(null);
+    setPreviewNotice(null);
+
+    if (orderConfig.slug === "showcase-preview") {
+      setPreviewNotice("Preview only: orders are not placed.");
+      return;
+    }
 
     if (!checkoutPaymentState.canSubmitOrder) {
       setErrorMessage(labels.tableOnlinePaymentUnavailable || "Online payment is unavailable for this table. Please ask staff to take your order and settle at the table.");
@@ -2513,6 +3133,7 @@ function OrderDrawer({
 
               return (
                 <div key={line.lineId} className="flex items-start justify-between gap-[var(--ps-space-3)] rounded-xl border border-[var(--ps-border)] bg-[var(--ps-neutral)]/60 p-[var(--ps-space-3)]">
+                  {showcase ? <CartLineThumbnail src={line.image ?? it.image} name={it.name} /> : null}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[var(--ps-text)]">{it.name}</p>
                     {chosenOptions.length > 0 ? (
@@ -2625,7 +3246,7 @@ function OrderDrawer({
                 </span>
               </div>
             ) : allowsDelivery && allowsPickup ? (
-              <div className="space-y-[var(--ps-space-2)]">
+              <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.fulfilment || "Fulfilment"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
@@ -2690,7 +3311,7 @@ function OrderDrawer({
             ) : null}
 
             {/* Timing selection */}
-            <div className="space-y-[var(--ps-space-2)]">
+            <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
               <label className="text-xs font-bold text-[var(--ps-muted)]">Timing</label>
               {orderConfig.isClosed ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-[var(--ps-space-3)] text-xs text-amber-900">
@@ -2755,7 +3376,7 @@ function OrderDrawer({
             </div>
 
             {/* Customer Details */}
-            <div className="space-y-[var(--ps-space-2)]">
+            <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
               <span className="text-xs font-bold text-[var(--ps-muted)]">
                 {labels.customerDetails || "Your details"}
               </span>
@@ -2796,7 +3417,7 @@ function OrderDrawer({
               </div>
             </div>
 
-            {/* Payment method */}
+            {/* Payment method (choice only when online payment is available) */}
             {orderConfig.tableId ? (
               <div className="space-y-[var(--ps-space-1)]">
                 <label className="text-xs font-bold text-[var(--ps-muted)]">Payment & Dining</label>
@@ -2838,7 +3459,7 @@ function OrderDrawer({
                 </div>
               </div>
             ) : canPayOnline ? (
-              <div className="space-y-[var(--ps-space-2)]">
+              <div className={`space-y-[var(--ps-space-2)] ${showcase ? "border-t border-[var(--tf-border)] pt-[var(--ps-space-4)]" : ""}`}>
                 <label className="text-xs font-bold text-[var(--ps-muted)]">{labels.paymentMethod || "Payment method"}</label>
                 <div className="grid grid-cols-2 gap-[var(--ps-space-2)]">
                   <button
@@ -2894,6 +3515,12 @@ function OrderDrawer({
             {errorMessage ? (
               <div className={savannah ? "bg-[var(--tf-subtle)] p-[var(--ps-space-3)] text-xs font-medium text-[var(--tf-ink)]" : "rounded-xl border border-red-200 bg-red-50 p-[var(--ps-space-3)] text-xs font-medium text-red-700"}>
                 {errorMessage}
+              </div>
+            ) : null}
+
+            {previewNotice ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-[var(--ps-space-3)] text-xs font-medium text-amber-800">
+                {previewNotice}
               </div>
             ) : null}
 
@@ -3036,14 +3663,19 @@ function OrderConfirmationModal({
   useEffect(() => {
     if (trackingToken && slug && typeof window !== "undefined") {
       try {
+        const order = {
+          token: trackingToken,
+          orderNumber,
+          scheduledFor: scheduledFor ?? null,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(`aldriva_active_order_${slug}`, JSON.stringify(order));
+        const raw = localStorage.getItem(`aldriva_orders_${slug}`);
+        const parsed = JSON.parse(raw || "[]");
+        const list = Array.isArray(parsed) ? parsed : [];
         localStorage.setItem(
-          `aldriva_active_order_${slug}`,
-          JSON.stringify({
-            token: trackingToken,
-            orderNumber,
-            scheduledFor: scheduledFor ?? null,
-            savedAt: Date.now(),
-          })
+          `aldriva_orders_${slug}`,
+          JSON.stringify([order, ...list].slice(0, 50)),
         );
       } catch {
         // Storage unavailable (private browsing)

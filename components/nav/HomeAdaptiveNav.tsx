@@ -18,6 +18,7 @@ export default function HomeAdaptiveNav() {
     { label: t('articles'), href: "/articles" },
     { label: t('businesses'), href: "/businesses" },
     { label: t('shop'), href: "/products" },
+    { label: t('templates'), href: "/templates" },
   ] as const;
 
   function getActiveLabel(pathname: string): string {

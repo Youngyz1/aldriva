@@ -57,6 +57,7 @@ import { getOrgApproval } from "@/lib/server-approval";
 import { canTakeOrders } from "@/lib/business-approval";
 import { resolveSiteHref, resolveServiceDetailBookHref } from "@/lib/site-paths";
 import { BlockRenderer } from "@/components/site/blocks/BlockRenderer";
+import { ShowcaseHomeSearch } from "@/components/site/blocks/ShowcaseHomeSearch";
 import type { CtaBannerBlock } from "@/lib/website-blocks";
 import { getPublicServicesCatalog, validatePublicServiceId, type PublicServicesCatalog } from "@/lib/services-public-data";
 import { resolveServicesVirtualRoute, getCachedServicesVirtualRouteSeo, type ServicesVirtualRoute } from "@/lib/services-virtual-route";
@@ -67,6 +68,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { V2SiteHeader } from "@/components/site/v2/V2SiteHeader";
 import { V2SiteFooter } from "@/components/site/v2/V2SiteFooter";
+import { MobileTabBar } from "@/components/site/v2/MobileTabBar";
 import { DraftPreviewBanner } from "@/components/site/DraftPreviewBanner";
 import type { StorefrontRentalConfig } from "@/components/site/blocks/rental/types";
 import { listPublicRentalCategories, listPublicRentalBranches } from "@/lib/actions/rental-public";
@@ -337,10 +339,10 @@ export async function resolveWebsiteAndPage(
         offeringsHeading: storeT("whatWeOffer"),
         restaurantCtaBandHeading: storeT("restaurantBrandMessage"),
         rentalCtaBandHeading: storeT("rentalBrandMessage"),
-        foodOrderCopy: v2Template.id === "food-order"
+        foodOrderCopy: (v2Template.id === "food-order" || v2Template.id === "showcase")
           ? getFoodOrderLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
           : undefined,
-        storeCopy: v2Template.id === "store"
+        storeCopy: (v2Template.id === "store" || v2Template.id === "showcase")
           ? getStoreLocalizedCopy(publicT as unknown as (key: string, values?: Record<string, string>) => string).resolver
           : undefined,
       }
@@ -629,9 +631,13 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
   // Template-first sites use locked tokens and v2 chrome. Legacy sites retain
   // their existing SiteHeader/SiteFooter components.
   const v2Template = v2Content?.template;
+  const isShowcase = v2Template?.id === "showcase";
+  const effectiveThemeConfig = isShowcase
+    ? { ...website.theme_config, fontFamily: "sans" as const }
+    : website.theme_config;
   const themeStyle = {
     ...themeTokensToStyle(tokens),
-    ...themeConfigToStyle(website.theme_config),
+    ...themeConfigToStyle(effectiveThemeConfig),
     ...(v2Template ? v2ThemeStyle(v2Template, website.metadata) : {}),
     ...(v2Template
       ? { backgroundColor: v2Template.palettes?.length
@@ -886,23 +892,32 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
       )}
 
       {/* Branded Site Header */}
-      {v2Content && v2Template ? (
-        <V2SiteHeader
-          template={v2Template}
-          content={v2Content.content}
-          sampleContent={v2Content.samples}
-          navigation={v2Content.resolved.navigation}
-          siteTitle={website.site_title}
-          siteSlug={website.slug}
-          previewMode={isTeamMember}
-          editMode={isTeamMember}
-          sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
-          storefrontFeatures={v2Content.resolved.storefrontFeatures}
-          primaryAction={v2Content.resolved.primaryAction.primary}
-          availablePageSlugs={v2Content.availablePageSlugs}
-          overHero={startsWithScrimHero}
-        />
-      ) : (
+      {v2Content && v2Template ? (() => {
+        const extras = (v2Content.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        const mobileTabBarActive = Boolean(v2Template.mobileTabBar && extras.mobileTabBar !== "off");
+
+        return (
+          <V2SiteHeader
+            template={v2Template}
+            content={v2Content.content}
+            sampleContent={v2Content.samples}
+            navigation={v2Content.resolved.navigation}
+            siteTitle={website.site_title}
+            siteSlug={website.slug}
+            previewMode={isTeamMember}
+            editMode={isTeamMember}
+            sourceMap={v2Content.resolved.chromeSourceMap.menuBar}
+            storefrontFeatures={v2Content.resolved.storefrontFeatures}
+            primaryAction={v2Content.resolved.primaryAction.primary}
+            availablePageSlugs={v2Content.availablePageSlugs}
+            overHero={startsWithScrimHero}
+            hideHamburger={mobileTabBarActive}
+            orderConfig={orderConfig}
+          />
+        );
+      })() : (
         <SiteHeader
           siteTitle={website.site_title}
           siteSlug={website.slug}
@@ -913,7 +928,18 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
       )}
 
       {/* Page Body / Block Renderer */}
-      <main className="flex-1">
+      {v2Template?.id === "showcase" && targetPage.is_home ? (
+        <ShowcaseHomeSearch siteSlug={website.slug} />
+      ) : null}
+
+      <main className={`min-w-0 flex-1${(() => {
+        const extras = (v2Content?.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        return Boolean(v2Template?.mobileTabBar && extras.mobileTabBar !== "off")
+          ? " pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
+          : "";
+      })()}`}>
         {servicesRoute?.kind === "category" ? (
           <ServiceCategoryPage
             category={servicesRoute.category}
@@ -987,6 +1013,11 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
                 sectionAlign={v2Template?.sectionAlign}
                 businessName={typeof v2Content?.content.business_name === "string" ? v2Content.content.business_name : website.site_title}
                 businessLogo={typeof v2Content?.content.logo_url === "string" ? v2Content.content.logo_url : undefined}
+                catalogName={typeof v2Content?.resolved?.navigation === "object" && v2Content.resolved.navigation
+                  ? (Array.isArray(v2Content.resolved.navigation) ? v2Content.resolved.navigation : []).find(
+                      (item) => item.feature === "catalog" || item.pageSlug === "menu",
+                    )?.label
+                  : undefined}
                 coverImageUrl={safeImageSrc(website.seo_og_image)}
               />
             );
@@ -1017,6 +1048,24 @@ export default async function TenantWebsitePublicPage({ params, searchParams }: 
           primaryColor={website.theme_config.primaryColor}
         />
       )}
+
+      {/* Mobile Navigation Tab Bar (Showcase / opt-in templates) */}
+      {v2Content && v2Template ? (() => {
+        const extras = (v2Content.content.template_extras && typeof v2Content.content.template_extras === "object"
+          ? v2Content.content.template_extras
+          : {}) as Record<string, unknown>;
+        const mobileTabBarActive = Boolean(v2Template.mobileTabBar && extras.mobileTabBar !== "off");
+        if (!mobileTabBarActive) return null;
+
+        return (
+          <MobileTabBar
+            siteSlug={website.slug}
+            navigation={v2Content.resolved.navigation}
+            storefrontFeatures={v2Content.resolved.storefrontFeatures}
+            activePageSlug={targetPage.slug}
+          />
+        );
+      })() : null}
     </div>
   );
 }
