@@ -467,3 +467,113 @@ export async function getInventoryItemDetail(
     },
   };
 }
+
+// ---- Locations (Phase 2). The database decides who may write (RLS and the
+// archive guard trigger); these actions only validate shape and map errors.
+export type InventoryLocationInput = {
+  name: string;
+  branch_id?: string | null;
+};
+
+function validateLocationName(name: string): { code: string; message: string } | null {
+  const n = (name ?? "").trim();
+  if (n.length < 1 || n.length > 100) {
+    return { code: "invalid_input", message: "Enter a name of 1 to 100 characters." };
+  }
+  return null;
+}
+
+export async function createInventoryLocation(
+  businessId: string,
+  input: InventoryLocationInput
+): Promise<ActionResult<InventoryLocationRow>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+  const invalid = validateLocationName(input.name);
+  if (invalid) return { success: false, error: invalid.message, code: invalid.code };
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("inventory_locations")
+    .insert({
+      business_id: businessId,
+      name: input.name.trim(),
+      branch_id: input.branch_id ?? null,
+      is_default: false,
+      status: "active",
+    })
+    .select(LOCATION_SELECT);
+  if (error) {
+    const mapped = mapInventoryError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  const rows = (data ?? []) as unknown as InventoryLocationRow[];
+  if (rows.length === 0) {
+    return { success: false, error: INVENTORY_NOT_FOUND_OR_DENIED.message, code: INVENTORY_NOT_FOUND_OR_DENIED.code };
+  }
+  revalidateInventory();
+  return { success: true, data: rows[0] };
+}
+
+// Renames a location and, only when branch_id is given, relinks it to a branch
+// (null means business-wide). Stock and status are never touched here.
+export async function updateInventoryLocation(
+  businessId: string,
+  locationId: string,
+  input: InventoryLocationInput
+): Promise<ActionResult<InventoryLocationRow>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+  const invalid = validateLocationName(input.name);
+  if (invalid) return { success: false, error: invalid.message, code: invalid.code };
+
+  const patch: { name: string; branch_id?: string | null } = { name: input.name.trim() };
+  if (input.branch_id !== undefined) patch.branch_id = input.branch_id;
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("inventory_locations")
+    .update(patch)
+    .eq("id", locationId)
+    .eq("business_id", businessId)
+    .select(LOCATION_SELECT);
+  if (error) {
+    const mapped = mapInventoryError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  const rows = (data ?? []) as unknown as InventoryLocationRow[];
+  if (rows.length === 0) {
+    return { success: false, error: INVENTORY_NOT_FOUND_OR_DENIED.message, code: INVENTORY_NOT_FOUND_OR_DENIED.code };
+  }
+  revalidateInventory();
+  return { success: true, data: rows[0] };
+}
+
+// Archives or restores a location. Migration 269's trigger refuses archiving
+// the default location or one that still holds stock.
+export async function setInventoryLocationArchived(
+  businessId: string,
+  locationId: string,
+  archived: boolean
+): Promise<ActionResult<InventoryLocationRow>> {
+  const auth = await assertCanAccessBusinessStaffArea(businessId);
+  if (!auth.ok) return { success: false, error: auth.error, code: "not_allowed" };
+
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("inventory_locations")
+    .update({ status: archived ? "archived" : "active" })
+    .eq("id", locationId)
+    .eq("business_id", businessId)
+    .select(LOCATION_SELECT);
+  if (error) {
+    const mapped = mapInventoryError(error);
+    return { success: false, error: mapped.message, code: mapped.code };
+  }
+  const rows = (data ?? []) as unknown as InventoryLocationRow[];
+  if (rows.length === 0) {
+    return { success: false, error: INVENTORY_NOT_FOUND_OR_DENIED.message, code: INVENTORY_NOT_FOUND_OR_DENIED.code };
+  }
+  revalidateInventory();
+  return { success: true, data: rows[0] };
+}

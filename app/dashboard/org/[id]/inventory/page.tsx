@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -83,7 +84,16 @@ export default async function OrgInventoryPage({
   }
 
   return (
-    <InventoryClient
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Link
+          href={`/dashboard/org/${organizerId}/inventory/locations?business=${activeBusiness.id}`}
+          className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:underline"
+        >
+          {t("manageLocations")}
+        </Link>
+      </div>
+      <InventoryClient
       organizerId={organizerId}
       businessId={activeBusiness.id}
       businessName={activeBusiness.name}
@@ -93,5 +103,6 @@ export default async function OrgInventoryPage({
       canManageCatalog={canManageCatalog}
       manageableLocationIds={manageableLocationIds}
     />
+    </div>
   );
 }

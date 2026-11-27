@@ -32,6 +32,9 @@ const HINT_ERRORS: Record<string, InventoryError> = {
   inventory_item_not_found: { code: "item_not_found", message: "That item was not found in this business." },
   inventory_item_inactive: { code: "item_inactive", message: "That item is inactive. Reactivate it before changing its stock." },
   inventory_default_location_conflict: { code: "default_location_conflict", message: "A location named Main storage already exists. Rename it first." },
+  inventory_default_location_archive: { code: "default_location_archive", message: "The default location can't be archived." },
+  inventory_location_has_stock: { code: "location_has_stock", message: "This location still holds stock. Move or remove it first." },
+  inventory_transfer_same_location: { code: "transfer_same_location", message: "Choose two different locations." },
   inventory_immutable_owner: { code: "generic_error", message: "Something went wrong. Please try again." },
 };
 
