@@ -12,6 +12,8 @@ import type { TemplateSourceMapEntry, ResolvedNavigationItem } from "@/lib/websi
 import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { StorefrontAction } from "@/lib/storefront-primary-action";
+import type { StorefrontOrderConfig } from "@/components/site/blocks/StorefrontBrowse";
+import { IconShoppingCart } from "@tabler/icons-react";
 
 export function computeV2HeaderStyle({
   transparent,
@@ -61,6 +63,8 @@ interface V2SiteHeaderProps {
   availablePageSlugs?: readonly string[] | ReadonlySet<string>;
   onPageNavigate?: (pageSlug: string) => void;
   overHero?: boolean;
+  hideHamburger?: boolean;
+  orderConfig?: StorefrontOrderConfig;
 }
 
 function nonEmpty(value: unknown): boolean {
@@ -102,6 +106,8 @@ export function V2SiteHeader({
   availablePageSlugs,
   onPageNavigate,
   overHero = false,
+  hideHamburger = false,
+  orderConfig,
 }: V2SiteHeaderProps) {
   const tStorefront = useTranslations("Storefront");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -111,6 +117,7 @@ export function V2SiteHeader({
   const overlayMenu = template.header.mobileMenu === "overlay";
   const tableFlame = template.id === "restaurant-table-flame";
   const savannah = template.id === "restaurant-savannah";
+  const showcase = template.id === "showcase";
   const paletteTheme = tableFlame || savannah;
 
   useEffect(() => {
@@ -238,8 +245,28 @@ export function V2SiteHeader({
     ? sampleContent.nav_labels as Record<string, unknown>
     : {};
 
+  const [cartCount, setCartCount] = useState(0);
+  useEffect(() => {
+    if (!orderConfig?.enabled || !siteSlug) return;
+    const readSummary = () => {
+      try {
+        const raw = localStorage.getItem(`aldriva_cart_summary_${siteSlug}`);
+        const parsed = raw ? JSON.parse(raw) : null;
+        setCartCount(parsed && typeof parsed.count === "number" ? parsed.count : 0);
+      } catch {
+        setCartCount(0);
+      }
+    };
+    readSummary();
+    const handleUpdate = () => readSummary();
+    window.addEventListener("aldriva:cart-summary-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("aldriva:cart-summary-updated", handleUpdate);
+    };
+  }, [orderConfig?.enabled, siteSlug]);
+
   const visibleNavigation = navigation.filter((item) =>
-    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.feature || (item.feature === "catalog" ? true : storefrontFeatures?.[item.feature])) &&
     (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
   );
   const closeMenu = () => {
@@ -318,7 +345,9 @@ export function V2SiteHeader({
     >
       <div className={tableFlame
         ? "mx-auto flex h-[var(--site-header-h)] w-full max-w-6xl items-center justify-between gap-[var(--ps-space-4)] px-6"
-        : "mx-auto flex h-[var(--site-header-h)] max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:px-[var(--ps-space-8)]"}>
+        : showcase
+          ? "mx-auto flex h-[var(--site-header-h)] max-w-[1280px] items-center justify-between gap-[var(--ps-space-4)] px-5 sm:px-6"
+          : "mx-auto flex h-[var(--site-header-h)] max-w-7xl items-center justify-between gap-[var(--ps-space-4)] px-[var(--ps-space-4)] md:px-[var(--ps-space-8)]"}>
         <a
           {...editablePath(editMode, sourceMap, "logo")}
           href={sanitizeUrl(getSitePageHref(siteSlug, "home"))}
@@ -339,7 +368,7 @@ export function V2SiteHeader({
               <img src={logoSrc} alt={businessName} className={`max-h-10 ${tableFlame ? "max-w-32" : "max-w-40"} object-contain`} />
             )
           ) : null}
-          {(!logoSrc || tableFlame || savannah) && (
+          {(!logoSrc || tableFlame || savannah || showcase) && (
             <span className="truncate">{!logoSrc && editMode && sourceMap?.logo ? "Add logo" : businessName}</span>
           )}
         </a>
@@ -363,19 +392,36 @@ export function V2SiteHeader({
               {ctaLabel}
             </a>
           )}
+          {showcase && orderConfig?.enabled && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("aldriva:open-cart-drawer"))}
+              aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : " (empty)"}`}
+              className="relative inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-full border border-[var(--tf-border)] bg-[var(--tf-card)] text-[var(--tf-ink)] hover:bg-[var(--tf-soft)] focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <IconShoppingCart size={18} aria-hidden="true" />
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tf-accent)] px-[var(--ps-space-1)] text-[10px] font-bold text-[var(--tf-on-accent)] leading-none">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
-        <button
-          ref={menuButtonRef}
-          type="button"
-          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-current/60 text-sm hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={menuOpen}
-          aria-controls={overlayMenu ? "v2-site-mobile-menu" : undefined}
-          onClick={() => menuOpen ? closeMenu() : setMenuOpen(true)}
-        >
-          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
-        </button>
+        {!hideHamburger ? (
+          <button
+            ref={menuButtonRef}
+            type="button"
+            className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-current/60 text-sm hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls={overlayMenu ? "v2-site-mobile-menu" : undefined}
+            onClick={() => menuOpen ? closeMenu() : setMenuOpen(true)}
+          >
+            <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
+          </button>
+        ) : null}
       </div>
       {menuOpen && (overlayMenu ? (
         <div

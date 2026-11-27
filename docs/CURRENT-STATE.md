@@ -760,3 +760,14 @@
 **Completed Checklist (2026-09-24 — Hardening & Landing):** `[✓]` atomic instantiation migration 131 + hydration + idempotency, `[✓]` element editing with prototype guard, `[✓]` section/container controls with sanitized backgrounds, `[✓]` stable MOVE_BLOCK reordering, `[✓]` template library read-only preview, `[✓]` My Media tenant-scoped picker (5 surfaces, no Connected Media), `[✓]` migrations 134/135 present (homepage promotions, profile locale/i18n), `[✓]` verification (tsc 0, eslint 0, tests 650/650, build Pass).
 
 **Next:** **Phase 5 — Products, Services & Menus** — migration 136 `services`/`menu_sections`/`menu_items`. See `docs/phases/phase-05-products-services.md`. Do NOT start until this hardening is committed and documented (this file).
+
+---
+
+## Active Worktree Update — Migration 260: Promotions highlight + product/page destinations (2026-11-22)
+
+- **Status: APPLIED on staging per owner; verified 2026-11-22 via information_schema (columns destination_product_id, destination_page) and pg_constraint (offer_type, offer_value, destination_type, destination_check, destination_page_check all show the new definitions).** Fixed two broken untracked migration files that used an `NNN` placeholder number and had an identical forward/rollback (no actual rollback logic). Renumbered from the original draft number 195 to 260 — numbers up to 257 are already in use across other branches not yet merged to staging.
+- **Forward (`db/migration_260_promotions_highlight_destinations.sql`):** Adds `highlight` to `offer_type` CHECK, `product`/`page` to `destination_type` CHECK, `destination_product_id` (FK → `products.id` ON DELETE SET NULL) and `destination_page` columns, plus `promotions_destination_page_check` constraint. Widens `promotions_destination_check` for mutual exclusion across destination types. Idempotent via `ADD COLUMN IF NOT EXISTS` / `DROP CONSTRAINT IF EXISTS`.
+- **Rollback (`db/migration_260_promotions_highlight_destinations_rollback.sql`):** Drops `promotions_destination_page_check`, restores `promotions_offer_type_check`/`promotions_offer_value_check`/`promotions_destination_type_check`/`promotions_destination_check` to their migration-184 definitions (without `highlight`/`product`/`page`), then drops the two new columns.
+- **Supabase mirror:** `supabase/migrations/20261118000000_migration_260_promotions_highlight_destinations.sql` (byte-identical forward).
+- **Register:** added to `docs/HANDOFF.md` §6 as number 260.
+

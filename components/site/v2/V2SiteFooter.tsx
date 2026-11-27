@@ -11,6 +11,8 @@ import type { WebsiteTemplateV2 } from "@/lib/website-template-v2";
 import { resolveV2ThemeColor } from "@/lib/website-v2-color-resolution";
 import type { StorefrontFeatureState } from "@/lib/storefront-features";
 import type { ResolvedTodayHours } from "@/lib/website-hours";
+import { SocialIconRow } from "@/components/site/SocialIconRow";
+import type { ContentSocials } from "@/lib/website-content";
 
 interface V2SiteFooterProps {
   template: WebsiteTemplateV2;
@@ -90,6 +92,17 @@ export function V2SiteFooter({
   const socials = rawSocials && typeof rawSocials === "object"
     ? rawSocials as Record<string, unknown>
     : {};
+  const emailValue = valueFor(content, sampleContent, "email", previewMode);
+  const footerEmail = typeof emailValue === "string" && emailValue.trim() ? emailValue.trim() : undefined;
+  const extrasValue = valueFor(content, sampleContent, "template_extras", previewMode);
+  const extras = extrasValue && typeof extrasValue === "object" ? extrasValue as Record<string, unknown> : {};
+  const footerWhatsapp = (() => {
+    const raw = typeof extras.whatsappPhone === "string" ? extras.whatsappPhone : "";
+    if (!raw) return undefined;
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    return digits.length >= 8 ? digits : undefined;
+  })();
   const rawLabels = valueFor(content, sampleContent, "nav_labels", previewMode);
   const labels = rawLabels && typeof rawLabels === "object"
     ? rawLabels as Record<string, unknown>
@@ -100,13 +113,18 @@ export function V2SiteFooter({
   const footerBand = template.templateBackground.bands.find((band) => band.zone === "footer");
   const tableFlame = template.id === "restaurant-table-flame";
   const savannah = template.id === "restaurant-savannah";
-  const paletteTheme = tableFlame || savannah;
-  const backgroundColor = paletteTheme
-    ? "var(--tf-band)"
-    : resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
-  const foregroundColor = paletteTheme
-    ? "var(--tf-on-footer)"
-    : readableOn(backgroundColor, ["#22201c", "#ffffff"]);
+  const showcase = template.id === "showcase";
+  const paletteTheme = tableFlame || savannah || showcase;
+  const backgroundColor = showcase
+    ? "var(--tf-soft)"
+    : paletteTheme
+      ? "var(--tf-band)"
+      : resolveV2ThemeColor(footerBand?.color ?? template.templateBackground.base, template.id);
+  const foregroundColor = showcase
+    ? "var(--tf-ink)"
+    : paletteTheme
+      ? "var(--tf-on-footer)"
+      : readableOn(backgroundColor, ["#22201c", "#ffffff"]);
   const safeSocials = template.footer.showSocials
     ? ["instagram", "facebook", "tiktok", "x"].flatMap((network) => {
         const raw = socials[network];
@@ -116,7 +134,7 @@ export function V2SiteFooter({
     : [];
   const availablePages = availablePageSlugs ? new Set(availablePageSlugs) : undefined;
   const visibleNavigation = navigation.filter((item) =>
-    (!item.feature || storefrontFeatures?.[item.feature]) &&
+    (!item.feature || (item.feature === "catalog" ? true : storefrontFeatures?.[item.feature])) &&
     (!item.pageSlug || !availablePages || availablePages.has(item.pageSlug))
   );
   const hoursLine = todayHours?.closed
@@ -138,12 +156,14 @@ export function V2SiteFooter({
         backgroundColor,
         color: foregroundColor,
         fontFamily: "var(--ps-font-body)",
-        ...(paletteTheme ? { borderTopColor: "var(--tf-hairline)" } : {}),
+        ...(showcase ? { borderTopColor: "var(--tf-border)" } : paletteTheme ? { borderTopColor: "var(--tf-hairline)" } : {}),
       }}
     >
       <div
-        className={tableFlame || savannah
-          ? "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
+        className={tableFlame || savannah || showcase
+            ? showcase
+              ? "mx-auto grid w-full max-w-[1280px] gap-[var(--ps-space-12)] px-5 sm:px-6 py-[var(--ps-space-12)]"
+              : "mx-auto grid w-full max-w-6xl gap-[var(--ps-space-12)] px-6 py-[var(--ps-space-12)]"
           : "mx-auto grid max-w-7xl gap-[var(--ps-space-12)] px-[var(--ps-space-6)] py-[var(--ps-space-12)] md:px-[var(--ps-space-8)]"}
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))" }}
       >
@@ -188,7 +208,11 @@ export function V2SiteFooter({
               ) : null;
             })}
           </nav>
-          {safeSocials.length > 0 && (
+          {showcase ? (
+            <div className="pt-[var(--ps-space-1)]">
+              <SocialIconRow email={footerEmail} whatsapp={footerWhatsapp} socials={socials as ContentSocials} />
+            </div>
+          ) : safeSocials.length > 0 && (
             <div className="flex flex-wrap gap-[var(--ps-space-3)] pt-[var(--ps-space-1)]">
               {safeSocials.map(({ network, href }) => (
                 <a

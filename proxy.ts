@@ -271,6 +271,29 @@ async function checkProductAccess(
 }
 
 // ---------------------------------------------------------------------------
+// Showcase preview reserved slug. "showcase-preview" is not a real
+// tenant_websites row — it's the fixed siteSlug used by both the internal
+// app/dev/showcase-preview harness and (for real links) the public
+// /templates/showcase/preview route. Every internal link rendered inside
+// those pages is still built with the ordinary site-link helpers
+// (lib/site-paths.ts), so they point at /site/showcase-preview/<page> like a
+// real tenant site would. Rather than special-case siteSlug through every
+// header/footer/tab-bar/block-renderer link builder, redirect those
+// /site/showcase-preview/* URLs to the public preview route here, before
+// checkWebsiteAccess ever runs a (guaranteed-miss) DB lookup for this slug.
+// Unconditional — the public route is always reachable, so there is no
+// "disabled in production" state to gate on anymore.
+// ---------------------------------------------------------------------------
+const SHOWCASE_PREVIEW_SLUG = "showcase-preview";
+const SHOWCASE_PREVIEW_PAGES = new Set(["menu", "order", "contact", "reservations"]);
+
+function resolveShowcasePreviewPage(pathname: string): string {
+  const rest = pathname.slice(`/site/${SHOWCASE_PREVIEW_SLUG}`.length).replace(/^\/+/, "");
+  const firstSegment = rest.split("/")[0];
+  return SHOWCASE_PREVIEW_PAGES.has(firstSegment) ? firstSegment : "home";
+}
+
+// ---------------------------------------------------------------------------
 // Tenant website access-control helper — mirrors checkArticleAccess.
 //
 // Gate logic:
@@ -748,6 +771,15 @@ export async function proxy(req: NextRequest) {
   const websiteSlugMatch = pathname.match(/^\/site\/([^/]+)(?:\/.*)?$/);
   if (websiteSlugMatch) {
     const slug = websiteSlugMatch[1];
+
+    if (slug === SHOWCASE_PREVIEW_SLUG) {
+      const page = resolveShowcasePreviewPage(pathname);
+      const target = req.nextUrl.clone();
+      target.pathname = page === "home" ? "/templates/showcase/preview" : `/templates/showcase/preview/${page}`;
+      target.search = "";
+      return NextResponse.redirect(target);
+    }
+
     const allowed = await checkWebsiteAccess(slug, user?.id ?? null);
     if (!allowed) {
       const notFoundUrl = req.nextUrl.clone();

@@ -2,6 +2,7 @@ const Module = require("node:module");
 const path = require("node:path");
 
 const serverOnlyStub = path.join(__dirname, "server-only.stub.cjs");
+const cssStub = path.join(__dirname, "css.stub.cjs");
 const originalResolveFilename = Module._resolveFilename;
 
 Module._resolveFilename = function resolveServerOnlyForTests(
@@ -11,5 +12,6 @@ Module._resolveFilename = function resolveServerOnlyForTests(
   options
 ) {
   if (request === "server-only") return serverOnlyStub;
+  if (request.endsWith(".css")) return cssStub;
   return originalResolveFilename.call(this, request, parent, isMain, options);
 };

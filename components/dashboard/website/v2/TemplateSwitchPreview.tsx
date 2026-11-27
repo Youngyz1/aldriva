@@ -101,7 +101,7 @@ export async function TemplateSwitchPreview({
       />
       <main>
         {home.blocks.map((block, index) => (
-          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...(template.id === "restaurant-savannah" ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
+          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...((template.id === "restaurant-savannah" || template.id === "showcase") ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
         ))}
       </main>
       <V2SiteFooter

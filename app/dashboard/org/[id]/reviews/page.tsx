@@ -17,7 +17,7 @@ export default async function OrgReviewsPage({
 
   const { data: reviews } = await supabase
     .from("reviews")
-    .select("id, rating, body, created_at")
+    .select("id, rating, review, created_at")
     .eq("organizer_id", id)
     .order("created_at", { ascending: false });
 
@@ -51,7 +51,7 @@ export default async function OrgReviewsPage({
                   {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </span>
               </div>
-              {r.body && <p className="mt-3 text-sm leading-relaxed text-zinc-700">{r.body}</p>}
+              {r.review && <p className="mt-3 text-sm leading-relaxed text-zinc-700">{r.review}</p>}
             </div>
           ))}
         </div>

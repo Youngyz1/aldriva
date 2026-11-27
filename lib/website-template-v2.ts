@@ -59,6 +59,10 @@ export interface TemplateSlot {
   max?: number;
   options?: Array<{ label: string; value: string }>;
   required?: boolean;
+  /** Optional regex pattern (without delimiters) for client-side validation. */
+  pattern?: string;
+  /** Message shown when the pattern fails to match. */
+  validationMessage?: string;
 }
 
 export interface WebsiteTemplatePalette {
@@ -99,7 +103,7 @@ export interface TemplateV2NavEntry {
   /** External URL for entries that do not target a template page. */
   href?: string;
   order: number;
-  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment";
+  feature?: "ordering" | "delivery" | "pickup" | "reservations" | "onlinePayment" | "catalog";
 }
 
 export interface TemplateSection {
@@ -123,10 +127,25 @@ export interface TemplateSection {
   optional?: boolean;
   /** Defaults to hidden unless explicitly enabled or has existing content. */
   defaultOff?: boolean;
+  /**
+   * With defaultOff, skips the existing-content fallback entirely — stays
+   * hidden until the owner explicitly flips it on via enabled_sections.
+   * For sections whose slots are required fields (e.g. hours/address),
+   * "has content" is true for virtually every tenant, which would make
+   * defaultOff's content fallback a no-op.
+   */
+  requiresExplicitOptIn?: boolean;
   /** Human note for template authors (e.g. why featured ids are unbound). */
   note?: string;
   /** Optional template-owned section rhythm. Absent keeps the legacy default. */
   spacing?: SectionSpacing;
+  /** Optional section display variant (e.g. "carousel", "trust_strip", "split", "card"). */
+  variant?: string;
+  /**
+   * When true, this section resolves dynamically to menu_embed or products_embed
+   * based on tenant catalog availability and extras.catalogSource.
+   */
+  catalog?: boolean;
 }
 
 // ── Locked look ─────────────────────────────────────────────────────────────
@@ -195,6 +214,8 @@ export interface WebsiteTemplateV2 {
   patterns?: readonly WebsiteTemplatePattern[];
   /** Palette selected when no valid saved palette id exists. */
   defaultPaletteId?: string;
+  /** When true, template declares support for the mobile navigation tab bar. */
+  mobileTabBar?: boolean;
 }
 
 // ── Restaurant: Table & Flame ───────────────────────────────────────────────
@@ -847,6 +868,8 @@ export const STORE_TEMPLATE: WebsiteTemplateV2 = {
   tags: ["store", "retail", "products"],
 };
 
+import { SHOWCASE_TEMPLATE } from "./website-template-showcase";
+
 // ── Flagship registry ───────────────────────────────────────────────────────
 
 export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
@@ -856,6 +879,7 @@ export const FLAGSHIP_TEMPLATES: WebsiteTemplateV2[] = [
   FOOD_ORDER_TEMPLATE,
   STORE_TEMPLATE,
   CLEANING_FRESH,
+  SHOWCASE_TEMPLATE,
 ];
 
 /** Templates shown when creating a new V2 site. Legacy manifests remain resolvable. */

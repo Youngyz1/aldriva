@@ -48,6 +48,7 @@ export type SharedContentKey = (typeof SHARED_CONTENT_KEYS)[number];
 
 export const OPTIONAL_CONTENT_KEYS = [
   "secondary_cta_label",
+  "hero_images",
   "stats",
   "highlights",
   "trust",
@@ -122,6 +123,8 @@ export interface ContentSocials {
   facebook?: string;
   tiktok?: string;
   x?: string;
+  linkedin?: string;
+  youtube?: string;
 }
 
 export interface ContentFeatured {
@@ -271,7 +274,7 @@ function normalizeSocials(value: unknown): ContentSocials | undefined {
   if (!isPlainObject(value)) return undefined;
   const out: ContentSocials = {};
   let filled = false;
-  for (const network of ["instagram", "facebook", "tiktok", "x"] as const) {
+  for (const network of ["instagram", "facebook", "tiktok", "x", "linkedin", "youtube"] as const) {
     const url = clampUrl(value[network]);
     if (url) {
       out[network] = url;
@@ -403,6 +406,15 @@ export function normalizeContent(input: unknown): ContentDoc {
     ?.map((src) => safeImageSrc(src))
     .filter((src): src is string => !!src);
   if (gallery && gallery.length > 0) out.gallery_images = gallery;
+
+  const heroImages = clampStringArray(
+    input.hero_images,
+    6,
+    BLOCK_LIMITS.URL_MAX_LENGTH
+  )
+    ?.map((src) => safeImageSrc(src))
+    .filter((src): src is string => !!src);
+  if (heroImages && heroImages.length > 0) out.hero_images = heroImages;
 
   const testimonials = normalizeTestimonials(input.testimonials);
   if (testimonials) out.testimonials = testimonials;
