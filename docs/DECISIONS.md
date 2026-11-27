@@ -668,3 +668,15 @@ What was NOT changed (per owner decision):
 - `tsconfig.json` not touched.
 
 Verification: changed-file ESLint clean; `tsc --noEmit` clean for changed files; full `npm test`: 2945 passed, 5 failed (all pre-existing, unrelated to this change).
+
+## DEC-0067 - Supabase mirror timestamps follow migration-number order, not commit time
+
+- **Decision Date**: 2026-11-27
+- **Status**: Active (applied to migrations 231-269)
+- **Context**: `db/` is canonical and `supabase/migrations/` mirrors a subset, each mirror named `TIMESTAMP_migration_NNN_suffix.sql`. The CLI applies mirrors in filename order, so a mirror whose timestamp is out of number order runs the wrong migration first. The directory already shipped five such inversions from staging (133 to 127, 191 to 189, 222 to 221, 234 to 224, 233 to 231), and two of the branch's own migrations could not be ordered without intervention: migration 232's real add-commit (`20261113212519`) falls between the 233 and 231 mirrors, and 263/264 were authored after the existing 265 mirror (`20261124100000`).
+- **Decision**:
+  - Every forward migration gets a mirror whose timestamp sorts in migration-number order relative to the existing mirrors, even when that deviates from the real commit time. Three branch mirrors were adjusted: 232 to `20261114120000`, 263 to `20261124090000`, 264 to `20261124095000`; every other mirror keeps its real add-commit timestamp.
+  - Existing staging mirrors are never renamed or rewritten to "fix" a pre-existing inversion. The shipped inversions stay exactly as staging released them, and no new file is ever placed inside an already-inverted region.
+  - Rollback twins and `_verification` / `_verify` companion scripts are never mirrored — `db/` only. This matches the 30 pre-existing `db/*_verification.sql` files, none of which has a mirror.
+  - Mirror contents are byte-identical copies of the `db/` source, verified with a per-pair sha256 comparison before staging, and mirrors are committed by explicit path in one commit separate from code and test changes.
+- **Consequences**: A fresh CLI-linked build applies 231-269 in numeric order. Commit time is no longer a reliable proxy for a mirror's timestamp, so the mirrors for 232/263/264 intentionally differ from their source commit times — the register in `docs/HANDOFF.md` section 6 records the real authoring time for those three. Anyone adding a mirror must inspect the existing timestamps in `supabase/migrations/` before choosing one and must not assume "now" is a safe value.
