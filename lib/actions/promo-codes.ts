@@ -12,9 +12,7 @@ import {
   PROMO_PERCENT_MAX,
   type PromoCodeRow,
 } from "@/lib/promo-codes";
-
-const PROMO_READ_ROLES: EntityRole[] = ["owner", "admin", "manager", "editor", "finance"];
-const PROMO_MANAGE_ROLES: EntityRole[] = ["owner", "admin", "manager"];
+import { PROMO_READ_ROLES, PROMO_MANAGE_ROLES } from "@/lib/promo-codes-roles";
 
 export interface CreateStorePromoInput {
   code: string;
