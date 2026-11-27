@@ -1,4 +1,5 @@
 [
+  "lib/security/__tests__/migration-280-function-grant-hardening.test.cjs",
   "lib/__tests__/invitation-local-draft-image-validation.test.cjs",
   "lib/__tests__/evergreen-map-embed.test.cjs",
   "lib/staff/__tests__/whatsapp-invite-message.test.cjs",
