@@ -1,10 +1,24 @@
 # Supply / procurement — design brief
 
-**Status:** PROPOSED. Design only. No code, no migrations authored or applied, nothing pushed.
+**Status:** PROPOSED (v2, 28 Nov 2026; numbers 282–286). Design only. No code, no migrations authored or applied, nothing pushed.
 **Worktree:** `C:/Users/Youngyz/aldriva-supply-design` (branch `docs/supply-design`, created from `origin/staging` @ `fb4358d38`).
 **Base:** `staging` after PR #15 (migrations 231–269 merged). Main folder and the scan-codes workstream untouched.
 **Date:** 2026-11-27.
 **Deliverable:** this file only.
+
+---
+
+## v2 update (28 Nov 2026) — read this first
+
+This update supersedes any conflicting text below. Wherever a section below still says 274, 275, 276, 277 or 278, read 282, 283, 284, 285 or 286.
+
+- **Numbers (+8).** 274 → 282 permissions, 275 → 283 suppliers, 276 → 284 purchase orders, 277 → 285 goods receipts, 278 → 286 reorder suggestions. 274–279 are held by other agents, 280 is security/function-grants, 281 is the POS/supply prerequisite (applied by hand on staging). Supply = 282–286, POS = 287+. Re-run the cross-branch check before taking any number.
+- **281 owns two things this design used to own:** the `staff_permissions_domain_check` widening (17 → 20 values: adds `supply`, `pos`, `loyalty`) and the 9-arg `inventory_apply_movement_core` plus the public 9-arg wrapper. 282–286 change neither the CHECK nor any inventory function.
+- **Receiving.** `supply_receive_purchase_order` is SECURITY DEFINER, checks `supply.receive` (or manage) and the branch scope itself, and calls `inventory_apply_movement_core` with reference_type `goods_receipt`. It never calls the public wrapper, which rejects that reference type. The core's exact argument order is read from migration 281 before 285 is written.
+- **No `products.inventory_item_id`.** The sellable-to-inventory mapping is the shared `pos_sellable_inventory_links` table, built in POS Phase 1. Supply builds no retail link.
+- **Decided:** three keys (`supply.view`, `supply.manage`, `supply.receive`); suppliers that have purchase orders are deactivated, never deleted; no receiving against a `draft` PO (it must be `sent` or `partially_received`).
+- **Process.** Every 282–286 migration starts with a read-only preflight that asserts 281 is present. One `docs/DATABASE.md` row per migration is proposed in that phase's PR (the file is owner-owned). Staging only; migrations are applied by hand in the Supabase SQL Editor.
+- Section 0 below records the starting position before 281 and is historical.
 
 ---
 
@@ -23,13 +37,15 @@
 | Businesses have no currency column | `businesses` select includes `country` but no `currency` (`app/dashboard/org/[id]/inventory/page.tsx:31`) |
 | `staff_permissions.domain` is generated | `split_part(key,'.',1)` with a 17-value CHECK (`db/migration_235_permission_catalogue.sql:140–166`) |
 
-**Register check (re-run, not trusted):** `git ls-tree` over every local and remote branch finds 270/271 on `backup/organizer-ai-before-handoff` and `feature/organizer-ai-assistant`, 272 on `feature/organizer-ai-assistant` (not applied), 273 on `feature/customer-comms-foundation`. Nothing above 269 on `staging`. **Next free number is 274.** This design uses 274–278 and touches no organizer-ai or comms branch.
+**Register check (historical, 27 Nov 2026; superseded by the v2 banner):** `git ls-tree` over every local and remote branch finds 270/271 on `backup/organizer-ai-before-handoff` and `feature/organizer-ai-assistant`, 272 on `feature/organizer-ai-assistant` (not applied), 273 on `feature/customer-comms-foundation`. Nothing above 269 on `staging`. **Superseded 28 Nov 2026:** 274–279 are held by other agents, 280 is security/function-grants, 281 is applied on staging, and this design now uses 282–286. It touches no organizer-ai or comms branch.
 
 ---
 
 ## 1. Decisions for the owner
 
-### D1 — Retail double ledger (recommendation: **B**)
+### D1 — Retail double ledger (recommendation: **B**; mechanism superseded by v2, see the note below)
+
+> **v2 note (28 Nov 2026).** The link mechanism below is superseded: there is no `products.inventory_item_id` column. A shared `pos_sellable_inventory_links` mapping table, built in POS Phase 1, replaces it. The option table and the webhook details are kept as history. Supply does not build any retail link.
 
 `products.stock_quantity` (`db/migration_37_products.sql:31`, decremented by the payment webhook) and `inventory_items` are unrelated. A shop can hold the same physical goods twice.
 
@@ -43,7 +59,7 @@
 
 **Recommend B**, for one reason: it is the only option that is both opt-in and reversible. Details:
 
-- Column: `products.inventory_item_id uuid NULL`, FK `(inventory_item_id, business_id) → inventory_items(id, business_id)` — note `products` has `business_id`; a partial unique index prevents two products pointing at one item.
+- **Superseded by v2:** no `products.inventory_item_id` column and no new FK on `products`. The mapping is the shared `pos_sellable_inventory_links` table (POS Phase 1, migration 287+). The webhook bullet below is historical: its `inventory_apply_movement(... 'product_order' ...)` call is not allowed by 281 (`product_order` is not on the public wrapper's reference_type allow-list), so any such call is specified in the POS appendix, not here.
 - Webhook (`app/api/webhooks/stripe/route.ts`, product branch; the crypto webhook mirrors it): if `inventory_item_id IS NULL` → today's path, byte-identical. If set → `inventory_apply_movement(<business>, <item>, <default location>, 'sold', -qty, 'Order <id>', <unit revenue? no — leave unit_cost NULL>, 'product_order', <order id>)` and **do not** touch `stock_quantity`.
 - `service_role` passes the RPC's auth check (`268:212`), so no new grant is needed. Location: `inventory_ensure_default_location(business_id)`.
 - **Known gap, accepted for v1:** inventory refuses to go negative (`268:240–242`), so an oversold linked product makes the sale succeed but the stock write fail. Rule: never fail the payment for a stock reason; log the failure (`console.error` + an `inventory_movement_skipped` reason on the order's audit path) and leave stock at 0 for manual reconcile. Checkout-time `reserved` handling is the real fix and is a separate item.
@@ -64,13 +80,14 @@
 
 Adding a capability means editing `CAPABILITIES` and `CAPABILITIES_BY_BUSINESS_TYPE` (`lib/business-taxonomy.ts:121–158`) for ~25 types, and it would re-create the exact bug found in the audit: the business shell gates on capabilities while the org workspace does not, so the same owner sees the module in one shell and not the other. Inventory solved this by using no capability. Supply follows inventory.
 
-### D4 — Changing `inventory_apply_movement` (recommendation: **DROP + CREATE a 9-arg version**)
+### D4 — Changing `inventory_apply_movement` (**RESOLVED by migration 281**)
 
-Receiving must record why stock arrived. Options:
+Migration 281 (applied by hand on staging) already made this change. Supply does not change any inventory function.
 
-1. Direct `INSERT` into `inventory_movements` from the receiving RPC (the precedent transfers set) — rejected: the brief requires receiving to go through `inventory_apply_movement` only, and two writers is how ledgers drift.
-2. Add a 9-arg overload with defaults — rejected: a 7-argument call becomes ambiguous between the 7-arg and 9-arg-with-defaults functions (`function is not unique`), which breaks the live PostgREST RPC.
-3. **DROP the 7-arg function, CREATE the 9-arg one** (`p_reference_type text DEFAULT NULL, p_reference_id uuid DEFAULT NULL`), re-grant, rollback restores 269's exact 7-arg body. All existing callers use named arguments (`lib/actions/inventory.ts`), so they keep working against the wider signature. Deploy order: migration first, app second — no broken window.
+- 281 dropped the 7-arg `inventory_apply_movement` and created `inventory_apply_movement_core` (9 args, SECURITY DEFINER, no client grants, owner `postgres`) plus a public 9-arg wrapper behind the same `inventory_can_manage` / `service_role` gate.
+- The wrapper accepts only this reference_type allow-list: manual, adjustment, count, correction, damage, expiry, return, opening, legacy. `goods_receipt` (with pos_sale, pos_refund, pos_sale_apply, pos_void) is reserved core-only.
+- Receiving therefore calls `inventory_apply_movement_core` from a SECURITY DEFINER RPC with `reference_type = 'goods_receipt'`, never the public wrapper. Old 7-arg named-argument calls keep working through the defaults.
+- Nothing in 282–286 drops, replaces or re-grants an inventory function. The earlier options analysis (direct INSERT, overload, DROP + CREATE in 277) is obsolete.
 
 ### D5 — Money display (recommendation: **one rule, `formatMoney` only**)
 
@@ -80,7 +97,7 @@ Storage stays `numeric(14,4)` for money and `numeric(14,3)` for quantities. Disp
 
 ## 2. Invariants
 
-1. **One stock truth.** Supply never stores a quantity of stock. On-hand lives in `inventory_balances`; every change is an `inventory_movements` row through `inventory_apply_movement`.
+1. **One stock truth.** Supply never stores a quantity of stock. On-hand lives in `inventory_balances`; every change is an `inventory_movements` row through the inventory movement writer: `inventory_apply_movement_core` for supply receipts (called only from the SECURITY DEFINER receipt RPC) and the public wrapper for manual adjustments.
 2. **Documents reference the ledger.** Each accepted receipt line points at its `received` movement via `goods_receipt_lines.movement_id`, and that movement points back via `reference_type='goods_receipt'`, `reference_id=<receipt>`.
 3. **Tenant scope is `business_id` everywhere**, with composite FKs `(id, business_id)` so a cross-business reference is structurally impossible (268's pattern, `268:75–78`).
 4. **Branch scope comes from the location, not from a column on the document.** A PO's destination is a location; a location carries an optional `branch_id`. Permission checks use `staff_has_permission(business, key, branch)`.
@@ -94,7 +111,7 @@ Storage stays `numeric(14,4)` for money and `numeric(14,3)` for quantities. Disp
 
 Naming: all functions `supply_*`, all policies `supply_<table>_<op>`, all helpers the 268 trio shape.
 
-### 3.1 `supply_suppliers` (migration 275)
+### 3.1 `supply_suppliers` (migration 283)
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -137,7 +154,7 @@ UPDATE      USING (public.supply_can_manage(business_id, NULL)) WITH CHECK (same
 
 No DELETE policy: suppliers are deactivated (`is_active=false`), matching inventory's no-DELETE rule.
 
-### 3.2 `supply_supplier_items` (275)
+### 3.2 `supply_supplier_items` (283)
 
 Optional per-supplier terms for a catalog item. Sparse by design: a supplier relationship exists without it.
 
@@ -166,7 +183,7 @@ CREATE INDEX supply_supplier_items_business_item_idx ON supply_supplier_items (b
 
 RLS: SELECT `supply_can_view(business_id, NULL)`; INSERT/UPDATE `supply_can_manage(business_id, NULL)`.
 
-### 3.3 `supply_purchase_orders` (276)
+### 3.3 `supply_purchase_orders` (284)
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -200,7 +217,7 @@ Indexes: `(business_id, status, created_at DESC)`, `(business_id, supplier_id)`,
 
 Triggers: `updated_at`; `supply_po_guard` refuses `business_id` changes and refuses any transition out of `received`.
 
-### 3.4 `supply_purchase_order_lines` (276)
+### 3.4 `supply_purchase_order_lines` (284)
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -222,9 +239,9 @@ CREATE OR REPLACE FUNCTION public.supply_po_lines_frozen() RETURNS trigger ...
 -- fires BEFORE INSERT/UPDATE/DELETE
 ```
 
-RLS: SELECT via `supply_can_view(business_id, NULL)`; no write policies (writes go through `supply_create_purchase_order` / `supply_update_purchase_order_lines`, which are granted only while the parent is `draft`).
+RLS: SELECT via `supply_can_view(business_id, NULL)`; no write policies (writes go through `supply_create_purchase_order` / `supply_update_draft_lines`, which are granted only while the parent is `draft`).
 
-### 3.5 `supply_goods_receipts` (277)
+### 3.5 `supply_goods_receipts` (285)
 
 A receipt is a fact, not a document with a draft state. It is created atomically with its lines and its ledger movements.
 
@@ -242,7 +259,7 @@ A receipt is a fact, not a document with a draft state. It is created atomically
 
 `location_id` is copied from the PO at receiving time and must equal `purchase_order.destination_location_id` (checked in the RPC). Allowing a different location per delivery is a later change; it complicates "ordered vs received" per location.
 
-### 3.6 `supply_goods_receipt_lines` (277)
+### 3.6 `supply_goods_receipt_lines` (285)
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -281,14 +298,14 @@ SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 
 Order of operations inside one transaction:
 
-1. Lock the PO row `FOR UPDATE`; assert `business_id` matches; assert status ∈ (`draft`,`sent`,`partially_received`).
-2. Permission: `supply_can_manage(business_id, v_branch)` **or** `supply_can_receive(business_id, v_branch)`; `service_role` bypasses.
+1. Lock the PO row `FOR UPDATE`; assert `business_id` matches; assert status ∈ (`sent`,`partially_received`; never `draft`).
+2. Permission: `supply_can_manage(business_id, v_branch)` **or** `supply_can_receive(business_id, v_branch)`; `service_role` bypasses. The RPC is SECURITY DEFINER and the core has no client grants, so this check and the branch-scope check are the only gate and run before any write.
 3. Assert the PO's location is `active` (269's archive guard means stock cannot land in an archived location).
 4. Insert the receipt header.
 5. For each line: re-read the PO line (item, ordered qty, already accepted), validate, insert the receipt line, then
 
 ```sql
-v_movement := public.inventory_apply_movement(
+v_movement := public.inventory_apply_movement_core(
   p_business_id, v_item, v_location, 'received', v_qty_accepted,
   v_reason, v_unit_cost, 'goods_receipt', v_receipt_id);
 ```
@@ -299,25 +316,15 @@ v_movement := public.inventory_apply_movement(
 
 Rejections (invalid qty, unknown line, wrong item, over-receipt, archived location, insufficient permission) raise with `ERRCODE`/`HINT` pairs in the 268/269 style, and the whole receipt rolls back — a receipt is all-or-nothing.
 
-Why `inventory_apply_movement` and not direct inserts: it owns the balance `FOR UPDATE` lock, the sign/quantity validation, the archived-location check and the `balance_after` bookkeeping. Transfers are the one documented exception (they write two rows atomically and must share a reference); that exception is not extended.
+Why `inventory_apply_movement_core` and not direct inserts: it owns the balance `FOR UPDATE` lock, the sign/quantity validation, the archived-location check and the `balance_after` bookkeeping. Transfers are the one documented exception (they write two rows atomically and must share a reference); that exception is not extended.
 
-`inventory_apply_movement`'s new signature (migration 277):
+`inventory_apply_movement` is not changed by supply. Migration 281 already created `inventory_apply_movement_core` (9 args, SECURITY DEFINER, no client grants) and the public 9-arg wrapper. Migration 285 only calls the core, with reference_type `goods_receipt`.
 
-```sql
-DROP FUNCTION public.inventory_apply_movement(uuid, uuid, uuid, text, numeric, text, numeric);
-CREATE OR REPLACE FUNCTION public.inventory_apply_movement(
-  p_business_id uuid, p_item_id uuid, p_location_id uuid, p_type text, p_quantity numeric,
-  p_reason text DEFAULT NULL, p_unit_cost numeric DEFAULT NULL,
-  p_reference_type text DEFAULT NULL, p_reference_id uuid DEFAULT NULL)
-...
--- INSERT ... (…, reference_type, reference_id, created_by) VALUES (…, p_reference_type, p_reference_id, auth.uid())
-```
-
-Re-`GRANT EXECUTE` in the same migration (dropping the function drops its grants); `REVOKE ALL … FROM PUBLIC, anon`.
+Before writing 285, read the core's exact argument order and body in the `db/` copy of migration 281 (mirror: `supabase/migrations/20261127130000_migration_281_pos_prerequisites.sql`). 285 has no DROP, no CREATE of an inventory function and no re-GRANT of one, and its rollback restores no inventory function.
 
 ---
 
-## 5. Reorder suggestions (migration 278, read-only)
+## 5. Reorder suggestions (migration 286, read-only)
 
 ```sql
 CREATE OR REPLACE FUNCTION public.supply_reorder_suggestions(
@@ -339,7 +346,7 @@ No table, no trigger, no cron.
 
 ---
 
-## 6. Permissions and gating (migration 274 — first, so later migrations can rely on the keys)
+## 6. Permissions and gating (migration 282 — first, so later migrations can rely on the keys)
 
 Three keys, domain `supply`:
 
@@ -349,27 +356,25 @@ Three keys, domain `supply`:
 | `supply.manage` | Manage suppliers, prices and purchase orders |
 | `supply.receive` | Record goods receipts |
 
-**The domain CHECK must be amended first.** `staff_permissions.domain` is `GENERATED ALWAYS AS split_part(key,'.',1)` and is constrained to 17 values (`235:155–166`). Inserting `supply.view` fails against the current constraint — which is good (fail-closed) and means the migration must, in this order:
+**The domain CHECK is already amended by migration 281.** `staff_permissions.domain` is `GENERATED ALWAYS AS split_part(key,'.',1)` and is constrained by `staff_permissions_domain_check` (`235:155–166` originally). 281 widened it from 17 to 20 values (adds `supply`, `pos`, `loyalty`), so migration 282 does not touch the CHECK. Its preflight asserts the CHECK body already lists `supply` and stops if not (fail-closed). In this order, 282:
 
-1. `ALTER TABLE public.staff_permissions DROP CONSTRAINT staff_permissions_domain_check;`
-2. `ADD CONSTRAINT staff_permissions_domain_check CHECK (domain IN (…17 existing…, 'supply'));` → **18 values**
-3. `INSERT INTO staff_permissions (key, description) VALUES (…) ON CONFLICT DO NOTHING;` → **65 keys**
-4. `UPDATE entity_role_permission_defaults SET permission_keys = permission_keys || ARRAY['supply.view'] WHERE entity_role = 'editor' AND NOT ('supply.view' = ANY(permission_keys));` (237 seeds with `ON CONFLICT (entity_role) DO NOTHING`, so a plain re-insert would silently do nothing — this must be an UPDATE with a duplicate guard).
-5. Grants in the 243 pattern (idempotent `INSERT … SELECT … ON CONFLICT DO NOTHING`): owner/admin/manager get all three; viewer gets `supply.view`.
+1. `INSERT INTO staff_permissions (key, description) VALUES (…) ON CONFLICT DO NOTHING;` → **65 keys** (only the three supply keys; the `pos.*` and `loyalty.*` keys belong to the POS migrations).
+2. `UPDATE entity_role_permission_defaults SET permission_keys = permission_keys || ARRAY['supply.view'] WHERE entity_role = 'editor' AND NOT ('supply.view' = ANY(permission_keys));` (237 seeds with `ON CONFLICT (entity_role) DO NOTHING`, so a plain re-insert would silently do nothing — this must be an UPDATE with a duplicate guard).
+3. Grants in the 243 pattern (idempotent `INSERT … SELECT … ON CONFLICT DO NOTHING`): owner/admin/manager get all three; viewer gets `supply.view`.
 
-Catalogue count becomes **65**; built-in-role grant counts become owner 65, admin 65, manager 53, viewer 13.
+Catalogue count becomes **65**; built-in-role grant counts become owner 65, admin 65, manager 53, viewer 13. These totals hold only if 282 applies before any `pos.*` or `loyalty.*` key is inserted; if POS keys land first, 282's verification must assert the delta (+3 keys) instead of the absolute totals.
 
 **Everything that asserts 62 (exhaustive):**
 
 | File | Line | What it says | Action |
 |---|---|---|---|
-| `db/migration_235_permission_catalogue_verification.sql` | 7, 9, 22 | "Exactly 62 keys" / "Expect 62" / "across the 62 keys" | Leave untouched. It is 235's point-in-time companion; note in 274 that it is historical from here on |
+| `db/migration_235_permission_catalogue_verification.sql` | 7, 9, 22 | "Exactly 62 keys" / "Expect 62" / "across the 62 keys" | Leave untouched. It is 235's point-in-time companion; note in 282 that it is historical from here on |
 | `db/migration_243_builtin_role_permissions_verification.sql` | 12 | "admin 62, manager 50, owner 62, viewer 12" | Leave untouched for the same reason |
 | `db/migration_235_permission_catalogue.sql` | 148 | forward-comment "across all 62 keys" | Never edit an applied migration |
 
 No TypeScript file enumerates permission keys (verified: keys are DB rows; `lib/actions/**` passes strings to `staff_has_permission`), so no code catalogue changes.
 
-**Helper trio** (created in 275, used by every later migration and policy):
+**Helper trio** (created in 283, used by every later migration and policy):
 
 ```sql
 supply_can_manage(p_business_id, p_branch_id) =>
@@ -398,7 +403,7 @@ One entry in `lib/dashboard/modules.ts`, immediately after `inventory`:
 ```ts
 {
   id: "supply",
-  // Procurement layer over inventory (migration 275+). No capability, same
+  // Procurement layer over inventory (migrations 282+). No capability, same
   // organizer-type visibility as Inventory: every business type sees it.
   capabilities: [],
   permission: "view",
@@ -459,21 +464,21 @@ Stays hidden: job costing, per-booking consumption.
 
 ## 10. Migration plan
 
-Five migrations, 274–278, each with a `_rollback` and `_verification` twin in `db/` only (DEC-0067), each mirrored once with timestamp order after `20261127004755_migration_269_inventory_transfers.sql`:
+Five migrations, 282–286 (owner confirmed 28 Nov 2026), each with a `_rollback` and `_verification` twin in `db/` only (DEC-0067), each mirrored once into `supabase/migrations/` in number order with a timestamp after `20261127130000_migration_281_pos_prerequisites.sql`:
 
 | # | Name | Contents | Mirror |
 |---|---|---|---|
-| 274 | `supply_permissions` | domain CHECK → 18 values; 3 keys (→ 65 total); 237 editor UPDATE; 243-style grants | `20261127120000_migration_274_supply_permissions.sql` |
-| 275 | `supply_suppliers` | `supply_suppliers`, `supply_supplier_items`, helper trio, RLS/grants/triggers, `supply_upsert_supplier`, `supply_archive_supplier` | `20261127130000_migration_275_supply_suppliers.sql` |
-| 276 | `supply_purchase_orders` | `supply_purchase_orders`, `supply_purchase_order_lines`, `supply_po_number_seq`, freeze trigger, `supply_create_purchase_order`, `supply_update_draft_lines`, `supply_set_po_status` | `20261127140000_migration_276_supply_purchase_orders.sql` |
-| 277 | `supply_goods_receipts` | `supply_goods_receipts`, `supply_goods_receipt_lines`, **replace `inventory_apply_movement` with the 9-arg version**, `supply_receive_purchase_order` | `20261127150000_migration_277_supply_goods_receipts.sql` |
-| 278 | `supply_reorder_suggestions` | `supply_reorder_suggestions()` only (no tables) | `20261127160000_migration_278_supply_reorder_suggestions.sql` |
+| 282 | `supply_permissions` | 3 keys (→ 65 total); 237 editor UPDATE; 243-style grants. No CHECK change (281 owns it) | `<timestamp>_migration_282_supply_permissions.sql` |
+| 283 | `supply_suppliers` | `supply_suppliers`, `supply_supplier_items`, helper trio, RLS/grants/triggers, `supply_upsert_supplier`, `supply_archive_supplier` (a supplier with POs is deactivated, never deleted) | `<timestamp>_migration_283_supply_suppliers.sql` |
+| 284 | `supply_purchase_orders` | `supply_purchase_orders`, `supply_purchase_order_lines`, `supply_po_number_seq`, freeze trigger, `supply_create_purchase_order`, `supply_update_draft_lines`, `supply_set_po_status` | `<timestamp>_migration_284_supply_purchase_orders.sql` |
+| 285 | `supply_goods_receipts` | `supply_goods_receipts`, `supply_goods_receipt_lines`, `supply_receive_purchase_order` (SECURITY DEFINER, calls `inventory_apply_movement_core`; no inventory function is created, replaced or re-granted) | `<timestamp>_migration_285_supply_goods_receipts.sql` |
+| 286 | `supply_reorder_suggestions` | `supply_reorder_suggestions()` only (no tables) | `<timestamp>_migration_286_supply_reorder_suggestions.sql` |
 
-Per-file requirements (268/269 conventions): header comment stating what it builds on; `STATEMENT 0` read-only preflight asserting prerequisites (`to_regprocedure` for the helper trio, the 7-arg `inventory_apply_movement` before 277 drops it, `staff_permissions` domain check body); no `BEGIN/COMMIT`; every statement idempotent and re-runnable from the top; `DO` blocks for `ALTER`/`CREATE POLICY`; grants block `REVOKE ALL … FROM PUBLIC, anon` then narrow `GRANT`s; rollback drops exactly what the forward created and restores 269's 7-arg `inventory_apply_movement` verbatim; verification is read-only `SELECT`s with `-- Expect …` comments.
+Per-file requirements (268/269/281 conventions): header comment stating what it builds on; `STATEMENT 0` read-only preflight that asserts 281 is present (`to_regprocedure` for `inventory_apply_movement_core` and the public 9-arg wrapper, and that the `staff_permissions_domain_check` body lists `supply`) plus, from 284 on, the helper trio and the earlier supply tables; match 281's transaction convention (check its header before authoring; 268/269 used no BEGIN/COMMIT, 281 ran as one transaction); every statement idempotent and re-runnable from the top; `DO` blocks for `ALTER`/`CREATE POLICY`; grants block `REVOKE ALL … FROM PUBLIC, anon` then narrow `GRANT`s; the rollback drops exactly what the forward created, is fail-closed, and never touches the CHECK or any inventory function; verification is read-only `SELECT`s with `-- Expect …` comments. Rollback and verification are never mirrored.
 
-Register updates required in the same doc commit or the first migration PR: `docs/HANDOFF.md` §6 (five rows + boundary line "next free is 279") and `docs/DATABASE.md` §5. **`docs/DATABASE.md` §5 is owner-owned per the standing note; propose the rows, do not write them unasked.**
+Register updates: `docs/HANDOFF.md` section 6 (five rows plus the boundary line, value confirmed after the cross-branch check) and `docs/DATABASE.md` section 5, one row per migration, proposed in that migration's PR. **`docs/DATABASE.md` section 5 is owner-owned per the standing note; propose the rows, do not write them unasked.**
 
-Numbers 274–278 are reserved by this design. Nothing above 269 exists on `staging` today; 270–273 belong to organizer-ai and comms and are not touched.
+Numbers 282–286 are confirmed for supply; POS starts at 287. 274–279 and 280 belong to other agents. Re-run the cross-branch check (`git ls-tree` on all refs plus every worktree, full file names) before taking any number.
 
 ---
 
@@ -498,26 +503,26 @@ Numbers 274–278 are reserved by this design. Nothing above 269 exists on `stag
 **i18n:** `messages/en.json` and `messages/fr.json` gain a `Supply` namespace (~55–65 keys): nav label, page titles, supplier form labels/errors, PO status labels (5), receipt dialog labels, low-stock panel copy, empty states, and one key per server error code. **Parity is mandatory** — both files, same key set, no English fallback strings left in components (`tr(key, fallback)` is acceptable only where inventory already does it).
 
 **Tests** (new, registered in `test-files.json` or they never run):
-`lib/__tests__/supply-po-number.test.cjs`, `lib/__tests__/supply-reorder.test.cjs`, `lib/__tests__/supply-currency-defaults.test.cjs`, `lib/__tests__/supply-errors.test.cjs`, plus `lib/__tests__/supply-sql-contract.test.cjs` (static regex assertions over the five migration files, in the style of the existing registry tests: every new table has RLS enabled, every `GRANT` is preceded by a `REVOKE … PUBLIC, anon`, every function pins `search_path`, the rollback restores the 7-arg signature).
+`lib/__tests__/supply-po-number.test.cjs`, `lib/__tests__/supply-reorder.test.cjs`, `lib/__tests__/supply-currency-defaults.test.cjs`, `lib/__tests__/supply-errors.test.cjs`, plus `lib/__tests__/supply-sql-contract.test.cjs` (static regex assertions over the five migration files, in the style of the existing registry tests: every new table has RLS enabled, every `GRANT` is preceded by a `REVOKE … PUBLIC, anon`, every function pins `search_path`, no supply migration or rollback creates, replaces, drops or re-grants an inventory function, and 285 calls `inventory_apply_movement_core` and never the public wrapper).
 
-No test edits to staff/inventory suites; the permission-count change is asserted only in 274's verification file.
+No test edits to staff/inventory suites; the permission-count change is asserted only in 282's verification file.
 
 ---
 
 ## 12. Build order
 
-Each phase is one commit, one PR-sized unit, and gated by: `npx eslint <changed files>` → `npx next typegen && npx tsc --noEmit` → a grep proving every action file starts with `"use server"` → `npm run build` → `npm test` against the known baseline (**3684 pass / 33 inherited failures**; a supply change must not alter that ratio).
+Each phase is one commit, one PR-sized unit, and gated by: `npx eslint <changed files>` → `npx next typegen && npx tsc --noEmit` → a grep proving every action file starts with `"use server"` → `npm run build` → `npm test` against the known baseline (**3839 tests / 36 inherited failures** (names in the local `pos-baseline-failing.txt`); a supply change must not add failures).
 
 | Phase | Scope | Migration | Gate expectation |
 |---|---|---|---|
-| 1 | Permissions + helpers, no UI | 274 + 275 (helpers only) | suite unchanged; 274 verification queries not run (no DB access from the agent) |
-| 2 | Suppliers CRUD + page + i18n + helper tests | 275 | baseline ratio; i18n parity check |
-| 3 | Purchase orders: schema, draft create/edit, send, cancel | 276 | freeze-trigger covered by the SQL contract test |
-| 4 | Receiving: `inventory_apply_movement` 9-arg + receipt RPC + dialog | 277 | **re-run the full inventory suite**; confirm no call site passes positional args |
-| 5 | Reorder suggestions + "create draft PO" prefill | 278 | suggestion math tests |
+| 1 | Permissions + helpers, no UI | 282 + 283 (helpers only) | suite unchanged; 282 verification queries run by the owner by hand in the SQL Editor (no DB access from the agent) |
+| 2 | Suppliers CRUD + page + i18n + helper tests | 283 | baseline ratio; i18n parity check |
+| 3 | Purchase orders: schema, draft create/edit, send, cancel | 284 | freeze-trigger covered by the SQL contract test |
+| 4 | Receiving: receipt RPC (calls `inventory_apply_movement_core`) + dialog | 285 | **re-run the full inventory suite**; confirm the RPC never calls the public wrapper |
+| 5 | Reorder suggestions + "create draft PO" prefill | 286 | suggestion math tests |
 | 6 | Nav entry + page permission gating + docs (`CURRENT-STATE`, `CHANGELOG`, `DECISIONS`, HANDOFF §6, DATABASE §5 proposal) | — | build passes with the new route |
 
-Phase 4 is the only phase that can break existing behavior; everything before it is additive.
+Phase 4 is the only phase that writes stock (through `inventory_apply_movement_core`); it changes no existing function, so everything in 282–286 is additive.
 
 ---
 
@@ -525,10 +530,10 @@ Phase 4 is the only phase that can break existing behavior; everything before it
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Dropping the 7-arg `inventory_apply_movement` breaks a caller that used positional args | Stock actions fail at runtime | Grep every `rpc("inventory_apply_movement"` call site before 277; all use named args today. Apply migration before deploying app code |
-| 269's preflight asserts `to_regprocedure('inventory_apply_movement(uuid,uuid,uuid,text,numeric,text,numeric)')` | Re-running 269's preflight after 277 reports `false` | Documented in 277's header: 269 is a historical, already-applied file; its preflight is not a live health check |
-| 235's verification still says 62 keys | Someone re-runs it after 274 and thinks the DB is wrong | 274's verification states the new expected counts; 235/243 companions left untouched and labelled historical |
-| Domain CHECK amended before keys inserted (or not at all) | Insert fails closed (safe) or bypasses validation (dangerous) | Ordered statements in 274; 274's rollback restores the 17-value CHECK and refuses if `supply.*` rows still exist |
+| Receipt RPC is SECURITY DEFINER and calls the core, which has no client grants | A missing or wrong permission/branch check lets a caller stock anything | The RPC checks `supply_can_receive` and the branch scope itself before any write; the core is never granted to clients; verification includes a rolled-back role proof (a user with `supply.receive` on the wrong branch, and a user with no key) |
+| Core argument order or the `goods_receipt` allow-list differs from what 281 shipped | 285 fails at runtime | 285's preflight asserts 281 is present (`to_regprocedure` on the core and the wrapper); read 281's body before writing 285; verification posts a real receipt inside a rolled-back transaction |
+| 235's verification still says 62 keys | Someone re-runs it after 282 and thinks the DB is wrong | 282's verification states the new expected counts; 235/243 companions left untouched and labelled historical |
+| Domain CHECK must allow `supply` before the keys are inserted | Insert fails closed (safe) if the CHECK lacks the value | 281 owns the CHECK (17 → 20 values); 282's preflight asserts `supply` is in it; 282's rollback deletes only the three `supply.*` keys and their grants and does not touch the CHECK |
 | Receiving writes stock without a permission check under `service_role` | Webhook/route code could stock anything | `service_role` is deliberately trusted (268 does the same); no route exposes receiving to `service_role` except the receipt RPC itself |
 | Over-receipt / duplicate receipts | Stock inflated | `UNIQUE (receipt_id, po_line)`; `SUM(accepted) <= ordered` check under the PO row lock; refresh-safe UI (single submit, no optimistic quantity) |
 | PO edited after send | Ordered vs received drifts | Freeze trigger + no write policies; all edits through RPCs that assert `draft` |
@@ -538,14 +543,20 @@ Phase 4 is the only phase that can break existing behavior; everything before it
 | Supply page reachable by a user without `supply.view` | Empty page, confusing | Accepted until the separate nav-permission-filter item; page states "You do not have access to suppliers" rather than rendering an empty table |
 | Phase 5 suggestions scanned per page load | Slow on large catalogs | Function filters on `min_stock > 0` first, joins balances by `(item_id, location_id)` (indexed); add a partial index on `inventory_items (business_id) WHERE is_active AND min_stock > 0` if measured slow |
 
-**What could break existing inventory/transfers:** only 277 touches it. The 9-arg replace preserves every validation and adds two nullable columns to the movement insert; transfers keep their direct two-row insert and their shared `reference_id`; no policy, grant or index on `inventory_*` changes.
+**What could break existing inventory/transfers:** nothing in 282–286 replaces or re-grants an inventory function (281 already did, and was verified). 285 adds one caller of the core; transfers keep their direct two-row insert and shared `reference_id`; no policy, grant or index on `inventory_*` changes.
 
 ---
 
-## 14. Open questions for the owner
+## 14. Owner decisions (v2) and remaining questions
 
-1. **D1**: adopt B (opt-in link) as the target, or park retail entirely until after supply ships? Recommendation: ship supply without D1, then do D1 as its own webhook PR.
-2. **D2**: three keys (`view`/`manage`/`receive`) or two?
-3. **Supplier deactivation vs deletion**: deactivate only (recommended, mirrors inventory's no-DELETE rule) or allow delete when no PO exists?
-4. **Receiving against a `draft` PO**: allow (recommended — goods arrive before paperwork) or require `sent` first?
-5. **`docs/DATABASE.md` §5 rows** for 274–278: may I write them, or do you want to?
+Decided, recorded in the v2 banner at the top:
+
+1. **D1 retail link:** no `products.inventory_item_id`; the shared `pos_sellable_inventory_links` table (POS Phase 1) replaces it. Supply ships without any retail change.
+2. **D2:** three keys (`supply.view`, `supply.manage`, `supply.receive`).
+3. **Suppliers:** a supplier that has purchase orders is deactivated, never deleted.
+4. **Receiving:** not against a `draft` PO; the PO must be `sent` or `partially_received`.
+5. **D4:** resolved by migration 281.
+
+Still open:
+
+1. `docs/DATABASE.md` section 5 rows for 282–286: owner-owned; propose one row per migration in that migration's PR, and do not write them unasked.
