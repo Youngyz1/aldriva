@@ -407,15 +407,15 @@ Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-suppl
 
 ## Appendix A — Phase 1 sellable-link / money / import decisions (OWNER-APPROVED 2026-11-28)
 
-**Scope:** Phase 1 (sellable-to-inventory link, money helper, spreadsheet import). Full DDL/RLS still required before any Phase 1 migration is written; this appendix records owner decisions D1-D7.
+**Scope:** Phase 1 (sellable-to-inventory link, money helper, spreadsheet import). Full DDL/RLS still required before any Phase 1 migration is written; this appendix records owner decisions D1-D7. Source appendix: `docs/handoff/pos-phase1-appendix.md` (worktree `aldriva-pos-phase1`, owner-approved).
 
-- **D1:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
-- **D2:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
-- **D3:** ACCEPTED with constraint: a price that is not exactly representable in the business currency must raise an error, never round.
-- **D4:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
-- **D5:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
-- **D6:** ACCEPTED with dependency gate: CSV first; add XLSX only after the library's licence, npm audit, and a server-side-only parse with size/row limits are checked and recorded; do not use the SheetJS npm package.
-- **D7:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
+- **D1 — Migration split:** ACCEPTED as proposed. 287 `pos_permissions`; 288 `pos_settings`, `pos_sellable_inventory_links`, helpers, `pos_audit_logs`, link/settings RPCs; 289 import. Re-run cross-branch check before taking any number.
+- **D2 — Source types:** ACCEPTED as proposed. `product`, `menu_item`, `service`, `rental_item` (= `vehicles`), plus new `inventory_item`.
+- **D3 — Price source:** ACCEPTED with constraint. menu_item/service: local `numeric(12,2)`. product/inventory_item: `inventory_items.selling_price`. Conversion to minor units is exact: a price not exactly representable in the business currency must raise an error, never round. Otherwise `pos.price.override`.
+- **D4 — Orphans / recipes:** ACCEPTED as proposed. No cleanup triggers on source tables; sale function re-checks source at sale time; verification lists orphans. One unit sold consumes one unit of one inventory item (no recipes in v1).
+- **D5 — Who manages:** ACCEPTED as proposed. Links/settings: `pos.settings.manage`. Import: `pos.settings.manage` AND `inventory_can_manage`.
+- **D6 — Import / dependency:** ACCEPTED with dependency gate. Server-action parse, preview, chunked commit through SECURITY DEFINER RPC; upsert by SKU only; opening stock through public 9-arg wrapper with `reference_type='opening'`. CSV first; add XLSX only after the library's licence, npm audit, and a server-side-only parse with size/row limits are checked and recorded; do not use the SheetJS npm package.
+- **D7 — Money helper:** ACCEPTED as proposed. New `lib/pos/money.ts`: explicit ISO 4217 exponent table (0/2/3), BigInt integer math, signed values for refunds. Existing `lib/money.ts` untouched.
 
 ---
 
