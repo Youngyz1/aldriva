@@ -3,12 +3,12 @@
 > **Status**: Verified Historical Record  
 > **Format**: Chronological reverse order (Newest first)
 
-## [2026-11-28] - Migration 281: POS/supply shared prerequisite (branch `feat/migration-274-pos-prerequisite`)
+## [2026-11-28] - Migration 281: POS/supply shared prerequisite (branch `feat/migration-281-pos-prerequisite`)
 
 - **Migration:** `db/migration_281_pos_prerequisites.sql` plus fail-closed `_rollback` and read-only `_verification`, with the byte-identical mirror `supabase/migrations/20261127130000_migration_281_pos_prerequisites.sql` (blob hash identical to the db copy; commit `ec1f63a66`). One transaction: expands `staff_permissions_domain_check` from 17 to 20 values (adds `supply`, `pos`, `loyalty`); replaces the 7-argument `inventory_apply_movement` with a 9-argument SECURITY DEFINER core (`inventory_apply_movement_core`, no client grants) and a public 9-argument wrapper that keeps the old named 7-argument call working and refuses reserved POS/supply `reference_type` values. `inventory_transfer_stock` (269) is untouched.
 - **Applied:** by hand on staging by the owner, 2026-11-28. Verification file 27 of 27 true; role proof 30 of 30 passed and rolled back. No production rollout.
 - **Tests:** `db/tests/migration_281_proof.sql` (placeholders only; the run with real IDs is kept local and never committed) and two race scripts, `migration_281_race_apply_adjust.sql` and `migration_281_race_transfer_adjust.sql`.
-- **Numbers:** 281 replaces the earlier plan to use 274. 274-279 are held by other agents. Supply 282-286 and POS 287+ are proposed and await owner confirmation. Docs renumbered accordingly (`HANDOFF.md` section 6, `pos-design.md`, `phase-11-pos.md`, `DECISIONS.md`, `staff-inventory-complete.md`, `phase-07-bookings.md`).
+- **Numbers:** 281 replaces the earlier plan to use 274. 274-279 are held by other agents. Supply 282-286 and POS 287+ were confirmed by the owner on 2026-11-28. Docs renumbered accordingly (`HANDOFF.md` section 6, `pos-design.md`, `phase-11-pos.md`, `DECISIONS.md`, `staff-inventory-complete.md`, `phase-07-bookings.md`).
 - **Post-apply checks (owner, 2026-11-28):** one stock adjustment and one transfer in the staging UI both worked; `SELECT proname FROM pg_proc WHERE proname LIKE 'zz\_%'` returned no rows (no leftover proof helpers).
 - **Not done:** nothing pushed; no PR yet.
 

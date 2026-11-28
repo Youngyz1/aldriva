@@ -69,9 +69,9 @@
 | # | Owner | Purpose | Depends on |
 |---:|---|---|---|
 | 281 | **Shared prerequisite** | Single owner: (A) additive `staff_permissions.domain` CHECK for `supply,pos,loyalty`; (B) inventory movement core/wrapper split + 9-arg reference-aware public wrapper; final REVOKE/GRANT/NOTIFY. | 269 |
-| 282-286 (proposed) | Supply | Renumbered from supply 274-278; no domain CHECK replacement; no inventory function replacement. | 281 |
+| 282-286 (confirmed) | Supply | Renumbered from supply 274-278; no domain CHECK replacement; no inventory function replacement. | 281 |
 | 280 | security/function-grants | Other agent. Do not take. | independent |
-| 287+ (proposed) | POS | POS schema/permissions/RPCs/offline/reporting phased. | 281 |
+| 287+ (confirmed) | POS | POS schema/permissions/RPCs/offline/reporting phased. | 281 |
 
 ### 3.3 Domain CHECK single-owner rule
 - 281 only DROP/ADDs `staff_permissions_domain_check`, adding `supply,pos,loyalty` to existing 17 values.
@@ -115,7 +115,7 @@ Behavior (VERIFIED): FOR SHARE on location row (269:168-171), validates type/sig
 
    **POS/supply reserved reference types (core-only):** `pos_sale`, `pos_refund`, `pos_sale_apply`, `pos_void`, `goods_receipt`. Future POS/supply refs must be added explicitly to this reserved list and never to the wrapper allow-list unless deliberately approved.
 
-3. **POS/supply RPCs call core, not wrapper**. `pos_create_sale`, `pos_create_refund`, `pos_void_sale`, `pos_apply_sale_line_stock` (apply-now), and `supply_receive_*` (282-286, proposed) are SECURITY DEFINER functions that perform their own domain authorization before calling core:
+3. **POS/supply RPCs call core, not wrapper**. `pos_create_sale`, `pos_create_refund`, `pos_void_sale`, `pos_apply_sale_line_stock` (apply-now), and `supply_receive_*` (282-286, confirmed) are SECURITY DEFINER functions that perform their own domain authorization before calling core:
 
    - **POS sale stock write:** sale RPC asserts `cashier_user_id = auth.uid()` and `pos.sell`; the actor always comes from `auth.uid()` inside the calling SECURITY DEFINER function. Offline sync runs as the authenticated cashier; a manager syncing another cashier's queued sales must do so under a named permission and store both `cashier_user_id` and `synced_by_user_id` on the sale. Register/location branch scope: resolved location must belong to register.default_location_id or an explicitly allowed location in the same business; if register is branch-scoped, `location.branch_id` must equal `register.branch_id` (or be null only if business policy allows). Then call core for each line. Core still enforces location active, item active, sufficient stock, lock order.
    - **POS apply now:** asserts manager/review permission (`pos.sync.review` or approved equivalent), line belongs to business, `stock_applied=false`, line has no refund and no void; rechecks stock at that moment; refuses if still short; all-or-nothing per line. Idempotent by the row-lock and state-transition mechanism described in §7 (`pos_sale_items` FOR UPDATE, check `stock_applied=false` and no refund/void, apply movement, set `stock_applied=true` in same transaction). The movement reference (`pos_sale_apply`, sale_item_id/deterministic id) is for correlation/audit only.
@@ -173,8 +173,8 @@ public.inventory_apply_movement(
 | `lib/actions/inventory.ts` `adjustStock` (~345) | runtime RPC | **No change required by 281.** The 9-arg wrapper with defaults accepts the existing 7-argument named call, so 281 can be applied and rolled back without an app deploy. Optional follow-up: pass `p_reference_type`,`p_reference_id` when needed. |
 | `inventory_transfer_stock` (269) | SQL function | **No change** - writes movements directly, does not call `inventory_apply_movement`. |
 | 268/269/rollbacks/verifies + supabase mirrors | historical | **Do not edit.** |
-| Supply 282-286 (proposed) | future | Depend on 281; receive RPCs call core after `supply.receive` + scope check; no function replacement. |
-| POS 287+ (proposed) | future | Sale/refund RPCs call core after `pos.sell`/`pos.refund` + register/branch scope; no function replacement. |
+| Supply 282-286 (confirmed) | future | Depend on 281; receive RPCs call core after `supply.receive` + scope check; no function replacement. |
+| POS 287+ (confirmed) | future | Sale/refund RPCs call core after `pos.sell`/`pos.refund` + register/branch scope; no function replacement. |
 
 **Old-signature grep (VERIFIED, 2026-11-28, worktree `aldriva-pos-design`):**
 `git grep -n "inventory_apply_movement(uuid, uuid, uuid, text, numeric, text, numeric)" -- lib app scripts e2e db supabase`
@@ -368,7 +368,7 @@ Sums: tax 8+9+8=25, net 100+100+100=300, total 108+109+108=325. Every row satisf
 
 ### Files (future)
 - Docs: rewrite `docs/phases/phase-11-pos.md` to Native POS; add Phase 8 external connectors doc; update HANDOFF/CURRENT-STATE/DECISIONS when work lands.
-- DB: 281 shared prerequisite (applied on staging); 287+ POS migrations (proposed); each with forward, fail-closed rollback, read-only verification; mirrors in `supabase/migrations/` byte-identical in migration-number order; no rollback in supabase/migrations.
+- DB: 281 shared prerequisite (applied on staging); 287+ POS migrations (confirmed); each with forward, fail-closed rollback, read-only verification; mirrors in `supabase/migrations/` byte-identical in migration-number order; no rollback in supabase/migrations.
 - Code: `lib/pos/**`, `lib/actions/pos-*.ts`, `app/dashboard/org/[id]/pos/**`, `components/pos/**`, `THIRD_PARTY_NOTICES.md` before Olgax copy.
 - Tests: `lib/__tests__/pos-*.test.cjs` + any `.test.ts`; every new test registered in `test-files.json`.
 
@@ -393,7 +393,7 @@ Sums: tax 8+9+8=25, net 100+100+100=300, total 108+109+108=325. Every row satisf
 ## 14. Supply design changes required (do not edit supply branch)
 
 Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-supply-design`). Update before implementation:
-1. Renumber migrations 274-278 -> **282-286** (proposed); 281 is shared prerequisite outside supply.
+1. Renumber migrations 274-278 -> **282-286** (confirmed); 281 is shared prerequisite outside supply.
 2. Remove supply ownership of `inventory_apply_movement` replacement; depend on 281 9-arg/core model. Supply receive RPCs call core after `supply.receive` + scope checks.
 3. Add dependency on 281 in every 282-286 preflight (domain CHECK includes supply, 9-arg exists, core exists).
 4. Remove domain CHECK amendment from supply permissions migration; 281 owns additive expansion for supply,pos,loyalty.
