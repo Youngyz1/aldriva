@@ -1,7 +1,7 @@
 # Aldriva Native POS — Design Doc (v4.3)
 
 **Date:** 2026-11-28 (v4.3 owner-review updates)  
-**Status:** OWNER-APPROVED BASELINE (2026-11-28): architecture, money and tax rules, offline Decision A, void policy and the migration 274 spec. Sections listed as summary-level in section 13 still need owner approval before the migration of the phase that uses them. No POS code, no POS migrations, nothing applied.  
+**Status:** OWNER-APPROVED BASELINE (2026-11-28): architecture, money and tax rules, offline Decision A, void policy and the migration 281 spec. Sections listed as summary-level in section 13 still need owner approval before the migration of the phase that uses them. No POS code. Migration 281 (shared prerequisite) is applied on staging (2026-11-28, owner-verified); no other POS or supply migration is written or applied.  
 **Branch:** `docs/native-pos-design` off `origin/staging` @ `5c9756b4c` (docs-only PR worktree).  
 **Inputs:** Owner plan (2026-11-28), owner decisions rounds 1-7, recon reports, `docs/handoff/supply-design.md` (`C:\Users\Youngyz\aldriva-supply-design`, `909b5e65d`), `docs/HANDOFF.md`, `docs/DECISIONS.md`, migrations 268/269/242/280, `lib/actions/inventory.ts`, `lib/order-submit.ts`, `lib/orders/transition-graphs.ts`, `lib/money.ts`, `lib/order-phone.ts`, `security/function-grants` migration 280, `C:\Users\Youngyz\aldriva-scanner-p0\scratch-proof-269.sql` (read-only).
 
@@ -17,7 +17,7 @@
 | 1 | **Refund example fixed:** corrected bps note (833.33... bps, not "8.333 bps"); exclusive refunded `line_total = refunded net + refunded tax` (never rounded separately); recomputed table so total=net+tax in every row; final refund takes remainder. |
 | 2 | **Void policy (owner decision 2026-11-28):** full void restocks every line with `stock_applied=true` via core `pos_void` in same lock order; `stock_applied=false` never restocked; partial returns go through refund path. Proof cases added. |
 | 3 | **Apply now wording:** §4.2 now uses row-lock/state-transition idempotency mechanism from §7; reference is correlation only. |
-| 4 | **Migration 280 checked:** 280 has no dynamic loop/DO block over `pg_proc`/all public functions; explicit REVOKE/GRANT on 4 named functions only. Cannot revoke/grant functions created later by 274. Added 4.5 note: required order/verification step. |
+| 4 | **Migration 280 checked:** 280 has no dynamic loop/DO block over `pg_proc`/all public functions; explicit REVOKE/GRANT on 4 named functions only. Cannot revoke/grant functions created later by 281. Added 4.5 note: required order/verification step. |
 | 5 | **Docs PR preflight (read-only):** reported phase-11 current text, connectors doc/DEC native POS/THIRD_PARTY_NOTICES absence, next free DEC 0069. |
 | 6 | **Per-item checklist** added at end. |
 
@@ -50,7 +50,7 @@
 
 - Inventory: 268/269 tables/RPCs; `authenticated` SELECT on balances/movements only; writes via RPCs.
 - Quantity `numeric(14,3)`; movement types include `opening`; sign/type/balance checks enforced (268).
-- `inventory_movements` already has `reference_type text, reference_id uuid` (VERIFIED 268:90-91, 269:11,132). **274 does not add these columns.**
+- `inventory_movements` already has `reference_type text, reference_id uuid` (VERIFIED 268:90-91, 269:11,132). **281 does not add these columns.**
 - No `public.customers` table; `customer_identities` is messaging/AI (110).
 - `lib/order-phone.ts` is formatting-only, **not E.164**; must not be reused for POS E.164.
 - `staff_audit_logs` (242) append-only, RLS select-only, SECURITY DEFINER writers + service-role writer with explicit actor.
@@ -68,20 +68,20 @@
 ### 3.2 Allocation
 | # | Owner | Purpose | Depends on |
 |---:|---|---|---|
-| 274 | **Shared prerequisite** | Single owner: (A) additive `staff_permissions.domain` CHECK for `supply,pos,loyalty`; (B) inventory movement core/wrapper split + 9-arg reference-aware public wrapper; final REVOKE/GRANT/NOTIFY. | 269 |
-| 275-279 | Supply | Renumbered from supply 274-278; no domain CHECK replacement; no inventory function replacement. | 274 |
+| 281 | **Shared prerequisite** | Single owner: (A) additive `staff_permissions.domain` CHECK for `supply,pos,loyalty`; (B) inventory movement core/wrapper split + 9-arg reference-aware public wrapper; final REVOKE/GRANT/NOTIFY. | 269 |
+| 282-286 (proposed) | Supply | Renumbered from supply 274-278; no domain CHECK replacement; no inventory function replacement. | 281 |
 | 280 | security/function-grants | Other agent. Do not take. | independent |
-| 281+ | POS | POS schema/permissions/RPCs/offline/reporting phased. | 274 |
+| 287+ (proposed) | POS | POS schema/permissions/RPCs/offline/reporting phased. | 281 |
 
 ### 3.3 Domain CHECK single-owner rule
-- 274 only DROP/ADDs `staff_permissions_domain_check`, adding `supply,pos,loyalty` to existing 17 values.
-- 275-279/281+ must not replace CHECK with smaller list; preflight-assert domain allowed and insert keys/grants only.
-- 274 rollback fail-closed if any `supply.*`,`pos.*`,`loyalty.*` key rows exist.
+- 281 only DROP/ADDs `staff_permissions_domain_check`, adding `supply,pos,loyalty` to existing 17 values.
+- 282-286/287+ must not replace CHECK with smaller list; preflight-assert domain allowed and insert keys/grants only.
+- 281 rollback fail-closed if any `supply.*`,`pos.*`,`loyalty.*` key rows exist.
 - Future domains need a new additive prerequisite migration.
 
 ---
 
-## 4. Migration 274 — detailed spec (PROPOSED)
+## 4. Migration 281 — detailed spec (APPLIED on staging 2026-11-28)
 
 ### 4.1 Exact current live signature (VERIFIED, 269:143)
 
@@ -115,7 +115,7 @@ Behavior (VERIFIED): FOR SHARE on location row (269:168-171), validates type/sig
 
    **POS/supply reserved reference types (core-only):** `pos_sale`, `pos_refund`, `pos_sale_apply`, `pos_void`, `goods_receipt`. Future POS/supply refs must be added explicitly to this reserved list and never to the wrapper allow-list unless deliberately approved.
 
-3. **POS/supply RPCs call core, not wrapper**. `pos_create_sale`, `pos_create_refund`, `pos_void_sale`, `pos_apply_sale_line_stock` (apply-now), and `supply_receive_*` (275-279) are SECURITY DEFINER functions that perform their own domain authorization before calling core:
+3. **POS/supply RPCs call core, not wrapper**. `pos_create_sale`, `pos_create_refund`, `pos_void_sale`, `pos_apply_sale_line_stock` (apply-now), and `supply_receive_*` (282-286, proposed) are SECURITY DEFINER functions that perform their own domain authorization before calling core:
 
    - **POS sale stock write:** sale RPC asserts `cashier_user_id = auth.uid()` and `pos.sell`; the actor always comes from `auth.uid()` inside the calling SECURITY DEFINER function. Offline sync runs as the authenticated cashier; a manager syncing another cashier's queued sales must do so under a named permission and store both `cashier_user_id` and `synced_by_user_id` on the sale. Register/location branch scope: resolved location must belong to register.default_location_id or an explicitly allowed location in the same business; if register is branch-scoped, `location.branch_id` must equal `register.branch_id` (or be null only if business policy allows). Then call core for each line. Core still enforces location active, item active, sufficient stock, lock order.
    - **POS apply now:** asserts manager/review permission (`pos.sync.review` or approved equivalent), line belongs to business, `stock_applied=false`, line has no refund and no void; rechecks stock at that moment; refuses if still short; all-or-nothing per line. Idempotent by the row-lock and state-transition mechanism described in §7 (`pos_sale_items` FOR UPDATE, check `stock_applied=false` and no refund/void, apply movement, set `stock_applied=true` in same transaction). The movement reference (`pos_sale_apply`, sale_item_id/deterministic id) is for correlation/audit only.
@@ -127,7 +127,7 @@ Behavior (VERIFIED): FOR SHARE on location row (269:168-171), validates type/sig
 
 5. **Rule (mandatory):** Only SECURITY DEFINER functions that authorise the caller first may call `inventory_apply_movement_core`. Every new caller must document: caller identity check, permission check, business/register/branch scope check, and why core is safe. **Review checklist item:** "Does this code path call `inventory_apply_movement_core` only from a SECURITY DEFINER function that has already authorized caller + tenant + branch/location scope?"
 
-6. **Proof cases required for 274/POS:**
+6. **Proof cases required for 281/POS:**
    - Cashier with `pos.sell` but **no** `inventory.manage`/`inventory_can_manage` completes a POS sale that decrements stock (via core through sale RPC) - PASS.
    - Same cashier calling public `inventory_apply_movement` wrapper directly - FAIL with permission denied (existing behavior preserved).
    - Cashier/sale for register in branch X cannot write stock to location in branch Y - FAIL with forbidden/scope error; no balance/movement change.
@@ -142,7 +142,7 @@ Behavior (VERIFIED): FOR SHARE on location row (269:168-171), validates type/sig
 
 ### 4.3 New public signature and no-overload rule
 
-`CREATE OR REPLACE` cannot change arg list. 274 runs in **ONE transaction** (`BEGIN; ... COMMIT;`) so partial state is not left behind. 274 must:
+`CREATE OR REPLACE` cannot change arg list. 281 runs in **ONE transaction** (`BEGIN; ... COMMIT;`) so partial state is not left behind. 281 must:
 
 1. **Assert old ACL before DROP:** query `pg_proc.proacl` for `public.inventory_apply_movement(uuid,uuid,uuid,text,numeric,text,numeric)`. Assert it equals the expected ACL (authenticated and service_role EXECUTE; no anon, no PUBLIC). **RAISE EXCEPTION before DROP if it differs.** This prevents blindly replacing a function whose live grants drifted.
 2. `DROP FUNCTION IF EXISTS public.inventory_apply_movement(uuid, uuid, uuid, text, numeric, text, numeric);`
@@ -170,11 +170,11 @@ public.inventory_apply_movement(
 
 | Caller | Type | Change |
 |---|---|---|
-| `lib/actions/inventory.ts` `adjustStock` (~345) | runtime RPC | **No change required by 274.** The 9-arg wrapper with defaults accepts the existing 7-argument named call, so 274 can be applied and rolled back without an app deploy. Optional follow-up: pass `p_reference_type`,`p_reference_id` when needed. |
+| `lib/actions/inventory.ts` `adjustStock` (~345) | runtime RPC | **No change required by 281.** The 9-arg wrapper with defaults accepts the existing 7-argument named call, so 281 can be applied and rolled back without an app deploy. Optional follow-up: pass `p_reference_type`,`p_reference_id` when needed. |
 | `inventory_transfer_stock` (269) | SQL function | **No change** - writes movements directly, does not call `inventory_apply_movement`. |
 | 268/269/rollbacks/verifies + supabase mirrors | historical | **Do not edit.** |
-| Supply 275-279 | future | Depend on 274; receive RPCs call core after `supply.receive` + scope check; no function replacement. |
-| POS 281+ | future | Sale/refund RPCs call core after `pos.sell`/`pos.refund` + register/branch scope; no function replacement. |
+| Supply 282-286 (proposed) | future | Depend on 281; receive RPCs call core after `supply.receive` + scope check; no function replacement. |
+| POS 287+ (proposed) | future | Sale/refund RPCs call core after `pos.sell`/`pos.refund` + register/branch scope; no function replacement. |
 
 **Old-signature grep (VERIFIED, 2026-11-28, worktree `aldriva-pos-design`):**
 `git grep -n "inventory_apply_movement(uuid, uuid, uuid, text, numeric, text, numeric)" -- lib app scripts e2e db supabase`
@@ -184,14 +184,14 @@ Hits only: `db/migration_268_inventory_foundation.sql` (305,311), `db/migration_
 
 - **Before DROP (migration):** query `pg_proc.proacl` for `public.inventory_apply_movement(uuid,uuid,uuid,text,numeric,text,numeric)`. Assert it equals the expected ACL: `authenticated` and `service_role` EXECUTE; no `anon`, no `PUBLIC`. **RAISE EXCEPTION before DROP if it differs.** Do not "store for comparison" informally.
 - **After CREATE (verification file):** assert expected grants directly with `has_function_privilege` on wrapper and core: wrapper executable by authenticated/service_role as intended and not by anon/PUBLIC; core has `has_function_privilege` FALSE for anon, authenticated, service_role, and PUBLIC. Assert `pg_proc.proowner` is the same for every function in the chain (core, wrapper, and any POS/supply RPCs that call core once created).
-- End 274 with `NOTIFY pgrst, 'reload schema';`
-- 280 pattern: explicit REVOKE after CREATE/REPLACE, narrow GRANT. 274 must be final word for functions it touches.
-- **Migration 280 interaction (VERIFIED):** `db/migration_280_function_grant_hardening.sql` (branch `security/function-grants`, inspected 2026-11-28) contains only explicit statements on four named functions; no dynamic loop/DO block over `pg_proc`, no `ALL FUNCTIONS IN SCHEMA`, and no `ALTER DEFAULT PRIVILEGES` statement (comments/reference only at lines 3, 78, 82). It cannot revoke/grant functions created later by 274. **Every function it REVOKEs, GRANTs or alters (with line numbers):**
+- End 281 with `NOTIFY pgrst, 'reload schema';`
+- 280 pattern: explicit REVOKE after CREATE/REPLACE, narrow GRANT. 281 must be final word for functions it touches.
+- **Migration 280 interaction (VERIFIED):** `db/migration_280_function_grant_hardening.sql` (branch `security/function-grants`, inspected 2026-11-28) contains only explicit statements on four named functions; no dynamic loop/DO block over `pg_proc`, no `ALL FUNCTIONS IN SCHEMA`, and no `ALTER DEFAULT PRIVILEGES` statement (comments/reference only at lines 3, 78, 82). It cannot revoke/grant functions created later by 281. **Every function it REVOKEs, GRANTs or alters (with line numbers):**
   - `public.check_email_pending_deletion(text)`: REVOKE line 95, GRANT line 96.
   - `public.reserve_seats_atomic(UUID[], INT)`: CREATE OR REPLACE line 101, REVOKE line 181, GRANT line 182.
   - `public.assign_seat_to_invitation_atomic(UUID, UUID, UUID)`: REVOKE line 187, GRANT line 188.
   - `public.ensure_business_organizer(businesses)`: CREATE OR REPLACE line 196, REVOKE line 274, GRANT line 275.
-  **Order/verification:** 274 may be applied before or after 280; regardless of order, after 280 is applied run a verification step re-checking core/wrapper privileges (`has_function_privilege` FALSE for anon/authenticated/service_role/PUBLIC on core; wrapper authenticated+service_role only).
+  **Order/verification:** 281 may be applied before or after 280; regardless of order, after 280 is applied run a verification step re-checking core/wrapper privileges (`has_function_privilege` FALSE for anon/authenticated/service_role/PUBLIC on core; wrapper authenticated+service_role only).
 
 ### 4.6 Verification / proof / race scripts
 
@@ -200,11 +200,11 @@ Hits only: `db/migration_268_inventory_foundation.sql` (305,311), `db/migration_
 - **New proof cases:** cashier without inventory manage completes sale through sale RPC/core path - PASS; direct wrapper call denied; branch X cannot touch branch Y; supply receiver without inventory manage receives through supply RPC only. Refunding `stock_applied=false` or manager-written-off line leaves stock unchanged - PASS. Voiding `stock_applied=false` line leaves stock unchanged - PASS. Full void restocks every line with `stock_applied=true` via `pos_void` core reference and leaves `stock_applied=false` lines unchanged - PASS. Partial return goes through refund path, not partial void restock path - PASS. Apply now refused when line has refund or void; only Write off offered - PASS. Apply now idempotent/safe on double click (one movement per sale line) - PASS.
 - **Two-tab race scripts re-run** and recorded.
 - **Lock order invariant:** `pos_sale_items` row(s) FOR UPDATE first, then location rows FOR SHARE, then balance rows FOR UPDATE in id order. Sale/apply-now/refund/void all follow this order. Sale sorts lines by `(location_id, item_id)` before applying stock.
-- **Artifact plan:** 269 proof SQL is currently unstaged at `C:\Users\Youngyz\aldriva-scanner-p0\scratch-proof-269.sql` (read-only; do not edit/stage there). 274 implementation must commit proof SQL and rewritten race scripts under `db/` (e.g. `db/proofs/proof_274_inventory_pos_core.sql`, `db/proofs/race_274_*.sql`) so they can be re-run. Include expected output/comments.
+- **Artifact plan:** 269 proof SQL is currently unstaged at `C:\Users\Youngyz\aldriva-scanner-p0\scratch-proof-269.sql` (read-only; do not edit/stage there). 281 implementation committed its proof SQL and race scripts under `db/tests/` (`migration_281_proof.sql`, `migration_281_race_*.sql`) so they can be re-run. Include expected output/comments.
 
 ### 4.7 Rollback
 
-- Fail-closed if any `supply.*`,`pos.*`,`loyalty.*` keys exist, if 275+/281+ applied, or if any other function depends on the core (`pg_depend` and `prosrc` checks).
+- Fail-closed if any `supply.*`,`pos.*`,`loyalty.*` keys exist, if 282+/287+ applied, or if any other function depends on the core (`pg_depend` and `prosrc` checks).
 - Drop the core and the 9-arg wrapper.
 - Recreate the 269 7-arg `inventory_apply_movement` function (FOR SHARE version, not 268).
 - Restore `staff_permissions_domain_check` unconditionally to its previous 17-value list (remove `supply,pos,loyalty`). The fail-closed check above guarantees no `supply.*`/`pos.*`/`loyalty.*` keys exist, so the restore is safe.
@@ -213,7 +213,7 @@ Hits only: `db/migration_268_inventory_foundation.sql` (305,311), `db/migration_
 
 ---
 
-## 5. POS data model (PROPOSED, 281+)
+## 5. POS data model (PROPOSED, 287+)
 
 All tenant-scoped by `business_id`; money bigint minor + char(3) currency; quantities numeric(14,3). `cashier_user_id` required on sales/shifts/refunds; own/all policies key on it.
 
@@ -368,7 +368,7 @@ Sums: tax 8+9+8=25, net 100+100+100=300, total 108+109+108=325. Every row satisf
 
 ### Files (future)
 - Docs: rewrite `docs/phases/phase-11-pos.md` to Native POS; add Phase 8 external connectors doc; update HANDOFF/CURRENT-STATE/DECISIONS when work lands.
-- DB: 274 shared prerequisite; 281+ POS migrations; each with forward, fail-closed rollback, read-only verification; mirrors in `supabase/migrations/` byte-identical in migration-number order; no rollback in supabase/migrations.
+- DB: 281 shared prerequisite (applied on staging); 287+ POS migrations (proposed); each with forward, fail-closed rollback, read-only verification; mirrors in `supabase/migrations/` byte-identical in migration-number order; no rollback in supabase/migrations.
 - Code: `lib/pos/**`, `lib/actions/pos-*.ts`, `app/dashboard/org/[id]/pos/**`, `components/pos/**`, `THIRD_PARTY_NOTICES.md` before Olgax copy.
 - Tests: `lib/__tests__/pos-*.test.cjs` + any `.test.ts`; every new test registered in `test-files.json`.
 
@@ -393,14 +393,14 @@ Sums: tax 8+9+8=25, net 100+100+100=300, total 108+109+108=325. Every row satisf
 ## 14. Supply design changes required (do not edit supply branch)
 
 Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-supply-design`). Update before implementation:
-1. Renumber migrations 274-278 -> **275-279**; 274 is shared prerequisite outside supply.
-2. Remove supply ownership of `inventory_apply_movement` replacement; depend on 274 9-arg/core model. Supply receive RPCs call core after `supply.receive` + scope checks.
-3. Add dependency on 274 in every 275-279 preflight (domain CHECK includes supply, 9-arg exists, core exists).
-4. Remove domain CHECK amendment from supply permissions migration; 274 owns additive expansion for supply,pos,loyalty.
-5. Shift mirror timestamps/names to keep ordering after 274 and avoid 280 collision.
-6. Update register/HANDOFF note: supply 275-279; 274 shared; 280 taken; POS 281+.
-7. Supply rollback must not restore 7-arg inventory_apply_movement; 274 owns it.
-8. Supply verification expects domain present via 274 and 9-arg/core present.
+1. Renumber migrations 274-278 -> **282-286** (proposed); 281 is shared prerequisite outside supply.
+2. Remove supply ownership of `inventory_apply_movement` replacement; depend on 281 9-arg/core model. Supply receive RPCs call core after `supply.receive` + scope checks.
+3. Add dependency on 281 in every 282-286 preflight (domain CHECK includes supply, 9-arg exists, core exists).
+4. Remove domain CHECK amendment from supply permissions migration; 281 owns additive expansion for supply,pos,loyalty.
+5. Shift mirror timestamps/names to keep ordering after 281 and avoid 280 collision.
+6. Update register/HANDOFF note: supply 282-286; 281 shared; 274-279 held by other agents; 280 taken; POS 287+.
+7. Supply rollback must not restore 7-arg inventory_apply_movement; 281 owns it.
+8. Supply verification expects domain present via 281 and 9-arg/core present.
 
 ---
 
@@ -419,7 +419,7 @@ Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-suppl
 - [ ] Print service: browser/USB/BLE GATT, SPP limitation, receipt model, tested printer matrix, Olgax attribution.
 - [ ] Import flow: CSV/XLSX, mapping, preview, idempotent SKU/barcode upsert, opening stock via movement RPC, audit, permissions, limits.
 - [ ] Dine-in-to-kitchen: Option 1 one-transaction, `orders` required fields/constraints, report exclusion, offline case.
-- [ ] Migration numbers, mirror filenames, rollback/verification rules, 274 prerequisite ownership.
+- [ ] Migration numbers, mirror filenames, rollback/verification rules, 281 prerequisite ownership.
 - [ ] File list by phase, test files, `test-files.json` registration.
 - [ ] Phase gates (ci/typegen/eslint/tsc/export check/build/test/parity/migration proof/raw output).
 - [ ] Risks, open decisions, UNVERIFIED items, and external-connector Phase 8 deferral.
@@ -430,7 +430,7 @@ Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-suppl
 
 ## 16. Risks / UNVERIFIED
 
-- **RISK:** 274 is a shared prerequisite touching domain CHECK and inventory movement internals; bad order breaks supply and POS. Mitigate with preflights, ACL capture, fail-closed rollback, proofs, no other migration replacing these objects.
+- **RISK:** 281 is a shared prerequisite touching domain CHECK and inventory movement internals; bad order breaks supply and POS. Mitigate with preflights, ACL capture, fail-closed rollback, proofs, no other migration replacing these objects.
 - **RISK:** Core/wrapper split can accidentally expose core to authenticated or service_role. Mitigate with explicit REVOKE/GRANT verification and negative proof for anon/authenticated/service_role/PUBLIC.
 - **RISK:** Wrapper reference allow-list drift could let clients forge reserved refs. Mitigate with allow-list in wrapper, core-only reserved refs, tests.
 - **RISK:** Offline stock anomalies create disputes. Mitigate with Decision A, review screen, audit logs, no restock on unapplied/write-off refunds.
@@ -439,14 +439,14 @@ Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-suppl
 - **UNVERIFIED:** local fiscal/e-invoicing compliance by jurisdiction.
 - **UNVERIFIED:** E.164 library choice and country-default mapping.
 - **UNVERIFIED:** tested printer model list.
-- **UNVERIFIED:** migration 274-285 still free at build time (re-check).
+- **UNVERIFIED:** migration numbers 282-286 (supply) and 287+ (POS) still free at build time (re-check).
 
 ## 17. v4.3 checklist (what changed per item)
 
 1. **Refund example:** §5.2 - Fixed bps note to 833.33... bps (not "8.333 bps"). For exclusive lines, `refund_total = refund_net + refund_tax` (never rounded separately). Recomputed partial-refund table so every row has `total = net + tax`; final refund takes remainder.
 2. **Void policy (owner decision 2026-11-28):** §4.2, §7, §4.6 - Full void restocks every line with `stock_applied=true` using `reference_type='pos_void'` through core, in same lock order; `stock_applied=false` never restocked; partial returns go through refund path. Proof cases added.
 3. **Apply now wording:** §4.2 - Replaced "unique movement reference" with row-lock + state-transition mechanism described in §7; movement reference is correlation/audit only.
-4. **Migration 280 check:** §4.5 - Verified 280 has no dynamic loop/DO block over `pg_proc`/all public functions, no `ALL FUNCTIONS IN SCHEMA`, no `ALTER DEFAULT PRIVILEGES` statement (comments only). Explicit REVOKE/GRANT on 4 named functions only; cannot revoke/grant functions created later by 274. Added order/verification step to re-check core privileges after 280.
+4. **Migration 280 check:** §4.5 - Verified 280 has no dynamic loop/DO block over `pg_proc`/all public functions, no `ALL FUNCTIONS IN SCHEMA`, no `ALTER DEFAULT PRIVILEGES` statement (comments only). Explicit REVOKE/GRANT on 4 named functions only; cannot revoke/grant functions created later by 281. Added order/verification step to re-check core privileges after 280.
 5. **Docs PR preflight (read-only):** phase-11-pos.md is old external-POS plan; no connectors phase doc; no native-POS DEC (DEC-0008 is old POS strategy); no `THIRD_PARTY_NOTICES.md`; next free DEC 0069.
 6. **Per-item checklist:** This section.
 
