@@ -29,7 +29,7 @@
 - **Staging's own, arrived through the merge:** 234 (unified template page-only) and 265 (event guestbook entries).
 - **Not used:** 245.
 - **Held elsewhere, never reuse:** 260/261 (showcase workstream), 270/271 (`backup/organizer-ai-before-handoff`), 272 (`feature/organizer-ai-assistant`, **NOT applied**), 273 (`feature/customer-comms-foundation`).
-- **Next free number: 274.**
+- **Next free number: none confirmed** (274-279 held by other agents, 280 taken, 281 applied on staging, 282+ proposed for supply/POS; see `docs/HANDOFF.md` section 6)
 
 ### Mirror policy applied here
 
@@ -83,4 +83,4 @@ npx next typegen && npx tsc --noEmit # typegen is required on a fresh install
 npm run build && npm test            # 33 inherited failures (see 5.1)
 ```
 
-Before writing any new migration: read `docs/HANDOFF.md` section 6, take **274**, and add the row in both `docs/HANDOFF.md` and `docs/DATABASE.md`.
+Before writing any new migration: read `docs/HANDOFF.md` section 6, take the next number the owner confirms (not 274), and add the row in both `docs/HANDOFF.md` and `docs/DATABASE.md`.

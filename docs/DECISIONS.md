@@ -703,9 +703,9 @@ Verification: changed-file ESLint clean; `tsc --noEmit` clean for changed files;
   - **Inventory authority:** `inventory_*` is the only stock authority. POS/supply writes go through the approved core/wrapper model defined in `docs/handoff/pos-design.md`.
   - **Money:** integer minor units + ISO 4217 currency code on every money row; per-business currency worldwide; no hard-coded currency/symbol/decimals; no currency conversion in v1.
   - **Offline:** offline sales are accepted and flagged for review/sync (Decision A for insufficient stock at sync: record sale, do not apply stock movement, `stock_applied=false`, anomaly + review). No negative stock.
-  - **Build order:** staged build starting with migration 274 as the shared prerequisite, then POS phases 0-8 as defined in `docs/handoff/pos-design.md` and `docs/phases/phase-11-pos.md`.
+  - **Build order:** staged build starting with migration 281 as the shared prerequisite, then POS phases 0-8 as defined in `docs/handoff/pos-design.md` and `docs/phases/phase-11-pos.md`.
 - **Consequences**:
   - (1) `docs/phases/phase-11-pos.md` is rewritten as Native POS; the old external-POS plan moves to a separate POS connectors phase doc.
-  - (2) Migration 274 is a high-risk shared prerequisite (domain CHECK + inventory movement core/wrapper) and must be owner-approved at DDL/RLS before drafting/applying.
+  - (2) Migration 281 is a high-risk shared prerequisite (domain CHECK + inventory movement core/wrapper) and must be owner-approved at DDL/RLS before drafting/applying.
   - (3) External POS normalization work is not discarded; it becomes a later connector layer over Aldriva's native POS/order/inventory contracts.
 

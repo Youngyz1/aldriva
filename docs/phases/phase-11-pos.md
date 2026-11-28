@@ -43,24 +43,25 @@ Authoritative detail lives in [`docs/handoff/pos-design.md`](../handoff/pos-desi
 
 | Number | Purpose | Status |
 |---:|---|---|
-| 274 | Shared prerequisite: `staff_permissions.domain` CHECK expansion (`supply,pos,loyalty`) + `inventory_apply_movement` 9-arg reference-aware replacement/core-wrapper model | Reserved / not drafted; owner-approved spec in `docs/handoff/pos-design.md`; re-check free numbers across all branches/worktrees before drafting |
-| 275-279 | Supply chain migrations | Reserved / not drafted; blocked on 274; see `docs/handoff/supply-design.md` |
+| 274-279 | Held by other agents | Not ours; do not use |
 | 280 | Function grant hardening | **Taken** by `security/function-grants` (`db/migration_280_function_grant_hardening.sql`, commit `b2123a3f0`, not applied). REVOKE/GRANT on four named functions (`check_email_pending_deletion` 95/96, `reserve_seats_atomic` 181/182, `assign_seat_to_invitation_atomic` 187/188, `ensure_business_organizer` 274/275) PLUS CREATE OR REPLACE on `reserve_seats_atomic` (101) and `ensure_business_organizer` (196); no dynamic loop over `pg_proc`; does not touch `inventory_apply_movement` |
-| 281+ | Native POS migrations | Reserved / not drafted; starts after 274 lands |
+| 281 | Shared prerequisite: `staff_permissions.domain` CHECK expansion (`supply,pos,loyalty`) + `inventory_apply_movement` 9-arg reference-aware core/wrapper model | **Applied by hand on staging 2026-11-28** (owner-verified: verification 27/27, role proof 30/30 rolled back); mirror `supabase/migrations/20261127130000_migration_281_pos_prerequisites.sql`; spec in `docs/handoff/pos-design.md` |
+| 282-286 | Supply chain migrations | PROPOSED, awaiting owner confirmation; not drafted; 281 is done; see `docs/handoff/supply-design.md` |
+| 287+ | Native POS migrations | PROPOSED, awaiting owner confirmation; not drafted; starts with POS Phase 1 |
 
 ## Build order (POS internal phases 0-8)
 
-**Prerequisite gate (before POS Phase 1): Migration 274** - shared prerequisite (`staff_permissions.domain` CHECK expansion for `supply,pos,loyalty` + `inventory_apply_movement` 9-arg core/wrapper replacement). 274 is **not** a POS build phase; it is a prerequisite gate that must land (and be verified/rolled-back safely) before POS Phase 1. Supply migrations 275-279 remain reserved for supply; suppliers stay in POS Phase 6.
+**Prerequisite gate (before POS Phase 1): Migration 281** (applied on staging 2026-11-28) - shared prerequisite (`staff_permissions.domain` CHECK expansion for `supply,pos,loyalty` + `inventory_apply_movement` 9-arg core/wrapper replacement). 281 is **not** a POS build phase; it is a prerequisite gate that must land (and be verified/rolled-back safely) before POS Phase 1. Supply migrations 282-286 (proposed) remain reserved for supply; suppliers stay in POS Phase 6.
 
 | POS phase | Name | Depends on | Gate summary |
 |---:|---|---|---|
 | 0 | Design approval | Owner approval | Docs/design baseline approved; no code/migrations |
-| 1 | Sellable-to-inventory link, money helper, spreadsheet import | Phase 0, **Migration 274 prerequisite gate** | Sellable mapping, money/tax helpers, import flow defined; full DDL/RLS approved before migrations |
+| 1 | Sellable-to-inventory link, money helper, spreadsheet import | Phase 0, **Migration 281 prerequisite gate** | Sellable mapping, money/tax helpers, import flow defined; full DDL/RLS approved before migrations |
 | 2 | POS core: registers, shifts, atomic idempotent sale function, cash, receipt, staff and manager views | Phase 1 | Registers/shifts/sale/receipt/cash flows; atomic idempotent sale function; staff own view and manager all view |
 | 3 | Split payment, tender layer, held orders, customers, three printing drivers | Phase 2 | Tender abstraction; split/held orders; customers; ESC/POS USB, ESC/POS Bluetooth, browser print |
 | 4 | Refunds, voids, reports, CSV, X/Z | Phase 3 | Refund/void rules; reports; CSV export; X/Z cash reports; append-only audit |
 | 5 | Loyalty ledger | Phase 4 | Loyalty ledger/accounts only as approved; no earn/redeem rules beyond approved scope |
-| 6 | Suppliers, purchase orders, receiving | Phase 4, **Migration 274 prerequisite gate**; supply migrations 275-279 reserved | Suppliers/PO/receiving; supply stays here (not before POS Phase 1) |
+| 6 | Suppliers, purchase orders, receiving | Phase 4, **Migration 281 prerequisite gate**; supply migrations 282-286 proposed | Suppliers/PO/receiving; supply stays here (not before POS Phase 1) |
 | 7 | Offline | Phases 2-4 | Offline queue/sync/review; Decision A anomalies; provisional receipts; permission-revocation handling |
 | 8 | External connectors | Phase 7 | Separate connectors phase doc; not part of native POS first release |
 
