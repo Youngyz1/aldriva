@@ -29,7 +29,7 @@
 - **Staging's own, arrived through the merge:** 234 (unified template page-only) and 265 (event guestbook entries).
 - **Not used:** 245.
 - **Held elsewhere, never reuse:** 260/261 (showcase workstream), 270/271 (`backup/organizer-ai-before-handoff`), 272 (`feature/organizer-ai-assistant`, **NOT applied**), 273 (`feature/customer-comms-foundation`).
-- **Next free number: none confirmed** (274-279 held by other agents, 280 taken, 281 applied on staging, 282+ proposed for supply/POS; see `docs/HANDOFF.md` section 6)
+- **Next free number: none confirmed** (274-279 held by other agents, 280 taken, 281 applied on staging, 282-286 supply and 287+ POS confirmed by owner; see `docs/HANDOFF.md` section 6)
 
 ### Mirror policy applied here
 
