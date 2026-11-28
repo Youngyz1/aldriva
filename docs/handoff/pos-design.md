@@ -1,7 +1,7 @@
 # Aldriva Native POS — Design Doc (v4.3)
 
 **Date:** 2026-11-28 (v4.3 owner-review updates)  
-**Status:** OWNER-APPROVED BASELINE (2026-11-28): architecture, money and tax rules, offline Decision A, void policy and the migration 281 spec. Sections listed as summary-level in section 13 still need owner approval before the migration of the phase that uses them. No POS code. Migration 281 (shared prerequisite) is applied on staging (2026-11-28, owner-verified); no other POS or supply migration is written or applied.  
+**Status:** OWNER-APPROVED BASELINE (2026-11-28): architecture, money and tax rules, offline Decision A, void policy and the migration 281 spec. Sections listed as summary-level in section 13 still need owner approval before the migration of the phase that uses them. No POS code. Migration 281 (shared prerequisite) is applied on staging (2026-11-28, owner-verified); no other POS or supply migration is written or applied. Supply design done (PR #23).  
 **Branch:** `docs/native-pos-design` off `origin/staging` @ `5c9756b4c` (docs-only PR worktree).  
 **Inputs:** Owner plan (2026-11-28), owner decisions rounds 1-7, recon reports, `docs/handoff/supply-design.md` (`C:\Users\Youngyz\aldriva-supply-design`, `909b5e65d`), `docs/HANDOFF.md`, `docs/DECISIONS.md`, migrations 268/269/242/280, `lib/actions/inventory.ts`, `lib/order-submit.ts`, `lib/orders/transition-graphs.ts`, `lib/money.ts`, `lib/order-phone.ts`, `security/function-grants` migration 280, `C:\Users\Youngyz\aldriva-scanner-p0\scratch-proof-269.sql` (read-only).
 
@@ -390,9 +390,9 @@ Sums: tax 8+9+8=25, net 100+100+100=300, total 108+109+108=325. Every row satisf
 
 ---
 
-## 14. Supply design changes required (do not edit supply branch)
+## 14. Supply design changes (DONE — PR #23, `docs/supply-design`)
 
-Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-supply-design`). Update before implementation:
+Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-supply-design`). PR #23 merged; implementation checklist below retained for traceability.
 1. Renumber migrations 274-278 -> **282-286** (confirmed); 281 is shared prerequisite outside supply.
 2. Remove supply ownership of `inventory_apply_movement` replacement; depend on 281 9-arg/core model. Supply receive RPCs call core after `supply.receive` + scope checks.
 3. Add dependency on 281 in every 282-286 preflight (domain CHECK includes supply, 9-arg exists, core exists).
@@ -401,6 +401,21 @@ Branch `docs/supply-design`, commit `909b5e65d` (`C:\Users\Youngyz\aldriva-suppl
 6. Update register/HANDOFF note: supply 282-286; 281 shared; 274-279 held by other agents; 280 taken; POS 287+.
 7. Supply rollback must not restore 7-arg inventory_apply_movement; 281 owns it.
 8. Supply verification expects domain present via 281 and 9-arg/core present.
+
+---
+
+
+## Appendix A — Phase 1 sellable-link / money / import decisions (OWNER-APPROVED 2026-11-28)
+
+**Scope:** Phase 1 (sellable-to-inventory link, money helper, spreadsheet import). Full DDL/RLS still required before any Phase 1 migration is written; this appendix records owner decisions D1-D7.
+
+- **D1:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
+- **D2:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
+- **D3:** ACCEPTED with constraint: a price that is not exactly representable in the business currency must raise an error, never round.
+- **D4:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
+- **D5:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
+- **D6:** ACCEPTED with dependency gate: CSV first; add XLSX only after the library's licence, npm audit, and a server-side-only parse with size/row limits are checked and recorded; do not use the SheetJS npm package.
+- **D7:** ACCEPTED as proposed in the Phase 1 appendix (owner confirmation 2026-11-28).
 
 ---
 
